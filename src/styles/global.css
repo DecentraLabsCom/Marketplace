@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*@layer utilities {
+  // Modern Button
+  .btn {
+    @apply bg-blue-600 text-white font-bold rounded-lg px-4 py-2 transition duration-300 ease-in-out hover:bg-blue-700;
+  }
+
+  // Modern Card
+  .card {
+    @apply bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 transition transform hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  // Enhanced Input Field
+  .input {
+    @apply border border-gray-300 dark:border-gray-700 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  }
+
+  // Responsive Container
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+  }
+}*/
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+
+.btn {
+  @apply bg-blue-600 text-white font-bold rounded-lg px-4 py-2 transition duration-300 ease-in-out hover:bg-blue-700;
+}
+
+.card {
+  @apply bg-white shadow-lg rounded-lg p-6 transform transition duration-500 hover:scale-105;
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 2px #715c8c, 0 0 4px #715c8c, 0 0 6px #715c8c, 0 0 8px #715c8c;
+  }
+  20% {
+    box-shadow: 0 0 3px #715c8c, 0 0 6px #715c8c, 0 0 9px #715c8c, 0 0 12px #715c8c;
+  }
+  40% {
+    box-shadow: 0 0 4px #715c8c, 0 0 8px #715c8c, 0 0 12px #715c8c, 0 0 16px #715c8c;
+  }
+  60% {
+    box-shadow: 0 0 3px #715c8c, 0 0 6px #715c8c, 0 0 9px #715c8c, 0 0 12px #715c8c;
+  }
+  80% {
+    box-shadow: 0 0 2px #715c8c, 0 0 4px #715c8c, 0 0 6px #715c8c, 0 0 8px #715c8c;
+  }
+  100% {
+    box-shadow: 0 0 1px #715c8c, 0 0 2px #715c8c, 0 0 3px #715c8c, 0 0 4px #715c8c;
+  }
+}
+
+.animate-glow {
+  animation: glow 2s infinite alternate;
+}
