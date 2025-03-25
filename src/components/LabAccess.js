@@ -1,36 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { useReadContract, usePublicClient, useSignMessage } from 'wagmi';
-import { contractABI, contractAddress } from '../contracts/bookings';
+import { usePublicClient, useSignMessage } from 'wagmi';
 
-export default function LabAccess({ userWallet, onBookingStatusChange, auth }) {
+export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
   const [loading, setLoading] = useState(false);
-  const [hasActiveBooking, setHasActiveBooking] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const router = useRouter();
   const provider = usePublicClient();
   const { signMessageAsync } = useSignMessage();
-
-  const contract = useReadContract({
-    address: contractAddress,
-    abi: contractABI,
-    signerOrProvider: provider,
-  });
-
-  useEffect(() => {
-    const checkActiveBooking = async () => {
-      try {
-        //const booking = await contract.hasActiveBooking(userWallet);
-        let booking = Math.random() < 0.5;
-        setHasActiveBooking(booking);
-        onBookingStatusChange(booking); // Notify parent component about booking status
-      } catch (error) {
-        console.log("Error checking active booking:", error);
-      }
-    };
-
-    checkActiveBooking();
-  }, [userWallet, contract]);
 
   const handleAccess = async () => {
     setLoading(true);
@@ -46,7 +23,8 @@ export default function LabAccess({ userWallet, onBookingStatusChange, auth }) {
       });
 
       if (!responseMessage.ok) {
-        throw new Error("Failed to get the message to sign");
+        setErrorMessage("Failed to get the message to sign");
+        setTimeout(() => setErrorMessage(null), 1500);
       }
 
       const { message } = await responseMessage.json();
@@ -68,7 +46,8 @@ export default function LabAccess({ userWallet, onBookingStatusChange, auth }) {
       });
 
       if (!responseAuth.ok) {
-        throw new Error("Authentication error in the middleware");
+        setErrorMessage("An error has ocurred in the authentication service.");
+        setTimeout(() => setErrorMessage(null), 1500);
       }
 
       const data = await responseAuth.json();
@@ -80,12 +59,17 @@ export default function LabAccess({ userWallet, onBookingStatusChange, auth }) {
         router.push(data.url + `?jwt=${data.token}`);
       } else if (data.error) {
         setErrorMessage(data.error);
+        setLoading(false);
+        setTimeout(() => setErrorMessage(null), 1500);
       } else {
-        alert("Unexpected error, please try again.");
+        setErrorMessage("Unexpected error, please try again.");
+        setLoading(false);
+        setTimeout(() => setErrorMessage(null), 1500);
       }
     } catch (error) {
-      console.error("Error trying to access the lab:", error);
-      alert("There was an error verifying your booking. Try again.");
+      setErrorMessage("There was an error verifying your booking. Try again.");
+      setLoading(false);
+      setTimeout(() => setErrorMessage(null), 1500);
     } finally {
       setLoading(false);
     }
@@ -97,16 +81,19 @@ export default function LabAccess({ userWallet, onBookingStatusChange, auth }) {
 
   return (
     <div onClick={handleAccess} className="text-center">
-      {errorMessage && <div className="text-red-500 mb-3">{errorMessage}</div>} {/* Show error message */}
+      {errorMessage && <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
+          bg-[#715c8c] text-white p-4 rounded-lg shadow-lg opacity-100 transition-opacity duration-1000"
+          style={{ transition: 'opacity 1.5s ease-out' }}
+      >{errorMessage}</div>} {/* Show the error message */}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-[#715c8c] bg-opacity-75 
         opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-lg 
         font-bold cursor-pointer z-10 hover:bg-[#8a6fa3] hover:bg-opacity-75">
           <div className="absolute inset-0 flex items-center justify-center transform
             transition-transform duration-300 hover:scale-110" style={{ bottom: '-15%' }}>
-            <button className="text-white px-4 py-2 rounded mt-3"
+            <div className="text-white px-4 py-2 rounded mt-3"
               disabled={loading}>
               {loading ? "Verifying..." : "Access"}
-            </button>
+            </div>
           </div>
       </div>
     </div>

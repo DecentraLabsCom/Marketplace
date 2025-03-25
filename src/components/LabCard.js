@@ -1,17 +1,34 @@
 import Link from "next/link";
 import LabAccess from "./LabAccess";
-import { useAccount } from 'wagmi';
+import { useReadContract, useAccount } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { contractABI, contractAddress } from '../contracts/bookings';
 
 export default function LabCard({ id, name, provider, description, price, auth, image }) {
   const { address, isConnected } = useAccount();
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
 
-  const handleBookingStatusChange = (status) => {
-    setHasActiveBooking(status);
-  };
+  const contract = useReadContract({
+    address: contractAddress,
+    abi: contractABI,
+    signerOrProvider: provider,
+  });
+
+  useEffect(() => {
+    const checkActiveBooking = async () => {
+      try {
+        //const booking = await contract.hasActiveBooking(userWallet);
+        let booking = Math.random() < 0.5;
+        setHasActiveBooking(booking);
+      } catch (error) {
+        console.log("Error checking active booking:", error);
+      }
+    };
+
+    checkActiveBooking();
+  }, [address, contract]);
   
   return (
     <div className={`relative group rounded-md shadow-md bg-gray-200 transform 
@@ -35,8 +52,7 @@ export default function LabCard({ id, name, provider, description, price, auth, 
         </div>
       </Link>
       {isConnected && (
-        <LabAccess userWallet={address} onBookingStatusChange={handleBookingStatusChange} 
-        auth={auth} />
+        <LabAccess userWallet={address} hasActiveBooking={hasActiveBooking} auth={auth} />
       )}
     </div>
   );
