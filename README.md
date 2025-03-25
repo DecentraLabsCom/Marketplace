@@ -1,4 +1,6 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+DecentraLabs is a cutting-edge marketplace offering a curated catalog of online laboratories shared by leading educational and research institutions worldwide. This platform revolutionizes access to specialized laboratory environments, allowing users to reserve and interact with state-of-the-art resources via their digital wallets. Whether for academic research, hands-on training, or experimentation, laboratories can be made available either for free or for a fee, based on the provider's preferences. By leveraging decentralized technologies, DecentraLabs fosters an open, accessible, and innovative ecosystem where knowledge is democratized and shared across global communities.
+
+DecentraLabs marketplace is developed as a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
 
@@ -26,8 +28,6 @@ To learn more about Next.js, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ## Deploy on Vercel
 
