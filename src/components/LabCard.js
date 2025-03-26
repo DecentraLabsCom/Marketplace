@@ -18,12 +18,16 @@ export default function LabCard({ id, name, provider, description, price, auth, 
 
   useEffect(() => {
     const checkActiveBooking = async () => {
-      try {
-        //const booking = await contract.hasActiveBooking(userWallet);
-        let booking = Math.random() < 0.5;
-        setHasActiveBooking(booking);
-      } catch (error) {
-        console.log("Error checking active booking:", error);
+      if (isConnected) {
+        try {
+          //const booking = await contract.hasActiveBooking(userWallet);
+          let booking = Math.random() < 0.5;
+          setHasActiveBooking(booking);
+        } catch (error) {
+          console.log("Error checking active booking:", error);
+        }
+      } else {
+        setHasActiveBooking(false);
       }
     };
 
