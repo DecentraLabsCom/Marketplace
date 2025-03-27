@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router'
 import MarketPage from '../pages/MarketPage'
-import LabDetailPage from '../components/LabDetailPage'
+import LabDetailPage from './LabDetailPage'
 
 export default function HomePage() {
   const router = useRouter()

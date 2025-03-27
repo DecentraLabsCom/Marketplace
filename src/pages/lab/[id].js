@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router'
-import LabDetailPage from '../../components/LabDetailPage'
+import LabDetailPage from '../LabDetailPage'
 
 export default function LabDetailWrapper() {
   const router = useRouter()
