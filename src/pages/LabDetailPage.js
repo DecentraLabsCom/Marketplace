@@ -46,7 +46,7 @@ export default function LabDetailPage({ id }) {
 
   return (
     <div className="container mx-auto p-10">
-      <img src={lab.image} alt={lab.name} className="w-full h-96 object-cover rounded-md" />
+      <Carrousel lab={lab} />
       <h2 className="text-lg font-bold mt-2">{lab.name}</h2>
       <p className="text-gray-600 text-sm">{lab.description}</p>
       <p className="text-blue-600 font-semibold mt-2">{lab.price} ETH</p>
