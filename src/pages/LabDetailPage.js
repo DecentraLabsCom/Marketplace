@@ -1,22 +1,22 @@
 import { useAccount, useContractWrite } from 'wagmi'
 import { useState, useEffect } from 'react'
-import { labs } from '../utils/labsdata'
+import { fetchLabsData, subscribeToLabs, getLabs } from "../utils/fetchLabsData";
 import Carrousel from '@/components/Carrousel'
 
 export default function LabDetailPage({ id }) {
-  const { isConnected } = useAccount()
-  const [isLoading, setIsLoading] = useState(false)
-  const [lab, setLab] = useState(null)
+  const { isConnected } = useAccount();
+  const [lab, setLab] = useState(null);
 
   useEffect(() => {
-    if (id) {
-      // Simulate fetching lab data (replace with actual API call)
-      setTimeout(() => {
-        const currentLab = labs.find((lab) => lab.id == id)
-        setLab(currentLab)
-      }, 1500) // Simulate a 1.5-second delay for fetching data
-    }
-  }, [id])
+    fetchLabsData(); // Trigger data fetching
+
+    const unsubscribe = subscribeToLabs((updatedLabs) => {
+      const currentLab = updatedLabs.find((lab) => lab.id == id);
+      setLab(currentLab);
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
+  }, [id]);
 
   const { write: rentLab } = useContractWrite({
     address: "YOUR_SMART_CONTRACT_ADDRESS",
@@ -37,7 +37,6 @@ export default function LabDetailPage({ id }) {
       alert("Please connect your wallet first.")
       return
     }
-    setIsLoading(true)
     rentLab({ args: [id], value: lab.price })
   }
 
@@ -53,10 +52,9 @@ export default function LabDetailPage({ id }) {
       <p className="text-blue-600 font-semibold mt-2">{lab.price} ETH</p>
       <button
         onClick={handleRent}
-        disabled={isLoading}
         className="bg-green-600 text-white px-4 py-2 rounded mt-3 w-full disabled:opacity-50"
       >
-        {isLoading ? "Renting..." : "Rent Lab"}
+      "Rent Lab"
       </button>
     </div>
   )

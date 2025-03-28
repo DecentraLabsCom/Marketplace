@@ -1,22 +1,27 @@
 import { useState, useEffect } from "react";
 import LabCard from "@/components/LabCard";
-import { labs } from '../utils/labsdata'
+import { fetchLabsData, subscribeToLabs, getLabs } from "../utils/fetchLabsData";
 
 export default function MarketPage() {
+  const [labs, setLabs] = useState(getLabs());
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   useEffect(() => {
-    // Simulate fetching lab data (replace with actual API call)
-    setTimeout(() => {
-      setLoading(false);
-    }, 1500); // Simulate a 1.5-second delay for fetching data
+    fetchLabsData(); // Trigger data fetching
+
+    const unsubscribe = subscribeToLabs((updatedLabs) => {
+      setLabs(updatedLabs);
+      setLoading(updatedLabs.length === 0);
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
   }, []);
 
   // Filter labs by selected category
   const filteredLabs = selectedCategory === "All"
     ? labs
-    : labs.filter(lab => lab.category === selectedCategory);
+    : labs.filter((lab) => lab.category === selectedCategory);
 
   return (
     <div className="container mx-auto p-6">

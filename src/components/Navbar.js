@@ -19,7 +19,6 @@ export default function Navbar() {
   const [isClient, setIsClient] = useState(false);
 
   const { isConnected } = useAccount();
-  // Create constant to hide dashboard if not connected
   const [showUserDashboard, setShowUserDashboard] = useState(false);
   const [showProviderDashboard, setShowProviderDashboard] = useState(false);
   const router = useRouter();
@@ -29,21 +28,21 @@ export default function Navbar() {
     // Added useEffect to listen for changes in isConnected
     useEffect(() => {
       if (!isConnected) {
-        setShowUserDashboard(false); // Hide
-        setShowProviderDashboard(false); // Hide
+        setShowUserDashboard(false);
+        setShowProviderDashboard(false);
         // If user disconnects when on dashboard or providers page redirect to homepage
         if (router.pathname == '/dashboard' || router.pathname == '/providers') {
           router.push('/');
         }
       } else {
-        setShowUserDashboard(true); // Show
-        if (isConnected && isProvider) {
+        setShowUserDashboard(true);
+        if (isProvider) {
           setShowProviderDashboard(true);
         } else {
           setShowProviderDashboard(false);
         }
       }
-    }, [isConnected]); // useEffect will activate every time isConnected's state changes
+    }, [isConnected]);
 
   useEffect(() => {
     setIsClient(true);
@@ -67,10 +66,10 @@ export default function Navbar() {
             ${showUserDashboard ? '' : 'hidden'}`}>
               <Link href="/dashboard" className="font-bold p-3">Dashboard</Link>
             </div>
-            {/* Only show if user is provider */}
+            {/* Only show if user is a lab provider */}
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
             ${showProviderDashboard ? '' : 'hidden'}`}>
-              <Link href="/providers" className="font-bold p-3">Lab Providers</Link>
+              <Link href="/providers" className="font-bold p-3">Lab Management</Link>
             </div>
           </div>
           <div className="h-8 border-l border-gray-600"></div>
