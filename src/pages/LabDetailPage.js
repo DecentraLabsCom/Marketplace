@@ -49,7 +49,7 @@ export default function LabDetailPage({ id }) {
     <div className="container mx-auto p-10">
       <Carrousel lab={lab} />
       <h2 className="text-lg font-bold mt-2">{lab.name}</h2>
-      <p className="text-gray-600 text-sm">{lab.description}</p>
+      <p className="text-gray-400 text-sm text-justify">{lab.description}</p>
       <p className="text-blue-600 font-semibold mt-2">{lab.price} ETH</p>
       <button
         onClick={handleRent}
