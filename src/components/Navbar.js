@@ -20,8 +20,8 @@ export default function Navbar() {
 
   const { isConnected } = useAccount();
   // Create constant to hide dashboard if not connected
-  const [notShowing, setNotShow] = useState(false);
-  const [showProviderDiv, setShowProviderDiv] = useState(false);
+  const [showUserDashboard, setShowUserDashboard] = useState(false);
+  const [showProviderDashboard, setShowProviderDashboard] = useState(false);
   const router = useRouter();
   // For tests -> replace for real isProvider check
   const isProvider = true;
@@ -29,18 +29,18 @@ export default function Navbar() {
     // Added useEffect to listen for changes in isConnected
     useEffect(() => {
       if (!isConnected) {
-        setNotShow(true); // Hide
-        setShowProviderDiv(false);
+        setShowUserDashboard(false); // Hide
+        setShowProviderDashboard(false); // Hide
         // If user disconnects when on dashboard or providers page redirect to homepage
         if (router.pathname == '/dashboard' || router.pathname == '/providers') {
           router.push('/');
         }
       } else {
-        setNotShow(false); // Show
+        setShowUserDashboard(true); // Show
         if (isConnected && isProvider) {
-          setShowProviderDiv(true);
+          setShowProviderDashboard(true);
         } else {
-          setShowProviderDiv(false);
+          setShowProviderDashboard(false);
         }
       }
     }, [isConnected]); // useEffect will activate every time isConnected's state changes
@@ -64,15 +64,14 @@ export default function Navbar() {
               <Link href="/" className="font-bold p-3">Marketplace</Link>
             </div>
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white 
-            ${notShowing ? 'hidden' : ''}`}>
+            ${showUserDashboard ? '' : 'hidden'}`}>
               <Link href="/dashboard" className="font-bold p-3">Dashboard</Link>
             </div>
             {/* Only show if user is provider */}
-            {showProviderDiv && (
-              <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
-                <Link href="/providers" className="font-bold p-3">Lab Providers</Link>
-              </div>
-            )}
+            <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
+            ${showProviderDashboard ? '' : 'hidden'}`}>
+              <Link href="/providers" className="font-bold p-3">Lab Providers</Link>
+            </div>
           </div>
           <div className="h-8 border-l border-gray-600"></div>
           <div className="hidden md:block">
