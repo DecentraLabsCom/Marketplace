@@ -52,11 +52,9 @@ export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
 
       const data = await responseAuth.json();
 
-      if (data.token) {
-        // TODO: Fetch the url from /auth2 response? - It would imply decoding the token, though
-        data.url = "https://sarlab.dia.uned.es/guacamole/";
+      if (data.token && data.labURL) {
         // Redirect to the lab with the JWT token
-        router.push(data.url + `?jwt=${data.token}`);
+        router.push(data.labURL + `?jwt=${data.token}`);
       } else if (data.error) {
         setErrorMessage(data.error);
         setLoading(false);
