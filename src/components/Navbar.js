@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { Account } from '../utils/account';
-import { WalletOptions } from '../utils/wallet-options';
+import { WalletOptions } from '../utils/walletOptions';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import { appendPath } from '../utils/pathUtils';
