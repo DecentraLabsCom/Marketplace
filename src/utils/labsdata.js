@@ -9,7 +9,7 @@ const labs = ([{ id: 1, name: "Four Tanks Lab", category: "Industrial", price: 2
         appendPath + "/labs/lab1/02.jpg"
       ] },
     { id: 2, name: "Mobile Robots Lab", category: "Robotics", price: 0.8, 
-      description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
+      description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
       provider: "UHU", auth: "https://sarlab.dia.uned.es/auth/", 
       image: [
         appendPath + "/labs/lab_2.jpg",
