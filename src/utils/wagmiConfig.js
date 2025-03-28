@@ -7,7 +7,6 @@ const projectId = '0443f18af8d74de3915be673597dd4eb' // Your Infura Project ID
 export const config = createConfig({
   chains: [mainnet, polygon],
   connectors: [
-    injected(),
     walletConnect({ projectId }),
     metaMask(),
   ],
