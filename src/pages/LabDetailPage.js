@@ -1,7 +1,7 @@
 import { useAccount, useContractWrite } from 'wagmi'
 import { useState, useEffect } from 'react'
 import { labs } from '../utils/labsdata'
-import Carrousel from '@/components/carrousel'
+import Carrousel from '@/components/Carrousel'
 
 export default function LabDetailPage({ id }) {
   const { isConnected } = useAccount()
