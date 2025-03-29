@@ -8,7 +8,7 @@ export default function LabDetailPage({ id }) {
 
   useEffect(() => {
     if (labs && labs.length > 0) {
-      const currentLab = labs.find((lab) => lab.id === Number(id));
+      const currentLab = labs.find((lab) => lab.id == id);
       setLab(currentLab);
     }
   }, [id, labs]);
@@ -29,7 +29,7 @@ export default function LabDetailPage({ id }) {
       <p className="text-blue-600 font-semibold mt-2">{lab.price} ETH</p>
       <button className="bg-green-600 text-white px-4 py-2 rounded mt-3 
         w-full disabled:opacity-50">
-        "Rent Lab"
+        Rent Lab
       </button>
     </div>
   )

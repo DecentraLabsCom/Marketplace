@@ -1,6 +1,6 @@
 import '../styles/global.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiConfig } from 'wagmi'
+import { WagmiProvider } from 'wagmi'
 import { config } from '../utils/wagmiConfig'
 import { LabData } from '../context/LabContext'
 import Head from 'next/head'
@@ -15,7 +15,7 @@ function MyApp({ Component, pageProps }) {
       <Head>
         <title>DecentraLabs Marketplace</title>
       </Head>
-      <WagmiConfig config={config}>
+      <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <div className="flex flex-col min-h-screen bg-[#262B2D]">
             <header className="sticky top-0 z-50">
@@ -29,7 +29,7 @@ function MyApp({ Component, pageProps }) {
             <Footer />
           </div>
         </QueryClientProvider>
-      </WagmiConfig>
+      </WagmiProvider>
     </>
   )
 }

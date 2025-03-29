@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { usePublicClient, useReadContract } from 'wagmi';
 import { fetchLabsData, subscribeToLabs, getLabs } from '../utils/fetchLabsData';
-import { contractABI, contractAddress } from '../contracts/bookings';
+import { contractABI, contractAddress } from '../contracts/diamond';
 
 const LabContext = createContext();
 
@@ -16,7 +16,7 @@ export function LabData({ children }) {
   });
 
   useEffect(() => {
-    fetchLabsData(); // Call fetchLabsData on mount
+    fetchLabsData(contract); // Call fetchLabsData on mount
 
     const unsubscribe = subscribeToLabs((updatedLabs) => {
       setLabs(updatedLabs);

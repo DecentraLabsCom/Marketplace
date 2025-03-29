@@ -1,4 +1,4 @@
-[
+export const contractABI = [
   {
     "inputs": [],
     "name": "AccessControlBadConfirmation",
@@ -2429,4 +2429,6 @@
     "stateMutability": "nonpayable",
     "type": "function"
   }
-]
+];
+  
+export const contractAddress = "YOUR_SMART_CONTRACT_ADDRESS";

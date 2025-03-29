@@ -4,8 +4,33 @@ let labs = [];
 const subscribers = [];
 
 export const fetchLabsData = async (contract) => {
-  //const labList = await contract.getAllLabs();;
-  //const lab = await contract.getLab(labList(i));;
+  /*try {
+    // Call the contract function to get the list of registered labs
+    const labList = await contract.getAllLabs();
+
+    // Use Promise.all to fetch lab details concurrently
+    const labs = await Promise.all(
+      labList.map(async (labId) => {
+        const lab = await contract.getLab(labId);
+        return {
+          id: lab.id.toNumber(),
+          name: lab.name,
+          category: lab.category,
+          price: parseFloat(lab.price),
+          description: lab.description,
+          provider: lab.provider,
+          auth: lab.auth,
+          image: lab.images,
+        };
+      })
+    );
+
+    // Notify subscriptors with the updated data
+    subscribers.forEach((callback) => callback(labs));
+  } catch (error) {
+    console.error("Error fetching labs data from contract:", error);
+  }*/
+
   // Simulate fetching lab data
   setTimeout(() => {
     labs = [{ id: 1, name: "Four Tanks Lab", category: "Industrial", price: 2.5, 
