@@ -1,20 +1,15 @@
 import Link from "next/link";
 import LabAccess from "./LabAccess";
-import { useReadContract, useAccount } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { useState, useEffect } from 'react';
-import { contractABI, contractAddress } from '../contracts/bookings';
+import { useLabs } from '../context/LabContext';
 
-export default function LabCard({ id, name, provider, description, price, auth, image }) {
+export default function LabCard({ id, name, provider, price, auth, image }) {
   const { address, isConnected } = useAccount();
+  const { contract } = useLabs();
   const [hasActiveBooking, setHasActiveBooking] = useState(false);
-
-  const contract = useReadContract({
-    address: contractAddress,
-    abi: contractABI,
-    signerOrProvider: provider,
-  });
 
   useEffect(() => {
     const checkActiveBooking = async () => {
@@ -32,7 +27,7 @@ export default function LabCard({ id, name, provider, description, price, auth, 
     };
 
     checkActiveBooking();
-  }, [address, contract]);
+  }, [address]);
   
   return (
     <div className={`relative group rounded-md shadow-md bg-gray-200 transform 
@@ -41,7 +36,7 @@ export default function LabCard({ id, name, provider, description, price, auth, 
       style={{ height: '400px' }}>
       <div className="h-2/3">
         {/* Only show first image of each lab */}
-        <img src={image[0]} alt={name} className="w-full h-full object-cover rounded-t-md" />
+        <img src={image} alt={name} className="w-full h-full object-cover rounded-t-md" />
       </div>
       <div className="p-4 h-1/3">
         <h2 className="text-2xl font-bold mt-4 text-[#333f63]">{name}</h2>

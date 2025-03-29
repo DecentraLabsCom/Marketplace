@@ -2,6 +2,7 @@ import '../styles/global.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiConfig } from 'wagmi'
 import { config } from '../utils/wagmiConfig'
+import { LabData } from '../context/LabContext'
 import Head from 'next/head'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
@@ -21,7 +22,9 @@ function MyApp({ Component, pageProps }) {
               <Navbar />
             </header>
             <main className="flex-grow">
-              <Component {...pageProps} />
+              <LabData>
+                <Component {...pageProps} />
+              </LabData>
             </main>
             <Footer />
           </div>

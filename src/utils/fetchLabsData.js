@@ -3,8 +3,10 @@ import { appendPath } from './pathUtils'
 let labs = [];
 const subscribers = [];
 
-export const fetchLabsData = () => {
-  // Simulate fetching lab data (replace with actual API call)
+export const fetchLabsData = async (contract) => {
+  //const labList = await contract.getAllLabs();;
+  //const lab = await contract.getLab(labList(i));;
+  // Simulate fetching lab data
   setTimeout(() => {
     labs = [{ id: 1, name: "Four Tanks Lab", category: "Industrial", price: 2.5, 
       description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Ut nec dapibus dolor, eget rhoncus lacus. Donec tincidunt porta dui, ac scelerisque enim eleifend et. Suspendisse viverra risus eu odio eleifend pellentesque ut non arcu. Phasellus aliquam sapien risus, at tempor ligula feugiat vel. Mauris.",

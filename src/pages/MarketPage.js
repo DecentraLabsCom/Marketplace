@@ -1,22 +1,10 @@
 import { useState, useEffect } from "react";
+import { useLabs } from '../context/LabContext';
 import LabCard from "@/components/LabCard";
-import { fetchLabsData, subscribeToLabs, getLabs } from "../utils/fetchLabsData";
 
 export default function MarketPage() {
-  const [labs, setLabs] = useState(getLabs());
-  const [loading, setLoading] = useState(true);
+  const { labs, loading } = useLabs();
   const [selectedCategory, setSelectedCategory] = useState("All");
-
-  useEffect(() => {
-    fetchLabsData(); // Trigger data fetching
-
-    const unsubscribe = subscribeToLabs((updatedLabs) => {
-      setLabs(updatedLabs);
-      setLoading(updatedLabs.length === 0);
-    });
-
-    return () => unsubscribe(); // Cleanup subscription on unmount
-  }, []);
 
   // Filter labs by selected category
   const filteredLabs = selectedCategory === "All"
@@ -46,7 +34,7 @@ export default function MarketPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {filteredLabs.map((lab) => (
-            <LabCard key={lab.id} {...lab} />
+            <LabCard key={lab.id} {...lab} image={lab.image[0]}/>
           ))}
         </div>
       )}
