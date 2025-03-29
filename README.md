@@ -4,7 +4,15 @@ DecentraLabs marketplace is developed as a [Next.js](https://nextjs.org) project
 
 ## Getting Started
 
-First, run the development server:
+First, install Next.js: https://nextjs.org/docs/app/getting-started/installation
+
+Then, install all dependencies required by the project using package.json:
+
+```bash
+npm install package.json
+```
+
+Once the framework and the dependencies are installed, run the development server:
 
 ```bash
 npm run dev
