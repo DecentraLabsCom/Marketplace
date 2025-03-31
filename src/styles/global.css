@@ -76,3 +76,19 @@ body {
 .animate-glow {
   animation: glow 2s infinite alternate;
 }
+
+@keyframes separator-width {
+  0% {
+    width: 0;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.separator-width {
+  border: 0;
+  height: 1px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
+  animation: separator-width 1s ease-out forwards;
+}
