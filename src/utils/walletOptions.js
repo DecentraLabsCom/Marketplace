@@ -25,7 +25,7 @@ export function WalletOptions() {
     <div className="relative inline-block text-left md:flex" ref={menuRef}>
       <button onClick={() => setMenuOpen(!menuOpen)}>
         <FontAwesomeIcon icon={faWallet} className="text-[#715c8c] font-semibold text-4xl
-        hover:text-[#333f63]"  title="Connect Wallet"/>
+        hover:text-[#333f63]" title="Connect Wallet"/>
       </button>
 
       {menuOpen && (

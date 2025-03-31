@@ -11,16 +11,26 @@ export const fetchLabsData = async (contract) => {
     // Use Promise.all to fetch lab details concurrently
     const labs = await Promise.all(
       labList.map(async (labId) => {
-        const lab = await contract.getLab(labId);
+        const labData = await contract.getLab(labId);
+
+        const metadataURI = labData.base.uri;
+        const response = await fetch(metadataURI);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch metadata for lab ${labId}: ${response.statusText}`);
+        }
+        const metadata = await response.json();
+
+        // Devuelve los datos combinados del contrato y los metadatos
         return {
-          id: lab.id.toNumber(),
-          name: lab.name,
-          category: lab.category,
-          price: parseFloat(lab.price),
-          description: lab.description,
-          provider: lab.provider,
-          auth: lab.auth,
-          image: lab.images,
+          id: labData.labId.toNumber(),
+          name: metadata.name,
+          category: metadata.category,
+          keywords: metadata.keywords,
+          price: parseFloat(labData.base.price),
+          description: metadata.description,
+          provider: metadata.provider,
+          auth: metadata.auth,
+          image: metadata.images,
         };
       })
     );
