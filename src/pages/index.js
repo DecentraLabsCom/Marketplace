@@ -1,10 +1,6 @@
-import { useRouter } from 'next/router'
 import MarketPage from '../pages/MarketPage'
-import LabDetailPage from './LabDetailPage'
 
 export default function HomePage() {
-  const router = useRouter()
-  const { id } = router.query
 
   return (
     <div>
@@ -16,7 +12,7 @@ export default function HomePage() {
           <div className="mt-4 border-t-4 border-[#715c8c] w-24 mx-auto"></div>
         </div>
       </div>
-      {id ? <LabDetailPage id={id} /> : <MarketPage />}
+      <MarketPage />
     </div>
   )
 }

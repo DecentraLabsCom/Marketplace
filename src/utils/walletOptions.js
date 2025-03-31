@@ -1,14 +1,14 @@
-import * as React from 'react'
-import { useConnect } from 'wagmi'
+import { useState, useEffect, useRef } from 'react';
+import { useConnect } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWallet } from '@fortawesome/free-solid-svg-icons';
 
 export function WalletOptions() {
   const { connectors, connect } = useConnect()
-  const [menuOpen, setMenuOpen] = React.useState(false)
-  const menuRef = React.useRef(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event) {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false)
@@ -50,9 +50,9 @@ export function WalletOptions() {
 }
 
 function WalletOption({ connector, onClick }) {
-  const [ready, setReady] = React.useState(false)
+  const [ready, setReady] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     ;(async () => {
       const provider = await connector.getProvider()
       setReady(!!provider)

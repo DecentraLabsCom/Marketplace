@@ -1,22 +1,15 @@
 import { useState, useEffect } from "react";
+import { useLabs } from '../context/LabContext';
 import LabCard from "@/components/LabCard";
-import { labs } from '../utils/labsdata'
 
 export default function MarketPage() {
-  const [loading, setLoading] = useState(true);
+  const { labs, loading } = useLabs();
   const [selectedCategory, setSelectedCategory] = useState("All");
-
-  useEffect(() => {
-    // Simulate fetching lab data (replace with actual API call)
-    setTimeout(() => {
-      setLoading(false);
-    }, 1500); // Simulate a 1.5-second delay for fetching data
-  }, []);
 
   // Filter labs by selected category
   const filteredLabs = selectedCategory === "All"
     ? labs
-    : labs.filter(lab => lab.category === selectedCategory);
+    : labs.filter((lab) => lab.category === selectedCategory);
 
   return (
     <div className="container mx-auto p-6">
@@ -41,7 +34,7 @@ export default function MarketPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {filteredLabs.map((lab) => (
-            <LabCard key={lab.id} {...lab} />
+            <LabCard key={lab.id} {...lab} image={lab.image[0]}/>
           ))}
         </div>
       )}
