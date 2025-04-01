@@ -9,6 +9,16 @@ export default function MarketPage() {
   const [selectedFilter, setSelectedFilter] = useState("Keywords");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
   const searchInputRef = useRef(null);
+  const [categories, setCategories] = useState([]);
+
+  // Get all labs' categories
+  useEffect(() => {
+    if (labs) {
+      // Extract each category only once
+      const uniqueCategories = [...new Set(labs.map((lab) => lab.category))];
+      setCategories(uniqueCategories);
+    }
+  }, [labs]);
 
   // Apply the search every time the filter options change
   useEffect(() => {
@@ -31,7 +41,7 @@ export default function MarketPage() {
       filtered = [...filtered].sort((a, b) => b.price - a.price);
     }
 
-    // Filter by keywords or name
+    // Filter by keyword or name
     const value = searchInputRef.current?.value?.toLowerCase() || "";
     if (selectedFilter === "Keywords" && value) {
       filtered = filtered.filter((lab) =>
@@ -106,10 +116,11 @@ export default function MarketPage() {
             className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md"
           >
             <option value="All">All Categories</option>
-            <option value="Industrial">Industrial</option>
-            <option value="Robotics">Robotics</option>
-            <option value="Instrumentation">Instrumentation</option>
-            <option value="Optics">Optics</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
           </select>
         </div>
         {/* Price Filter Dropdown */}
