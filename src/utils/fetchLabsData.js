@@ -66,7 +66,7 @@ export const fetchLabsData = async (contract) => {
         appendPath + "/labs/lab4/01.png",
         appendPath + "/labs/lab4/02.jpg",
         appendPath + "/labs/lab4/03.jpg"
-      ] },
+      ], keywords: ["three", "tanks", "lab"] },
     { id: 5, name: "Snell's Law Lab", category: "Optics", provider: "UBC", price: 1.3,
       description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
       provider: "UBC", auth: "https://sarlab.dia.uned.es/auth/", 
