@@ -17,6 +17,7 @@
     "@wagmi/connectors": "^5.7.7",
     "@wagmi/core": "^2.16.4",
     "autoprefixer": "^10.4.20",
+    "cookie": "^1.0.2",
     "ethers": "^6.13.5",
     "jose": "^6.0.7",
     "next": "15.1.7",

@@ -1,16 +1,40 @@
 import { sp } from "@/utils/sso";
-import { ServiceProvider } from "saml2-js";
 
-export default function handler(req, res) {
-  // Generate XML metadata
-  sp.create_metadata((err, metadata) => {
-    if (err) {
-      console.error("Error generating metadata:", err);
-      return res.status(500).send("Error generating metadata");
+export default async function handler(req, res) {
+    try {
+        // Generate XML metadata
+        const metadata = `
+        <EntityDescriptor entityID="https://your-app.com/api/auth/sso/metadata">
+            <SPSSODescriptor>
+                <AssertionConsumerService
+                    Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                    Location="https://your-app.com/api/auth/sso/callback"
+                    index="0" />
+                <KeyDescriptor use="signing">
+                    <KeyInfo>
+                        <X509Data>
+                            <X509Certificate>MIIC... (tu certificado público)</X509Certificate>
+                        </X509Data>
+                    </KeyInfo>
+                </KeyDescriptor>
+            </SPSSODescriptor>
+        </EntityDescriptor>
+        `;
+
+        console.log("Service Provider: ", sp);
+        /*const metadata = await new Promise((resolve, reject) => {
+            sp.create_metadata((err, metadata) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(metadata);
+            });
+        });*/
+
+        // Return XML metadata as response
+        res.setHeader("Content-Type", "application/xml");
+        res.send(metadata);
+    } catch (error) {
+        res.status(500).send("Unexpected error generating metadata");
     }
-
-    // Return XML metadata as response
-    res.setHeader("Content-Type", "application/xml");
-    res.send(metadata);
-  });
 }

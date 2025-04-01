@@ -1,7 +1,7 @@
 import { ServiceProvider, IdentityProvider } from "saml2-js";
 import { serialize } from "cookie";
 
-export async function createSession(res, userData) {
+async function createSession(res, userData) {
   // Create a cookie with the user information
   const sessionCookie = serialize("user_session", JSON.stringify(userData), {
     httpOnly: true,
@@ -14,20 +14,20 @@ export async function createSession(res, userData) {
   res.setHeader("Set-Cookie", sessionCookie);
 }
 
-export const sp = new ServiceProvider({
-  entity_id: "https://your-app.com/api/auth/sso/metadata",
-  private_key: process.env.SAML_PRIVATE_KEY,
-  certificate: process.env.SAML_CERTIFICATE,
-  assert_endpoint: "https://your-app.com/api/auth/sso/callback",
+const sp = new ServiceProvider({
+  entity_id: "http://localhost:3000/api/auth/sso/metadata",
+  private_key: process.env.SAML_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  certificate: process.env.SAML_CERTIFICATE.replace(/\\n/g, "\n"),
+  assert_endpoint: "http://localhost:3000/api/auth/sso/callback",
 });
 
 const idp = new IdentityProvider({
   sso_login_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL,
   sso_logout_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGOUT_URL,
-  certificates: [process.env.SAML_IDP_CERTIFICATE],
+  certificates: [process.env.SAML_IDP_CERTIFICATE.replace(/\\n/g, "\n")],
 });
 
-export async function parseSAMLResponse(samlResponse) {
+async function parseSAMLResponse(samlResponse) {
   return new Promise((resolve, reject) => {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {
       if (err) {
@@ -48,3 +48,5 @@ export async function parseSAMLResponse(samlResponse) {
     });
   });
 }
+
+export { createSession, sp, parseSAMLResponse };
