@@ -1,27 +1,20 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
-import { Account } from '../utils/account';
-import { WalletOptions } from '../utils/walletOptions';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
+import Login from './Login';
 import { appendPath } from '../utils/pathUtils';
 import { useRouter } from 'next/router';
-
-function ConnectWallet() {
-  const { isConnected } = useAccount();
-  if (isConnected) return <Account />;
-  return <WalletOptions />;
-}
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
+  const router = useRouter();
   const { isConnected } = useAccount();
   const [showUserDashboard, setShowUserDashboard] = useState(false);
   const [showProviderDashboard, setShowProviderDashboard] = useState(false);
-  const router = useRouter();
   // For tests -> replace for real isProvider check
   const isProvider = true;
 
@@ -74,7 +67,7 @@ export default function Navbar() {
           </div>
           <div className="h-8 border-l border-gray-600"></div>
           <div className="hidden md:block">
-            {isClient && <ConnectWallet />}
+            {isClient && <Login />}
           </div>
         </div>
 
@@ -91,7 +84,7 @@ export default function Navbar() {
           <Link href="/dashboard" className="block py-2">Dashboard</Link>
           <Link href="/about" className="block py-2">Lab Providers</Link>
           <div className="py-2">
-            {isClient && <ConnectWallet />}
+            {isClient && <Login />}
           </div>
         </div>
       )}
