@@ -15,7 +15,7 @@ export default function LabCard({ id, name, provider, price, auth, image }) {
     const checkActiveBooking = async () => {
       if (isConnected) {
         try {
-          //const booking = await contract.hasActiveBooking(userWallet);
+          //const booking = await contract.hasActiveBooking(id, address);
           let booking = Math.random() < 0.5;
           setHasActiveBooking(booking);
         } catch (error) {

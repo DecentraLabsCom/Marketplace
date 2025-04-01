@@ -1,3 +1,5 @@
+export const contractAddress = "0x706435EaAC83E4E766B662D9968167e1730495e1";
+
 export const contractABI = [
   {
     "inputs": [],
@@ -2430,5 +2432,3 @@ export const contractABI = [
     "type": "function"
   }
 ];
-  
-export const contractAddress = "YOUR_SMART_CONTRACT_ADDRESS";
