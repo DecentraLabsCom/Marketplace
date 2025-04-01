@@ -5,7 +5,7 @@ import LabCard from "@/components/LabCard";
 export default function MarketPage() {
   const { labs, loading } = useLabs();
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedPrice, setSelectedPrice] = useState("All");
+  const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
   const [selectedProvider, setSelectedProvider] = useState("All");
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
@@ -87,11 +87,21 @@ export default function MarketPage() {
     }
   };
 
+  const handlePriceClick = () => {
+    if (selectedPrice === "Sort by Price") {
+      setSelectedPrice("Low to High");
+    } else if (selectedPrice === "Low to High") {
+      setSelectedPrice("High to Low");
+    } else {
+      setSelectedPrice("Sort by Price");
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
-      <div className="flex flex-row justify-center">
+      <div className="flex flex-row justify-center items-center">
         {/* Search bar: by keyword and lab name */}
-        <div class="w-full max-w-sm min-w-[20px]">
+        <div class="mb-6 w-full max-w-sm min-w-[20px]">
           <div class="relative">
             <div class="absolute top-1.5 left-1 flex items-center">
               <select
@@ -147,20 +157,6 @@ export default function MarketPage() {
             ))}
           </select>
         </div>
-        {/* Price Filter Dropdown */}
-        <div className="mb-6 flex justify-center px-1">
-          <select
-            onChange={(e) => setSelectedPrice(e.target.value)}
-            value={selectedPrice}
-            className="pl-4 pr-0 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer">
-            <optgroup label="Sort by Price">
-              <option value="All">All Prices</option>
-              <option value="Low to High">Low to High</option>
-              <option value="High to Low">High to Low</option>
-            </optgroup>
-          </select>
-        </div>
         {/* Provider Filter Dropdown */}
         <div className="mb-6 flex justify-center px-1">
           <select
@@ -175,6 +171,16 @@ export default function MarketPage() {
               </option>
             ))}
           </select>
+        </div>
+        {/* Price sorting button */}
+        <div className="mb-6 flex justify-center px-1">
+          <button
+            onClick={handlePriceClick}
+            value={selectedPrice}
+            className="w-[130px] py-[7px] outline outline-[1px] rounded bg-[#715c8c] text-white
+            shadow-md hover:bg-slate-700 cursor-pointer">
+            {selectedPrice}
+          </button>
         </div>
       </div>
 
