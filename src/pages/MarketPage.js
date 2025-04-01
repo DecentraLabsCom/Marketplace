@@ -100,8 +100,38 @@ export default function MarketPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex flex-row justify-center items-center">
+        {/* Category Filter Dropdown */}
+        <div className="mb-6 flex justify-center px-1">
+          <select
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            value={selectedCategory}
+            className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
+            cursor-pointer">
+            <option value="All">All Categories</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* Provider Filter Dropdown */}
+        <div className="mb-6 flex justify-center px-1">
+          <select
+            onChange={(e) => setSelectedProvider(e.target.value)}
+            value={selectedProvider}
+            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
+            cursor-pointer">
+            <option value="All">All Providers</option>
+            {providers.map((provider) => (
+              <option key={provider} value={provider}>
+                {provider}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* Search bar: by keyword and lab name */}
-        <div class="mb-6 w-full max-w-sm min-w-[20px]">
+        <div class="mb-6 w-full max-w-sm min-w-[20px] mx-1">
           <div class="relative">
             <div class="absolute top-1.5 left-1 flex items-center">
               <select
@@ -141,36 +171,6 @@ export default function MarketPage() {
               Search
             </button> 
           </div>   
-        </div>
-        {/* Category Filter Dropdown */}
-        <div className="mb-6 flex justify-center px-1">
-          <select
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            value={selectedCategory}
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer">
-            <option value="All">All Categories</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Provider Filter Dropdown */}
-        <div className="mb-6 flex justify-center px-1">
-          <select
-            onChange={(e) => setSelectedProvider(e.target.value)}
-            value={selectedProvider}
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer">
-            <option value="All">All Providers</option>
-            {providers.map((provider) => (
-              <option key={provider} value={provider}>
-                {provider}
-              </option>
-            ))}
-          </select>
         </div>
         {/* Price sorting button */}
         <div className="mb-6 flex justify-center px-1">
