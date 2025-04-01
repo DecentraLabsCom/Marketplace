@@ -6,10 +6,12 @@ export default function MarketPage() {
   const { labs, loading } = useLabs();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("All");
-  const [selectedFilter, setSelectedFilter] = useState("Keywords");
+  const [selectedProvider, setSelectedProvider] = useState("All");
+  const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
   const searchInputRef = useRef(null);
   const [categories, setCategories] = useState([]);
+  const [providers, setProviders] = useState([]);
 
   // Get all labs' categories
   useEffect(() => {
@@ -20,12 +22,21 @@ export default function MarketPage() {
     }
   }, [labs]);
 
+  // Get all labs' providers
+  useEffect(() => {
+    if (labs) {
+      // Extract each provider only once
+      const uniqueProviders = [...new Set(labs.map((lab) => lab.provider))];
+      setProviders(uniqueProviders);
+    }
+  }, [labs]);
+
   // Apply the search every time the filter options change
   useEffect(() => {
     search();
-  }, [selectedCategory, selectedPrice, labs]);
+  }, [selectedCategory, selectedPrice, selectedProvider, labs]);
 
-  // Search by keywords and lab name
+  // Search by filter options
   const search = () => {
     let filtered = labs;
 
@@ -41,9 +52,14 @@ export default function MarketPage() {
       filtered = [...filtered].sort((a, b) => b.price - a.price);
     }
 
+    // Filter by provider
+    if (selectedProvider !== "All") {
+      filtered = filtered.filter((lab) => lab.provider === selectedProvider);
+    }
+
     // Filter by keyword or name
     const value = searchInputRef.current?.value?.toLowerCase() || "";
-    if (selectedFilter === "Keywords" && value) {
+    if (selectedFilter === "Keyword" && value) {
       filtered = filtered.filter((lab) =>
         lab.keywords?.some((keyword) => keyword.toLowerCase().includes(value))
       );
@@ -64,19 +80,26 @@ export default function MarketPage() {
     }
   };
 
+  // Remove keyword and name filter when deleting input value
+  const handleInputChange = (event) => {
+    if (!event.target.value) {
+      search();
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex flex-row justify-center">
-        {/* Search bar: by keywords and lab name */}
+        {/* Search bar: by keyword and lab name */}
         <div class="w-full max-w-sm min-w-[20px]">
           <div class="relative">
             <div class="absolute top-1.5 left-1 flex items-center">
               <select
                 onChange={(e) => setSelectedFilter(e.target.value)}
                 value={selectedFilter}
-                className="bg-white rounded border border-transparent py-1 
-                px-1.5 flex items-center text-sm transition-all text-slate-600">
-                <option value="Keywords">Keywords</option>
+                className="bg-white rounded border border-transparent py-1 px-1.5 flex items-center 
+                text-sm transition-all text-slate-600 hover:bg-[#caddff] cursor-pointer">
+                <option value="Keyword">Keyword</option>
                 <option value="Name">Name</option>
               </select>
               <div class="h-6 border-l border-slate-200 ml-1.5"></div>
@@ -88,7 +111,8 @@ export default function MarketPage() {
               border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none 
               focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
               placeholder="Type here..."
-              onKeyDown={handleKeyDown}/>
+              onKeyDown={handleKeyDown}
+              onChange={handleInputChange}/>
         
             <button onClick={search}
               class="absolute top-1 right-1 flex items-center rounded bg-[#715c8c]  py-1 px-2.5 border 
@@ -113,8 +137,8 @@ export default function MarketPage() {
           <select
             onChange={(e) => setSelectedCategory(e.target.value)}
             value={selectedCategory}
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md"
-          >
+            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
+            cursor-pointer">
             <option value="All">All Categories</option>
             {categories.map((category) => (
               <option key={category} value={category}>
@@ -128,13 +152,28 @@ export default function MarketPage() {
           <select
             onChange={(e) => setSelectedPrice(e.target.value)}
             value={selectedPrice}
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md"
-          >
+            className="pl-4 pr-0 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
+            cursor-pointer">
             <optgroup label="Sort by Price">
               <option value="All">All Prices</option>
               <option value="Low to High">Low to High</option>
               <option value="High to Low">High to Low</option>
             </optgroup>
+          </select>
+        </div>
+        {/* Provider Filter Dropdown */}
+        <div className="mb-6 flex justify-center px-1">
+          <select
+            onChange={(e) => setSelectedProvider(e.target.value)}
+            value={selectedProvider}
+            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
+            cursor-pointer">
+            <option value="All">All Providers</option>
+            {providers.map((provider) => (
+              <option key={provider} value={provider}>
+                {provider}
+              </option>
+            ))}
           </select>
         </div>
       </div>
