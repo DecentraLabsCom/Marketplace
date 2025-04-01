@@ -1,7 +1,7 @@
 import { ServiceProvider, IdentityProvider } from "saml2-js";
 import { serialize } from "cookie";
 
-export async function createSession(req, res, userData) {
+export async function createSession(res, userData) {
   // Create a cookie with the user information
   const sessionCookie = serialize("user_session", JSON.stringify(userData), {
     httpOnly: true,
@@ -36,9 +36,12 @@ export async function parseSAMLResponse(samlResponse) {
 
       // Get user information from the assertion
       const userData = {
-        id: samlAssertion.user.name_id,
-        email: samlAssertion.user.attributes.email,
-        name: samlAssertion.user.attributes.name,
+        id: samlAssertion.user.attributes.uid,
+        email: samlAssertion.user.attributes.mail,
+        name: samlAssertion.user.attributes.displayName,
+        affiliation: samlAssertion.user.attributes.schacHomeOrganization,
+        role: samlAssertion.user.attributes.eduPersonAffiliation,
+        scopedRole: samlAssertion.user.attributes.eduPersonScopedAffiliation,
       };
 
       resolve(userData);
