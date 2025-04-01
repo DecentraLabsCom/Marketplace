@@ -14,7 +14,7 @@ export async function createSession(res, userData) {
   res.setHeader("Set-Cookie", sessionCookie);
 }
 
-const sp = new ServiceProvider({
+export const sp = new ServiceProvider({
   entity_id: "https://your-app.com/api/auth/sso/metadata",
   private_key: process.env.SAML_PRIVATE_KEY,
   certificate: process.env.SAML_CERTIFICATE,
