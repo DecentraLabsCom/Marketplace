@@ -22,8 +22,8 @@ const sp = new ServiceProvider({
 });
 
 const idp = new IdentityProvider({
-  sso_login_url: process.env.SAML_IDP_LOGIN_URL,
-  sso_logout_url: process.env.SAML_IDP_LOGOUT_URL,
+  sso_login_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL,
+  sso_logout_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGOUT_URL,
   certificates: [process.env.SAML_IDP_CERTIFICATE],
 });
 

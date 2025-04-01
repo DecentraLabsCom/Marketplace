@@ -20,12 +20,12 @@ export default function Login() {
   }, []);
 
   const handleSSOLogin = () => {
-    if (!process.env.SAML_IDP_LOGIN_URL) {
+    if (!process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL) {
         console.error("SSO login URL is not configured.");
         return;
     }
     // Redirect to the SSO Identity Provider endpoint
-    router.push(process.env.SAML_IDP_LOGIN_URL);
+    router.push(process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL);
   };
 
   if (isConnected) return <Account />;
