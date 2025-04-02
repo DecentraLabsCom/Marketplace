@@ -16,6 +16,8 @@ async function createSession(res, userData) {
   res.setHeader("Set-Cookie", sessionCookie);
 }
 
+// To generate the certificate files:
+// C:\Program Files\Git\usr\bin>openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
 const keyPath = path.join(process.cwd(), 'certificates', "key.pem");
 const certPath = path.join(process.cwd(), 'certificates', "cert.pem");
 const sp = new ServiceProvider({
