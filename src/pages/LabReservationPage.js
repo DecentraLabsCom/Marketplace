@@ -41,7 +41,7 @@ export default function ReservationPage() {
       </div>
       
       <div className="flex flex-col md:flex-row gap-6">
-        <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8"> {/* Aquí se añadió p-4 para el contorno */}
+        <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
           <div className="w-full h-[400px] flex items-center justify-center">
             {lab.image && lab.image.length > 0 ? (
               <div className="w-full h-full">
