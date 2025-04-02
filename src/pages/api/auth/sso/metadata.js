@@ -1,35 +1,17 @@
 import { sp } from "@/utils/sso";
 
-export default async function handler(req, res) {
+export default function handler(req, res) {
     try {
         // Generate XML metadata
-        const metadata = `
-        <EntityDescriptor entityID="https://your-app.com/api/auth/sso/metadata">
-            <SPSSODescriptor>
-                <AssertionConsumerService
-                    Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
-                    Location="https://your-app.com/api/auth/sso/callback"
-                    index="0" />
-                <KeyDescriptor use="signing">
-                    <KeyInfo>
-                        <X509Data>
-                            <X509Certificate>MIIC... (tu certificado público)</X509Certificate>
-                        </X509Data>
-                    </KeyInfo>
-                </KeyDescriptor>
-            </SPSSODescriptor>
-        </EntityDescriptor>
-        `;
+        if (typeof sp.create_metadata !== 'function') {
+            throw new Error("sp.create_metadata is not a function");
+        }
 
-        console.log("Service Provider: ", sp);
-        /*const metadata = await new Promise((resolve, reject) => {
-            sp.create_metadata((err, metadata) => {
-                if (err) {
-                    return reject(err);
-                }
-                resolve(metadata);
-            });
-        });*/
+        const metadata = sp.create_metadata(); // ¡Sin callback!
+
+        if (!metadata || typeof metadata !== 'string') {
+            throw new Error("Generated metadata is empty or invalid");
+        }
 
         // Return XML metadata as response
         res.setHeader("Content-Type", "application/xml");

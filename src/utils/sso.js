@@ -1,5 +1,7 @@
 import { ServiceProvider, IdentityProvider } from "saml2-js";
 import { serialize } from "cookie";
+import fs from "fs";
+import path from "path";
 
 async function createSession(res, userData) {
   // Create a cookie with the user information
@@ -14,17 +16,21 @@ async function createSession(res, userData) {
   res.setHeader("Set-Cookie", sessionCookie);
 }
 
+const keyPath = path.join(process.cwd(), 'certificates', "key.pem");
+const certPath = path.join(process.cwd(), 'certificates', "cert.pem");
 const sp = new ServiceProvider({
   entity_id: "http://localhost:3000/api/auth/sso/metadata",
-  private_key: process.env.SAML_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  certificate: process.env.SAML_CERTIFICATE.replace(/\\n/g, "\n"),
+  private_key: fs.readFileSync(keyPath, "utf8"),
+  certificate: fs.readFileSync(certPath, "utf8"),
   assert_endpoint: "http://localhost:3000/api/auth/sso/callback",
 });
 
+const idPCertPath = path.join(process.cwd(), 'certificates', "idp_cert.pem");
 const idp = new IdentityProvider({
   sso_login_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL,
   sso_logout_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGOUT_URL,
   certificates: [process.env.SAML_IDP_CERTIFICATE.replace(/\\n/g, "\n")],
+  //certificates: fs.readFileSync(idPCertPath, "utf8"),
 });
 
 async function parseSAMLResponse(samlResponse) {
