@@ -62,7 +62,7 @@ export default function Navbar() {
             {/* Only show if user is a lab provider */}
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
             ${showProviderDashboard ? '' : 'hidden'}`}>
-              <Link href="/providers" className="font-bold p-3">Lab Management</Link>
+              <Link href="/ProviderDashboardPage" className="font-bold p-3">Lab Management</Link>
             </div>
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
               <Link href="/registration" className="font-bold p-3">Register as a Provider</Link>
