@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useLabs } from "../context/LabContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import Carrousel from '@/components/Carrousel';
+import Carrousel from '../components/Carrousel';
 
 export default function ReservationPage() {
   const { labs } = useLabs();
@@ -57,9 +57,9 @@ export default function ReservationPage() {
           <p className="text-blue-600 font-semibold text-xl">{lab.price} ETH</p>
           
           {/* Date Picker y Time Selection */}
-          <div className="flex flex-col md:flex-row gap-4 mt-6">
+          <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">{/* Alineación mejorada */}
             {/* Date Picker */}
-            <div className="flex-1">
+            <div className="flex-1 w-full md:w-auto">
               <label className="block text-lg font-semibold">Select the date:</label>
               <DatePicker
                 selected={date}
@@ -71,7 +71,7 @@ export default function ReservationPage() {
             </div>
             
             {/* Time Picker */}
-            <div className="flex-1">
+            <div className="flex-1 w-full md:w-auto">
               <label className="block text-lg font-semibold">Select the time:</label>
               <input
                 type="time"
