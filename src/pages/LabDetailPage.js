@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useLabs } from '../context/LabContext';
-import Carrousel from '../components/Carrousel'
+import Carrousel from '../components/Carrousel';
+import { useRouter } from 'next/router';
+
 
 export default function LabDetailPage({ id }) {
   const { labs, loading } = useLabs();
   const [lab, setLab] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (labs && labs.length > 0) {
@@ -30,8 +33,9 @@ export default function LabDetailPage({ id }) {
           <div className='flex justify-center'><hr className='mb-2 separator-width w-1/2'></hr></div>
           <p className="text-gray-400 text-sm text-justify">{lab.description}</p>
           <p className="text-blue-600 font-semibold mt-2">{lab.price} ETH</p>
-          <button className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded mt-3 
-          w-full disabled:opacity-50">
+          <button 
+            className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded mt-3 w-full" 
+            onClick={() => router.push(`/LabReservationPage?id=${lab.id}`)}>
             Rent Lab
           </button>
           <div className='flex flex-col'>
