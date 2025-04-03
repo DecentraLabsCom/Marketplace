@@ -50,7 +50,7 @@ export default function Navbar() {
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
           <div className="hidden md:flex space-x-6 font-bold ">
-          <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/LabReservationPage" className="font-bold p-3">Book a Lab</Link>
             </div>
             {(isConnected || user) && (
@@ -63,7 +63,7 @@ export default function Navbar() {
               <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
             </div>
             )}
-            {(provider) && (
+            {(isConnected || user) && provider && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
             </div>
