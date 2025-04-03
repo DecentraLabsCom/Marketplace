@@ -13,29 +13,20 @@ export default function Navbar() {
   const router = useRouter();
   const { isConnected } = useAccount();
   const [user, setUser] = useState(null);
-  const [showUserDashboard, setShowUserDashboard] = useState(false);
-  const [showProviderDashboard, setShowProviderDashboard] = useState(false);
-
-  const isProvider = true; // For testing -> replace with a real check
+  const [provider, setProvider] = useState(false);
 
   // Listen for changes in isConnected
   useEffect(() => {
     if (!isConnected && !user) {
-      setShowUserDashboard(false);
-      setShowProviderDashboard(false);
-      // If user disconnects when on dashboard or providers page redirect to homepage
-      if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard') {
+      // If user disconnects when on other pages, redirect to homepage
+      if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard'
+        || router.pathname == '/LabReservationPage' || router.pathname == '/register') {
         router.push('/');
       }
     } else {
-      setShowUserDashboard(true);
-      if (isProvider) {
-        setShowProviderDashboard(true);
-      } else {
-        setShowProviderDashboard(false);
-      }
+      setProvider(true); // Only for testing purposes
     }
-  }, [isConnected]);
+  }, [isConnected, user]);
 
   // Check cookies for SSO session
   useEffect(() => {
@@ -59,24 +50,26 @@ export default function Navbar() {
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
           <div className="hidden md:flex space-x-6 font-bold ">
-          <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
+          <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/LabReservationPage" className="font-bold p-3">Book a Lab</Link>
             </div>
-            <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white 
-            ${showUserDashboard ? '' : 'hidden'}`}>
+            {(isConnected || user) && (
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/userdashboard" className="font-bold p-3">Dashboard</Link>
             </div>
-            {/* Only show if user is a lab provider */}
-            <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
-            ${showProviderDashboard ? '' : 'hidden'}`}>
-              <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
-            </div>
-            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
+            )}
+            {(isConnected || user) && !provider && (
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
             </div>
-            
+            )}
+            {(provider) && (
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
+              <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
+            </div>
+            )}   
           </div>
-          <div className="h-8 border-l border-gray-600"></div>
+          <div className="h-8 border-l border-gray-600" />
           <div className="hidden md:block">
             <Login isConnected={isConnected} user={user} />
           </div>
