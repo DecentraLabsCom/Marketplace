@@ -9,36 +9,43 @@ import { useRouter } from 'next/router';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isClient, setIsClient] = useState(false);
 
   const router = useRouter();
   const { isConnected } = useAccount();
+  const [user, setUser] = useState(null);
   const [showUserDashboard, setShowUserDashboard] = useState(false);
   const [showProviderDashboard, setShowProviderDashboard] = useState(false);
-  // For tests -> replace for real isProvider check
-  const isProvider = true;
 
-    // Added useEffect to listen for changes in isConnected
-    useEffect(() => {
-      if (!isConnected) {
-        setShowUserDashboard(false);
-        setShowProviderDashboard(false);
-        // If user disconnects when on dashboard or providers page redirect to homepage
-        if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard') {
-          router.push('/');
-        }
-      } else {
-        setShowUserDashboard(true);
-        if (isProvider) {
-          setShowProviderDashboard(true);
-        } else {
-          setShowProviderDashboard(false);
-        }
-      }
-    }, [isConnected]);
+  const isProvider = true; // For testing -> replace with a real check
 
+  // Listen for changes in isConnected
   useEffect(() => {
-    setIsClient(true);
+    if (!isConnected && !user) {
+      setShowUserDashboard(false);
+      setShowProviderDashboard(false);
+      // If user disconnects when on dashboard or providers page redirect to homepage
+      if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard') {
+        router.push('/');
+      }
+    } else {
+      setShowUserDashboard(true);
+      if (isProvider) {
+        setShowProviderDashboard(true);
+      } else {
+        setShowProviderDashboard(false);
+      }
+    }
+  }, [isConnected]);
+
+  // Check cookies for SSO session
+  useEffect(() => {
+    fetch("/api/auth/sso/session")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch session");
+        return res.json();
+      })
+      .then((data) => setUser(data.user))
+      .catch((error) => console.error("Error fetching session:", error));
   }, []);
 
   return (
@@ -71,7 +78,7 @@ export default function Navbar() {
           </div>
           <div className="h-8 border-l border-gray-600"></div>
           <div className="hidden md:block">
-            {isClient && <Login />}
+            <Login isConnected={isConnected} user={user} />
           </div>
         </div>
 
@@ -88,7 +95,7 @@ export default function Navbar() {
           <Link href="/userdashboard" className="block py-2">Dashboard</Link>
           <Link href="/about" className="block py-2">Lab Providers</Link>
           <div className="py-2">
-            {isClient && <Login />}
+            <Login isConnected={isConnected} user={user} />
           </div>
         </div>
       )}
