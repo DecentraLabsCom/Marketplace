@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     }
 
     // Step 2: Create a session for the authenticated user
-    await createSession(req, res, userData);
+    await createSession(res, userData);
 
     // Step 3: Redirect the user to the dashboard
     res.redirect("/dashboard");

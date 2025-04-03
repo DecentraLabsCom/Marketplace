@@ -1,0 +1,87 @@
+import { useState, useEffect } from 'react';
+import { useConnect } from 'wagmi';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faWallet } from '@fortawesome/free-solid-svg-icons';
+
+export function WalletLogin({ setIsModalOpen }) {
+  const { connectors, connect } = useConnect();
+  const [isModalOpen, setIsModalOpenLocal] = useState(false);
+
+  const handleWalletLogin = () => {
+    setIsModalOpen(true);
+    setIsModalOpenLocal(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setIsModalOpenLocal(false);
+  };
+
+  return (
+    <div>
+      {/* Wallet Login Button */}
+      <div
+        onClick={handleWalletLogin}
+        className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 transition duration-300 
+        cursor-pointer ease-in-out hover:bg-[#333f63] hover:text-white flex items-center 
+        justify-center"
+      >
+        <FontAwesomeIcon icon={faWallet} className="font-semibold text-4xl mr-3" title="Connect Wallet" />
+        Wallet Login
+      </div>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg p-6 w-96"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold mb-4 text-[#333f63]">Choose Wallet</h2>
+            <div className="flex flex-col space-y-4">
+              {connectors.map((connector) => (
+                <WalletOption
+                  key={connector.uid}
+                  connector={connector}
+                  onClick={() => {
+                    connect({ connector });
+                    closeModal();
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WalletOption({ connector, onClick }) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const provider = await connector.getProvider();
+      setReady(!!provider);
+    })();
+  }, [connector]);
+
+  return (
+    <button
+      disabled={!ready}
+      onClick={onClick}
+      className={`w-full px-4 py-2 text-left rounded-lg border transition duration-300 
+          ${
+            ready 
+            ? 'bg-[#715c8c] text-white hover:bg-[#333f63] hover:shadow-lg' 
+            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+          }`}
+    >
+      {connector.name}
+    </button>
+  );
+}

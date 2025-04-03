@@ -131,9 +131,9 @@ export default function MarketPage() {
           </select>
         </div>
         {/* Search bar: by keyword and lab name */}
-        <div class="mb-6 w-full max-w-sm min-w-[20px] mx-1">
-          <div class="relative">
-            <div class="absolute top-1.5 left-1 flex items-center">
+        <div className="mb-6 w-full max-w-sm min-w-[20px] mx-1">
+          <div className="relative">
+            <div className="absolute top-1.5 left-1 flex items-center">
               <select
                 onChange={(e) => setSelectedFilter(e.target.value)}
                 value={selectedFilter}
@@ -142,12 +142,12 @@ export default function MarketPage() {
                 <option value="Keyword">Keyword</option>
                 <option value="Name">Name</option>
               </select>
-              <div class="h-6 border-l border-slate-200 ml-1.5"></div>
+              <div className="h-6 border-l border-slate-200 ml-1.5"></div>
             </div>
             <input
               ref={searchInputRef} 
               type="text"
-              class="w-full bg-transparent placeholder:text-slate-500 text-slate-300 text-sm border 
+              className="w-full bg-transparent placeholder:text-slate-500 text-slate-300 text-sm border 
               border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none 
               focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
               placeholder="Type here..."
@@ -155,17 +155,17 @@ export default function MarketPage() {
               onChange={handleInputChange}/>
         
             <button onClick={search}
-              class="absolute top-1 right-1 flex items-center rounded bg-[#715c8c]  py-1 px-2.5 border 
+              className="absolute top-1 right-1 flex items-center rounded bg-[#715c8c]  py-1 px-2.5 border 
               border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow 
               focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 
               active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
               type="button"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" 
-              class="w-4 h-4 mr-1.5">
-                <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 
+              className="w-4 h-4 mr-1.5">
+                <path fillRule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 
                 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" 
-                clip-rule="evenodd" />
+                clipRule="evenodd" />
               </svg>
         
               Search
