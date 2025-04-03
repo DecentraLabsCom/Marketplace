@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLabs } from '../context/LabContext';
-import Carrousel from '@/components/Carrousel'
+import Carrousel from '../components/Carrousel'
 
 export default function LabDetailPage({ id }) {
   const { labs, loading } = useLabs();

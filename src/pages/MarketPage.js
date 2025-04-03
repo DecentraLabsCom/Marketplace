@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLabs } from '../context/LabContext';
-import LabCard from "@/components/LabCard";
+import LabCard from "../components/LabCard";
 
 export default function MarketPage() {
   const { labs, loading } = useLabs();
