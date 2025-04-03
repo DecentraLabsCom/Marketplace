@@ -1,7 +1,7 @@
 import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
 
-export default function Providers() {
+export default function ProviderDashboard() {
   const { address, isConnected } = useAccount()
   const [userData, setUserData] = useState(null)
 
