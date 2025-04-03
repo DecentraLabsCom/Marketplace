@@ -57,7 +57,7 @@ export default function Navbar() {
             </div>
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white 
             ${showUserDashboard ? '' : 'hidden'}`}>
-              <Link href="/dashboard" className="font-bold p-3">Dashboard</Link>
+              <Link href="/UserDashboardPage" className="font-bold p-3">Dashboard</Link>
             </div>
             {/* Only show if user is a lab provider */}
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
