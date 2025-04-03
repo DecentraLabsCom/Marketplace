@@ -28,7 +28,6 @@ export default function ReservationPage() {
     <div className="container mx-auto p-6 text-white">
       <h1 className="text-center text-2xl font-bold mb-4">Book your lab now!</h1>
       
-      {/* Select Lab */}
       <div className="mb-6">
         <label className="block text-lg font-semibold mb-2">Select the lab:</label>
         <select
