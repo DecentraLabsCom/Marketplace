@@ -17,6 +17,16 @@ const nextConfig = {
         destination: '/RegisterProviderPage',
         permanent: true, // Usa `true` para redirección 308 o `false` para redirección 307
       },
+      {
+        source: '/userdashboard',
+        destination: '/UserDashboardPage',
+        permanent: true, // Usa `true` para redirección 308 o `false` para redirección 307
+      },
+      {
+        source: '/providerdashboard',
+        destination: '/ProviderDashboardPage',
+        permanent: true, // Usa `true` para redirección 308 o `false` para redirección 307
+      }
     ];
   },
 };

@@ -24,7 +24,7 @@ export default function Navbar() {
         setShowUserDashboard(false);
         setShowProviderDashboard(false);
         // If user disconnects when on dashboard or providers page redirect to homepage
-        if (router.pathname == '/dashboard' || router.pathname == '/providers') {
+        if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard') {
           router.push('/');
         }
       } else {
@@ -57,12 +57,12 @@ export default function Navbar() {
             </div>
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white 
             ${showUserDashboard ? '' : 'hidden'}`}>
-              <Link href="/UserDashboardPage" className="font-bold p-3">Dashboard</Link>
+              <Link href="/userdashboard" className="font-bold p-3">Dashboard</Link>
             </div>
             {/* Only show if user is a lab provider */}
             <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
             ${showProviderDashboard ? '' : 'hidden'}`}>
-              <Link href="/ProviderDashboardPage" className="font-bold p-3">Lab Management</Link>
+              <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
             </div>
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
               <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
@@ -84,7 +84,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden bg-[#333f63] text-center py-2">
           <Link href="/" className="block py-2">Marketplace</Link>
-          <Link href="/dashboard" className="block py-2">Dashboard</Link>
+          <Link href="/userdashboard" className="block py-2">Dashboard</Link>
           <Link href="/about" className="block py-2">Lab Providers</Link>
           <div className="py-2">
             {isClient && <Login />}

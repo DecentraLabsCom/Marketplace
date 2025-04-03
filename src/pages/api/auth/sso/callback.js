@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     await createSession(res, userData);
 
     // Step 3: Redirect the user to the dashboard
-    res.redirect("/dashboard");
+    res.redirect("/userdashboard");
   } catch (error) {
     console.error("Error processing SAML response:", error);
     res.status(500).json({ error: "Internal server error" });
