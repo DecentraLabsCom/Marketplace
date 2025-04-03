@@ -77,7 +77,7 @@ function WalletOption({ connector, onClick }) {
       className={`w-full px-4 py-2 text-left rounded-lg border transition duration-300 
           ${
             ready 
-            ? 'bg-[#715c8c] text-white hover:bg-[#333f63] hover:shadow-lg' 
+            ? 'bg-[#715c8c] text-center text-white hover:bg-[#333f63] hover:shadow-lg' 
             : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
     >

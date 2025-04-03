@@ -65,7 +65,7 @@ export default function Navbar() {
               <Link href="/ProviderDashboardPage" className="font-bold p-3">Lab Management</Link>
             </div>
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
-              <Link href="/registration" className="font-bold p-3">Register as a Provider</Link>
+              <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
             </div>
             
           </div>
