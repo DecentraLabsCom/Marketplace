@@ -66,14 +66,14 @@ export default function FAQ() {
 
       <div className="relative w-full bg-white px-6 pt-10 pb-5 shadow-xl ring-1
         ring-gray-900/5 sm:mx-auto sm:max-w-2xl sm:rounded-lg sm:px-10">
-        <div class="mx-auto  grid max-w-xl divide-y divide-neutral-200">
+        <div className="mx-auto  grid max-w-xl divide-y divide-neutral-200">
           {faqData.map((item, index) => (
-            <div key={index} class="py-5">
-              <details class="group">
-                <summary class="flex cursor-pointer list-none items-center justify-between 
+            <div key={index} className="py-5">
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center justify-between 
                 text-2xl font-semibold mb-4 text-gray-800">
                     <span>{item.question}</span>
-                    <span class="transition group-open:rotate-180">
+                    <span className="transition group-open:rotate-180">
                             <svg fill="none" height="24" shape-rendering="geometricPrecision"
                                 stroke="black" stroke-linecap="round" stroke-linejoin="round"
                                 stroke-width="1.5" viewBox="0 0 24 24" width="24">
@@ -81,7 +81,7 @@ export default function FAQ() {
                             </svg>
                         </span>
                 </summary>
-                <p class="group-open:animate-fadeIn mt-3 text-neutral-600 text-justify">
+                <p className="group-open:animate-fadeIn mt-3 text-neutral-600 text-justify">
                 {item.answer}</p>
               </details>
             </div>
