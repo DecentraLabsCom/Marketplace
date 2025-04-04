@@ -48,9 +48,7 @@ export default function LabDetailPage({ id }) {
           <p className="text-blue-600 font-semibold mt-2">{lab.price} ETH</p>
           <button
             className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded mt-3 w-full"
-            onClick={() => router.push(`/LabReservationPage?id=${lab.id}`)}
-            aria-label={`Rent ${lab.name}`}
-          >
+            onClick={() => router.push(`/reservation/${lab.id}`)} aria-label={`Rent ${lab.name}`}>
             Rent Lab
           </button>
           <div className="flex flex-col mt-4 space-y-2">
