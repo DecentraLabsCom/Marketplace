@@ -98,15 +98,20 @@ export default function MarketPage() {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex flex-row justify-center items-center">
-        {/* Category Filter Dropdown */}
+    <main className="container mx-auto p-6">
+      <section className="flex flex-row justify-center items-center">
+        {/* Category Filter */}
         <div className="mb-6 flex justify-center px-1">
+          <label htmlFor="category-filter" className="sr-only">
+            Filter by Category
+          </label>
           <select
+            id="category-filter"
             onChange={(e) => setSelectedCategory(e.target.value)}
             value={selectedCategory}
             className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer">
+            cursor-pointer"
+          >
             <option value="All">All Categories</option>
             {categories.map((category) => (
               <option key={category} value={category}>
@@ -115,13 +120,18 @@ export default function MarketPage() {
             ))}
           </select>
         </div>
-        {/* Provider Filter Dropdown */}
+        {/* Provider Filter */}
         <div className="mb-6 flex justify-center px-1">
+        <label htmlFor="provider-filter" className="sr-only">
+            Filter by Provider
+          </label>
           <select
+            id="provider-filter"
             onChange={(e) => setSelectedProvider(e.target.value)}
             value={selectedProvider}
             className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer">
+            cursor-pointer"
+          >
             <option value="All">All Providers</option>
             {providers.map((provider) => (
               <option key={provider} value={provider}>
@@ -130,10 +140,13 @@ export default function MarketPage() {
             ))}
           </select>
         </div>
-        {/* Search bar: by keyword and lab name */}
+        {/* Search Bar */}
         <div className="mb-6 w-full max-w-sm min-w-[20px] mx-1">
           <div className="relative">
             <div className="absolute top-1.5 left-1 flex items-center">
+              <label htmlFor="search-bar" className="sr-only">
+                Search Labs
+              </label>
               <select
                 onChange={(e) => setSelectedFilter(e.target.value)}
                 value={selectedFilter}
@@ -172,7 +185,7 @@ export default function MarketPage() {
             </button> 
           </div>   
         </div>
-        {/* Price sorting button */}
+        {/* Price sorting */}
         <div className="mb-6 flex justify-center px-1">
           <button
             onClick={handlePriceClick}
@@ -182,18 +195,20 @@ export default function MarketPage() {
             {selectedPrice}
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Loading State */}
-      {loading ? (
-        <div className="text-center">Loading labs...</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {searchFilteredLabs.map((lab) => (
-            <LabCard key={lab.id} {...lab} image={lab.image[0]}/>
-          ))}
-        </div>
-      )}
-    </div>
+      {/* Labs Grid */}
+      <section>
+        {loading ? (
+          <div className="text-center">Loading labs...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {searchFilteredLabs.map((lab) => (
+              <LabCard key={lab.id} {...lab} image={lab.image[0]}/>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }

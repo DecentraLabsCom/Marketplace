@@ -46,7 +46,7 @@ export default function Carrousel({ lab }) {
                 index === currentIndex ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            {image && <img src={image} alt={`Image ${index + 1}`} className="w-full h-full object-cover rounded-md" />}
+            {image && <img src={image} alt={`Image ${index + 1}`} className="w-full h-96 object-cover rounded-md" />}
           </div>
         ))}
       </div>

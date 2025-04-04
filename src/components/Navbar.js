@@ -20,7 +20,7 @@ export default function Navbar() {
     if (!isConnected && !user) {
       // If user disconnects when on other pages, redirect to homepage
       if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard'
-        || router.pathname == '/LabReservationPage' || router.pathname == '/register') {
+        || router.pathname == '/reservation' || router.pathname == '/register') {
         router.push('/');
       }
     } else {
@@ -53,7 +53,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 font-bold ">
             {isClient && (isConnected || user) && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/LabReservationPage" className="font-bold p-3">Book a Lab</Link>
+              <Link href="/reservation" className="font-bold p-3">Book a Lab</Link>
             </div>
             )}
             {isClient && (isConnected || user) && (
