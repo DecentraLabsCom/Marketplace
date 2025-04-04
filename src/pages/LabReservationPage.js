@@ -29,8 +29,10 @@ export default function ReservationPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 text-white">
-      <h1 className="text-center text-2xl font-bold mb-4">Book your lab now!</h1>
+    <div className="container mx-auto p-4 text-white">
+      <div className="relative bg-cover bg-center text-white py-5 text-center">
+        <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
+      </div>
       
       <div className="mb-6">
         <label className="block text-lg font-semibold mb-2">Select the lab:</label>

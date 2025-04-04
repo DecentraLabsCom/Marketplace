@@ -52,9 +52,13 @@ export default function ProviderDashboard() {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Lab Panel</h1>
+    <div className="container mx-auto p-4">
+      <div className="relative bg-cover bg-center text-white py-5 text-center">
+        <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
+      </div>
+
       <div className="flex">
+
         <div className="w-2/3">
           <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
           {loading ? (
@@ -119,9 +123,11 @@ export default function ProviderDashboard() {
             </p>
           )}
         </div>
+
         <div className="w-1/3">
           <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
         </div>
+        
       </div>
 
       <button
