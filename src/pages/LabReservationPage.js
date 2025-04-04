@@ -48,20 +48,14 @@ export default function ReservationPage() {
       </div>
       
       {selectedLab && (
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
+        <div className="flex flex-col md:flex-row gap-6 p-4">
+          <div className="md:w-1/2 flex flex-col items-center justify-center">
             <div className="w-full h-[400px] flex items-center justify-center">
-              {selectedLab.image && selectedLab.image.length > 0 ? (
-                <div className="w-full h-full">
-                  <Carrousel lab={selectedLab} />
-                </div>
-              ) : (
-                <div className="text-center">No images available</div>
-              )}
+              <Carrousel lab={selectedLab} />
             </div>
           </div>
           
-          <div className="md:w-1/2 pr-8">
+          <div className="md:w-1/2 mt-2">
             <p className="text-gray-400 text-sm text-justify mb-4">{selectedLab.description}</p>
             <p className="text-blue-600 font-semibold text-xl">{selectedLab.price} ETH</p>
             

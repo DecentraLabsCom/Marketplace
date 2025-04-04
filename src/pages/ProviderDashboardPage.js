@@ -71,12 +71,10 @@ export default function ProviderDashboard() {
         {ownedLabs.map((lab) => (
           <li key={lab.id} className="p-4 border rounded shadow">
             <h3 className="text-lg font-bold text-center">{lab.name}</h3>
-            <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
-              <div className="w-full h-[400px] flex items-center justify-center">
+            <div className="md:w-1/3 flex flex-col items-center justify-center p-4 mr-8">
+              <div className="w-full max-h-[200px] flex items-center justify-center">
                 {lab.image && lab.image.length > 0 ? (
-                  <div className="w-full h-full">
-                    <Carrousel lab={lab} />
-                  </div>
+                  <Carrousel lab={lab} maxHeight={200} />
                 ) : (
                   <div className="text-center">No images available</div>
                 )}

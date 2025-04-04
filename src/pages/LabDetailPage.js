@@ -30,14 +30,12 @@ export default function LabDetailPage({ id }) {
         {/* Carousel Section */}
         <article className="md:w-1/2 flex flex-col items-center justify-center p-4">
           <div className="w-full h-[400px] flex items-center justify-center">
-            <div className="w-full h-full">
-              <Carrousel lab={lab} />
-            </div>
+            <Carrousel lab={lab} />
           </div>
         </article>
 
         {/* Lab Details Section */}
-        <article className="md:w-2/5 md:ml-4 mt-3">
+        <article className="md:w-2/5 md:ml-4 mt-4">
           <header>
             <h1 className="text-2xl font-bold pb-2 text-center">{lab.name}</h1>
             <div className="flex justify-center">

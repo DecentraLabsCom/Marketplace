@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function Carrousel({ lab }) {
+export default function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);
 
@@ -34,22 +34,24 @@ export default function Carrousel({ lab }) {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.image.length);
     resetInterval();
   };
-  
+
   return (
-    <div className="relative">
-      <div className="relative w-full h-96 overflow-hidden after:clear-both after:block after:content-['']">
+    <div className={`relative w-full ${maxHeight ? `h-[${maxHeight}px]` : 'h-[400px]'} overflow-hidden`}>
         {lab?.image.map((image, index) => (
           <div
             key={index}
-            className={`relative float-left -mr-[100%] w-full transition-opacity duration-[600ms] ease-in-out 
-                motion-reduce:transition-none ${
+            className={`relative float-left -mr-[100%] w-full transition-opacity duration-[600ms] 
+              ease-in-out motion-reduce:transition-none ${
                 index === currentIndex ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            {image && <img src={image} alt={`Image ${index + 1}`} className="w-full h-96 object-cover rounded-md" />}
+            {image && (
+              <img src={image} alt={`Image ${index + 1}`} 
+              className={`w-full ${maxHeight ? `h-[${maxHeight}px]` : 'h-[400px]'} object-cover 
+              object-center rounded-md`} style={{ objectPosition: 'center' }} />
+            )}
           </div>
         ))}
-      </div>
 
       {/* Slide handles */}
       <div
