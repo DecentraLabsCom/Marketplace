@@ -11,18 +11,22 @@ export default function ReservationPage() {
   const { id } = router.query;
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState("");
-  const [lab, setLab] = useState(null);
+  const [selectedLab, setSelectedLab] = useState(null);
 
   useEffect(() => {
-    if (labs && labs.length > 0 && id) {
-      const currentLab = labs.find((lab) => lab.id == id);
-      setLab(currentLab);
+    if (labs && labs.length > 0) {
+      if (id) {
+        const currentLab = labs.find((lab) => lab.id == id);
+        setSelectedLab(currentLab);
+      }
     }
   }, [id, labs]);
 
-  if (!lab) {
-    return <div className="text-center text-white">Loading lab details...</div>;
-  }
+  const handleLabChange = (event) => {
+    const labId = event.target.value;
+    const lab = labs.find((l) => l.id == labId);
+    setSelectedLab(lab);
+  };
 
   return (
     <div className="container mx-auto p-6 text-white">
@@ -31,60 +35,62 @@ export default function ReservationPage() {
       <div className="mb-6">
         <label className="block text-lg font-semibold mb-2">Select the lab:</label>
         <select
-          className="w-full p-3 border-2 bg-gray-800 text-white rounded cursor-not-allowed"
-          value={lab?.id || ""}
-          disabled
+          className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+          value={selectedLab?.id || ""}
+          onChange={handleLabChange}
+          disabled={!!id}
         >
-          {lab && <option value={lab.id}>{lab.name}</option>}
+          <option value="" disabled>Select a lab</option>
+          {labs.map((lab) => (
+            <option key={lab.id} value={lab.id}>{lab.name}</option>
+          ))}
         </select>
       </div>
       
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
-          <div className="w-full h-[400px] flex items-center justify-center">
-            {lab.image && lab.image.length > 0 ? (
-              <div className="w-full h-full">
-                <Carrousel lab={lab} />
-              </div>
-            ) : (
-              <div className="text-center">No images available</div>
-            )}
+      {selectedLab && (
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
+            <div className="w-full h-[400px] flex items-center justify-center">
+              {selectedLab.image && selectedLab.image.length > 0 ? (
+                <div className="w-full h-full">
+                  <Carrousel lab={selectedLab} />
+                </div>
+              ) : (
+                <div className="text-center">No images available</div>
+              )}
+            </div>
           </div>
-        </div>
-        
-        <div className="md:w-1/2 pr-8">
-          <p className="text-gray-400 text-sm text-justify mb-4">{lab.description}</p>
-          <p className="text-blue-600 font-semibold text-xl">{lab.price} ETH</p>
           
-          {/* Date Picker y Time Selection */}
-          <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">{/* Alineación mejorada */}
-            {/* Date Picker */}
-            <div className="flex-1 w-full md:w-auto">
-              <label className="block text-lg font-semibold">Select the date:</label>
-              <DatePicker
-                selected={date}
-                onChange={(newDate) => setDate(newDate)}
-                className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-                dateFormat="yyyy-MM-dd"
-                inline
-              />
-            </div>
+          <div className="md:w-1/2 pr-8">
+            <p className="text-gray-400 text-sm text-justify mb-4">{selectedLab.description}</p>
+            <p className="text-blue-600 font-semibold text-xl">{selectedLab.price} ETH</p>
             
-            {/* Time Picker */}
-            <div className="flex-1 w-full md:w-auto">
-              <label className="block text-lg font-semibold">Select the time:</label>
-              <input
-                type="time"
-                className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
+            <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
+              <div className="flex-1 w-full md:w-auto">
+                <label className="block text-lg font-semibold">Select the date:</label>
+                <DatePicker
+                  selected={date}
+                  onChange={(newDate) => setDate(newDate)}
+                  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                  dateFormat="yyyy-MM-dd"
+                  inline
+                />
+              </div>
+              
+              <div className="flex-1 w-full md:w-auto">
+                <label className="block text-lg font-semibold">Select the time:</label>
+                <input
+                  type="time"
+                  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
       
-      {/* Submit Button */}
       <button className="w-full bg-blue-500 text-white p-3 rounded mt-6 hover:bg-blue-600">
         Add Booking
       </button>
