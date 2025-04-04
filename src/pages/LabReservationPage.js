@@ -85,11 +85,13 @@ export default function ReservationPage() {
         </div>
       )}
       
-      <div className="flex justify-center">
-        <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]">
-          Make Booking
-        </button>
-      </div>
+      {selectedLab && (
+        <div className="flex justify-center">
+          <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]">
+            Make Booking
+          </button>
+        </div>
+      )}
     </div>
   );
 }
