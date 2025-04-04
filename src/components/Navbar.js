@@ -8,12 +8,12 @@ import { appendPath } from '../utils/pathUtils';
 import { useRouter } from 'next/router';
 
 export default function Navbar() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   const router = useRouter();
-  const { isConnected } = useAccount();
-  const [user, setUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
   const [provider, setProvider] = useState(false);
+  const [user, setUser] = useState(null);
+  const { isConnected } = useAccount();
 
   // Listen for changes in isConnected
   useEffect(() => {
@@ -30,6 +30,7 @@ export default function Navbar() {
 
   // Check cookies for SSO session
   useEffect(() => {
+    setIsClient(true);
     fetch("/api/auth/sso/session")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch session");
@@ -53,25 +54,25 @@ export default function Navbar() {
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/LabReservationPage" className="font-bold p-3">Book a Lab</Link>
             </div>
-            {(isConnected || user) && (
+            {isClient && (isConnected || user) && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/userdashboard" className="font-bold p-3">Dashboard</Link>
             </div>
             )}
-            {(isConnected || user) && !provider && (
+            {isClient && (isConnected || user) && !provider && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
             </div>
             )}
-            {(isConnected || user) && provider && (
+            {isClient && (isConnected || user) && provider && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
+              <Link href="/providerdashboard" className="font-bold p-3">Lab Panel</Link>
             </div>
-            )}   
+            )}
           </div>
           <div className="h-8 border-l border-gray-600" />
           <div className="hidden md:block">
-            <Login isConnected={isConnected} user={user} />
+            {isClient && <Login isConnected={isConnected} user={user} />}
           </div>
         </div>
 
