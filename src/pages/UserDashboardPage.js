@@ -1,9 +1,27 @@
 import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
+import { useLabs } from '../context/LabContext'
 
 export default function UserDashboard() {
   const { address, isConnected } = useAccount()
   const [userData, setUserData] = useState(null)
+  const { labs, loading } = useLabs(); // In the future only get user's booked labs
+  const [enrichedLabs, setEnrichedLabs] = useState([]);
+  const [statusChange, setStatusChange] = useState(false);
+
+  useEffect(() => {
+    if (labs && labs.length > 0) {
+      // These new properties should be added to fetchLabsData 
+      // or get current/former booking and status info from its actual source
+      const newLabs = labs.map(lab => ({
+        ...lab,
+        activeStatus: false,
+        currentlyBooked: false,
+        formerlyBooked: false,
+      }));
+      setEnrichedLabs(newLabs);
+    }
+  }, [labs]);
 
   useEffect(() => {
     if (isConnected) {
@@ -12,19 +30,24 @@ export default function UserDashboard() {
         const fetchedUserData = {
           name: "John Doe",
           email: "john.doe@example.com",
-          labs: [
-            { id: 1, name: "Lab 1", status: "Active" },
-            { id: 2, name: "Lab 2", status: "Inactive" },
-          ],
+          labs: enrichedLabs,
         }
         setUserData(fetchedUserData)
       }, 1500) // Simulate a 1.5-second delay for fetching data
     }
-  }, [isConnected])
+  }, [isConnected, enrichedLabs])
 
-  // if (!isConnected) {
-  //   return <div className="text-center p-2">Please connect your wallet to view the dashboard.</div>
-  // }
+  const setActiveStatus = (labId) => {
+    setEnrichedLabs((prevLabs) =>
+      prevLabs.map((lab) => {
+        if (lab.id === labId) {
+          return { ...lab, activeStatus: true };
+        }
+        return lab;
+      })
+    );
+    setStatusChange((prev) => !prev);
+  };
 
   if (!userData) {
     return <div className="text-center p-2">Loading user data...</div>
@@ -45,14 +68,21 @@ export default function UserDashboard() {
           <div className="flex flex-row gap-4">
             {/* Booked labs: active and non-active */}
             <div className="w-1/2">
-              <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">Booked</h2>
+              <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Booked</h2>
+              <hr className='mb-5 separator-width-black'></hr>
               <ul>
                 {userData.labs.map((lab) => (
                   <li key={lab.id} className="mb-4">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700">{lab.name}</span>
-                      <span className={`px-3 py-1 rounded-full text-sm ${lab.status === "Active" ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                        {lab.status}
+                      {/* Button for lab's activeStatus tests */}
+                      <button 
+                      className='border text-black rounded-lg p-1 bg-orange-100'
+                      onClick={() => setActiveStatus(lab.id)}>
+                      Set Active
+                    </button>
+                      <span className={`px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                        {lab.activeStatus === true ? "Active" : "Inactive"}
                       </span>
                     </div>
                   </li>
@@ -61,7 +91,8 @@ export default function UserDashboard() {
             </div>
             {/* Previously booked labs */}
             <div className="flex-1">
-              <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">Previously booked</h2>
+              <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Previously booked</h2>
+              <hr className='mb-5 separator-width-black'></hr>
             </div>
           </div>
         </div>
