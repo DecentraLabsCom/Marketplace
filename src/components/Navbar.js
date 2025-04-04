@@ -9,36 +9,34 @@ import { useRouter } from 'next/router';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isClient, setIsClient] = useState(false);
 
   const router = useRouter();
   const { isConnected } = useAccount();
-  const [showUserDashboard, setShowUserDashboard] = useState(false);
-  const [showProviderDashboard, setShowProviderDashboard] = useState(false);
-  // For tests -> replace for real isProvider check
-  const isProvider = true;
+  const [user, setUser] = useState(null);
+  const [provider, setProvider] = useState(false);
 
-    // Added useEffect to listen for changes in isConnected
-    useEffect(() => {
-      if (!isConnected) {
-        setShowUserDashboard(false);
-        setShowProviderDashboard(false);
-        // If user disconnects when on dashboard or providers page redirect to homepage
-        if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard') {
-          router.push('/');
-        }
-      } else {
-        setShowUserDashboard(true);
-        if (isProvider) {
-          setShowProviderDashboard(true);
-        } else {
-          setShowProviderDashboard(false);
-        }
-      }
-    }, [isConnected]);
-
+  // Listen for changes in isConnected
   useEffect(() => {
-    setIsClient(true);
+    if (!isConnected && !user) {
+      // If user disconnects when on other pages, redirect to homepage
+      if (router.pathname == '/userdashboard' || router.pathname == '/providerdashboard'
+        || router.pathname == '/LabReservationPage' || router.pathname == '/register') {
+        router.push('/');
+      }
+    } else {
+      setProvider(true); // Only for testing purposes
+    }
+  }, [isConnected, user]);
+
+  // Check cookies for SSO session
+  useEffect(() => {
+    fetch("/api/auth/sso/session")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch session");
+        return res.json();
+      })
+      .then((data) => setUser(data.user))
+      .catch((error) => console.error("Error fetching session:", error));
   }, []);
 
   return (
@@ -52,26 +50,29 @@ export default function Navbar() {
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
           <div className="hidden md:flex space-x-6 font-bold ">
-          <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
+          {(isConnected || user) && (<div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/LabReservationPage" className="font-bold p-3">Book a Lab</Link>
             </div>
-            <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white 
-            ${showUserDashboard ? '' : 'hidden'}`}>
+            )}
+            {(isConnected || user) && (
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/userdashboard" className="font-bold p-3">Dashboard</Link>
             </div>
-            {/* Only show if user is a lab provider */}
-            <div className={`bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white "
-            ${showProviderDashboard ? '' : 'hidden'}`}>
-              <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
-            </div>
-            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white ">
+            )}
+            {(isConnected || user) && !provider && (
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
             </div>
-            
+            )}
+            {(isConnected || user) && provider && (
+            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
+              <Link href="/providerdashboard" className="font-bold p-3">Lab Management</Link>
+            </div>
+            )}   
           </div>
-          <div className="h-8 border-l border-gray-600"></div>
+          <div className="h-8 border-l border-gray-600" />
           <div className="hidden md:block">
-            {isClient && <Login />}
+            <Login isConnected={isConnected} user={user} />
           </div>
         </div>
 
@@ -88,7 +89,7 @@ export default function Navbar() {
           <Link href="/userdashboard" className="block py-2">Dashboard</Link>
           <Link href="/about" className="block py-2">Lab Providers</Link>
           <div className="py-2">
-            {isClient && <Login />}
+            <Login isConnected={isConnected} user={user} />
           </div>
         </div>
       )}

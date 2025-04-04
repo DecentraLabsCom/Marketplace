@@ -1,25 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { Account } from '../utils/account';
 import { WalletLogin } from './WalletLogin';
 import { InstitutionalLogin } from './InstitutionalLogin';
 import { FaSignInAlt } from 'react-icons/fa';
 
-export default function Login() {
-  const { isConnected } = useAccount();
-  const [user, setUser] = useState(null);
+export default function Login({ isConnected, user }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/sso/session")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch session");
-        return res.json();
-      })
-      .then((data) => setUser(data.user))
-      .catch((error) => console.error("Error fetching session:", error));
-  }, []);
-
+      console.log("isConnected:", isConnected);
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
   };
