@@ -78,10 +78,10 @@ export default function RegisterProviderForm() {
   };
 
   return (
-    <div className="flex justify-center mt-8">
-      <div style={{ minWidth: '30%' }}>
+    <main className="flex justify-center mt-8">
+      <section style={{ minWidth: '30%' }}>
         <div className="flex min-h-full shadow-lg flex-1 flex-col justify-center px-6 py-9 lg:px-8 bg-white rounded">
-          <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+          <header className="sm:mx-auto sm:w-full sm:max-w-sm">
             <div className="flex justify-center">
               <IoPerson className="h-[70px] w-[70px] text-[#715c8c] border-2 p-1 border-[#715c8c] rounded mb-2" />
             </div>
@@ -91,10 +91,11 @@ export default function RegisterProviderForm() {
             <div className="flex justify-center">
               <hr className="mt-2 separator-width-black w-1/2"></hr>
             </div>
-          </div>
+          </header>
 
           <div className="mt-3 sm:mx-auto sm:w-full sm:max-w-sm">
             <form className="space-y-6" onSubmit={handleSubmit}>
+              {/* Provider Name */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium leading-6 text-gray-900">
                   Provider name
@@ -111,7 +112,7 @@ export default function RegisterProviderForm() {
                   {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name[0]}</p>}
                 </div>
               </div>
-
+              {/* Email Address */}
               <div>
                 <div className="flex items-center justify-between">
                   <label htmlFor="email" className="block text-sm font-medium leading-6 text-gray-900">
@@ -130,7 +131,7 @@ export default function RegisterProviderForm() {
                   {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email[0]}</p>}
                 </div>
               </div>
-
+              {/* Wallet Address */}
               <div>
                 <div className="flex items-center justify-between">
                   <label htmlFor="wallet" className="block text-sm font-medium leading-6 text-gray-900">
@@ -149,7 +150,7 @@ export default function RegisterProviderForm() {
                   {errors.wallet && <p className="text-red-500 text-sm mt-1">{errors.wallet[0]}</p>}
                 </div>
               </div>
-
+              {/* Country */}
               <div>
                 <div className="flex items-center justify-between">
                   <label htmlFor="country" className="block text-sm font-medium leading-6 text-gray-900">
@@ -169,6 +170,7 @@ export default function RegisterProviderForm() {
               </div>
 
               <div>
+                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={isSuccess}
@@ -196,7 +198,7 @@ export default function RegisterProviderForm() {
             </form>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
