@@ -65,7 +65,7 @@ export default function ReservationPage() {
                 <DatePicker
                   selected={date}
                   onChange={(newDate) => setDate(newDate)}
-                  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                  calendarClassName="custom-datepicker"
                   dateFormat="yyyy-MM-dd"
                   inline
                 />
@@ -85,9 +85,11 @@ export default function ReservationPage() {
         </div>
       )}
       
-      <button className="w-full bg-blue-500 text-white p-3 rounded mt-6 hover:bg-blue-600">
-        Add Booking
-      </button>
+      <div className="flex justify-center">
+        <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]">
+          Make Booking
+        </button>
+      </div>
     </div>
   );
 }

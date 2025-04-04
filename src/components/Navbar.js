@@ -50,25 +50,25 @@ export default function Navbar() {
 
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
-          <div className="hidden md:flex space-x-6 font-bold ">
+          <div className="hidden md:flex space-x-6 font-bold">
             {isClient && (isConnected || user) && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/reservation" className="font-bold p-3">Book a Lab</Link>
+              <Link href="/reservation" className="p-3">Book a Lab</Link>
             </div>
             )}
             {isClient && (isConnected || user) && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/userdashboard" className="font-bold p-3">Dashboard</Link>
+              <Link href="/userdashboard" className="p-3">Dashboard</Link>
             </div>
             )}
             {isClient && (isConnected || user) && !provider && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/register" className="font-bold p-3">Register as a Provider</Link>
+              <Link href="/register" className="p-3">Register as a Provider</Link>
             </div>
             )}
             {isClient && (isConnected || user) && provider && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/providerdashboard" className="font-bold p-3">Lab Panel</Link>
+              <Link href="/providerdashboard" className="p-3">Lab Panel</Link>
             </div>
             )}
           </div>

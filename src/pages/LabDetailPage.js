@@ -53,7 +53,7 @@ export default function LabDetailPage({ id }) {
           {/* Category */}
           <div className="flex items-center">
             <span
-              className="bg-red-700 text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
+              className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
               aria-label={`Category: ${lab.category}`}
             >
               {lab.category}
@@ -65,7 +65,7 @@ export default function LabDetailPage({ id }) {
             {lab.keywords.map((keyword) => (
               <span
                 key={keyword}
-                className="bg-yellow-700 text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
+                className="bg-[#335763] text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
                 aria-label={`Keyword: ${keyword}`}
               >
                 {keyword}
