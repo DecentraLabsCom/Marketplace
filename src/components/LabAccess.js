@@ -57,16 +57,13 @@ export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
         router.push(data.labURL + `?jwt=${data.token}`);
       } else if (data.error) {
         setErrorMessage(data.error);
-        setLoading(false);
         setTimeout(() => setErrorMessage(null), 1500);
       } else {
         setErrorMessage("Unexpected error, please try again.");
-        setLoading(false);
         setTimeout(() => setErrorMessage(null), 1500);
       }
     } catch (error) {
       setErrorMessage("There was an error verifying your booking. Try again.");
-      setLoading(false);
       setTimeout(() => setErrorMessage(null), 1500);
     } finally {
       setLoading(false);
