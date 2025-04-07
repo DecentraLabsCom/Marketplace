@@ -49,6 +49,9 @@ export const fetchLabsData = async (contract) => {
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Ut nec dapibus dolor, eget rhoncus lacus. Donec tincidunt porta dui, ac scelerisque enim eleifend et. Suspendisse viverra risus eu odio eleifend pellentesque ut non arcu. Phasellus aliquam sapien risus, at tempor ligula feugiat vel. Mauris.",
         provider: "UNED", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
         auth: "https://sarlab.dia.uned.es/auth/", 
+        time: [15, 30, 60], //minuts
+        day_start: "05/18/2025",
+        day_finish: "05/25/2025",
         image: [
           appendPath + "/labs/lab_1.jpg",
           appendPath + "/labs/lab1/01.jpg",
@@ -63,6 +66,9 @@ export const fetchLabsData = async (contract) => {
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
         provider: "UHU", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
         auth: "https://sarlab.dia.uned.es/auth/", 
+        time: [30, 120], //minuts
+        day_start: "05/18/2025",
+        day_finish: "05/25/2025",
         image: [
           appendPath + "/labs/lab_2.jpg",
           appendPath + "/labs/lab2/01.jpg",
@@ -77,6 +83,9 @@ export const fetchLabsData = async (contract) => {
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur, tortor sit amet sagittis sollicitudin, ante erat congue elit, eu porta ante magna luctus mauris. Suspendisse eget elementum sem. Nam mollis felis dui, quis venenatis quam placerat a. Sed finibus lorem ut magna egestas cursus. Mauris sollicitudin orci nulla, eu vehicula est blandit ut. Nulla accumsan pulvinar leo in malesuada. Nullam eget eros ut enim cursus condimentum non vitae quam.",
         provider: "UNED", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
         auth: "https://sarlab.dia.uned.es/auth/", 
+        time: [15, 30, 60], //minuts
+        day_start: "05/18/2025",
+        day_finish: "05/25/2025",
         image: [
           appendPath + "/labs/lab_3.jpg",
           appendPath + "/labs/lab3/01.jpg",
@@ -89,6 +98,9 @@ export const fetchLabsData = async (contract) => {
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
         provider: "UHU", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
         auth: "https://sarlab.dia.uned.es/auth/", 
+        time: [15, 30, 60], //minuts
+        day_start: "05/18/2025",
+        day_finish: "05/25/2025",
         image: [
           appendPath + "/labs/lab_4.jpg",
           appendPath + "/labs/lab4/01.png",
@@ -102,6 +114,9 @@ export const fetchLabsData = async (contract) => {
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
         provider: "UBC", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
         auth: "https://sarlab.dia.uned.es/auth/", 
+        time: [15, 30, 60], //minuts
+        day_start: "05/18/2025",
+        day_finish: "05/25/2025",
         image: [
           appendPath + "/labs/lab_5.jpg",
           appendPath + "/labs/lab5/01.png",
