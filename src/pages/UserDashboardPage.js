@@ -52,6 +52,20 @@ export default function UserDashboard() {
     setStatusChange((prev) => !prev);
   };
 
+  const setInactiveStatus = (labId) => {
+    setEnrichedLabs((prevLabs) =>
+      prevLabs.map((lab) => {
+        if (lab.id === labId) {
+          return { ...lab, 
+            formerlyBooked: true,
+            activeStatus: false };
+        }
+        return lab;
+      })
+    );
+    setStatusChange((prev) => !prev);
+  };
+
   if (!userData) {
     return <div className="text-center p-2">Loading user data...</div>
   }
@@ -87,9 +101,9 @@ export default function UserDashboard() {
                       <span className="text-gray-700">{lab.name}</span>
                       {/* Button for lab's activeStatus tests */}
                       
-                      <span className={`px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                        {lab.activeStatus === true ? "Active" : "Inactive"}
-                      </span>
+                      <button className="px-3 py-1 rounded-full text-sm bg-yellow-500 text-white">
+                        Access
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -98,6 +112,7 @@ export default function UserDashboard() {
             {/* Previously booked labs */}
             <div className="flex-1">
               {/* lab data, available until [date] and documentation links */}
+              
             </div>
           </div>
         </div>
@@ -123,11 +138,19 @@ export default function UserDashboard() {
                     <div className="flex flex-grow items-center">
                       <span className="text-gray-700">{lab.name}</span>
                       {/* Button for lab's activeStatus tests */}
+                      {lab.activeStatus ? (
+                      <button 
+                        className='ml-2 z-50 border text-black rounded-lg p-3 bg-orange-100'
+                        onClick={() => setInactiveStatus(lab.id)}>
+                        Set Inactive
+                      </button>
+                      ) : (
                       <button 
                         className='ml-2 z-50 border text-black rounded-lg p-3 bg-orange-100'
                         onClick={() => setActiveStatus(lab.id)}>
                         Set Active
                       </button>
+                      )}
                       <span className={`ml-auto px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
                         {lab.activeStatus === true ? "Active" : "Inactive"}
                       </span>
@@ -141,6 +164,15 @@ export default function UserDashboard() {
             <div className="flex-1">
               <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Previously booked</h2>
               <hr className='mb-5 separator-width-black'></hr>
+              <ul>
+                {userData.labs
+                .filter((lab) => lab.formerlyBooked === true)
+                .map((lab) => (
+                  <li key={lab.id} className="mb-4 border-2 p-2 rounded-lg">
+                    <span className="text-gray-700">{lab.name}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
