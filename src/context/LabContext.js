@@ -9,6 +9,15 @@ export function LabData({ children }) {
   const [labs, setLabs] = useState(getLabs() || []);
   const [loading, setLoading] = useState(true);
 
+  // Added both to pass same status to LabCard and then to UserDashboardPage
+  const [activeBookings, setActiveBooking] = useState({});
+  const setBookingStatus = ({ labId, isActive }) => {
+    setActiveBooking((prevBookings) => ({
+      ...prevBookings,
+      [labId]: isActive,
+    }));
+  };
+
   const contract = useReadContract({
     address: contractAddress,
     abi: contractABI,
@@ -26,8 +35,9 @@ export function LabData({ children }) {
     return () => unsubscribe(); // Clean subscription on unmount
   }, []);
 
+  // Added activeBookings and setBookingStatus
   return (
-    <LabContext.Provider value={{ labs, loading }}>
+    <LabContext.Provider value={{ labs, loading, activeBookings, setBookingStatus }}>
       {children}
     </LabContext.Provider>
   );

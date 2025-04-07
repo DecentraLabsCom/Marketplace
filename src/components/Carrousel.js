@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function Carrousel({ lab }) {
+export default function Carrousel({ lab, containerClassName, imageClassName }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);
 
@@ -36,7 +36,7 @@ export default function Carrousel({ lab }) {
   };
   
   return (
-    <div className="relative">
+    <div className={`relative ${containerClassName}`}>
       <div className="relative w-full h-96 overflow-hidden after:clear-both after:block after:content-['']">
         {lab?.image.map((image, index) => (
           <div
@@ -46,7 +46,7 @@ export default function Carrousel({ lab }) {
                 index === currentIndex ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            {image && <img src={image} alt={`Image ${index + 1}`} className="w-full h-96 object-cover rounded-md" />}
+            {image && <img src={image} alt={`Image ${index + 1}`} className={`${imageClassName} w-full h-96 object-cover rounded-md`} />}
           </div>
         ))}
       </div>

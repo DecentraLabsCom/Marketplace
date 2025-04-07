@@ -8,8 +8,11 @@ import { useLabs } from '../context/LabContext';
 
 export default function LabCard({ id, name, provider, price, auth, image }) {
   const { address, isConnected } = useAccount();
-  const { contract } = useLabs();
-  const [hasActiveBooking, setHasActiveBooking] = useState(false);
+  const { contract, activeBookings, setBookingStatus } = useLabs();
+  // const [hasActiveBooking, setHasActiveBooking] = useState(false);
+
+  // Added to pass random booking state obtained here to UserDashboardPage
+  const hasActiveBooking = activeBookings[id] === true;
 
   useEffect(() => {
     const checkActiveBooking = async () => {
@@ -17,17 +20,19 @@ export default function LabCard({ id, name, provider, price, auth, image }) {
         try {
           //const booking = await contract.hasActiveBooking(id, address);
           let booking = Math.random() < 0.5;
-          setHasActiveBooking(booking);
+          // setHasActiveBooking(booking);
+          setBookingStatus({ labId: id, isActive: booking });
         } catch (error) {
           console.log("Error checking active booking:", error);
         }
       } else {
-        setHasActiveBooking(false);
+        // setHasActiveBooking(false);
+        setBookingStatus({ labId: id, isActive: false });
       }
     };
 
     checkActiveBooking();
-  }, [address]);
+  }, [address, id]); // Added id to get booking for each lab
   
   return (
     <div className={`relative group rounded-md shadow-md bg-gray-200 transform 
