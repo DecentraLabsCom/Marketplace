@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export default function Carrousel({ lab, maxHeight, containerClassName }) {
+export default function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);
 
@@ -36,7 +36,7 @@ export default function Carrousel({ lab, maxHeight, containerClassName }) {
   };
 
   return (
-    <div className={`relative w-full ${containerClassName} ${maxHeight ? `h-[${maxHeight}px]` : 'h-[400px]'} overflow-hidden`}>
+    <div className={`relative w-full ${maxHeight ? `h-[${maxHeight}px]` : 'h-[400px]'} overflow-hidden`}>
         {lab?.image.map((image, index) => (
           <div
             key={index}
