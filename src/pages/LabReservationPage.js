@@ -110,7 +110,6 @@ export default function ReservationPage() {
           <div className="md:w-1/2 mt-2">
             <p className="text-gray-400 text-sm text-justify mb-4">{selectedLab.description}</p>
             <p className="text-blue-600 font-semibold text-xl">{selectedLab.price} $LAB / hour</p>
-            <p className="text-gray-400 text-sm text-justify mb-4">{selectedLab.days}</p>
 
             <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
               <div className="flex-1 w-full md:w-auto">
