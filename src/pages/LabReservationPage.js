@@ -29,8 +29,10 @@ export default function ReservationPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 text-white">
-      <h1 className="text-center text-2xl font-bold mb-4">Book your lab now!</h1>
+    <div className="container mx-auto p-4 text-white">
+      <div className="relative bg-cover bg-center text-white py-5 text-center">
+        <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
+      </div>
       
       <div className="mb-6">
         <label className="block text-lg font-semibold mb-2">Select the lab:</label>
@@ -48,22 +50,16 @@ export default function ReservationPage() {
       </div>
       
       {selectedLab && (
-        <div className="flex flex-col md:flex-row gap-6">
-          <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
+        <div className="flex flex-col md:flex-row gap-6 p-4">
+          <div className="md:w-1/2 flex flex-col items-center justify-center">
             <div className="w-full h-[400px] flex items-center justify-center">
-              {selectedLab.image && selectedLab.image.length > 0 ? (
-                <div className="w-full h-full">
-                  <Carrousel lab={selectedLab} />
-                </div>
-              ) : (
-                <div className="text-center">No images available</div>
-              )}
+              <Carrousel lab={selectedLab} />
             </div>
           </div>
           
-          <div className="md:w-1/2 pr-8">
+          <div className="md:w-1/2 mt-2">
             <p className="text-gray-400 text-sm text-justify mb-4">{selectedLab.description}</p>
-            <p className="text-blue-600 font-semibold text-xl">{selectedLab.price} ETH</p>
+            <p className="text-blue-600 font-semibold text-xl">{selectedLab.price} $LAB / hour</p>
             
             <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
               <div className="flex-1 w-full md:w-auto">
@@ -71,7 +67,7 @@ export default function ReservationPage() {
                 <DatePicker
                   selected={date}
                   onChange={(newDate) => setDate(newDate)}
-                  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                  calendarClassName="custom-datepicker"
                   dateFormat="yyyy-MM-dd"
                   inline
                 />
@@ -91,9 +87,13 @@ export default function ReservationPage() {
         </div>
       )}
       
-      <button className="w-full bg-blue-500 text-white p-3 rounded mt-6 hover:bg-blue-600">
-        Add Booking
-      </button>
+      {selectedLab && (
+        <div className="flex justify-center">
+          <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]">
+            Make Booking
+          </button>
+        </div>
+      )}
     </div>
   );
 }

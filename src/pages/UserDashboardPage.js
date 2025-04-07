@@ -61,6 +61,7 @@ export default function UserDashboard() {
       <div className="relative bg-cover bg-center text-white py-5 text-center">
         <h1 className="text-3xl font-bold mb-2">User Dashboard</h1>
       </div>
+
       <div className="flex flex-row gap-4">
         <div className="bg-white shadow-md rounded-lg p-6 mb-6 w-1/6 h-1/3">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">Profile</h2>
@@ -135,6 +136,7 @@ export default function UserDashboard() {
                 ))}
               </ul>
             </div>
+
             {/* Previously booked labs */}
             <div className="flex-1">
               <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Previously booked</h2>

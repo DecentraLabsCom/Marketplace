@@ -160,3 +160,13 @@ body {
 .ReactFlagsSelect-module_fullWidthOptions__1XeR6.ReactFlagsSelect-module_selectOptions__3LNBJ::-webkit-scrollbar-button:vertical:single-button:increment:hover {
   border-color: #939393 transparent transparent transparent;
 }
+
+/* Style override for DatePicker external component: react-datepicker */
+.custom-datepicker .react-datepicker__day--selected {
+  background-color: #715c8c; /* For selected day */
+  color: white;
+}
+.custom-datepicker .react-datepicker__day:hover {
+  background-color: #333f63; /* Hover effect */
+  color: white;
+}

@@ -1,13 +1,14 @@
 import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
 import { useLabs } from '../context/LabContext';
-import Carrousel from '../components/Carrousel'; // Assuming you have a Carrousel component for displaying images
+import Carrousel from '../components/Carrousel';
+import LabModal from '../components/LabModal';
 
 export default function ProviderDashboard() {
   const { address } = useAccount();
-  const { labs, setLabs } = useLabs(); // Assuming `setLabs` is exposed in LabContext
+  const { labs, loading, setLabs } = useLabs(); // Assuming `setLabs` is exposed in LabContext
   const [ownedLabs, setOwnedLabs] = useState([]);
-  const [editingLabId, setEditingLabId] = useState(null);
+  const [editingLab, setEditingLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newLab, setNewLab] = useState({
     name: '',
@@ -29,275 +30,150 @@ export default function ProviderDashboard() {
     }
   }, [address, labs]);
 
+  // Automatically set the first lab as the selected lab
+  useEffect(() => {
+    if (ownedLabs.length > 0 && !editingLab) {
+      setEditingLab(ownedLabs[0]);
+    }
+  }, [ownedLabs]);
+
   // Handle unregister/delist a lab
   const handleUnregisterLab = (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
     setLabs(updatedLabs);
   };
 
-  // Handle updating a lab
-  const handleUpdateLab = (updatedLab) => {
-    const updatedLabs = labs.map((lab) =>
-      lab.id === updatedLab.id ? updatedLab : lab
-    );
-    setLabs(updatedLabs);
-    setEditingLabId(null); // Close the expanded view
-  };
-
-  // Handle adding a new lab
-  const handleAddLab = () => {
-    const newLabWithId = { ...newLab, id: Date.now(), providerAddress: address };
-    setLabs([...labs, newLabWithId]);
-    setNewLab({
-      name: '',
-      category: '',
-      price: '',
-      description: '',
-      provider: '',
-      auth: '',
-      image: [],
-      keywords: [],
-      docs: [],
-    });
+  // Handle adding or updating a lab
+  const handleSaveLab = () => {
+    if (editingLab?.id) {
+      const updatedLabs = labs.map((lab) =>
+        lab.id === editingLab.id ? editingLab : lab
+      );
+      setLabs(updatedLabs);
+    } else {
+      const newLabWithId = { ...newLab, id: Date.now(), providerAddress: address };
+      setLabs([...labs, newLabWithId]);
+    }
+    setEditingLab(null);
+    setIsModalOpen(false);
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Provider Dashboard</h1>
+    <div className="container mx-auto p-4">
+      <div className="relative bg-cover bg-center text-white py-5 text-center">
+        <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
+      </div>
 
-      {/* List Owned Labs */}
-      <h2 className="text-xl font-semibold mb-2">Your Labs</h2>
-      <ul className="space-y-4">
-        {ownedLabs.map((lab) => (
-          <li key={lab.id} className="p-4 border rounded shadow">
-            <h3 className="text-lg font-bold text-center">{lab.name}</h3>
-            <div className="md:w-1/2 flex flex-col items-center justify-center p-4 mr-8">
-              <div className="w-full h-[400px] flex items-center justify-center">
-                {lab.image && lab.image.length > 0 ? (
-                  <div className="w-full h-full">
-                    <Carrousel lab={lab} />
-                  </div>
-                ) : (
-                  <div className="text-center">No images available</div>
-                )}
-              </div>
-            </div>
-            <div className="flex space-x-4 mt-2">
-              <button
-                onClick={() =>
-                  setEditingLabId(editingLabId === lab.id ? null : lab.id)
-                }
-                className="bg-blue-500 text-white px-4 py-2 rounded"
-              >
-                {editingLabId === lab.id ? 'Cancel' : 'Edit'}
-              </button>
-              <button
-                onClick={() => handleUnregisterLab(lab.id)}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Unregister
-              </button>
-            </div>
+      <div className="flex">
 
-            {/* Expandable Edit Form */}
-            {editingLabId === lab.id && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleUpdateLab(lab);
+        <div className="w-2/3">
+          <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
+          {loading ? (
+            <p className="text-gray-300 text-center">Loading labs...</p>
+          ) : ownedLabs.length > 0 ? (
+            <>
+            <div className="flex justify-center">
+              <select
+                className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
+                value={editingLab?.id || ""}
+                onChange={(e) => {
+                  const selectedLab = ownedLabs.find((lab) => lab.id === parseInt(e.target.value));
+                  setEditingLab(selectedLab || null);
                 }}
-                className="mt-4 space-y-4"
               >
-                <input
-                  type="text"
-                  placeholder="Lab Name"
-                  value={lab.name}
-                  onChange={(e) => (lab.name = e.target.value)}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Category"
-                  value={lab.category}
-                  onChange={(e) => (lab.category = e.target.value)}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={lab.price}
-                  onChange={(e) => (lab.price = e.target.value)}
-                  className="w-full p-2 border rounded"
-                />
-                <textarea
-                  placeholder="Description"
-                  value={lab.description}
-                  onChange={(e) => (lab.description = e.target.value)}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Auth URL"
-                  value={lab.auth}
-                  onChange={(e) => (lab.auth = e.target.value)}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Provider Name"
-                  value={lab.provider}
-                  onChange={(e) => (lab.provider = e.target.value)}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Image URLs (comma-separated)"
-                  value={lab.image.join(',')}
-                  onChange={(e) => (lab.image = e.target.value.split(','))}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Keywords (comma-separated)"
-                  value={lab.keywords.join(',')}
-                  onChange={(e) => (lab.keywords = e.target.value.split(','))}
-                  className="w-full p-2 border rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Docs URLs (comma-separated)"
-                  value={lab.docs.join(',')}
-                  onChange={(e) => (lab.docs = e.target.value.split(','))}
-                  className="w-full p-2 border rounded"
-                />
-                <div className="flex justify-between">
+                <option value="" disabled>
+                  Select one of your labs
+                </option>
+                {ownedLabs.map((lab) => (
+                  <option key={lab.id} value={lab.id}>
+                    {lab.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {editingLab && (
+              <div className="p-4 border rounded shadow max-w-4xl mx-auto">
+                <h3 className="text-lg font-bold text-center mb-4">{editingLab.name}</h3>
+                <div className="w-full flex">
+                  <div className="w-2/3">
+                    <Carrousel lab={editingLab} maxHeight={200} />
+                  </div>
+                  <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className="relative bg-[#715c8c] h-1/4 overflow-hidden group hover:font-bold"
+                    >
+                      Edit
+                      <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                      border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-300"></span>
+                    </button>
+                    <button
+                      onClick={() => {}}
+                      className="relative bg-[#bcc4fc] h-1/4 overflow-hidden group hover:font-bold"
+                    >
+                      Collect
+                      <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                      border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-300"></span>
+                    </button>
+                    <button
+                      onClick={() => {}}
+                      className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold"
+                    >
+                      List
+                      <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                      border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-300"></span>
+                    </button>
+                    <button
+                      onClick={() => {}}
+                      className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold"
+                    >
+                      Unlist
+                      <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                      border-b-[#5f6a91] border-l-[7em] border-l-transparent opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-300"></span>
+                    </button>
+                  </div>
+                </div>
+                <div className="w-2/3 flex justify-center mt-4">
                   <button
-                    type="submit"
-                    className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                    onClick={() => handleUnregisterLab(editingLab.id)}
+                    className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold hover:bg-[#8a5c66]"
                   >
-                    Save Changes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingLabId(null)}
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  >
-                    Cancel
+                    Delete
                   </button>
                 </div>
-              </form>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {/* Add Lab Button */}
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-600"
-      >
-        Add New Lab
-      </button>
-
-      {/* Add Lab Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-xl font-semibold mb-4">Add New Lab</h2>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleAddLab();
-              }}
-              className="space-y-4"
-            >
-              <input
-                type="text"
-                placeholder="Lab Name"
-                value={newLab.name}
-                onChange={(e) => setNewLab({ ...newLab, name: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Category"
-                value={newLab.category}
-                onChange={(e) => setNewLab({ ...newLab, category: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="number"
-                placeholder="Price"
-                value={newLab.price}
-                onChange={(e) => setNewLab({ ...newLab, price: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <textarea
-                placeholder="Description"
-                value={newLab.description}
-                onChange={(e) => setNewLab({ ...newLab, description: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Auth URL"
-                value={newLab.auth}
-                onChange={(e) => setNewLab({ ...newLab, auth: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Provider Name"
-                value={newLab.provider}
-                onChange={(e) => setNewLab({ ...newLab, provider: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Image URLs (comma-separated)"
-                value={newLab.image.join(',')}
-                onChange={(e) =>
-                  setNewLab({ ...newLab, image: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Keywords (comma-separated)"
-                value={newLab.keywords.join(',')}
-                onChange={(e) =>
-                  setNewLab({ ...newLab, keywords: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Docs URLs (comma-separated)"
-                value={newLab.docs.join(',')}
-                onChange={(e) =>
-                  setNewLab({ ...newLab, docs: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-              <div className="flex justify-between">
-                <button
-                  type="submit"
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                  Add Lab
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
               </div>
-            </form>
+            )}
+            </>
+          ) : (
+            <p className="text-gray-300">
+              You have no labs registered yet. Press "Add New Lab" to get started.
+            </p>
+          )}
+          <div className="flex justify-center mt-4">
+            <button onClick={() => { setEditingLab(null); setIsModalOpen(true); }}
+              className="px-6 py-3 rounded shadow-lg bg-[#7b976e] text-white hover:bg-[#83a875]">
+              Add New Lab
+            </button>
           </div>
         </div>
-      )}
+
+        <div className="w-1/3">
+          <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
+        </div>
+        
+      </div>
+
+      <LabModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSaveLab}
+        lab={editingLab || newLab}
+        setLab={editingLab ? setEditingLab : setNewLab}
+      />
     </div>
   );
 }

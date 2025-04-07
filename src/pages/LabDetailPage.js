@@ -30,14 +30,12 @@ export default function LabDetailPage({ id }) {
         {/* Carousel Section */}
         <article className="md:w-1/2 flex flex-col items-center justify-center p-4">
           <div className="w-full h-[400px] flex items-center justify-center">
-            <div className="w-full h-full">
-              <Carrousel lab={lab} />
-            </div>
+            <Carrousel lab={lab} />
           </div>
         </article>
 
         {/* Lab Details Section */}
-        <article className="md:w-2/5 md:ml-4 mt-3">
+        <article className="md:w-2/5 md:ml-4 mt-4">
           <header>
             <h1 className="text-2xl font-bold pb-2 text-center">{lab.name}</h1>
             <div className="flex justify-center">
@@ -55,7 +53,7 @@ export default function LabDetailPage({ id }) {
           {/* Category */}
           <div className="flex items-center">
             <span
-              className="bg-red-700 text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
+              className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
               aria-label={`Category: ${lab.category}`}
             >
               {lab.category}
@@ -67,7 +65,7 @@ export default function LabDetailPage({ id }) {
             {lab.keywords.map((keyword) => (
               <span
                 key={keyword}
-                className="bg-yellow-700 text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
+                className="bg-[#335763] text-gray-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded"
                 aria-label={`Keyword: ${keyword}`}
               >
                 {keyword}
