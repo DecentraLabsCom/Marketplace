@@ -94,8 +94,8 @@ export default function UserDashboard() {
                 {userData.labs
                 .filter((lab) => lab.activeStatus === true)
                 .map((lab) => (
-                  <li key={lab.id} className="mb-4 border-2 p-2 rounded-lg">
-                    <Carrousel lab={lab} containerClassName="h-[120px] mb-2" maxHeight="h-[10px]"/>
+                  <li key={lab.id} className="mb-4 border-2 p-2 rounded-lg h-[155px] flex flex-col justify-between">
+                    <Carrousel lab={lab} maxHeight={100} />
                     
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700">{lab.name}</span>
