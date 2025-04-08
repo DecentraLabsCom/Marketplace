@@ -1,5 +1,5 @@
 import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
-import { appendPath } from '../utils/pathUtils'
+import Image from 'next/image'
 
 export default function Footer() {
   return (
@@ -7,20 +7,24 @@ export default function Footer() {
       <div className="container mx-auto p-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-center">
           {/* Left: Support */}
-          <div className="flex space-x-4 mt-4 md:mt-0 md:justify-center">
-            <img src={appendPath + "/eu_funded_en.jpg"} alt="EU Funded" className="h-10" />
-            <img src={appendPath + "/ngi_sargasso.jpg"} alt="NGI Sargasso" className="h-10" />
+          <div className="flex md:justify-center">
+              <div className="flex space-x-4 md:justify-center h-10 w-1/2 relative">
+                <Image src="/eu_funded_en.jpg" alt="EU Funded" fill priority sizes="10vw" 
+                            className="!relative" />
+                <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" fill priority sizes="10vw"
+                            className="!relative" />
+              </div>
           </div>
 
           {/* Center: Links */}
-          <div className="flex space-x-4 mt-4 md:mt-0 md:justify-center items-center">
+          <div className="flex space-x-4 md:justify-center items-center">
             <a href="/about" className="hover:text-white transition font-semibold">About</a>
             <a href="/faq" className="hover:text-white transition font-semibold">FAQ</a>
             <a href="/contact" className="hover:text-white transition font-semibold">Contact</a>
           </div>
 
           {/* Right: Social Media */}
-          <div className="flex space-x-4 mt-4 md:mt-0 md:justify-center items-center">
+          <div className="flex space-x-4 md:justify-center items-center">
             <a href="https://decentralabs.nebsyst.com" target="_blank" rel="noopener noreferrer">
               <FaGlobe className="h-6 w-6 hover:text-[#715c8c]" />
             </a>

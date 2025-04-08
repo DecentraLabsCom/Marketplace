@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useRouter } from 'next/router';
 import { useAccount } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import Login from './Login';
-import { appendPath } from '../utils/pathUtils';
-import { useRouter } from 'next/router';
 
 export default function Navbar() {
   const router = useRouter();
@@ -41,25 +41,28 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="bg-[#caddff] text-[#333f63] p-4 shadow-md">
+    <nav className="bg-[#caddff] text-[#333f63] p-3 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/">
-          <img src={appendPath + "/DecentraLabs.png"} alt="DecentraLabs Logo" className="h-14" />
+          <div className="h-14 relative">
+          <Image src="/DecentraLabs.png" alt="DecentraLabs Logo" fill priority sizes="80vw"
+                      className="!relative" />
+          </div>
         </Link>
 
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
           <div className="hidden md:flex space-x-6 font-bold">
             {isClient && (isConnected || user) && (
+            <>
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/reservation" className="p-3">Book a Lab</Link>
             </div>
-            )}
-            {isClient && (isConnected || user) && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
               <Link href="/userdashboard" className="p-3">Dashboard</Link>
             </div>
+            </>
             )}
             {isClient && (isConnected || user) && !provider && (
             <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">

@@ -1,5 +1,5 @@
-const path = require('path');
-const { appendPath } = require('./src/utils/pathUtils');
+import { join } from 'path';
+const appendPath = process.env.NODE_ENV === 'production' ? '/marketplace' : '';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -7,9 +7,9 @@ const nextConfig = {
   basePath: appendPath,
   assetPrefix: appendPath,
   webpack(config) {
-    config.resolve.alias['@'] = path.join(__dirname, 'src');
+    config.resolve.alias['@'] = join(__dirname, 'src');
     return config;
   }
 };
 
-module.exports = nextConfig;
+export default nextConfig;

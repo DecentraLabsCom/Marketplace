@@ -107,7 +107,7 @@ export default function UserDashboard({ auth }) {
                             transition-transform duration-300 hover:scale-105 mr-3
                             mb-4 border-2 p-2 h-[250px] rounded-lg flex flex-col ${hasActiveBooking ? 'border-4 border-[#715c8c] animate-glow' : ''}`}
                         >
-                          <div className='rounded-lg h-[150px]'>
+                          <div className='rounded-lg h-[150px] w-full'>
                             <Carrousel lab={firstActiveLab} maxHeight={140} />
                           </div>
                           <h2 className="text-gray-700 mt-2 block">{firstActiveLab.name}</h2>

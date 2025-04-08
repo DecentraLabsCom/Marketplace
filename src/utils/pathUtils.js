@@ -1,9 +1,3 @@
-const production = false;
-let appendPath;
-
-if (production)
-    appendPath = '/marketplace';
-else
-    appendPath = '';
+const appendPath = process.env.NEXT_PUBLIC_APPEND_PATH
 
 export { appendPath };

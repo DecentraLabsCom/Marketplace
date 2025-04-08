@@ -6,7 +6,6 @@ import { FaSignInAlt } from 'react-icons/fa';
 
 export default function Login({ isConnected, user }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-      console.log("isConnected:", isConnected);
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
   };

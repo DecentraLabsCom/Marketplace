@@ -1,5 +1,3 @@
-import { appendPath } from './pathUtils'
-
 let labs = [];
 const subscribers = [];
 
@@ -53,9 +51,9 @@ export const fetchLabsData = async (contract) => {
         day_start: "05/18/2025",
         day_finish: "05/25/2025",
         image: [
-          appendPath + "/labs/lab_1.jpg",
-          appendPath + "/labs/lab1/01.jpg",
-          appendPath + "/labs/lab1/02.jpg"
+          "/labs/lab_1.jpg",
+          "/labs/lab1/01.jpg",
+          "/labs/lab1/02.jpg"
         ], 
         keywords: ["four", "tanks", "lab"],
         docs: [
@@ -70,10 +68,10 @@ export const fetchLabsData = async (contract) => {
         day_start: "05/18/2025",
         day_finish: "05/25/2025",
         image: [
-          appendPath + "/labs/lab_2.jpg",
-          appendPath + "/labs/lab2/01.jpg",
-          appendPath + "/labs/lab2/02.jpg",
-          appendPath + "/labs/lab2/03.jpg"
+          "/labs/lab_2.jpg",
+          "/labs/lab2/01.jpg",
+          "/labs/lab2/02.jpg",
+          "/labs/lab2/03.jpg"
         ], 
         keywords: ["mobile", "robots", "lab"],
         docs: [
@@ -87,9 +85,9 @@ export const fetchLabsData = async (contract) => {
         day_start: "05/18/2025",
         day_finish: "05/25/2025",
         image: [
-          appendPath + "/labs/lab_3.jpg",
-          appendPath + "/labs/lab3/01.jpg",
-          appendPath + "/labs/lab3/02.jpeg"
+          "/labs/lab_3.jpg",
+          "/labs/lab3/01.jpg",
+          "/labs/lab3/02.jpeg"
         ], 
         keywords: ["industrial", "instrumentation", "lab"],
         docs: [
@@ -102,10 +100,10 @@ export const fetchLabsData = async (contract) => {
         day_start: "05/18/2025",
         day_finish: "05/25/2025",
         image: [
-          appendPath + "/labs/lab_4.jpg",
-          appendPath + "/labs/lab4/01.png",
-          appendPath + "/labs/lab4/02.jpg",
-          appendPath + "/labs/lab4/03.jpg"
+          "/labs/lab_4.jpg",
+          "/labs/lab4/01.png",
+          "/labs/lab4/02.jpg",
+          "/labs/lab4/03.jpg"
         ], 
         keywords: ["three", "tanks", "lab"],
         docs: [
@@ -118,9 +116,9 @@ export const fetchLabsData = async (contract) => {
         day_start: "05/18/2025",
         day_finish: "05/25/2025",
         image: [
-          appendPath + "/labs/lab_5.jpg",
-          appendPath + "/labs/lab5/01.png",
-          appendPath + "/labs/lab5/02.jpg"
+          "/labs/lab_5.jpg",
+          "/labs/lab5/01.png",
+          "/labs/lab5/02.jpg"
         ], 
         keywords: ["snell", "snell's", "law", "lab"] ,
         docs: [
