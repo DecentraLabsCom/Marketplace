@@ -68,7 +68,7 @@ export default function Carrousel({ lab, maxHeight }) {
       {/* Arrow handles */}
       {/* Move to previous image */}
       <button onClick={handlePrev} className="absolute bottom-0 left-0 top-0 z-[20] flex w-[15%] items-center 
-        justify-center border-0 bg-none p-0 text-center text-white opacity-100 hover:opacity-90 duration-150 
+        justify-center border-0 bg-none p-0 text-white opacity-100 hover:opacity-90 duration-150 
         transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1.0)] pointer-events-auto group" type="button">
         <span className="inline-block h-8 w-8">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" 
@@ -85,7 +85,7 @@ export default function Carrousel({ lab, maxHeight }) {
 
       {/* Move to next image */}
       <button onClick={handleNext} className="absolute bottom-0 right-0 top-0 z-[20] flex w-[15%] items-center 
-        justify-center border-0 bg-none p-0 text-center text-white opacity-100 hover:opacity-90 duration-150 
+        justify-center border-0 bg-none p-0 text-white opacity-100 hover:opacity-90 duration-150 
         transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1.0)] pointer-events-auto group" type="button">
         <span className="inline-block h-8 w-8">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" 

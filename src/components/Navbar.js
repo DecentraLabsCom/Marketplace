@@ -15,6 +15,12 @@ export default function Navbar() {
   const [user, setUser] = useState(null);
   const { isConnected } = useAccount();
 
+  const menuButton = (href, label) => (
+    <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
+      <Link href={href} className="p-3">{label}</Link>
+    </div>
+  );
+
   // Listen for changes in isConnected
   useEffect(() => {
     if (!isConnected && !user) {
@@ -56,23 +62,11 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 font-bold">
             {isClient && (isConnected || user) && (
             <>
-            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/reservation" className="p-3">Book a Lab</Link>
-            </div>
-            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/userdashboard" className="p-3">Dashboard</Link>
-            </div>
+              {menuButton("/reservation", "Book a Lab")}
+              {menuButton("/userdashboard", "Dashboard")}
+              {!provider && menuButton("/register", "Register as a Provider")}
+              {provider && menuButton("/providerdashboard", "Lab Panel")}
             </>
-            )}
-            {isClient && (isConnected || user) && !provider && (
-            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/register" className="p-3">Register as a Provider</Link>
-            </div>
-            )}
-            {isClient && (isConnected || user) && provider && (
-            <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
-              <Link href="/providerdashboard" className="p-3">Lab Panel</Link>
-            </div>
             )}
           </div>
           <div className="h-8 border-l border-gray-600" />
