@@ -33,11 +33,8 @@ export default function Login({ isConnected, user }) {
   return (
     <div>
       {/* Login Button */}
-      <button
-        onClick={toggleModal}
-        className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 flex items-center space-x-2 transition 
-        duration-300 ease-in-out hover:bg-[#333f63] hover:text-white"
-      >
+      <button onClick={toggleModal} className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 flex
+        items-center space-x-2 transition duration-300 ease-in-out hover:bg-[#333f63] hover:text-white">
         <FaSignInAlt className="h-5 w-5" />
         <span>Login</span>
       </button>

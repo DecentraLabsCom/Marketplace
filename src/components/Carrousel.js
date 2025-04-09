@@ -50,18 +50,13 @@ export default function Carrousel({ lab, maxHeight }) {
       {/* Slide handles */}
       <div className="absolute inset-x-0 bottom-0 z-[20] mx-[15%] mb-4 flex list-none justify-center p-0 pointer-events-auto">
       {lab.image.map((_, index) => (
-        <button
-          key={index}
-          type="button"
-          data-twe-slide-to={index}
+        <button key={index} type="button" data-twe-slide-to={index}
           className={`mx-[3px] box-content h-[3px] w-[30px] flex-initial cursor-pointer border-0 border-y-[10px] 
-            border-solid border-transparent bg-white hover:bg-blue-500 bg-clip-padding p-0 -indent-[999px] opacity-50 
-            transition-opacity duration-[600ms] ease-[cubic-bezier(0.25,0.1,0.25,1.0)] motion-reduce:transition-none 
-            ${ index === currentIndex ? 'opacity-100 bg-blue-400' : '' }`}
-          aria-current={index === currentIndex ? 'true' : 'false'}
-          aria-label={`Slide ${index + 1}`}
-          onClick={() => handleSlide(index)}
-        ></button>
+          border-solid border-transparent bg-white hover:bg-blue-500 bg-clip-padding p-0 -indent-[999px] opacity-50 
+          transition-opacity duration-[600ms] ease-[cubic-bezier(0.25,0.1,0.25,1.0)] motion-reduce:transition-none 
+          ${ index === currentIndex ? 'opacity-100 bg-blue-400' : '' }`}
+          aria-current={index === currentIndex ? 'true' : 'false'} aria-label={`Slide ${index + 1}`}
+          onClick={() => handleSlide(index)} />
       ))}
       </div>
 
