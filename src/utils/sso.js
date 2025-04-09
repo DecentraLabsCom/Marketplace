@@ -21,10 +21,10 @@ async function createSession(res, userData) {
 const keyPath = path.join(process.cwd(), 'certificates', "key.pem");
 const certPath = path.join(process.cwd(), 'certificates', "cert.pem");
 const sp = new ServiceProvider({
-  entity_id: "http://localhost:3000/api/auth/sso/metadata",
+  entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
   private_key: fs.readFileSync(keyPath, "utf8"),
   certificate: fs.readFileSync(certPath, "utf8"),
-  assert_endpoint: "http://localhost:3000/api/auth/sso/callback",
+  assert_endpoint: NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
 });
 
 const idPCertPath = path.join(process.cwd(), 'certificates', "idp_cert.pem");
