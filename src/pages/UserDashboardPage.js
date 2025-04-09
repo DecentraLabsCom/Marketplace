@@ -112,7 +112,7 @@ export default function UserDashboard({ auth }) {
                           </div>
                           <h2 className="text-gray-700 mt-2 block">{firstActiveLab.name}</h2>
                           <span className="text-gray-700 mt-1 block">Available until [date]</span>
-                          <LabAccess userWallet={address} hasActiveBooking={hasActiveBooking} auth={firstActiveLab.auth} marginBottom={5} width={300} />
+                          <LabAccess userWallet={address} hasActiveBooking={hasActiveBooking} auth={firstActiveLab.auth} />
                         </div>
                         <button className='px-3 mr-3 py-1 rounded-full text-sm bg-orange-500 text-white'>Apply for a refund</button>
                       </div>
