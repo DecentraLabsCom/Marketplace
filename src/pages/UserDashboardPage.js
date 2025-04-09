@@ -155,48 +155,63 @@ export default function UserDashboard({ auth }) {
                 <hr className='mb-5 separator-width-black'></hr>
                 <ul>
                   {userData.labs.map((lab) => (
-                    <li key={lab.id} className="mb-4">
-                      <div className="flex flex-grow items-center">
-                        <span className="text-gray-700">{lab.name}</span>
-                        {/* Button for lab's activeStatus tests */}
-                        {lab.activeStatus ? (
-                        <button 
-                          className='ml-2 z-50 border text-black rounded-lg p-3 bg-orange-100'
-                          onClick={() => setInactiveStatus(lab.id)}>
-                          Set Inactive
-                        </button>
-                        ) : (
-                        <button 
-                          className='ml-2 z-50 border text-black rounded-lg p-3 bg-orange-100'
-                          onClick={() => setActiveStatus(lab.id)}>
-                          Set Active
-                        </button>
-                        )}
-                        <span className={`ml-auto px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                          {lab.activeStatus === true ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                    </li>
+                    <div className='mb-4 border-2 p-2 rounded-lg text-center'>
+                      <li key={lab.id} className="flex flex-grow items-center w-full">
+                        <div className="flex items-center w-full">
+                        <Link className="border-2 p-2 rounded-lg text-center hover:bg-slate-200
+                        " href={`/lab/${lab.id}`}>
+                          <span className="text-gray-700 text-left flex-grow">{lab.name}</span></Link>
+                          {/* Button for lab's activeStatus tests */}
+                          <div className="mx-auto mr-4">
+                            {lab.activeStatus ? (
+                            <button 
+                              className='z-50 border text-black rounded-lg p-3 bg-orange-100'
+                              onClick={() => setInactiveStatus(lab.id)}>
+                              Set Inactive
+                            </button>
+                            ) : (
+                            <button 
+                              className='z-50 border text-black rounded-lg p-3 bg-orange-100'
+                              onClick={() => setActiveStatus(lab.id)}>
+                              Set Active
+                            </button>
+                            )}
+                          </div>
+                          <span className={`text-right ml-auto px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                            {lab.activeStatus === true ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                      </li>
+                    </div>
                   ))}
                 </ul>
               </div>
 
-              {/* Previously booked labs */}
-              <div className="flex-1">
-                <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Previously booked</h2>
-                <hr className='mb-5 separator-width-black'></hr>
-                <ul className='flex items-center flex-col justify-center'>
-                  {userData.labs
-                  .filter((lab) => lab.formerlyBooked === true)
-                  .map((lab) => (
-                    <Link className="mb-4 border-2 p-2 rounded-lg w-2/3 text-center" href={`/lab/${lab.id}`}>
-                      <li key={lab.id} >
-                        <span className="text-gray-700">{lab.name}</span>
-                      </li>
-                    </Link>
-                  ))}
-                </ul>
+              {/* Vertical divider */}  
+              <div class="h-[310px] mt-1 mx-3 min-h-[1em] w-px self-stretch bg-gradient-to-tr
+            from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
+            border-l-1 border-neutral-800 dark:border-neutral-200 border-dashed"
+                  style={{ borderWidth: '4px', borderLeftStyle: 'dashed', borderSpacing: '2px' }}>
               </div>
+
+              
+                {/* Previously booked labs */}
+                <div className="flex-1">
+                  <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Previously booked</h2>
+                  <hr className='mb-5 separator-width-black'></hr>
+                  <ul className='flex items-center flex-col justify-center'>
+                    {userData.labs
+                    .filter((lab) => lab.formerlyBooked === true)
+                    .map((lab) => (
+                      <Link className="mb-4 border-2 p-2 rounded-lg w-2/3 text-center" href={`/lab/${lab.id}`}>
+                        <li key={lab.id} >
+                          <span className="text-gray-700">{lab.name}</span>
+                        </li>
+                      </Link>
+                    ))}
+                  </ul>
+                </div>
+              
             </div>
           </div>
         </div>
