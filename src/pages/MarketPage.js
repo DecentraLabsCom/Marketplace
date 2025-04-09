@@ -3,28 +3,22 @@ import { useLabs } from '../context/LabContext';
 import LabCard from "../components/LabCard";
 
 export default function MarketPage() {
+  const searchInputRef = useRef(null);
   const { labs, loading } = useLabs();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
   const [selectedProvider, setSelectedProvider] = useState("All");
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
-  const searchInputRef = useRef(null);
   const [categories, setCategories] = useState([]);
   const [providers, setProviders] = useState([]);
 
-  // Get all labs' categories
+  // Get all lab categories and providers
   useEffect(() => {
     if (labs) {
       // Extract each category only once
       const uniqueCategories = [...new Set(labs.map((lab) => lab.category))];
       setCategories(uniqueCategories);
-    }
-  }, [labs]);
-
-  // Get all labs' providers
-  useEffect(() => {
-    if (labs) {
       // Extract each provider only once
       const uniqueProviders = [...new Set(labs.map((lab) => lab.provider))];
       setProviders(uniqueProviders);
@@ -100,19 +94,18 @@ export default function MarketPage() {
   return (
     <main className="container mx-auto p-6">
       <section className="flex flex-row justify-center items-center">
+
         {/* Category Filter */}
         <div className="mb-6 flex justify-center px-1">
           <label htmlFor="category-filter" className="sr-only">
             Filter by Category
           </label>
-          <select
-            id="category-filter"
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            value={selectedCategory}
-            className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer"
-          >
-            <option value="All">All Categories</option>
+          <select id="category-filter" onChange={(e) => setSelectedCategory(e.target.value)}
+            value={selectedCategory} className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 
+            shadow-md hover:bg-[#caddff] cursor-pointer">
+            <option value="All">
+              All Categories
+            </option>
             {categories.map((category) => (
               <option key={category} value={category}>
                 {category}
@@ -120,19 +113,18 @@ export default function MarketPage() {
             ))}
           </select>
         </div>
+
         {/* Provider Filter */}
         <div className="mb-6 flex justify-center px-1">
-        <label htmlFor="provider-filter" className="sr-only">
+          <label htmlFor="provider-filter" className="sr-only">
             Filter by Provider
           </label>
-          <select
-            id="provider-filter"
-            onChange={(e) => setSelectedProvider(e.target.value)}
-            value={selectedProvider}
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] 
-            cursor-pointer"
-          >
-            <option value="All">All Providers</option>
+          <select id="provider-filter" onChange={(e) => setSelectedProvider(e.target.value)}
+            value={selectedProvider} className="px-4 py-2 border rounded bg-white text-gray-800 
+            shadow-md hover:bg-[#caddff] cursor-pointer">
+            <option value="All">
+              All Providers
+            </option>
             {providers.map((provider) => (
               <option key={provider} value={provider}>
                 {provider}
@@ -140,6 +132,7 @@ export default function MarketPage() {
             ))}
           </select>
         </div>
+
         {/* Search Bar */}
         <div className="mb-6 w-full max-w-sm min-w-[20px] mx-1">
           <div className="relative">
@@ -147,44 +140,36 @@ export default function MarketPage() {
               <label htmlFor="search-bar" className="sr-only">
                 Search Labs
               </label>
-              <select
-                onChange={(e) => setSelectedFilter(e.target.value)}
-                value={selectedFilter}
+              <select onChange={(e) => setSelectedFilter(e.target.value)} value={selectedFilter}
                 className="bg-white rounded border border-transparent py-1 px-1.5 flex items-center 
                 text-sm transition-all text-slate-600 hover:bg-[#caddff] cursor-pointer">
                 <option value="Keyword">Keyword</option>
                 <option value="Name">Name</option>
               </select>
-              <div className="h-6 border-l border-slate-200 ml-1.5"></div>
+              <div className="h-6 border-l border-slate-200 ml-1.5" />
             </div>
-            <input
-              ref={searchInputRef} 
-              type="text"
+
+            <input ref={searchInputRef} type="text" placeholder="Type here..." onKeyDown={handleKeyDown}
               className="w-full bg-transparent placeholder:text-slate-500 text-slate-300 text-sm border 
               border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none 
               focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
-              placeholder="Type here..."
-              onKeyDown={handleKeyDown}
               onChange={handleInputChange}/>
         
-            <button onClick={search}
-              className="absolute top-1 right-1 flex items-center rounded bg-[#715c8c]  py-1 px-2.5 border 
-              border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow 
-              focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 
-              active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none"
-              type="button"
-            >
+            <button onClick={search} className="absolute top-1 right-1 flex items-center rounded 
+              bg-[#715c8c]  py-1 px-2.5 border border-transparent text-center text-sm text-white 
+              transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none 
+              active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none 
+              disabled:opacity-50 disabled:shadow-none" type="button">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" 
               className="w-4 h-4 mr-1.5">
-                <path fillRule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 
-                2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" 
-                clipRule="evenodd" />
+                <path fillRule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 
+                1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clipRule="evenodd" />
               </svg>
-        
               Search
             </button> 
           </div>   
         </div>
+
         {/* Price sorting */}
         <div className="mb-6 flex justify-center px-1">
           <button
@@ -195,6 +180,7 @@ export default function MarketPage() {
             {selectedPrice}
           </button>
         </div>
+      
       </section>
 
       {/* Labs Grid */}

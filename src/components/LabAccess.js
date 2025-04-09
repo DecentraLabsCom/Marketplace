@@ -76,13 +76,16 @@ export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
 
   return (
     <div onClick={handleAccess} className="text-center">
-      {errorMessage && <div className={`fixed z-20 top-1/2 left-1/2 p-4 w-3/4 transform -translate-x-1/2 
-          -translate-y-1/2 bg-[#715c8c] text-white rounded-lg shadow-lg opacity-100 transition-opacity 
-          duration-1000`} style={{ transition: 'opacity 1.5s ease-out' }}
-      >{errorMessage}</div>} {/* Show the error message */}
+      {/* Show the error message */}
+      {errorMessage && ( 
+        <div className={`fixed z-20 top-1/2 left-1/2 p-4 w-3/4 transform -translate-x-1/2 
+          -translate-y-1/2 bg-[#715c8c] text-white rounded-lg shadow-lg opacity-85`}>
+            {errorMessage}
+        </div>
+      )}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-[#715c8c] bg-opacity-75 
         opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-lg 
-        font-bold cursor-pointer z-10 hover:bg-[#8a6fa3] hover:bg-opacity-75">
+        font-bold cursor-pointer z-10">
           <div className="absolute inset-0 flex items-center justify-center transform
             transition-transform duration-300 hover:scale-110" style={{ bottom: '-15%' }}>
             <div className={`text-white px-4 py-2 rounded mt-3`}

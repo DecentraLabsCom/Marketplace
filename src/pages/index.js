@@ -4,7 +4,7 @@ export default function HomePage() {
 
   return (
     <div>
-      <div className="relative bg-cover bg-center text-white py-8 text-center">
+      <div className="relative bg-cover bg-center text-white pt-8 pb-4 text-center">
         <div className="absolute inset-0"></div>
         <div className="relative z-10">
           <h1 className="text-3xl font-bold mb-2">Explore Online Labs</h1>
