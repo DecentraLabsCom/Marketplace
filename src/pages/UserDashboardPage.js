@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { useLabs } from '../context/LabContext'
 import Carrousel from '../components/Carrousel';
 import LabAccess from "../components/LabAccess";
-import React from 'react'
+import React from 'react';
+import Link from "next/link";
 
 export default function UserDashboard({ auth }) {
   const { address, isConnected } = useAccount()
@@ -114,10 +115,10 @@ export default function UserDashboard({ auth }) {
                           <span className="text-gray-700 mt-1 block">Available until [date]</span>
                           <LabAccess userWallet={address} hasActiveBooking={hasActiveBooking} auth={firstActiveLab.auth} />
                         </div>
-                        <button className='px-3 mr-3 py-1 rounded-full text-sm bg-orange-500 text-white'>Apply for a refund</button>
+                        <button className='px-3 mr-3 py-1 rounded-full text-sm bg-orange-500 hover:bg-orange-300 text-white'>Apply for a refund</button>
                       </div>
-                      <div className={`w-5/5 flex-1 mb-4 border-2 p-2 text-center rounded-lg shadow-md bg-gray-300`}>
-                        <h3 className="text-lg font-semibold mb-2 text-gray-700">Documentation</h3>
+                      <div className={`w-5/5 ${firstActiveLab.docs.length > 0 ? `` : 'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center rounded-lg shadow-md bg-gray-300`}>
+                        {/* <h3 className="text-lg font-semibold mb-2 text-gray-700">Documentation</h3> */}
                           {firstActiveLab.docs && firstActiveLab.docs.length > 0 && (
                             <div key={0} className="mt-1">
                               <iframe src={firstActiveLab.docs[0]} title="description" height="280px" width="100%" className='rounded-lg'></iframe>
@@ -126,13 +127,15 @@ export default function UserDashboard({ auth }) {
                           {firstActiveLab.docs.length === 0 && (
                             <span className="text-gray-700 text-center">No documents available</span>
                           )}
+                          <Link href={`/lab/${firstActiveLab.id}`} className='px-3 mt-3 py-1 rounded-full 
+                          text-sm bg-yellow-500 hover:bg-yellow-300 text-white'>Explore this lab</Link>
                       </div>
                     </React.Fragment>
                   )}
                   
                 </div> 
                 {!firstActiveLab && (
-                  <span className="text-gray-100 text-center">No lab currently active</span>
+                  <span className="text-gray-700 text-center">No lab currently active</span>
                 )}
               </div>
             </div>
@@ -182,13 +185,15 @@ export default function UserDashboard({ auth }) {
               <div className="flex-1">
                 <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Previously booked</h2>
                 <hr className='mb-5 separator-width-black'></hr>
-                <ul>
+                <ul className='flex items-center flex-col justify-center'>
                   {userData.labs
                   .filter((lab) => lab.formerlyBooked === true)
                   .map((lab) => (
-                    <li key={lab.id} className="mb-4 border-2 p-2 rounded-lg">
-                      <span className="text-gray-700">{lab.name}</span>
-                    </li>
+                    <Link className="mb-4 border-2 p-2 rounded-lg w-2/3 text-center" href={`/lab/${lab.id}`}>
+                      <li key={lab.id} >
+                        <span className="text-gray-700">{lab.name}</span>
+                      </li>
+                    </Link>
                   ))}
                 </ul>
               </div>
