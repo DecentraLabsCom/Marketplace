@@ -5,6 +5,7 @@ import Carrousel from '../components/Carrousel';
 import LabAccess from "../components/LabAccess";
 import React from 'react';
 import Link from "next/link";
+import Refund from '../components/Refund';
 
 export default function UserDashboard({ auth }) {
   const { address, isConnected } = useAccount()
@@ -115,7 +116,6 @@ export default function UserDashboard({ auth }) {
                           <span className="text-gray-700 mt-1 block">Available until [date]</span>
                           <LabAccess userWallet={address} hasActiveBooking={hasActiveBooking} auth={firstActiveLab.auth} />
                         </div>
-                        <button className='px-3 mr-3 py-1 rounded-full text-sm bg-orange-500 hover:bg-orange-300 text-white'>Apply for a refund</button>
                       </div>
                       <div className={`w-5/5 ${firstActiveLab.docs.length > 0 ? `` : 'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center rounded-lg shadow-md bg-gray-300`}>
                         {/* <h3 className="text-lg font-semibold mb-2 text-gray-700">Documentation</h3> */}
@@ -154,32 +154,33 @@ export default function UserDashboard({ auth }) {
                 <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Booked</h2>
                 <hr className='mb-5 separator-width-black'></hr>
                 <ul>
-                  {userData.labs.map((lab) => (
+                {userData.labs.map((lab) => (
                     <div className='mb-4 border-2 p-2 rounded-lg text-center'>
-                      <li key={lab.id} className="flex flex-grow items-center w-full">
-                        <div className="flex items-center w-full">
-                        <Link className="border-2 p-2 rounded-lg text-center hover:bg-slate-200
-                        " href={`/lab/${lab.id}`}>
-                          <span className="text-gray-700 text-left flex-grow">{lab.name}</span></Link>
-                          {/* Button for lab's activeStatus tests */}
-                          <div className="mx-auto mr-4">
-                            {lab.activeStatus ? (
+                      <li key={lab.id} className="flex flex-col items-center w-full"> {/* Apilamos verticalmente */}
+                        <div className="flex items-center w-full"> {/* Línea para nombre y refund/estado */}
+                          <Link className="border-2 p-2 rounded-lg text-center hover:bg-slate-200 flex-grow" href={`/lab/${lab.id}`}>
+                            <span className="text-gray-700 text-left">{lab.name}</span>
+                          </Link>
+                          <div className='mx-1'><Refund /></div> {/* Icono de reembolso */}
+                          <span className={`text-right px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
+                            {lab.activeStatus === true ? "Active" : "Inactive"} {/* Estado */}
+                          </span>
+                        </div>
+                        {/* Button for lab's activeStatus tests: remove this when booking system is finished */}
+                        <div className="mx-auto mt-2">
+                          {lab.activeStatus ? (
                             <button 
-                              className='z-50 border text-black rounded-lg p-3 bg-orange-100'
+                              className='z-50 text-sm border text-black rounded-lg p-1 mr-3 bg-orange-100'
                               onClick={() => setInactiveStatus(lab.id)}>
                               Set Inactive
                             </button>
                             ) : (
                             <button 
-                              className='z-50 border text-black rounded-lg p-3 bg-orange-100'
+                              className='z-50 text-sm border text-black rounded-lg p-1 mr-3 bg-orange-100'
                               onClick={() => setActiveStatus(lab.id)}>
                               Set Active
                             </button>
-                            )}
-                          </div>
-                          <span className={`text-right ml-auto px-3 py-1 rounded-full text-sm ${lab.activeStatus === true ? "bg-green-500 text-white" : "bg-red-500 text-white"}`}>
-                            {lab.activeStatus === true ? "Active" : "Inactive"}
-                          </span>
+                          )}
                         </div>
                       </li>
                     </div>
@@ -188,10 +189,10 @@ export default function UserDashboard({ auth }) {
               </div>
 
               {/* Vertical divider */}  
-              <div class="h-[310px] mt-1 mx-3 min-h-[1em] w-px self-stretch bg-gradient-to-tr
+              <div class="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr
             from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
             border-l-1 border-neutral-800 dark:border-neutral-200 border-dashed"
-                  style={{ borderWidth: '4px', borderLeftStyle: 'dashed', borderSpacing: '2px' }}>
+                  style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }}>
               </div>
 
               
