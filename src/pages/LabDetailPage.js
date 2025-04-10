@@ -2,19 +2,25 @@ import { useState, useEffect } from 'react'
 import { useLabs } from '../context/LabContext';
 import Carrousel from '../components/Carrousel';
 import { useRouter } from 'next/router';
+import DocsCarrousel from '../components/DocsCarrousel';
 
 
 export default function LabDetailPage({ id }) {
   const { labs, loading } = useLabs();
   const [lab, setLab] = useState(null);
   const router = useRouter();
+  const [isDocsVisible, setIsDocsVisible] = useState(false);
+
+  const toggleDocsVisibility = () => {
+    setIsDocsVisible(!isDocsVisible);
+  };
 
   useEffect(() => {
     if (labs && labs.length > 0) {
       const currentLab = labs.find((lab) => lab.id == id);
       setLab(currentLab);
     }
-  }, [id, labs]);
+  }, [id, labs, isDocsVisible]);
 
   if (loading) {
     return <div className="text-center">Loading lab details...</div>;
@@ -26,10 +32,10 @@ export default function LabDetailPage({ id }) {
 
   return (
     <main className="container mx-auto p-6 mt-8">
-      <section className="flex flex-col md:flex-row gap-6">
+      <section className="flex flex-col justify-center md:flex-row gap-6 md:align-items-start">
         {/* Carousel Section */}
-        <article className="md:w-1/2 flex flex-col items-center justify-center p-4">
-          <div className="w-full h-[400px] flex items-center justify-center">
+        <article className="md:w-1/2 flex flex-col justify-center p-4">
+          <div className="w-full h-full flex justify-center">
             <Carrousel lab={lab} />
           </div>
         </article>
@@ -49,30 +55,58 @@ export default function LabDetailPage({ id }) {
             onClick={() => router.push(`/reservation/${lab.id}`)} aria-label={`Rent ${lab.name}`}>
             Rent Lab
           </button>
-          <div className="flex flex-col mt-4 space-y-2">
-          {/* Category */}
-          <div className="flex items-center">
-            <span
-              className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center py-1 px-3 
-              text-sm rounded" aria-label={`Category: ${lab.category}`}
-            >
-              {lab.category}
-            </span>
-          </div>
 
-          {/* Keywords */}
-          <div className="flex flex-wrap gap-2">
-            {lab.keywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="bg-[#335763] text-gray-200 inline-flex items-center justify-center py-1 px-3 
-                text-sm rounded" aria-label={`Keyword: ${keyword}`}
+          <div className="mt-4 space-y-2">
+            {/* Documentation */}
+            <div
+              className={`flex-1 mb-4 flex flex-col text-center rounded shadow-md bg-gray-300 
+                hover:bg-gray-500 hover:text-white  text-gray-700 overflow-hidden transition-height duration-3  00 ease-in-out `}
+              style={{
+                height: isDocsVisible ? 'auto' : '45px',
+              }}
+            >
+              <h3
+                className="text-lg font-semibold cursor-pointer p-2"
+                onClick={toggleDocsVisibility}
               >
-                {keyword}
+                Documentation
+              </h3>
+              <div
+                className={`transition-opacity duration-300 ${
+                  isDocsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+              >
+                {lab.docs && lab.docs.length > 0 ? (
+                  <DocsCarrousel lab={lab} />
+                ) : (
+                  <span className="text-gray-700 text-center p-2">No documents available</span>
+                )}
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="flex items-center">
+              <span
+                className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center py-1 px-3 
+                text-sm rounded" aria-label={`Category: ${lab.category}`}
+              >
+                {lab.category}
               </span>
-            ))}
+            </div>
+
+            {/* Keywords */}
+            <div className="flex flex-wrap gap-2">
+              {lab.keywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className="bg-[#335763] text-gray-200 inline-flex items-center justify-center py-1 px-3 
+                  text-sm rounded" aria-label={`Keyword: ${keyword}`}
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
         </article>
       </section>
     </main>

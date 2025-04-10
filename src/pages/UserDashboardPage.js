@@ -118,7 +118,6 @@ export default function UserDashboard({ auth }) {
                         </div>
                       </div>
                       <div className={`w-5/5 ${firstActiveLab.docs.length > 0 ? `` : 'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center rounded-lg shadow-md bg-gray-300`}>
-                        {/* <h3 className="text-lg font-semibold mb-2 text-gray-700">Documentation</h3> */}
                           {firstActiveLab.docs && firstActiveLab.docs.length > 0 && (
                             <div key={0} className="mt-1">
                               <iframe src={firstActiveLab.docs[0]} title="description" height="280px" width="100%" className='rounded-lg'></iframe>

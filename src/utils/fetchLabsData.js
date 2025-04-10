@@ -58,7 +58,7 @@ export const fetchLabsData = async (contract) => {
         keywords: ["four", "tanks", "lab"],
         docs: [
           "https://www.example.com/theory.pdf",
-          "https://www.example.com/manual.pdf",
+          "https://pdfobject.com/pdf/sample.pdf",
         ] },
       { id: 2, name: "Mobile Robots Lab", category: "Robotics", price: 0.8, 
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
