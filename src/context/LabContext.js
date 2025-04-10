@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { usePublicClient, useReadContract } from 'wagmi';
+import { useReadContract, useAccount } from 'wagmi';
 import { fetchLabsData, subscribeToLabs, getLabs } from '../utils/fetchLabsData';
-import { contractABI, contractAddress } from '../contracts/diamond';
+import { selectChain } from '../utils/selectChain';
+import { contractAddresses, contractABI, readOnlyABI, writeOnlyABI } from '../contracts/diamond';
 
 const LabContext = createContext();
 
@@ -18,14 +19,31 @@ export function LabData({ children }) {
     }));
   };
 
-  const contract = useReadContract({
-    address: contractAddress,
+  const { chain: currentChain } = useAccount();
+  const safeChain = selectChain(currentChain); 
+  
+  const { data: allCPSs, refetch, isError, isLoading } = useReadContract({
     abi: contractABI,
-    signerOrProvider: usePublicClient(),
+    address: contractAddresses[safeChain.name.toLowerCase()],
+    functionName: 'getAllCPSs',
+    chainId: safeChain.id,
   });
 
   useEffect(() => {
-    fetchLabsData(contract); // Call fetchLabsData on mount
+    if (allCPSs) setLoading(false);
+  }, [allCPSs]);
+
+  // Refresh data periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+  useEffect(() => {
+    fetchLabsData(); // Call fetchLabsData on mount
 
     const unsubscribe = subscribeToLabs((updatedLabs) => {
       setLabs(updatedLabs);

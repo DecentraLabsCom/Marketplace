@@ -75,7 +75,7 @@ export const fetchLabsData = async (contract) => {
         ], 
         keywords: ["mobile", "robots", "lab"],
         docs: [
-          "https://www.anotherexample.com/doc.pdf",
+          "https://www.example.com/manual.pdf",
         ] },
       { id: 3, name: "Industrial Instrumentation Lab", category: "Instrumentation", price: 1.0, 
         description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur, tortor sit amet sagittis sollicitudin, ante erat congue elit, eu porta ante magna luctus mauris. Suspendisse eget elementum sem. Nam mollis felis dui, quis venenatis quam placerat a. Sed finibus lorem ut magna egestas cursus. Mauris sollicitudin orci nulla, eu vehicula est blandit ut. Nulla accumsan pulvinar leo in malesuada. Nullam eget eros ut enim cursus condimentum non vitae quam.",

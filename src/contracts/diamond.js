@@ -1,4 +1,8 @@
-export const contractAddress = "0x706435EaAC83E4E766B662D9968167e1730495e1";
+export const contractAddresses = {
+  ethereum: "0x...",
+  polygon: "0x...",
+  sepolia: "0x706435EaAC83E4E766B662D9968167e1730495e1"
+};
 
 export const contractABI = [
   {
@@ -2432,3 +2436,13 @@ export const contractABI = [
     "type": "function"
   }
 ];
+
+export const readOnlyABI = contractABI.filter(
+  (item) => item.type === 'function' && item.stateMutability === 'view'
+);
+
+export const writeOnlyABI = contractABI.filter(
+  (item) =>
+    item.type === 'function' &&
+    (item.stateMutability === 'nonpayable' || item.stateMutability === 'payable')
+);
