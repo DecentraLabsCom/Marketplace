@@ -17,7 +17,6 @@ export default function DocsCarrousel({ lab, maxHeight }) {
   };
 
   return (
-    <div>
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '200px' }}>
         {lab?.docs.map((doc, index) => (
@@ -76,7 +75,6 @@ export default function DocsCarrousel({ lab, maxHeight }) {
         <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 
             ![clip:rect(0,0,0,0)]">Next</span>
       </button>
-    </div>
     </div>
   );
 }
