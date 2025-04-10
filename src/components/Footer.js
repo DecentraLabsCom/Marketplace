@@ -3,7 +3,7 @@ import Image from 'next/image'
 
 export default function Footer() {
   return (
-    <footer className="bg-[#333f63] text-gray-300 text-center p-3 mt-8 relative">
+    <footer className="bg-[#333f63] text-center p-3 mt-8 relative">
       <div className="container mx-auto p-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-center">
           {/* Left: Support */}
@@ -18,9 +18,9 @@ export default function Footer() {
 
           {/* Center: Links */}
           <div className="flex space-x-4 md:justify-center items-center">
-            <a href="/about" className="hover:text-white transition font-semibold">About</a>
-            <a href="/faq" className="hover:text-white transition font-semibold">FAQ</a>
-            <a href="/contact" className="hover:text-white transition font-semibold">Contact</a>
+            <a href="/about" className="hover:text-[#715c8c] transition font-semibold">About</a>
+            <a href="/faq" className="hover:text-[#715c8c] transition font-semibold">FAQ</a>
+            <a href="/contact" className="hover:text-[#715c8c] transition font-semibold">Contact</a>
           </div>
 
           {/* Right: Social Media */}

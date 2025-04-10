@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { usePublicClient, useSignMessage } from 'wagmi';
+import { useSignMessage } from 'wagmi';
 
 export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const router = useRouter();
-  const provider = usePublicClient();
   const { signMessageAsync } = useSignMessage();
 
   const handleAccess = async () => {
