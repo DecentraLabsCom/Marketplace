@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import getConfig from 'next/config';
 import { useRouter } from 'next/router';
 import { useAccount } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -14,6 +15,8 @@ export default function Navbar() {
   const [provider, setProvider] = useState(false);
   const [user, setUser] = useState(null);
   const { isConnected } = useAccount();
+  const { publicRuntimeConfig } = getConfig();
+  const basePath = publicRuntimeConfig.basePath || '';
 
   const menuButton = (href, label) => (
     <div className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white">
@@ -37,7 +40,7 @@ export default function Navbar() {
   // Check cookies for SSO session
   useEffect(() => {
     setIsClient(true);
-    fetch("/api/auth/sso/session")
+    fetch(`${basePath}/api/auth/sso/session`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch session");
         return res.json();

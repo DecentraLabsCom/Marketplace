@@ -93,10 +93,10 @@ export default function MarketPage() {
 
   return (
     <main className="container mx-auto p-6">
-      <section className="flex flex-row justify-center items-center">
+      <section className="mb-6 flex flex-row justify-center items-center">
 
         {/* Category Filter */}
-        <div className="mb-6 flex justify-center px-1">
+        <div className="flex justify-center px-1">
           <label htmlFor="category-filter" className="sr-only">
             Filter by Category
           </label>
@@ -115,7 +115,7 @@ export default function MarketPage() {
         </div>
 
         {/* Provider Filter */}
-        <div className="mb-6 flex justify-center px-1">
+        <div className="flex justify-center px-1">
           <label htmlFor="provider-filter" className="sr-only">
             Filter by Provider
           </label>
@@ -134,7 +134,7 @@ export default function MarketPage() {
         </div>
 
         {/* Search Bar */}
-        <div className="mb-6 w-full max-w-sm min-w-[20px] mx-1">
+        <div className="w-full max-w-sm min-w-[20px] mx-2">
           <div className="relative">
             <div className="absolute top-1.5 left-1 flex items-center">
               <label htmlFor="search-bar" className="sr-only">
@@ -150,9 +150,9 @@ export default function MarketPage() {
             </div>
 
             <input ref={searchInputRef} type="text" placeholder="Type here..." onKeyDown={handleKeyDown}
-              className="w-full bg-transparent placeholder:text-slate-500 text-slate-300 text-sm border 
+              className="w-full bg-transparent placeholder:text-slate-500 text-[#caddff] text-sm border 
               border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none 
-              focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow"
+              focus:border-[#caddff] shadow-sm focus:shadow"
               onChange={handleInputChange}/>
         
             <button onClick={search} className="absolute top-1 right-1 flex items-center rounded 
@@ -171,12 +171,10 @@ export default function MarketPage() {
         </div>
 
         {/* Price sorting */}
-        <div className="mb-6 flex justify-center px-1">
-          <button
-            onClick={handlePriceClick}
-            value={selectedPrice}
-            className="w-[130px] py-[7px] outline outline-[1px] rounded bg-[#715c8c] text-white
-            shadow-md hover:bg-slate-700 cursor-pointer">
+        <div className="flex justify-center px-1">
+          <button onClick={handlePriceClick} value={selectedPrice}
+            className="w-[130px] py-[7px] border-[1px] border-[#caddff] rounded bg-[#715c8c] 
+            text-white shadow-md hover:bg-slate-700 cursor-pointer">
             {selectedPrice}
           </button>
         </div>
