@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 
 export default function DocsCarrousel({ docs, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
