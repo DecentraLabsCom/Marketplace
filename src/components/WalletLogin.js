@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useConnect } from 'wagmi';
+import { useConnect, useDisconnect } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWallet } from '@fortawesome/free-solid-svg-icons';
 
 export function WalletLogin({ setIsModalOpen }) {
   const { connectors, connect } = useConnect();
+  const { disconnect } = useDisconnect();
   const [isModalOpen, setIsModalOpenLocal] = useState(false);
 
   const handleWalletLogin = () => {
@@ -13,6 +14,10 @@ export function WalletLogin({ setIsModalOpen }) {
   };
 
   const closeModal = () => {
+    const walletConnectConnector = connectors.find(connector => connector.name === 'WalletConnect');
+    if (walletConnectConnector?.ready) {
+      disconnect();
+    }
     setIsModalOpen(false);
     setIsModalOpenLocal(false);
   };
@@ -36,8 +41,12 @@ export function WalletLogin({ setIsModalOpen }) {
             <div className="flex flex-col space-y-4">
               {connectors.map((connector) => (
                 <WalletOption key={connector.uid} connector={connector} onClick={() => {
-                    connect({ connector });
-                    closeModal();
+                    try {
+                      connect({ connector });
+                      closeModal();
+                    } catch (error) {
+                      console.error('Error connecting wallet:', error);
+                    }
                   }} />
               ))}
             </div>

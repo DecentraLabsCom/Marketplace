@@ -9,6 +9,7 @@ const LabContext = createContext();
 export function LabData({ children }) {
   const [labs, setLabs] = useState(getLabs() || []);
   const [loading, setLoading] = useState(true);
+  const [hasFetched, setHasFetched] = useState(false);
 
   // Added both to pass same status to LabCard and then to UserDashboardPage
   const [activeBookings, setActiveBooking] = useState({});
@@ -22,25 +23,26 @@ export function LabData({ children }) {
   const { chain: currentChain } = useAccount();
   const safeChain = selectChain(currentChain); 
   
-  const { data: allCPSs, refetch, isError, isLoading } = useReadContract({
+  const { data: allCPSs, refetch, isLoading, error } = useReadContract({
     abi: contractABI,
     address: contractAddresses[safeChain.name.toLowerCase()],
     functionName: 'getAllCPSs',
     chainId: safeChain.id,
+    query: {
+      enabled: !hasFetched,
+      retry: false,
+      retryOnMount: false,
+      refetchOnReconnect: false,
+    }
   });
 
   useEffect(() => {
-    if (allCPSs) setLoading(false);
-  }, [allCPSs]);
-
-  // Refresh data periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refetch();
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [refetch]);
+    if (allCPSs) {
+      setHasFetched(true);
+      setLoading(false);
+      console.log(allCPSs);
+    }
+  }, [allCPSs, refetch, isLoading, error]);
 
   useEffect(() => {
     fetchLabsData(); // Call fetchLabsData on mount
