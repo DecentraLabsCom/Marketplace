@@ -1,15 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useReadContract, useAccount } from 'wagmi';
-import { fetchLabsData, subscribeToLabs, getLabs } from '../utils/fetchLabsData';
-import { selectChain } from '../utils/selectChain';
-import { contractAddresses, contractABI, readOnlyABI, writeOnlyABI } from '../contracts/diamond';
+//import { useDefaultReadContract } from '../hooks/useDefaultReadContract';
 
 const LabContext = createContext();
 
 export function LabData({ children }) {
-  const [labs, setLabs] = useState(getLabs() || []);
+  const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [hasFetched, setHasFetched] = useState(false);
+  //const [hasFetched, setHasFetched] = useState(false);
 
   // Added both to pass same status to LabCard and then to UserDashboardPage
   const [activeBookings, setActiveBooking] = useState({});
@@ -20,40 +17,45 @@ export function LabData({ children }) {
     }));
   };
 
-  const { chain: currentChain } = useAccount();
-  const safeChain = selectChain(currentChain); 
-  
-  const { data: allCPSs, refetch, isLoading, error } = useReadContract({
-    abi: contractABI,
-    address: contractAddresses[safeChain.name.toLowerCase()],
-    functionName: 'getAllCPSs',
-    chainId: safeChain.id,
-    query: {
-      enabled: !hasFetched,
-      retry: false,
-      retryOnMount: false,
-      refetchOnReconnect: false,
-    }
-  });
-
   useEffect(() => {
-    if (allCPSs) {
-      setHasFetched(true);
-      setLoading(false);
-      console.log(allCPSs);
-    }
-  }, [allCPSs, refetch, isLoading, error]);
+    const fetchLabs = async () => {
+      try {
+        setLoading(true);
 
-  useEffect(() => {
-    fetchLabsData(); // Call fetchLabsData on mount
+        // Check whether the data is already available in sessionStorage
+        /*const cachedLabs = sessionStorage.getItem('labs');
+        if (cachedLabs) {
+          setLabs(JSON.parse(cachedLabs));
+          return;
+        }*/
 
-    const unsubscribe = subscribeToLabs((updatedLabs) => {
-      setLabs(updatedLabs);
-      setLoading(updatedLabs.length === 0);
-    });
+        const response = await fetch('/api/getLabs');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch labs: ${response.statusText}`);
+        }
+        const data = await response.json();
 
-    return () => unsubscribe(); // Clean subscription on unmount
+        sessionStorage.setItem('labs', JSON.stringify(data));
+        setLabs(data);
+      } catch (err) {
+        console.error('Error fetching labs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLabs();
   }, []);
+
+  /*const { data: labList, refetch, isLoading, error } = 
+        useDefaultReadContract('getAllCPSs', null, hasFetched);
+
+  useEffect(() => {
+    if (labList) {
+      setHasFetched(true);
+      console.log(labList);
+    }
+  }, [labList, refetch, isLoading, error]);*/
 
   // Added activeBookings and setBookingStatus
   return (

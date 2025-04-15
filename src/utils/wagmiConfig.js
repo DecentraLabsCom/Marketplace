@@ -1,46 +1,39 @@
 import { http, createConfig, fallback } from 'wagmi';
 import { mainnet, polygon, sepolia } from 'wagmi/chains';
 import { walletConnect, metaMask} from 'wagmi/connectors';
+import { infuraNetworks, alchemyNetworks } from './networkConfig';
 
-const infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID; // Same Infura project ID for all chains
-const infuraSecretKey = process.env.NEXT_PUBLIC_INFURA_SECRET_KEY; // Secret key for authentication
+let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
+let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
+let cloudReownId = process.env.NEXT_PUBLIC_REOWN_ID;
 
-const cloudReknownId = process.env.NEXT_PUBLIC_CLOUD_REKNOWN_ID;
-
-const encodedAuth = btoa(`${infuraProjectId}:${infuraSecretKey}`); // Base64 encode the key:secret
 const chains = [mainnet, polygon, sepolia];
-
-console.log(infuraProjectId);
-console.log(infuraSecretKey);
-
-export const defaultChain = sepolia;
-
-const infuraNetworks = {
-  [mainnet.id]: 'mainnet',
-  [polygon.id]: 'polygon-mainnet',
-  [sepolia.id]: 'sepolia',
-};
 
 const defaultTransport = http();
 
-const infuraSepoliaTransport = http(`https://${sepolia.name}.infura.io/v3/${infuraProjectId}`, {
+const infuraSepoliaTransport = http(
+  `https://${infuraNetworks[sepolia.id]}${infuraProjectId}`, {
   key: 'infura',
   retryCount: 0,
   batch: true,
   batch: {
     wait: 200,
   },
-  fetchOptions: { 
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Basic ${infuraSecretKey}`,
-    }
-  }
 });
 
-//const alchemySepoliaTransport = http(`https://eth-${sepolia.name}.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`);
+const alchemySepoliaTransport = http(
+  `https://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
+  key: 'alchemy',
+  retryCount: 0,
+  batch: true,
+  batch: {
+    wait: 200,
+  },
+});
 
-const fallbackSepoliaTransport = fallback([infuraSepoliaTransport, defaultTransport]);
+const fallbackSepoliaTransport = fallback([
+  infuraSepoliaTransport, alchemySepoliaTransport, defaultTransport
+]);
 
 const metadata = {
   name: 'DecentraLabs Marketplace', 
@@ -53,7 +46,7 @@ export const config = createConfig({
   autoConnect: true,
   chains: chains,
   connectors: [
-    walletConnect({ projectId: cloudReknownId, metadata: metadata }),
+    walletConnect({ projectId: cloudReownId, metadata: metadata }),
     metaMask({ dappMetadata: metadata }),
   ],
   transports: {
