@@ -8,16 +8,16 @@ export default function Carrousel({ lab, maxHeight }) {
   // Make image automatically slide in time to the next one
   useEffect(() => {
     intervalRef.current = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.image.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.images.length);
     }, 3000);
     return () => clearInterval(intervalRef.current);
-  }, [lab?.image?.length]);
+  }, [lab?.images?.length]);
 
   // Reset interval when using the handles to move between images
   const resetInterval = () => {
     clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.image.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.images.length);
     }, 3000);
   };
 
@@ -27,19 +27,19 @@ export default function Carrousel({ lab, maxHeight }) {
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + lab.image.length) % lab.image.length);
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + lab.images.length) % lab.images.length);
     resetInterval();
   };
 
   const handleNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.image.length);
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.images.length);
     resetInterval();
   };
 
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
-        {lab?.image.map((image, index) => (
+        {lab?.images.map((image, index) => (
           <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                     index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
             <Image src={image} alt={`Image ${index + 1}`} fill className="object-cover object-center 
@@ -47,11 +47,11 @@ export default function Carrousel({ lab, maxHeight }) {
           </div>
         ))}
 
-      {lab?.image.length > 1 && (
+      {lab?.images.length > 1 && (
       <>
         {/* Slide handles */}
         <div className="absolute inset-x-0 bottom-0 z-[20] mx-[15%] mb-4 flex list-none justify-center p-0 pointer-events-auto">
-        {lab.image.map((_, index) => (
+        {lab.images.map((_, index) => (
           <button key={index} type="button" data-twe-slide-to={index}
             className={`mx-[3px] box-content h-[3px] w-[30px] flex-initial cursor-pointer border-0 border-y-[10px] 
             border-solid border-transparent bg-white hover:bg-blue-500 bg-clip-padding p-0 -indent-[999px] opacity-50 

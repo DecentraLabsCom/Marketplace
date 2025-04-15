@@ -60,7 +60,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
           <input
             type="text"
             placeholder="Image URLs (comma-separated)"
-            value={lab.image.join(',')}
+            value={lab.images.join(',')}
             onChange={(e) =>
               setLab({ ...lab, image: e.target.value.split(',') })
             }

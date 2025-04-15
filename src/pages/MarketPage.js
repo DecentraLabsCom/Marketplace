@@ -188,7 +188,7 @@ export default function MarketPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {searchFilteredLabs.map((lab) => (
-              <LabCard key={lab.id} {...lab} image={lab.image[0]}/>
+              <LabCard key={lab.id} {...lab} image={lab.images[0]}/>
             ))}
           </div>
         )}

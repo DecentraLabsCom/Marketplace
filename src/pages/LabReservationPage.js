@@ -117,8 +117,8 @@ export default function ReservationPage() {
                 <DatePicker
                   selected={date}
                   onChange={(newDate) => setDate(newDate)}
-                  minDate={parseDate(selectedLab.day_start)} // Min date  
-                  maxDate={parseDate(selectedLab.day_finish)} // Max date
+                  minDate={parseDate(selectedLab.startDate)} // Min date  
+                  maxDate={parseDate(selectedLab.finishDate)} // Max date
                   calendarClassName="custom-datepicker"
                   dateFormat="yyyy-MM-dd"
                   inline
@@ -132,7 +132,7 @@ export default function ReservationPage() {
                   value={time}
                   onChange={(e) => setTime(Number(e.target.value))}
                 >
-                  {selectedLab.time.map((interval) => (
+                  {selectedLab.timeSlot.map((interval) => (
                     <option key={interval} value={interval}>
                       {interval} minutes
                     </option>

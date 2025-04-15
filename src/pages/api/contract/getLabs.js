@@ -1,8 +1,8 @@
 import { ethers } from 'ethers';
-import { contractABI, contractAddresses } from '../../contracts/diamond';
+import { contractABI, contractAddresses } from '../../../contracts/diamond';
+import { defaultChain } from '../../../utils/networkConfig.js';
+import { simLabsData } from '../../../utils/simLabsData';
 import getProvider from './getProvider';
-import { defaultChain } from '../../utils/networkConfig.js';
-import { simLabsData } from '../../utils/simLabsData';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -36,12 +36,17 @@ export default async function handler(req, res) {
           name: metadata.name,
           category: metadata.category,
           keywords: metadata.keywords,
-          price: parseFloat(labData.base.price),
+          price: parseFloat(lab.base.price),
           description: metadata.description,
           provider: metadata.provider,
-          auth: metadata.auth,
-          image: metadata.images,
-          docs: metadata.docs,
+          auth: metadata.auth,              // Move to contract! Optional; if not present, use DecentraLabs Auth service
+          accessURI: metadata.accessURI,    // Move to contract!
+          accessKey: metadata.accessKey,    // Move to contract!
+          timeSlot: metadata.timeSlot,      // Optional; if not present, use 60 (minutes)
+          startDate: metadata.startDate,    // Optional
+          finishDate: metadata.finishDate,  // Optional
+          docs: metadata.docs,              // Optional
+          images: metadata.images,
         };
       })
     );

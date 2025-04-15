@@ -23,13 +23,13 @@ export function LabData({ children }) {
         setLoading(true);
 
         // Check whether the data is already available in sessionStorage
-        /*const cachedLabs = sessionStorage.getItem('labs');
+        const cachedLabs = sessionStorage.getItem('labs');
         if (cachedLabs) {
           setLabs(JSON.parse(cachedLabs));
           return;
-        }*/
+        }
 
-        const response = await fetch('/api/getLabs');
+        const response = await fetch('/api/contract/getLabs');
         if (!response.ok) {
           throw new Error(`Failed to fetch labs: ${response.statusText}`);
         }

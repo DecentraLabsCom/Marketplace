@@ -3,10 +3,12 @@ let labs = [
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Ut nec dapibus dolor, eget rhoncus lacus. Donec tincidunt porta dui, ac scelerisque enim eleifend et. Suspendisse viverra risus eu odio eleifend pellentesque ut non arcu. Phasellus aliquam sapien risus, at tempor ligula feugiat vel. Mauris.",
     provider: "UNED", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
     auth: "https://sarlab.dia.uned.es/auth/", 
-    time: [15, 30, 60], //minuts
-    day_start: "05/18/2025",
-    day_finish: "05/25/2025",
-    image: [
+    accessURI: "https://sarlab.dia.uned.es/guacamole/", 
+    accessKey: "testJWT", 
+    timeSlot: [15, 30, 60],
+    startDate: "04/18/2025",
+    finishDate: "05/25/2025",
+    images: [
       "/labs/lab_1.jpg",
       "/labs/lab1/01.jpg",
       "/labs/lab1/02.jpg"
@@ -20,10 +22,12 @@ let labs = [
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin feugiat et eros non congue. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
     provider: "UHU", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
     auth: "https://sarlab.dia.uned.es/auth/", 
-    time: [30, 120], //minuts
-    day_start: "05/18/2025",
-    day_finish: "05/25/2025",
-    image: [
+    accessURI: "https://sarlab.dia.uned.es/guacamole/", 
+    accessKey: "testJWT",
+    timeSlot: [30, 120],
+    startDate: "08/18/2025",
+    finishDate: "12/25/2025",
+    images: [
       "/labs/lab_2.jpg",
       "/labs/lab2/01.jpg",
       "/labs/lab2/02.jpg",
@@ -37,10 +41,12 @@ let labs = [
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur, tortor sit amet sagittis sollicitudin, ante erat congue elit, eu porta ante magna luctus mauris. Suspendisse eget elementum sem. Nam mollis felis dui, quis venenatis quam placerat a. Sed finibus lorem ut magna egestas cursus. Mauris sollicitudin orci nulla, eu vehicula est blandit ut. Nulla accumsan pulvinar leo in malesuada. Nullam eget eros ut enim cursus condimentum non vitae quam.",
     provider: "UNED", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
     auth: "https://sarlab.dia.uned.es/auth/", 
-    time: [15, 30, 60], //minuts
-    day_start: "05/18/2025",
-    day_finish: "05/25/2025",
-    image: [
+    accessURI: "https://sarlab.dia.uned.es/guacamole/", 
+    accessKey: "testJWT",
+    timeSlot: [15, 30, 60],
+    startDate: "04/15/2025",
+    finishDate: "11/30/2025",
+    images: [
       "/labs/lab_3.jpg",
       "/labs/lab3/01.jpg",
       "/labs/lab3/02.jpeg"
@@ -52,10 +58,12 @@ let labs = [
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
     provider: "UHU", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
     auth: "https://sarlab.dia.uned.es/auth/", 
-    time: [15, 30, 60], //minuts
-    day_start: "05/18/2025",
-    day_finish: "05/25/2025",
-    image: [
+    accessURI: "https://sarlab.dia.uned.es/guacamole/", 
+    accessKey: "testJWT",
+    timeSlot: [15, 30, 60],
+    startDate: "04/15/2025",
+    finishDate: "11/30/2025",
+    images: [
       "/labs/lab_4.jpg",
       "/labs/lab4/01.png",
       "/labs/lab4/02.jpg",
@@ -68,10 +76,12 @@ let labs = [
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
     provider: "UBC", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
     auth: "https://sarlab.dia.uned.es/auth/", 
-    time: [15, 30, 60], //minuts
-    day_start: "05/18/2025",
-    day_finish: "05/25/2025",
-    image: [
+    accessURI: "https://sarlab.dia.uned.es/guacamole/", 
+    accessKey: "testJWT",
+    timeSlot: [15, 30, 60],
+    startDate: "06/15/2025",
+    finishDate: "08/01/2025",
+    images: [
       "/labs/lab_5.jpg",
       "/labs/lab5/01.png",
       "/labs/lab5/02.jpg"

@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { infuraNetworks, alchemyNetworks } from '../../utils/networkConfig.js';
+import { infuraNetworks, alchemyNetworks } from '../../../utils/networkConfig.js';
 
 export default async function getProvider(network) {
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
