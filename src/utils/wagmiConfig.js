@@ -5,7 +5,7 @@ import { infuraNetworks, alchemyNetworks } from './networkConfig';
 
 let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
 let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
-let cloudReownId = process.env.NEXT_PUBLIC_REOWN_ID;
+let cloudReownId = process.env.NEXT_PUBLIC_CLOUD_REOWN_ID;
 
 const chains = [mainnet, polygon, sepolia];
 

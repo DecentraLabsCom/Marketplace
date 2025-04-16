@@ -10,11 +10,11 @@ import Refund from '../components/Refund';
 export default function UserDashboard({ auth }) {
   const { address, isConnected } = useAccount()
   const [userData, setUserData] = useState(null)
-  const { labs, activeBookings , loading } = useLabs(); // In the future only get user's booked labs
+  const { labs, loading } = useLabs(); // In the future only get user's booked labs
   const [enrichedLabs, setEnrichedLabs] = useState([]);
   const [statusChange, setStatusChange] = useState(false);
   // Get booked labs from LabCard
-  const hasActiveBooking = labs.filter((lab) => activeBookings[lab.id]);
+  const hasActiveBooking = labs.filter((lab) => lab.activeBooking);
   const [firstActiveLab, setFirstActiveLab] = useState(null);
 
   useEffect(() => {

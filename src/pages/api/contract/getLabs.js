@@ -1,8 +1,5 @@
-import { ethers } from 'ethers';
-import { contractABI, contractAddresses } from '../../../contracts/diamond';
-import { defaultChain } from '../../../utils/networkConfig.js';
 import { simLabsData } from '../../../utils/simLabsData';
-import getProvider from './getProvider';
+import { getContractInstance } from './contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -10,13 +7,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const provider = await getProvider(defaultChain);
+    const contract = await getContractInstance();
 
-    const contract = new ethers.Contract(
-            contractAddresses[defaultChain.name.toLowerCase()], contractABI
-        ).connect(provider);
-
-    // Get list of lab IDs
+    // Get list of labs
     const labList = await contract.getAllCPSs();
 
     // Get lab metadata

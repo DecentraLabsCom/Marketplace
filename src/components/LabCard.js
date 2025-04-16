@@ -4,41 +4,14 @@ import LabAccess from "./LabAccess";
 import { useAccount } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
-import { useState, useEffect } from 'react';
-import { useLabs } from '../context/LabContext';
 
-export default function LabCard({ id, name, provider, price, auth, image }) {
+export default function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected } = useAccount();
-  const { contract, activeBookings, setBookingStatus } = useLabs();
-  // const [hasActiveBooking, setHasActiveBooking] = useState(false);
-
-  // Added to pass random booking state obtained here to UserDashboardPage
-  const hasActiveBooking = activeBookings[id] === true;
-
-  useEffect(() => {
-    const checkActiveBooking = async () => {
-      if (isConnected) {
-        try {
-          //const booking = await contract.hasActiveBooking(id, address);
-          let booking = Math.random() < 0.5;
-          // setHasActiveBooking(booking);
-          setBookingStatus({ labId: id, isActive: booking });
-        } catch (error) {
-          console.log("Error checking active booking:", error);
-        }
-      } else {
-        // setHasActiveBooking(false);
-        setBookingStatus({ labId: id, isActive: false });
-      }
-    };
-
-    checkActiveBooking();
-  }, [address, id]); // Added id to get booking for each lab
-  
+ 
   return (
     <div className={`relative group rounded-md shadow-md bg-gray-200 transform 
       transition-transform duration-300 hover:scale-105 
-      ${hasActiveBooking ? 'border-4 border-[#715c8c] animate-glow' : ''}`} 
+      ${activeBooking ? 'border-4 border-[#715c8c] animate-glow' : ''}`} 
       style={{ height: '400px' }}>
       <div className="h-2/3 relative">
         <Image src={image} alt={name} fill priority sizes="80vw"
@@ -58,7 +31,7 @@ export default function LabCard({ id, name, provider, price, auth, image }) {
         </div>
       </Link>
       {isConnected && (
-        <LabAccess userWallet={address} hasActiveBooking={hasActiveBooking} auth={auth} />
+        <LabAccess userWallet={address} hasActiveBooking={activeBooking} auth={auth} />
       )}
     </div>
   );
