@@ -4,78 +4,110 @@ import { useLabs } from "../context/LabContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Carrousel from "../components/Carrousel";
-import { addMinutes, format } from "date-fns"; 
+import { format, isToday, addMinutes } from "date-fns";
 
 export default function ReservationPage() {
-  const { labs } = useLabs();
+  const { labs, bookings } = useLabs();
   const router = useRouter();
   const { id } = router.query;
+
   const [date, setDate] = useState(new Date());
-  const [time, setTime] = useState(15); // Por defecto 15 minutos
+  const [time, setTime] = useState(15);
   const [availableTimes, setAvailableTimes] = useState([]);
   const [selectedLab, setSelectedLab] = useState(null);
+  const [bookedDates, setBookedDates] = useState([]);
 
   useEffect(() => {
-    if (labs && labs.length > 0) {
-      if (id) {
-        const currentLab = labs.find((lab) => lab.id == id);
-        setSelectedLab(currentLab);
-      }
+    if (labs.length && id) {
+      const currentLab = labs.find((lab) => lab.id == id);
+      setSelectedLab(currentLab);
     }
   }, [id, labs]);
 
   useEffect(() => {
-    if (selectedLab) {
-      setAvailableTimes(generateTimeOptions(time));
+    if (selectedLab && bookings.length > 0) {
+      const newTimes = generateTimeOptions(time);
+      setAvailableTimes(newTimes);
+
+      const labBookings = bookings.filter(
+        (b) => b.labId == selectedLab.id && b.activeBooking
+      );
+      const uniqueDates = [
+        ...new Set(labBookings.map((b) => new Date(b.date).toDateString())),
+      ];
+      setBookedDates(uniqueDates.map((d) => new Date(d)));
     }
-  }, [time, selectedLab]);
+  }, [time, date, selectedLab]);
+
+  const isTimeSlotTaken = (slotStart, duration, dayBookings) => {
+    const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
+    for (const booking of dayBookings) {
+      const bookingStart = new Date(`${booking.date}T${booking.time}`);
+      const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minuts) * 60 * 1000);
+      if (slotStart < bookingEnd && slotEnd > bookingStart) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   const generateTimeOptions = (interval) => {
     const options = [];
     const now = new Date();
   
-    const selectedDateStart = new Date(date);
-    selectedDateStart.setHours(0, 0, 0, 0);
+    const dayBookings = bookings.filter(
+      (b) =>
+        b.labId == selectedLab?.id &&
+        new Date(b.date).toDateString() === date.toDateString()
+    );
   
-    const selectedDateEnd = new Date(date);
-    selectedDateEnd.setHours(23, 59, 59, 999);
+    const blockedRanges = dayBookings.map((b) => {
+      const start = new Date(`${b.date}T${b.time}`);
+      const end = addMinutes(start, parseInt(b.minuts));
+      return { start, end };
+    });
   
-    for (let hour = 0; hour < 24; hour++) {
-      const minutesArray = interval === 60 ? [0] : interval === 30 ? [0, 30] : [0, 15, 30, 45];
-  
-      minutesArray.forEach((min) => {
-        const optionTime = new Date(date);
-        optionTime.setHours(hour, min, 0, 0);
-  
-        if (isToday(date) && optionTime <= now) return;
-  
-        if (optionTime >= selectedDateStart && optionTime <= selectedDateEnd) {
-          options.push(format(optionTime, "HH:mm"));
-        }
-      });
-    }
+    const dayStart = new Date(date);
+dayStart.setHours(0, 0, 0, 0);
+const dayEnd = new Date(date);
+dayEnd.setHours(23, 59, 59, 999);
+
+let slot = new Date(dayStart);
+
+while (slot <= dayEnd) {
+  const endSlot = addMinutes(slot, interval);
+
+  if (isToday(date) && slot <= now) {
+    slot = addMinutes(slot, interval);
+    continue;
+  }
+
+  const isConflict = blockedRanges.some(
+    ({ start, end }) =>
+      (slot >= start && slot < end) ||
+      (endSlot > start && endSlot <= end) ||
+      (slot <= start && endSlot >= end)
+  );
+
+  if (!isConflict) {
+    options.push(format(slot, "HH:mm"));
+  }
+
+  slot = addMinutes(slot, interval);
+}
   
     return options;
   };
-  
-  const isToday = (someDate) => {
-    const today = new Date();
-    return (
-      someDate.getDate() === today.getDate() &&
-      someDate.getMonth() === today.getMonth() &&
-      someDate.getFullYear() === today.getFullYear()
-    );
-  };
-  
-  const handleLabChange = (event) => {
-    const labId = event.target.value;
-    const lab = labs.find((l) => l.id == labId);
+
+  const handleLabChange = (e) => {
+    const selectedId = e.target.value;
+    const lab = labs.find((lab) => lab.id == selectedId);
     setSelectedLab(lab);
   };
 
-  const parseDate = (dateStr) => {
-    const [month, day, year] = dateStr.split("/");
-    return new Date(`${year}`, month - 1, day);
+  const parseDate = (str) => {
+    const [month, day, year] = str.split("/");
+    return new Date(`${year}-${month}-${day}`);
   };
 
   return (
@@ -112,46 +144,49 @@ export default function ReservationPage() {
             <p className="text-blue-600 font-semibold text-xl">{selectedLab.price} $LAB / hour</p>
 
             <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
-              <div className="flex-1 w-full md:w-auto">
+              <div className="flex-1">
                 <label className="block text-lg font-semibold">Select the date:</label>
                 <DatePicker
                   selected={date}
                   onChange={(newDate) => setDate(newDate)}
-                  minDate={parseDate(selectedLab.startDate)} // Min date  
-                  maxDate={parseDate(selectedLab.finishDate)} // Max date
-                  calendarClassName="custom-datepicker"
-                  dateFormat="yyyy-MM-dd"
+                  minDate={parseDate(selectedLab.startDate)}
+                  maxDate={parseDate(selectedLab.finishDate)}
                   inline
+                  dayClassName={(day) =>
+                    bookedDates.some(
+                      (d) => d.toDateString() === day.toDateString()
+                    )
+                      ? "bg-red-500 text-white rounded-full"
+                      : undefined
+                  }
                 />
               </div>
 
-              <div className="flex-1 w-full md:w-auto">
-                <label className="block text-lg font-semibold">Select the time interval:</label>
+              <div className="flex-1">
+                <label className="block text-lg font-semibold">Time interval:</label>
                 <select
                   className="w-full p-3 border-2 bg-gray-800 text-white rounded"
                   value={time}
                   onChange={(e) => setTime(Number(e.target.value))}
                 >
-                  {selectedLab.timeSlot.map((interval) => (
-                    <option key={interval} value={interval}>
-                      {interval} minutes
-                    </option>
+                  {selectedLab.timeSlot.map((slot) => (
+                    <option key={slot} value={slot}>{slot} minutes</option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex-1 w-full md:w-auto">
-                <label className="block text-lg font-semibold">Select the time:</label>
+              <div className="flex-1">
+                <label className="block text-lg font-semibold">Available times:</label>
                 <select
-                  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-                  disabled={!availableTimes.length}
-                >
-                  {availableTimes.map((timeOption, index) => (
-                    <option key={index} value={timeOption}>
-                      {timeOption}
-                    </option>
-                  ))}
-                </select>
+  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+  disabled={!availableTimes.length}
+>
+  {availableTimes.map((time, i) => (
+    <option key={i} value={time}>
+      {time}
+    </option>
+  ))}
+</select>
               </div>
             </div>
           </div>

@@ -6,6 +6,7 @@ const LabContext = createContext();
 
 export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
+  const [bookings, setBookings] = useState([]); 
   const [loading, setLoading] = useState(true);
   //const [hasFetched, setHasFetched] = useState(false);
 
@@ -16,7 +17,6 @@ export function LabData({ children }) {
       try {
         setLoading(true);
 
-        // Check whether the data is already available in sessionStorage
         const cachedLabs = sessionStorage.getItem('labs');
         if (cachedLabs) {
           setLabs(JSON.parse(cachedLabs));
@@ -42,6 +42,8 @@ export function LabData({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!address) return;
+  
     const fetchBookings = async () => {
       try {
         const response = await fetch('/api/contract/getBookings', {
@@ -51,32 +53,36 @@ export function LabData({ children }) {
           },
           body: JSON.stringify({ userWallet: address }),
         });
+  
         if (!response.ok) {
           throw new Error(`Failed to fetch reservations: ${response.statusText}`);
         }
+  
         const bookingsData = await response.json();
-        
+        setBookings(bookingsData);
+  
+        // solo si labs ya están disponibles
         setLabs((prevLabs) => {
-          const updatedLabs = prevLabs.map((lab) => {
+          if (!prevLabs.length) return prevLabs;
+  
+          const updated = prevLabs.map((lab) => {
             const booking = bookingsData.find((b) => b.labId === lab.id);
             return {
               ...lab,
               activeBooking: booking ? booking.activeBooking : false,
             };
           });
-
-          sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
-          return updatedLabs;
+  
+          sessionStorage.setItem('labs', JSON.stringify(updated));
+          return updated;
         });
       } catch (err) {
         console.error('Error fetching reservations:', err);
       }
     };
-
-    if (labs.length > 0) {
-      fetchBookings();
-    }
-  }, [address]);
+  
+    fetchBookings();
+  }, [address]); 
 
   /*const { data: labList, refetch, isLoading, error } = 
         useDefaultReadContract('getAllCPSs', null, hasFetched);
@@ -89,7 +95,7 @@ export function LabData({ children }) {
   }, [labList, refetch, isLoading, error]);*/
 
   return (
-    <LabContext.Provider value={{ labs, loading }}>
+    <LabContext.Provider value={{ labs, bookings, loading }}> 
       {children}
     </LabContext.Provider>
   );

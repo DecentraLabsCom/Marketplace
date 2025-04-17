@@ -25,7 +25,7 @@ let labs = [
     accessURI: "https://sarlab.dia.uned.es/guacamole/", 
     accessKey: "testJWT",
     timeSlot: [30, 120],
-    startDate: "08/18/2025",
+    startDate: "02/18/2025",
     finishDate: "12/25/2025",
     images: [
       "/labs/lab_2.jpg",
