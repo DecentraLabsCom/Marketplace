@@ -63,8 +63,6 @@ export function LabData({ children }) {
   
         // solo si labs ya están disponibles
         setLabs((prevLabs) => {
-          if (!prevLabs.length) return prevLabs;
-  
           const updated = prevLabs.map((lab) => {
             const booking = bookingsData.find((b) => b.labId === lab.id);
             return {
@@ -81,7 +79,7 @@ export function LabData({ children }) {
       }
     };
   
-    fetchBookings();
+    if (labs.length > 0) fetchBookings();
   }, [address]); 
 
   /*const { data: labList, refetch, isLoading, error } = 

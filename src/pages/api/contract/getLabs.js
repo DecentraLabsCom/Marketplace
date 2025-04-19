@@ -35,9 +35,9 @@ export default async function handler(req, res) {
           auth: metadata.auth,              // Move to contract! Optional; if not present, use DecentraLabs Auth service
           accessURI: metadata.accessURI,    // Move to contract!
           accessKey: metadata.accessKey,    // Move to contract!
-          timeSlot: metadata.timeSlot,      // Optional; if not present, use 60 (minutes)
-          startDate: metadata.startDate,    // Optional
-          finishDate: metadata.finishDate,  // Optional
+          timeSlots: metadata.timeSlots,    // Optional; if not present, use 60 (minutes)
+          opens: metadata.opens,            // Optional
+          closes: metadata.closes,          // Optional
           docs: metadata.docs,              // Optional
           images: metadata.images,
         };

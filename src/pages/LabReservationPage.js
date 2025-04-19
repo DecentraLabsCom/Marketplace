@@ -149,8 +149,8 @@ while (slot <= dayEnd) {
                 <DatePicker
                   selected={date}
                   onChange={(newDate) => setDate(newDate)}
-                  minDate={parseDate(selectedLab.startDate)}
-                  maxDate={parseDate(selectedLab.finishDate)}
+                  minDate={parseDate(selectedLab.opens)}
+                  maxDate={parseDate(selectedLab.closes)}
                   inline
                   dayClassName={(day) =>
                     bookedDates.some(
@@ -169,7 +169,7 @@ while (slot <= dayEnd) {
                   value={time}
                   onChange={(e) => setTime(Number(e.target.value))}
                 >
-                  {selectedLab.timeSlot.map((slot) => (
+                  {selectedLab.timeSlots.map((slot) => (
                     <option key={slot} value={slot}>{slot} minutes</option>
                   ))}
                 </select>
