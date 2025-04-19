@@ -1,8 +1,8 @@
 import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
-import { useLabs } from '../context/LabContext';
-import Carrousel from '../components/Carrousel';
-import LabModal from '../components/LabModal';
+import { useLabs } from '../../context/LabContext';
+import Carrousel from '../../components/Carrousel';
+import LabModal from '../../components/LabModal';
 
 export default function ProviderDashboard() {
   const { address } = useAccount();

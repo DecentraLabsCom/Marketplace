@@ -1,4 +1,4 @@
-import LabReservationPage from '../LabReservationPage'
+import LabReservationPage from './LabReservationPage'
 
 export default function LabReservationWrapper() {
   return <LabReservationPage />

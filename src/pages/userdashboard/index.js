@@ -1,13 +1,13 @@
 import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
-import { useLabs } from '../context/LabContext'
-import Carrousel from '../components/Carrousel';
-import LabAccess from "../components/LabAccess";
+import { useLabs } from '../../context/LabContext'
+import Carrousel from '../../components/Carrousel';
+import LabAccess from "../../components/LabAccess";
 import React from 'react';
 import Link from "next/link";
-import Refund from '../components/Refund';
+import Refund from '../../components/Refund';
 
-export default function UserDashboard({ auth }) {
+export default function UserDashboard() {
   const { address, isConnected } = useAccount()
   const [userData, setUserData] = useState(null)
   const { labs, loading } = useLabs(); // In the future only get user's booked labs

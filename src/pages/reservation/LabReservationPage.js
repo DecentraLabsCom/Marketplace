@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useLabs } from "../context/LabContext";
+import { useLabs } from "../../context/LabContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import Carrousel from "../components/Carrousel";
+import Carrousel from "../../components/Carrousel";
 import { format, isToday, addMinutes } from "date-fns";
 
 export default function ReservationPage() {
