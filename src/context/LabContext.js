@@ -61,7 +61,6 @@ export function LabData({ children }) {
         const bookingsData = await response.json();
         setBookings(bookingsData);
   
-        // solo si labs ya están disponibles
         setLabs((prevLabs) => {
           const updated = prevLabs.map((lab) => {
             const booking = bookingsData.find((b) => b.labId === lab.id);

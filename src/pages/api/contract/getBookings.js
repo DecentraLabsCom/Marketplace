@@ -31,6 +31,8 @@ export default async function handler(req, res) {
                 return {
                     labId: labId,
                     activeBooking: true,
+                    start: start,
+                    end: end,
                 }
             } else {
                 return {
