@@ -9,12 +9,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         <h2 className="text-xl font-semibold mb-4 text-black">
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit();
-          }}
-          className="space-y-4 text-gray-600"
+        <form className="space-y-4 text-gray-600"
+          onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
         >
           <input
             type="text"
@@ -31,10 +27,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             className="w-full p-2 border rounded"
           />
           <input
-            type="number"
-            placeholder="Price"
-            value={lab.price}
-            onChange={(e) => setLab({ ...lab, price: e.target.value })}
+            type="text"
+            placeholder="Keywords (comma-separated)"
+            value={lab.keywords.join(',')}
+            onChange={(e) =>
+              setLab({ ...lab, keywords: e.target.value.split(',') })
+            }
             className="w-full p-2 border rounded"
           />
           <textarea
@@ -44,6 +42,22 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             className="w-full p-2 border rounded"
           />
           <input
+            type="number"
+            placeholder="Price"
+            value={lab.price}
+            onChange={(e) => setLab({ ...lab, price: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+          {/* TODO - Should be obtained from the user info and filled automatically
+          <input
+            type="text"
+            placeholder="Provider Name"
+            value={lab.provider}
+            onChange={(e) => setLab({ ...lab, provider: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+          */}
+          <input
             type="text"
             placeholder="Auth URL"
             value={lab.auth}
@@ -52,9 +66,39 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
           />
           <input
             type="text"
-            placeholder="Provider Name"
-            value={lab.provider}
-            onChange={(e) => setLab({ ...lab, provider: e.target.value })}
+            placeholder="Access URI"
+            value={lab.accessURI || ''}
+            onChange={(e) => setLab({ ...lab, accessURI: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+          <input
+            type="text"
+            placeholder="Access Key"
+            value={lab.accessKey || ''}
+            onChange={(e) => setLab({ ...lab, accessKey: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+          <input
+            type="text"
+            placeholder="Time Slots (comma-separated)"
+            value={Array.isArray(lab.timeSlots) ? lab.timeSlots.join(',') : ''}
+            onChange={(e) =>
+              setLab({ ...lab, timeSlots: e.target.value.split(',') })
+            }
+            className="w-full p-2 border rounded"
+          />
+          <input
+            type="text"
+            placeholder="Opens (e.g. 09:00)"
+            value={lab.opens || ''}
+            onChange={(e) => setLab({ ...lab, opens: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+          <input
+            type="text"
+            placeholder="Closes (e.g. 18:00)"
+            value={lab.closes || ''}
+            onChange={(e) => setLab({ ...lab, closes: e.target.value })}
             className="w-full p-2 border rounded"
           />
           <input
@@ -63,15 +107,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             value={lab.images.join(',')}
             onChange={(e) =>
               setLab({ ...lab, image: e.target.value.split(',') })
-            }
-            className="w-full p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Keywords (comma-separated)"
-            value={lab.keywords.join(',')}
-            onChange={(e) =>
-              setLab({ ...lab, keywords: e.target.value.split(',') })
             }
             className="w-full p-2 border rounded"
           />

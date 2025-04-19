@@ -6,20 +6,25 @@ import LabModal from '../../components/LabModal';
 
 export default function ProviderDashboard() {
   const { address } = useAccount();
-  const { labs, loading, setLabs } = useLabs(); // Assuming `setLabs` is exposed in LabContext
+  const { labs, loading, setLabs } = useLabs();
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newLab, setNewLab] = useState({
     name: '',
     category: '',
+    keywords: [],
     price: '',
     description: '',
     provider: '',
     auth: '',
-    image: [],
-    keywords: [],
+    accessURI: '',
+    accessKey: '',
+    timeSlots: [],
+    opens: '',
+    closes: '',
     docs: [],
+    images: [],
   });
 
   // Filter labs owned by the user
