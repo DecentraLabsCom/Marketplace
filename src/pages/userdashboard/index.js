@@ -1,32 +1,42 @@
-import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
+import { useUser } from '../../context/UserContext'
 import { useLabs } from '../../context/LabContext'
-import Carrousel from '../../components/Carrousel';
-import LabAccess from "../../components/LabAccess";
-import React from 'react';
-import Link from "next/link";
-import Refund from '../../components/Refund';
+import Carrousel from '../../components/Carrousel'
+import LabAccess from '../../components/LabAccess'
+import React from 'react'
+import Link from 'next/link'
+import Refund from '../../components/Refund'
 
 export default function UserDashboard() {
-  const { address, isConnected } = useAccount()
+  const { isLoggedIn, isConnected, address, user } = useUser();
   const [userData, setUserData] = useState(null)
   const { labs, loading } = useLabs(); // In the future only get user's booked labs
   const [enrichedLabs, setEnrichedLabs] = useState([]);
   const [statusChange, setStatusChange] = useState(false);
   // Get booked labs from LabCard
-  const hasActiveBooking = labs.filter((lab) => lab.activeBooking);
+  const hasActiveBooking = labs.filter(
+    (lab) => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking)
+  );
   const [firstActiveLab, setFirstActiveLab] = useState(null);
 
   useEffect(() => {
     if (labs && labs.length > 0) {
-      // These new properties should be added to fetchLabsData 
-      // or get current/former booking and status info from its actual source
-      const newLabs = hasActiveBooking.map(lab => ({
-        ...lab,
-        activeStatus: false,
-        currentlyBooked: false,
-        formerlyBooked: false,
-      }));
+      const newLabs = labs.map(lab => {
+        const bookings = Array.isArray(lab.bookingInfo) ? lab.bookingInfo : [];
+        const hasActive = bookings.some(b => b.activeBooking);
+        const hasFormerly = bookings.some(
+          b =>
+            !b.activeBooking &&
+            b.date &&
+            new Date(b.date) < new Date()
+        );
+        return {
+          ...lab,
+          activeStatus: hasActive,
+          currentlyBooked: hasActive,
+          formerlyBooked: hasFormerly,
+        };
+      });
       setEnrichedLabs(newLabs);
     }
   }, [labs]);
@@ -153,7 +163,9 @@ export default function UserDashboard() {
                 <h2 className="text-2xl font-semibold mb-2 text-gray-800 text-center">Booked</h2>
                 <hr className='mb-5 separator-width-black'></hr>
                 <ul>
-                {userData.labs.map((lab) => (
+                {userData.labs
+                .filter(lab => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking))
+                .map((lab) => (
                     <div className='mb-4 border-2 p-2 rounded-lg text-center'>
                       <li key={lab.id} className="flex flex-col items-center w-full"> {/* Apilamos verticalmente */}
                         <div className="flex items-center w-full"> {/* Línea para nombre y refund/estado */}

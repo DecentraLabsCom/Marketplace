@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import { useUser } from "../../context/UserContext";
 import { useLabs } from "../../context/LabContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -7,7 +8,8 @@ import Carrousel from "../../components/Carrousel";
 import { format, isToday, addMinutes } from "date-fns";
 
 export default function ReservationPage() {
-  const { labs, bookings } = useLabs();
+  const { labs } = useLabs();
+  const { isLoggedIn } = useUser();
   const router = useRouter();
   const { id } = router.query;
 
@@ -25,11 +27,11 @@ export default function ReservationPage() {
   }, [id, labs]);
 
   useEffect(() => {
-    if (selectedLab && bookings.length > 0) {
+    if (selectedLab && selectedLab.bookingInfo) {
       const newTimes = generateTimeOptions(time);
       setAvailableTimes(newTimes);
 
-      const labBookings = bookings.filter(
+      const labBookings = selectedLab.bookingInfo.filter(
         (b) => b.labId == selectedLab.id && b.activeBooking
       );
       const uniqueDates = [
@@ -43,7 +45,7 @@ export default function ReservationPage() {
     const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
     for (const booking of dayBookings) {
       const bookingStart = new Date(`${booking.date}T${booking.time}`);
-      const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minuts) * 60 * 1000);
+      const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60 * 1000);
       if (slotStart < bookingEnd && slotEnd > bookingStart) {
         return true;
       }
@@ -55,46 +57,46 @@ export default function ReservationPage() {
     const options = [];
     const now = new Date();
   
-    const dayBookings = bookings.filter(
+    const dayBookings = selectedLab.bookingInfo.filter(
       (b) =>
-        b.labId == selectedLab?.id &&
+        b.labId == selectedLab?.id && b.activeBooking &&
         new Date(b.date).toDateString() === date.toDateString()
     );
   
     const blockedRanges = dayBookings.map((b) => {
       const start = new Date(`${b.date}T${b.time}`);
-      const end = addMinutes(start, parseInt(b.minuts));
+      const end = addMinutes(start, parseInt(b.minutes));
       return { start, end };
     });
   
     const dayStart = new Date(date);
-dayStart.setHours(0, 0, 0, 0);
-const dayEnd = new Date(date);
-dayEnd.setHours(23, 59, 59, 999);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
 
-let slot = new Date(dayStart);
+    let slot = new Date(dayStart);
 
-while (slot <= dayEnd) {
-  const endSlot = addMinutes(slot, interval);
+    while (slot <= dayEnd) {
+      const endSlot = addMinutes(slot, interval);
 
-  if (isToday(date) && slot <= now) {
-    slot = addMinutes(slot, interval);
-    continue;
-  }
+      if (isToday(date) && slot <= now) {
+        slot = addMinutes(slot, interval);
+        continue;
+      }
 
-  const isConflict = blockedRanges.some(
-    ({ start, end }) =>
-      (slot >= start && slot < end) ||
-      (endSlot > start && endSlot <= end) ||
-      (slot <= start && endSlot >= end)
-  );
+      const isConflict = blockedRanges.some(
+        ({ start, end }) =>
+          (slot >= start && slot < end) ||
+          (endSlot > start && endSlot <= end) ||
+          (slot <= start && endSlot >= end)
+      );
 
-  if (!isConflict) {
-    options.push(format(slot, "HH:mm"));
-  }
+      if (!isConflict) {
+        options.push(format(slot, "HH:mm"));
+      }
 
-  slot = addMinutes(slot, interval);
-}
+      slot = addMinutes(slot, interval);
+    }
   
     return options;
   };
@@ -109,6 +111,14 @@ while (slot <= dayEnd) {
     const [month, day, year] = str.split("/");
     return new Date(`${year}-${month}-${day}`);
   };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="container mx-auto p-4 text-white text-center">
+        Please log in to view and make reservations.
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 text-white">
@@ -178,15 +188,15 @@ while (slot <= dayEnd) {
               <div className="flex-1">
                 <label className="block text-lg font-semibold">Available times:</label>
                 <select
-  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-  disabled={!availableTimes.length}
->
-  {availableTimes.map((time, i) => (
-    <option key={i} value={time}>
-      {time}
-    </option>
-  ))}
-</select>
+                  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                  disabled={!availableTimes.length}
+                >
+                  {availableTimes.map((time, i) => (
+                    <option key={i} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

@@ -1,11 +1,12 @@
 import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
+import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
 import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
 
 export default function ProviderDashboard() {
-  const { address } = useAccount();
+  const { address, isLoggedIn, user, isSSO } = useUser();
   const { labs, loading, setLabs } = useLabs();
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);

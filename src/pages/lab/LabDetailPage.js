@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react';
+import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
 import Carrousel from '../../components/Carrousel';
 import DocsCarrousel from '../../components/DocsCarrousel';
@@ -6,6 +7,7 @@ import { useRouter } from 'next/router';
 
 
 export default function LabDetailPage({ id }) {
+  const { isLoggedIn, address, user, isSSO } = useUser();
   const { labs, loading } = useLabs();
   const [lab, setLab] = useState(null);
   const router = useRouter();
