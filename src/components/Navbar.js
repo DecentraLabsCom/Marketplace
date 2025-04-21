@@ -18,17 +18,6 @@ export default function Navbar() {
     </div>
   );
 
-  // Listen for changes in isConnected
-  useEffect(() => {
-    if (!isLoggedIn) {
-      // If user disconnects when on other pages, redirect to homepage
-      if (router.pathname != '/' && router.pathname != '/about' && router.pathname != '/faq'
-          && router.pathname != '/contact' && !/^\/lab(\/.*)?$/.test(router.pathname)) {
-        router.push('/');
-      }
-    }
-  }, [isLoggedIn]);
-
   return (
     <nav className="bg-[#caddff] text-[#333f63] p-3 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
