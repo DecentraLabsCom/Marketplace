@@ -8,7 +8,7 @@ export function UserProvider({ children }) {
     const { address, isConnected } = useAccount();
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
-    const [isProvider, setIsPrivider] = useState(true);
+    const [isProvider, setIsProvider] = useState(true);
 
     const { publicRuntimeConfig } = getConfig();
     const basePath = publicRuntimeConfig.basePath || '';

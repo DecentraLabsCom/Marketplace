@@ -1,4 +1,3 @@
-import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
 import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
@@ -9,6 +8,7 @@ import AccessControl from '../../components/AccessControl';
 export default function ProviderDashboard() {
   const { address, isLoggedIn, user, isSSO } = useUser();
   const { labs, loading, setLabs } = useLabs();
+  const [isMounted, setIsMounted] = useState(false);
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,6 +44,9 @@ export default function ProviderDashboard() {
     }
   }, [ownedLabs]);
 
+  useEffect(() => { setIsMounted(true); }, []);
+  if (!isMounted) return null;
+
   // Handle unregister/delist a lab
   const handleUnregisterLab = (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
@@ -66,15 +69,15 @@ export default function ProviderDashboard() {
   };
 
   return (
-    <AccessControl message="Please log in to view and make reservations.">
+    <AccessControl message="Please log in to manage your labs.">
       <div className="container mx-auto p-4">
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
         </div>
 
-        <div className="flex">
+        <div className="flex flex-col md:flex-row">
 
-          <div className="w-2/3">
+          <div className="w-full md:w-2/3">
             <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
             {loading ? (
               <p className="text-gray-300 text-center">Loading labs...</p>
@@ -169,7 +172,7 @@ export default function ProviderDashboard() {
             </div>
           </div>
 
-          <div className="w-1/3">
+          <div className="w-full md:w-1/3 mt-8 md:mt-0">
             <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
           </div>
           

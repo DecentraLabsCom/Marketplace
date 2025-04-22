@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-[30rem]">
+    <div onClick={onClose} style={{ minHeight: "100vh" }}
+      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 overflow-y-auto">
+      <div onClick={e => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 my-8 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold mb-4 text-black">
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
