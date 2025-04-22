@@ -95,48 +95,48 @@ export default function MarketPage() {
 
   return (
     <main className="container mx-auto p-6">
-      <section className="mb-6 flex flex-row justify-center items-center">
+      <section className="mb-6 flex flex-col md:flex-row md:space-x-4 space-y-2 md:space-y-0 items-stretch md:items-center justify-center w-full">
 
-        {/* Category Filter */}
-        <div className="flex justify-center px-1">
-          <label htmlFor="category-filter" className="sr-only">
-            Filter by Category
-          </label>
-          <select id="category-filter" onChange={(e) => setSelectedCategory(e.target.value)}
-            value={selectedCategory} className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 
-            shadow-md hover:bg-[#caddff] cursor-pointer">
-            <option value="All">
-              All Categories
-            </option>
-            {categories.map((category) => (
-              <option key={category} value={category}>
-                {category}
+        {/* Filters */}
+        <div className="flex flex-row w-full md:w-auto gap-2">
+          <div className="w-1/2 md:w-auto">
+            <label htmlFor="category-filter" className="sr-only">
+              Filter by Category
+            </label>
+            <select id="category-filter" onChange={(e) => setSelectedCategory(e.target.value)}
+              value={selectedCategory} className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 
+              shadow-md hover:bg-[#caddff] cursor-pointer w-full">
+              <option value="All">
+                All Categories
               </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Provider Filter */}
-        <div className="flex justify-center px-1">
-          <label htmlFor="provider-filter" className="sr-only">
-            Filter by Provider
-          </label>
-          <select id="provider-filter" onChange={(e) => setSelectedProvider(e.target.value)}
-            value={selectedProvider} className="px-4 py-2 border rounded bg-white text-gray-800 
-            shadow-md hover:bg-[#caddff] cursor-pointer">
-            <option value="All">
-              All Providers
-            </option>
-            {providers.map((provider) => (
-              <option key={provider} value={provider}>
-                {provider}
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-1/2 md:w-auto">
+            <label htmlFor="provider-filter" className="sr-only">
+              Filter by Provider
+            </label>
+            <select id="provider-filter" onChange={(e) => setSelectedProvider(e.target.value)}
+              value={selectedProvider} className="px-4 py-2 border rounded bg-white text-gray-800 
+              shadow-md hover:bg-[#caddff] cursor-pointer w-full">
+              <option value="All">
+                All Providers
               </option>
-            ))}
-          </select>
+              {providers.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Search Bar */}
-        <div className="w-full max-w-sm min-w-[20px] mx-2">
+        <div className="w-full md:w-auto">
           <div className="relative">
             <div className="absolute top-1.5 left-1 flex items-center">
               <label htmlFor="search-bar" className="sr-only">
@@ -156,7 +156,7 @@ export default function MarketPage() {
               border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none 
               focus:border-[#caddff] shadow-sm focus:shadow"
               onChange={handleInputChange}/>
-        
+
             <button onClick={search} className="absolute top-1 right-1 flex items-center rounded 
               bg-[#715c8c]  py-1 px-2.5 border border-transparent text-center text-sm text-white 
               transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none 
@@ -173,15 +173,15 @@ export default function MarketPage() {
         </div>
 
         {/* Price sorting */}
-        <div className="flex justify-center px-1">
+        <div className="w-full md:w-auto flex justify-center md:justify-start items-center">
           <button onClick={handlePriceClick} value={selectedPrice}
             className="w-[130px] py-[7px] border-[1px] border-[#caddff] rounded bg-[#715c8c] 
             text-white shadow-md hover:bg-slate-700 cursor-pointer">
             {selectedPrice}
           </button>
         </div>
-      
-      </section>
+
+        </section>
 
       {/* Labs Grid */}
       <section>

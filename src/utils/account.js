@@ -14,7 +14,7 @@ export function Account({isConnected, username}) {
 
   const handleDisconnect = () => {
     if (isConnected) disconnect();
-    if (username) return; // TO-DO
+    if (username) window.location.href = "/api/auth/sso/logout";
   }
 
   return (
