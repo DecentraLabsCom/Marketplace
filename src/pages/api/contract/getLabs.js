@@ -10,12 +10,12 @@ export default async function handler(req, res) {
     const contract = await getContractInstance();
 
     // Get list of labs
-    const labList = await contract.getAllCPSs();
+    const labList = await contract.getAllLabs();
 
     // Get lab metadata
     const labs = await Promise.all(
       labList.map(async (lab) => {
-        const labId = lab.CPSId.toString();
+        const labId = lab.labId.toString();
         // Fetch metadata from URI
         const metadataURI = lab.base.uri;
         const response = await fetch(metadataURI);
@@ -32,9 +32,9 @@ export default async function handler(req, res) {
           price: parseFloat(lab.base.price),
           description: metadata.description,
           provider: metadata.provider,
-          auth: metadata.auth,              // Move to contract! Optional; if not present, use DecentraLabs Auth service
-          accessURI: metadata.accessURI,    // Move to contract!
-          accessKey: metadata.accessKey,    // Move to contract!
+          auth: parseString(lab.base.auth), // Optional; if not present, use DecentraLabs Auth service
+          accessURI: parseString(lab.base.accessURI),
+          accessKey: parseString(lab.base.accessKey),
           timeSlots: metadata.timeSlots,    // Optional; if not present, use 60 (minutes)
           opens: metadata.opens,            // Optional
           closes: metadata.closes,          // Optional

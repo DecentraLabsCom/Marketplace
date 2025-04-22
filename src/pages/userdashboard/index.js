@@ -1,32 +1,43 @@
-import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
+import { useUser } from '../../context/UserContext'
 import { useLabs } from '../../context/LabContext'
-import Carrousel from '../../components/Carrousel';
-import LabAccess from "../../components/LabAccess";
-import React from 'react';
-import Link from "next/link";
-import Refund from '../../components/Refund';
+import Carrousel from '../../components/Carrousel'
+import LabAccess from '../../components/LabAccess'
+import AccessControl from '../../components/AccessControl'
+import Refund from '../../components/Refund'
+import React from 'react'
+import Link from 'next/link'
 
 export default function UserDashboard() {
-  const { address, isConnected } = useAccount()
+  const { isLoggedIn, isConnected, address, user } = useUser();
   const [userData, setUserData] = useState(null)
   const { labs, loading } = useLabs(); // In the future only get user's booked labs
   const [enrichedLabs, setEnrichedLabs] = useState([]);
   const [statusChange, setStatusChange] = useState(false);
   // Get booked labs from LabCard
-  const hasActiveBooking = labs.filter((lab) => lab.activeBooking);
+  const hasActiveBooking = labs.filter(
+    (lab) => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking)
+  );
   const [firstActiveLab, setFirstActiveLab] = useState(null);
 
   useEffect(() => {
     if (labs && labs.length > 0) {
-      // These new properties should be added to fetchLabsData 
-      // or get current/former booking and status info from its actual source
-      const newLabs = hasActiveBooking.map(lab => ({
-        ...lab,
-        activeStatus: false,
-        currentlyBooked: false,
-        formerlyBooked: false,
-      }));
+      const newLabs = labs.map(lab => {
+        const bookings = Array.isArray(lab.bookingInfo) ? lab.bookingInfo : [];
+        const hasActive = bookings.some(b => b.activeBooking);
+        const hasFormerly = bookings.some(
+          b =>
+            !b.activeBooking &&
+            b.date &&
+            new Date(b.date) < new Date()
+        );
+        return {
+          ...lab,
+          activeStatus: hasActive,
+          currentlyBooked: hasActive,
+          formerlyBooked: hasFormerly,
+        };
+      });
       setEnrichedLabs(newLabs);
     }
   }, [labs]);
@@ -83,18 +94,18 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="relative bg-cover bg-center text-white py-5 text-center">
-        <h1 className="text-3xl font-bold mb-2">User Dashboard</h1>
-      </div>
-
-      <div className="flex flex-row gap-1">
-        {/* User profile sectio hidden */}
-        <div className="bg-white shadow-md rounded-lg p-6 mb-6 w-1/6 h-1/3 hidden">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">Profile</h2>
-          <p className="text-gray-700"><strong>Name:</strong> {userData.name}</p>
-          <p className="text-gray-700 break-words"><strong>Email:</strong> {userData.email}</p>
+    <AccessControl message="Please log in to view and make reservations.">
+      <div className="container mx-auto p-4">
+        <div className="relative bg-cover bg-center text-white py-5 text-center">
+          <h1 className="text-3xl font-bold mb-2">User Dashboard</h1>
         </div>
+
+        <div className="flex flex-row gap-1">
+          <div className="bg-white shadow-md rounded-lg p-6 mb-6 w-1/6 h-1/3 hidden">
+            <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">Profile</h2>
+            <p className="text-gray-700"><strong>Name:</strong> {userData.name}</p>
+            <p className="text-gray-700 break-words"><strong>Email:</strong> {userData.email}</p>
+          </div>
 
         <div className='pl-1 flex-1'>
           <div className='flex flex-row'>
@@ -153,7 +164,9 @@ export default function UserDashboard() {
               <div className="w-1/2">
                 <h2 className="text-2xl font-semibold mb-4 text-center">Upcoming Booked Labs</h2>
                 <ul className='flex justify-center'>
-                {userData.labs.map((lab) => (
+                {userData.labs
+                  .filter(lab => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking))
+                  .map((lab) => (
                     <div className='mb-4 p-2 rounded-lg text-center'>
                       <li key={lab.id} className="flex flex-col items-center w-full"> {/* Apilamos verticalmente */}
                         <div className="flex items-center w-full"> {/* Línea para nombre y refund/estado */}
@@ -187,12 +200,12 @@ export default function UserDashboard() {
                 </ul>
               </div>
 
-              {/* Vertical divider */}  
-              <div class="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr
-            from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
-            border-l-1 border-neutral-800 dark:border-neutral-200 border-dashed"
-                  style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }}>
-              </div>
+                {/* Vertical divider */}  
+                <div class="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr
+              from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
+              border-l-1 border-neutral-800 dark:border-neutral-200 border-dashed"
+                    style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }}>
+                </div>
 
               
                 {/* Previously booked labs */}
@@ -216,5 +229,6 @@ export default function UserDashboard() {
         </div>
       </div>
     </div>
+    </AccessControl>
   )
 }

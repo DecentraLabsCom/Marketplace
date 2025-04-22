@@ -7,7 +7,7 @@ export default function handler(req, res) {
             throw new Error("sp.create_metadata is not a function");
         }
 
-        const metadata = sp.create_metadata(); // ¡Sin callback!
+        const metadata = sp.create_metadata();
 
         if (!metadata || typeof metadata !== 'string') {
             throw new Error("Generated metadata is empty or invalid");

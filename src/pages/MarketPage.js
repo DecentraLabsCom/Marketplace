@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useLabs, useBookings } from '../context/LabContext';
+import { useLabs } from '../context/LabContext';
 import LabCard from "../components/LabCard";
+import { useUser } from '../context/UserContext';
 
 export default function MarketPage() {
   const searchInputRef = useRef(null);
   const { labs, loading } = useLabs();
+  const { isLoggedIn } = useUser();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
   const [selectedProvider, setSelectedProvider] = useState("All");
@@ -187,9 +189,15 @@ export default function MarketPage() {
           <div className="text-center">Loading labs...</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {searchFilteredLabs.map((lab) => (
-              <LabCard key={lab.id} {...lab} image={lab.images[0]} />
-            ))}
+            {searchFilteredLabs.map((lab) => {
+              const hasActiveBooking = isLoggedIn && Array.isArray(lab.bookingInfo)
+                ? lab.bookingInfo.some(b => b.activeBooking)
+                : false;
+              return (
+                <LabCard key={lab.id} {...lab} activeBooking={hasActiveBooking}
+                  image={lab.images[0]} />
+              );
+            })}
           </div>
         )}
       </section>

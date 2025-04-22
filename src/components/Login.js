@@ -1,30 +1,25 @@
 import { useState, useEffect } from 'react';
+import { useUser } from '../context/UserContext';
 import { Account } from '../utils/account';
 import { WalletLogin } from './WalletLogin';
 import { InstitutionalLogin } from './InstitutionalLogin';
 import { FaSignInAlt } from 'react-icons/fa';
 
-export default function Login({ isConnected, user }) {
+export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const toggleModal = () => {
-    setIsModalOpen(!isModalOpen);
-  };
+  const toggleModal = () => setIsModalOpen(!isModalOpen);
+
+  const { isConnected, user, isLoggedIn } = useUser();
 
   // Close modal on Escape key press
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setIsModalOpen(false);
-      }
+      if (event.key === 'Escape') setIsModalOpen(false);
     };
 
-    if (isModalOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
+    if (isModalOpen) window.addEventListener('keydown', handleKeyDown);
 
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isModalOpen]);
 
   if (isConnected) return <Account isConnected = {isConnected} />;

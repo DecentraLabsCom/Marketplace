@@ -1,12 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import LabAccess from "./LabAccess";
-import { useAccount } from 'wagmi';
+import { useUser } from '../context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 
 export default function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, user, isSSO } = useUser();
  
   return (
     <div className={`relative group rounded-md shadow-md bg-gray-200 transform 

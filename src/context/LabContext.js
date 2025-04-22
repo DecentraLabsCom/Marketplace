@@ -1,16 +1,15 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useUser } from './UserContext';
 //import { useDefaultReadContract } from '../hooks/useDefaultReadContract';
 
 const LabContext = createContext();
 
 export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
-  const [bookings, setBookings] = useState([]); 
   const [loading, setLoading] = useState(true);
   //const [hasFetched, setHasFetched] = useState(false);
 
-  const { address } = useAccount();
+  const { isLoggedIn, address, user, isSSO } = useUser();
 
   useEffect(() => {
     const fetchLabs = async () => {
@@ -42,6 +41,14 @@ export function LabData({ children }) {
   }, []);
 
   useEffect(() => {
+    if (!address) {
+      // Clean bookingInfo if user is not logged in
+      setLabs((prevLabs) =>
+        prevLabs.map(lab => ({ ...lab, bookingInfo: [] }))
+      );
+      return;
+    }
+
     if (!address) return;
   
     const fetchBookings = async () => {
@@ -59,19 +66,22 @@ export function LabData({ children }) {
         }
   
         const bookingsData = await response.json();
-        setBookings(bookingsData);
   
+        const bookingsMap = {};
+        for (const booking of bookingsData) {
+          if (!bookingsMap[booking.labId]) {
+            bookingsMap[booking.labId] = [];
+          }
+          bookingsMap[booking.labId].push(booking);
+        }
+
         setLabs((prevLabs) => {
-          const updated = prevLabs.map((lab) => {
-            const booking = bookingsData.find((b) => b.labId === lab.id);
-            return {
-              ...lab,
-              activeBooking: booking ? booking.activeBooking : false,
-            };
-          });
-  
-          sessionStorage.setItem('labs', JSON.stringify(updated));
-          return updated;
+          const updatedLabs = prevLabs.map((lab) => ({
+            ...lab,
+            bookingInfo: bookingsMap[lab.id] || [],
+          }));
+          sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
+          return updatedLabs;
         });
       } catch (err) {
         console.error('Error fetching reservations:', err);
@@ -82,7 +92,7 @@ export function LabData({ children }) {
   }, [address]); 
 
   /*const { data: labList, refetch, isLoading, error } = 
-        useDefaultReadContract('getAllCPSs', null, hasFetched);
+        useDefaultReadContract('getAllLabs', null, hasFetched);
 
   useEffect(() => {
     if (labList) {
@@ -92,7 +102,7 @@ export function LabData({ children }) {
   }, [labList, refetch, isLoading, error]);*/
 
   return (
-    <LabContext.Provider value={{ labs, bookings, loading }}> 
+    <LabContext.Provider value={{ labs, loading }}> 
       {children}
     </LabContext.Provider>
   );

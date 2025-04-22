@@ -64,9 +64,9 @@ export default function FAQ() {
         <h1 className="text-3xl font-bold mb-2">Frequently Asked Questions</h1>
       </div>
 
-      <div className="relative w-full bg-white px-6 pt-10 pb-5 shadow-xl ring-1
-        ring-gray-900/5 sm:mx-auto sm:max-w-2xl sm:rounded-lg sm:px-10">
-        <div className="mx-auto  grid max-w-xl divide-y divide-neutral-200">
+      <div className="relative w-full bg-white pt-10 pb-5 shadow-xl ring-1
+        ring-gray-900/5 sm:mx-auto sm:max-w-3xl sm:rounded-lg">
+        <div className="mx-auto grid max-w-2xl divide-y divide-neutral-200">
           {faqData.map((item, index) => (
             <div key={index} className="py-5">
               <details className="group">
@@ -74,12 +74,12 @@ export default function FAQ() {
                 text-2xl font-semibold mb-4 text-gray-800">
                     <span>{item.question}</span>
                     <span className="transition group-open:rotate-180">
-                            <svg fill="none" height="24" shape-rendering="geometricPrecision"
-                                stroke="black" stroke-linecap="round" stroke-linejoin="round"
-                                stroke-width="1.5" viewBox="0 0 24 24" width="24">
-                                <path d="M6 9l6 6 6-6"></path>
-                            </svg>
-                        </span>
+                        <svg fill="none" height="24" shape-rendering="geometricPrecision"
+                            stroke="black" stroke-linecap="round" stroke-linejoin="round"
+                            stroke-width="1.5" viewBox="0 0 24 24" width="24">
+                            <path d="M6 9l6 6 6-6"></path>
+                        </svg>
+                    </span>
                 </summary>
                 <p className="group-open:animate-fadeIn mt-3 text-neutral-600 text-justify">
                 {item.answer}</p>

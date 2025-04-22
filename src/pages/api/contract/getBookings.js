@@ -17,29 +17,26 @@ export default async function handler(req, res) {
 
     const contract = await getContractInstance();
 
-    // Get active and future bookings for user
     const bookingList = await contract.getAllBookings();
 
+    // Filter to get only active and future bookings for user
     const bookings = await Promise.all(
         bookingList.map(async (booking) => {
             const renter = booking.renter.toString();
             const start = booking.start.toString();
             const end = booking.end.toString();
             const now = Date.now().toString();
+            let activeBooking = false;
             if (userWallet == renter && start <= now && end > now) {
-                const labId = booking.CPSId.toString();
-                return {
-                    labId: labId,
-                    activeBooking: true,
-                    start: start,
-                    end: end,
-                }
-            } else {
-                return {
-                    labId: labId,
-                    activeBooking: false,
-                }
+                const labId = booking.labId.toString();
+                activeBooking = true;
             }
+            return {
+              labId: labId,
+              activeBooking: activeBooking,
+              start: start,
+              end: end,
+          }
         })
     );
 
