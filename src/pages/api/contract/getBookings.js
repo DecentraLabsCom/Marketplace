@@ -6,8 +6,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userWallet } = req.body;
-  if (!userWallet) {
+  const { wallet } = req.body;
+  if (!wallet) {
     res.status(200).json([]);
   }
 
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
             const end = booking.end.toString();
             const now = Date.now().toString();
             let activeBooking = false;
-            if (userWallet == renter && start <= now && end > now) {
+            if (wallet == renter && start <= now && end > now) {
                 const labId = booking.labId.toString();
                 activeBooking = true;
             }

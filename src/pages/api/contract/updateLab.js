@@ -5,9 +5,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userWallet } = req.body;
-  if (!userWallet) {
-    res.status(200).json([]);
+  const { wallet } = req.body;
+  if (!wallet) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
 
   // Check other required params are also provided

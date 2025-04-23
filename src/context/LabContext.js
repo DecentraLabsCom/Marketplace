@@ -58,7 +58,7 @@ export function LabData({ children }) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ userWallet: address }),
+          body: JSON.stringify({ wallet: address }),
         });
   
         if (!response.ok) {

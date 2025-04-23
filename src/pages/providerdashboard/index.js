@@ -64,8 +64,65 @@ export default function ProviderDashboard() {
       const newLabWithId = { ...newLab, id: Date.now(), providerAddress: address };
       setLabs([...labs, newLabWithId]);
     }
+    // TODO: call backend enpoint to interact with the contract
     setEditingLab(null);
     setIsModalOpen(false);
+  };
+
+  const handleCollectAll = async () => {
+    try {
+      const res = await fetch('/api/contract/claimAllBalance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      });
+      if (!res.ok) throw new Error('Failed to collect balance');
+      // TODO: show a success message
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  
+  const handleCollect = async (labId) => {
+    try {
+      const res = await fetch('/api/contract/claimLabBalance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, labId }),
+      });
+      if (!res.ok) throw new Error('Failed to collect balance');
+      // TODO: show a success message
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  
+  const handleList = async (labId) => {
+    try {
+      const res = await fetch('/api/contract/listLab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, labId }),
+      });
+      if (!res.ok) throw new Error('Failed to list lab');
+      // TODO: show a success message
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  
+  const handleUnlist = async (labId) => {
+    try {
+      const res = await fetch('/api/contract/unlistLab', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, labId }),
+      });
+      if (!res.ok) throw new Error('Failed to unlist lab');
+      // TODO: show a success message
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -83,9 +140,15 @@ export default function ProviderDashboard() {
               <p className="text-gray-300 text-center">Loading labs...</p>
             ) : ownedLabs.length > 0 ? (
               <>
+              <div className="flex justify-center mb-4">
+                <button onClick={handleCollectAll}
+                  className="bg-[#bcc4fc] text-white px-6 py-2 rounded shadow hover:bg-[#aab8e6] font-bold"
+                >
+                  Collect All
+                </button>
+              </div>
               <div className="flex justify-center">
-                <select
-                  className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
+                <select className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
                   value={editingLab?.id || ""}
                   onChange={(e) => {
                     const selectedLab = ownedLabs.find((lab) => lab.id === parseInt(e.target.value));
@@ -110,48 +173,44 @@ export default function ProviderDashboard() {
                       <Carrousel lab={editingLab} maxHeight={200} />
                     </div>
                     <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
-                      <button
-                        onClick={() => setIsModalOpen(true)}
+                      <button onClick={() => setIsModalOpen(true)}
                         className="relative bg-[#715c8c] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Edit
                         <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
                         border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300"></span>
+                        group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button
-                        onClick={() => {}}
+                      <button onClick={() => handleCollect(editingLab.id)}
                         className="relative bg-[#bcc4fc] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Collect
                         <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
                         border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300"></span>
+                        group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button
-                        onClick={() => {}}
+                      <button onClick={() => handleList(editingLab.id)}
                         className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         List
                         <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
                         border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300"></span>
+                        group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button
-                        onClick={() => {}}
+                      <button onClick={() => handleUnlist(editingLab.id)}
                         className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Unlist
                         <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
                         border-b-[#5f6a91] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300"></span>
+                        group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
                     </div>
                   </div>
                   <div className="w-2/3 flex justify-center mt-4">
-                    <button
-                      onClick={() => handleUnregisterLab(editingLab.id)}
-                      className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold hover:bg-[#8a5c66]"
+                    <button onClick={() => handleUnregisterLab(editingLab.id)}
+                      className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold 
+                      hover:bg-[#8a5c66]"
                     >
                       Delete
                     </button>
@@ -178,13 +237,8 @@ export default function ProviderDashboard() {
           
         </div>
 
-        <LabModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={handleSaveLab}
-          lab={editingLab || newLab}
-          setLab={editingLab ? setEditingLab : setNewLab}
-        />
+        <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
+          lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} />
       </div>
     </AccessControl>
   );

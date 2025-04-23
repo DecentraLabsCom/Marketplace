@@ -5,12 +5,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { providerWallet } = req.body;
-  if (!providerWallet) {
-    res.status(200).json([]);
+  const { name, email, wallet, country  } = req.body;
+  if (!name || !email || !wallet || !country) {
+    return res.status(400).json({ error: 'Missing required fields' });
   }
-
-  // Check other required params are also provided
 
   try {
     const contract = await getContractInstance();

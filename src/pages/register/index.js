@@ -2,16 +2,13 @@ import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { IoPerson } from 'react-icons/io5';
 import ReactFlagsSelect from 'react-flags-select';
+import { useUser } from '../../context/UserContext';
 import AccessControl from '../../components/AccessControl';
 
 const providerSchema = z.object({
   name: z.string().min(1, 'Provider name is required'),
-  email: z.string()
-    .min(1, 'Email is required')
-    .email('Invalid email address'),
-  wallet: z.string()
-    .min(1, 'Wallet address is required')
-    .refine(
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  wallet: z.string().min(1, 'Wallet address is required').refine(
     (val) => /^0x[a-fA-F0-9]{40}$/.test(val),
     'Wallet address must start with 0x followed by 40 alphanumeric characters'
     ),
@@ -19,6 +16,7 @@ const providerSchema = z.object({
 });
 
 export default function RegisterProviderForm() {
+  const { isSSO, user } = useUser();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,10 +25,40 @@ export default function RegisterProviderForm() {
   });
   const [errors, setErrors] = useState({});
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [autoError, setAutoError] = useState(null);
+  const [autoRequested, setAutoRequested] = useState(false);
 
-  const closeModal = () => {
-    setIsSuccess(false);
-  };
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Automatic registration when accessed using SSO
+  useEffect(() => {
+    if (isSSO && user && autoRequested && !isSuccess) {
+      const autoRegister = async () => {
+        try {
+          const providerData = {
+            name: user.name,
+            email: user.email,
+            wallet: user.wallet || '',
+            country: user.country || '',
+          };
+          const res = await fetch('/api/contract/addProvider', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(providerData),
+          });
+          if (!res.ok) throw new Error('Failed to register provider');
+          setIsSuccess(true);
+        } catch (err) {
+          setAutoError('Automatic registration failed. Please contact support.');
+        }
+      };
+      autoRegister();
+    }
+  }, [isSSO, user, autoRequested, isSuccess]);
+
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -48,20 +76,29 @@ export default function RegisterProviderForm() {
     };
   }, [isSuccess]);
 
-  const handleSubmit = (event) => {
+  const closeModal = () => {
+    setIsSuccess(false);
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const result = providerSchema.safeParse(formData);
 
     if (result.success) {
-      setIsSuccess(true);
-      // Form data is valid, handle submission
-      console.log('Form data:', formData); // Remove this when logic to send data to database is done
-      // Logic to send data to database
-
-      // Clear errors upon success
-      setErrors({});
-      // Clear form upon success
-      setFormData({name: '', email: '', wallet: '', country: ''})
+      try {
+        const res = await fetch('/api/provider/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        if (!res.ok) throw new Error('Failed to save provider');
+        setIsSuccess(true);
+        setErrors({});
+        // Clear form upon success
+        setFormData({ name: '', email: '', wallet: '', country: '' });
+      } catch (err) {
+        setErrors({ general: ['Failed to save provider. Try again later.'] });
+      }
     } else {
       // Form data is invalid, update error state
       const formattedErrors = result.error.flatten().fieldErrors;
@@ -78,14 +115,53 @@ export default function RegisterProviderForm() {
     setFormData({ ...formData, country: code });
   };
 
+  // Automatic registration when accessed using SSO
+  if (isSSO) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px]">
+        {!autoRequested ? (
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col items-center">
+            <h2 className="text-center text-lg font-semibold mb-4 text-black">
+              Register as a Provider
+            </h2>
+            <button onClick={() => setAutoRequested(true)}
+              className="flex w-full justify-center rounded-md bg-[#715c8c] px-3 py-1.5 text-sm font-semibold 
+              leading-6 text-white shadow-sm hover:bg-[#ad8ed4] focus-visible:outline focus-visible:outline-2
+              focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            >
+              Register
+            </button>
+          </div>
+        ) : isSuccess ? (
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+            <h2 className="text-center text-lg font-bold mb-4 text-black">
+              You have been registered as a provider!
+            </h2>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+            <h2 className="text-center text-lg font-bold mb-4 text-black">
+              Registering you as a provider...
+            </h2>
+            {autoError && <p className="text-red-500 text-center">{autoError}</p>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (!isMounted) return null;
+
   return (
     <AccessControl message="Please log in to view and make reservations.">
       <main className="flex justify-center mt-8">
         <section style={{ minWidth: '30%' }}>
-          <div className="flex min-h-full shadow-lg flex-1 flex-col justify-center px-6 py-9 lg:px-8 bg-white rounded">
+          <div className="flex min-h-full shadow-lg flex-1 flex-col justify-center px-6 py-9 lg:px-8 
+          bg-white rounded">
             <header className="sm:mx-auto sm:w-full sm:max-w-sm">
               <div className="flex justify-center">
-                <IoPerson className="h-[70px] w-[70px] text-[#715c8c] border-2 p-1 border-[#715c8c] rounded mb-2" />
+                <IoPerson className="h-[70px] w-[70px] text-[#715c8c] border-2 p-1 border-[#715c8c] 
+                rounded mb-2" />
               </div>
               <h2 className="mt-1 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
                 Register as a Provider
@@ -109,7 +185,9 @@ export default function RegisterProviderForm() {
                       type="text"
                       value={formData.name}
                       onChange={handleChange}
-                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 
+                      ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset 
+                      focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name[0]}</p>}
                   </div>
@@ -128,7 +206,9 @@ export default function RegisterProviderForm() {
                       type="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 
+                      ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset 
+                      focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email[0]}</p>}
                   </div>
@@ -147,7 +227,9 @@ export default function RegisterProviderForm() {
                       type="text"
                       value={formData.wallet}
                       onChange={handleChange}
-                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 
+                      ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset 
+                      focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     {errors.wallet && <p className="text-red-500 text-sm mt-1">{errors.wallet[0]}</p>}
                   </div>
@@ -184,7 +266,10 @@ export default function RegisterProviderForm() {
                   {isSuccess && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                       <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-                        <h2 className="text-center text-lg font-bold mb-4 text-black">You have registered successfully!</h2>
+                        <h2 className="text-center text-lg font-semibold mb-4 text-black">
+                          You have successfully submitted your interest to register as a lab provider. 
+                          Our team will contact you soon to complete the process.
+                        </h2>
                         <div className="flex justify-center">
                           <button
                             onClick={closeModal}
