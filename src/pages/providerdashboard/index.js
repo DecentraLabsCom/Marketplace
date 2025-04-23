@@ -4,6 +4,7 @@ import { useLabs } from '../../context/LabContext';
 import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
 import AccessControl from '../../components/AccessControl';
+import FeedbackModal from '../../components/FeedbackModal';
 
 export default function ProviderDashboard() {
   const { address, isLoggedIn, user, isSSO } = useUser();
@@ -12,6 +13,8 @@ export default function ProviderDashboard() {
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
   const [newLab, setNewLab] = useState({
     name: '',
     category: '',
@@ -51,6 +54,8 @@ export default function ProviderDashboard() {
   const handleUnregisterLab = (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
     setLabs(updatedLabs);
+    setFeedbackMessage('Lab deleted successfully.');
+    setShowFeedback(true);
   };
 
   // Handle adding or updating a lab
@@ -60,11 +65,14 @@ export default function ProviderDashboard() {
         lab.id === editingLab.id ? editingLab : lab
       );
       setLabs(updatedLabs);
+      setFeedbackMessage('Lab updated successfully.');
+
     } else {
       const newLabWithId = { ...newLab, id: Date.now(), providerAddress: address };
       setLabs([...labs, newLabWithId]);
+      setFeedbackMessage('Lab added successfully.');
     }
-    // TODO: call backend enpoint to interact with the contract
+    setShowFeedback(true);
     setEditingLab(null);
     setIsModalOpen(false);
   };
@@ -77,7 +85,8 @@ export default function ProviderDashboard() {
         body: JSON.stringify({ address }),
       });
       if (!res.ok) throw new Error('Failed to collect balance');
-      // TODO: show a success message
+      setFeedbackMessage('All balances collected successfully.');
+      setShowFeedback(true);
     } catch (err) {
       console.error(err);
     }
@@ -91,7 +100,8 @@ export default function ProviderDashboard() {
         body: JSON.stringify({ address, labId }),
       });
       if (!res.ok) throw new Error('Failed to collect balance');
-      // TODO: show a success message
+      setFeedbackMessage('Balance collected successfully.');
+      setShowFeedback(true);
     } catch (err) {
       console.error(err);
     }
@@ -105,7 +115,8 @@ export default function ProviderDashboard() {
         body: JSON.stringify({ address, labId }),
       });
       if (!res.ok) throw new Error('Failed to list lab');
-      // TODO: show a success message
+      setFeedbackMessage('Lab listed successfully.');
+      setShowFeedback(true);
     } catch (err) {
       console.error(err);
     }
@@ -119,7 +130,8 @@ export default function ProviderDashboard() {
         body: JSON.stringify({ address, labId }),
       });
       if (!res.ok) throw new Error('Failed to unlist lab');
-      // TODO: show a success message
+      setFeedbackMessage('Lab unlisted successfully.');
+      setShowFeedback(true);
     } catch (err) {
       console.error(err);
     }
@@ -239,6 +251,8 @@ export default function ProviderDashboard() {
 
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
           lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} />
+
+        <FeedbackModal isOpen={showFeedback} message={feedbackMessage} onClose={() => setShowFeedback(false)} />
       </div>
     </AccessControl>
   );
