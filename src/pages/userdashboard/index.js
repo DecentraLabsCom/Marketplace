@@ -22,6 +22,7 @@ export default function UserDashboard() {
   const [availableLab, setAvailableLab] = useState(null);
   const [labDate, setLabDate] = useState(null);
   const currentDate = new Date().toISOString().slice(0, 10);
+  const [startTime, setStartTime] = useState(null);
 
   useEffect(() => {
     if (labs && labs.length > 0) {
@@ -34,11 +35,15 @@ export default function UserDashboard() {
             b.date &&
             new Date(b.date) < new Date()
         );
+        const activeBooking = bookings.find(b => b.activeBooking);
+        // const startTime = activeBooking?.time;
+        // console.log("start time: " + startTime);
         return {
           ...lab,
           activeStatus: hasActive,
           currentlyBooked: hasActive,
           formerlyBooked: hasFormerly,
+          // startTime: startTime,
         };
       });
       setEnrichedLabs(newLabs);
@@ -84,12 +89,35 @@ export default function UserDashboard() {
   useEffect(() => {
     if (userData?.labs) {
       const availableTodayLab = userData.labs.find((lab) => {
-        if (Array.isArray(lab.bookingInfo)) {
+        if (lab.activeStatus === true && Array.isArray(lab.bookingInfo)) {
+          console.log("booking info: " + Array.isArray(lab.bookingInfo));
           return lab.bookingInfo.some(booking => booking.date === currentDate);
         }
         return false;
       });
       setAvailableLab(availableTodayLab);
+  
+      console.log("availableTodayLab:", availableTodayLab)
+  
+      if (availableTodayLab && Array.isArray(availableTodayLab.bookingInfo)) {
+        const activeBooking = availableTodayLab.bookingInfo.find(b => b.activeBooking);
+        console.log("activeBooking:", activeBooking);
+  
+        if (availableTodayLab.activeStatus === true && activeBooking?.time) {
+          const startTime = activeBooking.time;
+          setStartTime(startTime);
+          console.log("Start time: " + startTime);
+          console.log("Active booking: " + availableTodayLab.activeStatus);
+        } else {
+          setStartTime(null);
+          console.log("Start time set to null because:");
+          console.log("availableTodayLab.activeStatus:", availableTodayLab?.activeStatus);
+          console.log("activeBooking?.time:", activeBooking?.time);
+        }
+      } else {
+        setStartTime(null);
+        console.log("Start time set to null because availableTodayLab or bookingInfo is missing.");
+      }
     }
   }, [userData?.labs]);
 
@@ -132,6 +160,10 @@ export default function UserDashboard() {
                             <Carrousel lab={availableLab} maxHeight={140} />
                           </div>
                           <span className="text-gray-700 block">Available today</span>
+                          <div className='text-gray-500 flex flex-col text-sm'>
+                            <span>Start time: {startTime}</span>
+                            <span>End time:</span>
+                          </div>
                           <LabAccess userWallet={address} hasActiveBooking={availableLab.activeStatus} auth={availableLab.auth} />
                         </div>
                       </div>
@@ -177,7 +209,7 @@ export default function UserDashboard() {
                   )}
                   
                 </div> 
-                {!firstActiveLab && (
+                {!firstActiveLab && !availableLab && (
                   <span className="text-gray-300 text-center">No upcoming or currently active lab</span>
                 )}
               </div>
