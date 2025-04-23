@@ -5,8 +5,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userWallet } = req.body;
-  if (!userWallet) {
+  const { wallet } = req.body;
+  if (!wallet) {
     res.status(200).json([]);
   }
 
