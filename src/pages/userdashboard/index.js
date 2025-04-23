@@ -5,6 +5,7 @@ import Carrousel from '../../components/Carrousel'
 import LabAccess from '../../components/LabAccess'
 import AccessControl from '../../components/AccessControl'
 import Refund from '../../components/Refund'
+import Cancellation from '../../components/Cancellation'
 import React from 'react'
 import Link from 'next/link'
 
@@ -13,7 +14,6 @@ export default function UserDashboard() {
   const [userData, setUserData] = useState(null)
   const { labs, loading } = useLabs(); // In the future only get user's booked labs
   const [enrichedLabs, setEnrichedLabs] = useState([]);
-  const [statusChange, setStatusChange] = useState(false);
   // Get booked labs from LabCard
   const hasActiveBooking = labs.filter(
     (lab) => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking)
@@ -21,11 +21,15 @@ export default function UserDashboard() {
   const [firstActiveLab, setFirstActiveLab] = useState(null);
   const [availableLab, setAvailableLab] = useState(null);
   const [labDate, setLabDate] = useState(null);
-  const currentDate = new Date().toISOString().slice(0, 10);
-  const [startTime, setStartTime] = useState(null);
+  const [availableLabStartTime, setAvailableLabStartTime] = useState(null);
+  const [availableLabEndTime, setAvailableLabEndTime] = useState(null);
+  const [firstActiveStartTime, setFirstActiveStartTime] = useState(null);
+  const [firstActiveEndTime, setFirstActiveEndTime] = useState(null);  
 
   useEffect(() => {
     if (labs && labs.length > 0) {
+      const now = new Date();
+      const currentDate = now.toISOString().slice(0, 10);
       const newLabs = labs.map(lab => {
         const bookings = Array.isArray(lab.bookingInfo) ? lab.bookingInfo : [];
         const hasActive = bookings.some(b => b.activeBooking);
@@ -35,15 +39,30 @@ export default function UserDashboard() {
             b.date &&
             new Date(b.date) < new Date()
         );
-        const activeBooking = bookings.find(b => b.activeBooking);
-        // const startTime = activeBooking?.time;
-        // console.log("start time: " + startTime);
+  
+        const isAccessible = bookings.some(booking => {
+          if (booking.activeBooking && booking.date === currentDate && booking.time && booking.minutes) {
+            const [startHours, startMinutes] = booking.time.split(':').map(Number);
+            const startTime = new Date(now);
+            startTime.setHours(startHours);
+            startTime.setMinutes(startMinutes);
+            startTime.setSeconds(0);
+            startTime.setMilliseconds(0);
+  
+            const endTimeMilliseconds = startTime.getTime() + booking.minutes * 60 * 1000;
+            const endTime = new Date(endTimeMilliseconds);
+  
+            return now >= startTime && now <= endTime;
+          }
+          return false;
+        });
+  
         return {
           ...lab,
           activeStatus: hasActive,
           currentlyBooked: hasActive,
           formerlyBooked: hasFormerly,
-          // startTime: startTime,
+          isAccessible: isAccessible,
         };
       });
       setEnrichedLabs(newLabs);
@@ -65,6 +84,7 @@ export default function UserDashboard() {
   }, [isConnected, enrichedLabs])
 
   useEffect(() => {
+    const currentDate = new Date().toISOString().slice(0, 10);
     if (userData?.labs) {
       const activeLab = userData.labs.find((lab) => {
         if (lab.activeStatus === true && Array.isArray(lab.bookingInfo)) {
@@ -76,17 +96,47 @@ export default function UserDashboard() {
   
       if (activeLab && Array.isArray(activeLab.bookingInfo)) {
         const activeBooking = activeLab.bookingInfo.find(b => b.activeBooking);
-        if (activeBooking && activeBooking.date) {
+        if (activeBooking?.date) {
           setLabDate(activeBooking.date);
         } else {
           setLabDate(null);
         }
+  
+        if (activeBooking?.time && activeBooking?.minutes) {
+          const startTime = activeBooking.time.split(':').slice(0, 2).join(':');
+          const durationMinutes = activeBooking.minutes;
+  
+          // Convert startTime to Date object
+          const [hours, minutesPart] = startTime.split(':').map(Number);
+          const startDate = new Date();
+          startDate.setHours(hours);
+          startDate.setMinutes(minutesPart);
+          startDate.setSeconds(0);
+  
+          // Calculate endTime
+          const endTimeMilliseconds = startDate.getTime() + durationMinutes * 60 * 1000;
+          const endTime = new Date(endTimeMilliseconds);
+  
+          // Change endTime format (HH:MM)
+          const endHours = String(endTime.getHours()).padStart(2, '0');
+          const endMinutes = String(endTime.getMinutes()).padStart(2, '0');
+          const formattedEndTime = `${endHours}:${endMinutes}`;
+  
+          setFirstActiveStartTime(startTime);
+          setFirstActiveEndTime(formattedEndTime);
+        } else {
+          setFirstActiveStartTime(null);
+          setFirstActiveEndTime(null);
+        }
+      } else {
+        setFirstActiveStartTime(null);
+        setFirstActiveEndTime(null);
       }
     }
   }, [userData?.labs]);
 
-  // Create useEffect to check for today's availability
   useEffect(() => {
+    const currentDate = new Date().toISOString().slice(0, 10);
     if (userData?.labs) {
       const availableTodayLab = userData.labs.find((lab) => {
         if (lab.activeStatus === true && Array.isArray(lab.bookingInfo)) {
@@ -97,26 +147,39 @@ export default function UserDashboard() {
       });
       setAvailableLab(availableTodayLab);
   
-      console.log("availableTodayLab:", availableTodayLab)
-  
       if (availableTodayLab && Array.isArray(availableTodayLab.bookingInfo)) {
         const activeBooking = availableTodayLab.bookingInfo.find(b => b.activeBooking);
         console.log("activeBooking:", activeBooking);
   
-        if (availableTodayLab.activeStatus === true && activeBooking?.time) {
-          const startTime = activeBooking.time;
-          setStartTime(startTime);
-          console.log("Start time: " + startTime);
-          console.log("Active booking: " + availableTodayLab.activeStatus);
+        if (availableTodayLab.activeStatus === true && activeBooking?.time && activeBooking?.minutes) {
+          const startTime = activeBooking.time.split(':').slice(0, 2).join(':'); // Only show hours and minutes
+          const durationMinutes = activeBooking.minutes;
+  
+          // Convert startTime to Date object
+          const [hours, minutesPart] = startTime.split(':').map(Number);
+          const startDate = new Date();
+          startDate.setHours(hours);
+          startDate.setMinutes(minutesPart);
+          startDate.setSeconds(0); // Set seconds to 0
+  
+          // Calculate endTime
+          const endTimeMilliseconds = startDate.getTime() + durationMinutes * 60 * 1000;
+          const endTime = new Date(endTimeMilliseconds);
+  
+          // Change endTime format (HH:MM)
+          const endHours = String(endTime.getHours()).padStart(2, '0');
+          const endMinutes = String(endTime.getMinutes()).padStart(2, '0');
+          const formattedEndTime = `${endHours}:${endMinutes}`;
+  
+          setAvailableLabStartTime(startTime);
+          setAvailableLabEndTime(formattedEndTime);
         } else {
-          setStartTime(null);
-          console.log("Start time set to null because:");
-          console.log("availableTodayLab.activeStatus:", availableTodayLab?.activeStatus);
-          console.log("activeBooking?.time:", activeBooking?.time);
+          setAvailableLabStartTime(null);
+          setAvailableLabEndTime(null);
         }
       } else {
-        setStartTime(null);
-        console.log("Start time set to null because availableTodayLab or bookingInfo is missing.");
+        setAvailableLabStartTime(null);
+        setAvailableLabEndTime(null);
       }
     }
   }, [userData?.labs]);
@@ -159,12 +222,14 @@ export default function UserDashboard() {
                           <div className='rounded-lg h-[150px] w-full'>
                             <Carrousel lab={availableLab} maxHeight={140} />
                           </div>
-                          <span className="text-gray-700 block">Available today</span>
-                          <div className='text-gray-500 flex flex-col text-sm'>
-                            <span>Start time: {startTime}</span>
-                            <span>End time:</span>
+                          <span className="text-gray-700 block mt-2">Available today</span>
+                          <div className='text-gray-500 flex flex-col text-xs mr-1 mb-2'>
+                            <span>Start time: {availableLabStartTime}</span>
+                            <span>End time: {availableLabEndTime}</span>
                           </div>
-                          <LabAccess userWallet={address} hasActiveBooking={availableLab.activeStatus} auth={availableLab.auth} />
+                          {availableLab.isAccessible && (
+                            <LabAccess userWallet={address} hasActiveBooking={availableLab.activeStatus} auth={availableLab.auth} />
+                          )}
                         </div>
                       </div>
                       <div className={`w-5/5 ${availableLab.docs.length > 0 ? `` : 'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center rounded-lg shadow-md bg-gray-300`}>
@@ -190,7 +255,11 @@ export default function UserDashboard() {
                           <div className='rounded-lg h-[150px] w-full'>
                             <Carrousel lab={firstActiveLab} maxHeight={140} />
                           </div>
-                          <span className="text-gray-700 block mb-6">Available on: {labDate}</span>
+                          <span className="text-gray-700 block">Available: {labDate}</span>
+                          <div className='text-gray-500 flex flex-col text-xs mr-1 mb-3'>
+                            <span>Start time: {firstActiveStartTime}</span>
+                            <span>End time: {firstActiveEndTime}</span>
+                          </div>
                         </div>
                       </div>
                       <div className={`w-5/5 ${firstActiveLab.docs.length > 0 ? `` : 'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center rounded-lg shadow-md bg-gray-300`}>
@@ -224,53 +293,120 @@ export default function UserDashboard() {
 
           <div className="border shadow text-white rounded p-6 flex-1">
             <div className="flex flex-row gap-4">
-              {/* Booked labs: active and non-active */}
+              {/* Upcoming booked labs */}
               <div className="w-1/2 flex items-center justify-center flex-col">
                 <h2 className="text-2xl font-semibold mb-4 text-center">Upcoming Booked Labs</h2>
                 <ul className='w-4/4'>
-                {userData.labs
-                  .filter(lab => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking))
-                  .map((lab) => (
-                    <div className='mb-4 p-2 rounded-lg text-center'>
-                      <li key={lab.id} className="flex flex-col items-center">
-                        <div className="border flex items-center w-full">
-                          <div className='border flex flex-col w-3/4'>
-                            <Link className="border-2 border-white bg-white text-black p-2 px-8 text-center hover:bg-slate-500 flex-grow" href={`/lab/${lab.id}`}>
-                              <span className="text-left">{lab.name}</span>
-                            </Link>
-                            <span>{lab.bookingInfo.find(b => b.activeBooking)?.date}</span>
-                          </div>
-                          <div className='mx-4'><Refund /></div>
+                  {userData.labs
+                    .filter(lab => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking))
+                    .map((lab) => {
+                      const activeBooking = lab.bookingInfo.find(b => b.activeBooking);
+                      let startTime = null;
+                      let endTime = null;
+
+                      if (activeBooking?.time && activeBooking?.minutes) {
+                        const startTimeParts = activeBooking.time.split(':').slice(0, 2).join(':');
+                        startTime = startTimeParts;
+
+                        const [hours, minutesPart] = activeBooking.time.split(':').map(Number);
+                        const startDate = new Date();
+                        startDate.setHours(hours);
+                        startDate.setMinutes(minutesPart);
+                        startDate.setSeconds(0);
+
+                        const endTimeMilliseconds = startDate.getTime() + activeBooking.minutes * 60 * 1000;
+                        const endTimeDate = new Date(endTimeMilliseconds);
+                        const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                        const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                        endTime = `${endHours}:${endMinutes}`;
+                      }
+
+                      return (
+                        <div className='mb-4 p-2 rounded-lg text-center' key={lab.id}>
+                          <li className="flex flex-col items-center">
+                            <div className="border flex items-center w-full">
+                              <div className='border flex flex-col w-3/4'>
+                                <Link className="border-2 border-white bg-white text-black p-2 px-8 text-center hover:bg-slate-500 flex-grow" href={`/lab/${lab.id}`}>
+                                  <span className="text-left">{lab.name}</span>
+                                </Link>
+                                <span>Available: {activeBooking?.date}</span>
+                                <div className='text-gray-500 flex flex-col text-xs mb-1'>
+                                  <span>Start time: {startTime}</span>
+                                  <span>End time: {endTime}</span>
+                                </div>
+                              </div>
+                              {lab.isAccessible ? (
+                                <div className='px-3 mx-4 py-1 rounded text-sm bg-gray-500
+                                text-white'> Can't be cancelled</div>
+                              ) : (
+                                <div className='mx-4'><Cancellation /></div>
+                              )}
+                            </div>
+                          </li>
                         </div>
-                      </li>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </ul>
               </div>
 
-                {/* Vertical divider */}  
-                <div class="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr
-                    from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
-                    border-l-1 border-neutral-800 dark:border-neutral-200 border-dashed"
-                    style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }}>
-                </div>
-              
-                {/* Formerly booked labs */}
-                <div className="flex-1">
-                  <h2 className="text-2xl  font-semibold mb-4 text-center">Formerly booked</h2>
-                  <ul className='flex items-center flex-col justify-center'>
-                    {userData.labs
-                    .filter((lab) => lab.formerlyBooked === true)
-                    .map((lab) => (
-                      <Link className="border-2 border-white bg-white text-black mb-4 p-2 px-8 text-center hover:bg-slate-500" href={`/lab/${lab.id}`}>
-                        <li key={lab.id} >
-                          <span>{lab.name}</span>
+
+              {/* Vertical divider */}  
+              <div class="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr
+                  from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
+                  border-l-1 border-neutral-800 dark:border-neutral-200 border-dashed"
+                  style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }}>
+              </div>
+            
+              {/* Formerly booked labs */}
+              <div className="flex-1">
+                <h2 className="text-2xl  font-semibold mb-4 text-center">Formerly booked</h2>
+                <ul className='flex items-center flex-col justify-center'>
+                  {userData.labs
+                  .filter((lab) => lab.formerlyBooked === true)
+                  .map((lab) => {
+                    const notActive = lab.bookingInfo.find(b => !b.activeBooking);
+                    let startTime = null;
+                    let endTime = null;
+
+                    if (notActive?.time && notActive?.minutes) {
+                      const startTimeParts = notActive.time.split(':').slice(0, 2).join(':');
+                      startTime = startTimeParts;
+
+                      const [hours, minutesPart] = notActive.time.split(':').map(Number);
+                      const startDate = new Date();
+                      startDate.setHours(hours);
+                      startDate.setMinutes(minutesPart);
+                      startDate.setSeconds(0);
+
+                      const endTimeMilliseconds = startDate.getTime() + notActive.minutes * 60 * 1000;
+                      const endTimeDate = new Date(endTimeMilliseconds);
+                      const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                      const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                      endTime = `${endHours}:${endMinutes}`;
+                    }
+
+                    return (
+                      <div className='mb-4 p-2 rounded-lg text-center' key={lab.id}>
+                        <li className="flex flex-col items-center">
+                          <div className="border flex items-center w-full">
+                            <div className='border flex flex-col w-3/4'>
+                                <Link className="border-2 border-white bg-white text-black p-2 px-8 text-center hover:bg-slate-500 flex-grow" href={`/lab/${lab.id}`}>
+                                  <span className="text-left">{lab.name}</span>
+                                </Link>
+                              <span className='text-center'>Formerly Available: {notActive?.date}</span>
+                              <div className='text-gray-500 flex flex-col text-xs mb-1 text-center'>
+                                <span>Start time: {startTime}</span>
+                                <span>End time: {endTime}</span>
+                              </div>
+                            </div>
+                            <div className='mx-4'><Refund /></div>
+                          </div>
                         </li>
-                      </Link>
-                    ))}
-                  </ul>
-                </div>
-              
+                      </div>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
           </div>
         </div>
