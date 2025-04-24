@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { useRouter } from "next/router";
 import { useUser } from "../../context/UserContext";
 import { useLabs } from "../../context/LabContext";
@@ -163,7 +162,7 @@ export default function ReservationPage() {
               <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
                 <div className="flex-1">
                   <label className="block text-lg font-semibold">Select the date:</label>
-                  <DatePicker
+                  <DatePicker calendarClassName="custom-datepicker"
                     selected={date}
                     onChange={(newDate) => setDate(newDate)}
                     minDate={parseDate(selectedLab.opens)}

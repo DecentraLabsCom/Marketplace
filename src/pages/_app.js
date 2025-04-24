@@ -1,9 +1,10 @@
+import 'react-datepicker/dist/react-datepicker.css'
 import '../styles/global.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider } from 'wagmi'
 import { config } from '../utils/wagmiConfig'
 import { LabData } from '../context/LabContext'
-import { UserProvider } from '../context/UserContext';
+import { UserProvider } from '../context/UserContext'
 import Head from 'next/head'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'

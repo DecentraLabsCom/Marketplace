@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import DatePicker from 'react-datepicker';
 import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
 import Carrousel from '../../components/Carrousel';
@@ -31,6 +32,8 @@ export default function ProviderDashboard() {
     docs: [],
     images: [],
   });
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const today = new Date();
 
   // Filter labs owned by the user
   useEffect(() => {
@@ -245,6 +248,10 @@ export default function ProviderDashboard() {
 
           <div className="w-full md:w-1/3 mt-8 md:mt-0">
             <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
+            <div className="flex justify-center">
+              <DatePicker inline selected={selectedDate} minDate={today} onChange={setSelectedDate} 
+                calendarClassName="custom-datepicker" filterDate={() => false} />
+            </div>
           </div>
           
         </div>
