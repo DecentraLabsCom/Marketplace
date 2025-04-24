@@ -20,6 +20,15 @@ export default function ReservationPage() {
   const [availableTimes, setAvailableTimes] = useState([]);
   const [selectedLab, setSelectedLab] = useState(null);
   const [bookedDates, setBookedDates] = useState([]);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    if (!date) setDate(new Date());
+  }, []);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (labs.length && id) {
@@ -114,6 +123,8 @@ export default function ReservationPage() {
     const [month, day, year] = str.split("/");
     return new Date(`${year}-${month}-${day}`);
   };
+
+  if (!isClient) return null;
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
