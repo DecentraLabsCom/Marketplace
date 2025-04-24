@@ -24,7 +24,8 @@ export default function UserDashboard() {
   const [availableLabStartTime, setAvailableLabStartTime] = useState(null);
   const [availableLabEndTime, setAvailableLabEndTime] = useState(null);
   const [firstActiveStartTime, setFirstActiveStartTime] = useState(null);
-  const [firstActiveEndTime, setFirstActiveEndTime] = useState(null);  
+  const [firstActiveEndTime, setFirstActiveEndTime] = useState(null);
+  const currentDate = new Date().toISOString().slice(0, 10); 
 
   useEffect(() => {
     if (labs && labs.length > 0) {
@@ -35,7 +36,7 @@ export default function UserDashboard() {
         const hasActive = bookings.some(b => b.activeBooking);
         const hasFormerly = bookings.some(
           b =>
-            !b.activeBooking &&
+            // !b.activeBooking &&
             b.date &&
             new Date(b.date) < new Date()
         );
@@ -88,7 +89,7 @@ export default function UserDashboard() {
     if (userData?.labs) {
       const activeLab = userData.labs.find((lab) => {
         if (lab.activeStatus === true && Array.isArray(lab.bookingInfo)) {
-          return lab.bookingInfo.some(booking => booking.date !== currentDate);
+          return lab.bookingInfo.some(booking => booking.date > currentDate);
         }
         return false;
       });
@@ -204,7 +205,7 @@ export default function UserDashboard() {
 
         <div className='pl-1 flex-1'>
           <div className='flex flex-row'>
-            <div className="border shadow text-white rounded p-6 mb-1 mr-1 w-2/3">
+            <div className="border shadow text-white rounded p-6 mb-1 mr-1 w-3/4">
               <div className="flex flex-col">
                 {availableLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">Currently active: {availableLab.name}</h2>
@@ -215,15 +216,15 @@ export default function UserDashboard() {
                   {availableLab ? (
                     <React.Fragment key={availableLab.id}>
                       <div className='flex flex-col items-center'>
-                        <div key={availableLab.id} className={`w-[250px] group justify-between items-center shadow-md bg-gray-200 transform
+                        <div key={availableLab.id} className={`w-[320px] group justify-between items-center shadow-md bg-gray-200 transform
                           transition-transform duration-300 hover:scale-105 mr-3
-                          mb-4 border-2 p-2 h-[250px] rounded-lg flex flex-col ${availableLab.activeStatus ? 'border-4 border-[#715c8c] animate-glow' : ''}`}
+                          mb-4 border-2 p-2 h-[320px] rounded-lg flex flex-col ${availableLab.activeStatus ? 'border-4 border-[#715c8c] animate-glow' : ''}`}
                         >
-                          <div className='rounded-lg h-[150px] w-full'>
-                            <Carrousel lab={availableLab} maxHeight={140} />
+                          <div className='rounded-lg h-[150px] w-full mb-4'>
+                            <Carrousel lab={availableLab} maxHeight={210} />
                           </div>
-                          <span className="text-gray-700 block mt-2">Available today</span>
-                          <div className='text-gray-500 flex flex-col text-xs mr-1 mb-2'>
+                          <span className="text-gray-700 block mt-14">Available today</span>
+                          <div className='text-gray-500 flex flex-col text-xs mr-1 mb-3'>
                             <span>Start time: {availableLabStartTime}</span>
                             <span>End time: {availableLabEndTime}</span>
                           </div>
@@ -248,14 +249,14 @@ export default function UserDashboard() {
                   ) : firstActiveLab && (
                     <React.Fragment key={firstActiveLab.id}>
                       <div className='flex flex-col items-center'>
-                        <div key={firstActiveLab.id} className={`w-[250px] group justify-between items-center shadow-md bg-gray-200 transform
+                        <div key={firstActiveLab.id} className={`w-[320px] group justify-between items-center shadow-md bg-gray-200 transform
                           transition-transform duration-300 hover:scale-105 mr-3
-                          mb-4 border-2 p-2 h-[250px] rounded-lg flex flex-col`}
+                          mb-4 border-2 p-2 h-[320px] rounded-lg flex flex-col`}
                         >
-                          <div className='rounded-lg h-[150px] w-full'>
-                            <Carrousel lab={firstActiveLab} maxHeight={140} />
+                          <div className='rounded-lg h-[150px] w-full mb-4'>
+                            <Carrousel lab={firstActiveLab} maxHeight={210} />
                           </div>
-                          <span className="text-gray-700 block">Available: {labDate}</span>
+                          <span className="text-gray-700 mt-14 block">Available: {labDate}</span>
                           <div className='text-gray-500 flex flex-col text-xs mr-1 mb-3'>
                             <span>Start time: {firstActiveStartTime}</span>
                             <span>End time: {firstActiveEndTime}</span>
@@ -283,8 +284,8 @@ export default function UserDashboard() {
                 )}
               </div>
             </div>
-            {/* UPCOMING BOOKING */}
-            <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/3">
+            {/* CALENDAR */}
+            <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4">
               <div className="flex flex-row gap-4">
                 
               </div>
@@ -298,23 +299,37 @@ export default function UserDashboard() {
                 <h2 className="text-2xl font-semibold mb-4 text-center">Upcoming Booked Labs</h2>
                 <ul className='w-4/4'>
                   {userData.labs
-                    .filter(lab => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.activeBooking))
+                    .filter(lab => Array.isArray(lab.bookingInfo) && lab.bookingInfo.some(b => b.date >= currentDate))
+                    // Order by closest upcoming lab to further away lab
+                    .sort((a, b) => {
+                      const nextBookingA = a.bookingInfo.find(b => b.date >= currentDate);
+                      const nextBookingB = b.bookingInfo.find(b => b.date >= currentDate);
+                  
+                      if (nextBookingA?.date && nextBookingB?.date) {
+                        return nextBookingA.date.localeCompare(nextBookingB.date);
+                      } else if (nextBookingA?.date) {
+                        return -1;
+                      } else if (nextBookingB?.date) {
+                        return 1;
+                      }
+                      return 0;
+                    })
                     .map((lab) => {
-                      const activeBooking = lab.bookingInfo.find(b => b.activeBooking);
+                      const upcomingLab = lab.bookingInfo.find(b => b.date >= currentDate);
                       let startTime = null;
                       let endTime = null;
 
-                      if (activeBooking?.time && activeBooking?.minutes) {
-                        const startTimeParts = activeBooking.time.split(':').slice(0, 2).join(':');
+                      if (upcomingLab?.time && upcomingLab?.minutes) {
+                        const startTimeParts = upcomingLab.time.split(':').slice(0, 2).join(':');
                         startTime = startTimeParts;
 
-                        const [hours, minutesPart] = activeBooking.time.split(':').map(Number);
+                        const [hours, minutesPart] = upcomingLab.time.split(':').map(Number);
                         const startDate = new Date();
                         startDate.setHours(hours);
                         startDate.setMinutes(minutesPart);
                         startDate.setSeconds(0);
 
-                        const endTimeMilliseconds = startDate.getTime() + activeBooking.minutes * 60 * 1000;
+                        const endTimeMilliseconds = startDate.getTime() + upcomingLab.minutes * 60 * 1000;
                         const endTimeDate = new Date(endTimeMilliseconds);
                         const endHours = String(endTimeDate.getHours()).padStart(2, '0');
                         const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
@@ -329,7 +344,7 @@ export default function UserDashboard() {
                                 <Link className="border-2 border-white bg-white text-black p-2 px-8 text-center hover:bg-slate-500 flex-grow" href={`/lab/${lab.id}`}>
                                   <span className="text-left">{lab.name}</span>
                                 </Link>
-                                <span>Available: {activeBooking?.date}</span>
+                                <span>Available: {upcomingLab?.date}</span>
                                 <div className='text-gray-500 flex flex-col text-xs mb-1'>
                                   <span>Start time: {startTime}</span>
                                   <span>End time: {endTime}</span>
@@ -349,7 +364,6 @@ export default function UserDashboard() {
                 </ul>
               </div>
 
-
               {/* Vertical divider */}  
               <div class="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr
                   from-transparent via-neutral-800 to-transparent opacity-90 dark:via-neutral-200
@@ -363,8 +377,27 @@ export default function UserDashboard() {
                 <ul className='flex items-center flex-col justify-center'>
                   {userData.labs
                   .filter((lab) => lab.formerlyBooked === true)
+                  .sort((a, b) => {
+                    // Order formerly booked labs by most recent past booking
+                    const lastBookingA = a.bookingInfo
+                      .filter(b => b.date < currentDate)
+                      .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+            
+                    const lastBookingB = b.bookingInfo
+                      .filter(b => b.date < currentDate)
+                      .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+            
+                    if (lastBookingA?.date && lastBookingB?.date) {
+                      return new Date(lastBookingB.date) - new Date(lastBookingA.date);
+                    } else if (lastBookingA?.date) {
+                      return -1;
+                    } else if (lastBookingB?.date) {
+                      return 1;
+                    }
+                    return 0;
+                  })
                   .map((lab) => {
-                    const notActive = lab.bookingInfo.find(b => !b.activeBooking);
+                    const notActive = lab.bookingInfo.find(b => b.date < currentDate);
                     let startTime = null;
                     let endTime = null;
 
