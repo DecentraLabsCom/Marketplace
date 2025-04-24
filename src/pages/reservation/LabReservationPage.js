@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { useRouter } from "next/router";
 import { useUser } from "../../context/UserContext";
 import { useLabs } from "../../context/LabContext";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import Carrousel from "../../components/Carrousel";
 import AccessControl from '../../components/AccessControl';
+import { isBookingActive } from '../../utils/isBookingActive';
 import { format, isToday, addMinutes } from "date-fns";
 
 export default function ReservationPage() {
@@ -33,7 +34,7 @@ export default function ReservationPage() {
       setAvailableTimes(newTimes);
 
       const labBookings = selectedLab.bookingInfo.filter(
-        (b) => b.labId == selectedLab.id && b.activeBooking
+        (b) => b.labId == selectedLab.id && isBookingActive([b])
       );
       const uniqueDates = [
         ...new Set(labBookings.map((b) => new Date(b.date).toDateString())),
@@ -60,7 +61,8 @@ export default function ReservationPage() {
   
     const dayBookings = selectedLab.bookingInfo.filter(
       (b) =>
-        b.labId == selectedLab?.id && b.activeBooking &&
+        b.labId == selectedLab?.id &&
+        isBookingActive([b]) &&
         new Date(b.date).toDateString() === date.toDateString()
     );
   

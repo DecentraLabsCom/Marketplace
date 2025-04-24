@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useLabs } from '../context/LabContext';
-import LabCard from "../components/LabCard";
 import { useUser } from '../context/UserContext';
+import LabCard from "../components/LabCard";
+import { isBookingActive } from '../utils/isBookingActive';
 
 export default function MarketPage() {
   const searchInputRef = useRef(null);
@@ -185,21 +186,21 @@ export default function MarketPage() {
 
       {/* Labs Grid */}
       <section>
-        {loading ? (
-          <div className="text-center">Loading labs...</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {searchFilteredLabs.map((lab) => {
-              const hasActiveBooking = isLoggedIn && Array.isArray(lab.bookingInfo)
-                ? lab.bookingInfo.some(b => b.activeBooking)
-                : false;
-              return (
-                <LabCard key={lab.id} {...lab} activeBooking={hasActiveBooking}
-                  image={lab.images[0]} />
-              );
-            })}
-          </div>
-        )}
+      {loading ? (
+        <div className="text-center">Loading labs...</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          {searchFilteredLabs.map((lab) => {
+            const hasActiveBooking = isLoggedIn ? 
+              isBookingActive(lab.bookingInfo) : false;
+            return (
+              <LabCard key={lab.id} {...lab} 
+                        activeBooking={hasActiveBooking} 
+                        image={lab.images[0]} />
+            );
+          })}
+        </div>
+      )}
       </section>
     </main>
   );

@@ -9,10 +9,8 @@ export default function FeedbackModal({ isOpen, message, onClose }) {
         <h2 className="text-xl font-semibold mb-4 text-center text-green-700">Success</h2>
         <p className="text-center text-gray-800 mb-6">{message}</p>
         <div className="flex justify-center">
-          <button
-            onClick={onClose}
-            className="bg-[#715c8c] text-white rounded-md px-6 py-2 hover:bg-[#ad8ed4]"
-          >
+          <button onClick={onClose}
+            className="bg-[#715c8c] text-white rounded-md px-6 py-2 hover:bg-[#ad8ed4]">
             OK
           </button>
         </div>
