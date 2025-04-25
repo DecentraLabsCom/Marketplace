@@ -172,7 +172,7 @@ export default function ReservationPage() {
                       bookedDates.some(
                         (d) => d.toDateString() === day.toDateString()
                       )
-                        ? "bg-red-500 text-white rounded-full"
+                        ? "bg-[#9fc6f5] text-white"
                         : undefined
                     }
                   />

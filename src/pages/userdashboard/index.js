@@ -73,7 +73,6 @@ export default function UserDashboard() {
         return dates;
       }, []);
       setBookedDates(futureBookingDates);
-      console.log(futureBookingDates);
     }
   }, [labs, currentDate]);
 
@@ -352,12 +351,9 @@ export default function UserDashboard() {
                                   <span>End time: {endTime}</span>
                                 </div>
                               </div>
-                              {lab.isAccessible ? (
-                                <div className='px-3 mx-4 py-1 rounded text-sm bg-gray-500
-                                text-white'> Can't be cancelled</div>
-                              ) : (
-                                <div className='mx-4'><Cancellation /></div>
-                              )}
+                              <div className='mx-4 flex items-center justify-center w-1/4'>
+                                <Cancellation />
+                              </div>
                             </div>
                           </li>
                         </div>
@@ -441,7 +437,9 @@ export default function UserDashboard() {
                                   <span>End time: {endTime}</span>
                                 </div>
                               </div>
-                              <div className='mx-4'><Refund /></div>
+                              <div className='mx-4 flex items-center justify-center w-1/4'>
+                                <Refund />
+                              </div>
                             </div>
                           </li>
                         </div>
