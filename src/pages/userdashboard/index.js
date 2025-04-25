@@ -217,7 +217,7 @@ export default function UserDashboard() {
                             </span>
                           )}
                           <Link href={`/lab/${availableLab.id}`} className='px-3 mt-3 py-1 
-                            rounded text-sm bg-yellow-500 hover:bg-yellow-300 text-white'>
+                            rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'>
                               Explore this lab
                           </Link>
                         </div>
