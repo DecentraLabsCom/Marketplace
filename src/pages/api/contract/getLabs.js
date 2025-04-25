@@ -7,6 +7,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    // TODO - Remove when using contract
+    throw new Error('Simulating error to get simulated labs.');
+
     const contract = await getContractInstance();
 
     // Get list of labs

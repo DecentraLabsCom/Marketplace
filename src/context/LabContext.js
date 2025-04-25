@@ -13,9 +13,8 @@ export function LabData({ children }) {
 
   useEffect(() => {
     const fetchLabs = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-
         const cachedLabs = sessionStorage.getItem('labs');
         if (cachedLabs) {
           setLabs(JSON.parse(cachedLabs));
@@ -48,8 +47,6 @@ export function LabData({ children }) {
       );
       return;
     }
-
-    if (!address) return;
   
     const fetchBookings = async () => {
       try {

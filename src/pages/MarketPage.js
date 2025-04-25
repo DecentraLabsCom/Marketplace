@@ -190,7 +190,7 @@ export default function MarketPage() {
         <div className="text-center">Loading labs...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {searchFilteredLabs.map((lab) => {
+          {Array.isArray(searchFilteredLabs) && searchFilteredLabs.map((lab) => {
             const hasActiveBooking = isLoggedIn ? 
               isBookingActive(lab.bookingInfo) : false;
             return (
