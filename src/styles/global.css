@@ -162,6 +162,10 @@ body {
 }
 
 /* Style override for DatePicker external component: react-datepicker */
+.custom-datepicker .react-datepicker__header {
+  background-color: #caddff; /* Header background color */
+  color: white !important;
+}
 .custom-datepicker .react-datepicker__day--selected {
   background-color: #715c8c; /* For selected day */
   color: white;

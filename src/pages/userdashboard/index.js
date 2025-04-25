@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import DatePicker from "react-datepicker"
 import Link from 'next/link'
 import { useUser } from '../../context/UserContext'
 import { useLabs } from '../../context/LabContext'
@@ -8,8 +9,6 @@ import AccessControl from '../../components/AccessControl'
 import Refund from '../../components/Refund'
 import Cancellation from '../../components/Cancellation'
 import { isBookingActive } from '../../utils/isBookingActive'
-import DatePicker from "react-datepicker"
-import "react-datepicker/dist/react-datepicker.css"
 
 export default function UserDashboard() {
   const { isLoggedIn, isConnected, address } = useUser();
@@ -22,6 +21,7 @@ export default function UserDashboard() {
   const availableLab = labs.find(lab => isBookingActive(lab.bookingInfo));
 
   // Calendar
+  const today = new Date();
   const [date, setDate] = useState(new Date());
   const [bookedDates, setBookedDates] = useState([]);
   const renderDayContents = (day, currentDateRender) => {
@@ -164,7 +164,7 @@ export default function UserDashboard() {
                 <div className="flex flex-col">
                   {availableLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">
-                      Currently active: {availableLab.name}
+                      Active now: {availableLab.name}
                     </h2>
                   ) : firstActiveLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">
@@ -265,24 +265,22 @@ export default function UserDashboard() {
                   </div>
                   {!firstActiveLab && !availableLab && (
                     <span className="text-gray-300 text-center">
-                      No upcoming or currently active lab
+                      No upcoming or active lab
                     </span>
                   )}
                 </div>
               </div>
               {/* CALENDAR */}
-              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4 flex justify-center items-center">
+              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4 flex justify-center 
+                items-center">
                 <div className="flex flex-row">
-                  <DatePicker
-                    selected={date}
-                    onChange={(newDate) => setDate(newDate)}
-                    disabledKeyboardNavigation
-                    inline
+                  <DatePicker calendarClassName="custom-datepicker" selected={date} inline minDate={today}
+                    onChange={(newDate) => setDate(newDate)} filterDate={() => false}
                     dayClassName={(day) =>
                       bookedDates.some(
                         (d) => d.toDateString() === day.toDateString()
                       )
-                        ? "bg-red-500 text-white rounded-full"
+                        ? "bg-[#9fc6f5] text-white"
                         : undefined
                     }
                     renderDayContents={renderDayContents}
