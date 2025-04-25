@@ -29,9 +29,9 @@ export function UserProvider({ children }) {
 
     const isLoggedIn = isConnected || isSSO;
 
-    // TODO: Check if user is a provider by calling the contract
     useEffect(() => {
         if (isLoggedIn) {
+            // Check if user is a provider by calling the contract
             fetch(`${basePath}/api/contract/isLabProvider`, {
                 method: "POST",
                 headers: {
@@ -42,6 +42,22 @@ export function UserProvider({ children }) {
             .then((res) => res.json())
             .then((data) => setIsProvider(data.isLabProvider))
             .catch((error) => console.error("Error checking provider status:", error));
+
+            // Get lab provider name and add the name of the provider to the user object
+            fetch(`${basePath}/api/contract/getLabProviderName`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ wallet: address }),
+            })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.name) {
+                    setUser(prev => prev ? { ...prev, providerName: data.name } : { providerName: data.name });
+                }
+            })
+            .catch((error) => console.error("Error fetching provider name:", error));
         }
     }, [isLoggedIn, address]);
 
