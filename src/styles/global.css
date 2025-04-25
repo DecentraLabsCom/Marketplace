@@ -174,3 +174,9 @@ body {
   background-color: #333f63; /* Hover effect */
   color: white;
 }
+.custom-datepicker .react-datepicker__navigation-icon::before {
+  border-color: #715c8c;
+}
+.custom-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: #333f63 !important;
+}
