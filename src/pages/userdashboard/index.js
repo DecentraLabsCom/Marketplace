@@ -8,6 +8,8 @@ import AccessControl from '../../components/AccessControl'
 import Refund from '../../components/Refund'
 import Cancellation from '../../components/Cancellation'
 import { isBookingActive } from '../../utils/isBookingActive'
+import DatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
 
 export default function UserDashboard() {
   const { isLoggedIn, isConnected, address } = useUser();
@@ -18,6 +20,62 @@ export default function UserDashboard() {
   const currentDate = now.toISOString().slice(0, 10);
 
   const availableLab = labs.find(lab => isBookingActive(lab.bookingInfo));
+
+  // Calendar
+  const [date, setDate] = useState(new Date());
+  const [bookedDates, setBookedDates] = useState([]);
+  const renderDayContents = (day, currentDateRender) => {
+    const bookingsOnDay = bookedDates.filter(
+      (d) => d.toDateString() === currentDateRender.toDateString()
+    );
+
+    let title = undefined;
+
+    if (bookingsOnDay.length > 0) {
+      title = bookingsOnDay.map(booking => {
+        for (const lab of labs) {
+          if (Array.isArray(lab.bookingInfo)) {
+            const matchingBooking = lab.bookingInfo.find(
+              b => new Date(b.date).toDateString() === booking.toDateString()
+            );
+            if (matchingBooking?.time && matchingBooking?.minutes) {
+              const endTimeDate = new Date(new Date(matchingBooking.date + 'T' + matchingBooking.time).getTime() + matchingBooking.minutes * 60 * 1000);
+              const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+              return `${lab.name}:  ${matchingBooking.time} - ${endTime}`;
+            }
+          }
+        }
+        return 'Booked';
+      }).join(', ');
+    }
+
+    return <div title={title}>{day}</div>;
+  };
+
+  useEffect(() => {
+    if (labs) {
+      const futureBookingDates = labs.reduce((dates, lab) => {
+        if (Array.isArray(lab.bookingInfo)) {
+          lab.bookingInfo
+            .filter(booking => booking.date >= currentDate)
+            .forEach(booking => {
+              try {
+                const dateObject = new Date(booking.date);
+                // Verificar si la fecha es válida antes de añadirla
+                if (!isNaN(dateObject)) {
+                  dates.push(dateObject);
+                }
+              } catch (error) {
+                console.error("Error al convertir fecha:", booking.date, error);
+              }
+            });
+        }
+        return dates;
+      }, []);
+      setBookedDates(futureBookingDates);
+      console.log(futureBookingDates);
+    }
+  }, [labs, currentDate]);
 
   // If there is no active booking, search for the first one in the future
   const firstActiveLab = !availableLab
@@ -213,9 +271,22 @@ export default function UserDashboard() {
                 </div>
               </div>
               {/* CALENDAR */}
-              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4">
-                <div className="flex flex-row gap-4">
-                  {/* TODO: Add calendar component */}
+              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4 flex justify-center items-center">
+                <div className="flex flex-row">
+                  <DatePicker
+                    selected={date}
+                    onChange={(newDate) => setDate(newDate)}
+                    disabledKeyboardNavigation
+                    inline
+                    dayClassName={(day) =>
+                      bookedDates.some(
+                        (d) => d.toDateString() === day.toDateString()
+                      )
+                        ? "bg-red-500 text-white rounded-full"
+                        : undefined
+                    }
+                    renderDayContents={renderDayContents}
+                  />
                 </div>
               </div>
             </div>
