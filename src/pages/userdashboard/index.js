@@ -295,7 +295,7 @@ export default function UserDashboard() {
                 <h2 className="text-2xl font-semibold mb-4 text-center">
                   Upcoming Bookings
                 </h2>
-                <ul className='w-4/4 flex-1'>
+                <ul className='w-full flex-1'>
                   {userData.labs
                     .filter(lab => Array.isArray(lab.bookingInfo) && 
                       lab.bookingInfo.some(b => b.date >= currentDate))
@@ -372,81 +372,80 @@ export default function UserDashboard() {
                 dark:border-neutral-200 border-dashed"
                 style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }} />
               {/* Past booked labs */}
-              <div className="flex-1 flex flex-col h-full min-h-[350px]">
-                <h2 className="text-2xl  font-semibold mb-4 text-center">
+              <div className="w-1/2 flex flex-col h-full min-h-[350px]">
+                <h2 className="text-2xl font-semibold mb-4 text-center">
                   Past bookings
                 </h2>
-                <ul className='flex items-center flex-col justify-center flex-1'>
-                {userData.labs
-                  .filter((lab) => Array.isArray(lab.bookingInfo) && 
-                    lab.bookingInfo.some(b => b.date < currentDate))
-                  .sort((a, b) => {
-                    // Order from more recent to older
-                    const lastBookingA = a.bookingInfo
-                      .filter(b => b.date < currentDate)
-                      .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+                <ul className='w-full flex-1'>
+                  {userData.labs
+                    .filter((lab) => Array.isArray(lab.bookingInfo) && 
+                      lab.bookingInfo.some(b => b.date < currentDate))
+                    .sort((a, b) => {
+                      // Order from more recent to older
+                      const lastBookingA = a.bookingInfo
+                        .filter(b => b.date < currentDate)
+                        .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
 
-                    const lastBookingB = b.bookingInfo
-                      .filter(b => b.date < currentDate)
-                      .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+                      const lastBookingB = b.bookingInfo
+                        .filter(b => b.date < currentDate)
+                        .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
 
-                    if (lastBookingA?.date && lastBookingB?.date) {
-                      return new Date(lastBookingB.date) - new Date(lastBookingA.date);
-                    } else if (lastBookingA?.date) {
-                      return -1;
-                    } else if (lastBookingB?.date) {
-                      return 1;
-                    }
-                    return 0;
-                  })
-                  .map((lab) => {
-                    const notActive = lab.bookingInfo.find(b => b.date < currentDate);
-                    let startTime = null;
-                    let endTime = null;
+                      if (lastBookingA?.date && lastBookingB?.date) {
+                        return new Date(lastBookingB.date) - new Date(lastBookingA.date);
+                      } else if (lastBookingA?.date) {
+                        return -1;
+                      } else if (lastBookingB?.date) {
+                        return 1;
+                      }
+                      return 0;
+                    })
+                    .map((lab) => {
+                      const notActive = lab.bookingInfo.find(b => b.date < currentDate);
+                      let startTime = null;
+                      let endTime = null;
 
-                    if (notActive?.time && notActive?.minutes) {
-                      const startTimeParts = notActive.time.split(':').slice(0, 2).join(':');
-                      startTime = startTimeParts;
+                      if (notActive?.time && notActive?.minutes) {
+                        const startTimeParts = notActive.time.split(':').slice(0, 2).join(':');
+                        startTime = startTimeParts;
 
-                      const [hours, minutesPart] = notActive.time.split(':').map(Number);
-                      const startDate = new Date();
-                      startDate.setHours(hours);
-                      startDate.setMinutes(minutesPart);
-                      startDate.setSeconds(0);
+                        const [hours, minutesPart] = notActive.time.split(':').map(Number);
+                        const startDate = new Date();
+                        startDate.setHours(hours);
+                        startDate.setMinutes(minutesPart);
+                        startDate.setSeconds(0);
 
-                      const endTimeMilliseconds = startDate.getTime() + 
-                        notActive.minutes * 60 * 1000;
-                      const endTimeDate = new Date(endTimeMilliseconds);
-                      const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                      const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
-                      endTime = `${endHours}:${endMinutes}`;
-                    }
+                        const endTimeMilliseconds = startDate.getTime() + 
+                          notActive.minutes * 60 * 1000;
+                        const endTimeDate = new Date(endTimeMilliseconds);
+                        const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                        const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                        endTime = `${endHours}:${endMinutes}`;
+                      }
 
-                    return (
-                      <div className='mb-4 p-2 rounded-lg text-center w-full max-w-xl' 
-                        key={lab.id}>
-                        <li className="flex flex-col items-center w-full">
-                          <div className="border flex items-center w-full">
-                            <div className='border flex flex-col w-full'>
-                                <Link className="border-2 border-white bg-white p-2 px-8  
-                                  text-black text-center hover:bg-slate-500 flex-grow" 
-                                  href={`/lab/${lab.id}`}>
-                                  <span className="text-left">
-                                    {lab.name}
-                                  </span>
-                                </Link>
-                              <span className='text-center'>{notActive?.date}</span>
-                              <div className='text-gray-500 flex flex-col text-xs mb-1 
-                                text-center'>
-                                <span>Start time: {startTime}</span>
-                                <span>End time: {endTime}</span>
+                      return (
+                        <div className='mb-4 p-2 rounded-lg text-center' key={lab.id}>
+                          <li className="flex flex-col items-center">
+                            <div className="border flex items-center w-full">
+                              <div className='border flex flex-col w-3/4'>
+                                  <Link className="border-2 border-white bg-white p-2 px-8  
+                                    text-black text-center hover:bg-slate-500 flex-grow" 
+                                    href={`/lab/${lab.id}`}>
+                                    <span className="text-left">
+                                      {lab.name}
+                                    </span>
+                                  </Link>
+                                <span className='text-center'>{notActive?.date}</span>
+                                <div className='text-gray-500 flex flex-col text-xs mb-1 
+                                  text-center'>
+                                  <span>Start time: {startTime}</span>
+                                  <span>End time: {endTime}</span>
+                                </div>
                               </div>
+                              <div className='mx-4'><Refund /></div>
                             </div>
-                            <div className='mx-4'><Refund /></div>
-                          </div>
-                        </li>
-                      </div>
-                    );
+                          </li>
+                        </div>
+                      );
                   })}
                 </ul>
               </div>
