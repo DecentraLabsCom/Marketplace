@@ -16,7 +16,7 @@ const providerSchema = z.object({
 });
 
 export default function RegisterProviderForm() {
-  const { isSSO, user } = useUser();
+  const { isSSO, user, isProvider } = useUser();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,7 +35,7 @@ export default function RegisterProviderForm() {
 
   // Automatic registration when accessed using SSO
   useEffect(() => {
-    if (isSSO && user && autoRequested && !isSuccess) {
+    if (isSSO && user && autoRequested && !isSuccess && !isProvider) {
     //if (true) {
       const autoRegister = async () => {
         try {
@@ -64,7 +64,7 @@ export default function RegisterProviderForm() {
       };
       autoRegister();
     }
-  }, [isSSO, user, autoRequested, isSuccess]);
+  }, [isSSO, user, autoRequested, isSuccess, isProvider]);
 
 
   useEffect(() => {
@@ -159,6 +159,16 @@ export default function RegisterProviderForm() {
   }
 
   if (!isMounted) return null;
+
+  if (isProvider) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px]">
+        <h2 className="text-center text-lg font-bold mb-4 text-white">
+          You are already registered as a provider.
+        </h2>
+      </div>
+    );
+  }
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
