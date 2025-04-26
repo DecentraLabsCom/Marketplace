@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     // ...
 
     // Return data to client
-    res.status(200).json(labs);
+    res.status(200).json([]);
   } catch (error) {
     console.error('Error fetching list of owned labs:', error);
     /*try {
