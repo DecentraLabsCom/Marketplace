@@ -20,6 +20,7 @@
     "autoprefixer": "^10.4.20",
     "cookie": "^1.0.2",
     "date-fns": "^4.1.0",
+    "eslint-plugin-drizzle": "^0.2.3",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-tailwindcss": "^3.18.0",
