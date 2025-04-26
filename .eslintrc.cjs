@@ -19,6 +19,11 @@ module.exports = {
     "no-unused-vars": "warn",
     "tailwindcss/no-custom-classname": "off" // Permite clases personalizadas de Tailwind
   },
+  env: {
+    browser: true,
+    node: true,
+    es2021: true
+  },
   settings: {
     react: {
       version: "detect"
