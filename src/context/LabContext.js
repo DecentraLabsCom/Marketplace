@@ -21,7 +21,7 @@ export function LabData({ children }) {
           return;
         }
 
-        const response = await fetch('/api/contract/getLabs');
+        const response = await fetch('/api/contract/lab/getLabs');
         if (!response.ok) {
           throw new Error(`Failed to fetch labs: ${response.statusText}`);
         }
@@ -50,7 +50,7 @@ export function LabData({ children }) {
   
     const fetchBookings = async () => {
       try {
-        const response = await fetch('/api/contract/getBookings', {
+        const response = await fetch('/api/contract/reservation/getBookings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

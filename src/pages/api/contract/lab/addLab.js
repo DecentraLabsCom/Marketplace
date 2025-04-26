@@ -1,12 +1,12 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { wallet, labId } = req.body;
-  if (!wallet || !labId) {
+  const { wallet } = req.body;
+  if (!wallet) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -21,6 +21,6 @@ export default async function handler(req, res) {
     // Return data to client
     res.status(200).json(labs);
   } catch (error) {
-    console.error('Error when trying to list a lab:', error);
+    console.error('Error when trying to add a new lab:', error);
   }
 }

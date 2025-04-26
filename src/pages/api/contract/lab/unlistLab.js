@@ -1,4 +1,4 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

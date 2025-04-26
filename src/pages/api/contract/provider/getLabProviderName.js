@@ -1,4 +1,4 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -12,10 +12,17 @@ export default async function handler(req, res) {
 
   try {
     const contract = await getContractInstance();
+    const providerList = await contract.getLabProviders();
 
-    const isLabProvider = await contract.isLabProvider(wallet);
-    
-    res.status(200).json({ isLabProvider });
+    const provider = providerList.find(
+      (p) => p.account.toLowerCase() === wallet.toLowerCase()
+    );
+
+    if (provider) {
+      return res.status(200).json({ name: provider.base.name });
+    } else {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
   } catch (error) {
     console.error('Error when trying to check provider status:', error);
     res.status(500).json({ error: 'Internal server error' });

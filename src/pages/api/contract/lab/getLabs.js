@@ -1,5 +1,5 @@
-import { simLabsData } from '../../../utils/simLabsData';
-import { getContractInstance } from './contractInstance';
+import { simLabsData } from '../../../../utils/simLabsData';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -27,17 +27,20 @@ export default async function handler(req, res) {
       labList.map(async (lab) => {
         const labId = lab.labId.toString();
 
-        // Fetch metadata from URI
+        // Fetch metadata from URI and get owner address from contract
         const metadataURI = lab.base.uri;
-        const response = await fetch(metadataURI);
+        const fetchPromise = fetch(metadataURI);
+        const ownerPromise = contract.ownerOf(labId);
+
+        const response = await fetchPromise;
         if (!response.ok) {
           throw new Error(`Failed to fetch metadata for lab ${labId}: ${response.statusText}`);
         }
 
-        // Parallel fetch for metadata and provider address
+        // Parallelize the fetch and owner address retrieval
         const [metadata, providerAddress] = await Promise.all([
           response.json(),
-          contract.ownerOf(labId)
+          ownerPromise
         ]);
 
         // Use the map to obtain the provider name from the address
@@ -45,11 +48,11 @@ export default async function handler(req, res) {
 
         return {
           id: labId,
-          name: metadata?.name  ?? "",
+          name: metadata?.name  ?? "Unnamed Lab",
           category: metadata?.category ?? "",
           keywords: metadata?.keywords ?? "",
           price: parseFloat(lab.base.price),
-          description: metadata?.description ?? "",
+          description: metadata?.description ?? "No description provided by the lab provider.",
           provider: providerName,
           auth: lab.base.auth?.toString() ?? "",  // TODO - if not present, use DecentraLabs Auth service
           accessURI: lab.base.accessURI.toString(),

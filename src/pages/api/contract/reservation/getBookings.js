@@ -1,5 +1,5 @@
-import { simBookings } from '../../../utils/simBookings';
-import { getContractInstance } from './contractInstance';
+import { simBookings } from '../../../../utils/simBookings';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

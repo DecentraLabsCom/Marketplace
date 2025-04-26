@@ -1,9 +1,9 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  /*if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
-  }
+  }*/
 
   try {
     const contract = await getContractInstance();
@@ -12,9 +12,9 @@ export default async function handler(req, res) {
     // ...
 
     // Return data to client
-    res.status(200).json(labs);
+    res.status(200).json();
   } catch (error) {
-    console.error('Error claiming all $LAB tokens:', error);
+    console.error('Error claiming $LAB tokens for the lab:', error);
     /*try {
       const fallbackOwnedLabs = simOwnedLabsData();
       res.status(200).json(fallbackOwnedLabs);

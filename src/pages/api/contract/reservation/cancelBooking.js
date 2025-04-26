@@ -1,4 +1,4 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
   const { wallet } = req.body;
   if (!wallet) {
-    res.status(200).json([]);
+    return res.status(400).json({ error: 'Missing required fields' });
   }
 
   // Check other required params (labId...) are also provided
@@ -21,6 +21,6 @@ export default async function handler(req, res) {
     // Return data to client
     res.status(200).json(labs);
   } catch (error) {
-    console.error('Error when trying to book the lab:', error);
+    console.error('Error when trying to cancel a reservation:', error);
   }
 }

@@ -32,7 +32,7 @@ export function UserProvider({ children }) {
     useEffect(() => {
         if (isLoggedIn) {
             // Check if user is a provider by calling the contract
-            fetch(`${basePath}/api/contract/isLabProvider`, {
+            fetch(`${basePath}/api/contract/provider/isLabProvider`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -44,7 +44,7 @@ export function UserProvider({ children }) {
             .catch((error) => console.error("Error checking provider status:", error));
 
             // Get lab provider name and add the name of the provider to the user object
-            fetch(`${basePath}/api/contract/getLabProviderName`, {
+            fetch(`${basePath}/api/contract/provider/getLabProviderName`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

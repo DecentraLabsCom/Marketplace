@@ -1,4 +1,4 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     // Return data to client
     res.status(200).json(labs);
   } catch (error) {
-    console.error('Error claiming a refund:', error);
+    console.error('Error claiming all $LAB tokens:', error);
     /*try {
       const fallbackOwnedLabs = simOwnedLabsData();
       res.status(200).json(fallbackOwnedLabs);

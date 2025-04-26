@@ -44,7 +44,7 @@ export default function RegisterProviderForm() {
             wallet: user.wallet || '',
             country: user.country || '',
           };
-          const res = await fetch('/api/contract/addProvider', {
+          const res = await fetch('/api/contract/provider/addProvider', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(providerData),
