@@ -1,4 +1,4 @@
-const path = require('path');
+import path from 'path';
 const appendPath = process.env.NODE_ENV === 'production' ? '/marketplace' : '';
 
 /** @type {import('next').NextConfig} */
@@ -15,4 +15,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
