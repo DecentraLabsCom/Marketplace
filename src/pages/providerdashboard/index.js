@@ -235,7 +235,7 @@ export default function ProviderDashboard() {
               </>
             ) : (
               <p className="text-gray-300">
-                You have no labs registered yet. Press "Add New Lab" to get started.
+                You have no labs registered yet. Press 'Add New Lab' to get started.
               </p>
             )}
             <div className="flex justify-center mt-4">
