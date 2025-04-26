@@ -24,7 +24,7 @@ const sp = new ServiceProvider({
   entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
   private_key: fs.readFileSync(keyPath, "utf8"),
   certificate: fs.readFileSync(certPath, "utf8"),
-  assert_endpoint: NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
+  assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
 });
 
 const idPCertPath = path.join(process.cwd(), 'certificates', "idp_cert.pem");
