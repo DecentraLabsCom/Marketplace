@@ -12,37 +12,53 @@ export default async function handler(req, res) {
 
     const contract = await getContractInstance();
 
-    // Get list of labs
+    // Get list of all providers and create a map address -> name
+    const providerList = await contract.getLabProviders();
+    const providerMap = {};
+    for (const provider of providerList) {
+      providerMap[provider.account.toLowerCase()] = provider.base.name;
+    }
+
+    // Get the list of all labs
     const labList = await contract.getAllLabs();
 
-    // Get lab metadata
+    // For each lab, get its metadata and its owner address
     const labs = await Promise.all(
       labList.map(async (lab) => {
         const labId = lab.labId.toString();
+
         // Fetch metadata from URI
         const metadataURI = lab.base.uri;
         const response = await fetch(metadataURI);
         if (!response.ok) {
           throw new Error(`Failed to fetch metadata for lab ${labId}: ${response.statusText}`);
         }
-        const metadata = await response.json();
+
+        // Parallel fetch for metadata and provider address
+        const [metadata, providerAddress] = await Promise.all([
+          response.json(),
+          contract.ownerOf(labId)
+        ]);
+
+        // Use the map to obtain the provider name from the address
+        const providerName = providerMap[providerAddress.toLowerCase()] || providerAddress;
 
         return {
           id: labId,
-          name: metadata.name,
-          category: metadata.category,
-          keywords: metadata.keywords,
+          name: metadata?.name  ?? "",
+          category: metadata?.category ?? "",
+          keywords: metadata?.keywords ?? "",
           price: parseFloat(lab.base.price),
-          description: metadata.description,
-          provider: metadata.provider,
-          auth: parseString(lab.base.auth), // Optional; if not present, use DecentraLabs Auth service
-          accessURI: parseString(lab.base.accessURI),
-          accessKey: parseString(lab.base.accessKey),
-          timeSlots: metadata.timeSlots,    // Optional; if not present, use 60 (minutes)
-          opens: metadata.opens,            // Optional
-          closes: metadata.closes,          // Optional
-          docs: metadata.docs,              // Optional
-          images: metadata.images,
+          description: metadata?.description ?? "",
+          provider: providerName,
+          auth: lab.base.auth?.toString() ?? "",  // TODO - if not present, use DecentraLabs Auth service
+          accessURI: lab.base.accessURI.toString(),
+          accessKey: lab.base.accessKey.toString(),
+          timeSlots: metadata?.timeSlots ?? [60], 
+          opens: metadata?.opens ?? "",
+          closes: metadata?.closes ?? "",
+          docs: metadata?.docs ?? [],
+          images: metadata?.images ?? [],
         };
       })
     );

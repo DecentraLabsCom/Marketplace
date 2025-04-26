@@ -1,17 +1,6 @@
 import React, { useEffect } from 'react';
-import { useUser } from '../context/UserContext';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
-  const { user } = useUser();
-
-  useEffect(() => {
-    // Set provider name automatically (obtained from the user context)
-    if (isOpen && user?.providerName && !lab.provider) {
-      setLab({ ...lab, provider: user.providerName });
-    }
-    // eslint-disable-next-line
-  }, [isOpen, user?.providerName]);
-
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
