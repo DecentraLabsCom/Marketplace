@@ -36,6 +36,7 @@ export default function RegisterProviderForm() {
   // Automatic registration when accessed using SSO
   useEffect(() => {
     if (isSSO && user && autoRequested && !isSuccess) {
+    //if (true) {
       const autoRegister = async () => {
         try {
           const providerData = {
@@ -44,6 +45,12 @@ export default function RegisterProviderForm() {
             wallet: user.wallet || '',
             country: user.country || '',
           };
+          /*const providerData = {
+            name: "UNED",
+            email: "contact@dia.uned.es",
+            wallet: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
+            country: "Spain",
+          };*/
           const res = await fetch('/api/contract/provider/addProvider', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -86,7 +93,7 @@ export default function RegisterProviderForm() {
 
     if (result.success) {
       try {
-        const res = await fetch('/api/provider/register', {
+        const res = await fetch('/api/provider/saveRegistration', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -117,6 +124,7 @@ export default function RegisterProviderForm() {
 
   // Automatic registration when accessed using SSO
   if (isSSO) {
+  //if (true) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px]">
         {!autoRequested ? (

@@ -14,10 +14,11 @@ export default async function handler(req, res) {
     const contract = await getContractInstance();
 
     // Call contract
-    // ...
+    const tx = await contract.addProvider(name, wallet, email, country);
+    await tx.wait();
 
-    // Return data to client
-    res.status(200).json(labs);
+    // Return ok signal to client
+    res.status(200);
   } catch (error) {
     console.error('Error when trying to add a new provider:', error);
   }
