@@ -1,5 +1,6 @@
 import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function Footer() {
   return (
@@ -18,9 +19,15 @@ export default function Footer() {
 
           {/* Center: Links */}
           <div className="flex space-x-4 md:justify-center items-center">
-            <a href="/about" className="hover:text-[#715c8c] transition font-semibold">About</a>
-            <a href="/faq" className="hover:text-[#715c8c] transition font-semibold">FAQ</a>
-            <a href="/contact" className="hover:text-[#715c8c] transition font-semibold">Contact</a>
+            <Link href="/about" className="hover:text-[#715c8c] transition font-semibold">
+              About
+            </Link>
+            <Link href="/faq" className="hover:text-[#715c8c] transition font-semibold">
+              FAQ
+            </Link>
+            <Link href="/contact" className="hover:text-[#715c8c] transition font-semibold">
+              Contact
+            </Link>
           </div>
 
           {/* Right: Social Media */}
