@@ -1,13 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useUser } from './UserContext';
-//import { useDefaultReadContract } from '../hooks/useDefaultReadContract';
 
 const LabContext = createContext();
 
 export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
-  //const [hasFetched, setHasFetched] = useState(false);
 
   const { isLoggedIn, address, user, isSSO } = useUser();
 
@@ -41,16 +39,8 @@ export function LabData({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!address) {
-      // Clean bookingInfo if user is not logged in
-      setLabs((prevLabs) =>
-        prevLabs.map(lab => ({ ...lab, bookingInfo: [] }))
-      );
-      return;
-    }
+    if (!address || labs.length === 0) return;
 
-    if (!address) return;
-  
     const fetchBookings = async () => {
       try {
         const response = await fetch('/api/contract/getBookings', {
@@ -60,36 +50,36 @@ export function LabData({ children }) {
           },
           body: JSON.stringify({ wallet: address }),
         });
-  
+
         if (!response.ok) {
           throw new Error(`Failed to fetch reservations: ${response.statusText}`);
         }
-  
+
         const bookingsData = await response.json();
-  
+
         const bookingsMap = {};
         for (const booking of bookingsData) {
-          if (!bookingsMap[booking.labId]) {
-            bookingsMap[booking.labId] = [];
+          const { labId, start, end, price, renter } = booking;
+          if (!bookingsMap[labId]) {
+            bookingsMap[labId] = [];
           }
-          bookingsMap[booking.labId].push(booking);
+          bookingsMap[labId].push({ start, end, price, renter });
         }
 
-        setLabs((prevLabs) => {
-          const updatedLabs = prevLabs.map((lab) => ({
-            ...lab,
-            bookingInfo: bookingsMap[lab.id] || [],
-          }));
-          sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
-          return updatedLabs;
-        });
+        const updatedLabs = labs.map((lab) => ({
+          ...lab,
+          bookings: bookingsMap[lab.id] || [],
+        }));
+
+        sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
+        setLabs(updatedLabs);
       } catch (err) {
         console.error('Error fetching reservations:', err);
       }
     };
-  
-    if (labs.length > 0) fetchBookings();
-  }, [address]); 
+
+    fetchBookings();
+  }, [address, labs.length]);
 
   /*const { data: labList, refetch, isLoading, error } = 
         useDefaultReadContract('getAllLabs', null, hasFetched);
