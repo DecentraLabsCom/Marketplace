@@ -13,11 +13,11 @@ module.exports = {
     "tailwindcss"
   ],
   rules: {
-    // Ejemplo de reglas personalizadas:
-    "react/react-in-jsx-scope": "off", // Next.js no requiere React importado en cada archivo
-    "react/prop-types": "off",         // Si no usas PropTypes
+    "react/react-in-jsx-scope": "off",
+    "react/prop-types": "off",
     "no-unused-vars": "warn",
-    "tailwindcss/no-custom-classname": "off" // Permite clases personalizadas de Tailwind
+    "no-unreachable": "off",
+    "tailwindcss/no-custom-classname": "off"
   },
   env: {
     browser: true,
