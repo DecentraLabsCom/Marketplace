@@ -1,11 +1,9 @@
 let bookings = [
-  { labId: 1, activeBooking: 1, start: 1745804400, end: 1745806200, price: 100 },
-  { labId: 1, activeBooking: 0, start: 1745913422, end: 1745917022, price: 100 },
-  { labId: 2, activeBooking: 0},
-  { labId: 3, activeBooking: 0},
-  { labId: 4, activeBooking: 0},
-  { labId: 5, activeBooking: 0},
-
+  { labId: 1, date: "2025-02-24", time: "10:00", minutes: "60" },
+  { labId: 2, date: "2025-04-23", time: "15:40", minutes: "60" },
+  { labId: 3, date: "2025-06-25", time: "12:00", minutes: "20" },
+  { labId: 4, date: "2025-03-24", time: "10:00", minutes: "60" },
+  { labId: 5, date: "2025-05-10", time: "12:00", minutes: "20" },
 ];
 
 export const simBookings = () => {

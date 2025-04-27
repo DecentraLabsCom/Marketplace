@@ -5,7 +5,8 @@ import { useUser } from "../../context/UserContext";
 import { useLabs } from "../../context/LabContext";
 import Carrousel from "../../components/Carrousel";
 import AccessControl from '../../components/AccessControl';
-import { format, isToday, addMinutes, isAfter, isBefore } from "date-fns";
+import { isBookingActive } from '../../utils/isBookingActive';
+import { format, isToday, addMinutes } from "date-fns";
 
 export default function ReservationPage() {
   const { labs } = useLabs();
@@ -18,8 +19,11 @@ export default function ReservationPage() {
   const [availableTimes, setAvailableTimes] = useState([]);
   const [selectedLab, setSelectedLab] = useState(null);
   const [bookedDates, setBookedDates] = useState([]);
-  const [selectedTime, setSelectedTime] = useState("");
   const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    if (!date) setDate(new Date());
+  }, []);
 
   useEffect(() => {
     setIsClient(true);
@@ -33,26 +37,49 @@ export default function ReservationPage() {
   }, [id, labs]);
 
   useEffect(() => {
-    if (selectedLab && selectedLab.bookings) {
+    if (selectedLab && selectedLab.bookingInfo) {
+      const newTimes = generateTimeOptions(time);
+      setAvailableTimes(newTimes);
+
+      const labBookings = selectedLab.bookingInfo.filter(
+        (b) => b.labId == selectedLab.id && isBookingActive([b])
+      );
       const uniqueDates = [
-        ...new Set(
-          selectedLab.bookings.map((b) => {
-            const startDate = new Date(b.start * 1000);
-            return startDate.toDateString();
-          })
-        ),
+        ...new Set(labBookings.map((b) => new Date(b.date).toDateString())),
       ];
       setBookedDates(uniqueDates.map((d) => new Date(d)));
-      updateAvailableTimes();
     }
-  }, [selectedLab, date, time]);
+  }, [time, date, selectedLab]);
 
-  const updateAvailableTimes = () => {
-    if (!selectedLab) return;
+  const isTimeSlotTaken = (slotStart, duration, dayBookings) => {
+    const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
+    for (const booking of dayBookings) {
+      const bookingStart = new Date(`${booking.date}T${booking.time}`);
+      const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60 * 1000);
+      if (slotStart < bookingEnd && slotEnd > bookingStart) {
+        return true;
+      }
+    }
+    return false;
+  };
 
+  const generateTimeOptions = (interval) => {
     const options = [];
     const now = new Date();
-
+  
+    const dayBookings = selectedLab.bookingInfo.filter(
+      (b) =>
+        b.labId == selectedLab?.id &&
+        isBookingActive([b]) &&
+        new Date(b.date).toDateString() === date.toDateString()
+    );
+  
+    const blockedRanges = dayBookings.map((b) => {
+      const start = new Date(`${b.date}T${b.time}`);
+      const end = addMinutes(start, parseInt(b.minutes));
+      return { start, end };
+    });
+  
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date);
@@ -61,30 +88,28 @@ export default function ReservationPage() {
     let slot = new Date(dayStart);
 
     while (slot <= dayEnd) {
-      const endSlot = addMinutes(slot, time);
+      const endSlot = addMinutes(slot, interval);
 
       if (isToday(date) && slot <= now) {
-        slot = addMinutes(slot, time);
+        slot = addMinutes(slot, interval);
         continue;
       }
 
-      const isBlocked = selectedLab.bookings.some((booking) => {
-        const bookingStart = new Date(booking.start * 1000);
-        const bookingEnd = new Date(booking.end * 1000);
+      const isConflict = blockedRanges.some(
+        ({ start, end }) =>
+          (slot >= start && slot < end) ||
+          (endSlot > start && endSlot <= end) ||
+          (slot <= start && endSlot >= end)
+      );
 
-        return (
-          (slot >= bookingStart && slot < bookingEnd) ||
-          (endSlot > bookingStart && endSlot <= bookingEnd) ||
-          (slot <= bookingStart && endSlot >= bookingEnd)
-        );
-      });
+      if (!isConflict) {
+        options.push(format(slot, "HH:mm"));
+      }
 
-      options.push({ time: format(slot, "HH:mm"), disabled: isBlocked });
-
-      slot = addMinutes(slot, time);
+      slot = addMinutes(slot, interval);
     }
-
-    setAvailableTimes(options);
+  
+    return options;
   };
 
   const handleLabChange = (e) => {
@@ -169,22 +194,15 @@ export default function ReservationPage() {
                 <div className="flex-1">
                   <label className="block text-lg font-semibold">Available times:</label>
                   <select
-  className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-  value={selectedTime}
-  onChange={(e) => setSelectedTime(e.target.value)}
-  disabled={!availableTimes.length}
->
-  {availableTimes.map((option, i) => (
-    <option
-      key={i}
-      value={option.disabled ? "" : option.time}
-      disabled={option.disabled}
-      style={option.disabled ? { backgroundColor: "#EF4444", color: "white" } : {}}
-    >
-      {option.time} {option.disabled ? "(Not Available)" : ""}
-    </option>
-  ))}
-</select>
+                    className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                    disabled={!availableTimes.length}
+                  >
+                    {availableTimes.map((time, i) => (
+                      <option key={i} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
@@ -193,7 +211,7 @@ export default function ReservationPage() {
 
         {selectedLab && (
           <div className="flex justify-center">
-            <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]" disabled={!selectedTime}>
+            <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]">
               Make Booking
             </button>
           </div>
@@ -202,4 +220,3 @@ export default function ReservationPage() {
     </AccessControl>
   );
 }
-  
