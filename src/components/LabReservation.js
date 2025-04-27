@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import { useRouter } from "next/router";
-import { useUser } from "../../context/UserContext";
-import { useLabs } from "../../context/LabContext";
-import Carrousel from "../../components/Carrousel";
-import AccessControl from '../../components/AccessControl';
-import { isBookingActive } from '../../utils/isBookingActive';
+import { useUser } from "../context/UserContext";
+import { useLabs } from "../context/LabContext";
+import Carrousel from "./Carrousel";
+import AccessControl from './AccessControl';
+import { isBookingActive } from '../utils/isBookingActive';
 import { format, isToday, addMinutes } from "date-fns";
 
 export default function ReservationPage() {

@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useUser } from '../../context/UserContext';
-import { useLabs } from '../../context/LabContext';
-import Carrousel from '../../components/Carrousel';
-import DocsCarrousel from '../../components/DocsCarrousel';
+import { useUser } from '../context/UserContext';
+import { useLabs } from '../context/LabContext';
+import Carrousel from './Carrousel';
+import DocsCarrousel from './DocsCarrousel';
 import { useRouter } from 'next/router';
 
 
-export default function LabDetailPage({ id }) {
+export default function LabDetail({ id }) {
   const { isLoggedIn, address, user, isSSO } = useUser();
   const { labs, loading } = useLabs();
   const [lab, setLab] = useState(null);

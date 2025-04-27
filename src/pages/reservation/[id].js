@@ -1,9 +1,9 @@
 import { useRouter } from 'next/router'
-import LabReservationPage from './LabReservationPage'
+import LabReservation from '../../components/LabReservation'
 
-export default function LabDetailWrapper() {
+export default function LabReservationWrapper() {
   const router = useRouter()
   const { id } = router.query
 
-  return <LabReservationPage id={id} />
+  return <LabReservation id={id} />
 }

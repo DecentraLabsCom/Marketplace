@@ -1,5 +1,5 @@
-import LabReservationPage from './LabReservationPage'
+import LabReservation from '../../components/LabReservation'
 
 export default function LabReservationWrapper() {
-  return <LabReservationPage />
+  return <LabReservation />
 }

@@ -1,9 +1,9 @@
 import { useRouter } from 'next/router'
-import LabDetailPage from './LabDetailPage'
+import LabDetail from '../../components/LabDetail'
 
 export default function LabDetailWrapper() {
   const router = useRouter()
   const { id } = router.query
 
-  return <LabDetailPage id={id} />
+  return <LabDetail id={id} />
 }
