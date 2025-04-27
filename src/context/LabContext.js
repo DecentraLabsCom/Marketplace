@@ -9,20 +9,19 @@ export function LabData({ children }) {
   const [loading, setLoading] = useState(true);
   //const [hasFetched, setHasFetched] = useState(false);
 
-  const { address } = useUser();
+  const { isLoggedIn, address, user, isSSO } = useUser();
 
   useEffect(() => {
     const fetchLabs = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-
         const cachedLabs = sessionStorage.getItem('labs');
         if (cachedLabs) {
           setLabs(JSON.parse(cachedLabs));
           return;
         }
 
-        const response = await fetch('/api/contract/getLabs');
+        const response = await fetch('/api/contract/lab/getLabs');
         if (!response.ok) {
           throw new Error(`Failed to fetch labs: ${response.statusText}`);
         }
@@ -48,12 +47,10 @@ export function LabData({ children }) {
       );
       return;
     }
-
-    if (!address) return;
   
     const fetchBookings = async () => {
       try {
-        const response = await fetch('/api/contract/getBookings', {
+        const response = await fetch('/api/contract/reservation/getBookings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -102,7 +99,7 @@ export function LabData({ children }) {
   }, [labList, refetch, isLoading, error]);*/
 
   return (
-    <LabContext.Provider value={{ labs, loading }}>
+    <LabContext.Provider value={{ labs, loading }}> 
       {children}
     </LabContext.Provider>
   );
@@ -111,4 +108,3 @@ export function LabData({ children }) {
 export function useLabs() {
   return useContext(LabContext);
 }
-
