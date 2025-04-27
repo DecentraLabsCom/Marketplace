@@ -7,19 +7,20 @@ export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { isLoggedIn, address, user, isSSO } = useUser();
+  const { address } = useUser();
 
   useEffect(() => {
     const fetchLabs = async () => {
-      setLoading(true);
       try {
+        setLoading(true);
+
         const cachedLabs = sessionStorage.getItem('labs');
         if (cachedLabs) {
           setLabs(JSON.parse(cachedLabs));
           return;
         }
 
-        const response = await fetch('/api/contract/lab/getLabs');
+        const response = await fetch('/api/contract/getLabs');
         if (!response.ok) {
           throw new Error(`Failed to fetch labs: ${response.statusText}`);
         }
@@ -38,17 +39,11 @@ export function LabData({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!address) {
-      // Clean bookings if user is not logged in
-      setLabs((prevLabs) =>
-        prevLabs.map(lab => ({ ...lab, bookings: [] }))
-      );
-      return;
-    }
+    if (!address || labs.length === 0) return;
 
     const fetchBookings = async () => {
       try {
-        const response = await fetch('/api/contract/reservation/getBookings', {
+        const response = await fetch('/api/contract/getBookings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -64,27 +59,37 @@ export function LabData({ children }) {
 
         const bookingsMap = {};
         for (const booking of bookingsData) {
-          if (!bookingsMap[booking.labId]) {
-            bookingsMap[booking.labId] = [];
+          const { labId, start, end, price, renter } = booking;
+          if (!bookingsMap[labId]) {
+            bookingsMap[labId] = [];
           }
-          bookingsMap[booking.labId].push(booking);
+          bookingsMap[labId].push({ start, end, price, renter });
         }
 
-        setLabs((prevLabs) => {
-          const updatedLabs = prevLabs.map((lab) => ({
-            ...lab,
-            bookings: bookingsMap[lab.id] || [],
-          }));
-          sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
-          return updatedLabs;
-        });
+        const updatedLabs = labs.map((lab) => ({
+          ...lab,
+          bookings: bookingsMap[lab.id] || [],
+        }));
+
+        sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
+        setLabs(updatedLabs);
       } catch (err) {
         console.error('Error fetching reservations:', err);
       }
     };
 
-    if (labs.length > 0) fetchBookings();
+    fetchBookings();
   }, [address, labs.length]);
+
+  /*const { data: labList, refetch, isLoading, error } = 
+        useDefaultReadContract('getAllLabs', null, hasFetched);
+
+  useEffect(() => {
+    if (labList) {
+      setHasFetched(true);
+      console.log(labList);
+    }
+  }, [labList, refetch, isLoading, error]);*/
 
   return (
     <LabContext.Provider value={{ labs, loading }}>
@@ -96,3 +101,4 @@ export function LabData({ children }) {
 export function useLabs() {
   return useContext(LabContext);
 }
+
