@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useLabs } from '../context/LabContext';
 import { useUser } from '../context/UserContext';
-import LabCard from "../components/LabCard";
+import LabCard from "./LabCard";
 import { isBookingActive } from '../utils/isBookingActive';
 
-export default function MarketPage() {
+export default function Market() {
   const searchInputRef = useRef(null);
   const { labs, loading } = useLabs();
   const { isLoggedIn } = useUser();

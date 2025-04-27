@@ -1,4 +1,4 @@
-import MarketPage from '../pages/MarketPage'
+import Market from '../components/Market'
 
 export default function HomePage() {
 
@@ -12,7 +12,7 @@ export default function HomePage() {
           <div className="mt-4 border-t-4 border-[#715c8c] w-80 mx-auto" />
         </div>
       </div>
-      <MarketPage />
+      <Market />
     </div>
   )
 }
