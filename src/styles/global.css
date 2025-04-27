@@ -162,6 +162,10 @@ body {
 }
 
 /* Style override for DatePicker external component: react-datepicker */
+.custom-datepicker .react-datepicker__header {
+  background-color: #caddff; /* Header background color */
+  color: white !important;
+}
 .custom-datepicker .react-datepicker__day--selected {
   background-color: #715c8c; /* For selected day */
   color: white;
@@ -169,4 +173,10 @@ body {
 .custom-datepicker .react-datepicker__day:hover {
   background-color: #333f63; /* Hover effect */
   color: white;
+}
+.custom-datepicker .react-datepicker__navigation-icon::before {
+  border-color: #715c8c;
+}
+.custom-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: #333f63 !important;
 }

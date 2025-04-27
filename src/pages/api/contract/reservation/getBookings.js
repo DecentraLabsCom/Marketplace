@@ -1,5 +1,5 @@
-import { simBookings } from '../../../utils/simBookings';
-import { getContractInstance } from './contractInstance';
+import { simBookings } from '../../../../utils/simBookings';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,8 +27,8 @@ export default async function handler(req, res) {
             const end = booking.end.toString();
             const now = Date.now().toString();
             let activeBooking = false;
+            const labId = booking.labId.toString();
             if (wallet == renter && start <= now && end > now) {
-                const labId = booking.labId.toString();
                 activeBooking = true;
             }
             return {

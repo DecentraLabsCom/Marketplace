@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import DatePicker from "react-datepicker"
 import Link from 'next/link'
 import { useUser } from '../../context/UserContext'
 import { useLabs } from '../../context/LabContext'
@@ -8,8 +9,6 @@ import AccessControl from '../../components/AccessControl'
 import Refund from '../../components/Refund'
 import Cancellation from '../../components/Cancellation'
 import { isBookingActive } from '../../utils/isBookingActive'
-import DatePicker from "react-datepicker"
-import "react-datepicker/dist/react-datepicker.css"
 
 export default function UserDashboard() {
   const { isLoggedIn, isConnected, address } = useUser();
@@ -22,6 +21,7 @@ export default function UserDashboard() {
   const availableLab = labs.find(lab => isBookingActive(lab.bookingInfo));
 
   // Calendar
+  const today = new Date();
   const [date, setDate] = useState(new Date());
   const [bookedDates, setBookedDates] = useState([]);
   const renderDayContents = (day, currentDateRender) => {
@@ -73,7 +73,6 @@ export default function UserDashboard() {
         return dates;
       }, []);
       setBookedDates(futureBookingDates);
-      console.log(futureBookingDates);
     }
   }, [labs, currentDate]);
 
@@ -164,7 +163,7 @@ export default function UserDashboard() {
                 <div className="flex flex-col">
                   {availableLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">
-                      Currently active: {availableLab.name}
+                      Active now: {availableLab.name}
                     </h2>
                   ) : firstActiveLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">
@@ -217,7 +216,7 @@ export default function UserDashboard() {
                             </span>
                           )}
                           <Link href={`/lab/${availableLab.id}`} className='px-3 mt-3 py-1 
-                            rounded text-sm bg-yellow-500 hover:bg-yellow-300 text-white'>
+                            rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'>
                               Explore this lab
                           </Link>
                         </div>
@@ -265,24 +264,22 @@ export default function UserDashboard() {
                   </div>
                   {!firstActiveLab && !availableLab && (
                     <span className="text-gray-300 text-center">
-                      No upcoming or currently active lab
+                      No upcoming or active lab
                     </span>
                   )}
                 </div>
               </div>
               {/* CALENDAR */}
-              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4 flex justify-center items-center">
+              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4 flex justify-center 
+                items-center">
                 <div className="flex flex-row">
-                  <DatePicker
-                    selected={date}
-                    onChange={(newDate) => setDate(newDate)}
-                    disabledKeyboardNavigation
-                    inline
+                  <DatePicker calendarClassName="custom-datepicker" selected={date} inline minDate={today}
+                    onChange={(newDate) => setDate(newDate)} filterDate={() => false}
                     dayClassName={(day) =>
                       bookedDates.some(
                         (d) => d.toDateString() === day.toDateString()
                       )
-                        ? "bg-red-500 text-white rounded-full"
+                        ? "bg-[#9fc6f5] text-white"
                         : undefined
                     }
                     renderDayContents={renderDayContents}
@@ -297,7 +294,7 @@ export default function UserDashboard() {
                 <h2 className="text-2xl font-semibold mb-4 text-center">
                   Upcoming Bookings
                 </h2>
-                <ul className='w-4/4 flex-1'>
+                <ul className='w-full flex-1'>
                   {userData.labs
                     .filter(lab => Array.isArray(lab.bookingInfo) && 
                       lab.bookingInfo.some(b => b.date >= currentDate))
@@ -354,12 +351,9 @@ export default function UserDashboard() {
                                   <span>End time: {endTime}</span>
                                 </div>
                               </div>
-                              {lab.isAccessible ? (
-                                <div className='px-3 mx-4 py-1 rounded text-sm bg-gray-500
-                                text-white'> Can't be cancelled</div>
-                              ) : (
-                                <div className='mx-4'><Cancellation /></div>
-                              )}
+                              <div className='mx-4 flex items-center justify-center w-1/4'>
+                                <Cancellation />
+                              </div>
                             </div>
                           </li>
                         </div>
@@ -374,81 +368,82 @@ export default function UserDashboard() {
                 dark:border-neutral-200 border-dashed"
                 style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }} />
               {/* Past booked labs */}
-              <div className="flex-1 flex flex-col h-full min-h-[350px]">
-                <h2 className="text-2xl  font-semibold mb-4 text-center">
+              <div className="w-1/2 flex flex-col h-full min-h-[350px]">
+                <h2 className="text-2xl font-semibold mb-4 text-center">
                   Past bookings
                 </h2>
-                <ul className='flex items-center flex-col justify-center flex-1'>
-                {userData.labs
-                  .filter((lab) => Array.isArray(lab.bookingInfo) && 
-                    lab.bookingInfo.some(b => b.date < currentDate))
-                  .sort((a, b) => {
-                    // Order from more recent to older
-                    const lastBookingA = a.bookingInfo
-                      .filter(b => b.date < currentDate)
-                      .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+                <ul className='w-full flex-1'>
+                  {userData.labs
+                    .filter((lab) => Array.isArray(lab.bookingInfo) && 
+                      lab.bookingInfo.some(b => b.date < currentDate))
+                    .sort((a, b) => {
+                      // Order from more recent to older
+                      const lastBookingA = a.bookingInfo
+                        .filter(b => b.date < currentDate)
+                        .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
 
-                    const lastBookingB = b.bookingInfo
-                      .filter(b => b.date < currentDate)
-                      .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+                      const lastBookingB = b.bookingInfo
+                        .filter(b => b.date < currentDate)
+                        .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
 
-                    if (lastBookingA?.date && lastBookingB?.date) {
-                      return new Date(lastBookingB.date) - new Date(lastBookingA.date);
-                    } else if (lastBookingA?.date) {
-                      return -1;
-                    } else if (lastBookingB?.date) {
-                      return 1;
-                    }
-                    return 0;
-                  })
-                  .map((lab) => {
-                    const notActive = lab.bookingInfo.find(b => b.date < currentDate);
-                    let startTime = null;
-                    let endTime = null;
+                      if (lastBookingA?.date && lastBookingB?.date) {
+                        return new Date(lastBookingB.date) - new Date(lastBookingA.date);
+                      } else if (lastBookingA?.date) {
+                        return -1;
+                      } else if (lastBookingB?.date) {
+                        return 1;
+                      }
+                      return 0;
+                    })
+                    .map((lab) => {
+                      const notActive = lab.bookingInfo.find(b => b.date < currentDate);
+                      let startTime = null;
+                      let endTime = null;
 
-                    if (notActive?.time && notActive?.minutes) {
-                      const startTimeParts = notActive.time.split(':').slice(0, 2).join(':');
-                      startTime = startTimeParts;
+                      if (notActive?.time && notActive?.minutes) {
+                        const startTimeParts = notActive.time.split(':').slice(0, 2).join(':');
+                        startTime = startTimeParts;
 
-                      const [hours, minutesPart] = notActive.time.split(':').map(Number);
-                      const startDate = new Date();
-                      startDate.setHours(hours);
-                      startDate.setMinutes(minutesPart);
-                      startDate.setSeconds(0);
+                        const [hours, minutesPart] = notActive.time.split(':').map(Number);
+                        const startDate = new Date();
+                        startDate.setHours(hours);
+                        startDate.setMinutes(minutesPart);
+                        startDate.setSeconds(0);
 
-                      const endTimeMilliseconds = startDate.getTime() + 
-                        notActive.minutes * 60 * 1000;
-                      const endTimeDate = new Date(endTimeMilliseconds);
-                      const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                      const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
-                      endTime = `${endHours}:${endMinutes}`;
-                    }
+                        const endTimeMilliseconds = startDate.getTime() + 
+                          notActive.minutes * 60 * 1000;
+                        const endTimeDate = new Date(endTimeMilliseconds);
+                        const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                        const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                        endTime = `${endHours}:${endMinutes}`;
+                      }
 
-                    return (
-                      <div className='mb-4 p-2 rounded-lg text-center w-full max-w-xl' 
-                        key={lab.id}>
-                        <li className="flex flex-col items-center w-full">
-                          <div className="border flex items-center w-full">
-                            <div className='border flex flex-col w-full'>
-                                <Link className="border-2 border-white bg-white p-2 px-8  
-                                  text-black text-center hover:bg-slate-500 flex-grow" 
-                                  href={`/lab/${lab.id}`}>
-                                  <span className="text-left">
-                                    {lab.name}
-                                  </span>
-                                </Link>
-                              <span className='text-center'>{notActive?.date}</span>
-                              <div className='text-gray-500 flex flex-col text-xs mb-1 
-                                text-center'>
-                                <span>Start time: {startTime}</span>
-                                <span>End time: {endTime}</span>
+                      return (
+                        <div className='mb-4 p-2 rounded-lg text-center' key={lab.id}>
+                          <li className="flex flex-col items-center">
+                            <div className="border flex items-center w-full">
+                              <div className='border flex flex-col w-3/4'>
+                                  <Link className="border-2 border-white bg-white p-2 px-8  
+                                    text-black text-center hover:bg-slate-500 flex-grow" 
+                                    href={`/lab/${lab.id}`}>
+                                    <span className="text-left">
+                                      {lab.name}
+                                    </span>
+                                  </Link>
+                                <span className='text-center'>{notActive?.date}</span>
+                                <div className='text-gray-500 flex flex-col text-xs mb-1 
+                                  text-center'>
+                                  <span>Start time: {startTime}</span>
+                                  <span>End time: {endTime}</span>
+                                </div>
+                              </div>
+                              <div className='mx-4 flex items-center justify-center w-1/4'>
+                                <Refund />
                               </div>
                             </div>
-                            <div className='mx-4'><Refund /></div>
-                          </div>
-                        </li>
-                      </div>
-                    );
+                          </li>
+                        </div>
+                      );
                   })}
                 </ul>
               </div>

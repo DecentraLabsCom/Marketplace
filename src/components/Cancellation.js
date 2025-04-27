@@ -29,7 +29,7 @@ export default function Cancellation() {
       }, [isModalOpen]);
 
     return (
-        <button onClick={openModal} className='px-3 py-1 rounded text-sm bg-red-500 hover:bg-red-300
+        <button onClick={openModal} className='p-3 rounded text-sm bg-[#a87583] hover:bg-[#8a5c66]
         text-white'>
         {/* Modal */}
             {isModalOpen && (

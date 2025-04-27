@@ -82,7 +82,7 @@ export default function ProviderDashboard() {
 
   const handleCollectAll = async () => {
     try {
-      const res = await fetch('/api/contract/claimAllBalance', {
+      const res = await fetch('/api/contract/reservation/claimAllBalance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
@@ -97,7 +97,7 @@ export default function ProviderDashboard() {
   
   const handleCollect = async (labId) => {
     try {
-      const res = await fetch('/api/contract/claimLabBalance', {
+      const res = await fetch('/api/contract/reservation/claimLabBalance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, labId }),
@@ -112,7 +112,7 @@ export default function ProviderDashboard() {
   
   const handleList = async (labId) => {
     try {
-      const res = await fetch('/api/contract/listLab', {
+      const res = await fetch('/api/contract/lab/listLab', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, labId }),
@@ -127,7 +127,7 @@ export default function ProviderDashboard() {
   
   const handleUnlist = async (labId) => {
     try {
-      const res = await fetch('/api/contract/unlistLab', {
+      const res = await fetch('/api/contract/lab/unlistLab', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, labId }),
@@ -235,7 +235,7 @@ export default function ProviderDashboard() {
               </>
             ) : (
               <p className="text-gray-300">
-                You have no labs registered yet. Press "Add New Lab" to get started.
+                You have no labs registered yet. Press &quot;Add New Lab&quot; to get started.
               </p>
             )}
             <div className="flex justify-center mt-4">

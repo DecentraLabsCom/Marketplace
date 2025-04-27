@@ -16,7 +16,7 @@ const providerSchema = z.object({
 });
 
 export default function RegisterProviderForm() {
-  const { isSSO, user } = useUser();
+  const { isSSO, user, isProvider } = useUser();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,7 +35,8 @@ export default function RegisterProviderForm() {
 
   // Automatic registration when accessed using SSO
   useEffect(() => {
-    if (isSSO && user && autoRequested && !isSuccess) {
+    if (isSSO && user && autoRequested && !isSuccess && !isProvider) {
+    //if (true) {
       const autoRegister = async () => {
         try {
           const providerData = {
@@ -44,7 +45,13 @@ export default function RegisterProviderForm() {
             wallet: user.wallet || '',
             country: user.country || '',
           };
-          const res = await fetch('/api/contract/addProvider', {
+          /*const providerData = {
+            name: "UNED",
+            email: "contact@dia.uned.es",
+            wallet: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
+            country: "Spain",
+          };*/
+          const res = await fetch('/api/contract/provider/addProvider', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(providerData),
@@ -57,7 +64,7 @@ export default function RegisterProviderForm() {
       };
       autoRegister();
     }
-  }, [isSSO, user, autoRequested, isSuccess]);
+  }, [isSSO, user, autoRequested, isSuccess, isProvider]);
 
 
   useEffect(() => {
@@ -86,7 +93,7 @@ export default function RegisterProviderForm() {
 
     if (result.success) {
       try {
-        const res = await fetch('/api/provider/register', {
+        const res = await fetch('/api/provider/saveRegistration', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -117,6 +124,7 @@ export default function RegisterProviderForm() {
 
   // Automatic registration when accessed using SSO
   if (isSSO) {
+  //if (true) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px]">
         {!autoRequested ? (
@@ -151,6 +159,16 @@ export default function RegisterProviderForm() {
   }
 
   if (!isMounted) return null;
+
+  if (isProvider) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px]">
+        <h2 className="text-center text-lg font-bold mb-4 text-white">
+          You are already registered as a provider.
+        </h2>
+      </div>
+    );
+  }
 
   return (
     <AccessControl message="Please log in to view and make reservations.">

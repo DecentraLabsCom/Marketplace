@@ -72,7 +72,7 @@ let labs = [
     keywords: ["three", "tanks", "lab"],
     docs: [
     ] },
-  { id: 5, name: "Snell's Law Lab", category: "Optics", provider: "UBC", price: 1.3,
+  { id: 5, name: "Snell's Law Lab", category: "Optics", price: 1.3,
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer tempus et metus sed aliquet. Nulla tincidunt elit sodales, sollicitudin ante.",
     provider: "UBC", providerAddress: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
     auth: "https://sarlab.dia.uned.es/auth/", 

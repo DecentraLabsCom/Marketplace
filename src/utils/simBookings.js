@@ -5,6 +5,7 @@ let bookings = [
   { labId: 3, activeBooking: 0},
   { labId: 4, activeBooking: 0},
   { labId: 5, activeBooking: 0},
+
 ];
 
 export const simBookings = () => {

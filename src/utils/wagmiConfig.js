@@ -15,7 +15,6 @@ const infuraSepoliaTransport = http(
   `https://${infuraNetworks[sepolia.id]}${infuraProjectId}`, {
   key: 'infura',
   retryCount: 0,
-  batch: true,
   batch: {
     wait: 200,
   },
@@ -25,7 +24,6 @@ const alchemySepoliaTransport = http(
   `https://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
   key: 'alchemy',
   retryCount: 0,
-  batch: true,
   batch: {
     wait: 200,
   },

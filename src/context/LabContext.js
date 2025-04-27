@@ -7,7 +7,7 @@ export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const { isLoggedIn, address, user, isSSO } = useUser();
+  const { address } = useUser();
 
   useEffect(() => {
     const fetchLabs = async () => {
@@ -92,7 +92,7 @@ export function LabData({ children }) {
   }, [labList, refetch, isLoading, error]);*/
 
   return (
-    <LabContext.Provider value={{ labs, loading }}> 
+    <LabContext.Provider value={{ labs, loading }}>
       {children}
     </LabContext.Provider>
   );
@@ -101,3 +101,4 @@ export function LabData({ children }) {
 export function useLabs() {
   return useContext(LabContext);
 }
+

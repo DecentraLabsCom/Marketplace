@@ -29,7 +29,7 @@ export default function Refund() {
       }, [isModalOpen]);
 
     return (
-        <button onClick={openModal} className='px-3 py-1 rounded text-sm bg-orange-500 hover:bg-orange-300
+        <button onClick={openModal} className='p-3 rounded text-sm bg-[#bcc4fc] hover:bg-[#aab8e6]
         text-white'>
         {/* Modal */}
             {isModalOpen && (

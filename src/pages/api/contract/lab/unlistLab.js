@@ -1,4 +1,4 @@
-import { getContractInstance } from './contractInstance';
+import { getContractInstance } from '../utils/contractInstance';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     // ...
 
     // Return data to client
-    res.status(200).json(labs);
+    res.status(200).json([]);
   } catch (error) {
     console.error('Error when trying to unlist a lab:', error);
   }

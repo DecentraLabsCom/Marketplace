@@ -20,9 +20,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         <h2 className="text-xl font-semibold mb-4 text-black">
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
-        <form className="space-y-4 text-gray-600"
-          onSubmit={(e) => { e.preventDefault(); onSubmit(); }}
-        >
+        <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
           <input
             type="text"
             placeholder="Lab Name"
@@ -59,15 +57,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             onChange={(e) => setLab({ ...lab, price: e.target.value })}
             className="w-full p-2 border rounded"
           />
-          {/* TODO - Should be obtained from the user info and filled automatically
-          <input
-            type="text"
-            placeholder="Provider Name"
-            value={lab.provider}
-            onChange={(e) => setLab({ ...lab, provider: e.target.value })}
-            className="w-full p-2 border rounded"
-          />
-          */}
           <input
             type="text"
             placeholder="Auth URL"
@@ -131,17 +120,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             className="w-full p-2 border rounded"
           />
           <div className="flex justify-between">
-            <button
-              type="submit"
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
+            <button type="submit"
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
               {lab?.id ? 'Save Changes' : 'Add Lab'}
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-            >
+            <button type="button" onClick={onClose}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
               Cancel
             </button>
           </div>
