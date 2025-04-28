@@ -20,6 +20,31 @@ export default function ReservationPage() {
   const [selectedLab, setSelectedLab] = useState(null);
   const [bookedDates, setBookedDates] = useState([]);
   const [isClient, setIsClient] = useState(false);
+  const now = new Date();
+  const currentDate = now.toISOString().slice(0, 10);
+  const renderDayContents = (day, currentDateRender) => {
+    const bookingsOnDay = bookedDates.filter(
+      (d) => d.toDateString() === currentDateRender.toDateString()
+    );
+  
+    let title = undefined;
+  
+    if (bookingsOnDay.length > 0 && selectedLab?.bookingInfo) {
+      title = bookingsOnDay.map(bookingDate => {
+        const matchingBooking = selectedLab.bookingInfo.find(
+          b => new Date(b.date).toDateString() === bookingDate.toDateString()
+        );
+        if (matchingBooking?.time && matchingBooking?.minutes) {
+          const endTimeDate = new Date(new Date(matchingBooking.date + 'T' + matchingBooking.time).getTime() + matchingBooking.minutes * 60 * 1000);
+          const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+          return `${selectedLab.name}: ${matchingBooking.time} - ${endTime}`;
+        }
+        return 'Booked';
+      }).join(', ');
+    }
+  
+    return <div title={title}>{day}</div>;
+  };
 
   useEffect(() => {
     if (!date) setDate(new Date());
@@ -37,19 +62,29 @@ export default function ReservationPage() {
   }, [id, labs]);
 
   useEffect(() => {
-    if (selectedLab && selectedLab.bookingInfo) {
+    if (selectedLab && Array.isArray(selectedLab.bookingInfo)) {
       const newTimes = generateTimeOptions(time);
       setAvailableTimes(newTimes);
-
-      const labBookings = selectedLab.bookingInfo.filter(
-        (b) => b.labId == selectedLab.id && isBookingActive([b])
-      );
-      const uniqueDates = [
-        ...new Set(labBookings.map((b) => new Date(b.date).toDateString())),
-      ];
-      setBookedDates(uniqueDates.map((d) => new Date(d)));
+      const futureBookingDatesForSelectedLab = selectedLab.bookingInfo
+        .filter(booking => booking.date >= currentDate)
+        .map(booking => {
+          try {
+            const dateObject = new Date(booking.date);
+            if (!isNaN(dateObject)) {
+              return dateObject;
+            }
+          } catch (error) {
+            console.error("Error al convertir fecha:", booking.date, error);
+          }
+          return null;
+        })
+        .filter(dateObject => dateObject !== null); // Eliminar fechas inválidas
+  
+      setBookedDates(futureBookingDatesForSelectedLab);
+    } else {
+      setBookedDates([]); // Limpiar bookedDates si no hay laboratorio seleccionado o no tiene bookingInfo
     }
-  }, [time, date, selectedLab]);
+  }, [time, date, selectedLab, currentDate]);
 
   const isTimeSlotTaken = (slotStart, duration, dayBookings) => {
     const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
@@ -175,6 +210,7 @@ export default function ReservationPage() {
                         ? "bg-[#9fc6f5] text-white"
                         : undefined
                     }
+                    renderDayContents={renderDayContents}
                   />
                 </div>
 
