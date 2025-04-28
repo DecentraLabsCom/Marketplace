@@ -9,6 +9,7 @@ export function UserProvider({ children }) {
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
     const [isProvider, setIsProvider] = useState(false);
+    const [isProviderLoading, setIsProviderLoading] = useState(true);
 
     const { publicRuntimeConfig } = getConfig();
     const basePath = publicRuntimeConfig.basePath || '';
@@ -30,7 +31,8 @@ export function UserProvider({ children }) {
     const isLoggedIn = isConnected || isSSO;
 
     useEffect(() => {
-        if (isLoggedIn) {
+        if (isLoggedIn && address) {
+            setIsProviderLoading(true);
             // Check if user is a provider by calling the contract
             fetch(`${basePath}/api/contract/provider/isLabProvider`, {
                 method: "POST",
@@ -41,7 +43,8 @@ export function UserProvider({ children }) {
             })
             .then((res) => res.json())
             .then((data) => setIsProvider(data.isLabProvider))
-            .catch((error) => console.error("Error checking provider status:", error));
+            .catch((error) => console.error("Error checking provider status:", error))
+            .finally(() => setIsProviderLoading(false));
 
             // Get lab provider name and add the name of the provider to the user object
             fetch(`${basePath}/api/contract/provider/getLabProviderName`, {
@@ -62,7 +65,7 @@ export function UserProvider({ children }) {
     }, [isLoggedIn, address]);
 
     return (
-        <UserContext.Provider value={{ address, isConnected, isSSO, user, isLoggedIn, isProvider }}>
+        <UserContext.Provider value={{ address, isConnected, isSSO, user, isLoggedIn, isProvider, isProviderLoading }}>
             {children}
         </UserContext.Provider>
     );

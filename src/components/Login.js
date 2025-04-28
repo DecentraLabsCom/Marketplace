@@ -22,8 +22,7 @@ export default function Login() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isModalOpen]);
 
-  if (isConnected) return <Account isConnected = {isConnected} />;
-  if (user) return <Account username = {user.name} />;;
+  if (isLoggedIn) return <Account />;
 
   return (
     <div>

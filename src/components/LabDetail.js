@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useUser } from '../context/UserContext';
 import { useLabs } from '../context/LabContext';
 import Carrousel from './Carrousel';
 import DocsCarrousel from './DocsCarrousel';
-import { useRouter } from 'next/router';
-
 
 export default function LabDetail({ id }) {
   const { isLoggedIn, address, user, isSSO } = useUser();

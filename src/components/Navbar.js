@@ -9,7 +9,7 @@ import Login from './Login';
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const { isLoggedIn, isSSO, isConnected, user, isProvider } = useUser();
+  const { isLoggedIn, isSSO, isConnected, user, isProvider, isProviderLoading } = useUser();
 
   useEffect(() => {
     setIsMounted(true);
@@ -31,23 +31,21 @@ export default function Navbar() {
         {/* Logo */}
         <Link href="/">
           <div className="h-14 relative">
-          <Image src="/DecentraLabs.png" alt="DecentraLabs Logo" fill priority sizes="80vw"
-                      className="!relative" />
+            <Image src="/DecentraLabs.png" alt="DecentraLabs Logo" fill priority sizes="80vw"
+                        className="!relative" />
           </div>
         </Link>
 
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
+          {isLoggedIn && !isProviderLoading && (
           <div className="hidden md:flex space-x-6 font-bold">
-            {isLoggedIn && (
-            <>
-              {menuButton("/reservation", "Book a Lab")}
-              {menuButton("/userdashboard", "Dashboard")}
-              {!isProvider && menuButton("/register", "Register as a Provider")}
-              {isProvider && menuButton("/providerdashboard", "Lab Panel")}
-            </>
-            )}
+            {menuButton("/reservation", "Book a Lab")}
+            {menuButton("/userdashboard", "Dashboard")}
+            {!isProvider && menuButton("/register", "Register as a Provider")}
+            {isProvider && menuButton("/providerdashboard", "Lab Panel")}
           </div>
+          )}
           <div className="hidden md:block">
             <div className="h-8 border-l border-gray-600" />
           </div>
@@ -66,7 +64,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden bg-[#caddff] text-[#333f63] shadow-md absolute left-0 right-0 z-50">
           <div className="flex flex-col items-center py-4 space-y-2">
-            {isLoggedIn && (
+            {isLoggedIn && !isProviderLoading && (
               <>
                 <Link href="/reservation" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
                   Book a Lab
