@@ -180,3 +180,7 @@ body {
 .custom-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
   border-color: #333f63 !important;
 }
+.react-datepicker__day.react-datepicker__day--keyboard-selected {
+  background: none;
+  color: black;
+}
