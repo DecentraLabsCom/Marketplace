@@ -173,7 +173,6 @@ export default function ReservationPage() {
             className="w-full p-3 border-2 bg-gray-800 text-white rounded"
             value={selectedLab?.id || ""}
             onChange={handleLabChange}
-            disabled={!!id}
           >
             <option value="" disabled>Select a lab</option>
             {labs.map((lab) => (
