@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useUser } from './UserContext';
-//import { useDefaultReadContract } from '../hooks/useDefaultReadContract';
+//import useDefaultReadContract from '../hooks/useDefaultReadContract';
 
 const LabContext = createContext();
 
@@ -106,5 +106,7 @@ export function LabData({ children }) {
 }
 
 export function useLabs() {
-  return useContext(LabContext);
+  const ctx = useContext(LabContext);
+  if (!ctx) throw new Error("useLabs must be used within a LabData provider");
+  return ctx;
 }

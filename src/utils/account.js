@@ -7,7 +7,7 @@ function formatAddress(address) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-export function Account() {
+export default function Account() {
   const { isConnected, address, user } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address })

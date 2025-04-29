@@ -35,7 +35,7 @@ export default function LabDetail({ id }) {
             <Carrousel lab={lab} />
             <button className="bg-[#715c8c] hover:bg-[#333f63] text-white px-4 py-2 rounded mt-6 
               max-h.45px w-2/3 mx-auto" onClick={() => 
-              router.push(`/reservation/${lab.id}`)} aria-label={`Rent ${lab.name}`}>
+              router.push(`/reservation/${lab?.id}`)} aria-label={`Rent ${lab?.name}`}>
               Book Lab
             </button>
           </div>
@@ -45,27 +45,27 @@ export default function LabDetail({ id }) {
         <article className="md:w-2/5 mt-4">
           <header>
             <h1 className="text-2xl text-[#caddff] font-bold pb-2 text-center">
-              {lab.name}
+              {lab?.name}
             </h1>
             <div className="flex justify-center">
               <hr className="mb-2 separator-width w-1/2" />
             </div>
           </header>
-          <p className="text-sm text-justify">{lab.description}</p>
-          <p className="text-[#335763] font-semibold mt-2">{lab.price} $LAB / hour</p>
+          <p className="text-sm text-justify">{lab?.description}</p>
+          <p className="text-[#335763] font-semibold mt-2">{lab?.price} $LAB / hour</p>
 
           <div className="mt-2">
             {/* Category */}
             <div className="flex items-center">
               <span className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center 
-              py-1 px-3 text-sm rounded" aria-label={`Category: ${lab.category}`}>
-                {lab.category}
+              py-1 px-3 text-sm rounded" aria-label={`Category: ${lab?.category}`}>
+                {lab?.category}
               </span>
             </div>
 
             {/* Keywords */}
             <div className="flex flex-wrap gap-2 mt-2">
-              {lab.keywords.map((keyword) => (
+              {(Array.isArray(lab.keywords) ? lab.keywords : []).map((keyword) => (
                 <span key={keyword} className="bg-[#335763] text-gray-200 inline-flex items-center 
                   justify-center py-1 px-3 text-sm rounded" aria-label={`Keyword: ${keyword}`}>
                   {keyword}
@@ -79,7 +79,7 @@ export default function LabDetail({ id }) {
                 Documentation
               </h3>
               <div className="transition-opacity duration-300 opacity-100 mt-2">
-                {lab.docs && lab.docs.length > 0 ? (
+                {Array.isArray(lab.docs) && lab.docs.length > 0 ? (
                   <DocsCarrousel docs={lab.docs} />
                 ) : (
                   <span className="text-center p-2">No documents available</span>

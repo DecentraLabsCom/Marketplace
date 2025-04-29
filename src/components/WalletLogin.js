@@ -3,7 +3,7 @@ import { useConnect, useDisconnect } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWallet } from '@fortawesome/free-solid-svg-icons';
 
-export function WalletLogin({ setIsModalOpen }) {
+export default function WalletLogin({ setIsModalOpen }) {
   const { connectors, connect } = useConnect();
   const { disconnect } = useDisconnect();
   const [isModalOpen, setIsModalOpenLocal] = useState(false);

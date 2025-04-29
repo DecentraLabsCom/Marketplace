@@ -8,7 +8,7 @@ import LabAccess from '../../components/LabAccess'
 import AccessControl from '../../components/AccessControl'
 import Refund from '../../components/Refund'
 import Cancellation from '../../components/Cancellation'
-import { isBookingActive } from '../../utils/isBookingActive'
+import isBookingActive from '../../utils/isBookingActive'
 
 export default function UserDashboard() {
   const { isLoggedIn, isConnected, address } = useUser();

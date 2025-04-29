@@ -2,7 +2,7 @@ import { useReadContract, useAccount } from 'wagmi';
 import { selectChain } from '../utils/selectChain';
 import { contractAddresses, contractABI } from '../contracts/diamond';
 
-export function useDefaultReadContract(contractFunctionName, args = [], hasFetched = false) {
+export default function useDefaultReadContract(contractFunctionName, args = [], hasFetched = false) {
   const { chain: currentChain } = useAccount();
   const safeChain = selectChain(currentChain);
 

@@ -1,17 +1,17 @@
 import 'react-datepicker/dist/react-datepicker.css'
 import '../styles/global.css'
+import Head from 'next/head'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { WagmiProvider } from 'wagmi'
-import { config } from '../utils/wagmiConfig'
+import config from '../utils/wagmiConfig'
 import { LabData } from '../context/LabContext'
-import { UserProvider } from '../context/UserContext'
-import Head from 'next/head'
+import { UserData } from '../context/UserContext'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 
 const queryClient = new QueryClient()
 
-function MyApp({ Component, pageProps }) {
+export default function MyApp({ Component, pageProps }) {
   return (
     <>
       <Head>
@@ -19,7 +19,7 @@ function MyApp({ Component, pageProps }) {
       </Head>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <UserProvider>
+          <UserData>
             <div className="flex flex-col min-h-screen bg-[#262B2D]">
               <header className="sticky top-0 z-50">
                 <Navbar />
@@ -31,11 +31,9 @@ function MyApp({ Component, pageProps }) {
               </main>
               <Footer />
             </div>
-          </UserProvider>
+          </UserData>
         </QueryClientProvider>
       </WagmiProvider>
     </>
   )
 }
-
-export default MyApp

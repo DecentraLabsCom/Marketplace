@@ -40,7 +40,7 @@ const metadata = {
   iconUrl: 'https://decentralabs.nebsyst.com/favicon.svg', 
 }
 
-export const config = createConfig({
+const config = createConfig({
   autoConnect: true,
   chains: chains,
   connectors: [
@@ -53,3 +53,5 @@ export const config = createConfig({
     [sepolia.id]: fallbackSepoliaTransport,
   },
 })
+
+export default config;

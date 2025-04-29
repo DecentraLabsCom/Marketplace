@@ -1,4 +1,4 @@
-export function isBookingActive(bookingInfo) {
+export default function isBookingActive(bookingInfo) {
     if (!Array.isArray(bookingInfo)) return false;
     const now = new Date();
   

@@ -2,7 +2,7 @@ import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUniversity } from '@fortawesome/free-solid-svg-icons';
 
-export function InstitutionalLogin({ setIsModalOpen }) {
+export default function InstitutionalLogin({ setIsModalOpen }) {
   const router = useRouter();
 
   const handleInstitutionalLogin = () => {

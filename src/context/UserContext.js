@@ -1,22 +1,22 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import getConfig from 'next/config';
+//import getConfig from "next/config";
 
 const UserContext = createContext();
 
-export function UserProvider({ children }) {
+export function UserData({ children }) {
     const { address, isConnected } = useAccount();
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
     const [isProvider, setIsProvider] = useState(false);
     const [isProviderLoading, setIsProviderLoading] = useState(true);
 
-    const { publicRuntimeConfig } = getConfig();
-    const basePath = publicRuntimeConfig.basePath || '';
+    //const { publicRuntimeConfig } = getConfig();
+    //const basePath = publicRuntimeConfig.basePath || '';
 
     // Check cookies for SSO session
     useEffect(() => {
-        fetch(`${basePath}/api/auth/sso/session`)
+        fetch('/api/auth/sso/session')
         .then((res) => {
             if (!res.ok) throw new Error("Failed to fetch session");
             return res.json();
@@ -34,7 +34,7 @@ export function UserProvider({ children }) {
         if (isLoggedIn && address) {
             setIsProviderLoading(true);
             // Check if user is a provider by calling the contract
-            fetch(`${basePath}/api/contract/provider/isLabProvider`, {
+            fetch('/api/contract/provider/isLabProvider', {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -47,7 +47,7 @@ export function UserProvider({ children }) {
             .finally(() => setIsProviderLoading(false));
 
             // Get lab provider name and add the name of the provider to the user object
-            fetch(`${basePath}/api/contract/provider/getLabProviderName`, {
+            fetch('/api/contract/provider/getLabProviderName', {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -72,5 +72,7 @@ export function UserProvider({ children }) {
 }
 
 export function useUser() {
-    return useContext(UserContext);
+    const ctx = useContext(UserContext);
+    if (!ctx) throw new Error("useUser must be used within a UserData provider");
+    return ctx;
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLabs } from '../context/LabContext';
 import { useUser } from '../context/UserContext';
 import LabCard from "./LabCard";
-import { isBookingActive } from '../utils/isBookingActive';
+import isBookingActive from '../utils/isBookingActive';
 
 export default function Market() {
   const searchInputRef = useRef(null);
