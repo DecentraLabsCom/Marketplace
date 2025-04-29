@@ -1,4 +1,5 @@
 import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
+import Image from 'next/legacy/image'
 import Link from 'next/link'
 
 export default function Footer() {
@@ -8,9 +9,13 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-center">
           {/* Left: Support */}
           <div className="flex md:justify-center">
-              <div className="flex space-x-4 md:justify-center h-10 w-1/2 relative">
-                <img src="/eu_funded_en.jpg" alt="EU Funded" className="h-full" />
-                <img src="/ngi_sargasso.jpg" alt="NGI Sargasso" className="h-full" />
+              <div className="flex space-x-4 md:justify-center h-10 w-3/4 relative">
+                <div className="relative w-1/2 h-full">
+                  <Image src="/eu_funded_en.jpg" alt="EU Funded" layout="fill" priority />
+                </div>
+                <div className="relative w-1/2 h-full">
+                  <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" layout="fill" priority />
+                </div>
               </div>
           </div>
 
