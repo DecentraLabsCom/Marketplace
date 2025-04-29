@@ -78,70 +78,57 @@ export default function ReservationPage() {
           }
           return null;
         })
-        .filter(dateObject => dateObject !== null); // Eliminar fechas inválidas
+        .filter(dateObject => dateObject !== null);
   
       setBookedDates(futureBookingDatesForSelectedLab);
     } else {
-      setBookedDates([]); // Limpiar bookedDates si no hay laboratorio seleccionado o no tiene bookingInfo
+      setBookedDates([]);
     }
   }, [time, date, selectedLab, currentDate]);
-
-  const isTimeSlotTaken = (slotStart, duration, dayBookings) => {
-    const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
-    for (const booking of dayBookings) {
-      const bookingStart = new Date(`${booking.date}T${booking.time}`);
-      const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60 * 1000);
-      if (slotStart < bookingEnd && slotEnd > bookingStart) {
-        return true;
-      }
-    }
-    return false;
-  };
 
   const generateTimeOptions = (interval) => {
     const options = [];
     const now = new Date();
   
-    const dayBookings = selectedLab.bookingInfo.filter(
+    const dayBookings = selectedLab?.bookingInfo?.filter(
       (b) =>
         b.labId == selectedLab?.id &&
-        isBookingActive([b]) &&
         new Date(b.date).toDateString() === date.toDateString()
-    );
-  
-    const blockedRanges = dayBookings.map((b) => {
-      const start = new Date(`${b.date}T${b.time}`);
-      const end = addMinutes(start, parseInt(b.minutes));
-      return { start, end };
-    });
+    ) || [];
   
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
-
+  
     let slot = new Date(dayStart);
-
+  
     while (slot <= dayEnd) {
-      const endSlot = addMinutes(slot, interval);
-
-      if (isToday(date) && slot <= now) {
-        slot = addMinutes(slot, interval);
+      const slotStart = new Date(slot);
+      const duration = interval;
+      const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
+      const timeFormatted = format(slotStart, "HH:mm");
+  
+      if (isToday(date) && slotStart <= now) {
+        options.push({ value: timeFormatted, label: timeFormatted, disabled: true, isReserved: false });
+        slot.setTime(slotEnd.getTime());
         continue;
       }
-
-      const isConflict = blockedRanges.some(
-        ({ start, end }) =>
-          (slot >= start && slot < end) ||
-          (endSlot > start && endSlot <= end) ||
-          (slot <= start && endSlot >= end)
-      );
-
-      if (!isConflict) {
-        options.push(format(slot, "HH:mm"));
-      }
-
-      slot = addMinutes(slot, interval);
+  
+      const isTimeSlotBlocked = dayBookings.some(booking => {
+        const bookingStart = new Date(`${booking.date}T${booking.time}`);
+        const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60 * 1000);
+        return slotStart < bookingEnd && slotEnd > bookingStart;
+      });
+  
+      options.push({
+        value: timeFormatted,
+        label: timeFormatted,
+        disabled: isTimeSlotBlocked,
+        isReserved: isTimeSlotBlocked,
+      });
+  
+      slot.setTime(slotEnd.getTime());
     }
   
     return options;
@@ -229,12 +216,17 @@ export default function ReservationPage() {
                 <div className="flex-1">
                   <label className="block text-lg font-semibold">Available times:</label>
                   <select
-                    className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-                    disabled={!availableTimes.length}
+                    className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
+                    disabled={!availableTimes.some(t => !t.disabled)}
                   >
-                    {availableTimes.map((time, i) => (
-                      <option key={i} value={time}>
-                        {time}
+                    {availableTimes.map((timeOption, i) => (
+                      <option
+                        key={i}
+                        value={timeOption.value}
+                        disabled={timeOption.disabled}
+                        style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
+                      >
+                        {timeOption.label}
                       </option>
                     ))}
                   </select>
