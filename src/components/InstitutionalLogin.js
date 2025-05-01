@@ -1,4 +1,5 @@
-import { useRouter } from 'next/router';
+"use client";
+import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUniversity } from '@fortawesome/free-solid-svg-icons';
 

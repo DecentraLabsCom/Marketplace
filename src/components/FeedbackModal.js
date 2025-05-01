@@ -1,4 +1,4 @@
-import React from 'react';
+"use client";
 
 export default function FeedbackModal({ isOpen, message, onClose }) {
   if (!isOpen) return null;

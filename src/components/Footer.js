@@ -1,5 +1,5 @@
 import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
-import Image from 'next/legacy/image'
+import Image from 'next/image'
 import Link from 'next/link'
 
 export default function Footer() {
@@ -11,10 +11,12 @@ export default function Footer() {
           <div className="flex md:justify-center">
               <div className="flex space-x-4 md:justify-center h-10 w-3/4 relative">
                 <div className="relative w-1/2 h-full">
-                  <Image src="/eu_funded_en.jpg" alt="EU Funded" layout="fill" priority />
+                  <Image src="/eu_funded_en.jpg" alt="EU Funded" fill priority sizes="10vw"
+                                          className="!relative" />
                 </div>
                 <div className="relative w-1/2 h-full">
-                  <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" layout="fill" priority />
+                  <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" fill priority sizes="10vw"
+                                          className="!relative" />
                 </div>
               </div>
           </div>

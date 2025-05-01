@@ -1,18 +1,17 @@
+"use client";
 import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
 import { useLabs } from "../context/LabContext";
 import Carrousel from "./Carrousel";
 import AccessControl from './AccessControl';
-import isBookingActive from '../utils/isBookingActive';
 import { format, isToday, addMinutes } from "date-fns";
 
-export default function ReservationPage() {
+export default function LabReservation({ id }) {
   const { labs } = useLabs();
   const { isLoggedIn } = useUser();
   const router = useRouter();
-  const { id } = router.query;
 
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);

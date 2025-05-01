@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { useConnect, useDisconnect } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

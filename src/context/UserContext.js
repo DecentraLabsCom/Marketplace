@@ -1,3 +1,4 @@
+"use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 //import getConfig from "next/config";
@@ -22,8 +23,10 @@ export function UserData({ children }) {
             return res.json();
         })
         .then((data) => {
-            if (data.user != null) setIsSSO(true); 
-            setUser(data.user);
+            if (data.user != null) {
+                setIsSSO(true);
+                setUser(data.user);
+            }
         })
         .catch((error) => console.error("Error fetching session:", error));
     }, []);
@@ -42,7 +45,9 @@ export function UserData({ children }) {
                 body: JSON.stringify({ wallet: address }),
             })
             .then((res) => res.json())
-            .then((data) => setIsProvider(data.isLabProvider))
+            .then((data) => {
+                setIsProvider(prev => prev !== data.isLabProvider ? data.isLabProvider : prev);
+            })
             .catch((error) => console.error("Error checking provider status:", error))
             .finally(() => setIsProviderLoading(false));
 
@@ -57,7 +62,12 @@ export function UserData({ children }) {
             .then((res) => res.json())
             .then((data) => {
                 if (data.name) {
-                    setUser(prev => prev ? { ...prev, providerName: data.name } : { providerName: data.name });
+                    setUser(prev => {
+                        if (!prev || prev.providerName !== data.name) {
+                            return { ...prev, providerName: data.name };
+                        }
+                        return prev;
+                    });
                 }
             })
             .catch((error) => console.error("Error fetching provider name:", error));
@@ -65,7 +75,15 @@ export function UserData({ children }) {
     }, [isLoggedIn, address]);
 
     return (
-        <UserContext.Provider value={{ address, isConnected, isSSO, user, isLoggedIn, isProvider, isProviderLoading }}>
+        <UserContext.Provider value={{
+            address: address ?? null,
+            isConnected: !!isConnected,
+            isSSO,
+            user,
+            isLoggedIn: !!isConnected || isSSO,
+            isProvider,
+            isProviderLoading
+        }}>
             {children}
         </UserContext.Provider>
     );

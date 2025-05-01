@@ -1,4 +1,6 @@
-import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi'
+"use client";
+import { usePathname } from 'next/navigation';
+import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi';
 import { useUser } from '../context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
@@ -10,12 +12,18 @@ function formatAddress(address) {
 export default function Account() {
   const { isConnected, address, user } = useUser();
   const { disconnect } = useDisconnect();
-  const { data: ensName } = useEnsName({ address })
-  const { data: ensAvatar } = useEnsAvatar({ name: ensName })
+  const { data: ensName } = useEnsName({ address });
+  const { data: ensAvatar } = useEnsAvatar({ name: ensName });
+  const pathname = usePathname();
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
     if (isConnected) disconnect();
-    if (user) window.location.href = "/api/auth/sso/logout";
+    if (user) {
+      await fetch("/api/auth/sso/logout");
+      if (pathname !== "/") {
+        window.location.href = "/";
+      }
+    }
   }
 
   return (

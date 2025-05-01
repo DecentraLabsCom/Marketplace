@@ -1,5 +1,6 @@
+"use client";
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useUser } from '../context/UserContext';
 import { useLabs } from '../context/LabContext';
 import Carrousel from './Carrousel';
