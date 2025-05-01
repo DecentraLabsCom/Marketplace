@@ -4,7 +4,7 @@ export default async function getProvider(network) {
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
-    const rpcUrl = network.rpcUrls.default.http[0]
+    const rpcUrl = network.rpcUrls.default.http[0];
 
     const providers = [];
     if (infuraProjectId) {
