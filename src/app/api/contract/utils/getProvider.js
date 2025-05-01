@@ -3,9 +3,16 @@ import { infuraNetworks, alchemyNetworks } from '../../../../utils/networkConfig
 
 export default async function getProvider(network) {
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
+    const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
+
+    const infuraBase = infuraNetworks[network.id];                // ya incluye «mainnet.infura.io/v3/»
+    const infuraUrl = infuraSecretKey
+      ? `https://${infuraProjectId}:${infuraSecretKey}@${infuraBase}${infuraProjectId}`
+      : `https://${infuraBase}${infuraProjectId}`;
+
     let providerUrls = [
-        `https://${infuraNetworks[network.id]}${infuraProjectId}`,
+        infuraUrl,
         `https://${alchemyNetworks[network.id]}${alchemyProjectId}`,
         network.rpcUrls.default.http[0],
     ];
