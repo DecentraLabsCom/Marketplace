@@ -6,9 +6,9 @@ export default function Footer() {
   return (
     <footer className="bg-[#333f63] text-center p-3 mt-8 relative">
       <div className="container mx-auto p-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-center justify-items-center">
           {/* Left: Support */}
-          <div className="flex md:justify-center">
+          <div className="flex justify-center">
               <div className="flex space-x-4 md:justify-center h-10 w-3/4 relative">
                 <div className="relative w-1/2 h-full">
                   <Image src="/eu_funded_en.jpg" alt="EU Funded" fill priority sizes="10vw"
@@ -22,7 +22,7 @@ export default function Footer() {
           </div>
 
           {/* Center: Links */}
-          <div className="flex space-x-4 md:justify-center items-center">
+          <div className="flex space-x-4 justify-center items-center">
             <Link href="/about" className="hover:text-[#715c8c] transition font-semibold">
               About
             </Link>
@@ -35,7 +35,7 @@ export default function Footer() {
           </div>
 
           {/* Right: Social Media */}
-          <div className="flex space-x-4 md:justify-center items-center">
+          <div className="flex space-x-4 justify-center items-center">
             <a href="https://decentralabs.nebsyst.com" target="_blank" rel="noopener noreferrer">
               <FaGlobe className="size-6 hover:text-[#715c8c]" />
             </a>
