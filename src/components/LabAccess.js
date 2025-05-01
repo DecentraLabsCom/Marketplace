@@ -83,11 +83,11 @@ export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
             {errorMessage}
         </div>
       )}
-      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-[#715c8c] bg-opacity-75 
+      <div className="absolute bottom-0 inset-x-0 h-1/3 bg-[#715c8c] bg-opacity/75 
         opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-lg 
         font-bold cursor-pointer z-10">
-          <div className="absolute inset-0 flex items-center justify-center transform
-            transition-transform duration-300 hover:scale-110" style={{ bottom: '-15%' }}>
+          <div className="absolute inset-0 flex items-center justify-center transition-transform 
+            duration-300 hover:scale-110" style={{ bottom: '-15%' }}>
             <div className={`text-white px-4 py-2 rounded mt-3`}
               disabled={loading}>
               {loading ? "Verifying..." : "Access"}

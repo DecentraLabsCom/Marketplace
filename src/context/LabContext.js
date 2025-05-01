@@ -87,7 +87,7 @@ export function LabData({ children }) {
     };
   
     if (labs.length > 0) fetchBookings();
-  }, [address]); 
+  }, [address, labs.length]); 
 
   /*const { data: labList, refetch, isLoading, error } = 
         useDefaultReadContract('getAllLabs', null, hasFetched);

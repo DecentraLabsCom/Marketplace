@@ -340,7 +340,7 @@ export default function UserDashboard() {
                             <div className="border flex items-center w-full">
                               <div className='border flex flex-col w-3/4'>
                                 <Link className="border-2 border-white bg-white p-2 px-8 
-                                    text-black text-center hover:bg-slate-500 flex-grow" 
+                                    text-black text-center hover:bg-slate-500 grow" 
                                   href={`/lab/${lab.id}`}>
                                   <span className="text-left">
                                     {lab.name}
@@ -425,7 +425,7 @@ export default function UserDashboard() {
                             <div className="border flex items-center w-full">
                               <div className='border flex flex-col w-3/4'>
                                   <Link className="border-2 border-white bg-white p-2 px-8  
-                                    text-black text-center hover:bg-slate-500 flex-grow" 
+                                    text-black text-center hover:bg-slate-500 grow" 
                                     href={`/lab/${lab.id}`}>
                                     <span className="text-left">
                                       {lab.name}

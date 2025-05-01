@@ -32,7 +32,7 @@ export default function LabDetail({ id }) {
       <section className="flex justify-center gap-10">
         {/* Carousel Section */}
         <article className="md:w-1/2 flex flex-col p-4">
-          <div className="w-full h-full flex flex-col justify-center">
+          <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} />
             <button className="bg-[#715c8c] hover:bg-[#333f63] text-white px-4 py-2 rounded mt-6 
               max-h.45px w-2/3 mx-auto" onClick={() => 

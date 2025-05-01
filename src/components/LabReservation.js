@@ -47,7 +47,7 @@ export default function LabReservation({ id }) {
 
   useEffect(() => {
     if (!date) setDate(new Date());
-  }, []);
+  }, [date]);
 
   useEffect(() => {
     setIsClient(true);
@@ -83,7 +83,7 @@ export default function LabReservation({ id }) {
     } else {
       setBookedDates([]);
     }
-  }, [time, date, selectedLab, currentDate]);
+  }, [time, date, selectedLab, currentDate, generateTimeOptions]);
 
   const generateTimeOptions = (interval) => {
     const options = [];

@@ -193,7 +193,7 @@ export default function ProviderDashboard() {
                         className="relative bg-[#715c8c] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Edit
-                        <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                         border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
@@ -201,7 +201,7 @@ export default function ProviderDashboard() {
                         className="relative bg-[#bcc4fc] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Collect
-                        <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                         border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
@@ -209,7 +209,7 @@ export default function ProviderDashboard() {
                         className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         List
-                        <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                         border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
@@ -217,7 +217,7 @@ export default function ProviderDashboard() {
                         className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Unlist
-                        <span className="absolute bottom-0 right-0 w-0 h-0 border-b-[3.15em] 
+                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                         border-b-[#5f6a91] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>

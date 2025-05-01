@@ -32,7 +32,7 @@ export default function Market() {
   // Apply the search every time the filter options change
   useEffect(() => {
     search();
-  }, [selectedCategory, selectedPrice, selectedProvider, labs]);
+  }, [search, selectedCategory, selectedPrice, selectedProvider, labs]);
 
   // Search by filter options
   const search = () => {
@@ -165,7 +165,7 @@ export default function Market() {
               active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none 
               disabled:opacity-50 disabled:shadow-none" type="button">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" 
-              className="w-4 h-4 mr-1.5">
+              className="size-4 mr-1.5">
                 <path fillRule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 
                 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clipRule="evenodd" />
               </svg>
@@ -177,7 +177,7 @@ export default function Market() {
         {/* Price sorting */}
         <div className="w-full md:w-auto flex justify-center md:justify-start items-center">
           <button onClick={handlePriceClick} value={selectedPrice}
-            className="w-[130px] py-[7px] border-[1px] border-[#caddff] rounded bg-[#715c8c] 
+            className="w-[130px] py-[7px] border border-[#caddff] rounded bg-[#715c8c] 
             text-white shadow-md hover:bg-slate-700 cursor-pointer">
             {selectedPrice}
           </button>

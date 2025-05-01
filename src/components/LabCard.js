@@ -25,8 +25,8 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
       </div>
       <Link href={`/lab/${id}`}>
         <div className="absolute inset-0 flex items-center justify-center opacity-0 
-          group-hover:opacity-100 transform transition-opacity 
-          duration-300 hover:scale-110 text-white text-lg font-bold">
+          group-hover:opacity-100 transition-opacity duration-300 hover:scale-110 
+          text-white text-lg font-bold">
           <FontAwesomeIcon icon={faSearch} className="mr-2" />
           Explore Lab
         </div>

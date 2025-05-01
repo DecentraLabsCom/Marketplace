@@ -1,13 +1,10 @@
-import { getContractInstance } from '../utils/contractInstance';
+import { getContractInstance } from '../../utils/contractInstance';
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { name, email, wallet, country  } = req.body;
+export async function POST(request) {
+  const body = await request.json();
+  const { name, email, wallet, country  } = body;
   if (!name || !email || !wallet || !country) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return Response.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
   try {
@@ -18,8 +15,8 @@ export default async function handler(req, res) {
     await tx.wait();
 
     // Return ok signal to client
-    res.status(200);
+    return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error when trying to add a new provider:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -37,13 +37,13 @@ export default function Footer() {
           {/* Right: Social Media */}
           <div className="flex space-x-4 md:justify-center items-center">
             <a href="https://decentralabs.nebsyst.com" target="_blank" rel="noopener noreferrer">
-              <FaGlobe className="h-6 w-6 hover:text-[#715c8c]" />
+              <FaGlobe className="size-6 hover:text-[#715c8c]" />
             </a>
             <a href="https://github.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
-              <FaGithub className="h-6 w-6 hover:text-[#715c8c]" />
+              <FaGithub className="size-6 hover:text-[#715c8c]" />
             </a>
             <a href="https://x.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
-              <FaXTwitter className="h-6 w-6 hover:text-[#715c8c]" />
+              <FaXTwitter className="size-6 hover:text-[#715c8c]" />
             </a>
           </div>
         </div>

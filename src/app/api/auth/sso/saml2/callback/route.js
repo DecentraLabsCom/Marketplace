@@ -9,13 +9,13 @@ export async function POST(request) {
     const userData = await parseSAMLResponse(samlResponse);
 
     if (!userData) {
-      return NextResponse.status(400).json({ error: "Invalid SAML response" });
+      return NextResponse.json({ error: "Invalid SAML response" }, { status: 400 });
     }
 
     // Step 2: Create a session for the authenticated user and redirect to dashboard
     const response = NextResponse.redirect("/userdashboard");
     await createSession(response, userData);
-    res.redirect("/userdashboard");
+    return response;
   } catch (error) {
     console.error("Error processing SAML response:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

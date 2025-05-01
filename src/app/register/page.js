@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { IoPerson } from 'react-icons/io5';
@@ -178,7 +179,7 @@ export default function RegisterProviderForm() {
           bg-white rounded">
             <header className="sm:mx-auto sm:w-full sm:max-w-sm">
               <div className="flex justify-center">
-                <IoPerson className="h-[70px] w-[70px] text-[#715c8c] border-2 p-1 border-[#715c8c] 
+                <IoPerson className="size-[70px] text-[#715c8c] border-2 p-1 border-[#715c8c] 
                 rounded mb-2" />
               </div>
               <h2 className="mt-1 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
@@ -282,7 +283,7 @@ export default function RegisterProviderForm() {
                   </button>
                   {/* Success modal */}
                   {isSuccess && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                    <div className="fixed inset-0 bg-black bg-opacity/50 flex justify-center items-center z-50">
                       <div className="bg-white rounded-lg shadow-lg p-6 w-96">
                         <h2 className="text-center text-lg font-semibold mb-4 text-black">
                           You have successfully submitted your interest to register as a lab provider. 

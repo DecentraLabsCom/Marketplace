@@ -30,13 +30,13 @@ export default function Login() {
       {/* Login Button */}
       <button onClick={toggleModal} className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 flex
         items-center space-x-2 transition duration-300 ease-in-out hover:bg-[#333f63] hover:text-white">
-        <FaSignInAlt className="h-5 w-5" />
+        <FaSignInAlt className="size-5" />
         <span>Login</span>
       </button>
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+        <div className="fixed inset-0 bg-black bg-opacity/50 flex justify-center items-center z-50"
         onClick={toggleModal}>
           <div className="bg-white rounded-lg shadow-lg p-6 w-96"
           onClick={(e) => e.stopPropagation()}>

@@ -63,7 +63,7 @@ export default function Navbar() {
 
       {/* Mobile Dropdown */}
       {menuOpen && (
-        <div className="md:hidden bg-[#caddff] text-[#333f63] shadow-md absolute left-0 right-0 z-50">
+        <div className="md:hidden bg-[#caddff] text-[#333f63] shadow-md absolute inset-x-0 z-50">
           <div className="flex flex-col items-center py-4 space-y-2">
             {isLoggedIn && !isProviderLoading && (
               <>
