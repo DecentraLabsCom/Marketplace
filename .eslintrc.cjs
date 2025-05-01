@@ -16,8 +16,9 @@ module.exports = {
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
     "no-unused-vars": "warn",
-    "no-unreachable": "off",
-    "tailwindcss/no-custom-classname": "off"
+    "no-unreachable": "warn",
+    "tailwindcss/no-custom-classname": "warn",
+    "tailwindcss/classnames-order": "off",
   },
   env: {
     browser: true,

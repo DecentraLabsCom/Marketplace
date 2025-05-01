@@ -202,7 +202,7 @@ export default function UserDashboard() {
                             )}
                           </div>
                         </div>
-                        <div className={`w-5/5 ${availableLab.docs.length > 0 ? `` : 
+                        <div className={`w-full ${availableLab.docs.length > 0 ? `` : 
                           'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 
                           text-center rounded-lg shadow-md bg-gray-300`}>
                           {availableLab.docs && availableLab.docs.length > 0 && (
@@ -241,7 +241,7 @@ export default function UserDashboard() {
                             </div>
                           </div>
                         </div>
-                        <div className={`w-5/5 ${firstActiveLab.docs.length > 0 ? `` : 
+                        <div className={`w-full ${firstActiveLab.docs.length > 0 ? `` : 
                           'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center 
                           rounded-lg shadow-md bg-gray-300`}>
                           {firstActiveLab.docs && firstActiveLab.docs.length > 0 && (
@@ -365,7 +365,7 @@ export default function UserDashboard() {
               {/* Vertical divider */}
               <div className="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr 
                 from-transparent via-neutral-800 to-transparent opacity-90 
-                dark:via-neutral-200 border-l-1 border-neutral-800 
+                dark:via-neutral-200 border-l border-neutral-800 
                 dark:border-neutral-200 border-dashed"
                 style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }} />
               {/* Past booked labs */}

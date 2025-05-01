@@ -31,7 +31,7 @@ export default function DocsCarrousel({ docs, maxHeight }) {
       <>
         {/* Slide handles */}
         <div className='flex justify-center'>
-          <div className="absolute bg-slate-400 rounded-md px-2 py-px bottom-1 z-20 mb-27 
+          <div className="absolute bg-slate-400 rounded-md px-2 py-px bottom-1 z-20 mb-7 
           flex list-none justify-center p-0 pointer-events-auto">
           {docs.map((_, index) => (
             <button key={index} type="button" data-twe-slide-to={index}
