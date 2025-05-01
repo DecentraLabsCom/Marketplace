@@ -1,33 +1,27 @@
 import { ethers } from 'ethers';
-import { infuraNetworks, alchemyNetworks } from '../../../../utils/networkConfig.js';
 
 export default async function getProvider(network) {
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
+    const rpcUrl = network.rpcUrls.default.http[0]
 
-    const infuraBase = infuraNetworks[network.id];                // ya incluye «mainnet.infura.io/v3/»
-    const infuraUrl = infuraSecretKey
-      ? `https://${infuraProjectId}:${infuraSecretKey}@${infuraBase}${infuraProjectId}`
-      : `https://${infuraBase}${infuraProjectId}`;
-
-    let providerUrls = [
-        infuraUrl,
-        `https://${alchemyNetworks[network.id]}${alchemyProjectId}`,
-        network.rpcUrls.default.http[0],
-    ];
-
-    for (const url of providerUrls) {
-        try {
-            const provider = new ethers.JsonRpcProvider(url, network.id, {
-                staticNetwork: true,
-            });
-            await provider.getBlockNumber();
-            console.log(`Connected to provider: ${url}`);
-            return provider;
-        } catch (error) {
-            console.error(`Failed to connect to provider: ${url}`, error);
-        }
+    const providers = [];
+    if (infuraProjectId) {
+        providers.push(
+            new ethers.InfuraProvider(
+              network.id,
+              infuraSecretKey
+                ? { projectId: infuraProjectId, projectSecret: infuraSecretKey }
+                : infuraProjectId
+            )
+          );
     }
-    throw new Error('No available providers');
+    if (alchemyProjectId) {
+        providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
+    }
+    // Fallback to the official RPC if Infura and Alchemy fail
+    providers.push(new ethers.JsonRpcProvider(rpcUrl, network.id));
+
+    return new ethers.FallbackProvider(providers);
 }
