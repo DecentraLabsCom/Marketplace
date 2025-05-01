@@ -82,7 +82,7 @@ export default function Carrousel({ lab, maxHeight }) {
         </button>
 
         {/* Move to next image */}
-        <button onClick={handleNext} className="absolute bottom-0 inset-y-0 z-20 flex w-[15%] items-center 
+        <button onClick={handleNext} className="absolute inset-y-0 z-20 flex w-[15%] items-center 
           justify-center border-0 bg-none p-0 text-white opacity-100 hover:opacity-90 duration-150 
           transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1.0)] pointer-events-auto group" type="button">
           <span className="inline-block size-8">

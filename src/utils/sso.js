@@ -1,9 +1,7 @@
 import { ServiceProvider, IdentityProvider } from "saml2-js";
 import { serialize } from "cookie";
-import fs from "fs";
-import path from "path";
 
-async function createSession(res, userData) {
+export async function createSession(res, userData) {
   // Create a cookie with the user information
   const sessionCookie = serialize("user_session", JSON.stringify(userData), {
     httpOnly: true,
@@ -16,26 +14,32 @@ async function createSession(res, userData) {
   res.setHeader("Set-Cookie", sessionCookie);
 }
 
-// To generate the certificate files:
-// C:\Program Files\Git\usr\bin>openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
-const keyPath = path.join(process.cwd(), 'certificates', "key.pem");
-const certPath = path.join(process.cwd(), 'certificates', "cert.pem");
-const sp = new ServiceProvider({
-  entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
-  private_key: fs.readFileSync(keyPath, "utf8"),
-  certificate: fs.readFileSync(certPath, "utf8"),
-  assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
-});
+export function createServiceProvider() {
+  const privateKey = process.env.SAML_SP_PRIVATE_KEY?.replace(/\\n/g, "\n") ?? "";
+  const certificate = process.env.SAML_SP_CERTIFICATE?.replace(/\\n/g, "\n") ?? "";
 
-const idPCertPath = path.join(process.cwd(), 'certificates', "idp_cert.pem");
-const idp = new IdentityProvider({
-  sso_login_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL,
-  sso_logout_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGOUT_URL,
-  certificates: [process.env.SAML_IDP_CERTIFICATE.replace(/\\n/g, "\n")],
-  //certificates: fs.readFileSync(idPCertPath, "utf8"),
-});
+  return new ServiceProvider({
+    entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
+    private_key: privateKey,
+    certificate: certificate,
+    assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
+  });
+}
 
-async function parseSAMLResponse(samlResponse) {
+export function createIdentityProvider() {
+  const idpCert = process.env.SAML_IDP_CERTIFICATE?.replace(/\\n/g, "\n") ?? "";
+
+  return new IdentityProvider({
+    sso_login_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL,
+    sso_logout_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGOUT_URL,
+    certificates: [idpCert],
+  });
+}
+
+export async function parseSAMLResponse(samlResponse) {
+  const sp = createServiceProvider();
+  const idp = createIdentityProvider();
+
   return new Promise((resolve, reject) => {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {
       if (err) {
@@ -56,5 +60,3 @@ async function parseSAMLResponse(samlResponse) {
     });
   });
 }
-
-export { createSession, sp, parseSAMLResponse };

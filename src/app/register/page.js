@@ -283,7 +283,7 @@ export default function RegisterProviderForm() {
                   </button>
                   {/* Success modal */}
                   {isSuccess && (
-                    <div className="fixed inset-0 bg-black bg-opacity/50 flex justify-center items-center z-50">
+                    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
                       <div className="bg-white rounded-lg shadow-lg p-6 w-96">
                         <h2 className="text-center text-lg font-semibold mb-4 text-black">
                           You have successfully submitted your interest to register as a lab provider. 

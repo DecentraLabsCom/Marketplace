@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import DatePicker from "react-datepicker";
 import { useRouter } from "next/navigation";
 import { useUser } from "../context/UserContext";
@@ -60,78 +60,62 @@ export default function LabReservation({ id }) {
     }
   }, [id, labs]);
 
+  const generateTimeOptions = useCallback(
+    (interval) => {
+      const options = [];
+      const now = new Date();
+
+      const dayBookings =
+        selectedLab?.bookingInfo?.filter(
+          (b) =>
+            b.labId == selectedLab?.id &&
+            new Date(b.date).toDateString() === date.toDateString()
+        ) || [];
+
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      let slot = new Date(dayStart);
+      while (slot <= dayEnd) {
+        const slotStart = new Date(slot);
+        const slotEnd = new Date(slotStart.getTime() + interval * 60 * 1000);
+        const timeFormatted = format(slotStart, "HH:mm");
+
+        if (isToday(date) && slotStart <= now) {
+          options.push({ value: timeFormatted, label: timeFormatted, disabled: true, isReserved: false });
+        } else {
+          const isBlocked = dayBookings.some((booking) => {
+            const bookingStart = new Date(`${booking.date}T${booking.time}`);
+            const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60000);
+            return slotStart < bookingEnd && slotEnd > bookingStart;
+          });
+          options.push({ value: timeFormatted, label: timeFormatted, disabled: isBlocked, isReserved: isBlocked });
+        }
+
+        slot = slotEnd;
+      }
+
+      return options;
+    },
+    [selectedLab, date]
+  );
+
   useEffect(() => {
     if (selectedLab && Array.isArray(selectedLab.bookingInfo)) {
-      const newTimes = generateTimeOptions(time);
-      setAvailableTimes(newTimes);
-      const futureBookingDatesForSelectedLab = selectedLab.bookingInfo
-        .filter(booking => booking.date >= currentDate)
-        .map(booking => {
-          try {
-            const dateObject = new Date(booking.date);
-            if (!isNaN(dateObject)) {
-              return dateObject;
-            }
-          } catch (error) {
-            console.error("Error al convertir fecha:", booking.date, error);
-          }
-          return null;
-        })
-        .filter(dateObject => dateObject !== null);
-  
-      setBookedDates(futureBookingDatesForSelectedLab);
+      setAvailableTimes(generateTimeOptions(time));
+
+      const futureDates = selectedLab.bookingInfo
+        .filter((b) => b.date >= currentDate)
+        .map((b) => new Date(b.date))
+        .filter((d) => !isNaN(d));
+
+      setBookedDates(futureDates);
     } else {
       setBookedDates([]);
     }
-  }, [time, date, selectedLab, currentDate, generateTimeOptions]);
-
-  const generateTimeOptions = (interval) => {
-    const options = [];
-    const now = new Date();
-  
-    const dayBookings = selectedLab?.bookingInfo?.filter(
-      (b) =>
-        b.labId == selectedLab?.id &&
-        new Date(b.date).toDateString() === date.toDateString()
-    ) || [];
-  
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-  
-    let slot = new Date(dayStart);
-  
-    while (slot <= dayEnd) {
-      const slotStart = new Date(slot);
-      const duration = interval;
-      const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
-      const timeFormatted = format(slotStart, "HH:mm");
-  
-      if (isToday(date) && slotStart <= now) {
-        options.push({ value: timeFormatted, label: timeFormatted, disabled: true, isReserved: false });
-        slot.setTime(slotEnd.getTime());
-        continue;
-      }
-  
-      const isTimeSlotBlocked = dayBookings.some(booking => {
-        const bookingStart = new Date(`${booking.date}T${booking.time}`);
-        const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60 * 1000);
-        return slotStart < bookingEnd && slotEnd > bookingStart;
-      });
-  
-      options.push({
-        value: timeFormatted,
-        label: timeFormatted,
-        disabled: isTimeSlotBlocked,
-        isReserved: isTimeSlotBlocked,
-      });
-  
-      slot.setTime(slotEnd.getTime());
-    }
-  
-    return options;
-  };
+  }, [time, selectedLab, currentDate, generateTimeOptions]);
 
   const handleLabChange = (e) => {
     const selectedId = e.target.value;

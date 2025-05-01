@@ -49,7 +49,7 @@ export default function ProviderDashboard() {
     if (ownedLabs.length > 0 && !editingLab) {
       setEditingLab(ownedLabs[0]);
     }
-  }, [ownedLabs]);
+  }, [ownedLabs, editingLab]);
 
   useEffect(() => { setIsMounted(true); }, []);
   if (!isMounted) return null;

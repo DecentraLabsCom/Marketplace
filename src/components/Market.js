@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLabs } from '../context/LabContext';
 import { useUser } from '../context/UserContext';
 import LabCard from "./LabCard";
@@ -29,47 +29,37 @@ export default function Market() {
     }
   }, [labs]);
 
-  // Apply the search every time the filter options change
-  useEffect(() => {
-    search();
-  }, [search, selectedCategory, selectedPrice, selectedProvider, labs]);
-
-  // Search by filter options
-  const search = () => {
+  // Search/filter options
+  const search = useCallback(() => {
     let filtered = labs;
-
-    // Filter by category
     if (selectedCategory !== "All") {
       filtered = filtered.filter((lab) => lab.category === selectedCategory);
     }
-
-    // Filter by price
     if (selectedPrice === "Low to High") {
       filtered = [...filtered].sort((a, b) => a.price - b.price);
     } else if (selectedPrice === "High to Low") {
       filtered = [...filtered].sort((a, b) => b.price - a.price);
     }
-
-    // Filter by provider
     if (selectedProvider !== "All") {
       filtered = filtered.filter((lab) => lab.provider === selectedProvider);
     }
-
-    // Filter by keyword or name
     const value = searchInputRef.current?.value?.toLowerCase() || "";
     if (selectedFilter === "Keyword" && value) {
       filtered = filtered.filter((lab) =>
-        lab.keywords?.some((keyword) => keyword.toLowerCase().includes(value))
+        lab.keywords?.some((kw) => kw.toLowerCase().includes(value))
       );
     } else if (selectedFilter === "Name" && value) {
       filtered = filtered.filter((lab) =>
         lab.name.toLowerCase().includes(value)
       );
     }
-
-    // Update state with the filtered result
     setSearchFilteredLabs(filtered);
-  };
+  }, [labs, selectedCategory, selectedPrice, selectedProvider, selectedFilter]);
+
+  // Apply the search every time the filter options change
+  useEffect(() => {
+    search();
+  }, [search]);
 
   // Be able to search by pressing Enter key
   const handleKeyDown = (event) => {
