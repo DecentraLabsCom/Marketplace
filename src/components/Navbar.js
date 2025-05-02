@@ -9,14 +9,7 @@ import Login from './Login';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const { isLoggedIn, isSSO, isConnected, user, isProvider, isProviderLoading } = useUser();
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) return null;
 
   const menuButton = (href, label) => (
     <Link href={href}

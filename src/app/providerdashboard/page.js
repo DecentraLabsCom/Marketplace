@@ -13,27 +13,33 @@ import AccessControl from '../../components/AccessControl';
 import FeedbackModal from '../../components/FeedbackModal';
 
 export default function ProviderDashboard() {
-  const { address, isLoggedIn, user, isSSO } = useUser();
-  const { labs, loading, setLabs } = useLabs();
-  const [isMounted, setIsMounted] = useState(false);
+  const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
+  const { labs, setLabs, loading } = useLabs();
+
+  const { addLab, isPending: isAddPending, 
+    isSuccess: isAddSuccess, error: addError } = useAddLab();
+  const { deleteLab, isPending: isDeletePending, 
+    isSuccess: isDeleteSuccess, error: deleteError } = useDeleteLab();
+  const { updateLab, isPending: isUpdatePending, 
+    isSuccess: isUpdateSuccess, error: updateError } = useUpdateLab();
+  /*const { setTokenURI, isPending: isSetTokenPending, 
+    isSuccess: isSetTokenSuccess, error: setTokenError } = useSetTokenURI();*/
+
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [newLab, setNewLab] = useState({
+  const [pendingEditingLabs, setPendingEditingLabs] = useState(null);
+  const [pendingDeleteLabs, setPendingDeleteLabs] = useState(null);
+  const [pendingNewLab, setPendingNewLab] = useState(null);
+  const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
     opens: '', closes: '', docs: [], images: []
-  });
-  const { write: addLab, isPending: isAddPending, 
-    isSuccess: isAddSuccess, error: addError } = useAddLab();
-  const { write: deleteLab, isPending: isDeletePending, 
-    isSuccess: isDeleteSuccess, error: deleteError } = useDeleteLab();
-  const { write: updateLab, isPending: isUpdatePending, 
-    isSuccess: isUpdateSuccess, error: updateError } = useUpdateLab();
-  /*const { write: setTokenURI, isPending: isSetTokenPending, 
-    isSuccess: isSetTokenSuccess, error: setTokenError } = useSetTokenURI();*/
+  };
+  const [newLab, setNewLab] = useState(newLabStructure);
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const today = new Date();
 
@@ -47,21 +53,54 @@ export default function ProviderDashboard() {
 
   // Automatically set the first lab as the selected lab
   useEffect(() => {
-    if (ownedLabs.length > 0 && !editingLab) {
+    if (ownedLabs.length > 0 && !editingLab && !isModalOpen) {
       setEditingLab(ownedLabs[0]);
     }
-  }, [ownedLabs, editingLab]);
+  }, [ownedLabs, editingLab, isModalOpen]);
 
-  useEffect(() => { setIsMounted(true); }, []);
-  if (!isMounted) return null;
+  // Set labs on success and show feedback messages on success
+  useEffect(() => {
+    if (isUpdateSuccess && pendingEditingLabs) {
+      setLabs(pendingEditingLabs);
+      setFeedbackMessage('Lab updated successfully.');
+    }
+    if (isAddSuccess && pendingNewLab) {
+      setLabs([...labs, pendingNewLab]);
+      setFeedbackMessage('Lab added successfully.');
+    }
+    if (isUpdateSuccess || isAddSuccess) {
+      setShowFeedback(true);
+      setEditingLab(null);
+      setIsModalOpen(false);
+    }
+    if (isDeleteSuccess && pendingDeleteLabs) {
+      setLabs(pendingDeleteLabs);
+      setFeedbackMessage('Lab deleted successfully.');
+      setShowFeedback(true);
+    }
+  }, [isUpdateSuccess, isAddSuccess, isDeleteSuccess]);
+
+  // Show feedback messages on errors
+  useEffect(() => {
+    if (addError) {
+      setFeedbackMessage("Error adding lab: " + addError.message);
+      setShowFeedback(true);
+    }
+    if (updateError) {
+      setFeedbackMessage("Error updating lab: " + updateError.message);
+      setShowFeedback(true);
+    }
+    if (deleteError) {
+      setFeedbackMessage("Error deleting lab: " + deleteError.message);
+      setShowFeedback(true);
+    }
+  }, [addError, updateError, deleteError]);
 
   // Handle delete a lab
   const handleDeleteLab = (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
-    deleteLab({ args: [labId] });
-    setLabs(updatedLabs);
-    setFeedbackMessage('Lab deleted successfully.');
-    setShowFeedback(true);
+    deleteLab([labId]);
+    setPendingDeleteLabs(updatedLabs);
   };
 
   // Handle adding or updating a lab
@@ -72,36 +111,29 @@ export default function ProviderDashboard() {
       );
       updateLab({
         args: [
-          editingLab.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
+          "", //editingLab.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
           editingLab.price,
           editingLab.auth,
           editingLab.accessURI,
           editingLab.accessKey
         ]
       });
-      setLabs(updatedLabs);
-      setFeedbackMessage('Lab updated successfully.');
-
+      setPendingEditingLabs(updatedLabs);
     } else {
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id)) : 0;
       const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address };
-      addLab({
-        args: [
-          newLabRecord.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
+      addLab([
+          "", // newLabRecord.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
           newLabRecord.price,
           newLabRecord.auth,
           newLabRecord.accessURI,
           newLabRecord.accessKey
-        ]
-      });
-      setLabs([...labs, newLabRecord]);
-      setFeedbackMessage('Lab added successfully.');
+      ]);
+      setPendingNewLab(newLabRecord);    
     }
-    setShowFeedback(true);
-    setEditingLab(null);
-    setIsModalOpen(false);
   };
 
+  // Handle collecting balances from all labs
   const handleCollectAll = async () => {
     try {
       const res = await fetch('/api/contract/reservation/claimAllBalance', {
@@ -117,6 +149,7 @@ export default function ProviderDashboard() {
     }
   };
   
+  // Handle collecting balance from a specific lab
   const handleCollect = async (labId) => {
     try {
       const res = await fetch('/api/contract/reservation/claimLabBalance', {
@@ -132,6 +165,7 @@ export default function ProviderDashboard() {
     }
   };
   
+  // Handle listing a lab
   const handleList = async (labId) => {
     try {
       const res = await fetch('/api/contract/lab/listLab', {
@@ -147,6 +181,7 @@ export default function ProviderDashboard() {
     }
   };
   
+  // Handle unlisting a lab
   const handleUnlist = async (labId) => {
     try {
       const res = await fetch('/api/contract/lab/unlistLab', {
@@ -261,10 +296,10 @@ export default function ProviderDashboard() {
               </p>
             )}
             <div className="flex justify-center mt-4">
-              <button onClick={() => { setEditingLab(null); setIsModalOpen(true); }}
-                className="px-6 py-3 rounded shadow-lg bg-[#7b976e] text-white hover:bg-[#83a875]">
-                Add New Lab
-              </button>
+            <button onClick={() => {setEditingLab(null); setNewLab(newLabStructure); setIsModalOpen(true);}}
+              className="px-6 py-3 rounded shadow-lg bg-[#7b976e] text-white hover:bg-[#83a875]">
+              Add New Lab
+            </button>
             </div>
           </div>
 
@@ -281,7 +316,8 @@ export default function ProviderDashboard() {
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
           lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} />
 
-        <FeedbackModal isOpen={showFeedback} message={feedbackMessage} onClose={() => setShowFeedback(false)} />
+        <FeedbackModal isOpen={showFeedback} message={feedbackMessage} 
+          onClose={() => setShowFeedback(false)} />
       </div>
     </AccessControl>
   );

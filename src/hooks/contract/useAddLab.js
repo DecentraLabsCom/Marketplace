@@ -6,10 +6,17 @@ export default function useAddLab() {
   const { chain: currentChain } = useAccount()
   const safeChain = selectChain(currentChain)
   const address = contractAddresses[safeChain.name.toLowerCase()]
+  const { writeContract, ...rest } = useWriteContract()
 
-  return useWriteContract({
-    abi: contractABI,
-    address,
-    functionName: 'addLab',
-  })
+  function addLab(args) {
+    return writeContract({
+      address,
+      abi: contractABI,
+      functionName: 'addLab',
+      chainId: safeChain.id,
+      args
+    })
+  }
+
+  return { addLab, ...rest }
 }

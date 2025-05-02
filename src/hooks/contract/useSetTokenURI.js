@@ -6,10 +6,17 @@ export default function useSetTokenURI() {
   const { chain: currentChain } = useAccount()
   const safeChain = selectChain(currentChain)
   const address = contractAddresses[safeChain.name.toLowerCase()]
+  const { writeContract, ...rest } = useWriteContract()
 
-  return useWriteContract({
-    abi: contractABI,
-    address,
-    functionName: 'setTokenURI',
-  })
+  function setTokenURI(args) {
+    return writeContract({
+      address,
+      abi: contractABI,
+      functionName: 'setTokenURI', // Asegúrate de que el nombre coincide con tu contrato
+      chainId: safeChain.id,
+      args
+    })
+  }
+
+  return { setTokenURI, ...rest }
 }

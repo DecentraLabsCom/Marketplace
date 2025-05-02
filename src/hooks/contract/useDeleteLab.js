@@ -6,10 +6,17 @@ export default function useDeleteLab() {
   const { chain: currentChain } = useAccount()
   const safeChain = selectChain(currentChain)
   const address = contractAddresses[safeChain.name.toLowerCase()]
+  const { writeContract, ...rest } = useWriteContract()
 
-  return useWriteContract({
-    abi: contractABI,
-    address,
-    functionName: 'deleteLab',
-  })
+  function deleteLab(args) {
+    return writeContract({
+      address,
+      abi: contractABI,
+      functionName: 'deleteLab', // Asegúrate de que el nombre coincide con tu contrato
+      chainId: safeChain.id,
+      args
+    })
+  }
+
+  return { deleteLab, ...rest }
 }

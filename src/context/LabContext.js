@@ -100,7 +100,7 @@ export function LabData({ children }) {
   }, [labList, refetch, isLoading, error]);*/
 
   return (
-    <LabContext.Provider value={{ labs, loading }}> 
+    <LabContext.Provider value={{ labs, setLabs, loading }}> 
       {children}
     </LabContext.Provider>
   );

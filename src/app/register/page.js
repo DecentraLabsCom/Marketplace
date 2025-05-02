@@ -26,13 +26,8 @@ export default function RegisterProviderForm() {
   });
   const [errors, setErrors] = useState({});
   const [isSuccess, setIsSuccess] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const [autoError, setAutoError] = useState(null);
   const [autoRequested, setAutoRequested] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   // Automatic registration when accessed using SSO
   useEffect(() => {
@@ -158,8 +153,6 @@ export default function RegisterProviderForm() {
       </div>
     );
   }
-
-  if (!isMounted) return null;
 
   if (isProvider) {
     return (

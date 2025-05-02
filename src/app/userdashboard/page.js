@@ -123,6 +123,10 @@ export default function UserDashboard() {
     return <div className="text-center p-2">Loading user data...</div>
   }
 
+  if (loading) {
+    return <div className="text-center">Loading lab details...</div>;
+  }
+
   // Find active booking or the next one in the future
   const activeBooking = availableLab && Array.isArray(availableLab.bookingInfo)
     ? availableLab.bookingInfo.find(b => isBookingActive([b]))

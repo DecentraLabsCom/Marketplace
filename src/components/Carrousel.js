@@ -76,13 +76,13 @@ export default function Carrousel({ lab, maxHeight }) {
             </svg>
           </span>
           <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 
-            ![clip:rect(0,0,0,0)]">
+              ![clip:rect(0,0,0,0)]">
             Previous
           </span>
         </button>
 
         {/* Move to next image */}
-        <button onClick={handleNext} className="absolute inset-y-0 z-20 flex w-[15%] items-center 
+        <button onClick={handleNext} className="absolute inset-y-0 right-0 z-20 flex w-[15%] items-center 
           justify-center border-0 bg-none p-0 text-white opacity-100 hover:opacity-90 duration-150 
           transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1.0)] pointer-events-auto group" type="button">
           <span className="inline-block size-8">
@@ -93,7 +93,9 @@ export default function Carrousel({ lab, maxHeight }) {
             </svg>
           </span>
           <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 
-              ![clip:rect(0,0,0,0)]">Next</span>
+              ![clip:rect(0,0,0,0)]">
+            Next
+          </span>
         </button>
       </>
       )}
