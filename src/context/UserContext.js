@@ -57,14 +57,13 @@ export function UserData({ children }) {
             })
             .then((res) => res.json())
             .then((data) => {
-                if (data.name) {
-                    setUser(prev => {
-                        if (!prev || prev.name !== data.name) {
-                            return { ...prev, name: data.name };
-                        }
-                        return prev;
-                    });
-                }
+                setUser(prev => {
+                    if ((!data.name && prev?.name) || 
+                        (data.name && (!prev || prev.name !== data.name))) {
+                        return { ...prev, name: data.name };
+                    }
+                    return prev;
+                });
             })
             .catch((error) => console.error("Error fetching provider name:", error));
         }
