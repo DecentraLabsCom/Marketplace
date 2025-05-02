@@ -3,6 +3,10 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
+import useAddLab from '../../hooks/contract/useAddLab';
+import useDeleteLab from '../../hooks/contract/useDeleteLab';
+import useUpdateLab from '../../hooks/contract/useUpdateLab';
+//import useSetTokenURI from '../../hooks/contract/useSetTokenURI';
 import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
 import AccessControl from '../../components/AccessControl';
@@ -18,21 +22,18 @@ export default function ProviderDashboard() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [newLab, setNewLab] = useState({
-    name: '',
-    category: '',
-    keywords: [],
-    price: '',
-    description: '',
-    provider: '',
-    auth: '',
-    accessURI: '',
-    accessKey: '',
-    timeSlots: [],
-    opens: '',
-    closes: '',
-    docs: [],
-    images: [],
+    name: '', category: '', keywords: [], price: '', description: '',
+    provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
+    opens: '', closes: '', docs: [], images: []
   });
+  const { write: addLab, isPending: isAddPending, 
+    isSuccess: isAddSuccess, error: addError } = useAddLab();
+  const { write: deleteLab, isPending: isDeletePending, 
+    isSuccess: isDeleteSuccess, error: deleteError } = useDeleteLab();
+  const { write: updateLab, isPending: isUpdatePending, 
+    isSuccess: isUpdateSuccess, error: updateError } = useUpdateLab();
+  /*const { write: setTokenURI, isPending: isSetTokenPending, 
+    isSuccess: isSetTokenSuccess, error: setTokenError } = useSetTokenURI();*/
   const [selectedDate, setSelectedDate] = useState(new Date());
   const today = new Date();
 
@@ -54,9 +55,10 @@ export default function ProviderDashboard() {
   useEffect(() => { setIsMounted(true); }, []);
   if (!isMounted) return null;
 
-  // Handle unregister/delist a lab
-  const handleUnregisterLab = (labId) => {
+  // Handle delete a lab
+  const handleDeleteLab = (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
+    deleteLab({ args: [labId] });
     setLabs(updatedLabs);
     setFeedbackMessage('Lab deleted successfully.');
     setShowFeedback(true);
@@ -68,12 +70,31 @@ export default function ProviderDashboard() {
       const updatedLabs = labs.map((lab) =>
         lab.id === editingLab.id ? editingLab : lab
       );
+      updateLab({
+        args: [
+          editingLab.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
+          editingLab.price,
+          editingLab.auth,
+          editingLab.accessURI,
+          editingLab.accessKey
+        ]
+      });
       setLabs(updatedLabs);
       setFeedbackMessage('Lab updated successfully.');
 
     } else {
-      const newLabWithId = { ...newLab, id: Date.now(), providerAddress: address };
-      setLabs([...labs, newLabWithId]);
+      const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id)) : 0;
+      const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address };
+      addLab({
+        args: [
+          newLabRecord.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
+          newLabRecord.price,
+          newLabRecord.auth,
+          newLabRecord.accessURI,
+          newLabRecord.accessKey
+        ]
+      });
+      setLabs([...labs, newLabRecord]);
       setFeedbackMessage('Lab added successfully.');
     }
     setShowFeedback(true);
@@ -142,7 +163,7 @@ export default function ProviderDashboard() {
   };
 
   return (
-    <AccessControl message="Please log in to manage your labs.">
+    <AccessControl requireWallet message="Please log in to manage your labs.">
       <div className="container mx-auto p-4">
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
@@ -224,7 +245,7 @@ export default function ProviderDashboard() {
                     </div>
                   </div>
                   <div className="w-2/3 flex justify-center mt-4">
-                    <button onClick={() => handleUnregisterLab(editingLab.id)}
+                    <button onClick={() => handleDeleteLab(editingLab.id)}
                       className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold 
                       hover:bg-[#8a5c66]"
                     >

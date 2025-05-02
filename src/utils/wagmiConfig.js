@@ -1,24 +1,18 @@
 import { http, createConfig, fallback } from 'wagmi';
 import { mainnet, polygon, sepolia } from 'wagmi/chains';
 import { walletConnect, metaMask} from 'wagmi/connectors';
-import { infuraNetworks, alchemyNetworks } from './networkConfig';
+import { alchemyNetworks, moralisNetworks, ankrNetworks, quicknodeNetworks, 
+        chainstackNetworks, infuraNetworks } from './networkConfig';
 
-let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
 let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
+let moralisProjectId = process.env.NEXT_PUBLIC_MORALIS_ID;
+let ankrProjectId = process.env.NEXT_PUBLIC_ANKR_ID;
+let quicknodeProjectId = process.env.NEXT_PUBLIC_QUICKNODE_ID;
+let chainstackProjectId = process.env.NEXT_PUBLIC_CHAINSTACK_ID;
+let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
 let cloudReownId = process.env.NEXT_PUBLIC_CLOUD_REOWN_ID;
 
 const chains = [mainnet, polygon, sepolia];
-
-const defaultTransport = http();
-
-const infuraSepoliaTransport = http(
-  `https://${infuraNetworks[sepolia.id]}${infuraProjectId}`, {
-  key: 'infura',
-  retryCount: 0,
-  batch: {
-    wait: 200,
-  },
-});
 
 const alchemySepoliaTransport = http(
   `https://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
@@ -29,8 +23,56 @@ const alchemySepoliaTransport = http(
   },
 });
 
+const moralisSepoliaTransport = http(
+  `https://${moralisNetworks[sepolia.id]}${moralisProjectId}`, {
+  key: 'moralis',
+  retryCount: 0,
+  batch: {
+    wait: 200,
+  },
+});
+
+const ankrSepoliaTransport = http(
+  `https://${ankrNetworks[sepolia.id]}${ankrProjectId}`, {
+  key: 'moralis',
+  retryCount: 0,
+  batch: {
+    wait: 200,
+  },
+});
+
+const quicknodeSepoliaTransport = http(
+  `https://${quicknodeNetworks[sepolia.id]}${quicknodeProjectId}`, {
+  key: 'quicknode',
+  retryCount: 0,
+  batch: {
+    wait: 200,
+  },
+});
+
+const chainstackSepoliaTransport = http(
+  `https://${chainstackNetworks[sepolia.id]}${chainstackProjectId}`, {
+  key: 'chainstack',
+  retryCount: 0,
+  batch: {
+    wait: 200,
+  },
+});
+
+const infuraSepoliaTransport = http(
+  `https://${infuraNetworks[sepolia.id]}${infuraProjectId}`, {
+  key: 'infura',
+  retryCount: 0,
+  batch: {
+    wait: 200,
+  },
+});
+
+const defaultTransport = http();
+
 const fallbackSepoliaTransport = fallback([
-  infuraSepoliaTransport, alchemySepoliaTransport, defaultTransport
+  alchemySepoliaTransport, moralisSepoliaTransport, ankrSepoliaTransport,
+  quicknodeSepoliaTransport, chainstackSepoliaTransport, infuraSepoliaTransport, defaultTransport
 ]);
 
 const metadata = {

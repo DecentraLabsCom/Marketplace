@@ -1,7 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-//import getConfig from "next/config";
 
 const UserContext = createContext();
 
@@ -11,9 +10,6 @@ export function UserData({ children }) {
     const [user, setUser] = useState(null);
     const [isProvider, setIsProvider] = useState(false);
     const [isProviderLoading, setIsProviderLoading] = useState(true);
-
-    //const { publicRuntimeConfig } = getConfig();
-    //const basePath = publicRuntimeConfig.basePath || '';
 
     // Check cookies for SSO session
     useEffect(() => {
@@ -63,8 +59,8 @@ export function UserData({ children }) {
             .then((data) => {
                 if (data.name) {
                     setUser(prev => {
-                        if (!prev || prev.providerName !== data.name) {
-                            return { ...prev, providerName: data.name };
+                        if (!prev || prev.name !== data.name) {
+                            return { ...prev, name: data.name };
                         }
                         return prev;
                     });

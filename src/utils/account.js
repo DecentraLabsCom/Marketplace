@@ -29,17 +29,19 @@ export default function Account() {
   return (
     <div className="flex items-center space-x-6 ml-auto font-bold">
       {isConnected && address && (
-      <div className="pointer-events-none">
-        {address && 
-        <div className="text-sm">
-          {ensName ? `${ensName} 
-          (${formatAddress(address)})` : formatAddress(address)}
-        </div>}
-      </div>)}
-      {isConnected && user && (
-      <div className="text-sm font-bold">
-        {user.name}
-      </div>
+        <div className="pointer-events-none flex flex-col items-center">
+          <div className="text-sm">{formatAddress(address)}</div>
+          {(user?.name || ensName) && (
+            <div className="text-[14px] text-gray-600">
+              {user?.name
+                ? user.name
+                : ensName
+                  ? ensName
+                  : null
+              }
+            </div>
+          )}
+        </div>
       )}
       <button onClick={handleDisconnect}>
         <FontAwesomeIcon icon={faSignOutAlt} className="text-[#715c8c] font-semibold text-4xl

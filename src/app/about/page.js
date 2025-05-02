@@ -20,7 +20,7 @@ export default function About() {
             solve real-world problems.
           </p>
           <p className="text-gray-700">
-            For more information, visit our website: 
+            For more information, visit our website: &nbsp;
             <a href="https://nebsyst.com" className="text-blue-500 hover:underline">
             nebsyst.com
             </a>
@@ -40,7 +40,7 @@ export default function About() {
             without the need for physical presence.
           </p>
           <p className="text-gray-700">
-            For more information, visit our project page: 
+            For more information, visit our project page: &nbsp;
             <a href="https://decentralabs.nebsyst.com" className="text-blue-500 hover:underline">
             decentralabs.nebsyst.com
             </a>

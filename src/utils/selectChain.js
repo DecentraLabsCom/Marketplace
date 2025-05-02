@@ -1,4 +1,4 @@
-import { config } from './wagmiConfig';
+import config from './wagmiConfig';
 import { defaultChain } from './networkConfig';
 
 export const selectChain = (currentChain) => {

@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useUser } from './UserContext';
-//import useDefaultReadContract from '../hooks/useDefaultReadContract';
+//import useDefaultReadContract from '../hooks/contract/useDefaultReadContract';
 
 const LabContext = createContext();
 
