@@ -7,13 +7,11 @@ export async function POST(request) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  // Check other required params are also provided
-
   try {
     const contract = await getContractInstance();
 
-    // Call contract
-    // ...
+    const tx = await contract.removeProvider(wallet);
+    await tx.wait();
 
     // Return data to client
     return Response.json({succsess: true}, { status: 200 });

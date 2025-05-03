@@ -22,7 +22,7 @@ export function LabData({ children }) {
           return;
         }
 
-        const response = await fetch('/api/contract/lab/getLabs');
+        const response = await fetch('/api/contract/lab/getAllLabs');
         if (!response.ok) {
           throw new Error(`Failed to fetch labs: ${response.statusText}`);
         }

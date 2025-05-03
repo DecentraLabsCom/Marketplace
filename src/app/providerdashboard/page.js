@@ -6,6 +6,8 @@ import { useLabs } from '../../context/LabContext';
 import useAddLab from '../../hooks/contract/useAddLab';
 import useDeleteLab from '../../hooks/contract/useDeleteLab';
 import useUpdateLab from '../../hooks/contract/useUpdateLab';
+import useListLab from '../../hooks/contract/useListLab';
+import useUnlistLab from '../../hooks/contract/useListLab'; 
 //import useSetTokenURI from '../../hooks/contract/useSetTokenURI';
 import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
@@ -22,6 +24,10 @@ export default function ProviderDashboard() {
     isSuccess: isDeleteSuccess, error: deleteError } = useDeleteLab();
   const { updateLab, isPending: isUpdatePending, 
     isSuccess: isUpdateSuccess, error: updateError } = useUpdateLab();
+  const { listLab, isPending: isListPending,
+    isSuccess: isListSuccess, error: listError } = useListLab();
+  const { unlistLab, isPending: isUnlistPending,
+    isSuccess: isUnlistSuccess, error: unlistError } = useUnlistLab();
   /*const { setTokenURI, isPending: isSetTokenPending, 
     isSuccess: isSetTokenSuccess, error: setTokenError } = useSetTokenURI();*/
 
@@ -33,6 +39,8 @@ export default function ProviderDashboard() {
   const [pendingEditingLabs, setPendingEditingLabs] = useState(null);
   const [pendingDeleteLabs, setPendingDeleteLabs] = useState(null);
   const [pendingNewLab, setPendingNewLab] = useState(null);
+  const [pendingListLabs, setPendingListLabs] = useState(null);
+  const [pendingUnlistLabs, setPendingUnlistLabs] = useState(null);
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
@@ -78,7 +86,17 @@ export default function ProviderDashboard() {
       setFeedbackMessage('Lab deleted successfully.');
       setShowFeedback(true);
     }
-  }, [isUpdateSuccess, isAddSuccess, isDeleteSuccess]);
+    if (isListSuccess && pendingListLabs) {
+      setLabs(pendingListLabs);
+      setFeedbackMessage('Lab listed successfully.');
+      setShowFeedback(true);
+    }
+    if (isUnlistSuccess && pendingUnlistLabs) {
+      setLabs(pendingUnlistLabs);
+      setFeedbackMessage('Lab unlisted successfully.');
+      setShowFeedback(true);
+    }
+  }, [isUpdateSuccess, isAddSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess]);
 
   // Show feedback messages on errors
   useEffect(() => {
@@ -94,7 +112,15 @@ export default function ProviderDashboard() {
       setFeedbackMessage("Error deleting lab: " + deleteError.message);
       setShowFeedback(true);
     }
-  }, [addError, updateError, deleteError]);
+    if (listError) {
+      setFeedbackMessage("Error listing lab: " + listError.message);
+      setShowFeedback(true);
+    }
+    if (unlistError) {
+      setFeedbackMessage("Error unlisting lab: " + unlistError.message);
+      setShowFeedback(true);
+    }
+  }, [addError, updateError, deleteError, listError, unlistError]);
 
   // Handle delete a lab
   const handleDeleteLab = (labId) => {
@@ -167,34 +193,14 @@ export default function ProviderDashboard() {
   
   // Handle listing a lab
   const handleList = async (labId) => {
-    try {
-      const res = await fetch('/api/contract/lab/listLab', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, labId }),
-      });
-      if (!res.ok) throw new Error('Failed to list lab');
-      setFeedbackMessage('Lab listed successfully.');
-      setShowFeedback(true);
-    } catch (err) {
-      console.error(err);
-    }
+    listLab([labId]);
+    setPendingListLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: true } : lab)));
   };
   
   // Handle unlisting a lab
   const handleUnlist = async (labId) => {
-    try {
-      const res = await fetch('/api/contract/lab/unlistLab', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, labId }),
-      });
-      if (!res.ok) throw new Error('Failed to unlist lab');
-      setFeedbackMessage('Lab unlisted successfully.');
-      setShowFeedback(true);
-    } catch (err) {
-      console.error(err);
-    }
+    unlistLab([labId]);
+    setPendingUnlistLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: false } : lab)));
   };
 
   return (
@@ -261,7 +267,7 @@ export default function ProviderDashboard() {
                         border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button onClick={() => handleList(editingLab.id)}
+                      <button onClick={() => handleList(editingLab.id)} disabled
                         className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         List
@@ -269,7 +275,7 @@ export default function ProviderDashboard() {
                         border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button onClick={() => handleUnlist(editingLab.id)}
+                      <button onClick={() => handleUnlist(editingLab.id)} disabled
                         className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Unlist

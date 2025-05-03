@@ -63,7 +63,7 @@ export async function GET(request) {
     );
 
     // Return data to client
-    return Response.json(labs);
+    return Response.json(labs, { status: 200 });
   } catch (error) {
     console.error('Error fetching labs metadata:', error);
     try {
