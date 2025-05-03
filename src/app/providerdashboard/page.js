@@ -7,7 +7,7 @@ import useAddLab from '../../hooks/contract/useAddLab';
 import useDeleteLab from '../../hooks/contract/useDeleteLab';
 import useUpdateLab from '../../hooks/contract/useUpdateLab';
 import useListLab from '../../hooks/contract/useListLab';
-import useUnlistLab from '../../hooks/contract/useListLab'; 
+import useUnlistLab from '../../hooks/contract/useUnlistLab'; 
 //import useSetTokenURI from '../../hooks/contract/useSetTokenURI';
 import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
