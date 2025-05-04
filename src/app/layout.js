@@ -3,7 +3,9 @@ import '../styles/global.css'
 import ClientQueryProvider from '../context/ClientQueryProvider'
 import ClientWagmiProvider from '../context/ClientWagmiProvider'
 import { UserData } from '../context/UserContext'
+import { UserEventProvider } from "../context/UserEventContext";
 import { LabData } from '../context/LabContext'
+import { LabEventProvider } from "../context/LabEventContext";
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 
@@ -51,13 +53,15 @@ export default function RootLayout({ children }) {
           <ClientWagmiProvider>
             <UserData>
               <LabData>
-                <header className="sticky top-0 z-50">
-                  <Navbar />
-                </header>
-                <main className="grow">
-                    {children}
-                </main>
-                <Footer />
+                <LabEventProvider>
+                  <header className="sticky top-0 z-50">
+                    <Navbar />
+                  </header>
+                  <main className="grow">
+                      {children}
+                  </main>
+                  <Footer />
+                </LabEventProvider>
               </LabData>
             </UserData>
           </ClientWagmiProvider>

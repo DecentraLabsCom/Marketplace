@@ -3,12 +3,8 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
-import useAddLab from '../../hooks/contract/useAddLab';
-import useDeleteLab from '../../hooks/contract/useDeleteLab';
-import useUpdateLab from '../../hooks/contract/useUpdateLab';
-import useListLab from '../../hooks/contract/useListLab';
-import useUnlistLab from '../../hooks/contract/useUnlistLab'; 
-//import useSetTokenURI from '../../hooks/contract/useSetTokenURI';
+import useContractWriteFunction from '../../hooks/contract/useContractWriteFunction';
+import useLabFeedback from '../../hooks/useLabFeedback';
 import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
 import AccessControl from '../../components/AccessControl';
@@ -18,35 +14,34 @@ export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
 
-  const { addLab, isPending: isAddPending, 
-    isSuccess: isAddSuccess, error: addError } = useAddLab();
-  const { deleteLab, isPending: isDeletePending, 
-    isSuccess: isDeleteSuccess, error: deleteError } = useDeleteLab();
-  const { updateLab, isPending: isUpdatePending, 
-    isSuccess: isUpdateSuccess, error: updateError } = useUpdateLab();
-  const { listLab, isPending: isListPending,
-    isSuccess: isListSuccess, error: listError } = useListLab();
-  const { unlistLab, isPending: isUnlistPending,
-    isSuccess: isUnlistSuccess, error: unlistError } = useUnlistLab();
-  /*const { setTokenURI, isPending: isSetTokenPending, 
-    isSuccess: isSetTokenSuccess, error: setTokenError } = useSetTokenURI();*/
+  const { contractWriteFunction: addLab, isSuccess: isAddSuccess, error: addError } = useContractWriteFunction('addLab');  
+  const { contractWriteFunction: deleteLab, isSuccess: isDeleteSuccess, error: deleteError } = useContractWriteFunction('deleteLab');
+  const { contractWriteFunction: updateLab, isSuccess: isUpdateSuccess, error: updateError } = useContractWriteFunction('updateLab');
+  const { contractWriteFunction: listLab, isSuccess: isListSuccess, error: listError } = useContractWriteFunction('listLab');
+  const { contractWriteFunction: unlistLab, isSuccess: isUnlistSuccess, error: unlistError } = useContractWriteFunction('unlistLab');
+  /*const { contractWriteFunction: setTokenURI, isSuccess: isSetTokenSuccess, error: setTokenError } = useContractWriteFunction('setTokenURI');*/
 
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [pendingEditingLabs, setPendingEditingLabs] = useState(null);
-  const [pendingDeleteLabs, setPendingDeleteLabs] = useState(null);
-  const [pendingNewLab, setPendingNewLab] = useState(null);
-  const [pendingListLabs, setPendingListLabs] = useState(null);
-  const [pendingUnlistLabs, setPendingUnlistLabs] = useState(null);
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
     opens: '', closes: '', docs: [], images: []
   };
   const [newLab, setNewLab] = useState(newLabStructure);
+
+  // Control feedback on success and on error & control action (set labs) on success
+  const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
+    setPendingListLabs, setPendingUnlistLabs,
+  } = useLabFeedback({ labs, setLabs,
+    setEditingLab, setIsModalOpen, setShowFeedback, setFeedbackTitle, setFeedbackMessage,
+    isAddSuccess, isUpdateSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess,
+    addError, updateError, deleteError, listError, unlistError,
+  });
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const today = new Date();
@@ -66,77 +61,12 @@ export default function ProviderDashboard() {
     }
   }, [ownedLabs, editingLab, isModalOpen]);
 
-  // Set labs on success and show feedback messages on success
-  useEffect(() => {
-    if (isUpdateSuccess && pendingEditingLabs) {
-      setLabs(pendingEditingLabs);
-      setFeedbackMessage('Lab updated successfully.');
-    }
-    if (isAddSuccess && pendingNewLab) {
-      setLabs([...labs, pendingNewLab]);
-      setFeedbackMessage('Lab added successfully.');
-    }
-    if (isUpdateSuccess || isAddSuccess) {
-      setShowFeedback(true);
-      setEditingLab(null);
-      setIsModalOpen(false);
-    }
-    if (isDeleteSuccess && pendingDeleteLabs) {
-      setLabs(pendingDeleteLabs);
-      setFeedbackMessage('Lab deleted successfully.');
-      setShowFeedback(true);
-    }
-    if (isListSuccess && pendingListLabs) {
-      setLabs(pendingListLabs);
-      setFeedbackMessage('Lab listed successfully.');
-      setShowFeedback(true);
-    }
-    if (isUnlistSuccess && pendingUnlistLabs) {
-      setLabs(pendingUnlistLabs);
-      setFeedbackMessage('Lab unlisted successfully.');
-      setShowFeedback(true);
-    }
-  }, [isUpdateSuccess, isAddSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess]);
-
-  // Show feedback messages on errors
-  useEffect(() => {
-    if (addError) {
-      setFeedbackMessage("Error adding lab: " + addError.message);
-      setShowFeedback(true);
-    }
-    if (updateError) {
-      setFeedbackMessage("Error updating lab: " + updateError.message);
-      setShowFeedback(true);
-    }
-    if (deleteError) {
-      setFeedbackMessage("Error deleting lab: " + deleteError.message);
-      setShowFeedback(true);
-    }
-    if (listError) {
-      setFeedbackMessage("Error listing lab: " + listError.message);
-      setShowFeedback(true);
-    }
-    if (unlistError) {
-      setFeedbackMessage("Error unlisting lab: " + unlistError.message);
-      setShowFeedback(true);
-    }
-  }, [addError, updateError, deleteError, listError, unlistError]);
-
-  // Handle delete a lab
-  const handleDeleteLab = (labId) => {
-    const updatedLabs = labs.filter((lab) => lab.id !== labId);
-    deleteLab([labId]);
-    setPendingDeleteLabs(updatedLabs);
-  };
-
   // Handle adding or updating a lab
   const handleSaveLab = () => {
     if (editingLab?.id) {
-      const updatedLabs = labs.map((lab) =>
-        lab.id === editingLab.id ? editingLab : lab
-      );
       updateLab({
         args: [
+          editingLab.id,
           "", //editingLab.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
           editingLab.price,
           editingLab.auth,
@@ -144,19 +74,41 @@ export default function ProviderDashboard() {
           editingLab.accessKey
         ]
       });
+      const updatedLabs = labs.map((lab) =>
+        lab.id === editingLab.id ? editingLab : lab
+      );
       setPendingEditingLabs(updatedLabs);
     } else {
-      const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id)) : 0;
-      const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address };
       addLab([
           "", // newLabRecord.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
-          newLabRecord.price,
-          newLabRecord.auth,
-          newLabRecord.accessURI,
-          newLabRecord.accessKey
+          newLab.price,
+          newLab.auth,
+          newLab.accessURI,
+          newLab.accessKey
       ]);
+      const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
+      const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address };
       setPendingNewLab(newLabRecord);    
     }
+  };
+
+  // Handle delete a lab
+  const handleDeleteLab = (labId) => {
+    const updatedLabs = labs.filter((lab) => lab.id !== labId);
+    deleteLab([21]);
+    setPendingDeleteLabs(updatedLabs);
+  };
+
+  // Handle listing a lab
+  const handleList = async (labId) => {
+    listLab([labId]);
+    setPendingListLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: true } : lab)));
+  };
+  
+  // Handle unlisting a lab
+  const handleUnlist = async (labId) => {
+    unlistLab([labId]);
+    setPendingUnlistLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: false } : lab)));
   };
 
   // Handle collecting balances from all labs
@@ -189,18 +141,6 @@ export default function ProviderDashboard() {
     } catch (err) {
       console.error(err);
     }
-  };
-  
-  // Handle listing a lab
-  const handleList = async (labId) => {
-    listLab([labId]);
-    setPendingListLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: true } : lab)));
-  };
-  
-  // Handle unlisting a lab
-  const handleUnlist = async (labId) => {
-    unlistLab([labId]);
-    setPendingUnlistLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: false } : lab)));
   };
 
   return (
@@ -236,11 +176,13 @@ export default function ProviderDashboard() {
                   <option value="" disabled>
                     Select one of your labs
                   </option>
-                  {ownedLabs.map((lab) => (
-                    <option key={lab.id} value={lab.id}>
-                      {lab.name}
-                    </option>
-                  ))}
+                  {ownedLabs.filter(lab => typeof lab.id === 'number' && !isNaN(lab.id))
+                    .map((lab) => (
+                      <option key={lab.id} value={lab.id}>
+                        {lab.name}
+                      </option>
+                    ))
+                  }
                 </select>
               </div>
               {editingLab && (
@@ -268,7 +210,8 @@ export default function ProviderDashboard() {
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
                       <button onClick={() => handleList(editingLab.id)} disabled
-                        className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold"
+                        className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold
+                                  opacity-50 cursor-not-allowed"
                       >
                         List
                         <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
@@ -276,7 +219,8 @@ export default function ProviderDashboard() {
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
                       <button onClick={() => handleUnlist(editingLab.id)} disabled
-                        className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold"
+                        className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold
+                                  opacity-50 cursor-not-allowed"
                       >
                         Unlist
                         <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
@@ -322,7 +266,7 @@ export default function ProviderDashboard() {
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
           lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} />
 
-        <FeedbackModal isOpen={showFeedback} message={feedbackMessage} 
+        <FeedbackModal isOpen={showFeedback} title={feedbackTitle} message={feedbackMessage} 
           onClose={() => setShowFeedback(false)} />
       </div>
     </AccessControl>
