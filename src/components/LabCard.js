@@ -15,8 +15,14 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
       ${activeBooking ? 'border-4 border-[#715c8c] animate-glow' : ''}`} 
       style={{ height: '400px' }}>
       <div className="h-2/3 relative">
-        <Image src={image} alt={name} fill priority sizes="80vw"
-                    className="!relative object-cover rounded-t-md" />
+        {typeof image === "string" && image.trim() !== "" ? (
+          <Image src={image} alt={name} fill priority sizes="80vw"
+            className="!relative object-cover rounded-t-md" />
+        ) : (
+          <div className="w-full h-full bg-gray-300 flex items-center justify-center rounded-t-md">
+            <span className="text-gray-500">No image</span>
+          </div>
+        )}
       </div>
       <div className="p-4 h-1/3">
         <h2 className="text-2xl font-bold mt-4 text-[#333f63]">{name}</h2>

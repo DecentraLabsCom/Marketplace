@@ -19,7 +19,7 @@ export default function DocsCarrousel({ docs, maxHeight }) {
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '200px' }}>
-        {docs.map((doc, index) => (
+        {docs.filter((doc) => !!doc).map((doc, index) => (
           <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                     index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
             <iframe src={doc} title={`doc ${index + 1}`} height="200px" width="100%" 

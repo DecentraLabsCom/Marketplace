@@ -1,10 +1,21 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { simLabsData } from '../../../../../utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
 
 export async function GET(request) {
+  function parseAttributes(attributes = []) {
+    const result = {};
+    for (const attr of attributes) {
+      result[attr.trait_type] = attr.value;
+    }
+    return result;
+  }
+
   try {
-    // TODO - Remove when using contract
-    throw new Error('Simulating error to get simulated labs.');
+    const filePath = path.join(process.cwd(), 'data', 'lab-UNED-1.json');
+    const fileContent = await fs.readFile(filePath, 'utf-8');
+    const metadata = JSON.parse(fileContent);
 
     const contract = await getContractInstance();
 
@@ -15,49 +26,61 @@ export async function GET(request) {
       providerMap[provider.account.toLowerCase()] = provider.base.name;
     }
 
-    // Get the list of all labs
-    const labList = await contract.getAllLabs();
+    // Get the list of all lab IDs
+    const labIds = await contract.getAllLabs(); // array of ids
 
-    // For each lab, get its metadata and its owner address
+    // For each labId, get lab data, owner, and metadata in parallel
     const labs = await Promise.all(
-      labList.map(async (lab) => {
-        const labId = lab.labId.toString();
+      labIds.map(async (labIdRaw) => {
+        const labId = labIdRaw.toString();
 
-        // Fetch metadata from URI and get owner address from contract
-        const metadataURI = lab.base.uri;
-        const fetchPromise = fetch(metadataURI);
-        const ownerPromise = contract.ownerOf(labId);
+        // Parallelize getLab and ownerOf calls
+        const [labData, providerAddress] = await Promise.all([
+          contract.getLab(labId),
+          contract.ownerOf(labId),
+        ]);
 
-        const response = await fetchPromise;
-        if (!response.ok) {
-          throw new Error(`Failed to fetch metadata for lab ${labId}: ${response.statusText}`);
+        // Fetch metadata from URI
+        let metadata = {};
+        try {
+          if (labData.base.uri.startsWith('Lab-')) {
+            const filePath = path.join(process.cwd(), 'data', labData.base.uri);
+            const fileContent = await fs.readFile(filePath, 'utf-8');
+            metadata = JSON.parse(fileContent);
+          } else {
+            const response = await fetch(labData.base.uri);
+            if (response.ok) {
+              metadata = await response.json();
+            }
+          }
+        } catch (err) {
+          // Ignore fetch errors and keep metadata empty
         }
 
-        // Parallelize the fetch and owner address retrieval
-        const [metadata, providerAddress] = await Promise.all([
-          response.json(),
-          ownerPromise
-        ]);
+        // Parse attributes array to object
+        const attrs = parseAttributes(metadata.attributes);
 
         // Use the map to obtain the provider name from the address
         const providerName = providerMap[providerAddress.toLowerCase()] || providerAddress;
+        console.log(providerName);
 
         return {
           id: labId,
-          name: metadata?.name  ?? "Unnamed Lab",
-          category: metadata?.category ?? "",
-          keywords: metadata?.keywords ?? "",
-          price: parseFloat(lab.base.price),
-          description: metadata?.description ?? "No description provided by the lab provider.",
-          provider: providerName,
-          auth: lab.base.auth?.toString() ?? "",  // TODO - if not present, use DecentraLabs Auth service
-          accessURI: lab.base.accessURI.toString(),
-          accessKey: lab.base.accessKey.toString(),
-          timeSlots: metadata?.timeSlots ?? [60], 
-          opens: metadata?.opens ?? "",
-          closes: metadata?.closes ?? "",
-          docs: metadata?.docs ?? [],
-          images: metadata?.images ?? [],
+          name: metadata?.name ?? "Unnamed Lab",
+          category: attrs?.category ?? "",
+          keywords: attrs?.keywords ?? [],
+          price: parseFloat(labData.base.price),
+          description: metadata?.description ?? "The provider didn't add a description for this lab yet.",
+          provider: providerName, 
+          providerAddress: providerAddress,
+          auth: labData.base.auth?.toString() ?? "",
+          accessURI: labData.base.accessURI?.toString() ?? "",
+          accessKey: labData.base.accessKey?.toString() ?? "",
+          timeSlots: attrs?.timeSlots ?? [60],
+          opens: attrs?.opens ?? "",
+          closes: attrs?.closes ?? "",
+          docs: attrs?.docs ?? [],
+          images: [metadata?.image, ...(attrs.additionalImages ?? [])].filter(Boolean),
         };
       })
     );
@@ -71,8 +94,8 @@ export async function GET(request) {
       return Response.json(fallbackLabs, { status: 200 });
     } catch (fallbackError) {
       console.error('Error fetching fallback labs data:', fallbackError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch labs metadata and fallback data' }), 
-                          { status: 500 });
+      return new Response(JSON.stringify({ error: 'Failed to fetch labs metadata and fallback data' }),
+        { status: 500 });
     }
   }
 }

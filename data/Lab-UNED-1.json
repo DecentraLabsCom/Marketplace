@@ -1,0 +1,46 @@
+{
+  "name": "Basic Electronics Lab",
+  "description": "Design circuits with an easy-to-use schematic editor. Become familiar with some of the common electrical tools and components used for circuits and use them to experimentally test and confirm the validity of theoretical concepts.",
+  "image": "/labs/lab_1.jpg",
+  "attributes": [
+    {
+      "trait_type": "category",
+      "value": "Electronics"
+    },
+    {
+      "trait_type": "keywords",
+      "value": [
+        "Ohm’s Law",
+        "Power Dissipation",
+        "Kirchhoff’s Laws",
+        "Series/Parallel Resistors"
+      ]
+    },
+    {
+      "trait_type": "timeslots",
+      "value": [30, 60]
+    },
+    {
+      "trait_type": "opens",
+      "value": "2025-06-01"
+    },
+    {
+      "trait_type": "closes",
+      "value": "2025-12-31"
+    },
+    {
+      "trait_type": "additionalImages",
+      "value": [
+		    "/labs/lab1/01.jpg",
+		    "/labs/lab1/02.jpg"
+      ]
+    },
+	{
+	  "trait_type": "docs",
+	  "value": [
+		  "https://www.example.com/theory.pdf",
+		  "https://pdfobject.com/pdf/sample.pdf"
+	  ]
+    }
+  ]
+}

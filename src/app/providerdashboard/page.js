@@ -14,12 +14,18 @@ export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
 
-  const { contractWriteFunction: addLab, isSuccess: isAddSuccess, error: addError } = useContractWriteFunction('addLab');  
-  const { contractWriteFunction: deleteLab, isSuccess: isDeleteSuccess, error: deleteError } = useContractWriteFunction('deleteLab');
-  const { contractWriteFunction: updateLab, isSuccess: isUpdateSuccess, error: updateError } = useContractWriteFunction('updateLab');
-  const { contractWriteFunction: listLab, isSuccess: isListSuccess, error: listError } = useContractWriteFunction('listLab');
-  const { contractWriteFunction: unlistLab, isSuccess: isUnlistSuccess, error: unlistError } = useContractWriteFunction('unlistLab');
-  /*const { contractWriteFunction: setTokenURI, isSuccess: isSetTokenSuccess, error: setTokenError } = useContractWriteFunction('setTokenURI');*/
+  const { contractWriteFunction: addLab, isSuccess: isAddSuccess, 
+    error: addError } = useContractWriteFunction('addLab');  
+  const { contractWriteFunction: deleteLab, isSuccess: isDeleteSuccess, 
+    error: deleteError } = useContractWriteFunction('deleteLab');
+  const { contractWriteFunction: updateLab, isSuccess: isUpdateSuccess, 
+    error: updateError } = useContractWriteFunction('updateLab');
+  const { contractWriteFunction: listLab, isSuccess: isListSuccess, 
+    error: listError } = useContractWriteFunction('listLab');
+  const { contractWriteFunction: unlistLab, isSuccess: isUnlistSuccess, 
+    error: unlistError } = useContractWriteFunction('unlistLab');
+  /*const { contractWriteFunction: setTokenURI, isSuccess: isSetTokenSuccess, 
+    error: setTokenError } = useContractWriteFunction('setTokenURI');*/
 
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [editingLab, setEditingLab] = useState(null);
@@ -64,23 +70,21 @@ export default function ProviderDashboard() {
   // Handle adding or updating a lab
   const handleSaveLab = () => {
     if (editingLab?.id) {
-      updateLab({
-        args: [
+      updateLab([
           editingLab.id,
-          "", //editingLab.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
+          "Lab-UNED-1.json", //editingLab.uri, // TODO: It has to be created with the data filled in the modal
           editingLab.price,
           editingLab.auth,
           editingLab.accessURI,
           editingLab.accessKey
-        ]
-      });
+      ]);
       const updatedLabs = labs.map((lab) =>
         lab.id === editingLab.id ? editingLab : lab
       );
       setPendingEditingLabs(updatedLabs);
     } else {
       addLab([
-          "", // newLabRecord.uri, // TODO: It doesn't exist - has to be created with the data filled in the modal
+          "Lab-UNED-1.json", // newLabRecord.uri, // TODO: It has to be created with the data filled in the modal
           newLab.price,
           newLab.auth,
           newLab.accessURI,
@@ -160,7 +164,8 @@ export default function ProviderDashboard() {
               <>
               <div className="flex justify-center mb-4">
                 <button onClick={handleCollectAll}
-                  className="bg-[#bcc4fc] text-white px-6 py-2 rounded shadow hover:bg-[#aab8e6] font-bold"
+                  className="bg-[#bcc4fc] text-white px-6 py-2 rounded shadow hover:bg-[#aab8e6] 
+                            font-bold"
                 >
                   Collect All
                 </button>
@@ -176,7 +181,7 @@ export default function ProviderDashboard() {
                   <option value="" disabled>
                     Select one of your labs
                   </option>
-                  {ownedLabs.filter(lab => typeof lab.id === 'number' && !isNaN(lab.id))
+                  {ownedLabs.filter(lab => !isNaN(lab.id))
                     .map((lab) => (
                       <option key={lab.id} value={lab.id}>
                         {lab.name}
@@ -241,7 +246,7 @@ export default function ProviderDashboard() {
               )}
               </>
             ) : (
-              <p className="text-gray-300">
+              <p className="text-gray-300 text-center">
                 You have no labs registered yet. Press &quot;Add New Lab&quot; to get started.
               </p>
             )}

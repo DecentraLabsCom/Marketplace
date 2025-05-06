@@ -40,7 +40,7 @@ export default function Carrousel({ lab, maxHeight }) {
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
-        {lab?.images.map((image, index) => (
+        {lab?.images.filter((image) => !!image).map((image, index) => (
           <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                     index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
             <Image src={image} alt={`Image ${index + 1}`} fill className="object-cover object-center 

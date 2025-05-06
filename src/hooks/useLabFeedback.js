@@ -48,8 +48,8 @@ export default function useLabFeedback({
       setPending(p => ({ ...p, unlist: null }));
     }
   }, [
-    isUpdateSuccess, isAddSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess,
-    pending, labs, setLabs, setFeedbackMessage, setShowFeedback, setEditingLab, setIsModalOpen
+    isUpdateSuccess, isAddSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess, pending,
+    labs, setLabs, setFeedbackTitle, setFeedbackMessage, setShowFeedback, setEditingLab, setIsModalOpen
   ]);
 
   // Feedback on error
@@ -69,7 +69,7 @@ export default function useLabFeedback({
         break;
       }
     }
-  }, [addError, updateError, deleteError, listError, unlistError, setFeedbackMessage, setShowFeedback]);
+  }, [addError, updateError, deleteError, listError, unlistError, setFeedbackTitle, setFeedbackMessage, setShowFeedback]);
 
   return {
     setPendingEditingLabs: (labs) => setPending(p => ({ ...p, editing: labs })),
