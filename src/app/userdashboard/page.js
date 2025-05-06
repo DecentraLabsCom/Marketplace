@@ -7,19 +7,38 @@ import { useLabs } from '../../context/LabContext'
 import Carrousel from '../../components/Carrousel'
 import LabAccess from '../../components/LabAccess'
 import AccessControl from '../../components/AccessControl'
-import Refund from '../../components/Refund'
-import Cancellation from '../../components/Cancellation'
 import isBookingActive from '../../utils/isBookingActive'
+import ConfirmModal from '../../components/ConfirmModal';
 
 export default function UserDashboard() {
   const { isLoggedIn, isConnected, address } = useUser();
   const { labs, loading } = useLabs();
   const [userData, setUserData] = useState(null);
-
   const now = new Date();
   const currentDate = now.toISOString().slice(0, 10);
-
   const availableLab = labs.find(lab => isBookingActive(lab.bookingInfo));
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedLabId, setSelectedLabId] = useState(null);
+      
+  const openModal = (type, labId) => {
+    setSelectedLabId(labId);
+    setIsModalOpen(type);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(null);
+    setSelectedLabId(null);
+  };
+
+  const handleCancellation = () => {
+    console.log('The cancellation for lab ' + selectedLabId + ' is being processed...');
+    closeModal();
+  };
+
+  const handleRefund = () => {
+    console.log('The refund for lab ' + selectedLabId + ' is being processed...');
+    closeModal();
+  };
 
   // Calendar
   const today = new Date();
@@ -357,7 +376,15 @@ export default function UserDashboard() {
                                 </div>
                               </div>
                               <div className='mx-4 flex items-center justify-center w-1/4'>
-                                <Cancellation />
+                                <button onClick={() => openModal('cancel', lab.id)} className='p-3 rounded text-sm bg-[#a87583] hover:bg-[#8a5c66]
+                                  text-white'>Cancel Booking</button>
+                                  {isModalOpen === 'cancel' && (
+                                    <ConfirmModal 
+                                      isOpen={isModalOpen}
+                                      onClose={closeModal}
+                                      onContinue={handleCancellation}
+                                    />
+                                  )}
                               </div>
                             </div>
                           </li>
@@ -443,7 +470,15 @@ export default function UserDashboard() {
                                 </div>
                               </div>
                               <div className='mx-4 flex items-center justify-center w-1/4'>
-                                <Refund />
+                                <button onClick={() => openModal('refund', lab.id)} className='p-3 rounded text-sm bg-[#bcc4fc] hover:bg-[#aab8e6]
+                                text-white'>Apply for a refund</button>
+                                {isModalOpen === 'refund' && (
+                                  <ConfirmModal 
+                                    isOpen={isModalOpen}
+                                    onClose={closeModal}
+                                    onContinue={handleRefund}
+                                  />
+                                )}
                               </div>
                             </div>
                           </li>

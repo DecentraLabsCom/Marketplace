@@ -122,11 +122,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
           />
           <div className="flex justify-between">
             <button type="submit"
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+              className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
               {lab?.id ? 'Save Changes' : 'Add Lab'}
             </button>
             <button type="button" onClick={onClose}
-              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+              className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
               Cancel
             </button>
           </div>
