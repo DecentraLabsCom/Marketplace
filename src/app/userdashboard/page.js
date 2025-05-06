@@ -167,7 +167,7 @@ export default function UserDashboard() {
           <h1 className="text-3xl font-bold mb-2">User Dashboard</h1>
         </div>
 
-        <div className="flex flex-row gap-1">
+        <div>
           <div className="bg-white shadow-md rounded-lg p-6 mb-6 w-1/6 h-1/3 
             hidden">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800 text-center">
@@ -181,9 +181,9 @@ export default function UserDashboard() {
             </p>
           </div>
 
-          <div className='pl-1 flex-1'>
-            <div className='flex flex-row'>
-              <div className="border shadow text-white rounded p-6 mb-1 mr-1 w-3/4">
+          <div className='flex-1'>
+            <div className='flex md:flex-row flex-col'>
+              <div className="border shadow text-white rounded p-6 mb-1 md:mr-1 md:w-3/4">
                 <div className="flex flex-col">
                   {availableLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">
@@ -194,11 +194,11 @@ export default function UserDashboard() {
                       Next: {firstActiveLab.name}
                     </h2>
                   ) : null}
-                  <div className='flex flex-row flex-wrap'>
+                  <div className='flex md:flex-row flex-wrap'>
                     {availableLab ? (
                       <React.Fragment key={availableLab.id}>
                         <div className='flex flex-col items-center'>
-                          <div key={availableLab.id} className={`w-[320px] group 
+                          <div key={availableLab.id} className={`md:w-[320px] w-[305px] group 
                             justify-between items-center shadow-md bg-gray-200 
                             transform transition-transform duration-300 
                             hover:scale-105 mr-3 mb-4 p-2 h-[320px] rounded-lg flex 
@@ -226,7 +226,7 @@ export default function UserDashboard() {
                           </div>
                         </div>
                         <div className={`w-full ${availableLab.docs.length > 0 ? `` : 
-                          'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 
+                          'h-[100px]'} md:flex-1 mb-4 flex flex-col justify-center p-2 
                           text-center rounded-lg shadow-md bg-gray-300`}>
                           {availableLab.docs && availableLab.docs.length > 0 && (
                             <div key={0} className="mt-1">
@@ -294,7 +294,7 @@ export default function UserDashboard() {
                 </div>
               </div>
               {/* CALENDAR */}
-              <div className="border shadow text-white rounded p-6 mb-1 flex-1 w-1/4 flex justify-center 
+              <div className="border shadow text-white rounded p-6 mb-1 flex-1 md:w-1/4 flex justify-center 
                 items-center">
                 <div className="flex flex-row">
                   <DatePicker calendarClassName="custom-datepicker" selected={date} inline minDate={today}
@@ -312,9 +312,9 @@ export default function UserDashboard() {
               </div>
             </div>
             {/* Bottom panel: upcoming and past bookings */}
-            <div className="flex flex-row gap-4 mt-6">
+            <div className="flex md:flex-row flex-col gap-4 mt-6">
               {/* Upcoming booked labs */}
-              <div className="w-1/2 flex flex-col h-full min-h-[350px]">
+              <div className="md:w-1/2 flex flex-col h-full min-h-[350px]">
                 <h2 className="text-2xl font-semibold mb-4 text-center">
                   Upcoming Bookings
                 </h2>
@@ -394,13 +394,13 @@ export default function UserDashboard() {
                 </ul>
               </div>
               {/* Vertical divider */}
-              <div className="mt-1 mx-3 w-px self-stretch bg-gradient-to-tr 
+              <div className="md:mt-1 md:mx-3 md:w-px md:self-stretch bg-gradient-to-tr 
                 from-transparent via-neutral-800 to-transparent opacity-90 
                 dark:via-neutral-200 border-l border-neutral-800 
                 dark:border-neutral-200 border-dashed"
                 style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }} />
               {/* Past booked labs */}
-              <div className="w-1/2 flex flex-col h-full min-h-[350px]">
+              <div className="md:w-1/2 flex flex-col h-full min-h-[350px]">
                 <h2 className="text-2xl font-semibold mb-4 text-center">
                   Past bookings
                 </h2>
