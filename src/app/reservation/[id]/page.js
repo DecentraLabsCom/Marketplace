@@ -1,5 +1,6 @@
 import LabReservation from '../../../components/LabReservation'
 
-export default function LabReservationWrapper({ params }) {
-  return <LabReservation id={params.id} />
+export default async function LabReservationWrapper({ params }) {
+  const { id } = await params;
+  return <LabReservation id={id} />
 }
