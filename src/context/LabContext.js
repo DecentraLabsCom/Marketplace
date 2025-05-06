@@ -64,10 +64,22 @@ export function LabData({ children }) {
         bookingsMap[booking.labId].push(booking);
       }
 
-      setLabs((prevLabs) => {
+      // TODO: Uncomment when testing things for real 
+      /*setLabs((prevLabs) => {
         const updatedLabs = prevLabs.map((lab) => ({
           ...lab,
           bookingInfo: bookingsMap[lab.id] || [],
+        }));
+        sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
+        return updatedLabs;
+      });*/
+
+      // TODO: Remove the whole block below when testing things for real 
+      setLabs((prevLabs) => {
+        const forcedBooking = bookingsData[0] ? [bookingsData[0]] : [];
+        const updatedLabs = prevLabs.map((lab) => ({
+          ...lab,
+          bookingInfo: forcedBooking,
         }));
         sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
         return updatedLabs;
@@ -86,7 +98,7 @@ export function LabData({ children }) {
       return;
     }
     if (labs.length > 0) fetchBookings();
-  }, [address, labs.length, fetchBookings]); 
+  }, [address, labs.length]); 
 
   /*const { data: labList, refetch, isLoading, error } = 
         useDefaultReadContract('getAllLabs', null, hasFetched);

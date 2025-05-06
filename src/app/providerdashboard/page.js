@@ -65,7 +65,7 @@ export default function ProviderDashboard() {
     if (ownedLabs.length > 0 && !editingLab && !isModalOpen) {
       setEditingLab(ownedLabs[0]);
     }
-  }, [ownedLabs, editingLab, isModalOpen]);
+  }, [ownedLabs, isModalOpen]);
 
   // Handle adding or updating a lab
   const handleSaveLab = () => {

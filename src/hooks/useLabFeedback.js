@@ -69,7 +69,8 @@ export default function useLabFeedback({
         break;
       }
     }
-  }, [addError, updateError, deleteError, listError, unlistError, setFeedbackTitle, setFeedbackMessage, setShowFeedback]);
+  }, [addError, updateError, deleteError, listError, unlistError, setFeedbackTitle, setFeedbackMessage, 
+    setShowFeedback]);
 
   return {
     setPendingEditingLabs: (labs) => setPending(p => ({ ...p, editing: labs })),
