@@ -19,7 +19,7 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
           <Image src={image} alt={name} fill priority sizes="80vw"
             className="!relative object-cover rounded-t-md" />
         ) : (
-          <div className="w-full h-full bg-gray-300 flex items-center justify-center rounded-t-md">
+          <div className="size-full bg-gray-300 flex items-center justify-center rounded-t-md">
             <span className="text-gray-500">No image</span>
           </div>
         )}

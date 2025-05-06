@@ -6,7 +6,7 @@ export default function Footer() {
   return (
     <footer className="bg-[#333f63] text-center p-3 mt-8 relative">
       <div className="container mx-auto p-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-center justify-items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
           <div className="flex justify-center">
               <div className="flex space-x-4 md:justify-center h-10 w-full relative">
