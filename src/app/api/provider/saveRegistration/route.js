@@ -41,7 +41,7 @@ export async function POST(request) {
       }
       providers.push({ ...provider, createdAt: new Date().toISOString() });
       await put(`data/${blobName}`, JSON.stringify(providers, null, 2), 
-                { contentType: 'application/json', allowOverwrite: true });
+                { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
 
     return Response.json({ success: true }, { status: 200 });
