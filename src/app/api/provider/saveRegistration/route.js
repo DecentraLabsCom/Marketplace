@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { put, get } from '@vercel/blob';
+import { put } from '@vercel/blob';
 
 export async function POST(request) {
   const body = await request.json();
@@ -24,16 +24,17 @@ export async function POST(request) {
       // PRODUCTION: Use Vercel Blob API
       const blobName = 'pendingProviders.json';
       try {
-        const existing = await get(blobName);
-        if (existing) {
-          providers = JSON.parse(await existing.text());
+        const blobUrl = `https://blob.vercel-storage.com/data/${blobName}`;
+        const response = await fetch(blobUrl);
+        if (response.ok) {
+          providers = await response.json();
         }
       } catch (e) {
         // Blob may not exist yet
         providers = [];
       }
       providers.push({ ...provider, createdAt: new Date().toISOString() });
-      await put(blobName, JSON.stringify(providers, null, 2), 
+      await put(`data/${blobName}`, JSON.stringify(providers, null, 2), 
                 { contentType: 'application/json', allowOverwrite: true });
     }
 
