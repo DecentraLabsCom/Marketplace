@@ -55,7 +55,13 @@ export function UserData({ children }) {
                 },
                 body: JSON.stringify({ wallet: address }),
             })
-            .then((res) => res.json())
+            .then((res) => {
+                if (!res.ok) {
+                    if (res.status === 404) return { name: null };
+                    throw new Error("Error fetching provider name");
+                }
+                return res.json();
+            })
             .then((data) => {
                 setUser(prev => {
                     if ((!data.name && prev?.name) || 
