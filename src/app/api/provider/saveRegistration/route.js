@@ -27,7 +27,13 @@ export async function POST(request) {
         const blobUrl = `https://blob.vercel-storage.com/data/${blobName}`;
         const response = await fetch(blobUrl);
         if (response.ok) {
-          providers = await response.json();
+          try {
+            providers = await response.json();
+          } catch {
+            providers = [];
+          }
+        } else {
+          providers = [];
         }
       } catch (e) {
         // Blob may not exist yet
