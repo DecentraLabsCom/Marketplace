@@ -19,7 +19,7 @@ export default function Account() {
   const handleDisconnect = async () => {
     if (isConnected) disconnect();
     if (user) {
-      await fetch("/api/auth/sso/logout");
+      await fetch("/api/auth/logout");
       if (pathname !== "/") {
         window.location.href = "/";
       }
