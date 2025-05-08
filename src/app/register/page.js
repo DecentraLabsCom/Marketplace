@@ -17,7 +17,7 @@ const providerSchema = z.object({
 });
 
 export default function RegisterProviderForm() {
-  const { isSSO, user, isProvider } = useUser();
+  const { isSSO, user, isProvider, address } = useUser();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -85,6 +85,7 @@ export default function RegisterProviderForm() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setFormData({ ...formData, wallet: address });
     const result = providerSchema.safeParse(formData);
 
     if (result.success) {
@@ -223,27 +224,6 @@ export default function RegisterProviderForm() {
                       focus:ring-indigo-600 sm:text-sm sm:leading-6"
                     />
                     {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email[0]}</p>}
-                  </div>
-                </div>
-                {/* Wallet Address */}
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="wallet" className="block text-sm font-medium leading-6 text-gray-900">
-                      Wallet address
-                    </label>
-                  </div>
-                  <div className="mt-2">
-                    <input
-                      id="wallet"
-                      name="wallet"
-                      type="text"
-                      value={formData.wallet}
-                      onChange={handleChange}
-                      className="block w-full rounded-md border-0 p-1.5 text-gray-900 shadow-sm ring-1 
-                      ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset 
-                      focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                    />
-                    {errors.wallet && <p className="text-red-500 text-sm mt-1">{errors.wallet[0]}</p>}
                   </div>
                 </div>
                 {/* Country */}
