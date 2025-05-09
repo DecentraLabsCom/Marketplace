@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import pLimit from 'p-limit';
 import { simLabsData } from '../../../../../utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
 
@@ -29,60 +30,65 @@ export async function GET(request) {
     // Get the list of all lab IDs
     const labIds = await contract.getAllLabs(); // array of ids
 
+    // Limit concurrency to 1 (it produces 2 requests in parallel: getLab() and ownerOf())
+    // TODO: Increase when using a paid node service
+    const limit = pLimit(1);
+
     // For each labId, get lab data, owner, and metadata in parallel
     const labs = await Promise.all(
-      labIds.map(async (labIdRaw) => {
-        const labId = labIdRaw.toString();
+      labIds.map(async (labIdRaw) =>
+        limit(async () => {
+          const labId = labIdRaw.toString();
 
-        // Parallelize getLab and ownerOf calls
-        const [labData, providerAddress] = await Promise.all([
-          contract.getLab(labId),
-          contract.ownerOf(labId),
-        ]);
+          // Parallelize getLab and ownerOf calls
+          const [labData, providerAddress] = await Promise.all([
+            contract.getLab(labId),
+            contract.ownerOf(labId),
+          ]);
 
-        // Fetch metadata from URI
-        let metadata = {};
-        try {
-          if (labData.base.uri.startsWith('Lab-')) {
-            const filePath = path.join(process.cwd(), 'data', labData.base.uri);
-            const fileContent = await fs.readFile(filePath, 'utf-8');
-            metadata = JSON.parse(fileContent);
-          } else {
-            const response = await fetch(labData.base.uri);
-            if (response.ok) {
-              metadata = await response.json();
+          // Fetch metadata from URI
+          let metadata = {};
+          try {
+            if (labData.base.uri.startsWith('Lab-')) { // TODO: Check this when moving to cloud-hosted files
+              const filePath = path.join(process.cwd(), 'data', labData.base.uri);
+              const fileContent = await fs.readFile(filePath, 'utf-8');
+              metadata = JSON.parse(fileContent);
+            } else {
+              const response = await fetch(labData.base.uri);
+              if (response.ok) {
+                metadata = await response.json();
+              }
             }
+          } catch (err) {
+            // Ignore fetch errors and keep metadata empty
           }
-        } catch (err) {
-          // Ignore fetch errors and keep metadata empty
-        }
 
-        // Parse attributes array to object
-        const attrs = parseAttributes(metadata.attributes);
+          // Parse attributes array to object
+          const attrs = parseAttributes(metadata.attributes);
 
-        // Use the map to obtain the provider name from the address
-        const providerName = providerMap[providerAddress.toLowerCase()] || providerAddress;
-        console.log(providerName);
+          // Use the map to obtain the provider name from the address
+          const providerName = providerMap[providerAddress.toLowerCase()] || providerAddress;
 
-        return {
-          id: labId,
-          name: metadata?.name ?? "Unnamed Lab",
-          category: attrs?.category ?? "",
-          keywords: attrs?.keywords ?? [],
-          price: parseFloat(labData.base.price),
-          description: metadata?.description ?? "The provider didn't add a description for this lab yet.",
-          provider: providerName, 
-          providerAddress: providerAddress,
-          auth: labData.base.auth?.toString() ?? "",
-          accessURI: labData.base.accessURI?.toString() ?? "",
-          accessKey: labData.base.accessKey?.toString() ?? "",
-          timeSlots: attrs?.timeSlots ?? [60],
-          opens: attrs?.opens ?? "",
-          closes: attrs?.closes ?? "",
-          docs: attrs?.docs ?? [],
-          images: [metadata?.image, ...(attrs.additionalImages ?? [])].filter(Boolean),
-        };
-      })
+          return {
+            id: labId,
+            name: metadata?.name ?? "Unnamed Lab",
+            category: attrs?.category ?? "",
+            keywords: attrs?.keywords ?? [],
+            price: parseFloat(labData.base.price),
+            description: metadata?.description ?? "The provider didn't add a description for this lab yet.",
+            provider: providerName, 
+            providerAddress: providerAddress,
+            auth: labData.base.auth?.toString() ?? "",
+            accessURI: labData.base.accessURI?.toString() ?? "",
+            accessKey: labData.base.accessKey?.toString() ?? "",
+            timeSlots: attrs?.timeSlots ?? [60],
+            opens: attrs?.opens ?? "",
+            closes: attrs?.closes ?? "",
+            docs: attrs?.docs ?? [],
+            images: [metadata?.image, ...(attrs.additionalImages ?? [])].filter(Boolean),
+          };
+        })
+      )
     );
 
     // Return data to client

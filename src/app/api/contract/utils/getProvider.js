@@ -11,6 +11,7 @@ export default async function getProvider(network) {
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     const rpcUrl = network.rpcUrls.default.http[0];
+    const networkInfo = { name: network.name, chainId: network.id }
 
     const providers = [];
     if (alchemyProjectId) {
@@ -19,25 +20,26 @@ export default async function getProvider(network) {
     if (moralisProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${moralisNetworks[network.id]}${moralisProjectId}`,
-            network.id
+            networkInfo, {batchMaxCount: 3}
         ));
     }
     if (ankrProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${ankrNetworks[network.id]}${ankrProjectId}`,
-            network.id
+            networkInfo, {batchMaxCount: 3}
         ));
     }
     if (quicknodeProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-            network.id
+            networkInfo, {batchMaxCount: 3}
         ));
     }
-    if (chainstackProjectId) {
+    // TODO: Try to solve issues with the following two providers
+    /*if (chainstackProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-            network.id
+            networkInfo, {batchMaxCount: 3}
         ));
     }
     if (infuraProjectId) {
@@ -49,10 +51,10 @@ export default async function getProvider(network) {
                 : infuraProjectId
             )
           );
-    }
+    }*/
     
     // Fallback to the official etherscan RPC if others fail
-    providers.push(new ethers.JsonRpcProvider(rpcUrl, network.id));
+    providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, {batchMaxCount: 3}));
 
-    return new ethers.FallbackProvider(providers);
+    return new ethers.FallbackProvider(providers, networkInfo, {quorum: 1});
 }
