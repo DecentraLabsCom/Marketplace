@@ -30,12 +30,12 @@ export function createServiceProvider() {
     //encryption_certificate: certificateEncryption,
   });
 
-  sp.createSingleLogoutServiceUrl = function (options) {
+  /*sp.createSingleLogoutServiceUrl = function (options) {
     const { request_body } = options;
     const { SAMLRequest, RelayState } = request_body;
     const baseUrl = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
     return `${baseUrl}?SAMLRequest=${SAMLRequest}&RelayState=${RelayState}`;
-  };
+  };*/
 
   return sp;
 }
