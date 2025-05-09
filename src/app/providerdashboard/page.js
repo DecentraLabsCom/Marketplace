@@ -36,9 +36,17 @@ export default function ProviderDashboard() {
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
-    opens: '', closes: '', docs: [], images: []
+    opens: '', closes: '', docs: [], images: [], uri: ''
   };
   const [newLab, setNewLab] = useState(newLabStructure);
+
+  const [shouldCreateJSON, setShouldCreateJSON] = useState(false);
+  const [jsonLabData, setJsonLabData] = useState(null);
+  const [jsonLabURI, setJsonLabURI] = useState('');
+
+  const generateLabURI = (provider, maxId) => {
+    return `Lab-${provider}-${maxId}.json`;
+  };
 
   // Control feedback on success and on error & control action (set labs) on success
   const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
@@ -68,38 +76,68 @@ export default function ProviderDashboard() {
   }, [ownedLabs, isModalOpen]);
 
   // Handle adding or updating a lab
-  const handleSaveLab = () => {
+  const handleSaveLab = async () => {
+    let uriToSave = '';
+    let labDataToSave = null;
+
     if (editingLab?.id) {
       updateLab([
           editingLab.id,
-          "Lab-UNED-1.json", //editingLab.uri, // TODO: It has to be created with the data filled in the modal
+          editingLab.uri, // "Lab-UHU-1.json", // TODO: It has to be created with the data filled in the modal
           editingLab.price,
           editingLab.auth,
           editingLab.accessURI,
           editingLab.accessKey
       ]);
+      console.log('editingLab.uri (antes de guardar): ' + editingLab.uri);
       const updatedLabs = labs.map((lab) =>
-        lab.id === editingLab.id ? editingLab : lab
+        lab.id == editingLab.id ? editingLab : lab
       );
       setPendingEditingLabs(updatedLabs);
+      labDataToSave = editingLab;
+      uriToSave = editingLab.uri;
+      console.log('uriToSave (para actualizar): ' + uriToSave);
     } else {
+      const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
+      uriToSave = generateLabURI(user.name, maxId + 1);
+      console.log('uriToSave (para crear): ' + uriToSave);
       addLab([
-          "Lab-UNED-1.json", // newLabRecord.uri, // TODO: It has to be created with the data filled in the modal
+          newLab.uri = uriToSave, // "Lab-UHU-1.json", // TODO: It has to be created with the data filled in the modal
           newLab.price,
           newLab.auth,
           newLab.accessURI,
           newLab.accessKey
       ]);
-      const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
       const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address };
-      setPendingNewLab(newLabRecord);    
+      setPendingNewLab(newLabRecord); 
+      labDataToSave = newLabRecord;   
+    }
+
+    if (labDataToSave && uriToSave) {
+      setJsonLabData(labDataToSave);
+      setJsonLabURI(uriToSave);
+      setShouldCreateJSON(true);
+      try {
+        const response = await fetch('/api/provider/saveLabData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labData: labDataToSave, labURI: uriToSave }),
+        });
+        const data = await response.json();
+        setShouldCreateJSON(false);
+        uriToSave = '';
+        labDataToSave = null;
+      } catch (error) {
+        uriToSave = '';
+        labDataToSave = null;
+      }
     }
   };
 
   // Handle delete a lab
   const handleDeleteLab = (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
-    deleteLab([21]);
+    deleteLab([labId]);
     setPendingDeleteLabs(updatedLabs);
   };
 
@@ -147,6 +185,12 @@ export default function ProviderDashboard() {
     }
   };
 
+  const handleSelectChange = (e) => {
+    const selectedLabId = e.target.value;
+    const selectedLab = ownedLabs.find((lab) => lab.id == selectedLabId);
+    setEditingLab(selectedLab);
+  };
+
   return (
     <AccessControl requireWallet message="Please log in to manage your labs.">
       <div className="container mx-auto p-4">
@@ -173,10 +217,7 @@ export default function ProviderDashboard() {
               <div className="flex justify-center">
                 <select className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
                   value={editingLab?.id || ""}
-                  onChange={(e) => {
-                    const selectedLab = ownedLabs.find((lab) => lab.id === parseInt(e.target.value));
-                    setEditingLab(selectedLab || null);
-                  }}
+                  onChange={handleSelectChange}
                 >
                   <option value="" disabled>
                     Select one of your labs

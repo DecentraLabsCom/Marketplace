@@ -1,0 +1,35 @@
+{
+  "name": "a ver",
+  "description": "",
+  "image": "",
+  "attributes": [
+    {
+      "trait_type": "category",
+      "value": ""
+    },
+    {
+      "trait_type": "keywords",
+      "value": []
+    },
+    {
+      "trait_type": "timeslots",
+      "value": []
+    },
+    {
+      "trait_type": "opens",
+      "value": ""
+    },
+    {
+      "trait_type": "closes",
+      "value": ""
+    },
+    {
+      "trait_type": "additionalImages",
+      "value": []
+    },
+    {
+      "trait_type": "docs",
+      "value": []
+    }
+  ]
+}
