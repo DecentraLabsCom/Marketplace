@@ -1,4 +1,4 @@
-import { createServiceProvider } from "@/utils/sso";
+import { createServiceProvider } from "../../../../../../utils/sso";
 import { NextResponse } from "next/server";
 
 export async function GET() {
