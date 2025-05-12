@@ -18,8 +18,6 @@
     {
       "trait_type": "timeslots",
       "value": [
-        15,
-        30,
         60
       ]
     },
