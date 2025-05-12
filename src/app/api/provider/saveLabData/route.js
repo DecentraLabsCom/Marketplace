@@ -10,11 +10,11 @@ export async function POST(req) {
       labData || {};
 
     const isVercel = !!process.env.VERCEL;
-
+    const filePath = path.join(process.cwd(), 'data', uri);
+    const blobName = uri;
     let existingData = null;
 
     if (!isVercel) {
-      const filePath = path.join(process.cwd(), 'data', uri);
       try {
         // Read existing data if it exists
         const fileContent = await fs.readFile(filePath, 'utf-8');
@@ -28,7 +28,6 @@ export async function POST(req) {
         }
       }
     } else {
-      const blobName = uri;
       try {
         const blobUrl = `https://blob.vercel-storage.com/data/${blobName}`;
         const response = await fetch(blobUrl);

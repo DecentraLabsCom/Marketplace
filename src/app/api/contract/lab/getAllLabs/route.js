@@ -14,6 +14,7 @@ export async function GET(request) {
   }
 
   try {
+    const isVercel = !!process.env.VERCEL;
     const contract = await getContractInstance();
 
     // Get list of all providers and create a map address -> name
@@ -46,10 +47,21 @@ export async function GET(request) {
           let metadata = {};
 
           try {
-            if (labData.base.uri.startsWith('Lab-')) { // TODO: Check this when moving to cloud-hosted files
-              const filePath = path.join(process.cwd(), 'data', labData.base.uri);
-              const fileContent = await fs.readFile(filePath, 'utf-8');
-              metadata = JSON.parse(fileContent);
+            if (labData.base.uri.startsWith('Lab-')) {
+              if (!isVercel) {
+                const filePath = path.join(process.cwd(), 'data', labData.base.uri);
+                const fileContent = await fs.readFile(filePath, 'utf-8');
+                metadata = JSON.parse(fileContent);
+              } else {
+                const blobName = labData.base.uri;
+                const blobUrl = `https://blob.vercel-storage.com/data/${blobName}`;
+                const response = await fetch(blobUrl);
+                if (response.ok) {
+                  metadata = await response.json();
+                } else {
+                  console.error(`Failed to fetch blob data for ${blobName}: ${response.statusText}`);
+                }
+              }
             } else {
               const response = await fetch(labData.base.uri);
               if (response.ok) {
@@ -57,7 +69,7 @@ export async function GET(request) {
               }
             }
           } catch (err) {
-            // Ignore fetch errors and keep metadata empty
+            console.error(`Error fetching metadata for lab ${labId}:`, err);
           }
 
           // Parse attributes array to object
