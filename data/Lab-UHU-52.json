@@ -13,7 +13,13 @@
     },
     {
       "trait_type": "timeslots",
+<<<<<<< HEAD:data/Lab-UHU-52.json
       "value": [60]
+=======
+      "value": [
+        60
+      ]
+>>>>>>> f5a68b32954ca4c12ff65b5856f34a0e6de5ff67:data/Lab-UHU-25.json
     },
     {
       "trait_type": "opens",
