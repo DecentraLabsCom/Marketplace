@@ -14,9 +14,19 @@ export default async function getProvider(network) {
     const networkInfo = { name: network.name, chainId: network.id }
 
     const providers = [];
-    // if (alchemyProjectId) {
-    //     providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
-    // }
+
+    providers.push(new ethers.WebSocketProvider(
+        'wss://ethereum-sepolia-rpc.publicnode.com',
+        networkInfo
+    ));
+    providers.push(new ethers.JsonRpcProvider(
+        'https://ethereum-sepolia-rpc.publicnode.com',
+        networkInfo, {batchMaxCount: 3}
+    ));
+
+    if (alchemyProjectId) {
+        providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
+    }
     if (moralisProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${moralisNetworks[network.id]}${moralisProjectId}`,
@@ -30,6 +40,10 @@ export default async function getProvider(network) {
         ));
     }
     if (quicknodeProjectId) {
+        providers.push(new ethers.WebSocketProvider(
+            `wss://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
+            networkInfo
+        ));
         providers.push(new ethers.JsonRpcProvider(
             `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
             networkInfo, {batchMaxCount: 3}
@@ -37,6 +51,10 @@ export default async function getProvider(network) {
     }
     // TODO: Try to solve issues with the following two providers
     /*if (chainstackProjectId) {
+        providers.push(new ethers.WebSocketProvider(
+            `wss://${chainstackNetworks[network.id]}${chainstackProjectId}`,
+            networkInfo
+        ));
         providers.push(new ethers.JsonRpcProvider(
             `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
             networkInfo, {batchMaxCount: 3}
@@ -53,7 +71,7 @@ export default async function getProvider(network) {
           );
     }*/
     
-    // Fallback to the official etherscan RPC if others fail
+    // Fallback to the official RPC if others fail
     providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, {batchMaxCount: 3}));
 
     return new ethers.FallbackProvider(providers, networkInfo, {quorum: 1});

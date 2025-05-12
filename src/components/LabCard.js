@@ -38,7 +38,7 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
         </div>
       </Link>
       {isConnected && (
-        <LabAccess userWallet={address} hasActiveBooking={activeBooking} auth={auth} />
+        <LabAccess id={id} userWallet={address} hasActiveBooking={activeBooking} auth={auth} />
       )}
     </div>
   );

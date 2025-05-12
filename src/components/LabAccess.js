@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSignMessage } from 'wagmi';
 
-export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
+export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const router = useRouter();
@@ -41,7 +41,8 @@ export default function LabAccess({ userWallet, hasActiveBooking, auth }) {
         },
         body: JSON.stringify({
           wallet: userWallet,
-          signature: signature
+          signature: signature,
+          labId: id
         }),
       });
 
