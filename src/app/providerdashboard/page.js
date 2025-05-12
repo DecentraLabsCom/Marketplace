@@ -36,7 +36,7 @@ export default function ProviderDashboard() {
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
-    opens: '', closes: '', docs: [], images: [], uri: '',  // ME QUEDÉ AQUÍ: quité de aquí URI
+    opens: '', closes: '', docs: [], images: [], uri: '',
   };
   const [newLab, setNewLab] = useState(newLabStructure);
 
