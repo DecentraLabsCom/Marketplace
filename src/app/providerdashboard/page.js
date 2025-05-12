@@ -36,7 +36,7 @@ export default function ProviderDashboard() {
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
-    opens: '', closes: '', docs: [], images: [], uri: ''
+    opens: '', closes: '', docs: [], images: [], uri: '',  // ME QUEDÉ AQUÍ: quité de aquí URI
   };
   const [newLab, setNewLab] = useState(newLabStructure);
 
@@ -77,13 +77,16 @@ export default function ProviderDashboard() {
 
   // Handle adding or updating a lab
   const handleSaveLab = async () => {
+    console.log('editingLab al intentar guardar:', editingLab);
+    console.log('newLab al intentar guardar:', newLab);
     let uriToSave = '';
     let labDataToSave = null;
 
     if (editingLab?.id) {
+      uriToSave = `Lab-${user.name}-${editingLab.id}.json`;
       updateLab([
           editingLab.id,
-          editingLab.uri, // "Lab-UHU-1.json", // TODO: It has to be created with the data filled in the modal
+          editingLab.uri = uriToSave,
           editingLab.price,
           editingLab.auth,
           editingLab.accessURI,
@@ -95,20 +98,20 @@ export default function ProviderDashboard() {
       );
       setPendingEditingLabs(updatedLabs);
       labDataToSave = editingLab;
-      uriToSave = editingLab.uri;
       console.log('uriToSave (para actualizar): ' + uriToSave);
     } else {
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
       uriToSave = generateLabURI(user.name, maxId + 1);
       console.log('uriToSave (para crear): ' + uriToSave);
       addLab([
-          newLab.uri = uriToSave, // "Lab-UHU-1.json", // TODO: It has to be created with the data filled in the modal
+          newLab.uri = uriToSave,
           newLab.price,
           newLab.auth,
           newLab.accessURI,
           newLab.accessKey
       ]);
-      const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address };
+      const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address};
+      console.log('newLabRecord: ', newLabRecord.uri)
       setPendingNewLab(newLabRecord); 
       labDataToSave = newLabRecord;   
     }
@@ -189,6 +192,7 @@ export default function ProviderDashboard() {
     const selectedLabId = e.target.value;
     const selectedLab = ownedLabs.find((lab) => lab.id == selectedLabId);
     setEditingLab(selectedLab);
+    console.log('editingLab seleccionado:', selectedLab);
   };
 
   return (
