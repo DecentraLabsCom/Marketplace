@@ -88,7 +88,6 @@ export default function ProviderDashboard() {
       setPendingEditingLabs(updatedLabs);
       labDataToSave = editingLab;
     } else {
-      // TODO: Check this - id may not be right!
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
       uriToSave = `Lab-${user.name}-${maxId + 1}.json`;
       addLab([
@@ -103,7 +102,7 @@ export default function ProviderDashboard() {
       labDataToSave = newLabRecord;   
     }
 
-    if (labDataToSave && uriToSave) {
+    if (labDataToSave) {
       try {
         const response = await fetch('/api/provider/saveLabData', {
           method: 'POST',
@@ -111,10 +110,8 @@ export default function ProviderDashboard() {
           body: JSON.stringify({ labData: labDataToSave }),
         });
         const data = await response.json();
-        uriToSave = '';
         labDataToSave = null;
       } catch (error) {
-        uriToSave = '';
         labDataToSave = null;
       }
     }
