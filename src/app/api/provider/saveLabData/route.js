@@ -1,29 +1,51 @@
 import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 
 export async function POST(req) {
   try {
     const { labData } = await req.json();
-    const filePath = path.join(process.cwd(), 'data', labData.uri);
+    const { name, description, category, keywords, price, opens, closes, docs, images, timeSlots, uri } = 
+      labData || {};
+
+    const isVercel = !!process.env.VERCEL;
 
     let existingData = null;
 
-    try {
-      // Read existing json file if it exists
-      const fileContent = await fs.readFile(filePath, 'utf-8');
-      existingData = JSON.parse(fileContent);
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        return NextResponse.json(
-          { error: 'Failed to read existing lab data.', details: error.message }, 
-          { status: 500 }
-        );
+    if (!isVercel) {
+      const filePath = path.join(process.cwd(), 'data', uri);
+      try {
+        // Read existing data if it exists
+        const fileContent = await fs.readFile(filePath, 'utf-8');
+        existingData = JSON.parse(fileContent);
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          return NextResponse.json(
+            { error: 'Failed to read existing lab data.', details: error.message }, 
+            { status: 500 }
+          );
+        }
+      }
+    } else {
+      const blobName = uri;
+      try {
+        const blobUrl = `https://blob.vercel-storage.com/data/${blobName}`;
+        const response = await fetch(blobUrl);
+        if (response.ok) {
+          try {
+            existingData = await response.json();
+          } catch {
+            existingData = [];
+          }
+        } else {
+          existingData = [];
+        }
+      } catch (e) {
+        // Blob may not exist yet
+        existingData = [];
       }
     }
-
-    const { name, description, category, keywords, price, opens, closes, docs, images, timeSlots, uri } = 
-      labData || {};
 
     const newData = {
       name: name || "",
@@ -57,12 +79,16 @@ export async function POST(req) {
         }),
       };
     } else {
-      // If json doesn't exist, only use new data
       finalData = newData;
     }
 
     const labJSON = JSON.stringify(finalData, null, 2);
-    await fs.writeFile(filePath, labJSON, 'utf-8');
+    if (!isVercel) {
+      await fs.writeFile(filePath, labJSON, 'utf-8');
+    } else {
+      await put(`data/${blobName}`, labJSON, 
+                { contentType: 'application/json', allowOverwrite: true, access: 'public' });
+    }
     return NextResponse.json({ message: 'Lab data saved/updated successfully.' }, { status: 200 });
 
   } catch (error) {
