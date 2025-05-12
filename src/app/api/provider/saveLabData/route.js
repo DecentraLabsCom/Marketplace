@@ -15,11 +15,15 @@ export async function POST(req) {
       existingData = JSON.parse(fileContent);
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        return NextResponse.json({ error: 'Failed to read existing lab data.', details: error.message }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to read existing lab data.', details: error.message }, 
+          { status: 500 }
+        );
       }
     }
 
-    const { name, description, category, keywords, price, opens, closes, docs, images, timeSlots, uri } = labData || {};
+    const { name, description, category, keywords, price, opens, closes, docs, images, timeSlots, uri } = 
+      labData || {};
 
     const newData = {
       name: name || "",
@@ -27,12 +31,17 @@ export async function POST(req) {
       image: images && images.length > 0 ? images[0] : "",
       attributes: [
         { trait_type: "category", value: category || "" },
-        { trait_type: "keywords", value: Array.isArray(keywords) ? keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) },
-        { trait_type: "timeslots", value: Array.isArray(timeSlots) ? timeSlots.map(Number).filter(Boolean) : (timeSlots ? timeSlots.split(',').map(Number).filter(Boolean) : []) },
+        { trait_type: "keywords", value: Array.isArray(keywords) ? 
+          keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) 
+        },
+        { trait_type: "timeslots", value: Array.isArray(timeSlots) ? 
+          timeSlots.map(Number).filter(Boolean) 
+          : (timeSlots ? timeSlots.split(',').map(Number).filter(Boolean) : []) },
         { trait_type: "opens", value: opens || "" },
         { trait_type: "closes", value: closes || "" },
         { trait_type: "additionalImages", value: images && images.length > 1 ? images.slice(1) : [] },
-        { trait_type: "docs", value: Array.isArray(docs) ? docs : (docs ? docs.split(',').map(d => d.trim()) : []) },
+        { trait_type: "docs", value: Array.isArray(docs) ? 
+          docs : (docs ? docs.split(',').map(d => d.trim()) : []) },
       ],
     };
 
@@ -57,6 +66,9 @@ export async function POST(req) {
     return NextResponse.json({ message: 'Lab data saved/updated successfully.' }, { status: 200 });
 
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to save/update lab data.', details: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to save/update lab data.', 
+      details: error.message }, { status: 500 
+    });
   }
 }
