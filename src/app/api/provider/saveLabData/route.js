@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req) {
   try {
-    const { labData, labURI } = await req.json();
-    const filePath = path.join(process.cwd(), 'data', labURI);
+    const { labData } = await req.json();
+    const filePath = path.join(process.cwd(), 'data', labData.uri);
 
     let existingData = null;
 

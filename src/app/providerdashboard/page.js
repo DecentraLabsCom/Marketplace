@@ -108,7 +108,7 @@ export default function ProviderDashboard() {
         const response = await fetch('/api/provider/saveLabData', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labData: labDataToSave, labURI: uriToSave }),
+          body: JSON.stringify({ labData: labDataToSave }),
         });
         const data = await response.json();
         uriToSave = '';
