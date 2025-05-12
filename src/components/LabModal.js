@@ -107,7 +107,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             placeholder="Image URLs (comma-separated)"
             value={lab.images.join(',')}
             onChange={(e) =>
-              setLab({ ...lab, image: e.target.value.split(',') })
+              setLab({ ...lab, images: e.target.value.split(',') })
             }
             className="w-full p-2 border rounded"
           />
