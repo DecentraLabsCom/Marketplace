@@ -14,10 +14,6 @@ export async function GET(request) {
   }
 
   try {
-    const filePath = path.join(process.cwd(), 'data', 'lab-UNED-1.json');
-    const fileContent = await fs.readFile(filePath, 'utf-8');
-    const metadata = JSON.parse(fileContent);
-
     const contract = await getContractInstance();
 
     // Get list of all providers and create a map address -> name
