@@ -32,7 +32,7 @@ export async function GET(request) {
 
     // Limit concurrency to 1 (it produces 2 requests in parallel: getLab() and ownerOf())
     // TODO: Increase when using a paid node service
-    const limit = pLimit(1);
+    const limit = pLimit(2);
 
     // For each labId, get lab data, owner, and metadata in parallel
     const labs = await Promise.all(
@@ -48,6 +48,7 @@ export async function GET(request) {
 
           // Fetch metadata from URI
           let metadata = {};
+
           try {
             if (labData.base.uri.startsWith('Lab-')) { // TODO: Check this when moving to cloud-hosted files
               const filePath = path.join(process.cwd(), 'data', labData.base.uri);
