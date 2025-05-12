@@ -44,10 +44,6 @@ export default function ProviderDashboard() {
   const [jsonLabData, setJsonLabData] = useState(null);
   const [jsonLabURI, setJsonLabURI] = useState('');
 
-  const generateLabURI = (provider, maxId) => {
-    return `Lab-${provider}-${maxId}.json`;
-  };
-
   // Control feedback on success and on error & control action (set labs) on success
   const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
     setPendingListLabs, setPendingUnlistLabs,
@@ -96,8 +92,9 @@ export default function ProviderDashboard() {
       setPendingEditingLabs(updatedLabs);
       labDataToSave = editingLab;
     } else {
+      // TODO: Check this - id may not be right!
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
-      uriToSave = generateLabURI(user.name, maxId + 1);
+      uriToSave = `Lab-${user.name}-${maxId + 1}.json`;
       addLab([
           newLab.uri = uriToSave,
           newLab.price,

@@ -18,7 +18,9 @@
     },
     {
       "trait_type": "timeslots",
-      "value": [30, 60]
+      "value": [
+        60
+      ]
     },
     {
       "trait_type": "opens",
@@ -31,16 +33,16 @@
     {
       "trait_type": "additionalImages",
       "value": [
-		    "/labs/lab1/01.jpg",
-		    "/labs/lab1/02.jpg"
+        "/labs/lab1/01.jpg",
+        "/labs/lab1/02.jpg"
       ]
     },
-	{
-	  "trait_type": "docs",
-	  "value": [
-		  "https://www.example.com/theory.pdf",
-		  "https://pdfobject.com/pdf/sample.pdf"
-	  ]
+    {
+      "trait_type": "docs",
+      "value": [
+        "https://www.example.com/theory.pdf",
+        "https://pdfobject.com/pdf/sample.pdf"
+      ]
     }
   ]
 }
