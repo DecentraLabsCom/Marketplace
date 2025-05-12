@@ -40,10 +40,6 @@ export default function ProviderDashboard() {
   };
   const [newLab, setNewLab] = useState(newLabStructure);
 
-  const [shouldCreateJSON, setShouldCreateJSON] = useState(false);
-  const [jsonLabData, setJsonLabData] = useState(null);
-  const [jsonLabURI, setJsonLabURI] = useState('');
-
   // Control feedback on success and on error & control action (set labs) on success
   const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
     setPendingListLabs, setPendingUnlistLabs,
@@ -108,9 +104,6 @@ export default function ProviderDashboard() {
     }
 
     if (labDataToSave && uriToSave) {
-      setJsonLabData(labDataToSave);
-      setJsonLabURI(uriToSave);
-      setShouldCreateJSON(true);
       try {
         const response = await fetch('/api/provider/saveLabData', {
           method: 'POST',
@@ -118,7 +111,6 @@ export default function ProviderDashboard() {
           body: JSON.stringify({ labData: labDataToSave, labURI: uriToSave }),
         });
         const data = await response.json();
-        setShouldCreateJSON(false);
         uriToSave = '';
         labDataToSave = null;
       } catch (error) {
