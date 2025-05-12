@@ -1,0 +1,47 @@
+{
+  "name": "Three Tanks Lab",
+  "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+  "image": "/labs/lab_4.jpg",
+  "attributes": [
+    {
+      "trait_type": "category",
+      "value": "Industrial"
+    },
+    {
+      "trait_type": "keywords",
+      "value": [
+        "three",
+        " tanks",
+        " lab"
+      ]
+    },
+    {
+      "trait_type": "timeslots",
+      "value": [
+        15,
+        30,
+        60
+      ]
+    },
+    {
+      "trait_type": "opens",
+      "value": "2025-04-15"
+    },
+    {
+      "trait_type": "closes",
+      "value": "2025-11-30"
+    },
+    {
+      "trait_type": "additionalImages",
+      "value": [
+        "/labs/lab4/01.png",
+        "/labs/lab4/02.png",
+        "/labs/lab4/03.png"
+      ]
+    },
+    {
+      "trait_type": "docs",
+      "value": []
+    }
+  ]
+}

@@ -77,8 +77,6 @@ export default function ProviderDashboard() {
 
   // Handle adding or updating a lab
   const handleSaveLab = async () => {
-    console.log('editingLab al intentar guardar:', editingLab);
-    console.log('newLab al intentar guardar:', newLab);
     let uriToSave = '';
     let labDataToSave = null;
 
@@ -92,17 +90,14 @@ export default function ProviderDashboard() {
           editingLab.accessURI,
           editingLab.accessKey
       ]);
-      console.log('editingLab.uri (antes de guardar): ' + editingLab.uri);
       const updatedLabs = labs.map((lab) =>
         lab.id == editingLab.id ? editingLab : lab
       );
       setPendingEditingLabs(updatedLabs);
       labDataToSave = editingLab;
-      console.log('uriToSave (para actualizar): ' + uriToSave);
     } else {
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
       uriToSave = generateLabURI(user.name, maxId + 1);
-      console.log('uriToSave (para crear): ' + uriToSave);
       addLab([
           newLab.uri = uriToSave,
           newLab.price,
@@ -111,7 +106,6 @@ export default function ProviderDashboard() {
           newLab.accessKey
       ]);
       const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address};
-      console.log('newLabRecord: ', newLabRecord.uri)
       setPendingNewLab(newLabRecord); 
       labDataToSave = newLabRecord;   
     }
@@ -192,7 +186,6 @@ export default function ProviderDashboard() {
     const selectedLabId = e.target.value;
     const selectedLab = ownedLabs.find((lab) => lab.id == selectedLabId);
     setEditingLab(selectedLab);
-    console.log('editingLab seleccionado:', selectedLab);
   };
 
   return (
