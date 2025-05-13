@@ -121,10 +121,37 @@ export default function ProviderDashboard() {
   };
 
   // Handle delete a lab
-  const handleDeleteLab = (labId) => {
+  const handleDeleteLab = async (labId) => {
     const updatedLabs = labs.filter((lab) => lab.id !== labId);
     deleteLab([labId]);
     setPendingDeleteLabs(updatedLabs);
+
+    // Delete json file
+    const uriToDelete = `Lab-${user.name}-${labId}.json`;
+    try {
+      const response = await fetch('/api/provider/deleteLabData', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ labURI: uriToDelete }),
+      });
+
+      if (!response.ok) {
+        setShowFeedback(true);
+        setFeedbackTitle("Error Deleting JSON file");
+        setFeedbackMessage("Failed to delete the associated data file on the server.");
+      } else {
+        const data = await response.json();
+        setShowFeedback(true);
+        setFeedbackTitle("Lab Deleted");
+        setFeedbackMessage("Lab and its data have been deleted successfully.");
+      }
+    } catch (error) {
+      setShowFeedback(true);
+      setFeedbackTitle("Error Deleting JSON file");
+      setFeedbackMessage("An error occurred while trying to delete the associated data file.");
+    }
   };
 
   // Handle listing a lab
