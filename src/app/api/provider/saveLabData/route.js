@@ -53,8 +53,7 @@ export async function POST(req) {
       attributes: [
         { trait_type: "category", value: category || "" },
         { trait_type: "keywords", value: Array.isArray(keywords) ? 
-          keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) 
-        },
+          keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) },
         { trait_type: "timeslots", value: Array.isArray(timeSlots) ? 
           timeSlots.map(Number).filter(Boolean) 
           : (timeSlots ? timeSlots.split(',').map(Number).filter(Boolean) : []) },

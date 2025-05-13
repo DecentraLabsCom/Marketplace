@@ -1,0 +1,47 @@
+{
+  "name": "Industrial Instrumentation Lab",
+  "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec efficitur, tortor sit amet sagittis sollicitudin, ante erat congue elit, eu porta ante magna luctus mauris. Suspendisse eget elementum sem. Nam mollis felis dui, quis venenatis quam placerat a. Sed finibus lorem ut magna egestas cursus. Mauris sollicitudin orci nulla, eu vehicula est blandit ut. Nulla accumsan pulvinar leo in malesuada. Nullam eget eros ut enim cursus condimentum non vitae quam.",
+  "image": "/labs/lab_3.jpg",
+  "attributes": [
+    {
+      "trait_type": "category",
+      "value": "Instrumentation"
+    },
+    {
+      "trait_type": "keywords",
+      "value": [
+        "PLCs",
+        "Industry 4.0",
+        "Control",
+        "Instrumentation"
+      ]
+    },
+    {
+      "trait_type": "timeslots",
+      "value": [
+        15,
+        30,
+        60
+      ]
+    },
+    {
+      "trait_type": "opens",
+      "value": "04/05/2025"
+    },
+    {
+      "trait_type": "closes",
+      "value": "31/12/2026"
+    },
+    {
+      "trait_type": "additionalImages",
+      "value": [
+        "/labs/lab3/01.jpg",
+        "/labs/lab3/02.jpeg"
+      ]
+    },
+    {
+      "trait_type": "docs",
+      "value": []
+    }
+  ]
+}
