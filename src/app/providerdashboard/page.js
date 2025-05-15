@@ -36,7 +36,7 @@ export default function ProviderDashboard() {
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
-    opens: '', closes: '', docs: [], images: [], uri: '', externalURI: ''
+    opens: '', closes: '', docs: [], images: [], uri: ''
   };
   const [newLab, setNewLab] = useState(newLabStructure);
 
@@ -69,18 +69,16 @@ export default function ProviderDashboard() {
 
   // Handle adding or updating a lab
   const handleSaveLab = async () => {
-    let uriToSave = '';
     let labDataToSave = null;
+    let hasChangedOnChainData = true;
+    let updatedLabs = [];
 
     if (editingLab?.id) {
-      uriToSave = editingLab.externalURI ? editingLab.externalURI : `Lab-${user.name}-${editingLab.id}.json`;
-      editingLab.uri = uriToSave;
+      editingLab.uri = editingLab.uri || `Lab-${user.name}-${editingLab.id}.json`;
 
       const originalLab = labs.find(lab => lab.id == editingLab.id);
 
-      console.log(originalLab.uri);
-      console.log(editingLab.uri);
-      const hasChangedOnChainData =
+      hasChangedOnChainData =
       originalLab.uri !== editingLab.uri ||
       originalLab.price !== editingLab.price ||
       originalLab.auth !== editingLab.auth ||
@@ -96,21 +94,22 @@ export default function ProviderDashboard() {
             editingLab.accessURI,
             editingLab.accessKey
         ]);
+        //await tx.wait();
         // TODO: Disable modal until the transaction is confirmed; maybe show a spinner
       }
-      const updatedLabs = labs.map((lab) =>
+      updatedLabs = labs.map((lab) =>
         lab.id == editingLab.id ? editingLab : lab
       );
       setPendingEditingLabs(updatedLabs);
-      // Only save lab data if external URI is not provided.
-      if (!editingLab.externalURI) {
+      // Only save lab data if the metadata URI points to a local file.
+      if (editingLab.uri.startsWith('Lab-')) {
         labDataToSave = editingLab;
       }
     } else {
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
-      uriToSave = newLab.externalURI ? newLab.externalURI : `Lab-${user.name}-${maxId + 1}.json`;
+      newLab.uri = newLab.uri || `Lab-${user.name}-${maxId + 1}.json`;
       addLab([
-          newLab.uri = uriToSave,
+          newLab.uri,
           newLab.price,
           newLab.auth,
           newLab.accessURI,
@@ -118,8 +117,8 @@ export default function ProviderDashboard() {
       ]);
       const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address};
       setPendingNewLab(newLabRecord); 
-      // Only save lab data if external URI is not provided.
-      if (!newLab.externalURI) {
+      // Only save lab data if the metadata URI points to a local file.
+      if (newLab.uri.startsWith('Lab-')) {
           labDataToSave = newLabRecord;
       }   
     }
@@ -131,10 +130,25 @@ export default function ProviderDashboard() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ labData: labDataToSave }),
         });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const data = await response.json();
         labDataToSave = null;
+        if (!hasChangedOnChainData) {
+          setLabs(updatedLabs);
+          setFeedbackTitle('Success!');
+          setFeedbackMessage('Lab updated successfully.');
+          setShowFeedback(true);
+          setIsModalOpen(false);
+        }
       } catch (error) {
         labDataToSave = null;
+        setFeedbackTitle('Error!');
+        setFeedbackMessage('Failed to save lab data.');
+        setShowFeedback(true);
       }
     }
   };
@@ -146,14 +160,13 @@ export default function ProviderDashboard() {
     setPendingDeleteLabs(updatedLabs);
 
     // Delete json file
-    const uriToDelete = `Lab-${user.name}-${labId}.json`;
     try {
       const response = await fetch('/api/provider/deleteLabData', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ labURI: uriToDelete }),
+        body: JSON.stringify({ labURI: `Lab-${user.name}-${labId}.json` }),
       });
 
       if (!response.ok) {

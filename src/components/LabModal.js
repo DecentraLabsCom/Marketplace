@@ -151,8 +151,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
               <input
                 type="text"
                 placeholder="Lab Data URL (JSON)"
-                value={lab.externalURI || ''}
-                onChange={(e) => setLab({ ...lab, externalURI: e.target.value })}
+                value={lab.uri || ''}
+                onChange={(e) => setLab({ ...lab, uri: e.target.value })}
                 className="w-full p-2 border rounded"
               />
             </>
