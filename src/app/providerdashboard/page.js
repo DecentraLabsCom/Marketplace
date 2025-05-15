@@ -74,14 +74,30 @@ export default function ProviderDashboard() {
 
     if (editingLab?.id) {
       uriToSave = editingLab.externalURI ? editingLab.externalURI : `Lab-${user.name}-${editingLab.id}.json`;
-      updateLab([
-          editingLab.id,
-          editingLab.uri = uriToSave,
-          editingLab.price,
-          editingLab.auth,
-          editingLab.accessURI,
-          editingLab.accessKey
-      ]);
+      editingLab.uri = uriToSave;
+
+      const originalLab = labs.find(lab => lab.id == editingLab.id);
+
+      console.log(originalLab.uri);
+      console.log(editingLab.uri);
+      const hasChangedOnChainData =
+      originalLab.uri !== editingLab.uri ||
+      originalLab.price !== editingLab.price ||
+      originalLab.auth !== editingLab.auth ||
+      originalLab.accessURI !== editingLab.accessURI ||
+      originalLab.accessKey !== editingLab.accessKey;
+
+      if (hasChangedOnChainData) {
+        updateLab([
+            editingLab.id,
+            editingLab.uri,
+            editingLab.price,
+            editingLab.auth,
+            editingLab.accessURI,
+            editingLab.accessKey
+        ]);
+        // TODO: Disable modal until the transaction is confirmed; maybe show a spinner
+      }
       const updatedLabs = labs.map((lab) =>
         lab.id == editingLab.id ? editingLab : lab
       );

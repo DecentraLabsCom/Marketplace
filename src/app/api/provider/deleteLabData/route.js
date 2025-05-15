@@ -24,14 +24,16 @@ export async function POST(req) {
         }
     } else {
         try {
-            const blobUrl = `${process.env.VERCEL_BLOB_BASE_URL}/data/${labURI}`;
-            const result = await del(blobUrl);
+            const blobPath = `data/${labURI}`;
+            const result = await del(blobPath);
             if (result) {
-            console.log(`Blob deleted from Vercel: ${blobUrl}`);
-            return NextResponse.json({ message: 'Lab data deleted successfully.' }, { status: 200 }); //success
+              console.log(`Blob deleted from Vercel: ${blobPath}`);
+              return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
+                { status: 200 });
             } else {
-            console.warn(`Blob deletion from Vercel may have failed: ${blobUrl}`); // No falla si no existe.
-            return NextResponse.json({ message: 'Lab data deleted successfully.' }, { status: 200 }); //success
+              console.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
+              return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
+                { status: 200 });
             }
         } catch (error) {
             console.error("Error deleting data:", error);
@@ -43,6 +45,7 @@ export async function POST(req) {
     }
 
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to parse request body.', details: error.message }, { status: 400 });
+    return NextResponse.json({ error: 'Failed to parse request body.', details: error.message }, 
+      { status: 400 });
   }
 }

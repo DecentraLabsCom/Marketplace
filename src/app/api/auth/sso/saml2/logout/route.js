@@ -8,7 +8,7 @@ export async function POST(request) {
 
   try {
     const parsedXml = await parseStringPromise(samlLogoutRequest);
-    // TODO: verify parsedXml to make sure the logout request is valid
+    // TODO: verify parsedXml to make sure the logout request is valid?
 
     const cookieStore = await cookies();
     cookieStore.set("user_session", "", { maxAge: 0, path: "/" });
