@@ -36,7 +36,7 @@ export default function ProviderDashboard() {
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
-    opens: '', closes: '', docs: [], images: [], uri: '',
+    opens: '', closes: '', docs: [], images: [], uri: '', externalURI: ''
   };
   const [newLab, setNewLab] = useState(newLabStructure);
 
@@ -73,7 +73,7 @@ export default function ProviderDashboard() {
     let labDataToSave = null;
 
     if (editingLab?.id) {
-      uriToSave = `Lab-${user.name}-${editingLab.id}.json`;
+      uriToSave = editingLab.externalURI ? editingLab.externalURI : `Lab-${user.name}-${editingLab.id}.json`;
       updateLab([
           editingLab.id,
           editingLab.uri = uriToSave,
@@ -86,10 +86,13 @@ export default function ProviderDashboard() {
         lab.id == editingLab.id ? editingLab : lab
       );
       setPendingEditingLabs(updatedLabs);
-      labDataToSave = editingLab;
+      // Only save lab data if external URI is not provided.
+      if (!editingLab.externalURI) {
+        labDataToSave = editingLab;
+      }
     } else {
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
-      uriToSave = `Lab-${user.name}-${maxId + 1}.json`;
+      uriToSave = newLab.externalURI ? newLab.externalURI : `Lab-${user.name}-${maxId + 1}.json`;
       addLab([
           newLab.uri = uriToSave,
           newLab.price,
@@ -99,7 +102,10 @@ export default function ProviderDashboard() {
       ]);
       const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address};
       setPendingNewLab(newLabRecord); 
-      labDataToSave = newLabRecord;   
+      // Only save lab data if external URI is not provided.
+      if (!newLab.externalURI) {
+          labDataToSave = newLabRecord;
+      }   
     }
 
     if (labDataToSave) {
