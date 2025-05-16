@@ -1,17 +1,215 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { UploadCloud, Link, XCircle } from 'lucide-react';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
-  const [activeTab, setActiveTab] = useState('full'); // 'full' or 'quick'
+  const [activeTab, setActiveTab] = useState('full');
+  const [imageInputType, setImageInputType] = useState('link');
+  const [docInputType, setDocInputType] = useState('link');
+  const [localImages, setLocalImages] = useState([]);
+  const [localDocs, setLocalDocs] = useState([]);
+  const [imageUrls, setImageUrls] = useState([]);
+
+  const imageUploadRef = useRef(null);
+  const docUploadRef = useRef(null);
+
+  const uploadFile = async (file, destinationFolder) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('destinationFolder', destinationFolder);
+
+    try {
+      const response = await fetch('/api/provider/uploadFile', { // I have to create the endpoint
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error al subir el archivo: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.filePath;
+    } catch (error) {
+      console.error('Error al subir el archivo:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setLocalImages([]);
+      setLocalDocs([]);
+      setImageUrls([]);
+      return;
+    }
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  const handleImageChange = useCallback(async (e) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      // Filter out non-image files.
+      const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+      if (imageFiles.length !== files.length) {
+        alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
+        // Only use the valid images and discard the rest
+        setLocalImages(prevLocalImages => [...prevLocalImages, ...imageFiles]);
+
+        try {
+          const newImageUrls = await Promise.all(
+            imageFiles.map(async (file) => {
+              const filePath = await uploadFile(file, 'images');
+              return filePath;
+            })
+          );
+          setImageUrls(prevImageUrls => [...newImageUrls]);
+
+          setLab(prevLab => {
+            const currentImages = prevLab.images || [];
+            return {
+              ...prevLab,
+              images: [...currentImages, ...newImageUrls]
+            };
+          });
+        } catch (error) {
+          console.error("Error al subir imágenes", error);
+        }
+      } else {
+        setLocalImages(prevLocalImages => [...prevLocalImages, ...files]);
+
+        try {
+          const newImageUrls = await Promise.all(
+            files.map(async (file) => {
+              const filePath = await uploadFileToServer(file, 'images');
+              return filePath;
+            })
+          );
+          setImageUrls(prevImageUrls => [...newImageUrls]);
+
+          setLab(prevLab => {
+            const currentImages = prevLab.images || [];
+            return {
+              ...prevLab,
+              images: [...currentImages, ...newImageUrls]
+            };
+          });
+        } catch (error) {
+          console.error("Error al subir imágenes", error);
+        }
+      }
+    }
+  }, [setLab]);
+
+  const handleDocChange = useCallback(async (e) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      // Filter out non-PDF files.
+      const pdfFiles = files.filter(file => file.type === 'application/pdf');
+
+      if (pdfFiles.length !== files.length) {
+        alert('Only PDF files are allowed for documents.');
+        // Only use the valid PDFs and discard the rest
+        setLocalDocs(prevLocalDocs => [...prevLocalDocs, ...pdfFiles]);
+
+        try {
+          const newDocUrls = await Promise.all(
+            pdfFiles.map(async (file) => {
+              const filePath = await uploadFileToServer(file, 'docs');
+              return filePath;
+            })
+          );
+
+          setLab(prevLab => {
+            const currentDocs = prevLab.docs || [];
+            return {
+              ...prevLab,
+              docs: [...currentDocs, ...newDocUrls]
+            };
+          });
+        } catch (error) {
+          console.error("Error al subir documentos", error);
+        }
+      } else { //If all files are PDFs
+        setLocalDocs(prevLocalDocs => [...prevLocalDocs, ...files]);
+
+        try {
+          const newDocUrls = await Promise.all(
+            files.map(async (file) => {
+              const filePath = await uploadFileToServer(file, 'docs');
+              return filePath;
+            })
+          );
+
+          setLab(prevLab => {
+            const currentDocs = prevLab.docs || [];
+            return {
+              ...prevLab,
+              docs: [...currentDocs, ...newDocUrls]
+            };
+          });
+        } catch (error) {
+          console.error("Error al subir documentos", error);
+        }
+      }
+    }
+  }, [setLab]);
+
+  const removeImage = (index) => {
+    setLocalImages(prevImages => {
+      const newImages = prevImages.filter((_, i) => i !== index);
+      return newImages;
+    });
+
+    setImageUrls(prevUrls => {
+      const newUrls = prevUrls.filter((_, i) => i !== index);
+      const urlToRemove = prevUrls[index];
+      if (urlToRemove) {
+        // Here we should delete the created files in public --> add another endpoint
+        // Deletion simulation
+        URL.revokeObjectURL(urlToRemove);
+      }
+
+      setLab(prevLab => {
+        const updatedImages = prevLab.images.filter((_, i) => i !== index);
+        return { ...prevLab, images: updatedImages };
+      });
+      return newUrls;
+    });
+  };
+
+  const removeDoc = (index) => {
+    setLocalDocs(prevDocs => {
+      const newDocs = prevDocs.filter((_, i) => i !== index);
+      return newDocs
+    });
+
+    // We need to create endopoint to delete local created files
+
+    setLab(prevLab => {
+      const updatedDocs = prevLab.docs.filter((_, i) => i !== index);
+      return { ...prevLab, docs: updatedDocs };
+    });
+  };
+
+  const handleSubmit = () => {
+    // Convert localFiles to URLs before submitting
+    const finalImages = localImages.map(file => URL.createObjectURL(file));
+    const finalDocs = localDocs.map(file => URL.createObjectURL(file));
+
+    // Update lab state
+    setLab(prevLab => ({
+      ...prevLab,
+      images: imageInputType === 'upload' ? [...(prevLab.images || []), ...finalImages] : prevLab.images,
+      docs: docInputType === 'upload' ? [...(prevLab.docs || []), ...finalDocs] : prevLab.docs,
+    }));
+    onSubmit();
+  };
 
   if (!isOpen) return null;
 
@@ -24,151 +222,358 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
         <div className="mb-4">
-          <button
-            type="button"
-            className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
-              ? 'bg-[#7875a8] text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            onClick={() => setActiveTab('full')}
-          >
-            Full Data
-          </button>
-          <button
-            type="button"
-            className={`px-4 py-2 rounded ${activeTab === 'quick'
-              ? 'bg-[#7875a8] text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            onClick={() => setActiveTab('quick')}
-          >
-            Quick Setup
-          </button>
-        </div>
-        <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
-          {activeTab === 'full' && (
-            <>
-              <input
-                type="text"
-                placeholder="Lab Name"
-                value={lab.name}
-                onChange={(e) => setLab({ ...lab, name: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Category"
-                value={lab.category}
-                onChange={(e) => setLab({ ...lab, category: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Keywords (comma-separated)"
-                value={lab.keywords.join(',')}
-                onChange={(e) =>
-                  setLab({ ...lab, keywords: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-              <textarea
-                placeholder="Description"
-                value={lab.description}
-                onChange={(e) => setLab({ ...lab, description: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Opens (e.g. 09:00)"
-                value={lab.opens || ''}
-                onChange={(e) => setLab({ ...lab, opens: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Closes (e.g. 18:00)"
-                value={lab.closes || ''}
-                onChange={(e) => setLab({ ...lab, closes: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Image URLs (comma-separated)"
-                value={lab.images.join(',')}
-                onChange={(e) =>
-                  setLab({ ...lab, images: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Docs URLs (comma-separated)"
-                value={lab.docs.join(',')}
-                onChange={(e) =>
-                  setLab({ ...lab, docs: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Time Slots (comma-separated)"
-                value={Array.isArray(lab.timeSlots) ? lab.timeSlots.join(',') : ''}
-                onChange={(e) =>
-                  setLab({ ...lab, timeSlots: e.target.value.split(',') })
-                }
-                className="w-full p-2 border rounded"
-              />
-            </>
-          )}
-          {activeTab === 'quick' && (
-            <>
-              <input
-                type="number"
-                placeholder="Price"
-                value={lab.price}
-                onChange={(e) => setLab({ ...lab, price: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Auth URL"
-                value={lab.auth}
-                onChange={(e) => setLab({ ...lab, auth: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Access URI"
-                value={lab.accessURI || ''}
-                onChange={(e) => setLab({ ...lab, accessURI: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Access Key"
-                value={lab.accessKey || ''}
-                onChange={(e) => setLab({ ...lab, accessKey: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-              <input
-                type="text"
-                placeholder="Lab Data URL (JSON)"
-                value={lab.externalURI || ''}
-                onChange={(e) => setLab({ ...lab, externalURI: e.target.value })}
-                className="w-full p-2 border rounded"
-              />
-            </>
-          )}
-          <div className="flex justify-between">
-            <button type="submit"
-              className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
-              {lab?.id ? 'Save Changes' : 'Add Lab'}
+          <div className="flex">
+            <button
+              type="button"
+              className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
+                ? 'bg-[#7875a8] text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              onClick={() => setActiveTab('full')}
+            >
+              Full Data
             </button>
-            <button type="button" onClick={onClose}
-              className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
-              Cancel
+            <button
+              type="button"
+              className={`px-4 py-2 rounded ${activeTab === 'quick'
+                ? 'bg-[#7875a8] text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              onClick={() => setActiveTab('quick')}
+            >
+              Quick Setup
             </button>
           </div>
-        </form>
+          <div className="mt-4">
+            {activeTab === 'full' && (
+              <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+                <input
+                  type="text"
+                  placeholder="Lab Name"
+                  value={lab.name}
+                  onChange={(e) => setLab({ ...lab, name: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Category"
+                  value={lab.category}
+                  onChange={(e) => setLab({ ...lab, category: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Keywords (comma-separated)"
+                  value={lab.keywords.join(',')}
+                  onChange={(e) =>
+                    setLab({ ...lab, keywords: e.target.value.split(',') })
+                  }
+                  className="w-full p-2 border rounded"
+                />
+                <textarea
+                  placeholder="Description"
+                  value={lab.description}
+                  onChange={(e) => setLab({ ...lab, description: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="number"
+                  placeholder="Price"
+                  value={lab.price}
+                  onChange={(e) => setLab({ ...lab, price: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Auth URL"
+                  value={lab.auth}
+                  onChange={(e) => setLab({ ...lab, auth: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Access URI"
+                  value={lab.accessURI || ''}
+                  onChange={(e) => setLab({ ...lab, accessURI: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Access Key"
+                  value={lab.accessKey || ''}
+                  onChange={(e) => setLab({ ...lab, accessKey: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Time Slots (comma-separated)"
+                  value={Array.isArray(lab.timeSlots) ? lab.timeSlots.join(',') : ''}
+                  onChange={(e) =>
+                    setLab({ ...lab, timeSlots: e.target.value.split(',') })
+                  }
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Opens (e.g. 09:00)"
+                  value={lab.opens || ''}
+                  onChange={(e) => setLab({ ...lab, opens: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Closes (e.g. 18:00)"
+                  value={lab.closes || ''}
+                  onChange={(e) => setLab({ ...lab, closes: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+
+                {/* Image Input */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Images</h4>
+                  <div className="flex">
+                    <button
+                      type="button"
+                      className={`px-4 py-2 rounded mr-2 ${imageInputType === 'link'
+                        ? 'bg-[#7875a8] text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      onClick={() => setImageInputType('link')}
+                    >
+                      <div className='flex items-center justify-center'>
+                        <Link className="mr-2 ml-[-2px] w-4" />
+                        <span>Link</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-4 py-2 rounded ${imageInputType === 'upload'
+                        ? 'bg-[#7875a8] text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      onClick={() => setImageInputType('upload')}
+                    >
+                      <div className='flex items-center justify-center'>
+                        <UploadCloud className="mr-2 ml-[-2px] w-4" />
+                        <span>Upload</span>
+                      </div>
+                    </button>
+                  </div>
+                  {imageInputType === 'link' && (
+                    <input
+                      type="text"
+                      placeholder="Image URLs (comma-separated)"
+                      value={lab.images.join(',')}
+                      onChange={(e) =>
+                        setLab({ ...lab, images: e.target.value.split(',') })
+                      }
+                      className="w-full p-2 border rounded"
+                    />
+                  )}
+                  {imageInputType === 'upload' && (
+                    <>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleImageChange}
+                        className="w-full"
+                        ref={imageUploadRef}
+                        style={{ display: 'none' }}
+                        accept="image/*"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => imageUploadRef.current?.click()}
+                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full"
+                      >
+                        <div className='flex items-center justify-center'>
+                          <UploadCloud className="mr-2 h-4 w-4" />
+                          <span>Choose Files</span>
+                        </div>
+                      </button>
+                      {localImages.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-500">Selected Files:</p>
+                          <ul className="list-disc list-inside">
+                            {localImages.map((file, index) => (
+                              <li key={index} className="text-sm flex items-center justify-between">
+                                <span>{file.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(index)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {imageUrls.length > 0 && (
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          {imageUrls.map((url, index) => (
+                            <div key={index} className="relative group">
+                              <img src={url} alt={`Preview ${index}`} className="h-16 w-full object-cover rounded" />
+                              <button
+                                type="button"
+                                onClick={() => removeImage(index)}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Docs Input */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold">Documents</h4>
+                  <div className="flex">
+                    <button
+                      type="button"
+                      className={`px-4 py-2 rounded mr-2 ${docInputType === 'link'
+                        ? 'bg-[#7875a8] text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      onClick={() => setDocInputType('link')}
+                    >
+                      <div className='flex items-center justify-center'>
+                        <Link className="mr-2 ml-[-2px] w-4" />
+                        <span>Link</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-4 py-2 rounded ${docInputType === 'upload'
+                        ? 'bg-[#7875a8] text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      onClick={() => setDocInputType('upload')}
+                    >
+                      <div className='flex items-center justify-center'>
+                        <UploadCloud className="mr-2 ml-[-2px] w-4" />
+                        <span>Upload</span>
+                      </div>
+                    </button>
+                  </div>
+                  {docInputType === 'link' && (
+                    <input
+                      type="text"
+                      placeholder="Docs URLs (comma-separated)"
+                      value={lab.docs.join(',')}
+                      onChange={(e) =>
+                        setLab({ ...lab, docs: e.target.value.split(',') })
+                      }
+                      className="w-full p-2 border rounded"
+                    />
+                  )}
+                  {docInputType === 'upload' && (
+                    <>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleDocChange}
+                        className="w-full"
+                        ref={docUploadRef}
+                        style={{ display: 'none' }}
+                        accept="application/pdf"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => docUploadRef.current?.click()}
+                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full"
+                      >
+                        <div className='flex items-center justify-center'>
+                          <UploadCloud className="mr-2 h-4 w-4" />
+                          <span>Choose Files</span>
+                        </div>
+                      </button>
+                      {localDocs.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-500">Selected Files:</p>
+                          <ul className="list-disc list-inside">
+                            {localDocs.map((file, index) => (
+                              <li key={index} className="text-sm flex items-center justify-between">
+                                <span>{file.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeDoc(index)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="flex justify-between mt-4">
+                  <button type="submit"
+                    className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
+                    {lab?.id ? 'Save Changes' : 'Add Lab'}
+                  </button>
+                  <button type="button" onClick={onClose}
+                    className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+            {activeTab === 'quick' && (
+              <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+                <input
+                  type="number"
+                  placeholder="Price"
+                  value={lab.price}
+                  onChange={(e) => setLab({ ...lab, price: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Auth URL"
+                  value={lab.auth}
+                  onChange={(e) => setLab({ ...lab, auth: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Access URI"
+                  value={lab.accessURI || ''}
+                  onChange={(e) => setLab({ ...lab, accessURI: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="Access Key"
+                  value={lab.accessKey || ''}
+                  onChange={(e) => setLab({ ...lab, accessKey: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <input
+                  type="text"
+                  placeholder="External Lab Data URL (JSON)"
+                  value={lab.externalURI || ''}
+                  onChange={(e) => setLab({ ...lab, externalURI: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+                <div className="flex justify-between mt-4">
+                  <button type="submit"
+                    className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
+                    {lab?.id ? 'Save Changes' : 'Add Lab'}
+                  </button>
+                  <button type="button" onClick={onClose}
+                    className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
