@@ -17,17 +17,12 @@ export async function createSession(res, userData) {
 export function createServiceProvider() {
   const privateKey = process.env.SAML_SP_PRIVATE_KEY?.replace(/\\n/g, "\n") ?? "";
   const certificate = process.env.SAML_SP_CERTIFICATE?.replace(/\\n/g, "\n") ?? "";
-  // TODO: Use a separate pair of keys for encryption
-  //const privateKeyEncryption = process.env.SAML_SP_PRIVATE_KEY_ENCRYPTION?.replace(/\\n/g, "\n") ?? "";
-  //const certificateEncryption = process.env.SAML_SP_CERTIFICATE_ENCRYPTION?.replace(/\\n/g, "\n") ?? "";
-
+  
   const sp = new ServiceProvider({
     entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
     assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
     private_key: privateKey,
     certificate: certificate,
-    //encryption_private_key: privateKeyEncryption,
-    //encryption_certificate: certificateEncryption,
   });
 
   /*sp.createSingleLogoutServiceUrl = function (options) {

@@ -95,6 +95,7 @@ export async function GET(request) {
             closes: attrs?.closes ?? "",
             docs: attrs?.docs ?? [],
             images: [metadata?.image, ...(attrs.additionalImages ?? [])].filter(Boolean),
+            uri: labData.base.uri,
           };
         })
       )

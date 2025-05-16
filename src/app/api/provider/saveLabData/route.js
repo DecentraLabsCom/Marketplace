@@ -88,7 +88,6 @@ export async function POST(req) {
                 { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
     return NextResponse.json({ message: 'Lab data saved/updated successfully.' }, { status: 200 });
-
   } catch (error) {
     return NextResponse.json({ 
       error: 'Failed to save/update lab data.', 
