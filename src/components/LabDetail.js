@@ -6,7 +6,7 @@ import { useLabs } from '../context/LabContext';
 import Carrousel from './Carrousel';
 import DocsCarrousel from './DocsCarrousel';
 
-export default function LabDetail({ id }) {
+export default function LabDetail({ id, provider }) {
   const { isLoggedIn, address, user, isSSO } = useUser();
   const { labs, loading } = useLabs();
   const [lab, setLab] = useState(null);
@@ -53,7 +53,14 @@ export default function LabDetail({ id }) {
             </div>
           </header>
           <p className="text-sm text-justify">{lab?.description}</p>
-          <p className="text-[#335763] font-semibold mt-2">{lab?.price} $LAB / hour</p>
+          <p className="flex justify-between items-center text-[#335763] font-semibold mt-2">
+            <span>{lab?.price} $LAB / hour</span>
+            {provider && (
+              <span className="truncate max-w-[50%]" title={provider}>
+                Provider: {provider}
+              </span>
+            )}
+          </p>
 
           <div className="mt-2">
             {/* Category */}
