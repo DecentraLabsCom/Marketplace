@@ -35,19 +35,18 @@ export function createServiceProvider() {
   return sp;
 }
 
-export function createIdentityProvider() {
-  const idpCert = process.env.SAML_IDP_CERTIFICATE?.replace(/\\n/g, "\n") ?? "";
+export async function createIdentityProvider() {
+  const res = await fetch("https://fpp.sir2.rediris.es/es.rediris.sir2.test.validacion/saml2/idp/metadata.php");
+  const metadata = await res.text();
 
   return new IdentityProvider({
-    sso_login_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL,
-    sso_logout_url: process.env.NEXT_PUBLIC_SAML_IDP_LOGOUT_URL,
-    certificates: [idpCert],
+    metadata,
   });
 }
 
 export async function parseSAMLResponse(samlResponse) {
   const sp = createServiceProvider();
-  const idp = createIdentityProvider();
+  const idp = await createIdentityProvider();
 
   return new Promise((resolve, reject) => {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {

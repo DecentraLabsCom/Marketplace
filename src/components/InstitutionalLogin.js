@@ -8,12 +8,7 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
 
   const handleInstitutionalLogin = () => {
     setIsModalOpen(false);
-    if (!process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL) {
-      console.error("SSO login URL is not configured.");
-      return;
-    }
-    // Redirect to the SSO Identity Provider endpoint
-    router.push(process.env.NEXT_PUBLIC_SAML_IDP_LOGIN_URL);
+    router.push("/api/auth/sso/saml2/login");
   }
 
   return (
