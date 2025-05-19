@@ -29,7 +29,7 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
         <p className="text-[#3f3363] font-semibold text-sm mt-2">{provider}</p>
         <p className="text-[#335763] font-semibold mt-2">{price} $LAB / hour</p>
       </div>
-      <Link href={`/lab/${id}`}>
+      <Link href={`/lab/${id}/${provider}`}>
         <div className="absolute inset-0 flex items-center justify-center opacity-0 
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110 
           text-white text-lg font-bold">

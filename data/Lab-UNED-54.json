@@ -17,7 +17,7 @@
       ]
     },
     {
-      "trait_type": "timeslots",
+      "trait_type": "timeSlots",
       "value": [
         15,
         30,
@@ -26,11 +26,11 @@
     },
     {
       "trait_type": "opens",
-      "value": "04/05/2025"
+      "value": "05/04/2025"
     },
     {
       "trait_type": "closes",
-      "value": "31/12/2026"
+      "value": "12/31/2026"
     },
     {
       "trait_type": "additionalImages",

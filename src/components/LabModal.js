@@ -349,14 +349,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
                 />
                 <input
                   type="text"
-                  placeholder="Opens (e.g. 09:00)"
+                  placeholder="Opens (e.g. 01/31/2025)"
                   value={lab.opens || ''}
                   onChange={(e) => setLab({ ...lab, opens: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
-                  placeholder="Closes (e.g. 18:00)"
+                  placeholder="Closes (e.g. 02/28/2026)"
                   value={lab.closes || ''}
                   onChange={(e) => setLab({ ...lab, closes: e.target.value })}
                   className="w-full p-2 border rounded"

@@ -16,6 +16,7 @@ export default function LabReservation({ id }) {
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
   const [availableTimes, setAvailableTimes] = useState([]);
+  const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
   const [selectedLab, setSelectedLab] = useState(null);
   const [bookedDates, setBookedDates] = useState([]);
   const [isClient, setIsClient] = useState(false);
@@ -103,6 +104,19 @@ export default function LabReservation({ id }) {
   );
 
   useEffect(() => {
+    if (selectedLab && Array.isArray(selectedLab.timeSlots) && 
+        selectedLab.timeSlots.length > 0) {
+      setTime(selectedLab.timeSlots[0]);
+    }
+  }, [selectedLab]);
+
+  useEffect(() => {
+    // Search and select first available time
+    const firstAvailable = availableTimes.find(t => !t.disabled);
+    setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
+  }, [availableTimes]);
+
+  useEffect(() => {
     if (selectedLab && Array.isArray(selectedLab.bookingInfo)) {
       setAvailableTimes(generateTimeOptions(time));
 
@@ -129,6 +143,11 @@ export default function LabReservation({ id }) {
   };
 
   if (!isClient) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const opensDate = selectedLab ? parseDate(selectedLab.opens) : today;
+  const minDate = opensDate > today ? opensDate : today;
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -169,7 +188,7 @@ export default function LabReservation({ id }) {
                   <DatePicker calendarClassName="custom-datepicker"
                     selected={date}
                     onChange={(newDate) => setDate(newDate)}
-                    minDate={parseDate(selectedLab.opens)}
+                    minDate={minDate}
                     maxDate={parseDate(selectedLab.closes)}
                     inline
                     dayClassName={(day) =>
@@ -200,6 +219,8 @@ export default function LabReservation({ id }) {
                   <label className="block text-lg font-semibold">Available times:</label>
                   <select
                     className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
+                    value={selectedAvailableTime}
+                    onChange={e => setSelectedAvailableTime(e.target.value)}
                     disabled={!availableTimes.some(t => !t.disabled)}
                   >
                     {availableTimes.map((timeOption, i) => (
