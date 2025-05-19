@@ -19,7 +19,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
     formData.append('destinationFolder', destinationFolder);
 
     try {
-      const response = await fetch('/api/provider/uploadFile', { // I have to create the endpoint
+      const response = await fetch('/api/provider/uploadFile', {
+        method: 'POST',
         method: 'POST',
         body: formData,
       });
@@ -29,7 +30,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       }
 
       const data = await response.json();
-      return data.filePath;
+      // CORRECCIÓN: Construir la ruta del archivo basada en destinationFolder
+      let filePath = data.filePath;
+      // Eliminar /uploads/ o uploads/ si está presente
+      // filePath = filePath.replace(/^uploads/, '');
+      // const fullFilePath = `/public${filePath}`;
+      // return fullFilePath;
+      return filePath;
     } catch (error) {
       console.error('Error al subir el archivo:', error);
       throw error;
@@ -50,61 +57,90 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const handleImageChange = useCallback(async (e) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      // Filter out non-image files.
-      const imageFiles = files.filter(file => file.type.startsWith('image/'));
-
-      if (imageFiles.length !== files.length) {
-        alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
-        // Only use the valid images and discard the rest
-        setLocalImages(prevLocalImages => [...prevLocalImages, ...imageFiles]);
-
-        try {
-          const newImageUrls = await Promise.all(
-            imageFiles.map(async (file) => {
-              const filePath = await uploadFile(file, 'images');
-              return filePath;
-            })
-          );
-          setImageUrls(prevImageUrls => [...newImageUrls]);
-
-          setLab(prevLab => {
-            const currentImages = prevLab.images || [];
-            return {
-              ...prevLab,
-              images: [...currentImages, ...newImageUrls]
-            };
-          });
-        } catch (error) {
-          console.error("Error al subir imágenes", error);
+  // Load existing images for preview when the modal opens
+  useEffect(() => {
+    if (isOpen && lab?.images?.length > 0) {
+      // Si hay imágenes existentes en el lab, las cargamos para previsualización
+      const initialImageUrls = lab.images.map(imageUrl => {
+        if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+          return imageUrl; // Si ya es una URL, la usamos directamente
         }
-      } else {
-        setLocalImages(prevLocalImages => [...prevLocalImages, ...files]);
-
-        try {
-          const newImageUrls = await Promise.all(
-            files.map(async (file) => {
-              const filePath = await uploadFileToServer(file, 'images');
-              return filePath;
-            })
-          );
-          setImageUrls(prevImageUrls => [...newImageUrls]);
-
-          setLab(prevLab => {
-            const currentImages = prevLab.images || [];
-            return {
-              ...prevLab,
-              images: [...currentImages, ...newImageUrls]
-            };
-          });
-        } catch (error) {
-          console.error("Error al subir imágenes", error);
-        }
-      }
+        // Si es una ruta local, la convertimos a una URL de objeto (esto es importante
+        // para que las imágenes se muestren correctamente en el navegador).  Esto
+        // asume que las rutas locales se sirven desde el mismo dominio.
+        return imageUrl;
+      });
+      setImageUrls(initialImageUrls);
+      setImageInputType('upload'); // Cambiamos el tipo de input a 'upload'
+    } else {
+      setImageInputType('link');
+      setImageUrls([]); // Aseguramos que no haya URLs de la vez anterior.
     }
-  }, [setLab]);
+  }, [isOpen, lab]);
+
+  const handleImageChange = useCallback((e) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            // Filter out non-image files.
+            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+            if (imageFiles.length !== files.length) {
+                alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
+                // Only use the valid images and discard the rest
+                setLocalImages(prevLocalImages => [...prevLocalImages, ...imageFiles]);
+
+                // Create URLs for previewing immediately.
+                const newImageUrls = imageFiles.map(file => URL.createObjectURL(file));
+                setImageUrls(prevImageUrls => [...prevImageUrls, ...newImageUrls]);
+
+                //  Upload files *asynchronously* and update lab.images
+                const uploadImages = async () => {
+                    try {
+                        const uploadedPaths = await Promise.all(
+                            imageFiles.map(async (file) => {
+                                return await uploadFile(file, 'images');
+                            })
+                        );
+                        setLab(prevLab => {
+                            const currentImages = prevLab.images || [];
+                            return {
+                                ...prevLab,
+                                images: [...currentImages, ...uploadedPaths]  // Store file paths
+                            };
+                        });
+                    } catch (error) {
+                        console.error("Error uploading", error);
+                    }
+                }
+                uploadImages();
+
+            } else {
+                setLocalImages(prevLocalImages => [...prevLocalImages, ...files]);
+                const newImageUrls = files.map(file => URL.createObjectURL(file));
+                setImageUrls(prevImageUrls => [...prevImageUrls, ...newImageUrls]);
+
+                const uploadImages = async () => {
+                    try {
+                        const uploadedPaths = await Promise.all(
+                            files.map(async (file) => {
+                                return await uploadFile(file, 'images');
+                            })
+                        );
+                        setLab(prevLab => {
+                            const currentImages = prevLab.images || [];
+                            return {
+                                ...prevLab,
+                                images: [...currentImages, ...uploadedPaths]
+                            };
+                        });
+                    } catch (error) {
+                        console.error("Error uploading", error);
+                    }
+                }
+                uploadImages();
+            }
+        }
+    }, [setLab]);
 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
@@ -120,7 +156,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         try {
           const newDocUrls = await Promise.all(
             pdfFiles.map(async (file) => {
-              const filePath = await uploadFileToServer(file, 'docs');
+              const filePath = await uploadFile(file, 'docs');
               return filePath;
             })
           );
@@ -141,7 +177,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         try {
           const newDocUrls = await Promise.all(
             files.map(async (file) => {
-              const filePath = await uploadFileToServer(file, 'docs');
+              const filePath = await uploadFile(file, 'docs');
               return filePath;
             })
           );
@@ -359,7 +395,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
                     <input
                       type="text"
                       placeholder="Image URLs (comma-separated)"
-                      value={lab.images.join(',')}
+                      value={Array.isArray(lab.images) ? lab.images.join(',') : ''}
                       onChange={(e) =>
                         setLab({ ...lab, images: e.target.value.split(',') })
                       }
@@ -576,4 +612,3 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
     </div>
   );
 }
-
