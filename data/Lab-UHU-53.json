@@ -16,8 +16,9 @@
       ]
     },
     {
-      "trait_type": "timeslots",
+      "trait_type": "timeSlots",
       "value": [
+        30,
         60
       ]
     },

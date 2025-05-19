@@ -54,7 +54,7 @@ export async function POST(req) {
         { trait_type: "category", value: category || "" },
         { trait_type: "keywords", value: Array.isArray(keywords) ? 
           keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) },
-        { trait_type: "timeslots", value: Array.isArray(timeSlots) ? 
+        { trait_type: "timeSlots", value: Array.isArray(timeSlots) ? 
           timeSlots.map(Number).filter(Boolean) 
           : (timeSlots ? timeSlots.split(',').map(Number).filter(Boolean) : []) },
         { trait_type: "opens", value: opens || "" },

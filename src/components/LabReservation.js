@@ -103,6 +103,13 @@ export default function LabReservation({ id }) {
   );
 
   useEffect(() => {
+    if (selectedLab && Array.isArray(selectedLab.timeSlots) && 
+        selectedLab.timeSlots.length > 0) {
+      setTime(selectedLab.timeSlots[0]);
+    }
+  }, [selectedLab]);
+
+  useEffect(() => {
     if (selectedLab && Array.isArray(selectedLab.bookingInfo)) {
       setAvailableTimes(generateTimeOptions(time));
 
