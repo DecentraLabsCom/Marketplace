@@ -9,6 +9,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
   const [localImages, setLocalImages] = useState([]);
   const [localDocs, setLocalDocs] = useState([]);
   const [imageUrls, setImageUrls] = useState([]);
+  const [docUrls, setDocUrls] = useState([]);
 
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
@@ -43,6 +44,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       setLocalImages([]);
       setLocalDocs([]);
       setImageUrls([]);
+      setDocUrls([]);
       return;
     }
     const handleKeyDown = (e) => {
@@ -52,7 +54,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Load existing images for preview when the modal opens
+  // Load existing images and docs for preview when the modal opens
   useEffect(() => {
     if (isOpen && lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
@@ -66,6 +68,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
     } else {
       setImageInputType('link');
       setImageUrls([]);
+    }
+
+    if (isOpen && lab?.docs?.length > 0) {
+      setDocUrls(lab.docs);
+      setDocInputType('upload');
+    } else {
+      setDocInputType('link');
+      setDocUrls([]);
     }
   }, [isOpen, lab]);
 
@@ -197,13 +207,32 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       const newUrls = prevUrls.filter((_, i) => i !== index);
       const urlToRemove = prevUrls[index];
       if (urlToRemove) {
-        // Here we should delete the created files in public --> add another endpoint
-        // Deletion simulation
         URL.revokeObjectURL(urlToRemove);
       }
 
       setLab(prevLab => {
+        const imageToDelete = prevLab.images[index]; // Get the path to delete
         const updatedImages = prevLab.images.filter((_, i) => i !== index);
+        // Delete the file from the server
+        if (imageToDelete && !imageToDelete.startsWith('http')) {
+          // Construct filePath relative to /public
+          const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+
+          fetch('/api/provider/deleteFile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ filePath: filePathToDelete }),
+          }).then(response => {
+            if (!response.ok) {
+              console.error('Failed to delete image file:', filePathToDelete);
+            }
+          }).catch(error => {
+            console.error('Error deleting image file:', error);
+          });
+        }
+
         return { ...prevLab, images: updatedImages };
       });
       return newUrls;
@@ -216,13 +245,37 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       return newDocs
     });
 
-    // We need to create endopoint to delete local created files
-
     setLab(prevLab => {
+      const docToDelete = prevLab.docs[index]; // Get the path to delete
       const updatedDocs = prevLab.docs.filter((_, i) => i !== index);
+
+      // Delete the file from the server
+      if (docToDelete) {
+        // Construct filePath relative to /public
+          const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+        fetch('/api/provider/deleteFile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filePath: filePathToDelete }),
+        }).then(response => {
+          if (!response.ok) {
+            console.error('Failed to delete doc file:', filePathToDelete);
+          }
+        }).catch(error => {
+          console.error('Error deleting doc file:', error);
+        });
+      }
       return { ...prevLab, docs: updatedDocs };
     });
   };
+
+
+
+  const handleSubmitFull = () => {
+    onSubmit();
+  }
 
   const handleSubmit = () => {
     onSubmit();
@@ -261,7 +314,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
           </div>
           <div className="mt-4">
             {activeTab === 'full' && (
-              <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+              <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); handleSubmitFull(); }}>
                 <input
                   type="text"
                   placeholder="Lab Name"
@@ -520,6 +573,30 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
                                 </button>
                               </li>
                             ))}
+                          </ul>
+                        </div>
+                      )}
+                      {docUrls.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-500">Uploaded Documents:</p>
+                          <ul className="list-disc list-inside">
+                            {docUrls.map((url, index) => {
+                              const filename = url.split('/').pop();
+                              return (
+                                <li key={index} className="text-sm flex items-center justify-between">
+                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                    {filename}
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeDoc(index)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </button>
+                                </li>
+                              );
+                            })}
                           </ul>
                         </div>
                       )}

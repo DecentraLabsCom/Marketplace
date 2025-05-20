@@ -14,12 +14,12 @@ export async function POST(req) {
 
     if (!isVercel) {
         try {
-        await fs.unlink(filePath);
-        return NextResponse.json({ message: 'Lab data deleted successfully.' }, { status: 200 });
+          await fs.unlink(filePath);
+          return NextResponse.json({ message: 'Lab data deleted successfully.' }, { status: 200 });
         } catch (error) {
-        return NextResponse.json(
-            { error: 'Failed to delete lab data.', details: error.message },
-            { status: 500 }
+          return NextResponse.json(
+              { error: 'Failed to delete lab data.', details: error.message },
+              { status: 500 }
         );
         }
     } else {
