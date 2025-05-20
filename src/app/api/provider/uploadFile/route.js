@@ -24,9 +24,9 @@ export async function POST(req) {
     const filePath = `/${destinationFolder}/${uniqueFilename}`;
     const blobName = filePath;
 
+    const buffer = await file.arrayBuffer();
     if (!isVercel) {
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
-      const buffer = await file.arrayBuffer();
       await fs.writeFile(localFilePath, Buffer.from(buffer));
     } else {
       await put(`public/${blobName}`, Buffer.from(buffer), 
