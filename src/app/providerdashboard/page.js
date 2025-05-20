@@ -78,6 +78,12 @@ export default function ProviderDashboard() {
 
       const originalLab = labs.find(lab => lab.id == editingLab.id);
 
+      // Detect whether the provider has opted for an external json file
+      const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
+      const isNowExternal = editingLab.uri && (editingLab.uri.startsWith('http://') || 
+                            editingLab.uri.startsWith('https://'));
+      const mustDeleteOldJson = wasLocalJson && isNowExternal;
+
       hasChangedOnChainData =
       originalLab.uri !== editingLab.uri ||
       originalLab.price !== editingLab.price ||
@@ -104,6 +110,18 @@ export default function ProviderDashboard() {
       // Only save lab data if the metadata URI points to a local file.
       if (editingLab.uri.startsWith('Lab-')) {
         labDataToSave = editingLab;
+      }
+      // Delete old json file if the provider has opted for an external json file
+      if (mustDeleteOldJson) {
+        try {
+          await fetch('/api/provider/deleteLabData', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labURI: originalLab.uri }),
+          });
+        } catch (error) {
+          console.error('Error deleting old lab data file:', error);
+        }
       }
     } else {
       const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;

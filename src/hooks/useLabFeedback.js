@@ -63,7 +63,16 @@ export default function useLabFeedback({
     ];
     for (const { error, msg } of errorMap) {
       if (error) {
-        setFeedbackMessage(msg + error.message);
+         if (error.message.includes("contract address") ||
+         error.message.includes("is invalid") ||
+         error.message.includes("no contract deployed") ||
+         error.message.includes("does not exist on this network")
+        ) {
+          console.log("Error:", error);
+          setFeedbackMessage("Wrong network. Please switch your wallet to the correct network.");
+        } else {
+          setFeedbackMessage(msg + error.message);
+        }
         setFeedbackTitle('Error!');
         setShowFeedback(true);
         break;

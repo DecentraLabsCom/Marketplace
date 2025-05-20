@@ -22,14 +22,13 @@ export async function POST(req) {
     const uniqueFilename = `${uuidv4()}-${file.name}`;
     const localFilePath = path.join('./public', destinationFolder, uniqueFilename);
     const filePath = `/${destinationFolder}/${uniqueFilename}`;
-    const blobName = filePath;
 
     const buffer = await file.arrayBuffer();
     if (!isVercel) {
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
       await fs.writeFile(localFilePath, Buffer.from(buffer));
     } else {
-      await put(`public${blobName}`, Buffer.from(buffer), 
+      await put(`public${filePath}`, Buffer.from(buffer), 
                 { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
 
