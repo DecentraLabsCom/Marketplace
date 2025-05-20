@@ -30,12 +30,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       }
 
       const data = await response.json();
-      // CORRECCIÓN: Construir la ruta del archivo basada en destinationFolder
       let filePath = data.filePath;
-      // Eliminar /uploads/ o uploads/ si está presente
-      // filePath = filePath.replace(/^uploads/, '');
-      // const fullFilePath = `/public${filePath}`;
-      // return fullFilePath;
       return filePath;
     } catch (error) {
       console.error('Error al subir el archivo:', error);
@@ -60,21 +55,17 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
   // Load existing images for preview when the modal opens
   useEffect(() => {
     if (isOpen && lab?.images?.length > 0) {
-      // Si hay imágenes existentes en el lab, las cargamos para previsualización
       const initialImageUrls = lab.images.map(imageUrl => {
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-          return imageUrl; // Si ya es una URL, la usamos directamente
+          return imageUrl;
         }
-        // Si es una ruta local, la convertimos a una URL de objeto (esto es importante
-        // para que las imágenes se muestren correctamente en el navegador).  Esto
-        // asume que las rutas locales se sirven desde el mismo dominio.
         return imageUrl;
       });
       setImageUrls(initialImageUrls);
-      setImageInputType('upload'); // Cambiamos el tipo de input a 'upload'
+      setImageInputType('upload');
     } else {
       setImageInputType('link');
-      setImageUrls([]); // Aseguramos que no haya URLs de la vez anterior.
+      setImageUrls([]);
     }
   }, [isOpen, lab]);
 
@@ -234,16 +225,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
   };
 
   const handleSubmit = () => {
-    // Convert localFiles to URLs before submitting
-    const finalImages = localImages.map(file => URL.createObjectURL(file));
-    const finalDocs = localDocs.map(file => URL.createObjectURL(file));
-
-    // Update lab state
-    setLab(prevLab => ({
-      ...prevLab,
-      images: imageInputType === 'upload' ? [...(prevLab.images || []), ...finalImages] : prevLab.images,
-      docs: docInputType === 'upload' ? [...(prevLab.docs || []), ...finalDocs] : prevLab.docs,
-    }));
     onSubmit();
   };
 
@@ -349,14 +330,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
                 />
                 <input
                   type="text"
-                  placeholder="Opens (e.g. 01/31/2025)"
+                  placeholder="Opens (e.g. 09:00)"
                   value={lab.opens || ''}
                   onChange={(e) => setLab({ ...lab, opens: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
-                  placeholder="Closes (e.g. 02/28/2026)"
+                  placeholder="Closes (e.g. 18:00)"
                   value={lab.closes || ''}
                   onChange={(e) => setLab({ ...lab, closes: e.target.value })}
                   className="w-full p-2 border rounded"
