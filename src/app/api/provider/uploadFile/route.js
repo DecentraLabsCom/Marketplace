@@ -29,7 +29,7 @@ export async function POST(req) {
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
       await fs.writeFile(localFilePath, Buffer.from(buffer));
     } else {
-      await put(`public/${blobName}`, Buffer.from(buffer), 
+      await put(`public${blobName}`, Buffer.from(buffer), 
                 { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
 
