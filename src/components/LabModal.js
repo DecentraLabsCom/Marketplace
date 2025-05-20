@@ -22,7 +22,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
     try {
       const response = await fetch('/api/provider/uploadFile', {
         method: 'POST',
-        method: 'POST',
         body: formData,
       });
 
