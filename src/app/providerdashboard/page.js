@@ -291,7 +291,6 @@ export default function ProviderDashboard() {
   const handleSelectChange = (e) => {
     const selectedLabId = e.target.value;
     const selectedLab = ownedLabs.find((lab) => lab.id == selectedLabId);
-    console.log('selectedLab id:', selectedLab.uri);
     setEditingLab(selectedLab);
   };
 
