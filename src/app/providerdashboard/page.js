@@ -159,6 +159,63 @@ export default function ProviderDashboard() {
     deleteLab([labId]);
     setPendingDeleteLabs(updatedLabs);
 
+    const labToDelete = labs.find((lab) => lab.id == labId);
+    const labURI = labToDelete.uri;
+    const imagesToDelete = labToDelete.images;
+    const docsToDelete = labToDelete.docs;
+
+    // Delete lab's associated image files
+    if (imagesToDelete && Array.isArray(imagesToDelete)) {
+      imagesToDelete.forEach(imageToDelete => {
+        if (imageToDelete) {
+          // Construct filePath relative to /public
+          const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+
+          fetch('/api/provider/deleteFile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ filePath: filePathToDelete }),
+          }).then(response => {
+            if (!response.ok) {
+              console.error('Failed to delete image file:', filePathToDelete);
+            }
+          }).catch(error => {
+            console.error('Error deleting image file:', error);
+          });
+        }
+      });
+    } else {
+        console.warn('labToDelete.images is not an array or is undefined:', imagesToDelete);
+    }
+
+    // Delete lab's associated doc files
+    if (docsToDelete && Array.isArray(docsToDelete)) {
+      docsToDelete.forEach(docToDelete => {
+        if (docToDelete) {
+          // Construct filePath relative to /public
+          const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+
+          fetch('/api/provider/deleteFile', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ filePath: filePathToDelete }),
+          }).then(response => {
+            if (!response.ok) {
+              console.error('Failed to delete doc file:', filePathToDelete);
+            }
+          }).catch(error => {
+            console.error('Error deleting doc file:', error);
+          });
+        }
+      });
+    } else {
+        console.warn('labToDelete.docs is not an array or is undefined:', docsToDelete);
+    }
+
     // Delete json file
     try {
       const response = await fetch('/api/provider/deleteLabData', {
@@ -166,7 +223,8 @@ export default function ProviderDashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ labURI: `Lab-${user.name}-${labId}.json` }),
+        body: JSON.stringify({ labURI: labURI }),
+        // body: JSON.stringify({ labURI: `Lab-${user.name}-${labId}.json` }),
       });
 
       if (!response.ok) {

@@ -2,11 +2,13 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import { put } from '@vercel/blob';
 
 export async function POST(req) {
   try {
     const formData = await req.formData();
     const file = formData.get('file');
+    const isVercel = !!process.env.VERCEL;
     const destinationFolder = formData.get('destinationFolder');
 
     if (!file) {
@@ -18,14 +20,18 @@ export async function POST(req) {
     }
 
     const uniqueFilename = `${uuidv4()}-${file.name}`;
-    const localFilePath = path.join('./public', destinationFolder, uniqueFilename); // Guarda en /public/images o /public/docs
+    const localFilePath = path.join('./public', destinationFolder, uniqueFilename);
+    const filePath = `/${destinationFolder}/${uniqueFilename}`;
+    const blobName = filePath;
 
-    // Asegúrate de que el directorio exista
-    await fs.mkdir(path.dirname(localFilePath), { recursive: true });
-    const buffer = await file.arrayBuffer();
-    await fs.writeFile(localFilePath, Buffer.from(buffer));
-
-    const filePath = `/${destinationFolder}/${uniqueFilename}`; // La ruta para acceder al archivo desde el navegador
+    if (!isVercel) {
+      await fs.mkdir(path.dirname(localFilePath), { recursive: true });
+      const buffer = await file.arrayBuffer();
+      await fs.writeFile(localFilePath, Buffer.from(buffer));
+    } else {
+      await put(`public/${blobName}`, Buffer.from(buffer), 
+                { contentType: 'application/json', allowOverwrite: true, access: 'public' });
+    }
 
     return NextResponse.json({ filePath }, { status: 200 });
   } catch (error) {
