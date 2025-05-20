@@ -2,6 +2,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import { put } from '@vercel/blob';
 
 export async function POST(req) {
   try {
@@ -18,14 +19,13 @@ export async function POST(req) {
     }
 
     const uniqueFilename = `${uuidv4()}-${file.name}`;
-    const localFilePath = path.join('./public', destinationFolder, uniqueFilename); // Guarda en /public/images o /public/docs
+    const localFilePath = path.join('./public', destinationFolder, uniqueFilename);
 
-    // Asegúrate de que el directorio exista
     await fs.mkdir(path.dirname(localFilePath), { recursive: true });
     const buffer = await file.arrayBuffer();
     await fs.writeFile(localFilePath, Buffer.from(buffer));
 
-    const filePath = `/${destinationFolder}/${uniqueFilename}`; // La ruta para acceder al archivo desde el navegador
+    const filePath = `/${destinationFolder}/${uniqueFilename}`;
 
     return NextResponse.json({ filePath }, { status: 200 });
   } catch (error) {
