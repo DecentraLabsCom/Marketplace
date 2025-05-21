@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { UploadCloud, Link, XCircle } from 'lucide-react';
 
-export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [activeTab, setActiveTab] = useState('full');
   const [imageInputType, setImageInputType] = useState('link');
   const [docInputType, setDocInputType] = useState('link');
@@ -10,6 +10,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
   const [localDocs, setLocalDocs] = useState([]);
   const [imageUrls, setImageUrls] = useState([]);
   const [docUrls, setDocUrls] = useState([]);
+  const [localLab, setLocalLab] = useState({ ...lab });
 
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
@@ -57,6 +58,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
 
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
+    if (isOpen) {
+      setLocalLab(lab ? { ...lab } : {});
+    }
     if (isOpen && lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
@@ -108,7 +112,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
                                 return await uploadFile(file, 'images', currentLabId);
                             })
                         );
-                        setLab(prevLab => {
+                        setLocalLab(prevLab => {
                             const currentImages = prevLab.images || [];
                             return {
                                 ...prevLab,
@@ -135,7 +139,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
                                 return await uploadFile(file, 'images', currentLabId);
                             })
                         );
-                        setLab(prevLab => {
+                        setLocalLab(prevLab => {
                             const currentImages = prevLab.images || [];
                             return {
                                 ...prevLab,
@@ -149,7 +153,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
                 uploadImages();
             }
         }
-    }, [setLab, lab.id, maxId]);
+    }, [setLocalLab, lab.id, maxId]);
 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
@@ -170,7 +174,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
             })
           );
 
-          setLab(prevLab => {
+          setLocalLab(prevLab => {
             const currentDocs = prevLab.docs || [];
             return {
               ...prevLab,
@@ -191,7 +195,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
             })
           );
 
-          setLab(prevLab => {
+          setLocalLab(prevLab => {
             const currentDocs = prevLab.docs || [];
             return {
               ...prevLab,
@@ -203,7 +207,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
         }
       }
     }
-  }, [setLab, lab.id, maxId]);
+  }, [setLocalLab, lab.id, maxId]);
 
   const removeImage = (index) => {
     setLocalImages(prevImages => {
@@ -218,7 +222,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
         URL.revokeObjectURL(urlToRemove);
       }
 
-      setLab(prevLab => {
+      setLocalLab(prevLab => {
         const imageToDelete = prevLab.images[index]; // Get the path to delete
         const updatedImages = prevLab.images.filter((_, i) => i !== index);
         
@@ -259,7 +263,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
       return newDocs
     });
 
-    setLab(prevLab => {
+    setLocalLab(prevLab => {
       const docToDelete = prevLab.docs[index]; // Get the path to delete
       const updatedDocs = prevLab.docs.filter((_, i) => i !== index);
 
@@ -289,12 +293,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
     });
   };
 
-  const handleSubmitFull = () => {
-    onSubmit();
+  const handleSubmitFull = (e) => {
+    e.preventDefault();
+    onSubmit(localLab);
   }
 
-  const handleSubmit = () => {
-    onSubmit();
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(localLab);
   };
 
   if (!isOpen) return null;
@@ -330,85 +336,85 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
           </div>
           <div className="mt-4">
             {activeTab === 'full' && (
-              <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); handleSubmitFull(); }}>
+              <form className="space-y-4 text-gray-600" onSubmit={handleSubmitFull}>
                 <input
                   type="text"
                   placeholder="Lab Name"
-                  value={lab.name}
-                  onChange={(e) => setLab({ ...lab, name: e.target.value })}
+                  value={localLab.name}
+                  onChange={(e) => setLocalLab({ ...localLab, name: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Category"
-                  value={lab.category}
-                  onChange={(e) => setLab({ ...lab, category: e.target.value })}
+                  value={localLab.category}
+                  onChange={(e) => setLocalLab({ ...localLab, category: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Keywords (comma-separated)"
-                  value={lab.keywords.join(',')}
+                  value={localLab.keywords.join(',')}
                   onChange={(e) =>
-                    setLab({ ...lab, keywords: e.target.value.split(',') })
+                    setLocalLab({ ...localLab, keywords: e.target.value.split(',') })
                   }
                   className="w-full p-2 border rounded"
                 />
                 <textarea
                   placeholder="Description"
-                  value={lab.description}
-                  onChange={(e) => setLab({ ...lab, description: e.target.value })}
+                  value={localLab.description}
+                  onChange={(e) => setLocalLab({ ...localLab, description: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="number"
                   placeholder="Price"
-                  value={lab.price}
-                  onChange={(e) => setLab({ ...lab, price: e.target.value })}
+                  value={localLab.price}
+                  onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Auth URL"
-                  value={lab.auth}
-                  onChange={(e) => setLab({ ...lab, auth: e.target.value })}
+                  value={localLab.auth}
+                  onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Access URI"
-                  value={lab.accessURI || ''}
-                  onChange={(e) => setLab({ ...lab, accessURI: e.target.value })}
+                  value={localLab.accessURI || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Access Key"
-                  value={lab.accessKey || ''}
-                  onChange={(e) => setLab({ ...lab, accessKey: e.target.value })}
+                  value={localLab.accessKey || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Time Slots (comma-separated)"
-                  value={Array.isArray(lab.timeSlots) ? lab.timeSlots.join(',') : ''}
+                  value={Array.isArray(localLab.timeSlots) ? localLab.timeSlots.join(',') : ''}
                   onChange={(e) =>
-                    setLab({ ...lab, timeSlots: e.target.value.split(',') })
+                    setLocalLab({ ...localLab, timeSlots: e.target.value.split(',') })
                   }
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Opens (e.g. 09:00)"
-                  value={lab.opens || ''}
-                  onChange={(e) => setLab({ ...lab, opens: e.target.value })}
+                  value={localLab.opens || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, opens: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Closes (e.g. 18:00)"
-                  value={lab.closes || ''}
-                  onChange={(e) => setLab({ ...lab, closes: e.target.value })}
+                  value={localLab.closes || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, closes: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
 
@@ -445,9 +451,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
                     <input
                       type="text"
                       placeholder="Image URLs (comma-separated)"
-                      value={Array.isArray(lab.images) ? lab.images.join(',') : ''}
+                      value={Array.isArray(localLab.images) ? localLab.images.join(',') : ''}
                       onChange={(e) =>
-                        setLab({ ...lab, images: e.target.value.split(',') })
+                        setLocalLab({ ...localLab, images: e.target.value.split(',') })
                       }
                       className="w-full p-2 border rounded"
                     />
@@ -545,9 +551,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
                     <input
                       type="text"
                       placeholder="Docs URLs (comma-separated)"
-                      value={lab.docs.join(',')}
+                      value={localLab.docs.join(',')}
                       onChange={(e) =>
-                        setLab({ ...lab, docs: e.target.value.split(',') })
+                        setLocalLab({ ...localLab, docs: e.target.value.split(',') })
                       }
                       className="w-full p-2 border rounded"
                     />
@@ -632,40 +638,40 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId
               </form>
             )}
             {activeTab === 'quick' && (
-              <form className="space-y-4 text-gray-600" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+              <form className="space-y-4 text-gray-600" onSubmit={handleSubmit}>
                 <input
                   type="number"
                   placeholder="Price"
-                  value={lab.price}
-                  onChange={(e) => setLab({ ...lab, price: e.target.value })}
+                  value={localLab.price}
+                  onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Auth URL"
-                  value={lab.auth}
-                  onChange={(e) => setLab({ ...lab, auth: e.target.value })}
+                  value={localLab.auth}
+                  onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Access URI"
-                  value={lab.accessURI || ''}
-                  onChange={(e) => setLab({ ...lab, accessURI: e.target.value })}
+                  value={localLab.accessURI || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Access Key"
-                  value={lab.accessKey || ''}
-                  onChange={(e) => setLab({ ...lab, accessKey: e.target.value })}
+                  value={localLab.accessKey || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <input
                   type="text"
                   placeholder="Lab Data URL (JSON)"
-                  value={lab.uri || ''}
-                  onChange={(e) => setLab({ ...lab, uri: e.target.value })}
+                  value={localLab.uri || ''}
+                  onChange={(e) => setLocalLab({ ...localLab, uri: e.target.value })}
                   className="w-full p-2 border rounded"
                 />
                 <div className="flex justify-between mt-4">

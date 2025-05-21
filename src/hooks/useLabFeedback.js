@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 export default function useLabFeedback({
   labs, setLabs, 
-  setEditingLab, setIsModalOpen, setShowFeedback, setFeedbackTitle, setFeedbackMessage,
+  setIsModalOpen, setShowFeedback, setFeedbackTitle, setFeedbackMessage,
   isAddSuccess, isUpdateSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess,
   addError, updateError, deleteError, listError, unlistError,
 }) {
@@ -14,10 +14,9 @@ export default function useLabFeedback({
   useEffect(() => {
     setFeedbackTitle('Success!');
     if (isUpdateSuccess && pending.editing) {
-      setLabs(pending.editing);
+      setLabs([...pending.editing]);
       setFeedbackMessage('Lab updated successfully.');
       setShowFeedback(true);
-      setEditingLab(null);
       setIsModalOpen(false);
       setPending(p => ({ ...p, editing: null }));
     }
@@ -25,31 +24,30 @@ export default function useLabFeedback({
       setLabs([...labs, pending.new]);
       setFeedbackMessage('Lab added successfully.');
       setShowFeedback(true);
-      setEditingLab(null);
       setIsModalOpen(false);
       setPending(p => ({ ...p, new: null }));
     }
     if (isDeleteSuccess && pending.delete) {
-      setLabs(pending.delete);
+      setLabs([...pending.delete]);
       setFeedbackMessage('Lab deleted successfully.');
       setShowFeedback(true);
       setPending(p => ({ ...p, delete: null }));
     }
     if (isListSuccess && pending.list) {
-      setLabs(pending.list);
+      setLabs([...pending.list]);
       setFeedbackMessage('Lab listed successfully.');
       setShowFeedback(true);
       setPending(p => ({ ...p, list: null }));
     }
     if (isUnlistSuccess && pending.unlist) {
-      setLabs(pending.unlist);
+      setLabs([...pending.unlist]);
       setFeedbackMessage('Lab unlisted successfully.');
       setShowFeedback(true);
       setPending(p => ({ ...p, unlist: null }));
     }
   }, [
     isUpdateSuccess, isAddSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess, pending,
-    labs, setLabs, setFeedbackTitle, setFeedbackMessage, setShowFeedback, setEditingLab, setIsModalOpen
+    labs, setLabs, setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
   ]);
 
   // Feedback on error
@@ -63,7 +61,16 @@ export default function useLabFeedback({
     ];
     for (const { error, msg } of errorMap) {
       if (error) {
-        setFeedbackMessage(msg + error.message);
+         if (error.message.includes("contract address") ||
+         error.message.includes("is invalid") ||
+         error.message.includes("no contract deployed") ||
+         error.message.includes("does not exist on this network")
+        ) {
+          console.log("Error:", error);
+          setFeedbackMessage("Wrong network. Please switch your wallet to the correct network.");
+        } else {
+          setFeedbackMessage(msg + error.message);
+        }
         setFeedbackTitle('Error!');
         setShowFeedback(true);
         break;

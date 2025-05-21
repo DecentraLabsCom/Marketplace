@@ -28,7 +28,7 @@ export default function ProviderDashboard() {
     error: setTokenError } = useContractWriteFunction('setTokenURI');*/
 
   const [ownedLabs, setOwnedLabs] = useState([]);
-  const [editingLab, setEditingLab] = useState(null);
+  const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackTitle, setFeedbackTitle] = useState('');
@@ -45,10 +45,12 @@ export default function ProviderDashboard() {
   const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
     setPendingListLabs, setPendingUnlistLabs,
   } = useLabFeedback({ labs, setLabs,
-    setEditingLab, setIsModalOpen, setShowFeedback, setFeedbackTitle, setFeedbackMessage,
+    setIsModalOpen, setShowFeedback, setFeedbackTitle, setFeedbackMessage,
     isAddSuccess, isUpdateSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess,
     addError, updateError, deleteError, listError, unlistError,
   });
+
+  const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const today = new Date();
@@ -63,184 +65,204 @@ export default function ProviderDashboard() {
 
   // Automatically set the first lab as the selected lab
   useEffect(() => {
-    if (ownedLabs.length > 0 && !editingLab && !isModalOpen) {
-      setEditingLab(ownedLabs[0]);
+    if (ownedLabs.length > 0 && !selectedLabId) {
+      setSelectedLabId(ownedLabs[0].id);
     }
-  }, [ownedLabs, isModalOpen, editingLab]);
+  }, [ownedLabs, selectedLabId]);
 
-  // Handle adding or updating a lab
-  const handleSaveLab = async () => {
-    let labDataToSave = null;
-    let hasChangedOnChainData = true;
-    let updatedLabs = [];
-
-    if (editingLab?.id) {
-      editingLab.uri = editingLab.uri || `Lab-${user.name}-${editingLab.id}.json`;
-
-      const originalLab = labs.find(lab => lab.id == editingLab.id);
-
-      hasChangedOnChainData =
-      originalLab.uri !== editingLab.uri ||
-      originalLab.price !== editingLab.price ||
-      originalLab.auth !== editingLab.auth ||
-      originalLab.accessURI !== editingLab.accessURI ||
-      originalLab.accessKey !== editingLab.accessKey;
-
-      if (hasChangedOnChainData) {
-        updateLab([
-            editingLab.id,
-            editingLab.uri,
-            editingLab.price,
-            editingLab.auth,
-            editingLab.accessURI,
-            editingLab.accessKey
-        ]);
-        //await tx.wait();
-        // TODO: Disable modal until the transaction is confirmed; maybe show a spinner
-      }
-      updatedLabs = labs.map((lab) =>
-        lab.id == editingLab.id ? editingLab : lab
-      );
-      setPendingEditingLabs(updatedLabs);
-      // Only save lab data if the metadata URI points to a local file.
-      if (editingLab.uri.startsWith('Lab-')) {
-        labDataToSave = editingLab;
-      }
+  // Handle saving a lab (either when editing an existing one or adding a new one)
+  const handleSaveLab = async (labData) => {
+    if (labData.id) {
+      await handleEditLab({
+        labData, labs, user, updateLab, setPendingEditingLabs,
+        setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
+      });
     } else {
-      newLab.uri = newLab.uri || `Lab-${user.name}-${maxId + 1}.json`;
-      addLab([
-          newLab.uri,
-          newLab.price,
-          newLab.auth,
-          newLab.accessURI,
-          newLab.accessKey
-      ]);
-      const newLabRecord = { ...newLab, id: maxId + 1, providerAddress: address};
-      setPendingNewLab(newLabRecord); 
-      // Only save lab data if the metadata URI points to a local file.
-      if (newLab.uri.startsWith('Lab-')) {
-          labDataToSave = newLabRecord;
-      }   
-    }
-
-    if (labDataToSave) {
-      try {
-        const response = await fetch('/api/provider/saveLabData', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labData: labDataToSave }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        labDataToSave = null;
-        if (!hasChangedOnChainData) {
-          setLabs(updatedLabs);
-          setFeedbackTitle('Success!');
-          setFeedbackMessage('Lab updated successfully.');
-          setShowFeedback(true);
-          setIsModalOpen(false);
-        }
-      } catch (error) {
-        labDataToSave = null;
-        setFeedbackTitle('Error!');
-        setFeedbackMessage('Failed to save lab data.');
-        setShowFeedback(true);
-      }
+      await handleAddLab({
+        labData, labs, user, address, addLab, setPendingNewLab,
+        setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
+      });
     }
   };
 
+  // Handle editing/updating a lab
+  async function handleEditLab({
+    labData, labs, user, updateLab, setPendingEditingLabs,
+    setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
+  }) {
+    labData.uri = labData.uri || `Lab-${user.name}-${labData.id}.json`;
+    const originalLab = labs.find(lab => lab.id == labData.id);
+
+    const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
+    const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 
+                          labData.uri.startsWith('https://'));
+    const mustDeleteOldJson = wasLocalJson && isNowExternal;
+
+    const hasChangedOnChainData =
+      originalLab.uri !== labData.uri ||
+      originalLab.price !== labData.price ||
+      originalLab.auth !== labData.auth ||
+      originalLab.accessURI !== labData.accessURI ||
+      originalLab.accessKey !== labData.accessKey;
+
+    try {
+      const updatedLabs = labs.map((lab) =>
+        lab.id == labData.id ? { ...labData } : lab
+      );
+      if (hasChangedOnChainData) {
+        // 1a. If there is any change in the on-chain data, update blockchain and local state
+        const tx = await updateLab([
+          labData.id,
+          labData.uri,
+          labData.price,
+          labData.auth,
+          labData.accessURI,
+          labData.accessKey
+        ]);
+        if (tx?.wait) await tx.wait();
+        setPendingEditingLabs(updatedLabs);
+      } else {
+        // 1b. If there is no change in the on-chain data, just update the local state
+        setLabs(updatedLabs);
+      }
+
+      // 2. Save the JSON if necessary
+      if (labData.uri.startsWith('Lab-')) {
+        try {
+          const response = await fetch('/api/provider/saveLabData', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labData }),
+          });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        } catch (error) {
+          setFeedbackTitle('Error!');
+          setFeedbackMessage('Failed to save lab data.');
+          setShowFeedback(true);
+          return;
+        }
+      }
+
+      // 3. Delete the old JSON if necessary
+      if (mustDeleteOldJson) {
+        await fetch('/api/provider/deleteLabData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labURI: originalLab.uri }),
+        });
+      }
+
+      if (!hasChangedOnChainData) {
+        setFeedbackTitle('Success!');
+        setFeedbackMessage('Lab updated successfully.');
+        setShowFeedback(true);
+        setIsModalOpen(false);
+      }
+    } catch (error) {
+      setFeedbackTitle('Error!');
+      setFeedbackMessage('Failed to update lab on blockchain or save data.');
+      setShowFeedback(true);
+    }
+  }
+
+  // Handle adding a new lab
+  async function handleAddLab({
+    labData, labs, user, address, addLab, setPendingNewLab,
+    setFeedbackTitle, setFeedbackMessage, setShowFeedback
+  }) {
+    const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
+    labData.uri = labData.uri || `Lab-${user.name}-${maxId + 1}.json`;
+
+    try {
+      // 1. Launch the transaction to add the lab on-chain
+      const tx = await addLab([
+        labData.uri,
+        labData.price,
+        labData.auth,
+        labData.accessURI,
+        labData.accessKey
+      ]);
+      if (tx?.wait) await tx.wait();
+
+      // 2. Save the JSON and the json with the lab data if necessary
+      const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
+      setPendingNewLab(newLabRecord);
+
+      if (labData.uri.startsWith('Lab-')) {
+        const response = await fetch('/api/provider/saveLabData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labData: newLabRecord }),
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      setFeedbackTitle('Error!');
+      setFeedbackMessage('Failed to add lab on blockchain or save data.');
+      setShowFeedback(true);
+    }
+  }
+
   // Handle delete a lab
   const handleDeleteLab = async (labId) => {
-    const updatedLabs = labs.filter((lab) => lab.id !== labId);
-    deleteLab([labId]);
-    setPendingDeleteLabs(updatedLabs);
+    const tx = await deleteLab([labId]);
+    if (tx?.wait) await tx.wait();
 
     const labToDelete = labs.find((lab) => lab.id == labId);
     const labURI = labToDelete.uri;
     const imagesToDelete = labToDelete.images;
     const docsToDelete = labToDelete.docs;
 
-    // Delete lab's associated image files
-    if (imagesToDelete && Array.isArray(imagesToDelete)) {
-      imagesToDelete.forEach(imageToDelete => {
-        if (imageToDelete) {
-          // Construct filePath relative to /public
-          const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
-          const formDatatoDelete = new FormData();
-          formDatatoDelete.append('filePath', filePathToDelete);
-          formDatatoDelete.append('labId', labToDelete.id);
-
-          fetch('/api/provider/deleteFile', {
-            method: 'POST',
-            body: formDatatoDelete,
-          }).then(response => {
-            if (!response.ok) {
-              console.error('Failed to delete image file:', filePathToDelete);
-            }
-          }).catch(error => {
-            console.error('Error deleting image file:', error);
-          });
-        }
-      });
-    } else {
-        console.warn('labToDelete.images is not an array or is undefined:', imagesToDelete);
-    }
-
-    // Delete lab's associated doc files
-    if (docsToDelete && Array.isArray(docsToDelete)) {
-      docsToDelete.forEach(docToDelete => {
-        if (docToDelete) {
-          // Construct filePath relative to /public
-          const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
-          const formDatatoDelete = new FormData();
-          formDatatoDelete.append('filePath', filePathToDelete);
-          formDatatoDelete.append('labId', labToDelete.id);
-
-          fetch('/api/provider/deleteFile', {
-            method: 'POST',
-            body: formDatatoDelete,
-          }).then(response => {
-            if (!response.ok) {
-              console.error('Failed to delete doc file:', filePathToDelete);
-            }
-          }).catch(error => {
-            console.error('Error deleting doc file:', error);
-          });
-        }
-      });
-    } else {
-        console.warn('labToDelete.docs is not an array or is undefined:', docsToDelete);
-    }
-
-    // Delete json file
     try {
+      // Delete images
+      if (imagesToDelete && Array.isArray(imagesToDelete)) {
+        await Promise.all(imagesToDelete.map(async (imageToDelete) => {
+          if (imageToDelete) {
+            const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+            const formDatatoDelete = new FormData();
+            formDatatoDelete.append('filePath', filePathToDelete);
+            formDatatoDelete.append('labId', labToDelete.id);
+            const res = await fetch('/api/provider/deleteFile', {
+              method: 'POST',
+              body: formDatatoDelete,
+            });
+            if (!res.ok) throw new Error('Failed to delete image file: ' + filePathToDelete);
+          }
+        }));
+      }
+
+      // Delete docs
+      if (docsToDelete && Array.isArray(docsToDelete)) {
+        await Promise.all(docsToDelete.map(async (docToDelete) => {
+          if (docToDelete) {
+            const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+            const formDatatoDelete = new FormData();
+            formDatatoDelete.append('filePath', filePathToDelete);
+            formDatatoDelete.append('labId', labToDelete.id);
+            const res = await fetch('/api/provider/deleteFile', {
+              method: 'POST',
+              body: formDatatoDelete,
+            });
+            if (!res.ok) throw new Error('Failed to delete doc file: ' + filePathToDelete);
+          }
+        }));
+      }
+
+      // Delete JSON
       const response = await fetch('/api/provider/deleteLabData', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ labURI: labURI }),
-        // body: JSON.stringify({ labURI: `Lab-${user.name}-${labId}.json` }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labURI }),
       });
+      if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
 
-      if (!response.ok) {
-        setShowFeedback(true);
-        setFeedbackTitle("Error Deleting JSON file");
-        setFeedbackMessage("Failed to delete the associated data file on the server.");
-      } else {
-        const data = await response.json();
-        setShowFeedback(true);
-        setFeedbackTitle("Lab Deleted");
-        setFeedbackMessage("Lab and its data have been deleted successfully.");
-      }
+      // If all went well, update state and feedback
+      const updatedLabs = labs.filter((lab) => lab.id !== labId);
+      setPendingDeleteLabs(updatedLabs);
     } catch (error) {
       setShowFeedback(true);
-      setFeedbackTitle("Error Deleting JSON file");
-      setFeedbackMessage("An error occurred while trying to delete the associated data file.");
+      setFeedbackTitle("Error Deleting Lab");
+      setFeedbackMessage(error.message || "An error occurred while deleting lab data.");
     }
   };
 
@@ -289,9 +311,7 @@ export default function ProviderDashboard() {
   };
 
   const handleSelectChange = (e) => {
-    const selectedLabId = e.target.value;
-    const selectedLab = ownedLabs.find((lab) => lab.id == selectedLabId);
-    setEditingLab(selectedLab);
+    setSelectedLabId(e.target.value);
   };
 
   return (
@@ -319,7 +339,7 @@ export default function ProviderDashboard() {
               </div>
               <div className="flex justify-center">
                 <select className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
-                  value={editingLab?.id || ""}
+                  value={selectedLabId}
                   onChange={handleSelectChange}
                 >
                   <option value="" disabled>
@@ -334,12 +354,12 @@ export default function ProviderDashboard() {
                   }
                 </select>
               </div>
-              {editingLab && (
+              {selectedLab && (
                 <div className="p-4 border rounded shadow max-w-4xl mx-auto">
-                  <h3 className="text-lg font-bold text-center mb-4">{editingLab.name}</h3>
+                  <h3 className="text-lg font-bold text-center mb-4">{selectedLab.name}</h3>
                   <div className="w-full flex">
                     <div className="w-2/3">
-                      <Carrousel lab={editingLab} maxHeight={200} />
+                      <Carrousel lab={selectedLab} maxHeight={200} />
                     </div>
                     <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
                       <button onClick={() => setIsModalOpen(true)}
@@ -350,7 +370,7 @@ export default function ProviderDashboard() {
                         border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button onClick={() => handleCollect(editingLab.id)}
+                      <button onClick={() => handleCollect(selectedLab.id)}
                         className="relative bg-[#bcc4fc] h-1/4 overflow-hidden group hover:font-bold"
                       >
                         Collect
@@ -358,7 +378,7 @@ export default function ProviderDashboard() {
                         border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button onClick={() => handleList(editingLab.id)} disabled
+                      <button onClick={() => handleList(selectedLab.id)} disabled
                         className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold
                                   opacity-50 cursor-not-allowed"
                       >
@@ -367,7 +387,7 @@ export default function ProviderDashboard() {
                         border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
                         group-hover:opacity-100 transition-opacity duration-300" />
                       </button>
-                      <button onClick={() => handleUnlist(editingLab.id)} disabled
+                      <button onClick={() => handleUnlist(selectedLab.id)} disabled
                         className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold
                                   opacity-50 cursor-not-allowed"
                       >
@@ -379,7 +399,7 @@ export default function ProviderDashboard() {
                     </div>
                   </div>
                   <div className="w-2/3 flex justify-center mt-4">
-                    <button onClick={() => handleDeleteLab(editingLab.id)}
+                    <button onClick={() => handleDeleteLab(selectedLab.id)}
                       className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold 
                       hover:bg-[#8a5c66]"
                     >
@@ -395,7 +415,7 @@ export default function ProviderDashboard() {
               </p>
             )}
             <div className="flex justify-center mt-4">
-            <button onClick={() => {setEditingLab(null); setNewLab(newLabStructure); setIsModalOpen(true);}}
+            <button onClick={() => { setNewLab(newLabStructure); setIsModalOpen(true); setSelectedLabId(""); }}
               className="px-6 py-3 rounded shadow-lg bg-[#7b976e] text-white hover:bg-[#83a875]">
               Add New Lab
             </button>
@@ -413,7 +433,7 @@ export default function ProviderDashboard() {
         </div>
 
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
-          lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} maxId={maxId} />
+          lab={selectedLab || newLab} maxId={maxId} />
 
         <FeedbackModal isOpen={showFeedback} title={feedbackTitle} message={feedbackMessage} 
           onClose={() => setShowFeedback(false)} />
