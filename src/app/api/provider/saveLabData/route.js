@@ -6,7 +6,7 @@ import { put } from '@vercel/blob';
 export async function POST(req) {
   try {
     const { labData } = await req.json();
-    const { name, description, category, keywords, price, opens, closes, docs, images, timeSlots, uri } = 
+    const { name, description, category, keywords, opens, closes, docs, images, timeSlots, uri } = 
       labData || {};
 
     const isVercel = !!process.env.VERCEL;

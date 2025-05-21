@@ -24,8 +24,6 @@ export default function ProviderDashboard() {
     error: listError } = useContractWriteFunction('listLab');
   const { contractWriteFunction: unlistLab, isSuccess: isUnlistSuccess, 
     error: unlistError } = useContractWriteFunction('unlistLab');
-  /*const { contractWriteFunction: setTokenURI, isSuccess: isSetTokenSuccess, 
-    error: setTokenError } = useContractWriteFunction('setTokenURI');*/
 
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [selectedLabId, setSelectedLabId] = useState("");
@@ -80,7 +78,7 @@ export default function ProviderDashboard() {
     } else {
       await handleAddLab({
         labData, labs, user, address, addLab, setPendingNewLab,
-        setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
+        setFeedbackTitle, setFeedbackMessage, setShowFeedback
       });
     }
   };
@@ -109,6 +107,7 @@ export default function ProviderDashboard() {
       const updatedLabs = labs.map((lab) =>
         lab.id == labData.id ? { ...labData } : lab
       );
+      // 1. Update lab data
       if (hasChangedOnChainData) {
         // 1a. If there is any change in the on-chain data, update blockchain and local state
         const tx = await updateLab([
@@ -184,10 +183,11 @@ export default function ProviderDashboard() {
       ]);
       if (tx?.wait) await tx.wait();
 
-      // 2. Save the JSON and the json with the lab data if necessary
+      // 2. Update the local state
       const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
       setPendingNewLab(newLabRecord);
 
+      // 3. Save the JSON with the lab data if necessary
       if (labData.uri.startsWith('Lab-')) {
         const response = await fetch('/api/provider/saveLabData', {
           method: 'POST',

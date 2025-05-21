@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import Image from "next/image";
 import { UploadCloud, Link, XCircle } from 'lucide-react';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
@@ -91,7 +92,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
             if (!currentLabId) {
-              console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+              console.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
               return;
             }
 
@@ -184,7 +185,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         } catch (error) {
           console.error("Error al subir documentos", error);
         }
-      } else { //If all files are PDFs
+      } else { // If all files are PDFs
         setLocalDocs(prevLocalDocs => [...prevLocalDocs, ...files]);
 
         try {
@@ -230,7 +231,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         if (imageToDelete && !imageToDelete.startsWith('http')) {
 
           if (!currentLabId) {
-            console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+            console.error("No valid lab ID available for image upload. Lab:", lab);
             return;
           }
           // Construct filePath relative to /public
@@ -270,7 +271,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       // Delete the file from the server
       if (docToDelete) {
         if (!currentLabId) {
-          console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+          console.error("No valid lab ID available for image upload. Lab:", lab);
           return;
         }
         // Construct filePath relative to /public
@@ -475,7 +476,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full"
                       >
                         <div className='flex items-center justify-center'>
-                          <UploadCloud className="mr-2 h-4 w-4" />
+                          <UploadCloud className="mr-2 size-4" />
                           <span>Choose Files</span>
                         </div>
                       </button>
@@ -491,7 +492,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                                   onClick={() => removeImage(index)}
                                   className="text-red-500 hover:text-red-700"
                                 >
-                                  <XCircle className="h-4 w-4" />
+                                  <XCircle className="size-4" />
                                 </button>
                               </li>
                             ))}
@@ -501,14 +502,16 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       {imageUrls.length > 0 && (
                         <div className="mt-2 grid grid-cols-3 gap-2">
                           {imageUrls.map((url, index) => (
-                            <div key={index} className="relative group">
-                              <img src={url} alt={`Preview ${index}`} className="h-16 w-full object-cover rounded" />
+                            <div key={index} className="relative group h-20 w-full">
+                              <Image src={url} alt={`Preview ${index}`} fill unoptimized
+                                className="object-cover rounded" />
                               <button
                                 type="button"
                                 onClick={() => removeImage(index)}
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full opacity-0 
+                                group-hover:opacity-100 transition-opacity"
                               >
-                                <XCircle className="h-4 w-4" />
+                                <XCircle className="size-4" />
                               </button>
                             </div>
                           ))}
@@ -575,7 +578,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full"
                       >
                         <div className='flex items-center justify-center'>
-                          <UploadCloud className="mr-2 h-4 w-4" />
+                          <UploadCloud className="mr-2 size-4" />
                           <span>Choose Files</span>
                         </div>
                       </button>
@@ -591,7 +594,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                                   onClick={() => removeDoc(index)}
                                   className="text-red-500 hover:text-red-700"
                                 >
-                                  <XCircle className="h-4 w-4" />
+                                  <XCircle className="size-4" />
                                 </button>
                               </li>
                             ))}
