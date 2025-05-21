@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { UploadCloud, Link, XCircle } from 'lucide-react';
 
-export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab, maxId }) {
   const [activeTab, setActiveTab] = useState('full');
   const [imageInputType, setImageInputType] = useState('link');
   const [docInputType, setDocInputType] = useState('link');
@@ -13,11 +13,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
 
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
+  const currentLabId = lab.id || maxId + 1;
 
-  const uploadFile = async (file, destinationFolder) => {
+  const uploadFile = async (file, destinationFolder, labId) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('destinationFolder', destinationFolder);
+    formData.append('labId', labId);
 
     try {
       const response = await fetch('/api/provider/uploadFile', {
@@ -60,7 +62,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
           return imageUrl;
         }
-        return imageUrl;
+        return `${currentLabId}/${imageUrl}`;
       });
       setImageUrls(initialImageUrls);
       setImageInputType('upload');
@@ -84,6 +86,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
             // Filter out non-image files.
             const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
+            if (!currentLabId) {
+              console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+              return;
+            }
+
             if (imageFiles.length !== files.length) {
                 alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
                 // Only use the valid images and discard the rest
@@ -93,12 +100,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
                 const newImageUrls = imageFiles.map(file => URL.createObjectURL(file));
                 setImageUrls(prevImageUrls => [...prevImageUrls, ...newImageUrls]);
 
-                //  Upload files *asynchronously* and update lab.images
+                // Upload files *asynchronously* and update lab.images
                 const uploadImages = async () => {
                     try {
                         const uploadedPaths = await Promise.all(
                             imageFiles.map(async (file) => {
-                                return await uploadFile(file, 'images');
+                                return await uploadFile(file, 'images', currentLabId);
                             })
                         );
                         setLab(prevLab => {
@@ -121,9 +128,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
 
                 const uploadImages = async () => {
                     try {
+                      console.log('currentLabId:', currentLabId);
+                      console.log('lab entero:', lab);
                         const uploadedPaths = await Promise.all(
                             files.map(async (file) => {
-                                return await uploadFile(file, 'images');
+                                return await uploadFile(file, 'images', currentLabId);
                             })
                         );
                         setLab(prevLab => {
@@ -140,7 +149,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
                 uploadImages();
             }
         }
-    }, [setLab]);
+    }, [setLab, lab.id, maxId]);
 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
@@ -156,7 +165,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         try {
           const newDocUrls = await Promise.all(
             pdfFiles.map(async (file) => {
-              const filePath = await uploadFile(file, 'docs');
+              const filePath = await uploadFile(file, 'docs', currentLabId);
               return filePath;
             })
           );
@@ -177,7 +186,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         try {
           const newDocUrls = await Promise.all(
             files.map(async (file) => {
-              const filePath = await uploadFile(file, 'docs');
+              const filePath = await uploadFile(file, 'docs', currentLabId);
               return filePath;
             })
           );
@@ -194,7 +203,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
         }
       }
     }
-  }, [setLab]);
+  }, [setLab, lab.id, maxId]);
 
   const removeImage = (index) => {
     setLocalImages(prevImages => {
@@ -212,17 +221,23 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       setLab(prevLab => {
         const imageToDelete = prevLab.images[index]; // Get the path to delete
         const updatedImages = prevLab.images.filter((_, i) => i !== index);
+        
         // Delete the file from the server
         if (imageToDelete && !imageToDelete.startsWith('http')) {
+
+          if (!currentLabId) {
+            console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+            return;
+          }
           // Construct filePath relative to /public
           const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+          const formDatatoDelete = new FormData();
+          formDatatoDelete.append('filePath', filePathToDelete);
+          formDatatoDelete.append('labId', currentLabId);
 
           fetch('/api/provider/deleteFile', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ filePath: filePathToDelete }),
+            body: formDatatoDelete,
           }).then(response => {
             if (!response.ok) {
               console.error('Failed to delete image file:', filePathToDelete);
@@ -250,14 +265,18 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
 
       // Delete the file from the server
       if (docToDelete) {
+        if (!currentLabId) {
+          console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+          return;
+        }
         // Construct filePath relative to /public
-          const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+        const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+        const formDatatoDelete = new FormData();
+        formDatatoDelete.append('filePath', filePathToDelete);
+        formDatatoDelete.append('labId', currentLabId);
         fetch('/api/provider/deleteFile', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filePath: filePathToDelete }),
+          body: formDatatoDelete,
         }).then(response => {
           if (!response.ok) {
             console.error('Failed to delete doc file:', filePathToDelete);
@@ -269,8 +288,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, setLab }) {
       return { ...prevLab, docs: updatedDocs };
     });
   };
-
-
 
   const handleSubmitFull = () => {
     onSubmit();

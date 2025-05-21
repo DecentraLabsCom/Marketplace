@@ -39,6 +39,7 @@ export default function ProviderDashboard() {
     opens: '', closes: '', docs: [], images: [], uri: ''
   };
   const [newLab, setNewLab] = useState(newLabStructure);
+  const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
 
   // Control feedback on success and on error & control action (set labs) on success
   const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
@@ -106,7 +107,6 @@ export default function ProviderDashboard() {
         labDataToSave = editingLab;
       }
     } else {
-      const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
       newLab.uri = newLab.uri || `Lab-${user.name}-${maxId + 1}.json`;
       addLab([
           newLab.uri,
@@ -170,13 +170,13 @@ export default function ProviderDashboard() {
         if (imageToDelete) {
           // Construct filePath relative to /public
           const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+          const formDatatoDelete = new FormData();
+          formDatatoDelete.append('filePath', filePathToDelete);
+          formDatatoDelete.append('labId', labToDelete.id);
 
           fetch('/api/provider/deleteFile', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ filePath: filePathToDelete }),
+            body: formDatatoDelete,
           }).then(response => {
             if (!response.ok) {
               console.error('Failed to delete image file:', filePathToDelete);
@@ -196,13 +196,13 @@ export default function ProviderDashboard() {
         if (docToDelete) {
           // Construct filePath relative to /public
           const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+          const formDatatoDelete = new FormData();
+          formDatatoDelete.append('filePath', filePathToDelete);
+          formDatatoDelete.append('labId', labToDelete.id);
 
           fetch('/api/provider/deleteFile', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ filePath: filePathToDelete }),
+            body: formDatatoDelete,
           }).then(response => {
             if (!response.ok) {
               console.error('Failed to delete doc file:', filePathToDelete);
@@ -413,7 +413,7 @@ export default function ProviderDashboard() {
         </div>
 
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
-          lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} />
+          lab={editingLab || newLab} setLab={editingLab ? setEditingLab : setNewLab} maxId={maxId} />
 
         <FeedbackModal isOpen={showFeedback} title={feedbackTitle} message={feedbackMessage} 
           onClose={() => setShowFeedback(false)} />
