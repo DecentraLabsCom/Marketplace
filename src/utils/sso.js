@@ -80,17 +80,23 @@ export async function parseSAMLResponse(samlResponse) {
   return new Promise((resolve, reject) => {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {
       if (err) {
-        return reject(err);
+        console.error("SAML Assertion Error:", err);
+        return resolve(null); // reject(err) to reject the promise
       }
+
+      const attrs = samlAssertion?.user?.attributes || {};
 
       // Get user information from the assertion
       const userData = {
-        id: samlAssertion.user.attributes.uid,
-        email: samlAssertion.user.attributes.mail,
-        name: samlAssertion.user.attributes.displayName,
-        affiliation: samlAssertion.user.attributes.schacHomeOrganization,
-        role: samlAssertion.user.attributes.eduPersonAffiliation,
-        scopedRole: samlAssertion.user.attributes.eduPersonScopedAffiliation,
+        id: Array.isArray(attrs.uid) ? attrs.uid[0] : attrs.uid,
+        email: Array.isArray(attrs.mail) ? attrs.mail[0] : attrs.mail,
+        name: Array.isArray(attrs.displayName) ? attrs.displayName[0] : attrs.displayName,
+        affiliation: Array.isArray(attrs.schacHomeOrganization) ? 
+                      attrs.schacHomeOrganization[0] : attrs.schacHomeOrganization,
+        role: Array.isArray(attrs.eduPersonAffiliation) ? 
+              attrs.eduPersonAffiliation[0] : attrs.eduPersonAffiliation,
+        scopedRole: Array.isArray(attrs.eduPersonScopedAffiliation) ? 
+                    attrs.eduPersonScopedAffiliation[0] : attrs.eduPersonScopedAffiliation,
       };
 
       resolve(userData);
