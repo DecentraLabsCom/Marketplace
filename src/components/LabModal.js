@@ -92,7 +92,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
             if (!currentLabId) {
-              console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+              console.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
               return;
             }
 
@@ -231,7 +231,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         if (imageToDelete && !imageToDelete.startsWith('http')) {
 
           if (!currentLabId) {
-            console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+            console.error("No valid lab ID available for image upload. Lab:", lab);
             return;
           }
           // Construct filePath relative to /public
@@ -271,7 +271,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       // Delete the file from the server
       if (docToDelete) {
         if (!currentLabId) {
-          console.error("No valid lab ID available for image upload. Lab:", lab, "Pending ID:", pendingLabId);
+          console.error("No valid lab ID available for image upload. Lab:", lab);
           return;
         }
         // Construct filePath relative to /public
