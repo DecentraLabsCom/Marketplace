@@ -64,9 +64,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     if (isOpen && lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-          return imageUrl;
+          return `${currentLabId}/${imageUrl}`;
         }
-        return `${currentLabId}/${imageUrl}`;
+        return imageUrl;
       });
       setImageUrls(initialImageUrls);
       setImageInputType('upload');

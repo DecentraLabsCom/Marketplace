@@ -65,10 +65,10 @@ export default function ProviderDashboard() {
 
   // Automatically set the first lab as the selected lab
   useEffect(() => {
-    if (ownedLabs.length > 0 && !selectedLabId) {
+    if (ownedLabs.length > 0 && !selectedLabId && !isModalOpen) {
       setSelectedLabId(ownedLabs[0].id);
     }
-  }, [ownedLabs, selectedLabId]);
+  }, [ownedLabs, selectedLabId, isModalOpen]);
 
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
