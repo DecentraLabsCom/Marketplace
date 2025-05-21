@@ -5,12 +5,14 @@ import { del } from '@vercel/blob';
 
 export async function POST(req) {
   try {
-    const { filePath } = await req.json();
+    const formData = await req.formData();
+    const filePath = formData.get('filePath');
+    const labId = formData.get('labId');
     if (!filePath) {
       return NextResponse.json({ error: 'File path is required' }, { status: 400 });
     }
     const isVercel = !!process.env.VERCEL;
-    const fullFilePath = path.join(process.cwd(), 'public', filePath);
+    const fullFilePath = path.join(process.cwd(), `public/${labId}`, filePath);
 
     if (!fullFilePath.startsWith(path.resolve('./public'))) {
         return NextResponse.json({ error: 'Invalid file path.  Must be within public directory:', fullFilePath }, { status: 400 });
@@ -21,7 +23,7 @@ export async function POST(req) {
             await fs.unlink(fullFilePath);
         } catch (deleteError) {
             if (deleteError.code === 'ENOENT') {
-                return NextResponse.json({ message: 'File not found, but deletion was considered successful.' }, { status: 200 });
+                return NextResponse.json({ message: 'File not found, but deletion was considered successful.', fullFilePath }, { status: 200 });
             } else {
                 console.error('Error deleting file:', deleteError);
                 return NextResponse.json(
@@ -33,7 +35,7 @@ export async function POST(req) {
         return NextResponse.json({ message: 'File deleted successfully' }, { status: 200 });
     } else {
         try {
-            const blobPath = `public/${filePath}`;
+            const blobPath = `public/${labId}${filePath}`;
             const result = await del(blobPath);
             if (result) {
                 console.log(`Blob deleted from Vercel: ${blobPath}`);

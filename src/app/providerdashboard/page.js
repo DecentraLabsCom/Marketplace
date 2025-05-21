@@ -37,6 +37,7 @@ export default function ProviderDashboard() {
     opens: '', closes: '', docs: [], images: [], uri: ''
   };
   const [newLab, setNewLab] = useState(newLabStructure);
+  const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
 
   // Control feedback on success and on error & control action (set labs) on success
   const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
@@ -218,10 +219,12 @@ export default function ProviderDashboard() {
         await Promise.all(imagesToDelete.map(async (imageToDelete) => {
           if (imageToDelete) {
             const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+            const formDatatoDelete = new FormData();
+            formDatatoDelete.append('filePath', filePathToDelete);
+            formDatatoDelete.append('labId', labToDelete.id);
             const res = await fetch('/api/provider/deleteFile', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ filePath: filePathToDelete }),
+              body: formDatatoDelete,
             });
             if (!res.ok) throw new Error('Failed to delete image file: ' + filePathToDelete);
           }
@@ -233,10 +236,12 @@ export default function ProviderDashboard() {
         await Promise.all(docsToDelete.map(async (docToDelete) => {
           if (docToDelete) {
             const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+            const formDatatoDelete = new FormData();
+            formDatatoDelete.append('filePath', filePathToDelete);
+            formDatatoDelete.append('labId', labToDelete.id);
             const res = await fetch('/api/provider/deleteFile', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ filePath: filePathToDelete }),
+              body: formDatatoDelete,
             });
             if (!res.ok) throw new Error('Failed to delete doc file: ' + filePathToDelete);
           }
@@ -428,7 +433,7 @@ export default function ProviderDashboard() {
         </div>
 
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
-          lab={selectedLab || newLab} />
+          lab={selectedLab || newLab} maxId={maxId} />
 
         <FeedbackModal isOpen={showFeedback} title={feedbackTitle} message={feedbackMessage} 
           onClose={() => setShowFeedback(false)} />
