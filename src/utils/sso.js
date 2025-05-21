@@ -4,15 +4,13 @@ import xml2js from "xml2js";
 
 export async function createSession(res, userData) {
   // Create a cookie with the user information
-  const sessionCookie = serialize("user_session", JSON.stringify(userData), {
+  response.cookies.set("user_session", JSON.stringify(userData), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
     maxAge: 60 * 60 * 24, // 1 day
   });
-
-  res.setHeader("Set-Cookie", sessionCookie);
 }
 
 export function createServiceProvider() {
