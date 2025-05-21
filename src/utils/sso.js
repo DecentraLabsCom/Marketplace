@@ -1,5 +1,6 @@
 import { ServiceProvider, IdentityProvider } from "saml2-js";
 import { serialize } from "cookie";
+import xml2js from "xml2js";
 
 export async function createSession(res, userData) {
   // Create a cookie with the user information
@@ -38,10 +39,37 @@ export function createServiceProvider() {
 export async function createIdentityProvider() {
   const res = await fetch(process.env.NEXT_PUBLIC_SAML_IDP_METADATA_URL);
   const metadata = await res.text();
-  console.log("IDP Metadata:", metadata);
+  
+  // Parse XML
+  const parsed = await xml2js.parseStringPromise(metadata, { explicitArray: false });
+
+  // Navigate through the object to extract values
+  const idpSSO = parsed["md:EntityDescriptor"]["md:IDPSSODescriptor"];
+  const ssoServices = Array.isArray(idpSSO["md:SingleSignOnService"])
+    ? idpSSO["md:SingleSignOnService"]
+    : [idpSSO["md:SingleSignOnService"]];
+  const sso_login_url = ssoServices.find(s => s.$.Binding.includes("HTTP-Redirect")).$.Location;
+
+  const sloServices = idpSSO["md:SingleLogoutService"];
+  const sso_logout_url = Array.isArray(sloServices)
+    ? sloServices[0].$.Location
+    : sloServices?.$.Location;
+
+  const keyDescriptors = Array.isArray(idpSSO["md:KeyDescriptor"])
+    ? idpSSO["md:KeyDescriptor"]
+    : [idpSSO["md:KeyDescriptor"]];
+  const signingKey = keyDescriptors.find(k => k.$.use === "signing");
+  const certificate = signingKey["ds:KeyInfo"]["ds:X509Data"]["ds:X509Certificate"]
+    .replace(/\s+/g, '');
+
+  // Format the certificate
+  const certFormatted = 
+    `-----BEGIN CERTIFICATE-----\n${certificate.match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----`;
 
   return new IdentityProvider({
-    metadata,
+    sso_login_url,
+    sso_logout_url,
+    certificates: [certFormatted],
   });
 }
 
