@@ -36,8 +36,9 @@ export function createServiceProvider() {
 }
 
 export async function createIdentityProvider() {
-  const res = await fetch("https://fpp.sir2.rediris.es/es.rediris.sir2.test.validacion/saml2/idp/metadata.php");
+  const res = await fetch(process.env.NEXT_PUBLIC_SAML_IDP_METADATA_URL);
   const metadata = await res.text();
+  console.log("IDP Metadata:", metadata);
 
   return new IdentityProvider({
     metadata,
