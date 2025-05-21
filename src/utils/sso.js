@@ -24,6 +24,7 @@ export function createServiceProvider() {
     assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
     private_key: privateKey,
     certificate: certificate,
+    allow_unencrypted_assertion: true,
   });
 
   /*sp.createSingleLogoutServiceUrl = function (options) {
