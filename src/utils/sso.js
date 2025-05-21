@@ -58,18 +58,20 @@ export async function createIdentityProvider() {
   const keyDescriptors = Array.isArray(idpSSO["md:KeyDescriptor"])
     ? idpSSO["md:KeyDescriptor"]
     : [idpSSO["md:KeyDescriptor"]];
-  const signingKey = keyDescriptors.find(k => k.$.use === "signing");
-  const certificate = signingKey["ds:KeyInfo"]["ds:X509Data"]["ds:X509Certificate"]
-    .replace(/\s+/g, '');
-
-  // Format the certificate
-  const certFormatted = 
-    `-----BEGIN CERTIFICATE-----\n${certificate.match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----`;
+  
+  const certificates = keyDescriptors
+    .map(k => k["ds:KeyInfo"]["ds:X509Data"]["ds:X509Certificate"])
+    .filter(Boolean)
+    .map(cert => {
+      const clean = cert.replace(/\s+/g, '');
+      const formatted = clean.match(/.{1,64}/g).join('\n');
+      return `-----BEGIN CERTIFICATE-----\n${formatted}\n-----END CERTIFICATE-----`;
+    });
 
   return new IdentityProvider({
     sso_login_url,
     sso_logout_url,
-    certificates: [certFormatted],
+    certificates,
   });
 }
 
@@ -81,7 +83,7 @@ export async function parseSAMLResponse(samlResponse) {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {
       if (err) {
         console.error("SAML Assertion Error:", err);
-        return resolve(null); // reject(err) to reject the promise
+        return reject(err);
       }
 
       const attrs = samlAssertion?.user?.attributes || {};
