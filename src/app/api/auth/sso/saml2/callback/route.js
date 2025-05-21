@@ -4,8 +4,9 @@ import { NextResponse } from "next/server";
 export async function POST(request) {
   try {
     // Step 1: Process the SAML response sent by the IdP
-    const body = await request.json();
-    const samlResponse = body.SAMLResponse;
+    const text = await request.text();
+    const params = new URLSearchParams(text);
+    const samlResponse = params.get("SAMLResponse");
     const userData = await parseSAMLResponse(samlResponse);
 
     if (!userData) {
