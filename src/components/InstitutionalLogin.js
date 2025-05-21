@@ -8,7 +8,7 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
 
   const handleInstitutionalLogin = () => {
     setIsModalOpen(false);
-    router.push("/api/auth/sso/saml2/login");
+    window.location.href = "/api/auth/sso/saml2/login";
   }
 
   return (
