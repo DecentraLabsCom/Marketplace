@@ -65,7 +65,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     if (isOpen && lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-          return `${currentLabId}/${imageUrl}`;
+          return imageUrl;
         }
         return imageUrl;
       });
@@ -133,8 +133,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
                 const uploadImages = async () => {
                     try {
-                      console.log('currentLabId:', currentLabId);
-                      console.log('lab entero:', lab);
                         const uploadedPaths = await Promise.all(
                             files.map(async (file) => {
                                 return await uploadFile(file, 'images', currentLabId);
@@ -230,15 +228,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         // Delete the file from the server
         if (imageToDelete && !imageToDelete.startsWith('http')) {
 
-          if (!currentLabId) {
-            console.error("No valid lab ID available for image upload. Lab:", lab);
-            return;
-          }
           // Construct filePath relative to /public
           const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
           const formDatatoDelete = new FormData();
           formDatatoDelete.append('filePath', filePathToDelete);
-          formDatatoDelete.append('labId', currentLabId);
 
           fetch('/api/provider/deleteFile', {
             method: 'POST',
@@ -270,15 +263,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
       // Delete the file from the server
       if (docToDelete) {
-        if (!currentLabId) {
-          console.error("No valid lab ID available for image upload. Lab:", lab);
-          return;
-        }
         // Construct filePath relative to /public
         const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
         const formDatatoDelete = new FormData();
         formDatatoDelete.append('filePath', filePathToDelete);
-        formDatatoDelete.append('labId', currentLabId);
         fetch('/api/provider/deleteFile', {
           method: 'POST',
           body: formDatatoDelete,

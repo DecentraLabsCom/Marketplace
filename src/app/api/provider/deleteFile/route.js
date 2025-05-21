@@ -7,12 +7,11 @@ export async function POST(req) {
   try {
     const formData = await req.formData();
     const filePath = formData.get('filePath');
-    const labId = formData.get('labId');
     if (!filePath) {
       return NextResponse.json({ error: 'File path is required' }, { status: 400 });
     }
     const isVercel = !!process.env.VERCEL;
-    const fullFilePath = path.join(process.cwd(), `public/${labId}`, filePath);
+    const fullFilePath = path.join(process.cwd(), `public`, filePath);
 
     if (!fullFilePath.startsWith(path.resolve('./public'))) {
         return NextResponse.json({ error: 'Invalid file path.  Must be within public directory:', fullFilePath }, { status: 400 });
@@ -35,7 +34,7 @@ export async function POST(req) {
         return NextResponse.json({ message: 'File deleted successfully' }, { status: 200 });
     } else {
         try {
-            const blobPath = `public/${labId}${filePath}`;
+            const blobPath = `public${filePath}`;
             const result = await del(blobPath);
             if (result) {
                 console.log(`Blob deleted from Vercel: ${blobPath}`);

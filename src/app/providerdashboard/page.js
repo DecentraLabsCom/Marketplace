@@ -221,7 +221,6 @@ export default function ProviderDashboard() {
             const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
             const formDatatoDelete = new FormData();
             formDatatoDelete.append('filePath', filePathToDelete);
-            formDatatoDelete.append('labId', labToDelete.id);
             const res = await fetch('/api/provider/deleteFile', {
               method: 'POST',
               body: formDatatoDelete,
