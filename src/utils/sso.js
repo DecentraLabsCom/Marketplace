@@ -2,7 +2,7 @@ import { ServiceProvider, IdentityProvider } from "saml2-js";
 import { serialize } from "cookie";
 import xml2js from "xml2js";
 
-export async function createSession(res, userData) {
+export async function createSession(response, userData) {
   // Create a cookie with the user information
   response.cookies.set("user_session", JSON.stringify(userData), {
     httpOnly: true,
