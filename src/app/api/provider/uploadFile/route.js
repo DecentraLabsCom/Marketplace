@@ -20,14 +20,14 @@ export async function POST(req) {
     }
 
     const localFilePath = path.join(`./public/${labId}`, destinationFolder, file.name);
-    const filePath = `/${labId}/${destinationFolder}/${file.name}`;
+    const filePath = `/public/${labId}/${destinationFolder}/${file.name}`;
 
     const buffer = await file.arrayBuffer();
     if (!isVercel) {
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
       await fs.writeFile(localFilePath, Buffer.from(buffer));
     } else {
-      await put(`public${filePath}`, Buffer.from(buffer), 
+      await put(`${filePath}`, Buffer.from(buffer), 
                 { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
 
