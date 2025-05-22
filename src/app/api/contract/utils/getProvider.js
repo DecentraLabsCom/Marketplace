@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { moralisNetworks, ankrNetworks, quicknodeNetworks, chainstackNetworks } 
+import { alchemyNetworks, moralisNetworks, ankrNetworks, quicknodeNetworks, chainstackNetworks } 
     from '../../../../utils/networkConfig';
 
 export default async function getProvider(network) {
@@ -25,6 +25,10 @@ export default async function getProvider(network) {
     ));
 
     if (alchemyProjectId) {
+        providers.push(new ethers.WebSocketProvider(
+            `wss:${alchemyNetworks[network.id]}${alchemyProjectId}`,
+            networkInfo
+        ));
         providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
     }
     if (moralisProjectId) {

@@ -1,4 +1,4 @@
-import { http, createConfig, fallback } from 'wagmi';
+import { http, webSocket, createConfig, fallback } from 'wagmi';
 import { mainnet, polygon, sepolia } from 'wagmi/chains';
 import { walletConnect, metaMask} from 'wagmi/connectors';
 import { alchemyNetworks, moralisNetworks, ankrNetworks, quicknodeNetworks, 
@@ -14,8 +14,8 @@ let cloudReownId = process.env.NEXT_PUBLIC_CLOUD_REOWN_ID;
 
 const chains = [mainnet, polygon, sepolia];
 
-const alchemySepoliaTransport = http(
-  `https://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
+const alchemySepoliaTransport = webSocket(
+  `wss://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
   key: 'alchemy',
   retryCount: 0,
   batch: {
@@ -41,8 +41,8 @@ const ankrSepoliaTransport = http(
   },
 });
 
-const quicknodeSepoliaTransport = http(
-  `https://${quicknodeNetworks[sepolia.id]}${quicknodeProjectId}`, {
+const quicknodeSepoliaTransport = webSocket(
+  `wss://${quicknodeNetworks[sepolia.id]}${quicknodeProjectId}`, {
   key: 'quicknode',
   retryCount: 0,
   batch: {
