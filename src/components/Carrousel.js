@@ -37,18 +37,18 @@ export default function Carrousel({ lab, maxHeight }) {
     resetInterval();
   };
 
-  const isVercel = !!process.env.VERCEL;
+  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL;
   const VERCEL_BLOB_BASE_URL = "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com/data";
 
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
         {lab?.images.filter((image) => !!image).map((image, index) => {
-          // const imageUrl = isVercel 
-          // ? `${VERCEL_BLOB_BASE_URL}${image}`
-          // : `${image}`;
+          const imageUrl = isVercel 
+          ? `${VERCEL_BLOB_BASE_URL}${image}`
+          : `${image}`;
 
-          const imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
+          // const imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
 
           console.log('is vercel:', isVercel);
           console.log('image:', image);
