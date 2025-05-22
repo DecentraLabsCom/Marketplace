@@ -38,7 +38,7 @@ export default function Carrousel({ lab, maxHeight }) {
   };
 
   const isVercel = !!process.env.VERCEL;
-  const VERCEL_BLOB_BASE_URL = "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com";
+  const VERCEL_BLOB_BASE_URL = "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com/data";
 
   return (
     <div className="relative w-full overflow-hidden" 
