@@ -44,9 +44,23 @@ export default function Carrousel({ lab, maxHeight }) {
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
         {lab?.images.filter((image) => !!image).map((image, index) => {
-          const imageUrl = isVercel 
-          ? `${VERCEL_BLOB_BASE_URL}${image}`
-          : `${image}`;
+          // const imageUrl = isVercel 
+          // ? `${VERCEL_BLOB_BASE_URL}${image}`
+          // : `${image}`;
+
+          const imageUrl = '';
+
+          if (isVercel) {
+            imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
+          } else {
+            imageUrl = `${image}`;
+          }
+
+          // const imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
+
+          console.log('is vercel:', isVercel);
+          console.log('image:', image);
+          console.log('image url:', imageUrl);
 
           return (
             <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
