@@ -27,12 +27,11 @@ export async function POST(req) {
       await fs.mkdir(path.dirname(localFilePath), { recursive: true });
       await fs.writeFile(localFilePath, Buffer.from(buffer));
     } else {
-      console.log('lab id:', labId);
       await put(`public${filePath}`, Buffer.from(buffer), 
                 { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
 
-    return NextResponse.json({ filePath }, { status: 200 }, { labId });
+    return NextResponse.json({ filePath }, { status: 200 });
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json(
