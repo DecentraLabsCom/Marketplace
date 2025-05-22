@@ -37,16 +37,25 @@ export default function Carrousel({ lab, maxHeight }) {
     resetInterval();
   };
 
+  const isVercel = !!process.env.VERCEL;
+  const VERCEL_BLOB_BASE_URL = "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com";
+
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
-        {lab?.images.filter((image) => !!image).map((image, index) => (
-          <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
-                    index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-            <Image src={image} alt={`Image ${index + 1}`} fill className="object-cover object-center 
-              rounded-md" style={{objectPosition: 'center'}} sizes="100vw, 50vw" />
-          </div>
-        ))}
+        {lab?.images.filter((image) => !!image).map((image, index) => {
+          const imageUrl = isVercel 
+          ? `${VERCEL_BLOB_BASE_URL}/${image}`
+          : `${image}`;
+
+          return (
+            <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
+                      index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
+              <Image src={imageUrl} alt={`Image ${index + 1}`} fill className="object-cover object-center 
+                rounded-md" style={{objectPosition: 'center'}} sizes="100vw, 50vw" />
+            </div>
+          );
+        })}
 
       {lab?.images.length > 1 && (
       <>
