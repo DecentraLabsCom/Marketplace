@@ -13,6 +13,11 @@ const nextConfig = {
     config.resolve.alias['@'] = path.resolve('./src');
     return config;
   },
+  images: {
+    remotePatterns: [
+      { hostname: "n7alj90bp0isqv2j.public.blob.vercel-storage.com" },
+    ]
+  },
 };
 
 export default nextConfig;
