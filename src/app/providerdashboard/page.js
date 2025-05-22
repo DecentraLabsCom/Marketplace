@@ -205,6 +205,7 @@ export default function ProviderDashboard() {
 
   // Handle delete a lab
   const handleDeleteLab = async (labId) => {
+    console.log('Deleting lab with ID:', labId);
     const tx = await deleteLab([labId]);
     if (tx?.wait) await tx.wait();
 
