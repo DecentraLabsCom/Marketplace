@@ -48,15 +48,7 @@ export default function Carrousel({ lab, maxHeight }) {
           // ? `${VERCEL_BLOB_BASE_URL}${image}`
           // : `${image}`;
 
-          const imageUrl = '';
-
-          if (isVercel) {
-            imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
-          } else {
-            imageUrl = `${image}`;
-          }
-
-          // const imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
+          const imageUrl = `${VERCEL_BLOB_BASE_URL}${image}`;
 
           console.log('is vercel:', isVercel);
           console.log('image:', image);
