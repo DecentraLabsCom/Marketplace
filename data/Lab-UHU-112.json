@@ -1,0 +1,35 @@
+{
+  "name": "Prueba",
+  "description": "",
+  "image": "/112/images/provider dashboard.png",
+  "attributes": [
+    {
+      "trait_type": "category",
+      "value": ""
+    },
+    {
+      "trait_type": "keywords",
+      "value": []
+    },
+    {
+      "trait_type": "timeSlots",
+      "value": []
+    },
+    {
+      "trait_type": "opens",
+      "value": ""
+    },
+    {
+      "trait_type": "closes",
+      "value": ""
+    },
+    {
+      "trait_type": "additionalImages",
+      "value": []
+    },
+    {
+      "trait_type": "docs",
+      "value": []
+    }
+  ]
+}

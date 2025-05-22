@@ -45,7 +45,7 @@ export default function Carrousel({ lab, maxHeight }) {
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
         {lab?.images.filter((image) => !!image).map((image, index) => {
           const imageUrl = isVercel 
-          ? `${VERCEL_BLOB_BASE_URL}/${image}`
+          ? `${VERCEL_BLOB_BASE_URL}${image}`
           : `${image}`;
 
           return (
