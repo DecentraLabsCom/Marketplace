@@ -20,7 +20,7 @@ export async function POST(req) {
     }
 
     const localFilePath = path.join(`./public/${labId}`, destinationFolder, file.name);
-    const filePath = `/public/${labId}/${destinationFolder}/${file.name}`;
+    const filePath = `/data/${labId}/${destinationFolder}/${file.name}`;
 
     const buffer = await file.arrayBuffer();
     if (!isVercel) {

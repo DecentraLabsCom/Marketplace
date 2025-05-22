@@ -34,7 +34,7 @@ export async function POST(req) {
         return NextResponse.json({ message: 'File deleted successfully' }, { status: 200 });
     } else {
         try {
-            const blobPath = `public/${filePath}`;
+            const blobPath = `data/${filePath}`;
             const result = await del(blobPath);
             if (result) {
                 console.log(`Blob deleted from Vercel: ${blobPath}`);
