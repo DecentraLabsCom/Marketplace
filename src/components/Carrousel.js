@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 
 export default function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -37,31 +37,16 @@ export default function Carrousel({ lab, maxHeight }) {
     resetInterval();
   };
 
-  const [hasVercelBlobFailed, setHasVercelBlobFailed] = useState(false);
-  const isVercel = !!process.env.NEXT_PUBLIC_VERCEL;
-  const VERCEL_BLOB_BASE_URL = "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com/data";
-
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
         {lab?.images.filter((image) => !!image).map((image, index) => {
-          const imageUrl = (isVercel && !hasVercelBlobFailed) 
-          ? `${VERCEL_BLOB_BASE_URL}${image}`
-          : `${image}`;
 
           return (
             <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                       index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-              <Image src={imageUrl} alt={`Image ${index + 1}`} fill className="object-cover object-center 
+              <ImageWithFallback imagePath={image} alt={`Image ${index + 1}`} fill className="object-cover object-center 
                 rounded-md" style={{objectPosition: 'center'}} sizes="100vw, 50vw"
-                onError={(e) => {
-                  if (isVercel && !hasVercelBlobFailed) {
-                    console.warn(`Failed to load image from Vercel Blob: ${imageUrl}. Falling back to local.`);
-                    setHasVercelBlobFailed(true);
-                  } else {
-                    console.error(`Failed to load image: ${imageUrl}`, e);
-                  }
-                }}  
               />
             </div>
           );

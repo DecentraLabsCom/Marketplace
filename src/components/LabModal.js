@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import Image from "next/image";
 import { UploadCloud, Link, XCircle } from 'lucide-react';
+import ImageWithFallback from './ImageWithFallback';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [activeTab, setActiveTab] = useState('full');
@@ -491,7 +491,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         <div className="mt-2 grid grid-cols-3 gap-2">
                           {imageUrls.map((url, index) => (
                             <div key={index} className="relative group h-20 w-full">
-                              <Image src={url} alt={`Preview ${index}`} fill unoptimized
+                              <ImageWithFallback imagePath={url} alt={`Preview ${index}`} fill unoptimized
                                 className="object-cover rounded" />
                               <button
                                 type="button"
