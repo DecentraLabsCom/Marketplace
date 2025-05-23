@@ -2,6 +2,12 @@ import { mainnet, polygon, sepolia } from 'wagmi/chains';
 
 export const defaultChain = sepolia;
 
+export const defaultNetworks = {
+  [mainnet.id]: process.env.NEXT_PUBLIC_DEFAULT_MAINNET_URL,
+  [polygon.id]: process.env.NEXT_PUBLIC_DEFAULT_POLYGON_URL,
+  [sepolia.id]: process.env.NEXT_PUBLIC_DEFAULT_SEPOLIA_URL,
+};
+
 export const alchemyNetworks = {
   [mainnet.id]: process.env.NEXT_PUBLIC_ALCHEMY_MAINNET_URL,
   [polygon.id]: process.env.NEXT_PUBLIC_ALCHEMY_POLYGON_MAINNET_URL,
