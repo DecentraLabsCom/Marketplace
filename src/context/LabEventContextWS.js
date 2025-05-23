@@ -27,8 +27,6 @@ export function LabEventProvider({ children }) {
         eventName: 'LabAdded',
         listener(log) {
             const newLab = {...log.args};
-            console.log('New Lab Added:', newLab);
-            console.log('Current Labs:', labs);
             setLabs(prevLabs =>
                 prevLabs.map(lab =>
                     lab.provider === newLab._provider &&
@@ -39,7 +37,6 @@ export function LabEventProvider({ children }) {
                         : lab
                 )
             );
-            console.log('Updated Labs:', labs);
         },
     });
 
@@ -49,10 +46,7 @@ export function LabEventProvider({ children }) {
         eventName: 'LabDeleted',
         listener(log) {
             const deletedLabId = toIdString(log.args._labId);
-            console.log('Lab Deleted:', deletedLabId);
-            console.log('Current Labs:', labs);
             setLabs(prevLabs => prevLabs.filter(lab => toIdString(lab.labId) !== deletedLabId));
-            console.log('Updated Labs:', labs);
         },
     });
 
