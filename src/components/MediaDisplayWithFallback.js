@@ -63,19 +63,15 @@ export default function MediaDisplayWithFallback({
     );
   } else if (mediaType === 'doc') {
     let currentDocSrc;
-    // if (isVercel && !hasVercelBlobFailed) {
-    //   currentDocSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
-    // } else if (!isVercel && !hasLocalFallbackFailed) {
-    //   currentDocSrc = `${mediaPath}`;
-    // } else if (hasLocalFallbackFailed) {
-    //   currentDocSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
-    // } else if (isVercel && hasVercelBlobFailed) {
-    //   currentDocSrc = `${mediaPath}`;
-    // }
-
-    currentDocSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
-
-    console.log('currentDocSrc:', currentDocSrc);
+    if (isVercel && !hasVercelBlobFailed) {
+      currentDocSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
+    } else if (!isVercel && !hasLocalFallbackFailed) {
+      currentDocSrc = `${mediaPath}`;
+    } else if (hasLocalFallbackFailed) {
+      currentDocSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
+    } else if (isVercel && hasVercelBlobFailed) {
+      currentDocSrc = `${mediaPath}`;
+    }
 
     return (
       <iframe 
