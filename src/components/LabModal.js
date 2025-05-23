@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { UploadCloud, Link, XCircle } from 'lucide-react';
-import ImageWithFallback from './ImageWithFallback';
+import MediaDisplayWithFallback from './MediaDisplayWithFallback';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [activeTab, setActiveTab] = useState('full');
@@ -252,33 +252,44 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   };
 
   const removeDoc = (index) => {
+    console.log('dentro de removeDoc');
     setLocalDocs(prevDocs => {
       const newDocs = prevDocs.filter((_, i) => i !== index);
       return newDocs
     });
+    console.log('tras setLocalDocs');
 
-    setLocalLab(prevLab => {
-      const docToDelete = prevLab.docs[index]; // Get the path to delete
-      const updatedDocs = prevLab.docs.filter((_, i) => i !== index);
-
-      // Delete the file from the server
-      if (docToDelete) {
-        // Construct filePath relative to /public
-        const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
-        const formDatatoDelete = new FormData();
-        formDatatoDelete.append('filePath', filePathToDelete);
-        fetch('/api/provider/deleteFile', {
-          method: 'POST',
-          body: formDatatoDelete,
-        }).then(response => {
-          if (!response.ok) {
-            console.error('Failed to delete doc file:', filePathToDelete);
-          }
-        }).catch(error => {
-          console.error('Error deleting doc file:', error);
-        });
+    setDocUrls(prevUrls => {
+      const newUrls = prevUrls.filter((_, i) => i !== index);
+      const urlToRemove = prevUrls[index];
+      if (urlToRemove) {
+        URL.revokeObjectURL(urlToRemove);
       }
-      return { ...prevLab, docs: updatedDocs };
+
+      setLocalLab(prevLab => {
+        const docToDelete = prevLab.docs[index]; // Get the path to delete
+        const updatedDocs = prevLab.docs.filter((_, i) => i !== index);
+
+        // Delete the file from the server
+        if (docToDelete) {
+          // Construct filePath relative to /public
+          const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+          const formDatatoDelete = new FormData();
+          formDatatoDelete.append('filePath', filePathToDelete);
+          fetch('/api/provider/deleteFile', {
+            method: 'POST',
+            body: formDatatoDelete,
+          }).then(response => {
+            if (!response.ok) {
+              console.error('Failed to delete doc file:', filePathToDelete);
+            }
+          }).catch(error => {
+            console.error('Error deleting doc file:', error);
+          });
+        }
+        return { ...prevLab, docs: updatedDocs };
+      });
+    return newUrls;
     });
   };
 
@@ -491,7 +502,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         <div className="mt-2 grid grid-cols-3 gap-2">
                           {imageUrls.map((url, index) => (
                             <div key={index} className="relative group h-20 w-full">
-                              <ImageWithFallback imagePath={url} alt={`Preview ${index}`} fill unoptimized
+                              <MediaDisplayWithFallback mediaPath={url} mediaType={'image'} alt={`Preview ${index}`} fill unoptimized
                                 className="object-cover rounded" />
                               <button
                                 type="button"

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import MediaDisplayWithFallback from './MediaDisplayWithFallback';
 
 export default function DocsCarrousel({ docs, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -22,8 +23,8 @@ export default function DocsCarrousel({ docs, maxHeight }) {
         {docs.filter((doc) => !!doc).map((doc, index) => (
           <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                     index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-            <iframe src={doc} title={`doc ${index + 1}`} height="200px" width="100%" 
-            className="rounded-lg"></iframe>
+            <MediaDisplayWithFallback mediaPath={doc} mediaType={'doc'} title={`doc ${index + 1}`} height="200px" width="100%" 
+            className="rounded-lg" />
           </div>
         ))}
 

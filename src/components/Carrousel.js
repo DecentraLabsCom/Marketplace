@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
-import ImageWithFallback from './ImageWithFallback';
+import MediaDisplayWithFallback from './MediaDisplayWithFallback';
 
 export default function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -45,7 +45,7 @@ export default function Carrousel({ lab, maxHeight }) {
           return (
             <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                       index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-              <ImageWithFallback imagePath={image} alt={`Image ${index + 1}`} fill className="object-cover object-center 
+              <MediaDisplayWithFallback mediaPath={image} mediaType={'image'} alt={`Image ${index + 1}`} fill className="object-cover object-center 
                 rounded-md" style={{objectPosition: 'center'}} sizes="100vw, 50vw"
               />
             </div>

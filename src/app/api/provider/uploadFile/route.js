@@ -19,6 +19,26 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Destination folder is required' }, { status: 400 });
     }
 
+    // --- Dynamic Content-Type Detection ---
+    let detectedContentType = file.type;
+
+    // Fallback: If file.type is not available or is generic, try to infer from the file extension
+    // Hanfle cases where file.type might be empty or 'application/octet-stream'
+    if (!detectedContentType || detectedContentType === 'application/octet-stream') {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        switch (ext) {
+            case 'pdf': detectedContentType = 'application/pdf'; break;
+            case 'jpg':
+            case 'jpeg': detectedContentType = 'image/jpeg'; break;
+            case 'png': detectedContentType = 'image/png'; break;
+            case 'gif': detectedContentType = 'image/gif'; break;
+            case 'webp': detectedContentType = 'image/webp'; break;
+            case 'svg': detectedContentType = 'image/svg+xml'; break;
+            // Add more common types as needed
+            default: detectedContentType = 'application/octet-stream'; // Default to generic binary type
+        }
+    }
+
     const localFilePath = path.join(`./public/${labId}`, destinationFolder, file.name);
     const filePath = `/${labId}/${destinationFolder}/${file.name}`;
 
@@ -28,7 +48,7 @@ export async function POST(req) {
       await fs.writeFile(localFilePath, Buffer.from(buffer));
     } else {
       await put(`data${filePath}`, Buffer.from(buffer), 
-                { contentType: 'application/json', allowOverwrite: true, access: 'public' });
+                { contentType: detectedContentType, allowOverwrite: true, access: 'public' });
     }
 
     return NextResponse.json({ filePath }, { status: 200 });

@@ -4,7 +4,7 @@ import LabAccess from "./LabAccess";
 import { useUser } from '../context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
-import ImageWithFallback from "./ImageWithFallback";
+import MediaDisplayWithFallback from "./MediaDisplayWithFallback";
 
 export default function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected, user, isSSO } = useUser();
@@ -16,7 +16,7 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
       style={{ height: '400px' }}>
       <div className="h-2/3 relative">
         {typeof image === "string" && image.trim() !== "" ? (
-          <ImageWithFallback imagePath={image} alt={name} fill priority sizes="80vw"
+          <MediaDisplayWithFallback mediaPath={image} mediaType={'image'} alt={name} fill priority sizes="80vw"
             className="!relative object-cover rounded-t-md" />
         ) : (
           <div className="size-full bg-gray-300 flex items-center justify-center rounded-t-md">
