@@ -86,9 +86,9 @@ const fallbackSepoliaTransport = fallback([
 
 const metadata = {
   name: 'DecentraLabs Marketplace', 
-  url: 'https://marketplace-decentralabs.vercel.app/', 
+  url: process.env.NEXT_PUBLIC_BASE_URL, 
   description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities, allowing users to book and access a wide range of lab services and resources.', 
-  iconUrl: 'https://marketplace-decentralabs.vercel.app/favicon.svg', 
+  iconUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/favicon.svg`, 
 }
 
 const config = createConfig({
