@@ -58,8 +58,6 @@ export function LabEventProvider({ children }) {
 
         // Handlers for each event
         function handleLabAdded(args) {
-            console.log('New Lab Added:', args);
-            console.log('Current Labs:', labs);
             setLabs(prevLabs =>
                 prevLabs.map(lab =>
                     lab.provider === args._provider &&
@@ -70,14 +68,10 @@ export function LabEventProvider({ children }) {
                         : lab
                 )
             );
-            console.log('Updated Labs:', labs);
         }
         function handleLabDeleted(args) {
-            console.log('Lab Deleted:', args);
-            console.log('Current Labs:', labs);
             const deletedLabId = toIdString(args._labId);
             setLabs(prev => prev.filter(lab => toIdString(lab.labId) !== deletedLabId));
-            console.log('Updated Labs:', labs);
         }
         function handleLabUpdated(args) {
             setLabs(prev =>

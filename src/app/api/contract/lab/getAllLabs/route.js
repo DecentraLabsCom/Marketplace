@@ -63,7 +63,6 @@ export async function GET(request) {
                 }
               }
             } else {
-              console.log("Fetching metadata from URI:", labData.base.uri);
               const response = await fetch(labData.base.uri);
               if (response.ok) {
                 metadata = await response.json();

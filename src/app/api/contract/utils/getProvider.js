@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
-import { alchemyNetworks, moralisNetworks, ankrNetworks, quicknodeNetworks, chainstackNetworks } 
-    from '../../../../utils/networkConfig';
+import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
+        quicknodeNetworks, chainstackNetworks } from '../../../../utils/networkConfig';
 
 export default async function getProvider(network) {
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
@@ -11,17 +11,18 @@ export default async function getProvider(network) {
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     const rpcUrl = network.rpcUrls.default.http[0];
-    const networkInfo = { name: network.name, chainId: network.id }
+    const networkInfo = { name: network.name, chainId: network.id };
+    const options = {batchMaxCount: 3};
 
     const providers = [];
 
     providers.push(new ethers.WebSocketProvider(
-        'wss://ethereum-sepolia-rpc.publicnode.com',
+        `wss://${defaultNetworks[network.id]}`,
         networkInfo
     ));
     providers.push(new ethers.JsonRpcProvider(
-        'https://ethereum-sepolia-rpc.publicnode.com',
-        networkInfo, {batchMaxCount: 3}
+        `https://${defaultNetworks[network.id]}`,
+        networkInfo, options
     ));
 
     if (alchemyProjectId) {
@@ -31,16 +32,16 @@ export default async function getProvider(network) {
         ));
         providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
     }
-    if (moralisProjectId) {
+    /*if (moralisProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${moralisNetworks[network.id]}${moralisProjectId}`,
-            networkInfo, {batchMaxCount: 3}
+            networkInfo, options
         ));
-    }
+    }*/
     if (ankrProjectId) {
         providers.push(new ethers.JsonRpcProvider(
             `https://${ankrNetworks[network.id]}${ankrProjectId}`,
-            networkInfo, {batchMaxCount: 3}
+            networkInfo, options
         ));
     }
     if (quicknodeProjectId) {
@@ -50,18 +51,18 @@ export default async function getProvider(network) {
         ));
         providers.push(new ethers.JsonRpcProvider(
             `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-            networkInfo, {batchMaxCount: 3}
+            networkInfo, options
         ));
     }
     // TODO: Try to solve issues with the following two providers
-    /*if (chainstackProjectId) {
+    if (chainstackProjectId) {
         providers.push(new ethers.WebSocketProvider(
             `wss://${chainstackNetworks[network.id]}${chainstackProjectId}`,
             networkInfo
         ));
         providers.push(new ethers.JsonRpcProvider(
             `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-            networkInfo, {batchMaxCount: 3}
+            networkInfo, options
         ));
     }
     if (infuraProjectId) {
@@ -72,11 +73,11 @@ export default async function getProvider(network) {
                 ? { projectId: infuraProjectId, projectSecret: infuraSecretKey }
                 : infuraProjectId
             )
-          );
-    }*/
+        );
+    }
     
     // Fallback to the official RPC if others fail
-    providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, {batchMaxCount: 3}));
+    providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
 
     return new ethers.FallbackProvider(providers, networkInfo, {quorum: 1});
 }

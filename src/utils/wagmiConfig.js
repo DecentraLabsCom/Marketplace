@@ -1,8 +1,8 @@
 import { http, webSocket, createConfig, fallback } from 'wagmi';
 import { mainnet, polygon, sepolia } from 'wagmi/chains';
 import { walletConnect, metaMask} from 'wagmi/connectors';
-import { alchemyNetworks, moralisNetworks, ankrNetworks, quicknodeNetworks, 
-        chainstackNetworks, infuraNetworks } from './networkConfig';
+import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
+        quicknodeNetworks, chainstackNetworks, infuraNetworks } from './networkConfig';
 
 let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
 let moralisProjectId = process.env.NEXT_PUBLIC_MORALIS_ID;
@@ -13,6 +13,15 @@ let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
 let cloudReownId = process.env.NEXT_PUBLIC_CLOUD_REOWN_ID;
 
 const chains = [mainnet, polygon, sepolia];
+
+const defaultSepoliaTransport = webSocket(
+  `wss://${defaultNetworks[sepolia.id]}`, {
+  key: 'default',
+  retryCount: 0,
+  batch: {
+    wait: 200,
+  },
+});
 
 const alchemySepoliaTransport = webSocket(
   `wss://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
@@ -71,15 +80,15 @@ const infuraSepoliaTransport = http(
 const defaultTransport = http();
 
 const fallbackSepoliaTransport = fallback([
-  alchemySepoliaTransport, moralisSepoliaTransport, ankrSepoliaTransport,
+  defaultSepoliaTransport, alchemySepoliaTransport, /*moralisSepoliaTransport,*/ ankrSepoliaTransport,
   quicknodeSepoliaTransport, chainstackSepoliaTransport, infuraSepoliaTransport, defaultTransport
 ]);
 
 const metadata = {
   name: 'DecentraLabs Marketplace', 
-  url: 'https://marketplace-decentralabs.vercel.app/', 
+  url: process.env.NEXT_PUBLIC_BASE_URL, 
   description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities, allowing users to book and access a wide range of lab services and resources.', 
-  iconUrl: 'https://marketplace-decentralabs.vercel.app/favicon.svg', 
+  iconUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/favicon.svg`, 
 }
 
 const config = createConfig({
