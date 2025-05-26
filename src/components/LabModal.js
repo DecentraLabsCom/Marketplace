@@ -608,9 +608,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                               const filename = url.split('/').pop();
                               return (
                                 <li key={index} className="text-sm flex items-center justify-between">
-                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                                    {filename}
-                                  </a>
+                                  <MediaDisplayWithFallback
+                                    mediaPath={url}
+                                    mediaType="link"
+                                    title={filename}
+                                    className="text-blue-500 hover:underline"
+                                    height="auto"
+                                    width="auto"
+                                  />
                                   <button
                                     type="button"
                                     onClick={() => removeDoc(index)}

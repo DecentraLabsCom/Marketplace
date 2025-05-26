@@ -1,7 +1,7 @@
 {
-  "name": "Prueba",
+  "name": "prueba",
   "description": "",
-  "image": "/112/images/provider dashboard.png",
+  "image": "/57/images/provider dashboard.png",
   "attributes": [
     {
       "trait_type": "category",
@@ -29,7 +29,10 @@
     },
     {
       "trait_type": "docs",
-      "value": []
+      "value": [
+        "/57/docs/2 - Identificacion de necesidades y diseño del proyecto - clases.pdf",
+        "/113/docs/dummy.pdf"
+      ]
     }
   ]
 }
