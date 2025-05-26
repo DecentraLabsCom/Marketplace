@@ -163,15 +163,14 @@ export default function MediaDisplayWithFallback({
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
     let currentSrc;
-    // Determine the source URL for Image based on environment and fallback status
     if (isVercel && !hasVercelBlobFailed) {
-      currentSrc = getSourceUrl(mediaPath, true, isVercel);
+      currentSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
     } else if (!isVercel && !hasLocalFallbackFailed) {
-      currentSrc = getSourceUrl(mediaPath, false, isVercel);
+      currentSrc = `${mediaPath}`;
     } else if (hasLocalFallbackFailed) {
-      currentSrc = getSourceUrl(mediaPath, true, isVercel);
+      currentSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
     } else if (isVercel && hasVercelBlobFailed) {
-      currentSrc = getSourceUrl(mediaPath, false, isVercel);
+      currentSrc = `${mediaPath}`;
     }
 
     return (
