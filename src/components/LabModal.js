@@ -12,6 +12,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [imageUrls, setImageUrls] = useState([]);
   const [docUrls, setDocUrls] = useState([]);
   const [localLab, setLocalLab] = useState({ ...lab });
+  const [isExternalURI, setIsExternalURI] = useState(
+    !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')))
+  );
 
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
@@ -334,7 +337,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
               Quick Setup
             </button>
           </div>
-          <div className="mt-4">
+          {isExternalURI && activeTab === 'full' && (
+              <div className='mt-4 flex justify-center'>
+                <span className="text-sm text-red-500 font-medium">
+                  To edit all this data, please remove the external link in Quick Setup
+                </span>
+              </div>
+            )}
+          <div className='mt-4'>
             {activeTab === 'full' && (
               <form className="space-y-4 text-gray-600" onSubmit={handleSubmitFull}>
                 <input
@@ -342,14 +352,18 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   placeholder="Lab Name"
                   value={localLab.name}
                   onChange={(e) => setLocalLab({ ...localLab, name: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
                   placeholder="Category"
                   value={localLab.category}
                   onChange={(e) => setLocalLab({ ...localLab, category: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
@@ -358,41 +372,53 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   onChange={(e) =>
                     setLocalLab({ ...localLab, keywords: e.target.value.split(',') })
                   }
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <textarea
                   placeholder="Description"
                   value={localLab.description}
                   onChange={(e) => setLocalLab({ ...localLab, description: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="number"
                   placeholder="Price"
                   value={localLab.price}
                   onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
                   placeholder="Auth URL"
                   value={localLab.auth}
                   onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
                   placeholder="Access URI"
                   value={localLab.accessURI || ''}
                   onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
                   placeholder="Access Key"
                   value={localLab.accessKey || ''}
                   onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
@@ -401,21 +427,27 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   onChange={(e) =>
                     setLocalLab({ ...localLab, timeSlots: e.target.value.split(',') })
                   }
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
                   placeholder="Opens (e.g. 08/31/2025)"
                   value={localLab.opens || ''}
                   onChange={(e) => setLocalLab({ ...localLab, opens: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
                 <input
                   type="text"
                   placeholder="Closes (e.g. 12/31/2025)"
                   value={localLab.closes || ''}
                   onChange={(e) => setLocalLab({ ...localLab, closes: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled={isExternalURI}
                 />
 
                 {/* Image Input */}
@@ -425,9 +457,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded mr-2 ${imageInputType === 'link'
-                        ? 'bg-[#7875a8] text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setImageInputType('link')}
+                      disabled={isExternalURI}
                     >
                       <div className='flex items-center justify-center'>
                         <Link className="mr-2 ml-[-2px] w-4" />
@@ -437,9 +470,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded ${imageInputType === 'upload'
-                        ? 'bg-[#7875a8] text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setImageInputType('upload')}
+                      disabled={isExternalURI}
                     >
                       <div className='flex items-center justify-center'>
                         <UploadCloud className="mr-2 ml-[-2px] w-4" />
@@ -455,7 +489,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       onChange={(e) =>
                         setLocalLab({ ...localLab, images: e.target.value.split(',') })
                       }
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border rounded
+                      disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                      disabled={isExternalURI}
                     />
                   )}
                   {imageInputType === 'upload' && (
@@ -465,6 +501,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         multiple
                         onChange={handleImageChange}
                         className="w-full"
+                        disabled={isExternalURI}
                         ref={imageUploadRef}
                         style={{ display: 'none' }}
                         accept="image/*"
@@ -472,7 +509,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       <button
                         type="button"
                         onClick={() => imageUploadRef.current?.click()}
-                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full"
+                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full
+                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                        disabled={isExternalURI}
                       >
                         <div className='flex items-center justify-center'>
                           <UploadCloud className="mr-2 size-4" />
@@ -508,7 +547,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                                 type="button"
                                 onClick={() => removeImage(index)}
                                 className="absolute top-0 right-0 bg-red-500 text-white rounded-full opacity-0 
-                                group-hover:opacity-100 transition-opacity"
+                                group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
+                                disabled={isExternalURI}
                               >
                                 <XCircle className="size-4" />
                               </button>
@@ -527,9 +567,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded mr-2 ${docInputType === 'link'
-                        ? 'bg-[#7875a8] text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setDocInputType('link')}
+                      disabled={isExternalURI}
                     >
                       <div className='flex items-center justify-center'>
                         <Link className="mr-2 ml-[-2px] w-4" />
@@ -539,9 +580,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded ${docInputType === 'upload'
-                        ? 'bg-[#7875a8] text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setDocInputType('upload')}
+                      disabled={isExternalURI}
                     >
                       <div className='flex items-center justify-center'>
                         <UploadCloud className="mr-2 ml-[-2px] w-4" />
@@ -557,7 +599,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       onChange={(e) =>
                         setLocalLab({ ...localLab, docs: e.target.value.split(',') })
                       }
-                      className="w-full p-2 border rounded"
+                      className="w-full p-2 border rounded
+                      disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                      disabled={isExternalURI}
                     />
                   )}
                   {docInputType === 'upload' && (
@@ -574,7 +618,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       <button
                         type="button"
                         onClick={() => docUploadRef.current?.click()}
-                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full"
+                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full
+                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                        disabled={isExternalURI}
                       >
                         <div className='flex items-center justify-center'>
                           <UploadCloud className="mr-2 size-4" />
@@ -619,7 +665,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                                   <button
                                     type="button"
                                     onClick={() => removeDoc(index)}
-                                    className="text-red-500 hover:text-red-700"
+                                    className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed"
+                                    disabled={isExternalURI}
                                   >
                                     <XCircle className="h-4 w-4" />
                                   </button>
@@ -633,8 +680,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   )}
                 </div>
                 <div className="flex justify-between mt-4">
-                  <button type="submit"
-                    className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
+                  <button type="submit" disabled={activeTab === 'full' && lab?.id && isExternalURI}
+                    className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]
+                    disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300">
                     {lab?.id ? 'Save Changes' : 'Add Lab'}
                   </button>
                   <button type="button" onClick={onClose}
@@ -678,7 +726,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   type="text"
                   placeholder="Lab Data URL (JSON)"
                   value={localLab.uri || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, uri: e.target.value })}
+                  onChange={(e) => {
+                  const newUri = e.target.value;
+                  setLocalLab({ ...localLab, uri: newUri });
+                  // If input empty, provider can now edit data in 'Full Data' tab
+                  setIsExternalURI(!!(newUri && (newUri.startsWith('http://') || newUri.startsWith('https://'))));
+                }}
+
                   className="w-full p-2 border rounded"
                 />
                 <div className="flex justify-between mt-4">

@@ -16,14 +16,14 @@ export default async function getProvider(network) {
 
     const providers = [];
 
-    providers.push(new ethers.WebSocketProvider(
-        `wss://${defaultNetworks[network.id]}`,
-        networkInfo
-    ));
-    providers.push(new ethers.JsonRpcProvider(
-        `https://${defaultNetworks[network.id]}`,
-        networkInfo, options
-    ));
+    // providers.push(new ethers.WebSocketProvider(
+    //     `wss://${defaultNetworks[network.id]}`,
+    //     networkInfo
+    // ));
+    // providers.push(new ethers.JsonRpcProvider(
+    //     `https://${defaultNetworks[network.id]}`,
+    //     networkInfo, options
+    // ));
 
     if (alchemyProjectId) {
         providers.push(new ethers.WebSocketProvider(
