@@ -13,7 +13,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [docUrls, setDocUrls] = useState([]);
   const [localLab, setLocalLab] = useState({ ...lab });
   const [isExternalURI, setIsExternalURI] = useState(false);
-
+  const uploadedTempFiles = useRef([]);
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
   const currentLabId = lab.id || maxId + 1;
@@ -36,15 +36,49 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
       const data = await response.json();
       let filePath = data.filePath;
+
+      // Keep track of uploaded temporal files
+      uploadedTempFiles.current.push(filePath);
       return filePath;
     } catch (error) {
-      console.error('Error al subir el archivo:', error);
       throw error;
     }
   };
 
+  const deleteFile = useCallback(async (filePath) => {
+    try {
+      const formData = new FormData();
+      formData.append('filePath', filePath);
+      formData.append('deletingLab', 'false');
+
+      const response = await fetch('/api/provider/deleteFile', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to delete file: ${errorData.details || response.statusText}`);
+      }
+      console.log(`Temporal file ${filePath} deleted successfully.`);
+    } catch (error) {
+      console.error(`Failed to delete temporal file ${filePath}:`, error);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
+      // Delete uploeaded temporal files
+      Promise.allSettled(uploadedTempFiles.current.map(filePath => deleteFile(filePath)))
+        .then(results => {
+          results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.error(`Failed deleting ${uploadedTempFiles.current[index]}:`, result.reason);
+            }
+          });
+          uploadedTempFiles.current = [];
+        });
+
       setLocalImages([]);
       setLocalDocs([]);
       setImageUrls([]);
@@ -52,12 +86,30 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       setIsExternalURI(false);
       return;
     }
+
+    uploadedTempFiles.current = [];
+
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose, deleteFile]);
+
+  // Opcional: Asegurarse de que onSubmit borra los archivos temporales si se guardan con éxito
+  const handleSubmitAndCleanup = async () => {
+    try {
+      await onSubmit(localLab); // Call to the original submit function
+      // If onSubmit is successful, the files are no longer temporar and mustn't be deleted when closing the modal
+      uploadedTempFiles.current = [];
+      onClose();
+    } catch (error) {
+      console.error('Error al guardar el lab:', error);
+    }
+  };
 
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
@@ -682,7 +734,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   )}
                 </div>
                 <div className="flex justify-between mt-4">
-                  <button type="submit" disabled={activeTab === 'full' && lab?.id && isExternalURI}
+                  <button type="button" onClick={handleSubmitAndCleanup} disabled={activeTab === 'full' && lab?.id && isExternalURI}
                     className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]
                     disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300">
                     {lab?.id ? 'Save Changes' : 'Add Lab'}
