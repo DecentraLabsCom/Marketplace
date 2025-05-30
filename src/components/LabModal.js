@@ -101,14 +101,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
   // Opcional: Asegurarse de que onSubmit borra los archivos temporales si se guardan con éxito
   const handleSubmitAndCleanup = async () => {
-    try {
-      await onSubmit(localLab); // Call to the original submit function
-      // If onSubmit is successful, the files are no longer temporar and mustn't be deleted when closing the modal
-      uploadedTempFiles.current = [];
-      onClose();
-    } catch (error) {
-      console.error('Error al guardar el lab:', error);
-    }
+    await onSubmit(localLab); // Call to the original submit function
+    // If onSubmit is successful, the files are no longer temporar and mustn't be deleted when closing the modal
+    uploadedTempFiles.current = [];
+    onClose();
   };
 
   // Load existing images and docs for preview when the modal opens
