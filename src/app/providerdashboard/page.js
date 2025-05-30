@@ -219,9 +219,10 @@ export default function ProviderDashboard() {
       if (imagesToDelete && Array.isArray(imagesToDelete)) {
         await Promise.all(imagesToDelete.map(async (imageToDelete) => {
           if (imageToDelete) {
-            const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;
+            const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;            
             const formDatatoDelete = new FormData();
             formDatatoDelete.append('filePath', filePathToDelete);
+            formDatatoDelete.append('deletingLab', true);
             const res = await fetch('/api/provider/deleteFile', {
               method: 'POST',
               body: formDatatoDelete,
@@ -238,7 +239,7 @@ export default function ProviderDashboard() {
             const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
             const formDatatoDelete = new FormData();
             formDatatoDelete.append('filePath', filePathToDelete);
-            formDatatoDelete.append('labId', labToDelete.id);
+            formDatatoDelete.append('deletingLab', true);
             const res = await fetch('/api/provider/deleteFile', {
               method: 'POST',
               body: formDatatoDelete,
@@ -248,13 +249,17 @@ export default function ProviderDashboard() {
         }));
       }
 
-      // Delete JSON
-      const response = await fetch('/api/provider/deleteLabData', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labURI }),
-      });
-      if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
+      const hasExternalUri = !!(labURI && (labURI.startsWith('http://') || labURI.startsWith('https://')));
+
+      // Only delete JSON if labURI is local
+      if (!hasExternalUri) {
+        const response = await fetch('/api/provider/deleteLabData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labURI }),
+        });
+        if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
+      }
 
       // If all went well, update state and feedback
       const updatedLabs = labs.filter((lab) => lab.id !== labId);

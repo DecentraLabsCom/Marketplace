@@ -12,9 +12,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [imageUrls, setImageUrls] = useState([]);
   const [docUrls, setDocUrls] = useState([]);
   const [localLab, setLocalLab] = useState({ ...lab });
-  const [isExternalURI, setIsExternalURI] = useState(
-    !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')))
-  );
+  const [isExternalURI, setIsExternalURI] = useState(false);
 
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
@@ -51,6 +49,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       setLocalDocs([]);
       setImageUrls([]);
       setDocUrls([]);
+      setIsExternalURI(false);
       return;
     }
     const handleKeyDown = (e) => {
@@ -63,7 +62,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
     if (isOpen) {
+      console.log('process.cwd()', process.cwd());
       setLocalLab(lab ? { ...lab } : {});
+      const hasExternalUri = !!(lab.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
+      setIsExternalURI(hasExternalUri);
     }
     if (isOpen && lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
