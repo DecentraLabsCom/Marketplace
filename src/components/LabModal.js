@@ -46,24 +46,20 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   };
 
   const deleteFile = useCallback(async (filePath) => {
-    try {
-      const formData = new FormData();
-      formData.append('filePath', filePath);
-      formData.append('deletingLab', 'false');
+    const formData = new FormData();
+    formData.append('filePath', filePath);
+    formData.append('deletingLab', 'false');
 
-      const response = await fetch('/api/provider/deleteFile', {
-        method: 'POST',
-        body: formData,
-      });
+    const response = await fetch('/api/provider/deleteFile', {
+      method: 'POST',
+      body: formData,
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to delete file: ${errorData.details || response.statusText}`);
-      }
-      console.log(`Temporal file ${filePath} deleted successfully.`);
-    } catch (error) {
-      console.error(`Failed to delete temporal file ${filePath}:`, error);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to delete file: ${errorData.details || response.statusText}`);
     }
+    console.log(`Temporal file ${filePath} deleted successfully.`);
   }, []);
 
   useEffect(() => {
@@ -101,10 +97,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
   // Opcional: Asegurarse de que onSubmit borra los archivos temporales si se guardan con éxito
   const handleSubmitAndCleanup = async () => {
-    await onSubmit(localLab); // Call to the original submit function
-    // If onSubmit is successful, the files are no longer temporar and mustn't be deleted when closing the modal
-    uploadedTempFiles.current = [];
-    onClose();
+    try {
+      await onSubmit(localLab); // Call to the original submit function
+      // If onSubmit is successful, the files are no longer temporar and mustn't be deleted when closing the modal
+      uploadedTempFiles.current = [];
+      onClose();
+    } catch (error) {
+      console.error('Error al guardar el lab:', error);
+    }
   };
 
   // Load existing images and docs for preview when the modal opens
