@@ -24,25 +24,21 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     formData.append('destinationFolder', destinationFolder);
     formData.append('labId', labId);
 
-    try {
-      const response = await fetch('/api/provider/uploadFile', {
-        method: 'POST',
-        body: formData,
-      });
+    const response = await fetch('/api/provider/uploadFile', {
+      method: 'POST',
+      body: formData,
+    });
 
-      if (!response.ok) {
-        throw new Error(`Error al subir el archivo: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      let filePath = data.filePath;
-
-      // Keep track of uploaded temporal files
-      uploadedTempFiles.current.push(filePath);
-      return filePath;
-    } catch (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error(`Error al subir el archivo: ${response.statusText}`);
     }
+
+    const data = await response.json();
+    let filePath = data.filePath;
+
+    // Keep track of uploaded temporal files
+    uploadedTempFiles.current.push(filePath);
+    return filePath;
   };
 
   const deleteFile = useCallback(async (filePath) => {
