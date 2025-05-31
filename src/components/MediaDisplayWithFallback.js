@@ -15,8 +15,6 @@ export default function MediaDisplayWithFallback({
   width,
   title
 }) {
-  // Base URL for Vercel Blob storage
-  const VERCEL_BLOB_BASE_URL = "https://n7alj90bp0isqv2j.public.blob.vercel-storage.com/data";
   
   // State to control if we should try Vercel Blob URL (false initially) or if it failed (true) for IMAGES
   const [hasVercelBlobFailed, setHasVercelBlobFailed] = useState(false);
@@ -45,7 +43,7 @@ export default function MediaDisplayWithFallback({
     // 2. Otherwise, apply Blob/local logic
     if (isVercelEnv && attemptBlob) {
       // Construct Vercel Blob URL
-      return `${VERCEL_BLOB_BASE_URL}/${cleanedPath}`;
+      return `${process.env.VERCEL_BLOB_BASE_URL}/data/${cleanedPath}`;
     } 
     // 3. If not attempting Blob or it fails, attempt local path
     else {
@@ -84,7 +82,8 @@ export default function MediaDisplayWithFallback({
 
       // --- Determine URL based on phase and type ---
       if (docAttemptPhase === 0) { // Phase 0: External URL check
-        if (typeof mediaPath === 'string' && (mediaPath.startsWith('http://') || mediaPath.startsWith('https://'))) {
+        if (typeof mediaPath === 'string' && (mediaPath.startsWith('http://') 
+          || mediaPath.startsWith('https://'))) {
           urlToAttempt = mediaPath;
           currentAttemptType = 'External';
           // Since we can't fetch external URLs reliably, we'll set it directly for iframe
@@ -134,7 +133,8 @@ export default function MediaDisplayWithFallback({
 
         const contentType = response.headers.get('Content-Type');
         if (!contentType || !contentType.includes('application/pdf')) {
-          throw new Error(`Expected Content-Type 'application/pdf', but received '${contentType || 'none'}' for ${urlToAttempt}`);
+          throw new Error(`Expected Content-Type 'application/pdf', but received '${contentType || 'none'}' 
+            for ${urlToAttempt}`);
         }
 
         // If success
@@ -158,20 +158,21 @@ export default function MediaDisplayWithFallback({
       abortController.abort(); 
     };
 
-  }, [mediaPath, mediaType, isVercel, docAttemptPhase, VERCEL_BLOB_BASE_URL]);
+  }, [mediaPath, mediaType, isVercel, docAttemptPhase]);
 
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
-    let currentSrc;
-    if (isVercel && !hasVercelBlobFailed) {
-      currentSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
-    } else if (!isVercel && !hasLocalFallbackFailed) {
-      currentSrc = `${mediaPath}`;
-    } else if (hasLocalFallbackFailed) {
-      currentSrc = `${VERCEL_BLOB_BASE_URL}${mediaPath}`;
-    } else if (isVercel && hasVercelBlobFailed) {
-      currentSrc = `${mediaPath}`;
+    function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
+      const blobUrl = `${process.env.VERCEL_BLOB_BASE_URL}/data/${mediaPath}`;
+      const localUrl = `${mediaPath}`;
+      if (isVercel) {
+        return hasVercelBlobFailed ? localUrl : blobUrl;
+      } else {
+        return hasLocalFallbackFailed ? blobUrl : localUrl;
+      }
     }
+
+    const currentSrc = getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath });
 
     return (
       <Image
@@ -183,13 +184,9 @@ export default function MediaDisplayWithFallback({
         sizes={sizes} 
         onError={(e) => {
           if (isVercel && !hasVercelBlobFailed) {
-            setHasVercelBlobFailed(true);
+            setHasVercelBlobFailed(true); // Try local fallback
           } else if (!isVercel && !hasLocalFallbackFailed) {
-            setHasLocalFallbackFailed(true);
-          } else if (hasLocalFallbackFailed) {
-            setHasLocalFallbackFailed(false);
-          } else if (isVercel && hasVercelBlobFailed) {
-            setHasVercelBlobFailed(false);
+            setHasLocalFallbackFailed(true); // Try blob fallback
           }
         }}
       />
@@ -202,7 +199,8 @@ export default function MediaDisplayWithFallback({
 
     if (isLoadingDoc) {
       return (
-        <div className="flex items-center justify-center bg-gray-200 text-gray-700 rounded-lg" style={{ height: height, width: width }}>
+        <div className="flex items-center justify-center bg-gray-200 text-gray-700 rounded-lg" 
+        style={{ height: height, width: width }}>
           Loading document...
         </div>
       );
@@ -210,7 +208,8 @@ export default function MediaDisplayWithFallback({
 
     if (hasDocError) {
       return (
-        <div className="flex flex-col items-center justify-center bg-red-100 text-red-700 rounded-lg p-4 text-center" style={{ height: height, width: width }}>
+        <div className="flex flex-col items-center justify-center bg-red-100 text-red-700 rounded-lg p-4 
+        text-center" style={{ height: height, width: width }}>
           <XCircle className="h-8 w-8 mb-2" />
           <p>Document could not be loaded.</p>
           <p className="text-sm">Please check the URL or try again.</p>

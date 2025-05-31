@@ -95,7 +95,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const handleSubmitAndCleanup = async () => {
     try {
       await onSubmit(localLab); // Call to the original submit function
-      // If onSubmit is successful, the files are no longer temporar and mustn't be deleted when closing the modal
+      // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing the modal
       uploadedTempFiles.current = [];
       onClose();
     } catch (error) {
@@ -386,7 +386,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
           {isExternalURI && activeTab === 'full' && (
               <div className='mt-4 flex justify-center'>
                 <span className="text-sm text-red-500 font-medium">
-                  To edit all this data, please remove the external link in Quick Setup
+                  To edit these fields, first remove the link to the lab data in Quick Setup
                 </span>
               </div>
             )}
@@ -399,7 +399,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.name}
                   onChange={(e) => setLocalLab({ ...localLab, name: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -408,7 +409,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.category}
                   onChange={(e) => setLocalLab({ ...localLab, category: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -419,7 +421,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     setLocalLab({ ...localLab, keywords: e.target.value.split(',') })
                   }
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <textarea
@@ -427,7 +430,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.description}
                   onChange={(e) => setLocalLab({ ...localLab, description: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -436,7 +440,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.price}
                   onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -445,7 +450,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.auth}
                   onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -454,7 +460,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.accessURI || ''}
                   onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -463,7 +470,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.accessKey || ''}
                   onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -474,7 +482,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     setLocalLab({ ...localLab, timeSlots: e.target.value.split(',') })
                   }
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -483,7 +492,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.opens || ''}
                   onChange={(e) => setLocalLab({ ...localLab, opens: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
                 <input
@@ -492,7 +502,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   value={localLab.closes || ''}
                   onChange={(e) => setLocalLab({ ...localLab, closes: e.target.value })}
                   className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
                   disabled={isExternalURI}
                 />
 
@@ -503,8 +514,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded mr-2 ${imageInputType === 'link'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
+                          'disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
+                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setImageInputType('link')}
                       disabled={isExternalURI}
                     >
@@ -516,8 +529,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded ${imageInputType === 'upload'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
+                          'disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
+                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setImageInputType('upload')}
                       disabled={isExternalURI}
                     >
@@ -535,8 +550,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       onChange={(e) =>
                         setLocalLab({ ...localLab, images: e.target.value.split(',') })
                       }
-                      className="w-full p-2 border rounded
-                      disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                      className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+                      disabled:cursor-not-allowed disabled:border-gray-300"
                       disabled={isExternalURI}
                     />
                   )}
@@ -556,7 +571,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         type="button"
                         onClick={() => imageUploadRef.current?.click()}
                         className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full
-                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                        disabled:border-gray-300"
                         disabled={isExternalURI}
                       >
                         <div className='flex items-center justify-center'>
@@ -587,8 +603,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         <div className="mt-2 grid grid-cols-3 gap-2">
                           {imageUrls.map((url, index) => (
                             <div key={index} className="relative group h-20 w-full">
-                              <MediaDisplayWithFallback mediaPath={url} mediaType={'image'} alt={`Preview ${index}`} fill unoptimized
-                                className="object-cover rounded" />
+                              <MediaDisplayWithFallback mediaPath={url} mediaType={'image'} 
+                                alt={`Preview ${index}`} fill unoptimized className="object-cover rounded" />
                               <button
                                 type="button"
                                 onClick={() => removeImage(index)}
@@ -613,8 +629,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded mr-2 ${docInputType === 'link'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
+                          'disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
+                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setDocInputType('link')}
                       disabled={isExternalURI}
                     >
@@ -626,8 +644,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                     <button
                       type="button"
                       className={`px-4 py-2 rounded ${docInputType === 'upload'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
+                        'disabled:cursor-not-allowed disabled:border-gray-300'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
+                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
                       onClick={() => setDocInputType('upload')}
                       disabled={isExternalURI}
                     >
@@ -645,9 +665,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       onChange={(e) =>
                         setLocalLab({ ...localLab, docs: e.target.value.split(',') })
                       }
-                      className="w-full p-2 border rounded
-                      disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-                      disabled={isExternalURI}
+                      className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+                      disabled:cursor-not-allowed disabled:border-gray-300" disabled={isExternalURI}
                     />
                   )}
                   {docInputType === 'upload' && (
@@ -665,8 +684,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         type="button"
                         onClick={() => docUploadRef.current?.click()}
                         className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full
-                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-                        disabled={isExternalURI}
+                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                        disabled:border-gray-300" disabled={isExternalURI}
                       >
                         <div className='flex items-center justify-center'>
                           <UploadCloud className="mr-2 size-4" />
@@ -726,9 +745,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   )}
                 </div>
                 <div className="flex justify-between mt-4">
-                  <button type="button" onClick={handleSubmitAndCleanup} disabled={activeTab === 'full' && lab?.id && isExternalURI}
+                  <button type="button" onClick={handleSubmitAndCleanup} 
+                    disabled={activeTab === 'full' && lab?.id && isExternalURI}
                     className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]
-                    disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300">
+                    disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed 
+                    disabled:border-gray-300">
                     {lab?.id ? 'Save Changes' : 'Add Lab'}
                   </button>
                   <button type="button" onClick={onClose}
