@@ -87,7 +87,8 @@ const fallbackSepoliaTransport = fallback([
 const metadata = {
   name: 'DecentraLabs Marketplace', 
   url: process.env.NEXT_PUBLIC_BASE_URL, 
-  description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities, allowing users to book and access a wide range of lab services and resources.', 
+  description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities, ' +
+               'allowing users to book and access a wide range of lab services and resources.', 
   iconUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/favicon.svg`, 
 }
 

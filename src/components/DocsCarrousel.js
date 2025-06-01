@@ -1,8 +1,8 @@
 "use client";
-import { useState } from 'react';
+import React, { useState } from 'react';
 import MediaDisplayWithFallback from './MediaDisplayWithFallback';
 
-export default function DocsCarrousel({ docs, maxHeight }) {
+const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const handleSlide = (index) => {
@@ -81,4 +81,6 @@ export default function DocsCarrousel({ docs, maxHeight }) {
       )}
     </div>
   );
-}
+});
+
+export default DocsCarrousel;

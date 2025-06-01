@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { UploadCloud, Link, XCircle } from 'lucide-react';
 import MediaDisplayWithFallback from './MediaDisplayWithFallback';
+import ImagePreviewList from './ImagePreviewList.js';
+import DocPreviewList from './DocPreviewList.js';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [activeTab, setActiveTab] = useState('full');
@@ -600,23 +602,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         </div>
                       )}
                       {imageUrls.length > 0 && (
-                        <div className="mt-2 grid grid-cols-3 gap-2">
-                          {imageUrls.map((url, index) => (
-                            <div key={index} className="relative group h-20 w-full">
-                              <MediaDisplayWithFallback mediaPath={url} mediaType={'image'} 
-                                alt={`Preview ${index}`} fill unoptimized className="object-cover rounded" />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(index)}
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full opacity-0 
-                                group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
-                                disabled={isExternalURI}
-                              >
-                                <XCircle className="size-4" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
+                        <ImagePreviewList imageUrls={imageUrls} removeImage={removeImage} 
+                        isExternalURI={isExternalURI} />
                       )}
                     </>
                   )}
@@ -712,34 +699,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         </div>
                       )}
                       {docUrls.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-500">Uploaded Documents:</p>
-                          <ul className="list-disc list-inside">
-                            {docUrls.map((url, index) => {
-                              const filename = url.split('/').pop();
-                              return (
-                                <li key={index} className="text-sm flex items-center justify-between">
-                                  <MediaDisplayWithFallback
-                                    mediaPath={url}
-                                    mediaType="link"
-                                    title={filename}
-                                    className="text-blue-500 hover:underline"
-                                    height="auto"
-                                    width="auto"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => removeDoc(index)}
-                                    className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed"
-                                    disabled={isExternalURI}
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                  </button>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
+                        <DocPreviewList docUrls={docUrls} removeDoc={removeDoc} isExternalURI={isExternalURI} />
                       )}
                     </>
                   )}

@@ -1,8 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import MediaDisplayWithFallback from './MediaDisplayWithFallback';
 
-export default function Carrousel({ lab, maxHeight }) {
+const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);
 
@@ -105,4 +105,6 @@ export default function Carrousel({ lab, maxHeight }) {
       )}
     </div>
   );
-}
+});
+
+export default Carrousel;

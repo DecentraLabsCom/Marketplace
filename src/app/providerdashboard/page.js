@@ -5,10 +5,10 @@ import { useUser } from '../../context/UserContext';
 import { useLabs } from '../../context/LabContext';
 import useContractWriteFunction from '../../hooks/contract/useContractWriteFunction';
 import useLabFeedback from '../../hooks/useLabFeedback';
-import Carrousel from '../../components/Carrousel';
 import LabModal from '../../components/LabModal';
 import AccessControl from '../../components/AccessControl';
 import FeedbackModal from '../../components/FeedbackModal';
+import ProviderLabItem from '../../components/ProviderLabItem';
 
 export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
@@ -360,58 +360,14 @@ export default function ProviderDashboard() {
                 </select>
               </div>
               {selectedLab && (
-                <div className="p-4 border rounded shadow max-w-4xl mx-auto">
-                  <h3 className="text-lg font-bold text-center mb-4">{selectedLab.name}</h3>
-                  <div className="w-full flex">
-                    <div className="w-2/3">
-                      <Carrousel lab={selectedLab} maxHeight={200} />
-                    </div>
-                    <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
-                      <button onClick={() => setIsModalOpen(true)}
-                        className="relative bg-[#715c8c] h-1/4 overflow-hidden group hover:font-bold"
-                      >
-                        Edit
-                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                        border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300" />
-                      </button>
-                      <button onClick={() => handleCollect(selectedLab.id)}
-                        className="relative bg-[#bcc4fc] h-1/4 overflow-hidden group hover:font-bold"
-                      >
-                        Collect
-                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                        border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300" />
-                      </button>
-                      <button onClick={() => handleList(selectedLab.id)} disabled
-                        className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold
-                                  opacity-50 cursor-not-allowed"
-                      >
-                        List
-                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                        border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300" />
-                      </button>
-                      <button onClick={() => handleUnlist(selectedLab.id)} disabled
-                        className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold
-                                  opacity-50 cursor-not-allowed"
-                      >
-                        Unlist
-                        <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                        border-b-[#5f6a91] border-l-[7em] border-l-transparent opacity-0 
-                        group-hover:opacity-100 transition-opacity duration-300" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="w-2/3 flex justify-center mt-4">
-                    <button onClick={() => handleDeleteLab(selectedLab.id)}
-                      className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold 
-                      hover:bg-[#8a5c66]"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
+                <ProviderLabItem
+                  lab={selectedLab}
+                  onEdit={() => setIsModalOpen(true)}
+                  onCollect={handleCollect}
+                  onDelete={handleDeleteLab}
+                  onList={handleList}
+                  onUnlist={handleUnlist}
+                />
               )}
               </>
             ) : (

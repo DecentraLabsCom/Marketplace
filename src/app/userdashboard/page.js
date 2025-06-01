@@ -7,8 +7,8 @@ import { useLabs } from '../../context/LabContext'
 import Carrousel from '../../components/Carrousel'
 import LabAccess from '../../components/LabAccess'
 import AccessControl from '../../components/AccessControl'
+import LabBookingItem from '../../components/LabBookingItem'
 import isBookingActive from '../../utils/isBookingActive'
-import ConfirmModal from '../../components/ConfirmModal';
 
 export default function UserDashboard() {
   const { isLoggedIn, isConnected, address } = useUser();
@@ -358,37 +358,15 @@ export default function UserDashboard() {
                       }
 
                       return (
-                        <div className='mb-4 p-2 rounded-lg text-center' key={lab.id}>
-                          <li className="flex flex-col items-center">
-                            <div className="border flex items-center w-full">
-                              <div className='border flex flex-col w-3/4'>
-                                <Link className="border-2 border-white bg-white p-2 px-8 
-                                    text-black text-center hover:bg-slate-500 grow" 
-                                  href={`/lab/${lab.id}`}>
-                                  <span className="text-left">
-                                    {lab.name}
-                                  </span>
-                                </Link>
-                                <span>Available: {upcomingLab?.date}</span>
-                                <div className='text-gray-500 flex flex-col text-xs mb-1'>
-                                  <span>Start time: {startTime}</span>
-                                  <span>End time: {endTime}</span>
-                                </div>
-                              </div>
-                              <div className='mx-4 flex items-center justify-center w-1/4'>
-                                <button onClick={() => openModal('cancel', lab.id)} className='p-3 rounded text-sm bg-[#a87583] hover:bg-[#8a5c66]
-                                  text-white'>Cancel Booking</button>
-                                  {isModalOpen === 'cancel' && (
-                                    <ConfirmModal 
-                                      isOpen={isModalOpen}
-                                      onClose={closeModal}
-                                      onContinue={handleCancellation}
-                                    />
-                                  )}
-                              </div>
-                            </div>
-                          </li>
-                        </div>
+                        <LabBookingItem
+                          key={lab.id}
+                          lab={lab}
+                          booking={upcomingLab}
+                          onCancel={() => openModal('cancel', lab.id)}
+                          onRefund={() => openModal('refund', lab.id)}
+                          isModalOpen={isModalOpen}
+                          closeModal={closeModal}
+                        />
                       );
                     })}
                 </ul>
@@ -451,38 +429,15 @@ export default function UserDashboard() {
                       }
 
                       return (
-                        <div className='mb-4 p-2 rounded-lg text-center' key={lab.id}>
-                          <li className="flex flex-col items-center">
-                            <div className="border flex items-center w-full">
-                              <div className='border flex flex-col w-3/4'>
-                                  <Link className="border-2 border-white bg-white p-2 px-8  
-                                    text-black text-center hover:bg-slate-500 grow" 
-                                    href={`/lab/${lab.id}`}>
-                                    <span className="text-left">
-                                      {lab.name}
-                                    </span>
-                                  </Link>
-                                <span className='text-center'>{notActive?.date}</span>
-                                <div className='text-gray-500 flex flex-col text-xs mb-1 
-                                  text-center'>
-                                  <span>Start time: {startTime}</span>
-                                  <span>End time: {endTime}</span>
-                                </div>
-                              </div>
-                              <div className='mx-4 flex items-center justify-center w-1/4'>
-                                <button onClick={() => openModal('refund', lab.id)} className='p-3 rounded text-sm bg-[#bcc4fc] hover:bg-[#aab8e6]
-                                text-white'>Apply for a refund</button>
-                                {isModalOpen === 'refund' && (
-                                  <ConfirmModal 
-                                    isOpen={isModalOpen}
-                                    onClose={closeModal}
-                                    onContinue={handleRefund}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                          </li>
-                        </div>
+                        <LabBookingItem
+                          key={lab.id}
+                          lab={lab}
+                          booking={notActive}
+                          onCancel={() => openModal('cancel', lab.id)}
+                          onRefund={() => openModal('refund', lab.id)}
+                          isModalOpen={isModalOpen}
+                          closeModal={closeModal}
+                        />
                       );
                   })}
                 </ul>

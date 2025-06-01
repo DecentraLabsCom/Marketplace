@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import Link from "next/link";
 import LabAccess from "./LabAccess";
 import { useUser } from '../context/UserContext';
@@ -6,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import MediaDisplayWithFallback from "./MediaDisplayWithFallback";
 
-export default function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
+const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected, user, isSSO } = useUser();
  
   return (
@@ -42,4 +43,6 @@ export default function LabCard({ id, name, provider, price, auth, activeBooking
       )}
     </div>
   );
-}
+});
+
+export default LabCard;

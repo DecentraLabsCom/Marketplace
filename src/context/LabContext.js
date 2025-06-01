@@ -1,14 +1,54 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useUser } from './UserContext';
-//import useDefaultReadContract from '../hooks/contract/useDefaultReadContract';
 
 const LabContext = createContext();
+
+function normalizeLab(rawLab) {
+  return {
+    id: String(rawLab.id ?? rawLab.labId ?? ""),
+    name: rawLab.name ?? "",
+    category: rawLab.category ?? "",
+    keywords: Array.isArray(rawLab.keywords)
+      ? rawLab.keywords
+      : typeof rawLab.keywords === "string"
+        ? rawLab.keywords.split(",").map(k => k.trim()).filter(Boolean)
+        : [],
+    price: typeof rawLab.price === "number"
+      ? rawLab.price
+      : parseFloat(rawLab.price ?? "0"),
+    description: rawLab.description ?? "",
+    provider: rawLab.provider ?? "",
+    providerAddress: rawLab.providerAddress ?? "",
+    auth: rawLab.auth ?? "",
+    accessURI: rawLab.accessURI ?? "",
+    accessKey: rawLab.accessKey ?? "",
+    timeSlots: Array.isArray(rawLab.timeSlots)
+      ? rawLab.timeSlots.map(Number).filter(Boolean)
+      : typeof rawLab.timeSlots === "string"
+        ? rawLab.timeSlots.split(",").map(Number).filter(Boolean)
+        : [60],
+    opens: rawLab.opens ?? "",
+    closes: rawLab.closes ?? "",
+    docs: Array.isArray(rawLab.docs)
+      ? rawLab.docs
+      : typeof rawLab.docs === "string"
+        ? rawLab.docs.split(",").map(d => d.trim()).filter(Boolean)
+        : [],
+    images: Array.isArray(rawLab.images)
+      ? rawLab.images
+      : typeof rawLab.images === "string"
+        ? rawLab.images.split(",").map(i => i.trim()).filter(Boolean)
+        : [],
+    uri: rawLab.uri ?? "",
+    reservations: Array.isArray(rawLab.reservations) ? rawLab.reservations : [],
+    bookingInfo: Array.isArray(rawLab.bookingInfo) ? rawLab.bookingInfo : [],
+  };
+}
 
 export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
-  //const [hasFetched, setHasFetched] = useState(false);
 
   const { isLoggedIn, address, user, isSSO } = useUser();
 
@@ -26,9 +66,10 @@ export function LabData({ children }) {
         throw new Error(`Failed to fetch labs: ${response.statusText}`);
       }
       const data = await response.json();
+      const normalized = data.map(normalizeLab);
 
-      sessionStorage.setItem('labs', JSON.stringify(data));
-      setLabs(data);
+      sessionStorage.setItem('labs', JSON.stringify(normalized));
+      setLabs(normalized);
     } catch (err) {
       console.error('Error fetching labs:', err);
     } finally {
@@ -107,16 +148,6 @@ export function LabData({ children }) {
     }
     if (labs.length > 0) fetchBookings();
   }, [address, labs.length]); 
-
-  /*const { data: labList, refetch, isLoading, error } = 
-        useDefaultReadContract('getAllLabs', null, hasFetched);
-
-  useEffect(() => {
-    if (labList) {
-      setHasFetched(true);
-      console.log(labList);
-    }
-  }, [labList, refetch, isLoading, error]);*/
 
   return (
     <LabContext.Provider value={{ labs, setLabs, loading, fetchLabs, fetchBookings }}> 
