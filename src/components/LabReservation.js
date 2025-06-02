@@ -69,7 +69,6 @@ export default function LabReservation({ id }) {
       const dayBookings =
         selectedLab?.bookingInfo?.filter(
           (b) =>
-            b.labId == selectedLab?.id &&
             new Date(b.date).toDateString() === date.toDateString()
         ) || [];
 
