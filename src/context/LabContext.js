@@ -106,33 +106,33 @@ export function LabData({ children }) {
       }
 
       // TODO: Uncomment when testing things for real 
-      /*setLabs((prevLabs) => {
+      setLabs((prevLabs) => {
         const updatedLabs = prevLabs.map((lab) => ({
           ...lab,
           bookingInfo: bookingsMap[lab.id] || [],
         }));
         sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
         return updatedLabs;
-      });*/
+      });
 
       // TODO: Remove the whole block below when testing things for real 
-      setLabs((prevLabs) => {
-        const updatedLabs = prevLabs.map((lab) => {
-          let forcedBooking = [];
-          if (lab.id == 23 && bookingsData.length > 0) {
-            forcedBooking = [bookingsData[0]];
-          } else if (bookingsData.length > 4) {
-            const randomIndex = Math.floor(Math.random() * 4) + 1; // 1, 2, 3, 4
-            forcedBooking = [bookingsData[randomIndex]];
-          }
-          return {
-            ...lab,
-            bookingInfo: forcedBooking,
-          };
-        });
-        sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
-        return updatedLabs;
-      });
+      // setLabs((prevLabs) => {
+      //   const updatedLabs = prevLabs.map((lab) => {
+      //     let forcedBooking = [];
+      //     if (lab.id == 23 && bookingsData.length > 0) {
+      //       forcedBooking = [bookingsData[0]];
+      //     } else if (bookingsData.length > 4) {
+      //       const randomIndex = Math.floor(Math.random() * 4) + 1; // 1, 2, 3, 4
+      //       forcedBooking = [bookingsData[randomIndex]];
+      //     }
+      //     return {
+      //       ...lab,
+      //       bookingInfo: forcedBooking,
+      //     };
+      //   });
+      //   sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
+      //   return updatedLabs;
+      // });
     } catch (err) {
       console.error('Error fetching reservations:', err);
     }
