@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-export async function GET(request) {
-  const cookies = request.cookies;
-  const sessionCookie = cookies.get("user_session")?.value;
+export async function GET() {
+  const cookieStore = cookies();
+  const sessionCookie = cookieStore.get("user_session")?.value;
 
   if (!sessionCookie) {
     return NextResponse.json({ user: null });
