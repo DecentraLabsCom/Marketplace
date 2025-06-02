@@ -10,7 +10,7 @@ function formatAddress(address) {
 }
 
 export default function Account() {
-  const { isConnected, address, user } = useUser();
+  const { isConnected, isSSO, address, user } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address });
   const { data: ensAvatar } = useEnsAvatar({ name: ensName });
@@ -18,7 +18,7 @@ export default function Account() {
 
   const handleDisconnect = async () => {
     if (isConnected) disconnect();
-    if (user) {
+    if (isSSO) {
       await fetch("/api/auth/logout");
       if (pathname !== "/") {
         window.location.href = "/";
@@ -33,12 +33,7 @@ export default function Account() {
           <div className="text-sm text-[#333f63]">{formatAddress(address)}</div>
           {(user?.name || ensName) && (
             <div className="text-[14px] text-[#335763]">
-              {user?.name
-                ? user.name
-                : ensName
-                  ? ensName
-                  : null
-              }
+              {user?.name ? user.name : ensName }
             </div>
           )}
         </div>
