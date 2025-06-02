@@ -45,32 +45,73 @@ export default function UserDashboard() {
   const [date, setDate] = useState(new Date());
   const [bookedDates, setBookedDates] = useState([]);
   const renderDayContents = (day, currentDateRender) => {
-    const bookingsOnDay = bookedDates.filter(
-      (d) => d.toDateString() === currentDateRender.toDateString()
-    );
+    const allMatchingBookingsDetails = [];
+
+    // Find all bookings for today
+    for (const lab of labs) {
+        if (Array.isArray(lab.bookingInfo)) {
+            // Filter current lab's booking that matches today's date
+            const bookingsForThisLabOnCurrentDay = lab.bookingInfo.filter(
+                (b) => {
+                    if (!b) {
+                        console.warn(`Booking object is null/undefined in lab ${lab.name}. Skipping.`);
+                        return false;
+                    }
+                    if (!b.date) {
+                        console.warn(`Booking object missing 'date' property in lab ${lab.name}:`, b);
+                        return false;
+                    }
+                    const bookingDate = new Date(b.date);
+
+                    if (isNaN(bookingDate.getTime())) {
+                        console.warn(`Invalid date string for booking in lab ${lab.name}: '${b.date}'. Skipping.`);
+                        return false;
+                    }
+
+                    const isMatch = bookingDate.toDateString() === currentDateRender.toDateString();
+                    return isMatch;
+                }
+            );
+
+            for (const booking of bookingsForThisLabOnCurrentDay) {
+                if (booking.time && booking.minutes !== undefined && booking.minutes !== null) {
+                    allMatchingBookingsDetails.push({
+                        labName: lab.name,
+                        time: booking.time,
+                        minutes: booking.minutes,
+                        dateString: booking.date
+                    });
+                } else {
+                    console.warn(`Booking in lab ${lab.name} ignore because 'time' or 'minutes' are missing:`, booking);
+                }
+            }
+        } else {
+            console.warn(`  Lab ${lab.name}'s 'bookingInfo' is not an array or is missing:`, lab.bookingInfo);
+        }
+    }
 
     let title = undefined;
 
-    if (bookingsOnDay.length > 0) {
-      title = bookingsOnDay.map(booking => {
-        for (const lab of labs) {
-          if (Array.isArray(lab.bookingInfo)) {
-            const matchingBooking = lab.bookingInfo.find(
-              b => new Date(b.date).toDateString() === booking.toDateString()
-            );
-            if (matchingBooking?.time && matchingBooking?.minutes) {
-              const endTimeDate = new Date(new Date(matchingBooking.date + 'T' + matchingBooking.time).getTime() + matchingBooking.minutes * 60 * 1000);
-              const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
-              return `${lab.name}:  ${matchingBooking.time} - ${endTime}`;
-            }
+    // If there are bookings, create string for tooltip
+    if (allMatchingBookingsDetails.length > 0) {
+      title = allMatchingBookingsDetails.map(bookingDetail => {
+          const startDateTimeString = `${bookingDetail.dateString}T${bookingDetail.time}`;
+          const startDate = new Date(startDateTimeString);
+
+          if (isNaN(startDate.getTime())) {
+              console.error(`Error: Invalid start date for booking detail in tooltip: ${startDateTimeString}. Skipping this booking in tooltip.`);
+              return `Invalid Booking: ${bookingDetail.labName}`;
           }
-        }
-        return 'Booked';
+
+          const endTimeDate = new Date(startDate.getTime() + bookingDetail.minutes * 60 * 1000);
+          const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+
+          return `${bookingDetail.labName}: ${bookingDetail.time} - ${endTime}`;
       }).join(', ');
     }
 
     return <div title={title}>{day}</div>;
-  };
+};
 
   useEffect(() => {
     if (labs) {
