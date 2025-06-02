@@ -404,7 +404,6 @@ export default function UserDashboard() {
                           lab={lab}
                           booking={upcomingLab}
                           onCancel={() => openModal('cancel', lab.id)}
-                          onRefund={() => openModal('refund', lab.id)}
                           isModalOpen={isModalOpen}
                           closeModal={closeModal}
                         />
@@ -474,7 +473,6 @@ export default function UserDashboard() {
                           key={lab.id}
                           lab={lab}
                           booking={notActive}
-                          onCancel={() => openModal('cancel', lab.id)}
                           onRefund={() => openModal('refund', lab.id)}
                           isModalOpen={isModalOpen}
                           closeModal={closeModal}

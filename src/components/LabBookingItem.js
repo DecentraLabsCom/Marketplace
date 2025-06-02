@@ -22,18 +22,22 @@ const LabBookingItem = React.memo(function LabBookingItem({ lab, booking, onCanc
                 </div>
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 mt-2 md:mt-0">
-                <button
-                    onClick={() => onCancel(lab.id)}
-                    className="bg-[#a87583] text-white px-3 py-1 rounded hover:bg-[#8a5c66] text-sm"
-                >
-                    Cancel Booking
-                </button>
-                <button
-                    onClick={() => onRefund(lab.id)}
-                    className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"
-                >
-                    Apply for Refund
-                </button>
+                {typeof onCancel === "function" && (
+                    <button
+                        onClick={() => onCancel(lab.id)}
+                        className="bg-[#a87583] text-white px-3 py-1 rounded hover:bg-[#8a5c66] text-sm"
+                    >
+                        Cancel Booking
+                    </button>
+                )}
+                {typeof onRefund === "function" && (
+                    <button
+                        onClick={() => onRefund(lab.id)}
+                        className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"
+                    >
+                        Apply for Refund
+                    </button>
+                )}
                 </div>
             </div>
             {isModalOpen === "cancel" && (
