@@ -13,7 +13,7 @@ export function UserData({ children }) {
 
     // Check cookies for SSO session
     useEffect(() => {
-        fetch('/api/auth/sso/session')
+        fetch('/api/auth/sso/session', { method: 'GET' })
         .then((res) => {
             if (!res.ok) throw new Error("Failed to fetch session");
             return res.json();

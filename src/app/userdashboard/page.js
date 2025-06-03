@@ -11,7 +11,7 @@ import LabBookingItem from '../../components/LabBookingItem'
 import isBookingActive from '../../utils/isBookingActive'
 
 export default function UserDashboard() {
-  const { isLoggedIn, isConnected, address } = useUser();
+  const { isLoggedIn, address, user } = useUser();
   const { labs, loading } = useLabs();
   const [userData, setUserData] = useState(null);
   const now = new Date();
@@ -167,16 +167,16 @@ export default function UserDashboard() {
 
   // Simulate user data fetching
   useEffect(() => {
-    if (isConnected) {
-      setTimeout(() => {
-        setUserData({
-          name: "John Doe",
-          email: "john.doe@example.com",
-          labs: labs,
-        });
-      }, 1500);
+    if (isLoggedIn && labs) {
+      const userid = address || user?.id;
+      const affiliation = user?.affiliation || 'Unknown';
+      setUserData({
+        userid: userid,
+        affiliation: affiliation,
+        labs: labs,
+      });
     }
-  }, [isConnected, labs]);
+  }, [isLoggedIn, labs]);
 
   if (!userData) {
     return <div className="text-center p-2">Loading user data...</div>
@@ -259,7 +259,7 @@ export default function UserDashboard() {
                               </span>
                             </div>
                             {availableLab && (
-                              <LabAccess userWallet={address} 
+                              <LabAccess userWallet={user.userid} 
                                       hasActiveBooking={!!activeBooking} 
                                       auth={availableLab.auth} />
                             )}
@@ -403,7 +403,6 @@ export default function UserDashboard() {
                           lab={lab}
                           booking={upcomingLab}
                           onCancel={() => openModal('cancel', lab.id)}
-                          onRefund={() => openModal('refund', lab.id)}
                           isModalOpen={isModalOpen}
                           closeModal={closeModal}
                         />
@@ -473,7 +472,6 @@ export default function UserDashboard() {
                           key={lab.id}
                           lab={lab}
                           booking={notActive}
-                          onCancel={() => openModal('cancel', lab.id)}
                           onRefund={() => openModal('refund', lab.id)}
                           isModalOpen={isModalOpen}
                           closeModal={closeModal}
