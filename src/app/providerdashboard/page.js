@@ -66,7 +66,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     if (ownedLabs) {
       const allBookingsDetails = [];
-      
+
       ownedLabs.forEach(lab => {
         if (Array.isArray(lab.bookingInfo)) {
           lab.bookingInfo
@@ -94,7 +94,7 @@ export default function ProviderDashboard() {
       });
       setBookedDates(allBookingsDetails);
     }
-  }, [ownedLabs, today]);
+  }, [ownedLabs, today.toDateString()]);
 
   const renderDayContents = (day, currentDateRender) => {
     const bookingsForCurrentDay = bookedDates.filter(
