@@ -19,9 +19,13 @@ export function UserData({ children }) {
             return res.json();
         })
         .then((data) => {
+            console.log(data);
             if (data.user != null) {
+                console.log(data.user);
                 setIsSSO(true);
                 setUser(data.user);
+                setIsProviderLoading(false);
+                setIsProvider(false);
             }
         })
         .catch((error) => console.error("Error fetching session:", error));
