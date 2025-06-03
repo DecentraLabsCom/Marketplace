@@ -64,34 +64,37 @@ export default function ProviderDashboard() {
   }, [address, labs]);
 
   useEffect(() => {
-    if (!selectedLab || !Array.isArray(selectedLab.bookingInfo)) {
-      setBookedDates([]);
-      console.log("No selected lab or bookingInfo not an array. bookedDates set to empty.");
-      return;
-    }
+    if (ownedLabs) {
+      const allBookingsDetails = [];
+      
+      ownedLabs.forEach(lab => {
+        if (Array.isArray(lab.bookingInfo)) {
+          lab.bookingInfo
+            .forEach(booking => {
+              try {
+                const bookingDateObject = new Date(booking.date);
 
-    const bookingsForSelectedLab = [];
-
-    selectedLab.bookingInfo.forEach(booking => {
-      try {
-        const bookingDateObject = new Date(booking.date);
-
-        if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
-          bookingsForSelectedLab.push({
-            labId: selectedLab.id,
-            labName: selectedLab.name,
-            date: bookingDateObject,
-            time: booking.time,
-            minutes: booking.minutes,
-            dateString: booking.date
-          });
+                if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
+                  allBookingsDetails.push({
+                    labId: lab.id,
+                    labName: lab.name,
+                    date: bookingDateObject,
+                    time: booking.time,
+                    minutes: booking.minutes,
+                    dateString: booking.date
+                  });
+                }
+              } catch (error) {
+                console.error("Error converting date in lab:", lab.name, booking.date, error);
+              }
+            });
+        } else {
+          console.warn(`  Lab ${lab.name} has bookingInfo but it is not an array or is missing:`, lab.bookingInfo);
         }
-      } catch (error) {
-        console.error("Error at converting date in selectedLab:", selectedLab.name, booking.date, error);
-      }
-    });
-    setBookedDates(bookingsForSelectedLab);
-  }, [selectedLab, today]);
+      });
+      setBookedDates(allBookingsDetails);
+    }
+  }, [ownedLabs, today]);
 
   const renderDayContents = (day, currentDateRender) => {
     const bookingsForCurrentDay = bookedDates.filter(
@@ -123,6 +126,7 @@ export default function ProviderDashboard() {
 
     return <div title={title}>{day}</div>;
   };
+
 
   // Automatically set the first lab as the selected lab
   useEffect(() => {
