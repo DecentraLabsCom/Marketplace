@@ -360,53 +360,43 @@ export default function UserDashboard() {
                 </h2>
                 <ul className='w-full flex-1'>
                   {userData.labs
-                    .filter(lab => Array.isArray(lab.bookingInfo) && 
-                      lab.bookingInfo.some(b => b.date >= currentDate))
-                    .sort((a, b) => {
-                      const nextBookingA = a.bookingInfo.find(b => b.date >= currentDate);
-                      const nextBookingB = b.bookingInfo.find(b => b.date >= currentDate);
-                      if (nextBookingA?.date && nextBookingB?.date) {
-                        return nextBookingA.date.localeCompare(nextBookingB.date);
-                      } else if (nextBookingA?.date) {
-                        return -1;
-                      } else if (nextBookingB?.date) {
-                        return 1;
-                      }
-                      return 0;
-                    })
-                    .map((lab) => {
-                      const upcomingLab = lab.bookingInfo.find(b => b.date >= currentDate);
-                      let startTime = null;
-                      let endTime = null;
+                    .filter(lab => Array.isArray(lab.bookingInfo) &&
+                      lab.bookingInfo.some(b => new Date(b.date).getTime() >= new Date(currentDate).getTime()))
+                    .flatMap((lab) => {
+                      const upcomingBookings = lab.bookingInfo.filter(b => new Date(b.date).getTime() >= new Date(currentDate).getTime())
+                        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-                      if (upcomingLab?.time && upcomingLab?.minutes) {
-                        const startTimeParts = upcomingLab.time.split(':').slice(0, 2).join(':');
-                        startTime = startTimeParts;
+                      return upcomingBookings.map((booking) => {
+                        let startTime = null;
+                        let endTime = null;
 
-                        const [hours, minutesPart] = upcomingLab.time.split(':').map(Number);
-                        const startDate = new Date();
-                        startDate.setHours(hours);
-                        startDate.setMinutes(minutesPart);
-                        startDate.setSeconds(0);
+                        if (booking?.time && booking?.minutes) {
+                          const startDateTimeString = `${booking.date}T${booking.time}`;
+                          const startDateObj = new Date(startDateTimeString);
 
-                        const endTimeMilliseconds = startDate.getTime() 
-                          + upcomingLab.minutes * 60 * 1000;
-                        const endTimeDate = new Date(endTimeMilliseconds);
-                        const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                        const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
-                        endTime = `${endHours}:${endMinutes}`;
-                      }
+                          if (!isNaN(startDateObj.getTime())) {
+                            startTime = booking.time;
+                            const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
+                            const endTimeDate = new Date(endTimeMilliseconds);
+                            const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                            const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                            endTime = `${endHours}:${endMinutes}`;
+                          }
+                        }
 
-                      return (
-                        <LabBookingItem
-                          key={lab.id}
-                          lab={lab}
-                          booking={upcomingLab}
-                          onCancel={() => openModal('cancel', lab.id)}
-                          isModalOpen={isModalOpen}
-                          closeModal={closeModal}
-                        />
-                      );
+                        return (
+                          <LabBookingItem
+                            key={`${lab.id}-${booking.date}-${booking.time}`}
+                            lab={lab}
+                            booking={booking}
+                            startTime={startTime}
+                            endTime={endTime}
+                            onCancel={() => openModal('cancel', lab.id, booking)}
+                            isModalOpen={isModalOpen}
+                            closeModal={closeModal}
+                          />
+                        );
+                      });
                     })}
                 </ul>
               </div>
@@ -423,61 +413,44 @@ export default function UserDashboard() {
                 </h2>
                 <ul className='w-full flex-1'>
                   {userData.labs
-                    .filter((lab) => Array.isArray(lab.bookingInfo) && 
-                      lab.bookingInfo.some(b => b.date < currentDate))
-                    .sort((a, b) => {
-                      // Order from more recent to older
-                      const lastBookingA = a.bookingInfo
-                        .filter(b => b.date < currentDate)
-                        .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+                    .filter((lab) => Array.isArray(lab.bookingInfo) &&
+                      lab.bookingInfo.some(b => new Date(b.date).getTime() < new Date(currentDate).getTime()))
+                    .flatMap((lab) => {
+                      const pastBookings = lab.bookingInfo.filter(b => new Date(b.date).getTime() < new Date(currentDate).getTime())
+                        .sort((x, y) => new Date(y.date).getTime() - new Date(x.date).getTime());
 
-                      const lastBookingB = b.bookingInfo
-                        .filter(b => b.date < currentDate)
-                        .sort((x, y) => new Date(y.date) - new Date(x.date))[0];
+                      return pastBookings.map((booking) => {
+                        let startTime = null;
+                        let endTime = null;
 
-                      if (lastBookingA?.date && lastBookingB?.date) {
-                        return new Date(lastBookingB.date) - new Date(lastBookingA.date);
-                      } else if (lastBookingA?.date) {
-                        return -1;
-                      } else if (lastBookingB?.date) {
-                        return 1;
-                      }
-                      return 0;
-                    })
-                    .map((lab) => {
-                      const notActive = lab.bookingInfo.find(b => b.date < currentDate);
-                      let startTime = null;
-                      let endTime = null;
+                        if (booking?.time && booking?.minutes) {
+                          const startDateTimeString = `${booking.date}T${booking.time}`;
+                          const startDateObj = new Date(startDateTimeString);
 
-                      if (notActive?.time && notActive?.minutes) {
-                        const startTimeParts = notActive.time.split(':').slice(0, 2).join(':');
-                        startTime = startTimeParts;
+                          if (!isNaN(startDateObj.getTime())) {
+                            startTime = booking.time;
+                            const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
+                            const endTimeDate = new Date(endTimeMilliseconds);
+                            const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                            const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                            endTime = `${endHours}:${endMinutes}`;
+                          }
+                        }
 
-                        const [hours, minutesPart] = notActive.time.split(':').map(Number);
-                        const startDate = new Date();
-                        startDate.setHours(hours);
-                        startDate.setMinutes(minutesPart);
-                        startDate.setSeconds(0);
-
-                        const endTimeMilliseconds = startDate.getTime() + 
-                          notActive.minutes * 60 * 1000;
-                        const endTimeDate = new Date(endTimeMilliseconds);
-                        const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                        const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
-                        endTime = `${endHours}:${endMinutes}`;
-                      }
-
-                      return (
-                        <LabBookingItem
-                          key={lab.id}
-                          lab={lab}
-                          booking={notActive}
-                          onRefund={() => openModal('refund', lab.id)}
-                          isModalOpen={isModalOpen}
-                          closeModal={closeModal}
-                        />
-                      );
-                  })}
+                        return (
+                          <LabBookingItem
+                            key={`${lab.id}-${booking.date}-${booking.time}`}
+                            lab={lab}
+                            booking={booking}
+                            startTime={startTime}
+                            endTime={endTime}
+                            onRefund={() => openModal('refund', lab.id, booking)}
+                            isModalOpen={isModalOpen}
+                            closeModal={closeModal}
+                          />
+                        );
+                      });
+                    })}
                 </ul>
               </div>
             </div>
