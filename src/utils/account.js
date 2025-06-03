@@ -1,5 +1,5 @@
 "use client";
-import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi';
 import { useUser } from '../context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -11,19 +11,18 @@ function formatAddress(address) {
 }
 
 export default function Account() {
+  const router = useRouter();
   const { isConnected, isSSO, isLoggedIn, address, user } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address });
   const { data: ensAvatar } = useEnsAvatar({ name: ensName });
-  const pathname = usePathname();
 
-  const handleDisconnect = async () => {
+  const handleLogout = async () => {
     if (isConnected) disconnect();
     if (isSSO) {
       await fetch("/api/auth/logout");
-      if (pathname !== "/") {
-        window.location.href = "/";
-      }
+      router.push("/");
+      router.refresh();
     }
   }
 
@@ -39,7 +38,7 @@ export default function Account() {
           )}
         </div>
       )}
-      <button onClick={handleDisconnect}>
+      <button onClick={handleLogout}>
         <FontAwesomeIcon icon={faSignOutAlt} className="text-[#715c8c] font-semibold text-4xl
                 hover:text-[#333f63]" title={isConnected ? "Disconnect Wallet" : "Logout"}/>
       </button>
