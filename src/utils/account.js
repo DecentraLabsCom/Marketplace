@@ -10,7 +10,7 @@ function formatAddress(address) {
 }
 
 export default function Account() {
-  const { isConnected, isSSO, address, user } = useUser();
+  const { isConnected, isSSO, isLoggedIn, address, user } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address });
   const { data: ensAvatar } = useEnsAvatar({ name: ensName });
@@ -28,7 +28,7 @@ export default function Account() {
 
   return (
     <div className="flex items-center space-x-6 ml-auto font-bold">
-      {isConnected && (
+      {isLoggedIn && (
         <div className="pointer-events-none flex flex-col items-center">
           <div className="text-sm text-[#333f63]">{formatAddress(address) || user?.email}</div>
           {(user?.name || ensName) && (
