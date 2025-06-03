@@ -28,9 +28,9 @@ export default function Account() {
 
   return (
     <div className="flex items-center space-x-6 ml-auto font-bold">
-      {isConnected && address && (
+      {isConnected && (
         <div className="pointer-events-none flex flex-col items-center">
-          <div className="text-sm text-[#333f63]">{formatAddress(address)}</div>
+          <div className="text-sm text-[#333f63]">{formatAddress(address) || user?.email}</div>
           {(user?.name || ensName) && (
             <div className="text-[14px] text-[#335763]">
               {user?.name ? user.name : ensName }
