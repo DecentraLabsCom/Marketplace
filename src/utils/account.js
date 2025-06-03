@@ -1,5 +1,4 @@
 "use client";
-import { useRouter } from 'next/navigation';
 import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi';
 import { useUser } from '../context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -11,7 +10,6 @@ function formatAddress(address) {
 }
 
 export default function Account() {
-  const router = useRouter();
   const { isConnected, isSSO, isLoggedIn, address, user } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address });
@@ -21,8 +19,7 @@ export default function Account() {
     if (isConnected) disconnect();
     if (isSSO) {
       await fetch("/api/auth/logout");
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
   }
 
