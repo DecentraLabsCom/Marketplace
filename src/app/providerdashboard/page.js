@@ -50,8 +50,10 @@ export default function ProviderDashboard() {
 
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Calendar
   const today = new Date();
+  const [date, setDate] = useState(new Date());
+  const [bookedDates, setBookedDates] = useState([]);
 
   // Filter labs owned by the user
   useEffect(() => {
@@ -60,6 +62,67 @@ export default function ProviderDashboard() {
       setOwnedLabs(userLabs);
     }
   }, [address, labs]);
+
+  useEffect(() => {
+    if (!selectedLab || !Array.isArray(selectedLab.bookingInfo)) {
+      setBookedDates([]);
+      console.log("No selected lab or bookingInfo not an array. bookedDates set to empty.");
+      return;
+    }
+
+    const bookingsForSelectedLab = [];
+
+    selectedLab.bookingInfo.forEach(booking => {
+      try {
+        const bookingDateObject = new Date(booking.date);
+
+        if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
+          bookingsForSelectedLab.push({
+            labId: selectedLab.id,
+            labName: selectedLab.name,
+            date: bookingDateObject,
+            time: booking.time,
+            minutes: booking.minutes,
+            dateString: booking.date
+          });
+        }
+      } catch (error) {
+        console.error("Error at converting date in selectedLab:", selectedLab.name, booking.date, error);
+      }
+    });
+    setBookedDates(bookingsForSelectedLab);
+  }, [selectedLab, today]);
+
+  const renderDayContents = (day, currentDateRender) => {
+    const bookingsForCurrentDay = bookedDates.filter(
+      (bookingDetail) => bookingDetail.date.toDateString() === currentDateRender.toDateString()
+    );
+
+    let title = undefined;
+
+    if (bookingsForCurrentDay.length > 0) {
+      title = bookingsForCurrentDay.map(bookingDetail => {
+        if (bookingDetail.time && bookingDetail.minutes !== undefined && bookingDetail.minutes !== null) {
+          const startDateTimeString = `${bookingDetail.dateString}T${bookingDetail.time}`;
+          const startDate = new Date(startDateTimeString);
+
+          if (isNaN(startDate.getTime())) {
+            console.error(`Error: Invalid start date for booking detail in tooltip: ${startDateTimeString}. Skipping this booking in tooltip.`);
+            return `Invalid Booking: ${bookingDetail.labName}`;
+          }
+
+          const endTimeDate = new Date(startDate.getTime() + parseInt(bookingDetail.minutes) * 60 * 1000);
+          const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+
+          return `${bookingDetail.labName}: ${bookingDetail.time} - ${endTime}`;
+        } else {
+          return `Booking incomplete: ${bookingDetail.labName}`;
+        }
+      }).join(', ');
+    }
+
+    return <div title={title}>{day}</div>;
+  };
 
   // Automatically set the first lab as the selected lab
   useEffect(() => {
@@ -386,8 +449,18 @@ export default function ProviderDashboard() {
           <div className="w-full md:w-1/3 mt-8 md:mt-0">
             <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
             <div className="flex justify-center">
-              <DatePicker inline selected={selectedDate} minDate={today} onChange={setSelectedDate} 
-                calendarClassName="custom-datepicker" filterDate={() => false} />
+                <DatePicker calendarClassName="custom-datepicker" selected={date} inline minDate={today}
+                  onChange={(newDate) => setDate(newDate)}
+                  filterDate={() => false}
+                  dayClassName={(day) =>
+                    bookedDates.some(
+                      (bookingDetail) => bookingDetail.date.toDateString() === day.toDateString()
+                    )
+                    ? "bg-[#9fc6f5] text-white"
+                    : undefined
+                  }
+                  renderDayContents={renderDayContents}
+                />
             </div>
           </div>
           

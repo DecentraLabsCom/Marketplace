@@ -88,30 +88,30 @@ export default function UserDashboard() {
         } else {
             console.warn(`  Lab ${lab.name}'s 'bookingInfo' is not an array or is missing:`, lab.bookingInfo);
         }
-    }
+      }
 
-    let title = undefined;
+      let title = undefined;
 
-    // If there are bookings, create string for tooltip
-    if (allMatchingBookingsDetails.length > 0) {
-      title = allMatchingBookingsDetails.map(bookingDetail => {
-          const startDateTimeString = `${bookingDetail.dateString}T${bookingDetail.time}`;
-          const startDate = new Date(startDateTimeString);
+      // If there are bookings, create string for tooltip
+      if (allMatchingBookingsDetails.length > 0) {
+        title = allMatchingBookingsDetails.map(bookingDetail => {
+            const startDateTimeString = `${bookingDetail.dateString}T${bookingDetail.time}`;
+            const startDate = new Date(startDateTimeString);
 
-          if (isNaN(startDate.getTime())) {
-              console.error(`Error: Invalid start date for booking detail in tooltip: ${startDateTimeString}. Skipping this booking in tooltip.`);
-              return `Invalid Booking: ${bookingDetail.labName}`;
-          }
+            if (isNaN(startDate.getTime())) {
+                console.error(`Error: Invalid start date for booking detail in tooltip: ${startDateTimeString}. Skipping this booking in tooltip.`);
+                return `Invalid Booking: ${bookingDetail.labName}`;
+            }
 
-          const endTimeDate = new Date(startDate.getTime() + bookingDetail.minutes * 60 * 1000);
-          const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+            const endTimeDate = new Date(startDate.getTime() + bookingDetail.minutes * 60 * 1000);
+            const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
 
-          return `${bookingDetail.labName}: ${bookingDetail.time} - ${endTime}`;
-      }).join(', ');
-    }
+            return `${bookingDetail.labName}: ${bookingDetail.time} - ${endTime}`;
+        }).join(', ');
+      }
 
-    return <div title={title}>{day}</div>;
-};
+      return <div title={title}>{day}</div>;
+  };
 
   useEffect(() => {
     if (labs) {
@@ -122,12 +122,11 @@ export default function UserDashboard() {
             .forEach(booking => {
               try {
                 const dateObject = new Date(booking.date);
-                // Verificar si la fecha es válida antes de añadirla
                 if (!isNaN(dateObject)) {
                   dates.push(dateObject);
                 }
               } catch (error) {
-                console.error("Error al convertir fecha:", booking.date, error);
+                console.error("Error converting date:", booking.date, error);
               }
             });
         }
