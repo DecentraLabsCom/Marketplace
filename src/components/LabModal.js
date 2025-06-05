@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { UploadCloud, Link, XCircle } from 'lucide-react';
-import MediaDisplayWithFallback from './MediaDisplayWithFallback';
 import ImagePreviewList from './ImagePreviewList.js';
 import DocPreviewList from './DocPreviewList.js';
 
@@ -19,6 +18,24 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
   const currentLabId = lab.id || maxId + 1;
+  const [errors, setErrors] = useState({});
+  const [isLocalURI, setIsLocalURI] = useState(false);
+  const jsonFileRegex = /^[\w\-\._\/]+\.json$/i;
+  const [hasClickedToEnableUri, setHasClickedToEnableUri] = useState(false);
+  const nameRef = useRef(null);
+  const categoryRef = useRef(null);
+  const keywordsRef = useRef(null);
+  const descriptionRef = useRef(null);
+  const priceRef = useRef(null);
+  const authRef = useRef(null);
+  const accessURIRef = useRef(null);
+  const accessKeyRef = useRef(null);
+  const timeSlotsRef = useRef(null);
+  const opensRef = useRef(null);
+  const closesRef = useRef(null);
+  const uriRef = useRef(null);
+  const imageLinkRef = useRef(null);
+  const docLinkRef = useRef(null);
 
   const uploadFile = async (file, destinationFolder, labId) => {
     const formData = new FormData();
@@ -32,7 +49,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     });
 
     if (!response.ok) {
-      throw new Error(`Error al subir el archivo: ${response.statusText}`);
+      throw new Error(`Error al uploading: ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -78,6 +95,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       setImageUrls([]);
       setDocUrls([]);
       setIsExternalURI(false);
+      setIsLocalURI(false);
+      setHasClickedToEnableUri(false);
+      setErrors({});
       return;
     }
 
@@ -93,25 +113,15 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     };
   }, [isOpen, onClose, deleteFile]);
 
-  // Opcional: Asegurarse de que onSubmit borra los archivos temporales si se guardan con éxito
-  const handleSubmitAndCleanup = async () => {
-    try {
-      await onSubmit(localLab); // Call to the original submit function
-      // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing the modal
-      uploadedTempFiles.current = [];
-      onClose();
-    } catch (error) {
-      console.error('Error al guardar el lab:', error);
-    }
-  };
-
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
     if (isOpen) {
-      console.log('process.cwd()', process.cwd());
       setLocalLab(lab ? { ...lab } : {});
-      const hasExternalUri = !!(lab.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
+      const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
       setIsExternalURI(hasExternalUri);
+      const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
+      setIsLocalURI(hasLocalUri);
+      setHasClickedToEnableUri(false);
     }
     if (isOpen && lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
@@ -232,7 +242,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             };
           });
         } catch (error) {
-          console.error("Error al subir documentos", error);
+          console.error("Error uploading docs", error);
         }
       } else { // If all files are PDFs
         setLocalDocs(prevLocalDocs => [...prevLocalDocs, ...files]);
@@ -253,7 +263,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             };
           });
         } catch (error) {
-          console.error("Error al subir documentos", error);
+          console.error("Error uploading docs", error);
         }
       }
     }
@@ -303,13 +313,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   };
 
   const removeDoc = (index) => {
-    console.log('dentro de removeDoc');
     setLocalDocs(prevDocs => {
       const newDocs = prevDocs.filter((_, i) => i !== index);
       return newDocs
     });
-    console.log('tras setLocalDocs');
-
     setDocUrls(prevUrls => {
       const newUrls = prevUrls.filter((_, i) => i !== index);
       const urlToRemove = prevUrls[index];
@@ -344,14 +351,207 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     });
   };
 
-  const handleSubmitFull = (e) => {
+  const handleUriChange = (e) => {
+    const newUri = e.target.value;
+    setLocalLab({ ...localLab, uri: newUri });
+    
+    const startsWithProtocol = newUri.startsWith('http://') || newUri.startsWith('https://') || newUri.startsWith('ftp://');
+    setIsExternalURI(!!(newUri && startsWithProtocol));
+
+    // Determine if it's a local JSON URI: Not an external protocol AND matches local JSON regex
+    setIsLocalURI(!!(newUri && !startsWithProtocol && jsonFileRegex.test(newUri)));
+  };
+
+  useEffect(() => {
+    setErrors({});
+  }, [activeTab]);
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {};
+    const urlRegex = new RegExp(/^(ftp|http|https):\/\/[^ "]+$/);
+
+    if (activeTab === 'full') {
+      if (!isExternalURI) {
+        if (!localLab.name?.trim()) newErrors.name = 'Lab name is required';
+        if (!localLab.category?.trim()) newErrors.category = 'Category is required';
+        if (!localLab.description?.trim()) newErrors.description = 'Description is required';
+        if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {
+          newErrors.price = 'Price is required';
+        } else {
+          const priceNum = parseFloat(localLab.price);
+          if (isNaN(priceNum) || priceNum < 0) {
+            newErrors.price = 'Price must be a positive number or zero';
+          }
+        }
+        if (!localLab.auth?.trim()) {
+          newErrors.auth = 'Authentication URL is required';
+        } else if (!urlRegex.test(localLab.auth)) {
+          newErrors.auth = 'Invalid Authentication URL format';
+        }
+        if (!localLab.accessURI?.trim()) {
+          newErrors.accessURI = 'Access URI is required';
+        } else if (!urlRegex.test(localLab.accessURI)) {
+          newErrors.accessURI = 'Invalid Access URI format';
+        }
+        if (!localLab.accessKey?.trim()) newErrors.accessKey = 'Access Key is required';
+
+        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+
+        if (!localLab.opens?.trim()) {
+          newErrors.opens = 'Opening date is required';
+        } else if (!dateRegex.test(localLab.opens)) {
+          newErrors.opens = 'Invalid opening date format (must be MM/DD/YYYY)';
+        }
+        if (!localLab.closes?.trim()) {
+          newErrors.closes = 'Closing date is required';
+        } else if (!dateRegex.test(localLab.closes)) {
+          newErrors.closes = 'Invalid closing date format (must be MM/DD/YYYY)';
+        }
+        if (!localLab.timeSlots || localLab.timeSlots.length === 0 || localLab.timeSlots.every(slot => isNaN(Number(slot)) || Number(slot) <= 0)) {
+          newErrors.timeSlots = 'At least one valid time slot (positive number) must be selected';
+        }
+        if (!localLab.keywords || localLab.keywords.length === 0 || localLab.keywords.every(k => !k.trim())) {
+          newErrors.keywords = 'At least one keyword must be added';
+        }
+        
+        // Date comparison validation (only if both dates pass format check and are not empty)
+        if (!newErrors.opens && !newErrors.closes &&
+            localLab.opens?.trim() && localLab.closes?.trim()) {
+          const opensDate = new Date(localLab.opens);
+          const closesDate = new Date(localLab.closes);
+          if (closesDate.getTime() < opensDate.getTime()) {
+            newErrors.closes = 'Closing date must be after or equal to opening date';
+          }
+        }
+
+        const imageExtensionRegex = /\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i;
+        const pdfExtensionRegex = /\.pdf$/i;
+
+        // Image and Document link validations
+        if (imageInputType === 'link' && Array.isArray(localLab.images)) {
+          localLab.images.forEach((imageUrl, index) => {
+            if (imageUrl.trim()) {
+              if (!imageExtensionRegex.test(imageUrl.trim())) {
+                newErrors.images = newErrors.images || `Image link must end with a valid image extension (e.g., .jpg, .png)`;
+              }
+            }
+          });
+        }
+
+        if (docInputType === 'link' && Array.isArray(localLab.docs)) {
+          localLab.docs.forEach((docUrl, index) => {
+            if (docUrl.trim()) {
+              if (!pdfExtensionRegex.test(docUrl.trim())) {
+                newErrors.docs = newErrors.docs || `Document link must end with ".pdf"`;
+              }
+            }
+          });
+        }
+      }
+    } else if (activeTab === 'quick') {
+      if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {
+        newErrors.price = 'Price is required';
+      } else {
+        const priceNum = parseFloat(localLab.price);
+        if (isNaN(priceNum) || priceNum < 0) {
+          newErrors.price = 'Price must be a positive number or zero';
+        }
+      }
+      if (!localLab.auth?.trim()) {
+        newErrors.auth = 'Authentication URL is required';
+      } else if (!urlRegex.test(localLab.auth)) {
+        newErrors.auth = 'Invalid Authentication URL format';
+      }
+      if (!localLab.accessURI?.trim()) {
+        newErrors.accessURI = 'Access URI is required';
+      } else if (!urlRegex.test(localLab.accessURI)) {
+        newErrors.accessURI = 'Invalid Access URI format';
+      }
+      if (!localLab.accessKey?.trim()) newErrors.accessKey = 'Access Key is required';
+      if (!localLab.uri?.trim()) {
+        newErrors.uri = 'Lab Data URL is required';
+      } else {
+        // If not empty, check format based on whether it looks like an external URL
+        const isExternalUrlAttempt = localLab.uri.startsWith('http://') || localLab.uri.startsWith('https://') || localLab.uri.startsWith('ftp://');
+
+        if (isExternalUrlAttempt) {
+          if (!urlRegex.test(localLab.uri)) {
+            newErrors.uri = 'Invalid external URI format. Must be a valid URL starting with http(s):// or ftp://';
+          }
+        } else {
+          // If not an external URL attempt, assume it's a local JSON file path
+          newErrors.uri = 'It must be an external URL';
+        }
+      }
+    }
+    setErrors(newErrors);
+    return newErrors;
+  };
+
+  // Function to focus the first input with an error
+  const focusFirstError = (currentErrors, currentTab) => {
+    const fieldsToFocus = {
+        full: [
+            { name: 'name', ref: nameRef },
+            { name: 'category', ref: categoryRef },
+            { name: 'keywords', ref: keywordsRef },
+            { name: 'description', ref: descriptionRef },
+            { name: 'price', ref: priceRef },
+            { name: 'auth', ref: authRef },
+            { name: 'accessURI', ref: accessURIRef },
+            { name: 'accessKey', ref: accessKeyRef },
+            { name: 'timeSlots', ref: timeSlotsRef },
+            { name: 'opens', ref: opensRef },
+            { name: 'closes', ref: closesRef },
+            { name: 'uri', ref: uriRef },
+            { name: 'images', ref: imageLinkRef },
+            { name: 'docs', ref: docLinkRef },
+        ],
+        quick: [
+            { name: 'price', ref: priceRef },
+            { name: 'auth', ref: authRef },
+            { name: 'accessURI', ref: accessURIRef },
+            { name: 'accessKey', ref: accessKeyRef },
+            { name: 'uri', ref: uriRef },
+        ],
+    };
+
+    const relevantFields = fieldsToFocus[currentTab];
+
+    for (const field of relevantFields) {
+        if (currentErrors[field.name] && field.ref.current) {
+            field.ref.current.focus();
+            break;
+        }
+    }
+  };
+
+  const handleSubmitFull = async (e) => {
     e.preventDefault();
-    onSubmit(localLab);
+    const currentErrors = validateForm();
+    try {
+      if (Object.keys(currentErrors).length === 0) {
+        await onSubmit(localLab); // Call to the original submit function
+        // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing the modal
+        uploadedTempFiles.current = [];
+        onClose();
+      } else {
+        focusFirstError(currentErrors, 'full');
+      }
+    } catch (error) {
+      console.error('Error saving lab:', error);
+    }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmitQuick = (e) => {
     e.preventDefault();
-    onSubmit(localLab);
+    const currentErrors = validateForm();
+    if (Object.keys(currentErrors).length === 0) {
+      onSubmit(localLab);
+    } else {
+      focusFirstError(currentErrors, 'quick');
+    }
   };
 
   if (!isOpen) return null;
@@ -386,12 +586,19 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             </button>
           </div>
           {isExternalURI && activeTab === 'full' && (
-              <div className='mt-4 flex justify-center'>
-                <span className="text-sm text-red-500 font-medium">
-                  To edit these fields, first remove the link to the lab data in Quick Setup
-                </span>
-              </div>
-            )}
+            <div className='mt-4 flex justify-center'>
+              <span className="text-sm text-red-500 font-medium">
+                To edit these fields, first remove the link to the lab data in Quick Setup
+              </span>
+            </div>
+          )}
+          {isLocalURI && activeTab === 'quick' && (
+            <div className='mt-4 flex justify-center'>
+              <span className="text-sm text-red-500 font-medium">
+                To edit these fields, click on the JSON file field and add an external URL
+              </span>
+            </div>
+          )}
           <div className='mt-4'>
             {activeTab === 'full' && (
               <form className="space-y-4 text-gray-600" onSubmit={handleSubmitFull}>
@@ -404,7 +611,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={nameRef}
                 />
+                {errors.name && <p className="text-red-500 text-sm !mt-1">{errors.name}</p>}
                 <input
                   type="text"
                   placeholder="Category"
@@ -414,7 +623,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={categoryRef}
                 />
+                {errors.category && <p className="text-red-500 text-sm !mt-1">{errors.category}</p>}
                 <input
                   type="text"
                   placeholder="Keywords (comma-separated)"
@@ -426,7 +637,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={keywordsRef}
                 />
+                {errors.keywords && <p className="text-red-500 text-sm !mt-1">{errors.keywords}</p>}
                 <textarea
                   placeholder="Description"
                   value={localLab.description}
@@ -435,7 +648,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={descriptionRef}
                 />
+                {errors.description && <p className="text-red-500 text-sm !mt-[-2px]">{errors.description}</p>}
                 <input
                   type="number"
                   placeholder="Price"
@@ -445,7 +660,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={priceRef}
                 />
+                {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
                 <input
                   type="text"
                   placeholder="Auth URL"
@@ -455,7 +672,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={authRef}
                 />
+                {errors.auth && <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
                 <input
                   type="text"
                   placeholder="Access URI"
@@ -465,7 +684,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={accessURIRef}
                 />
+                {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
                 <input
                   type="text"
                   placeholder="Access Key"
@@ -475,7 +696,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={accessKeyRef}
                 />
+                {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
                 <input
                   type="text"
                   placeholder="Time Slots (comma-separated)"
@@ -487,7 +710,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={timeSlotsRef}
                 />
+                {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
                 <input
                   type="text"
                   placeholder="Opens (e.g. 08/31/2025)"
@@ -497,7 +722,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={opensRef}
                 />
+                {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
                 <input
                   type="text"
                   placeholder="Closes (e.g. 12/31/2025)"
@@ -507,7 +734,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
                   disabled:border-gray-300"
                   disabled={isExternalURI}
+                  ref={closesRef}
                 />
+                {errors.closes && <p className="text-red-500 text-sm !mt-1">{errors.closes}</p>}
 
                 {/* Image Input */}
                 <div className="space-y-2">
@@ -555,8 +784,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                       className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
                       disabled:cursor-not-allowed disabled:border-gray-300"
                       disabled={isExternalURI}
+                      ref={imageLinkRef}
                     />
                   )}
+                  {errors.images && <p className="text-red-500 text-sm mt-1">{errors.images}</p>}
                   {imageInputType === 'upload' && (
                     <>
                       <input
@@ -653,9 +884,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                         setLocalLab({ ...localLab, docs: e.target.value.split(',') })
                       }
                       className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
-                      disabled:cursor-not-allowed disabled:border-gray-300" disabled={isExternalURI}
+                      disabled:cursor-not-allowed disabled:border-gray-300"
+                      disabled={isExternalURI}
+                      ref={docLinkRef}
                     />
                   )}
+                  {errors.docs && <p className="text-red-500 text-sm mt-1">{errors.docs}</p>}
                   {docInputType === 'upload' && (
                     <>
                       <input
@@ -705,7 +939,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   )}
                 </div>
                 <div className="flex justify-between mt-4">
-                  <button type="button" onClick={handleSubmitAndCleanup} 
+                  <button type="submit" 
                     disabled={activeTab === 'full' && lab?.id && isExternalURI}
                     className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]
                     disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed 
@@ -720,48 +954,75 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
               </form>
             )}
             {activeTab === 'quick' && (
-              <form className="space-y-4 text-gray-600" onSubmit={handleSubmit}>
+              <form className="space-y-4 text-gray-600" onSubmit={handleSubmitQuick}>
                 <input
                   type="number"
                   placeholder="Price"
                   value={localLab.price}
                   onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
+                  disabled={isLocalURI}
+                  ref={priceRef}
                 />
+                {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
                 <input
                   type="text"
                   placeholder="Auth URL"
                   value={localLab.auth}
                   onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
+                  disabled={isLocalURI}
+                  ref={categoryRef}
                 />
+                {errors.auth && activeTab === 'quick' && <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
                 <input
                   type="text"
                   placeholder="Access URI"
                   value={localLab.accessURI || ''}
                   onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
+                  disabled={isLocalURI}
+                  ref={accessURIRef}
                 />
+                {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
                 <input
                   type="text"
                   placeholder="Access Key"
                   value={localLab.accessKey || ''}
                   onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded
+                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
+                  disabled:border-gray-300"
+                  disabled={isLocalURI}
+                  ref={accessKeyRef}
                 />
+                {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
                 <input
                   type="text"
                   placeholder="Lab Data URL (JSON)"
                   value={localLab.uri || ''}
-                  onChange={(e) => {
-                  const newUri = e.target.value;
-                  setLocalLab({ ...localLab, uri: newUri });
-                  // If input empty, provider can now edit data in 'Full Data' tab
-                  setIsExternalURI(!!(newUri && (newUri.startsWith('http://') || newUri.startsWith('https://'))));
-                }}
-
-                  className="w-full p-2 border rounded"
+                  onChange={handleUriChange}
+                  onClick={() => isLocalURI && setHasClickedToEnableUri(true)}
+                  onBlur={() => isLocalURI && setHasClickedToEnableUri(false)}
+                    readOnly={isLocalURI && !hasClickedToEnableUri}
+                    className={`w-full p-2 border rounded ${
+                      isLocalURI && !hasClickedToEnableUri
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300'
+                        : ''
+                  }`}
+                  ref={uriRef}
                 />
+                {errors.uri && !hasClickedToEnableUri && <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>}
+                {hasClickedToEnableUri && <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
+                  <li>Name changes to the JSON file are not allowed / will be ignored</li>
+                  <li>Introducing an URL with a link to an external JSON file will replace the data in Full Data with the information contained in the external JSON file</li>
+                  </ol>}
                 <div className="flex justify-between mt-4">
                   <button type="submit"
                     className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
