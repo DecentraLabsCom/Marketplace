@@ -20,7 +20,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const currentLabId = lab.id || maxId + 1;
   const [errors, setErrors] = useState({});
   const [isLocalURI, setIsLocalURI] = useState(false);
-  const jsonFileRegex = new RegExp(/^[\w\-\._\/]+\.json$/i);
+  const jsonFileRegex = new RegExp(/^[\w\-._/]+\.json$/i);
   const [hasClickedToEnableUri, setHasClickedToEnableUri] = useState(false);
   const nameRef = useRef(null);
   const categoryRef = useRef(null);
