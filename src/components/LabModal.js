@@ -20,7 +20,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const currentLabId = lab.id || maxId + 1;
   const [errors, setErrors] = useState({});
   const [isLocalURI, setIsLocalURI] = useState(false);
-  const jsonFileRegex = /^[\w\-\._\/]+\.json$/i;
+  const jsonFileRegex = new RegExp(/^[\w\-\._\/]+\.json$/i);
   const [hasClickedToEnableUri, setHasClickedToEnableUri] = useState(false);
   const nameRef = useRef(null);
   const categoryRef = useRef(null);
@@ -369,7 +369,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   // Form validation
   const validateForm = () => {
     const newErrors = {};
-    const urlRegex = /^(https?|ftp):\/\/.*/i;
+    const urlRegex = new RegExp(/^(ftp|http|https):\/\/[^ "]+$/);
 
     if (activeTab === 'full') {
       if (!isExternalURI) {
@@ -396,7 +396,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         }
         if (!localLab.accessKey?.trim()) newErrors.accessKey = 'Access Key is required';
 
-        const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+        const dateRegex = new RegExp(/^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/);
 
         if (!localLab.opens?.trim()) {
           newErrors.opens = 'Opening date is required';
@@ -425,8 +425,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
           }
         }
 
-        const imageExtensionRegex = /\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i;
-        const pdfExtensionRegex = /\.pdf$/i;
+        const imageExtensionRegex = new RegExp(/\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i);
+        const pdfExtensionRegex = new RegExp(/\.pdf$/i);
 
         // Image and Document link validations
         if (imageInputType === 'link' && Array.isArray(localLab.images)) {
