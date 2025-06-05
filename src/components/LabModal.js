@@ -369,7 +369,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   // Form validation
   const validateForm = () => {
     const newErrors = {};
-    const urlRegex = new RegExp(/^(ftp|http|https):\/\/[^ "]+$/);
+    const urlRegex = /^(https?|ftp):\/\/[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+(?:\/[^\\s]*)?$/i;
 
     if (activeTab === 'full') {
       if (!isExternalURI) {
