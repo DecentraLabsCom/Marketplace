@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -9,7 +9,7 @@ import Login from './Login';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { isLoggedIn, isSSO, isConnected, user, isProvider, isProviderLoading } = useUser();
+  const { isLoggedIn, isProvider, isProviderLoading } = useUser();
 
   const menuButton = (href, label) => (
     <Link href={href}
