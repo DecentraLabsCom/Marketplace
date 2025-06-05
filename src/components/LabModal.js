@@ -544,11 +544,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     }
   }
 
-  const handleSubmitQuick = (e) => {
+  const handleSubmitQuick = async (e) => {
     e.preventDefault();
     const currentErrors = validateForm();
     if (Object.keys(currentErrors).length === 0) {
-      onSubmit(localLab);
+      await onSubmit(localLab);
     } else {
       focusFirstError(currentErrors, 'quick');
     }
