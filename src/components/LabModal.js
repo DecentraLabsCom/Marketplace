@@ -79,7 +79,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
   useEffect(() => {
     if (!isOpen) {
-      // Delete uploeaded temporal files
+      // Delete uploaded temporal files
       Promise.allSettled(uploadedTempFiles.current.map(filePath => deleteFile(filePath)))
         .then(results => {
           results.forEach((result, index) => {
@@ -355,7 +355,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     const newUri = e.target.value;
     setLocalLab({ ...localLab, uri: newUri });
     
-    const startsWithProtocol = newUri.startsWith('http://') || newUri.startsWith('https://') || newUri.startsWith('ftp://');
+    const startsWithProtocol = newUri.startsWith('http://') || 
+                               newUri.startsWith('https://') || 
+                               newUri.startsWith('ftp://');
     setIsExternalURI(!!(newUri && startsWithProtocol));
 
     // Determine if it's a local JSON URI: Not an external protocol AND matches local JSON regex
@@ -408,7 +410,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         } else if (!dateRegex.test(localLab.closes)) {
           newErrors.closes = 'Invalid closing date format (must be MM/DD/YYYY)';
         }
-        if (!localLab.timeSlots || localLab.timeSlots.length === 0 || localLab.timeSlots.every(slot => isNaN(Number(slot)) || Number(slot) <= 0)) {
+        if (!localLab.timeSlots || localLab.timeSlots.length === 0 || 
+          localLab.timeSlots.every(slot => isNaN(Number(slot)) || Number(slot) <= 0)) {
           newErrors.timeSlots = 'At least one valid time slot (positive number) must be selected';
         }
         if (!localLab.keywords || localLab.keywords.length === 0 || localLab.keywords.every(k => !k.trim())) {
@@ -433,7 +436,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
           localLab.images.forEach((imageUrl, index) => {
             if (imageUrl.trim()) {
               if (!imageExtensionRegex.test(imageUrl.trim())) {
-                newErrors.images = newErrors.images || `Image link must end with a valid image extension (e.g., .jpg, .png)`;
+                newErrors.images = newErrors.images || 
+                `Image link must end with a valid image extension (e.g., .jpg, .png)`;
               }
             }
           });
@@ -473,7 +477,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         newErrors.uri = 'Lab Data URL is required';
       } else {
         // If not empty, check format based on whether it looks like an external URL
-        const isExternalUrlAttempt = localLab.uri.startsWith('http://') || localLab.uri.startsWith('https://') || localLab.uri.startsWith('ftp://');
+        const isExternalUrlAttempt = localLab.uri.startsWith('http://') || 
+                                     localLab.uri.startsWith('https://') || 
+                                     localLab.uri.startsWith('ftp://');
 
         if (isExternalUrlAttempt) {
           if (!urlRegex.test(localLab.uri)) {
@@ -533,7 +539,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     try {
       if (Object.keys(currentErrors).length === 0) {
         await onSubmit(localLab); // Call to the original submit function
-        // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing the modal
+        // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing 
+        // the modal
         uploadedTempFiles.current = [];
         onClose();
       } else {
@@ -573,7 +580,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
               onClick={() => setActiveTab('full')}
             >
-              Full Data
+              Full Setup
             </button>
             <button
               type="button"
@@ -595,7 +602,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
           {isLocalURI && activeTab === 'quick' && (
             <div className='mt-4 flex justify-center'>
               <span className="text-sm text-red-500 font-medium">
-                To edit these fields, click on the JSON file field and add an external URL
+                While greyed out, you may edit the JSON file field to add it as a link
               </span>
             </div>
           )}
@@ -978,7 +985,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   disabled={isLocalURI}
                   ref={categoryRef}
                 />
-                {errors.auth && activeTab === 'quick' && <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
+                {errors.auth && activeTab === 'quick' && 
+                <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
                 <input
                   type="text"
                   placeholder="Access URI"
@@ -1018,10 +1026,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   }`}
                   ref={uriRef}
                 />
-                {errors.uri && !hasClickedToEnableUri && <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>}
+                {errors.uri && !hasClickedToEnableUri && 
+                <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>}
                 {hasClickedToEnableUri && <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
-                  <li>Name changes to the JSON file are not allowed / will be ignored</li>
-                  <li>Introducing an URL with a link to an external JSON file will replace the data in Full Data with the information contained in the external JSON file</li>
+                  <li>Name changes to the JSON file are not allowed and will be ignored</li>
+                  <li>
+                    Introducing a link to a JSON file will replace the data in Full Setup with the information 
+                    contained in the linked JSON
+                  </li>
                   </ol>}
                 <div className="flex justify-between mt-4">
                   <button type="submit"
@@ -1039,5 +1051,5 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         </div>
       </div>
     </div>
-  );
-}
+  )
+};
