@@ -1,59 +1,27 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import DatePicker from "react-datepicker";
-import { useRouter } from "next/navigation";
-import { useUser } from "../context/UserContext";
 import { useLabs } from "../context/LabContext";
 import Carrousel from "./Carrousel";
 import AccessControl from './AccessControl';
-import { format, isToday, addMinutes } from "date-fns";
+import { generateTimeOptions, renderDayContents } from '../utils/labBookingCalendar';
 
 export default function LabReservation({ id }) {
   const { labs } = useLabs();
-  const { isLoggedIn } = useUser();
-  const router = useRouter();
 
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
-  const [availableTimes, setAvailableTimes] = useState([]);
   const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
   const [selectedLab, setSelectedLab] = useState(null);
-  const [bookedDates, setBookedDates] = useState([]);
   const [isClient, setIsClient] = useState(false);
-  const now = new Date();
-  const currentDate = now.toISOString().slice(0, 10);
-  const renderDayContents = (day, currentDateRender) => {
-    const bookingsOnDay = bookedDates.filter(
-      (d) => d.toDateString() === currentDateRender.toDateString()
-    );
-  
-    let title = undefined;
-  
-    if (bookingsOnDay.length > 0 && selectedLab?.bookingInfo) {
-      title = bookingsOnDay.map(bookingDate => {
-        const matchingBooking = selectedLab.bookingInfo.find(
-          b => new Date(b.date).toDateString() === bookingDate.toDateString()
-        );
-        if (matchingBooking?.time && matchingBooking?.minutes) {
-          const endTimeDate = new Date(new Date(matchingBooking.date + 'T' + matchingBooking.time).getTime() + matchingBooking.minutes * 60 * 1000);
-          const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
-          return `${selectedLab.name}: ${matchingBooking.time} - ${endTime}`;
-        }
-        return 'Booked';
-      }).join(', ');
-    }
-  
-    return <div title={title}>{day}</div>;
+
+  const parseDate = (str) => {
+    if (!str) return new Date();
+    const [month, day, year] = str.split("/");
+    return new Date(`${year}-${month}-${day}`);
   };
 
-  useEffect(() => {
-    if (!date) setDate(new Date());
-  }, [date]);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
+  // Select the lab by id
   useEffect(() => {
     if (labs.length && id) {
       const currentLab = labs.find((lab) => lab.id == id);
@@ -61,92 +29,65 @@ export default function LabReservation({ id }) {
     }
   }, [id, labs]);
 
-  const generateTimeOptions = useCallback(
-    (interval) => {
-      const options = [];
-      const now = new Date();
-
-      const dayBookings =
-        selectedLab?.bookingInfo?.filter(
-          (b) =>
-            new Date(b.date).toDateString() === date.toDateString()
-        ) || [];
-
-      const dayStart = new Date(date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(date);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      let slot = new Date(dayStart);
-      while (slot <= dayEnd) {
-        const slotStart = new Date(slot);
-        const slotEnd = new Date(slotStart.getTime() + interval * 60 * 1000);
-        const timeFormatted = format(slotStart, "HH:mm");
-
-        if (isToday(date) && slotStart <= now) {
-          options.push({ value: timeFormatted, label: timeFormatted, disabled: true, isReserved: false });
-        } else {
-          const isBlocked = dayBookings.some((booking) => {
-            const bookingStart = new Date(`${booking.date}T${booking.time}`);
-            const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60000);
-            return slotStart < bookingEnd && slotEnd > bookingStart;
-          });
-          options.push({ value: timeFormatted, label: timeFormatted, disabled: isBlocked, isReserved: isBlocked });
-        }
-
-        slot = slotEnd;
-      }
-
-      return options;
-    },
-    [selectedLab, date]
-  );
-
+  // Update the time interval when the selected lab changes
   useEffect(() => {
-    if (selectedLab && Array.isArray(selectedLab.timeSlots) && 
-        selectedLab.timeSlots.length > 0) {
+    if (selectedLab && Array.isArray(selectedLab.timeSlots) && selectedLab.timeSlots.length > 0) {
       setTime(selectedLab.timeSlots[0]);
     }
   }, [selectedLab]);
 
+  // Select the first available time when the available times change
   useEffect(() => {
-    // Search and select first available time
+    if (!selectedLab) return;
+    const availableTimes = generateTimeOptions({
+      date,
+      interval: time,
+      bookingInfo: selectedLab.bookingInfo
+    });
     const firstAvailable = availableTimes.find(t => !t.disabled);
     setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
-  }, [availableTimes]);
+  }, [date, time, selectedLab]);
 
+  // To avoid hydration warning in SSR
   useEffect(() => {
-    if (selectedLab && Array.isArray(selectedLab.bookingInfo)) {
-      setAvailableTimes(generateTimeOptions(time));
+    setIsClient(true);
+  }, []);
 
-      const futureDates = selectedLab.bookingInfo
-        .filter((b) => b.date >= currentDate)
-        .map((b) => new Date(b.date))
-        .filter((d) => !isNaN(d));
+  if (!isClient) return null;
 
-      setBookedDates(futureDates);
-    } else {
-      setBookedDates([]);
-    }
-  }, [time, selectedLab, currentDate, generateTimeOptions]);
+  // Min and max dates for the calendar
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const opensDate = selectedLab ? parseDate(selectedLab.opens) : today;
+  const minDate = opensDate > today ? opensDate : today;
+  const maxDate = selectedLab ? parseDate(selectedLab.closes) : undefined;
 
+  // Available times for the selected day and lab
+  const availableTimes = selectedLab
+    ? generateTimeOptions({
+        date,
+        interval: time,
+        bookingInfo: selectedLab.bookingInfo
+      })
+    : [];
+
+  // Render days with reservation tooltips
+  const dayContents = (day, currentDateRender) =>
+    renderDayContents({
+      day,
+      currentDateRender,
+      bookingInfo: (selectedLab?.bookingInfo || []).map(booking => ({
+        ...booking,
+        labName: selectedLab?.name
+      }))
+    });
+
+  // Change lab
   const handleLabChange = (e) => {
     const selectedId = e.target.value;
     const lab = labs.find((lab) => lab.id == selectedId);
     setSelectedLab(lab);
   };
-
-  const parseDate = (str) => {
-    const [month, day, year] = str.split("/");
-    return new Date(`${year}-${month}-${day}`);
-  };
-
-  if (!isClient) return null;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const opensDate = selectedLab ? parseDate(selectedLab.opens) : today;
-  const minDate = opensDate > today ? opensDate : today;
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -184,20 +125,25 @@ export default function LabReservation({ id }) {
               <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
                 <div className="flex-1">
                   <label className="block text-lg font-semibold">Select the date:</label>
-                  <DatePicker calendarClassName="custom-datepicker"
+                  <DatePicker
+                    calendarClassName="custom-datepicker"
                     selected={date}
                     onChange={(newDate) => setDate(newDate)}
                     minDate={minDate}
-                    maxDate={parseDate(selectedLab.closes)}
+                    maxDate={maxDate}
                     inline
-                    dayClassName={(day) =>
-                      bookedDates.some(
-                        (d) => d.toDateString() === day.toDateString()
+                    renderDayContents={dayContents}
+                    dayClassName={day =>
+                      selectedLab?.bookingInfo?.some(
+                        b => {
+                          // Make sure b.date is valid
+                          const bookingDate = new Date(b.date);
+                          return !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString();
+                        }
                       )
                         ? "bg-[#9fc6f5] text-white"
                         : undefined
                     }
-                    renderDayContents={renderDayContents}
                   />
                 </div>
 

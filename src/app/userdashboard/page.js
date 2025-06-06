@@ -9,6 +9,7 @@ import LabAccess from '../../components/LabAccess'
 import AccessControl from '../../components/AccessControl'
 import LabBookingItem from '../../components/LabBookingItem'
 import isBookingActive from '../../utils/isBookingActive'
+import { generateTimeOptions, renderDayContents } from '../../utils/labBookingCalendar';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
@@ -44,74 +45,17 @@ export default function UserDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
   const [bookedDates, setBookedDates] = useState([]);
-  const renderDayContents = (day, currentDateRender) => {
-    const allMatchingBookingsDetails = [];
-
-    // Find all bookings for today
-    for (const lab of labs) {
-        if (Array.isArray(lab.bookingInfo)) {
-            // Filter current lab's booking that matches today's date
-            const bookingsForThisLabOnCurrentDay = lab.bookingInfo.filter(
-                (b) => {
-                    if (!b) {
-                        console.warn(`Booking object is null/undefined in lab ${lab.name}. Skipping.`);
-                        return false;
-                    }
-                    if (!b.date) {
-                        console.warn(`Booking object missing 'date' property in lab ${lab.name}:`, b);
-                        return false;
-                    }
-                    const bookingDate = new Date(b.date);
-
-                    if (isNaN(bookingDate.getTime())) {
-                        console.warn(`Invalid date string for booking in lab ${lab.name}: '${b.date}'. Skipping.`);
-                        return false;
-                    }
-
-                    const isMatch = bookingDate.toDateString() === currentDateRender.toDateString();
-                    return isMatch;
-                }
-            );
-
-            for (const booking of bookingsForThisLabOnCurrentDay) {
-                if (booking.time && booking.minutes !== undefined && booking.minutes !== null) {
-                    allMatchingBookingsDetails.push({
-                        labName: lab.name,
-                        time: booking.time,
-                        minutes: booking.minutes,
-                        dateString: booking.date
-                    });
-                } else {
-                    console.warn(`Booking in lab ${lab.name} ignore because 'time' or 'minutes' are missing:`, booking);
-                }
-            }
-        } else {
-            console.warn(`  Lab ${lab.name}'s 'bookingInfo' is not an array or is missing:`, lab.bookingInfo);
-        }
-      }
-
-      let title = undefined;
-
-      // If there are bookings, create string for tooltip
-      if (allMatchingBookingsDetails.length > 0) {
-        title = allMatchingBookingsDetails.map(bookingDetail => {
-            const startDateTimeString = `${bookingDetail.dateString}T${bookingDetail.time}`;
-            const startDate = new Date(startDateTimeString);
-
-            if (isNaN(startDate.getTime())) {
-                console.error(`Error: Invalid start date for booking detail in tooltip: ${startDateTimeString}. Skipping this booking in tooltip.`);
-                return `Invalid Booking: ${bookingDetail.labName}`;
-            }
-
-            const endTimeDate = new Date(startDate.getTime() + bookingDetail.minutes * 60 * 1000);
-            const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
-
-            return `${bookingDetail.labName}: ${bookingDetail.time} - ${endTime}`;
-        }).join(', ');
-      }
-
-      return <div title={title}>{day}</div>;
-  };
+  const dayContents = (day, currentDateRender) =>
+    renderDayContents({
+      day,
+      currentDateRender,
+      bookingInfo: labs.flatMap(lab =>
+        (lab.bookingInfo || []).map(booking => ({
+          ...booking,
+          labName: lab.name
+        }))
+      ),
+    });
 
   useEffect(() => {
     if (labs) {
@@ -337,16 +281,20 @@ export default function UserDashboard() {
               <div className="border shadow text-white rounded p-6 mb-1 flex-1 md:w-1/4 flex justify-center 
                 items-center">
                 <div className="flex flex-row">
-                  <DatePicker calendarClassName="custom-datepicker" selected={date} inline minDate={today}
-                    onChange={(newDate) => setDate(newDate)} filterDate={() => false}
-                    dayClassName={(day) =>
+                  <DatePicker
+                    calendarClassName="custom-datepicker"
+                    selected={date}
+                    onChange={(newDate) => setDate(newDate)}
+                    minDate={today}
+                    inline
+                    dayClassName={day =>
                       bookedDates.some(
                         (d) => d.toDateString() === day.toDateString()
                       )
                         ? "bg-[#9fc6f5] text-white"
                         : undefined
                     }
-                    renderDayContents={renderDayContents}
+                    renderDayContents={dayContents}
                   />
                 </div>
               </div>

@@ -9,6 +9,7 @@ import LabModal from '../../components/LabModal';
 import AccessControl from '../../components/AccessControl';
 import FeedbackModal from '../../components/FeedbackModal';
 import ProviderLabItem from '../../components/ProviderLabItem';
+import { renderDayContents } from '../../utils/labBookingCalendar';
 
 export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
@@ -48,6 +49,13 @@ export default function ProviderDashboard() {
     addError, updateError, deleteError, listError, unlistError,
   });
 
+  const dayContents = (day, currentDateRender) =>
+    renderDayContents({
+      day,
+      currentDateRender,
+      bookingInfo: bookedDates // bookedDates ya es un array de objetos con labName, date, time, minutes, etc.
+    });
+
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
 
   // Calendar
@@ -69,64 +77,35 @@ export default function ProviderDashboard() {
 
       ownedLabs.forEach(lab => {
         if (Array.isArray(lab.bookingInfo)) {
-          lab.bookingInfo
-            .forEach(booking => {
-              try {
-                const bookingDateObject = new Date(booking.date);
+          lab.bookingInfo.forEach(booking => {
+            try {
+              const bookingDateObject = new Date(booking.date);
 
-                if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
-                  allBookingsDetails.push({
-                    labId: lab.id,
-                    labName: lab.name,
-                    date: bookingDateObject,
-                    time: booking.time,
-                    minutes: booking.minutes,
-                    dateString: booking.date
-                  });
-                }
-              } catch (error) {
-                console.error("Error converting date in lab:", lab.name, booking.date, error);
+              if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
+                // Convert date to string YYYY-MM-DD for tooltip
+                const yyyy = bookingDateObject.getFullYear();
+                const mm = String(bookingDateObject.getMonth() + 1).padStart(2, '0');
+                const dd = String(bookingDateObject.getDate()).padStart(2, '0');
+                const dateString = `${yyyy}-${mm}-${dd}`;
+
+                allBookingsDetails.push({
+                  labId: lab.id,
+                  labName: lab.name,
+                  date: bookingDateObject,
+                  time: booking.time,
+                  minutes: booking.minutes,
+                  dateString,
+                });
               }
-            });
-        } else {
-          console.warn(`  Lab ${lab.name} has bookingInfo but it is not an array or is missing:`, lab.bookingInfo);
+            } catch (error) {
+              console.error("Error converting date in lab:", lab.name, booking.date, error);
+            }
+          });
         }
       });
       setBookedDates(allBookingsDetails);
     }
   }, [ownedLabs, today.toDateString()]);
-
-  const renderDayContents = (day, currentDateRender) => {
-    const bookingsForCurrentDay = bookedDates.filter(
-      (bookingDetail) => bookingDetail.date.toDateString() === currentDateRender.toDateString()
-    );
-
-    let title = undefined;
-
-    if (bookingsForCurrentDay.length > 0) {
-      title = bookingsForCurrentDay.map(bookingDetail => {
-        if (bookingDetail.time && bookingDetail.minutes !== undefined && bookingDetail.minutes !== null) {
-          const startDateTimeString = `${bookingDetail.dateString}T${bookingDetail.time}`;
-          const startDate = new Date(startDateTimeString);
-
-          if (isNaN(startDate.getTime())) {
-            console.error(`Error: Invalid start date for booking detail in tooltip: ${startDateTimeString}. Skipping this booking in tooltip.`);
-            return `Invalid Booking: ${bookingDetail.labName}`;
-          }
-
-          const endTimeDate = new Date(startDate.getTime() + parseInt(bookingDetail.minutes) * 60 * 1000);
-          const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
-
-          return `${bookingDetail.labName}: ${bookingDetail.time} - ${endTime}`;
-        } else {
-          return `Booking incomplete: ${bookingDetail.labName}`;
-        }
-      }).join(', ');
-    }
-
-    return <div title={title}>{day}</div>;
-  };
-
 
   // Automatically set the first lab as the selected lab
   useEffect(() => {
@@ -453,17 +432,21 @@ export default function ProviderDashboard() {
           <div className="w-full md:w-1/3 mt-8 md:mt-0">
             <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
             <div className="flex justify-center">
-                <DatePicker calendarClassName="custom-datepicker" selected={date} inline minDate={today}
+                <DatePicker
+                  calendarClassName="custom-datepicker"
+                  selected={date}
+                  inline
+                  minDate={today}
                   onChange={(newDate) => setDate(newDate)}
                   filterDate={() => false}
-                  dayClassName={(day) =>
+                  dayClassName={day =>
                     bookedDates.some(
                       (bookingDetail) => bookingDetail.date.toDateString() === day.toDateString()
                     )
-                    ? "bg-[#9fc6f5] text-white"
-                    : undefined
+                      ? "bg-[#9fc6f5] text-white"
+                      : undefined
                   }
-                  renderDayContents={renderDayContents}
+                  renderDayContents={dayContents}
                 />
             </div>
           </div>

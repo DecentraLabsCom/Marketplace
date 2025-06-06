@@ -13,7 +13,7 @@ export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExte
       {isExternalURI && (
         <div className='mt-4 flex justify-center'>
             <span className="text-sm text-red-500 font-medium">
-            To edit these fields, first remove the link to the lab data in Quick Setup
+            To edit these fields, first remove the link to the JSON file in Quick Setup
             </span>
         </div>
       )}
