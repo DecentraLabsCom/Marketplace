@@ -353,15 +353,83 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
   const handleUriChange = (e) => {
     const newUri = e.target.value;
-    setLocalLab({ ...localLab, uri: newUri });
-    
-    const startsWithProtocol = newUri.startsWith('http://') || 
-                               newUri.startsWith('https://') || 
-                               newUri.startsWith('ftp://');
-    setIsExternalURI(!!(newUri && startsWithProtocol));
+    const originalLabUri = lab?.uri || '';
 
-    // Determine if it's a local JSON URI: Not an external protocol AND matches local JSON regex
-    setIsLocalURI(!!(newUri && !startsWithProtocol && jsonFileRegex.test(newUri)));
+    const startsWithProtocol = newUri.startsWith('http://') || 
+                              newUri.startsWith('https://') || 
+                              newUri.startsWith('ftp://');
+    const newIsExternal = !!(newUri && startsWithProtocol);
+    const newIsLocal = !!(newUri && !newIsExternal && jsonFileRegex.test(newUri));
+
+    let newErrors = { ...errors };
+
+    // --- Case 1: Was a local URI, attempting to change its path/name ---
+    if ((isLocalURI || (originalLabUri && jsonFileRegex.test(originalLabUri))) && newIsLocal && newUri !== originalLabUri) {
+      // Revert the URI to its original value and grey out.
+      setLocalLab(prev => ({ ...prev, uri: originalLabUri }));
+      setHasClickedToEnableUri(false); // Grey out again
+      newErrors.uri = 'Name changes to local JSON file are not allowed and will be ignored';
+      setErrors(newErrors);
+      setIsExternalURI(false);
+      setIsLocalURI(true);
+      return;
+    } else if (newErrors.uri === 'Name changes to local JSON file are not allowed and will be ignored' && newUri === originalLabUri) {
+      // If user retyped the original URI, clear the specific error
+      delete newErrors.uri;
+      setErrors(newErrors);
+    } else if (!newIsExternal && !newIsLocal && hasClickedToEnableUri && newUri !== '') {
+      newErrors.uri = 'It must be an external URL';
+      setErrors(newErrors);
+    } else if (newIsExternal && hasClickedToEnableUri && newErrors.uri === 'It must be an external URL') {
+      delete newErrors.uri;
+      setErrors(newErrors);
+    } else if (newUri == '' && hasClickedToEnableUri) {
+      newErrors.uri = 'Lab Data URL is required';
+      setErrors(newErrors);
+    }
+
+    // --- Update 'localLab.uri' and states ---
+    // If we reached here, the change is either allowed or it's an external link
+    setLocalLab(prev => ({ ...prev, uri: newUri }));
+    setIsExternalURI(newIsExternal);
+    setIsLocalURI(newIsLocal);
+
+    // --- Case 2: Introducing an external link (and clearing Full Setup fields) ---
+    if (newIsExternal && !isExternalURI) {
+      setLocalLab(prevLab => ({
+        ...prevLab,
+        name: '',
+        category: '',
+        keywords: [],
+        description: '',
+        timeSlots: [],
+        opens: '',
+        closes: '',
+        images: [],
+        docs: [],
+      }));
+
+      // Clear image and document previews and associated local states
+      setImageUrls([]);
+      setDocUrls([]);
+      setLocalImages([]);
+      setLocalDocs([]);
+
+      // Delete any temporarily uploaded files from the server
+      if (uploadedTempFiles.current.length > 0) {
+        Promise.allSettled(uploadedTempFiles.current.map(filePath => deleteFile(filePath)))
+          .then(results => {
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                  console.error(`Failed deleting temp file ${uploadedTempFiles.current[index]}:`, result.reason);
+              }
+            });
+            uploadedTempFiles.current = [];
+        });
+      }
+      newErrors.uri = 'Introducing a link to a JSON file will replace the data in Full Setup with the information contained in the linked JSON';
+      setErrors(newErrors);
+    }
   };
 
   useEffect(() => {
@@ -1026,15 +1094,15 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                   }`}
                   ref={uriRef}
                 />
-                {errors.uri && !hasClickedToEnableUri && 
+                {errors.uri && !(hasClickedToEnableUri && isLocalURI) &&
                 <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>}
-                {hasClickedToEnableUri && <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
+                {hasClickedToEnableUri && isLocalURI && <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
                   <li>Name changes to the JSON file are not allowed and will be ignored</li>
                   <li>
                     Introducing a link to a JSON file will replace the data in Full Setup with the information 
                     contained in the linked JSON
                   </li>
-                  </ol>}
+                </ol>}
                 <div className="flex justify-between mt-4">
                   <button type="submit"
                     className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
