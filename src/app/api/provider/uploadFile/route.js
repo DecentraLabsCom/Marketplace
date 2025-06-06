@@ -23,7 +23,7 @@ export async function POST(req) {
     let detectedContentType = file.type;
 
     // Fallback: If file.type is not available or is generic, try to infer from the file extension
-    // Hanfle cases where file.type might be empty or 'application/octet-stream'
+    // Handle cases where file.type might be empty or 'application/octet-stream'
     if (!detectedContentType || detectedContentType === 'application/octet-stream') {
         const ext = file.name.split('.').pop()?.toLowerCase();
         switch (ext) {

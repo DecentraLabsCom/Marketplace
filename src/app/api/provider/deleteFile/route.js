@@ -13,11 +13,12 @@ export async function POST(req) {
             return NextResponse.json({ error: 'File path is required' }, { status: 400 });
         }
 
-        // Transform "57/images/..." to "57\images\..." if Windows comes with /
+        // Transform "57/images/..." to "57\images\..." if needed
         filePath = path.normalize(filePath); 
     
         // Make sure no initial / appears in filePath
-        if (filePath.startsWith(path.sep) && filePath.length > path.sep.length && !filePath.startsWith(path.sep + 'public')) {
+        if (filePath.startsWith(path.sep) && filePath.length > 
+        path.sep.length && !filePath.startsWith(path.sep + 'public')) {
             filePath = filePath.substring(path.sep.length);
         }
 
@@ -32,7 +33,8 @@ export async function POST(req) {
         const normalizedFullFilePath = path.normalize(fullFilePath);
         
         if (normalizedFullFilePath.includes('..') || !normalizedFullFilePath.startsWith(publicDirResolved)) {
-            return NextResponse.json({ error: 'Invalid file path. Must be within public directory.' }, { status: 400 });
+            return NextResponse.json({ error: 'Invalid file path. Must be within public directory.' }, 
+                { status: 400 });
         }
 
         let deleteSuccessful = false;
@@ -79,15 +81,19 @@ export async function POST(req) {
             const pathSegments = filePath.split(path.sep); 
 
             if (pathSegments.length < 3) {
-                console.warn(`File path ${filePath} does not have expected segments (ID/type/file). Length: ${pathSegments.length}. Skipping directory cleanup.`);
-                return NextResponse.json({ message: 'File deleted, but directory cleanup skipped due to invalid path structure.' }, { status: 200 });
+                console.warn(`File path ${filePath} does not have expected segments (ID/type/file). 
+                    Length: ${pathSegments.length}. Skipping directory cleanup.`);
+                return NextResponse.json({
+                    message: 'File deleted, but directory cleanup skipped due to invalid path structure.'
+                }, { status: 200 });
             }
 
-            const labId = pathSegments[0];        // e.g. '57'
-            const typeDirName = pathSegments[1];   // e.g. 'images' or 'docs'
+            const labId = pathSegments[0];          // e.g. '57'
+            const typeDirName = pathSegments[1];    // e.g. 'images' or 'docs'
             
             if (labId === undefined || typeDirName === undefined) {
-                 return NextResponse.json({ error: 'Failed to extract directory names from path.' }, { status: 500 });
+                 return NextResponse.json({ error: 'Failed to extract directory names from path.' }, 
+                    { status: 500 });
             }
 
             const fullTypeSubDir = path.join(publicDir, labId, typeDirName); 

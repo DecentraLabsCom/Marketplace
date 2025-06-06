@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { UploadCloud, Link, XCircle } from 'lucide-react';
-import ImagePreviewList from './ImagePreviewList.js';
-import DocPreviewList from './DocPreviewList.js';
+import LabFormFullSetup from './LabFormFullSetup';
+import LabFormQuickSetup from './LabFormQuickSetup';
+import { validateLabFull, validateLabQuick } from '../utils/labValidation';
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [activeTab, setActiveTab] = useState('full');
@@ -14,14 +14,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const [docUrls, setDocUrls] = useState([]);
   const [localLab, setLocalLab] = useState({ ...lab });
   const [isExternalURI, setIsExternalURI] = useState(false);
-  const uploadedTempFiles = useRef([]);
-  const imageUploadRef = useRef(null);
-  const docUploadRef = useRef(null);
-  const currentLabId = lab.id || maxId + 1;
   const [errors, setErrors] = useState({});
   const [isLocalURI, setIsLocalURI] = useState(false);
-  const jsonFileRegex = new RegExp(/^[\w\-._/]+\.json$/i);
   const [hasClickedToEnableUri, setHasClickedToEnableUri] = useState(false);
+
   const nameRef = useRef(null);
   const categoryRef = useRef(null);
   const keywordsRef = useRef(null);
@@ -36,6 +32,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const uriRef = useRef(null);
   const imageLinkRef = useRef(null);
   const docLinkRef = useRef(null);
+  const uploadedTempFiles = useRef([]);
+  const imageUploadRef = useRef(null);
+  const docUploadRef = useRef(null);
+
+  const currentLabId = lab.id || maxId + 1;
+  const jsonFileRegex = new RegExp(/^[\w\-._/]+\.json$/i);
 
   const uploadFile = async (file, destinationFolder, labId) => {
     const formData = new FormData();
@@ -364,7 +366,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     let newErrors = { ...errors };
 
     // --- Case 1: Was a local URI, attempting to change its path/name ---
-    if ((isLocalURI || (originalLabUri && jsonFileRegex.test(originalLabUri))) && newIsLocal && newUri !== originalLabUri) {
+    if ((isLocalURI || (originalLabUri && jsonFileRegex.test(originalLabUri))) && newIsLocal && 
+    newUri !== originalLabUri) {
       // Revert the URI to its original value and grey out.
       setLocalLab(prev => ({ ...prev, uri: originalLabUri }));
       setHasClickedToEnableUri(false); // Grey out again
@@ -373,7 +376,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       setIsExternalURI(false);
       setIsLocalURI(true);
       return;
-    } else if (newErrors.uri === 'Name changes to local JSON file are not allowed and will be ignored' && newUri === originalLabUri) {
+    } else if (newErrors.uri === 'Name changes to local JSON file are not allowed and will be ignored' && 
+      newUri === originalLabUri) {
       // If user retyped the original URI, clear the specific error
       delete newErrors.uri;
       setErrors(newErrors);
@@ -427,7 +431,8 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             uploadedTempFiles.current = [];
         });
       }
-      newErrors.uri = 'Introducing a link to a JSON file will replace the data in Full Setup with the information contained in the linked JSON';
+      newErrors.uri = 'Introducing a link to a JSON file will replace the data in Full Setup with the ' +
+                      'information contained in the linked JSON';
       setErrors(newErrors);
     }
   };
@@ -436,128 +441,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     setErrors({});
   }, [activeTab]);
 
-  // Form validation
   const validateForm = () => {
-    const newErrors = {};
-    const urlRegex = new RegExp(/^(ftp|http|https):\/\/[^ "]+$/);
-
+    let newErrors = {};
     if (activeTab === 'full') {
       if (!isExternalURI) {
-        if (!localLab.name?.trim()) newErrors.name = 'Lab name is required';
-        if (!localLab.category?.trim()) newErrors.category = 'Category is required';
-        if (!localLab.description?.trim()) newErrors.description = 'Description is required';
-        if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {
-          newErrors.price = 'Price is required';
-        } else {
-          const priceNum = parseFloat(localLab.price);
-          if (isNaN(priceNum) || priceNum < 0) {
-            newErrors.price = 'Price must be a positive number or zero';
-          }
-        }
-        if (!localLab.auth?.trim()) {
-          newErrors.auth = 'Authentication URL is required';
-        } else if (!urlRegex.test(localLab.auth)) {
-          newErrors.auth = 'Invalid Authentication URL format';
-        }
-        if (!localLab.accessURI?.trim()) {
-          newErrors.accessURI = 'Access URI is required';
-        } else if (!urlRegex.test(localLab.accessURI)) {
-          newErrors.accessURI = 'Invalid Access URI format';
-        }
-        if (!localLab.accessKey?.trim()) newErrors.accessKey = 'Access Key is required';
-
-        const dateRegex = new RegExp(/^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/);
-
-        if (!localLab.opens?.trim()) {
-          newErrors.opens = 'Opening date is required';
-        } else if (!dateRegex.test(localLab.opens)) {
-          newErrors.opens = 'Invalid opening date format (must be MM/DD/YYYY)';
-        }
-        if (!localLab.closes?.trim()) {
-          newErrors.closes = 'Closing date is required';
-        } else if (!dateRegex.test(localLab.closes)) {
-          newErrors.closes = 'Invalid closing date format (must be MM/DD/YYYY)';
-        }
-        if (!localLab.timeSlots || localLab.timeSlots.length === 0 || 
-          localLab.timeSlots.every(slot => isNaN(Number(slot)) || Number(slot) <= 0)) {
-          newErrors.timeSlots = 'At least one valid time slot (positive number) must be selected';
-        }
-        if (!localLab.keywords || localLab.keywords.length === 0 || localLab.keywords.every(k => !k.trim())) {
-          newErrors.keywords = 'At least one keyword must be added';
-        }
-        
-        // Date comparison validation (only if both dates pass format check and are not empty)
-        if (!newErrors.opens && !newErrors.closes &&
-            localLab.opens?.trim() && localLab.closes?.trim()) {
-          const opensDate = new Date(localLab.opens);
-          const closesDate = new Date(localLab.closes);
-          if (closesDate.getTime() < opensDate.getTime()) {
-            newErrors.closes = 'Closing date must be after or equal to opening date';
-          }
-        }
-
-        const imageExtensionRegex = new RegExp(/\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i);
-        const pdfExtensionRegex = new RegExp(/\.pdf$/i);
-
-        // Image and Document link validations
-        if (imageInputType === 'link' && Array.isArray(localLab.images)) {
-          localLab.images.forEach((imageUrl, index) => {
-            if (imageUrl.trim()) {
-              if (!imageExtensionRegex.test(imageUrl.trim())) {
-                newErrors.images = newErrors.images || 
-                `Image link must end with a valid image extension (e.g., .jpg, .png)`;
-              }
-            }
-          });
-        }
-
-        if (docInputType === 'link' && Array.isArray(localLab.docs)) {
-          localLab.docs.forEach((docUrl, index) => {
-            if (docUrl.trim()) {
-              if (!pdfExtensionRegex.test(docUrl.trim())) {
-                newErrors.docs = newErrors.docs || `Document link must end with ".pdf"`;
-              }
-            }
-          });
-        }
+        newErrors = validateLabFull(localLab, { imageInputType, docInputType });
       }
     } else if (activeTab === 'quick') {
-      if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {
-        newErrors.price = 'Price is required';
-      } else {
-        const priceNum = parseFloat(localLab.price);
-        if (isNaN(priceNum) || priceNum < 0) {
-          newErrors.price = 'Price must be a positive number or zero';
-        }
-      }
-      if (!localLab.auth?.trim()) {
-        newErrors.auth = 'Authentication URL is required';
-      } else if (!urlRegex.test(localLab.auth)) {
-        newErrors.auth = 'Invalid Authentication URL format';
-      }
-      if (!localLab.accessURI?.trim()) {
-        newErrors.accessURI = 'Access URI is required';
-      } else if (!urlRegex.test(localLab.accessURI)) {
-        newErrors.accessURI = 'Invalid Access URI format';
-      }
-      if (!localLab.accessKey?.trim()) newErrors.accessKey = 'Access Key is required';
-      if (!localLab.uri?.trim()) {
-        newErrors.uri = 'Lab Data URL is required';
-      } else {
-        // If not empty, check format based on whether it looks like an external URL
-        const isExternalUrlAttempt = localLab.uri.startsWith('http://') || 
-                                     localLab.uri.startsWith('https://') || 
-                                     localLab.uri.startsWith('ftp://');
-
-        if (isExternalUrlAttempt) {
-          if (!urlRegex.test(localLab.uri)) {
-            newErrors.uri = 'Invalid external URI format. Must be a valid URL starting with http(s):// or ftp://';
-          }
-        } else {
-          // If not an external URL attempt, assume it's a local JSON file path
-          newErrors.uri = 'It must be an external URL';
-        }
-      }
+      newErrors = validateLabQuick(localLab);
     }
     setErrors(newErrors);
     return newErrors;
@@ -641,479 +532,42 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         </h2>
         <div className="mb-4">
           <div className="flex">
-            <button
-              type="button"
+            <button type="button" onClick={() => setActiveTab('full')}
               className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
                 ? 'bg-[#7875a8] text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-              onClick={() => setActiveTab('full')}
             >
               Full Setup
             </button>
-            <button
-              type="button"
+            <button type="button" onClick={() => setActiveTab('quick')}
               className={`px-4 py-2 rounded ${activeTab === 'quick'
                 ? 'bg-[#7875a8] text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-              onClick={() => setActiveTab('quick')}
             >
               Quick Setup
             </button>
           </div>
-          {isExternalURI && activeTab === 'full' && (
-            <div className='mt-4 flex justify-center'>
-              <span className="text-sm text-red-500 font-medium">
-                To edit these fields, first remove the link to the lab data in Quick Setup
-              </span>
-            </div>
-          )}
-          {isLocalURI && activeTab === 'quick' && (
-            <div className='mt-4 flex justify-center'>
-              <span className="text-sm text-red-500 font-medium">
-                While greyed out, you may edit the JSON file field to add it as a link
-              </span>
-            </div>
-          )}
           <div className='mt-4'>
             {activeTab === 'full' && (
-              <form className="space-y-4 text-gray-600" onSubmit={handleSubmitFull}>
-                <input
-                  type="text"
-                  placeholder="Lab Name"
-                  value={localLab.name}
-                  onChange={(e) => setLocalLab({ ...localLab, name: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={nameRef}
-                />
-                {errors.name && <p className="text-red-500 text-sm !mt-1">{errors.name}</p>}
-                <input
-                  type="text"
-                  placeholder="Category"
-                  value={localLab.category}
-                  onChange={(e) => setLocalLab({ ...localLab, category: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={categoryRef}
-                />
-                {errors.category && <p className="text-red-500 text-sm !mt-1">{errors.category}</p>}
-                <input
-                  type="text"
-                  placeholder="Keywords (comma-separated)"
-                  value={localLab.keywords.join(',')}
-                  onChange={(e) =>
-                    setLocalLab({ ...localLab, keywords: e.target.value.split(',') })
-                  }
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={keywordsRef}
-                />
-                {errors.keywords && <p className="text-red-500 text-sm !mt-1">{errors.keywords}</p>}
-                <textarea
-                  placeholder="Description"
-                  value={localLab.description}
-                  onChange={(e) => setLocalLab({ ...localLab, description: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={descriptionRef}
-                />
-                {errors.description && <p className="text-red-500 text-sm !mt-[-2px]">{errors.description}</p>}
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={localLab.price}
-                  onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={priceRef}
-                />
-                {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
-                <input
-                  type="text"
-                  placeholder="Auth URL"
-                  value={localLab.auth}
-                  onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={authRef}
-                />
-                {errors.auth && <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
-                <input
-                  type="text"
-                  placeholder="Access URI"
-                  value={localLab.accessURI || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={accessURIRef}
-                />
-                {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
-                <input
-                  type="text"
-                  placeholder="Access Key"
-                  value={localLab.accessKey || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={accessKeyRef}
-                />
-                {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
-                <input
-                  type="text"
-                  placeholder="Time Slots (comma-separated)"
-                  value={Array.isArray(localLab.timeSlots) ? localLab.timeSlots.join(',') : ''}
-                  onChange={(e) =>
-                    setLocalLab({ ...localLab, timeSlots: e.target.value.split(',') })
-                  }
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={timeSlotsRef}
-                />
-                {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
-                <input
-                  type="text"
-                  placeholder="Opens (e.g. 08/31/2025)"
-                  value={localLab.opens || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, opens: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={opensRef}
-                />
-                {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
-                <input
-                  type="text"
-                  placeholder="Closes (e.g. 12/31/2025)"
-                  value={localLab.closes || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, closes: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isExternalURI}
-                  ref={closesRef}
-                />
-                {errors.closes && <p className="text-red-500 text-sm !mt-1">{errors.closes}</p>}
-
-                {/* Image Input */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Images</h4>
-                  <div className="flex">
-                    <button
-                      type="button"
-                      className={`px-4 py-2 rounded mr-2 ${imageInputType === 'link'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
-                          'disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
-                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
-                      onClick={() => setImageInputType('link')}
-                      disabled={isExternalURI}
-                    >
-                      <div className='flex items-center justify-center'>
-                        <Link className="mr-2 ml-[-2px] w-4" />
-                        <span>Link</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`px-4 py-2 rounded ${imageInputType === 'upload'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
-                          'disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
-                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
-                      onClick={() => setImageInputType('upload')}
-                      disabled={isExternalURI}
-                    >
-                      <div className='flex items-center justify-center'>
-                        <UploadCloud className="mr-2 ml-[-2px] w-4" />
-                        <span>Upload</span>
-                      </div>
-                    </button>
-                  </div>
-                  {imageInputType === 'link' && (
-                    <input
-                      type="text"
-                      placeholder="Image URLs (comma-separated)"
-                      value={Array.isArray(localLab.images) ? localLab.images.join(',') : ''}
-                      onChange={(e) =>
-                        setLocalLab({ ...localLab, images: e.target.value.split(',') })
-                      }
-                      className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
-                      disabled:cursor-not-allowed disabled:border-gray-300"
-                      disabled={isExternalURI}
-                      ref={imageLinkRef}
-                    />
-                  )}
-                  {errors.images && <p className="text-red-500 text-sm mt-1">{errors.images}</p>}
-                  {imageInputType === 'upload' && (
-                    <>
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleImageChange}
-                        className="w-full"
-                        disabled={isExternalURI}
-                        ref={imageUploadRef}
-                        style={{ display: 'none' }}
-                        accept="image/*"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => imageUploadRef.current?.click()}
-                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full
-                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                        disabled:border-gray-300"
-                        disabled={isExternalURI}
-                      >
-                        <div className='flex items-center justify-center'>
-                          <UploadCloud className="mr-2 size-4" />
-                          <span>Choose Files</span>
-                        </div>
-                      </button>
-                      {localImages.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-500">Selected Files:</p>
-                          <ul className="list-disc list-inside">
-                            {localImages.map((file, index) => (
-                              <li key={index} className="text-sm flex items-center justify-between">
-                                <span>{file.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeImage(index)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <XCircle className="size-4" />
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {imageUrls.length > 0 && (
-                        <ImagePreviewList imageUrls={imageUrls} removeImage={removeImage} 
-                        isExternalURI={isExternalURI} />
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Docs Input */}
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Documents</h4>
-                  <div className="flex">
-                    <button
-                      type="button"
-                      className={`px-4 py-2 rounded mr-2 ${docInputType === 'link'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
-                          'disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
-                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
-                      onClick={() => setDocInputType('link')}
-                      disabled={isExternalURI}
-                    >
-                      <div className='flex items-center justify-center'>
-                        <Link className="mr-2 ml-[-2px] w-4" />
-                        <span>Link</span>
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`px-4 py-2 rounded ${docInputType === 'upload'
-                        ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 ' +
-                        'disabled:cursor-not-allowed disabled:border-gray-300'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 ' +
-                          'disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
-                      onClick={() => setDocInputType('upload')}
-                      disabled={isExternalURI}
-                    >
-                      <div className='flex items-center justify-center'>
-                        <UploadCloud className="mr-2 ml-[-2px] w-4" />
-                        <span>Upload</span>
-                      </div>
-                    </button>
-                  </div>
-                  {docInputType === 'link' && (
-                    <input
-                      type="text"
-                      placeholder="Docs URLs (comma-separated)"
-                      value={localLab.docs.join(',')}
-                      onChange={(e) =>
-                        setLocalLab({ ...localLab, docs: e.target.value.split(',') })
-                      }
-                      className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
-                      disabled:cursor-not-allowed disabled:border-gray-300"
-                      disabled={isExternalURI}
-                      ref={docLinkRef}
-                    />
-                  )}
-                  {errors.docs && <p className="text-red-500 text-sm mt-1">{errors.docs}</p>}
-                  {docInputType === 'upload' && (
-                    <>
-                      <input
-                        type="file"
-                        multiple
-                        onChange={handleDocChange}
-                        className="w-full"
-                        ref={docUploadRef}
-                        style={{ display: 'none' }}
-                        accept="application/pdf"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => docUploadRef.current?.click()}
-                        className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full
-                        disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                        disabled:border-gray-300" disabled={isExternalURI}
-                      >
-                        <div className='flex items-center justify-center'>
-                          <UploadCloud className="mr-2 size-4" />
-                          <span>Choose Files</span>
-                        </div>
-                      </button>
-                      {localDocs.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-500">Selected Files:</p>
-                          <ul className="list-disc list-inside">
-                            {localDocs.map((file, index) => (
-                              <li key={index} className="text-sm flex items-center justify-between">
-                                <span>{file.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeDoc(index)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <XCircle className="size-4" />
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {docUrls.length > 0 && (
-                        <DocPreviewList docUrls={docUrls} removeDoc={removeDoc} isExternalURI={isExternalURI} />
-                      )}
-                    </>
-                  )}
-                </div>
-                <div className="flex justify-between mt-4">
-                  <button type="submit" 
-                    disabled={activeTab === 'full' && lab?.id && isExternalURI}
-                    className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]
-                    disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed 
-                    disabled:border-gray-300">
-                    {lab?.id ? 'Save Changes' : 'Add Lab'}
-                  </button>
-                  <button type="button" onClick={onClose}
-                    className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
-                    Cancel
-                  </button>
-                </div>
-              </form>
+              <LabFormFullSetup localLab={localLab} setLocalLab={setLocalLab} errors={errors}
+                isExternalURI={isExternalURI} imageInputType={imageInputType} setImageInputType={setImageInputType}
+                imageUrls={imageUrls} imageLinkRef={imageLinkRef} imageUploadRef={imageUploadRef}
+                handleImageChange={handleImageChange} removeImage={removeImage} localImages={localImages}
+                docInputType={docInputType} setDocInputType={setDocInputType} docUrls={docUrls}
+                docLinkRef={docLinkRef} docUploadRef={docUploadRef} handleDocChange={handleDocChange}
+                removeDoc={removeDoc} localDocs={localDocs} nameRef={nameRef} categoryRef={categoryRef} 
+                keywordsRef={keywordsRef} descriptionRef={descriptionRef} priceRef={priceRef} authRef={authRef} 
+                accessURIRef={accessURIRef} accessKeyRef={accessKeyRef} timeSlotsRef={timeSlotsRef} 
+                opensRef={opensRef} closesRef={closesRef} onSubmit={handleSubmitFull} onCancel={onClose}
+              />
             )}
             {activeTab === 'quick' && (
-              <form className="space-y-4 text-gray-600" onSubmit={handleSubmitQuick}>
-                <input
-                  type="number"
-                  placeholder="Price"
-                  value={localLab.price}
-                  onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isLocalURI}
-                  ref={priceRef}
-                />
-                {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
-                <input
-                  type="text"
-                  placeholder="Auth URL"
-                  value={localLab.auth}
-                  onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isLocalURI}
-                  ref={categoryRef}
-                />
-                {errors.auth && activeTab === 'quick' && 
-                <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
-                <input
-                  type="text"
-                  placeholder="Access URI"
-                  value={localLab.accessURI || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isLocalURI}
-                  ref={accessURIRef}
-                />
-                {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
-                <input
-                  type="text"
-                  placeholder="Access Key"
-                  value={localLab.accessKey || ''}
-                  onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
-                  className="w-full p-2 border rounded
-                  disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed 
-                  disabled:border-gray-300"
-                  disabled={isLocalURI}
-                  ref={accessKeyRef}
-                />
-                {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
-                <input
-                  type="text"
-                  placeholder="Lab Data URL (JSON)"
-                  value={localLab.uri || ''}
-                  onChange={handleUriChange}
-                  onClick={() => isLocalURI && setHasClickedToEnableUri(true)}
-                  onBlur={() => isLocalURI && setHasClickedToEnableUri(false)}
-                    readOnly={isLocalURI && !hasClickedToEnableUri}
-                    className={`w-full p-2 border rounded ${
-                      isLocalURI && !hasClickedToEnableUri
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300'
-                        : ''
-                  }`}
-                  ref={uriRef}
-                />
-                {errors.uri && !(hasClickedToEnableUri && isLocalURI) &&
-                <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>}
-                {hasClickedToEnableUri && isLocalURI && <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
-                  <li>Name changes to the JSON file are not allowed and will be ignored</li>
-                  <li>
-                    Introducing a link to a JSON file will replace the data in Full Setup with the information 
-                    contained in the linked JSON
-                  </li>
-                </ol>}
-                <div className="flex justify-between mt-4">
-                  <button type="submit"
-                    className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
-                    {lab?.id ? 'Save Changes' : 'Add Lab'}
-                  </button>
-                  <button type="button" onClick={onClose}
-                    className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
-                    Cancel
-                  </button>
-                </div>
-              </form>
+              <LabFormQuickSetup localLab={localLab} setLocalLab={setLocalLab} errors={errors}
+                isLocalURI={isLocalURI} priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef}
+                accessKeyRef={accessKeyRef} uriRef={uriRef} hasClickedToEnableUri={hasClickedToEnableUri}
+                setHasClickedToEnableUri={setHasClickedToEnableUri} handleUriChange={handleUriChange}
+                onSubmit={handleSubmitQuick} onCancel={onClose} lab={lab}
+              />
             )}
           </div>
         </div>
