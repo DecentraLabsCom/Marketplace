@@ -65,7 +65,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Learn More
 
-To learn more about DecentraLabs and how we are revolutionizing online experimention through blockchain technologies, visit our webpage: [https://decentralabs.nebsyst.com/](https://decentralabs.nebsyst.com/)
+To learn more about DecentraLabs and how we are revolutionizing online experimentation through blockchain technologies, visit our webpage: [https://decentralabs.nebsyst.com/](https://decentralabs.nebsyst.com/)
 
 To learn more about Next.js, take a look at the following resources: 
 
