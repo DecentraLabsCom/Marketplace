@@ -3,6 +3,7 @@ import path from 'path';
 import pLimit from 'p-limit';
 import { simLabsData } from '../../../../../utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
+import retry from '../../../../../utils/retry';
 
 export async function GET(request) {
   function parseAttributes(attributes = []) {
@@ -27,7 +28,7 @@ export async function GET(request) {
     // Get the list of all lab IDs
     const labIds = await contract.getAllLabs(); // array of ids
 
-    // Limit concurrency to 1 (it produces 2 requests in parallel: getLab() and ownerOf())
+    // Limit concurrency to 2 (it produces 4 requests in parallel: getLab() and ownerOf())
     // TODO: Increase when using a paid node service
     const limit = pLimit(2);
 
@@ -39,8 +40,8 @@ export async function GET(request) {
 
           // Parallelize getLab and ownerOf calls
           const [labData, providerAddress] = await Promise.all([
-            contract.getLab(labId),
-            contract.ownerOf(labId),
+            retry(() => contract.getLab(labId)),
+            retry(() => contract.ownerOf(labId)),
           ]);
 
           // Fetch metadata from URI

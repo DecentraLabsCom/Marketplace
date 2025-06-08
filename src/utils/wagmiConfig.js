@@ -43,7 +43,7 @@ const moralisSepoliaTransport = http(
 
 const ankrSepoliaTransport = http(
   `https://${ankrNetworks[sepolia.id]}${ankrProjectId}`, {
-  key: 'moralis',
+  key: 'ankr',
   retryCount: 0,
   batch: {
     wait: 200,
