@@ -1,5 +1,5 @@
 export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLocalURI, priceRef, authRef,
-  accessURIRef, accessKeyRef, uriRef, hasClickedToEnableUri, setHasClickedToEnableUri, handleUriChange,
+  accessURIRef, accessKeyRef, uriRef, clickedToEditUri, setClickedToEditUri, handleUriChange,
   onSubmit, onCancel, lab }) {
   return (
     <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
@@ -56,27 +56,27 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         placeholder="Lab Data URL (JSON)"
         value={localLab.uri || ''}
         onChange={handleUriChange}
-        onClick={() => isLocalURI && setHasClickedToEnableUri(true)}
-        onBlur={() => isLocalURI && setHasClickedToEnableUri(false)}
-        readOnly={isLocalURI && !hasClickedToEnableUri}
+        onClick={() => isLocalURI && setClickedToEditUri(true)}
+        onBlur={() => isLocalURI && setClickedToEditUri(false)}
+        readOnly={isLocalURI && !clickedToEditUri}
         className={`w-full p-2 border rounded ${
-          isLocalURI && !hasClickedToEnableUri
+          isLocalURI && !clickedToEditUri
             ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300'
             : ''
         }`}
         ref={uriRef}
       />
-      {errors.uri && !(hasClickedToEnableUri && isLocalURI) &&
+      {errors.uri && !(clickedToEditUri && isLocalURI) &&
         <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>
       }
-      {isLocalURI && !hasClickedToEnableUri && (
+      {isLocalURI && !clickedToEditUri && (
         <div className='mt-4 flex justify-center'>
           <span className="text-sm text-red-500 font-medium">
             While greyed out, you may edit the JSON file field to add it as a link
           </span>
         </div>
       )}
-      {hasClickedToEnableUri && isLocalURI && (
+      {clickedToEditUri && isLocalURI && (
         <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
           <li>Name changes to the JSON file are not allowed and will be ignored</li>
           <li>
