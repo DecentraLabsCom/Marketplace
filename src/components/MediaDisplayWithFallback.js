@@ -15,8 +15,6 @@ export default function MediaDisplayWithFallback({
   width,
   title
 }) {
-
-  const mediaPath = typeof path === 'string' ? path.replace(/^\//, '') : '';
   
   // State to control if we should try Vercel Blob URL (false initially) or if it failed (true) for IMAGES
   const [hasVercelBlobFailed, setHasVercelBlobFailed] = useState(false);
@@ -165,7 +163,8 @@ export default function MediaDisplayWithFallback({
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
-      const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${mediaPath}`;
+      const cleanedMediaPath = typeof path === 'string' ? mediaPath.replace(/^\//, '') : '';
+      const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
       const localUrl = `${mediaPath}`;
       if (isVercel) {
         return hasVercelBlobFailed ? localUrl : blobUrl;
