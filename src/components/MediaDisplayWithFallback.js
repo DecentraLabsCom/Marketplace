@@ -162,20 +162,17 @@ export default function MediaDisplayWithFallback({
 
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
-    let currentSrc;
-    if (isVercel) {
-      if (!hasVercelBlobFailed) {
-        currentSrc = getSourceUrl(mediaPath, true, isVercel);
+    function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
+      const blobUrl = getSourceUrl(mediaPath, true, isVercel);
+      const localUrl = getSourceUrl(mediaPath, false, isVercel);
+      if (isVercel) {
+        return hasVercelBlobFailed ? localUrl : blobUrl;
       } else {
-        currentSrc = getSourceUrl(mediaPath, false, isVercel);
-      }
-    } else {
-      if (!hasLocalFallbackFailed) {
-        currentSrc = getSourceUrl(mediaPath, false, isVercel);
-      } else {
-        currentSrc = getSourceUrl(mediaPath, true, isVercel);
+        return hasLocalFallbackFailed ? blobUrl : localUrl;
       }
     }
+
+    const currentSrc = getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath });
 
     return (
       <Image
