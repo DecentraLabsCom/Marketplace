@@ -166,11 +166,6 @@ export default function MediaDisplayWithFallback({
       const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '').trim() : '';
       const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
       const localUrl = `${mediaPath.trim()}`;
-      // if (isVercel) {
-      //   return hasVercelBlobFailed ? localUrl : blobUrl;
-      // } else {
-      //   return hasLocalFallbackFailed ? blobUrl : localUrl;
-      // }
       if (isVercel && !hasVercelBlobFailed) {
         return blobUrl;
       } else if (!isVercel && !hasLocalFallbackFailed) {
