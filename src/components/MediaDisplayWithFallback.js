@@ -163,13 +163,22 @@ export default function MediaDisplayWithFallback({
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
-      const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '') : '';
+      const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '').trim() : '';
       const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
-      const localUrl = `${mediaPath}`;
-      if (isVercel) {
-        return hasVercelBlobFailed ? localUrl : blobUrl;
-      } else {
-        return hasLocalFallbackFailed ? blobUrl : localUrl;
+      const localUrl = `${mediaPath.trim()}`;
+      // if (isVercel) {
+      //   return hasVercelBlobFailed ? localUrl : blobUrl;
+      // } else {
+      //   return hasLocalFallbackFailed ? blobUrl : localUrl;
+      // }
+      if (isVercel && !hasVercelBlobFailed) {
+        return blobUrl;
+      } else if (!isVercel && !hasLocalFallbackFailed) {
+        return localUrl;
+      } else if (hasLocalFallbackFailed) {
+        return blobUrl;
+      }else if (isVercel && hasVercelBlobFailed) {
+        return localUrl;
       }
     }
 
