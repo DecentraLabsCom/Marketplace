@@ -29,7 +29,7 @@ export async function POST(req) {
       }
     } else {
       try {
-        const blobUrl = path.join(process.env.VERCEL_BLOB_BASE_URL, 'data', blobName);
+        const blobUrl = path.join(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL, 'data', blobName);
         const response = await fetch(blobUrl);
         if (response.ok) {
           try {

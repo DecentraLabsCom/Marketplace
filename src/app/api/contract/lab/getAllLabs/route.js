@@ -55,7 +55,7 @@ export async function GET(request) {
                 metadata = JSON.parse(fileContent);
               } else {
                 const blobName = labData.base.uri;
-                const blobUrl = path.join(process.env.VERCEL_BLOB_BASE_URL, 'data', blobName);
+                const blobUrl = path.join(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL, 'data', blobName);
                 const response = await fetch(blobUrl);
                 if (response.ok) {
                   metadata = await response.json();
