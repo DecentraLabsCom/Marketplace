@@ -163,8 +163,9 @@ export default function MediaDisplayWithFallback({
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
-      const blobUrl = getSourceUrl(mediaPath, true, isVercel);
-      const localUrl = getSourceUrl(mediaPath, false, isVercel);
+      const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '') : '';
+      const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
+      const localUrl = `${mediaPath}`;
       if (isVercel) {
         return hasVercelBlobFailed ? localUrl : blobUrl;
       } else {
