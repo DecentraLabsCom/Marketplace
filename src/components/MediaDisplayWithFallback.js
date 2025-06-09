@@ -43,7 +43,7 @@ export default function MediaDisplayWithFallback({
     // 2. Otherwise, apply Blob/local logic
     if (isVercelEnv && attemptBlob) {
       // Construct Vercel Blob URL
-      return `${process.env.VERCEL_BLOB_BASE_URL}/data/${cleanedPath}`;
+      return `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedPath}`;
     } 
     // 3. If not attempting Blob or it fails, attempt local path
     else {

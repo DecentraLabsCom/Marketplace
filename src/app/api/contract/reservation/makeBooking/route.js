@@ -2,18 +2,23 @@ import { getContractInstance } from '../../utils/contractInstance';
 
 export async function POST(request) {
   const body = await request.json();
-  const { wallet } = body;
-  if (!wallet) {
+  const { labId, start, timeslot } = body;
+  if (!labId || !start || !timeslot) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
-  // Check other required params (labId...) are also provided
+  const end = start + timeslot;
 
   try {
     const contract = await getContractInstance();
 
+    console.log(`Attempting to call reservationRequest for labId: ${labId}, start: ${start}, end (calculated): ${end}`);
+
     // Call contract
-    // ...
+    const tx = await contract.reservationRequest(labId, start, end);
+    console.log('Transaction sent:', tx.hash);
+    const receipt = await tx.wait();
+    console.log('Transaction confirmed:', receipt.transactionHash);
 
     // Return data to client
     return Response.json({ success: true }, { status: 200 });

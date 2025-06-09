@@ -89,6 +89,54 @@ export default function LabReservation({ id }) {
     setSelectedLab(lab);
   };
 
+  const handleBooking = async () => {
+    const labId = Number(selectedLab?.id);
+
+    // --- 1. Calculate `start` (Unix timestamp in seconds) ---
+    // Combine date and start time (selectedAvailableTime)
+    const [hours, minutes] = selectedAvailableTime.split(':').map(Number);
+    const startDate = new Date(date);
+    startDate.setHours(hours);
+    startDate.setMinutes(minutes);
+    startDate.setSeconds(0);
+    startDate.setMilliseconds(0);
+
+    // Convert to Unix timestamp in seconds
+    const reservationStart = Math.floor(startDate.getTime() / 1000);
+
+    // --- 2. Calculate `timeslot` (duration in seconds) ---
+    const timeslotInSeconds = time * 60;
+
+    try {
+    const response = await fetch('/api/contract/reservation/makeBooking', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        labId: labId,
+        start: reservationStart,
+        timeslot: timeslotInSeconds,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log('Booking successful:', data);
+      // - Display a success message to the user
+      // - Update UI state to reflect the reservation
+    } else {
+      console.error('Booking failed:', data.error || 'Unknown error');
+      // Display an error message to the user
+    }
+  } catch (error) {
+    console.error('Error making booking request:', error);
+    // Handle network errors or unexpected fetch errors
+    // Display a generic error message to the user
+  }
+  }
+
   return (
     <AccessControl message="Please log in to view and make reservations.">
       <div className="container mx-auto p-4 text-white">
@@ -187,7 +235,10 @@ export default function LabReservation({ id }) {
 
         {selectedLab && (
           <div className="flex justify-center">
-            <button className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]">
+            <button
+              onClick={handleBooking} 
+              className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]"
+            >
               Make Booking
             </button>
           </div>
