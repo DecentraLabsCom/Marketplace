@@ -2,6 +2,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
+import getIsVercel from '@/utils/isVercel';
 
 export async function POST(req) {
     try {
@@ -23,7 +24,7 @@ export async function POST(req) {
         }
 
         const deletingLab = formData.get('deletingLab') === 'true';
-        const isVercel = !!process.env.VERCEL;
+        const isVercel = getIsVercel();
         
         const publicDir = path.join(process.cwd(), 'public'); 
         const fullFilePath = path.join(publicDir, filePath); 

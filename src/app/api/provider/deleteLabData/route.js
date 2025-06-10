@@ -2,6 +2,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
+import getIsVercel from '@/utils/isVercel';
 
 export async function POST(req) {
   try {
@@ -9,7 +10,7 @@ export async function POST(req) {
     if (!labURI) {
       return NextResponse.json({ error: 'Missing labURI' }, { status: 400 });
     }
-    const isVercel = !!process.env.VERCEL;
+    const isVercel = getIsVercel();
     const filePath = path.join(process.cwd(), 'data', labURI);
 
     if (!isVercel) {

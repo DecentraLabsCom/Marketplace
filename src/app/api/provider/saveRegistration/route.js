@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { put } from '@vercel/blob';
+import getIsVercel from '@/utils/isVercel';
 
 export async function POST(request) {
   const body = await request.json();
@@ -8,7 +9,7 @@ export async function POST(request) {
 
   try {
     let providers = [];
-    const isVercel = !!process.env.VERCEL;
+    const isVercel = getIsVercel();
 
     if (!isVercel) {
       // LOCAL: Use filesystem

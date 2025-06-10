@@ -2,6 +2,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import getIsVercel from '@/utils/isVercel';
 
 export async function POST(req) {
   try {
@@ -9,7 +10,7 @@ export async function POST(req) {
     const { name, description, category, keywords, opens, closes, docs, images, timeSlots, uri } = 
       labData || {};
 
-    const isVercel = !!process.env.VERCEL;
+    const isVercel = getIsVercel();
     const filePath = path.join(process.cwd(), 'data', uri);
     const blobName = uri;
     let existingData = null;

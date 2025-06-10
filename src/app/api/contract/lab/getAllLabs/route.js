@@ -4,6 +4,7 @@ import pLimit from 'p-limit';
 import { simLabsData } from '../../../../../utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '../../../../../utils/retry';
+import getIsVercel from '../../../../../utils/isVercel';
 
 export async function GET(request) {
   function parseAttributes(attributes = []) {
@@ -15,7 +16,7 @@ export async function GET(request) {
   }
 
   try {
-    const isVercel = !!process.env.VERCEL;
+    const isVercel = getIsVercel();
     const contract = await getContractInstance();
 
     // Get list of all providers and create a map address -> name

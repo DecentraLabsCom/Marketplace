@@ -2,12 +2,13 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import getIsVercel from '@/utils/isVercel';
 
 export async function POST(req) {
   try {
     const formData = await req.formData();
     const file = formData.get('file');
-    const isVercel = !!process.env.VERCEL;
+    const isVercel = getIsVercel();
     const destinationFolder = formData.get('destinationFolder');
     const labId = formData.get('labId');
 
