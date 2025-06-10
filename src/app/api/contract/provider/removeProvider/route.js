@@ -1,4 +1,5 @@
 import { getContractInstance } from '../../utils/contractInstance';
+import retry from '../../../../../utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -10,7 +11,7 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
 
-    const tx = await contract.removeProvider(wallet);
+    const tx = await retry(() => contract.removeProvider(wallet));
     await tx.wait();
 
     // Return data to client

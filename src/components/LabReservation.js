@@ -5,15 +5,17 @@ import { useLabs } from "../context/LabContext";
 import Carrousel from "./Carrousel";
 import AccessControl from './AccessControl';
 import { generateTimeOptions, renderDayContents } from '../utils/labBookingCalendar';
+import useContractWriteFunction from "../hooks/contract/useContractWriteFunction";
 
 export default function LabReservation({ id }) {
   const { labs } = useLabs();
-
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
   const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
   const [selectedLab, setSelectedLab] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  const { contractWriteFunction: reservationRequest, isSuccess: isBookingSuccess, 
+      error: bookingError } = useContractWriteFunction('reservationRequest'); 
 
   const parseDate = (str) => {
     if (!str) return new Date();
@@ -102,39 +104,39 @@ export default function LabReservation({ id }) {
     startDate.setMilliseconds(0);
 
     // Convert to Unix timestamp in seconds
-    const reservationStart = Math.floor(startDate.getTime() / 1000);
+    const start = Math.floor(startDate.getTime() / 1000);
 
     // --- 2. Calculate `timeslot` (duration in seconds) ---
-    const timeslotInSeconds = time * 60;
+    const timeslot = time * 60;
+
+    const end = start + timeslot;
 
     try {
-    const response = await fetch('/api/contract/reservation/makeBooking', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        labId: labId,
-        start: reservationStart,
-        timeslot: timeslotInSeconds,
-      }),
-    });
+      console.log(`Attempting to call reservationRequest for labId: ${labId}, start: ${start}, end (calculated): ${end}`);
+      // Call contract
+      const tx = await reservationRequest(labId, start, end);
+      console.log('Transaction sent:', tx.hash);
+      let receipt = null;
+      if (tx?.wait) {
+        receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt.transactionHash);
+      } else {
+        console.warn('Transaction object does not have a .wait() method, skipping confirmation wait.');
+      }
 
-    const data = await response.json();
-
-    if (response.ok) {
-      console.log('Booking successful:', data);
-      // - Display a success message to the user
-      // - Update UI state to reflect the reservation
-    } else {
-      console.error('Booking failed:', data.error || 'Unknown error');
-      // Display an error message to the user
+      if (receipt.transactionHash) {
+        console.log('Booking successful');
+        // - Display a success message to the user
+        // - Update UI state to reflect the reservation
+      } else {
+        console.error('Booking failed');
+        // Display an error message to the user
+      }
+    } catch (error) {
+      console.error('Error making booking request:', error);
+      // Handle network errors or unexpected fetch errors
+      // Display a generic error message to the user
     }
-  } catch (error) {
-    console.error('Error making booking request:', error);
-    // Handle network errors or unexpected fetch errors
-    // Display a generic error message to the user
-  }
   }
 
   return (

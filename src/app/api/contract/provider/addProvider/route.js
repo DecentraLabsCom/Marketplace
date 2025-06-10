@@ -1,4 +1,5 @@
 import { getContractInstance } from '../../utils/contractInstance';
+import retry from '../../../../../utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -11,7 +12,7 @@ export async function POST(request) {
     const contract = await getContractInstance();
 
     // Call contract
-    const tx = await contract.addProvider(name, wallet, email, country);
+    const tx = await retry(() => contract.addProvider(name, wallet, email, country));
     await tx.wait();
 
     // Return ok signal to client

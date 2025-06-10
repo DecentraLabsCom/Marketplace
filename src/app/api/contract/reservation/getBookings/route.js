@@ -1,5 +1,6 @@
 import { simBookings } from '../../../../../utils/simBookings';
 import { getContractInstance } from '../../utils/contractInstance';
+import retry from '../../../../../utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -14,7 +15,7 @@ export async function POST(request) {
 
     const contract = await getContractInstance();
 
-    const bookingList = await contract.getAllBookings();
+    const bookingList = await retry(() => contract.getAllBookings());
 
     // Filter to get only active and future bookings for user
     const bookings = await Promise.all(

@@ -19,14 +19,14 @@ export async function GET(request) {
     const contract = await getContractInstance();
 
     // Get list of all providers and create a map address -> name
-    const providerList = await contract.getLabProviders();
+    const providerList = await retry(() => contract.getLabProviders());
     const providerMap = {};
     for (const provider of providerList) {
       providerMap[provider.account.toLowerCase()] = provider.base.name;
     }
 
     // Get the list of all lab IDs
-    const labIds = await contract.getAllLabs(); // array of ids
+    const labIds = await retry(() => contract.getAllLabs()); // array of ids
 
     // Limit concurrency to 2 (it produces 4 requests in parallel: getLab() and ownerOf())
     // TODO: Increase when using a paid node service

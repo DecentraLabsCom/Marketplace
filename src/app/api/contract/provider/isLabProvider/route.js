@@ -1,4 +1,5 @@
 import { getContractInstance } from '../../utils/contractInstance';
+import retry from '../../../../../utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -10,7 +11,7 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
 
-    const isLabProvider = await contract.isLabProvider(wallet);
+    const isLabProvider = await retry(() => contract.isLabProvider(wallet));
     
     return Response.json({isLabProvider}, { status: 200 });
   } catch (error) {
