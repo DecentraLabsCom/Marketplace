@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLabs } from '../context/LabContext';
 import { useUser } from '../context/UserContext';
 import LabCard from "./LabCard";
@@ -14,19 +14,18 @@ export default function Market() {
   const [selectedProvider, setSelectedProvider] = useState("All");
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [providers, setProviders] = useState([]);
 
   // Get all lab categories and providers
-  useEffect(() => {
-    if (labs) {
-      // Extract each category only once
-      const uniqueCategories = [...new Set(labs.map((lab) => lab.category))];
-      setCategories(uniqueCategories);
-      // Extract each provider only once
-      const uniqueProviders = [...new Set(labs.map((lab) => lab.provider))];
-      setProviders(uniqueProviders);
-    }
+  const categories = useMemo(() => {
+    if (!labs) return [];
+    const uniqueCategories = [...new Set(labs.map((lab) => lab.category))];
+    return uniqueCategories;
+  }, [labs]);
+
+  const providers = useMemo(() => {
+    if (!labs) return [];
+    const uniqueProviders = [...new Set(labs.map((lab) => lab.provider))];
+    return uniqueProviders;
   }, [labs]);
 
   // Search/filter options
