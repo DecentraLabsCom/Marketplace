@@ -4,7 +4,7 @@ DecentraLabs is a community-driven initiative led by [Nebulous Systems](https://
 ## 🧪 DecentraLabs Marketplace
 The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories, manage access conditions, and receive $LAB tokens as compensation for usage. At the same time, students, teachers, and researchers around the world can discover, reserve, and interact with real lab equipment remotely, using only a crypto wallet or institutional Single Sign-On (SSO).
 
-Each lab can be offered for free or for a fee, at the discretion of the provider. Access is controlled via smart contracts and enforced through a secure, tokenized infrastructure. This ensures transparency, verifiability, and fair rewards for contributors—without centralized intermediaries.
+Each lab can be offered for free or for a fee, at the discretion of the provider. Access is controlled via smart contracts and enforced through a secure, tokenized infrastructure. This ensures transparency, verifiability, and fair rewards for contributors; all without centralized intermediaries.
 
 DecentraLabs Marketplace aims to offer a curated catalog of online laboratories shared by leading educational and research institutions worldwide. Whether you’re looking to publish underused lab systems or access cutting-edge infrastructure for remote experiments, the DecentraLabs Marketplace is your gateway to a global, decentralized network of scientific collaboration.
 
@@ -18,7 +18,7 @@ Earn $LAB tokens as users reserve and utilize your labs.
 Leverage a decentralized, tamper-proof system without intermediaries.
 
 ### 🎓 For Consumers
-Explore a growing catalog of online labs—from electronics to robotics.
+Explore a growing catalog of online labs, from electronics to robotics.
 
 Authenticate using your crypto wallet or institutional SSO (e.g., eduGAIN).
 
