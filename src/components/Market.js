@@ -18,14 +18,12 @@ export default function Market() {
   // Get all lab categories and providers
   const categories = useMemo(() => {
     if (!labs) return [];
-    const uniqueCategories = [...new Set(labs.map((lab) => lab.category))];
-    return uniqueCategories;
+    return [...new Set(labs.map((lab) => lab.category))];
   }, [labs]);
 
   const providers = useMemo(() => {
     if (!labs) return [];
-    const uniqueProviders = [...new Set(labs.map((lab) => lab.provider))];
-    return uniqueProviders;
+    return [...new Set(labs.map((lab) => lab.provider))];
   }, [labs]);
 
   // Search/filter options

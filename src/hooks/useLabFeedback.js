@@ -66,7 +66,6 @@ export default function useLabFeedback({
          error.message.includes("no contract deployed") ||
          error.message.includes("does not exist on this network")
         ) {
-          console.log("Error:", error);
           setFeedbackMessage("Wrong network. Please switch your wallet to the correct network.");
         } else {
           setFeedbackMessage(msg + error.message);
