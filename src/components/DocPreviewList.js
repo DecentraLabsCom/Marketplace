@@ -1,6 +1,6 @@
 import React from "react";
 import { XCircle } from "lucide-react";
-import MediaDisplayWithFallback from "./MediaDisplayWithFallback";
+import MediaDisplayWithFallback from "@/components/MediaDisplayWithFallback";
 
 const DocPreviewList = React.memo(function DocPreviewList({ docUrls, removeDoc, isExternalURI }) {
   if (!docUrls?.length) return null;

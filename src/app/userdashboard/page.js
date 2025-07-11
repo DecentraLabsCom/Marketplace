@@ -2,14 +2,14 @@
 import React, { useEffect, useState } from 'react'
 import DatePicker from "react-datepicker"
 import Link from 'next/link'
-import { useUser } from '../../context/UserContext'
-import { useLabs } from '../../context/LabContext'
-import Carrousel from '../../components/Carrousel'
-import LabAccess from '../../components/LabAccess'
-import AccessControl from '../../components/AccessControl'
-import LabBookingItem from '../../components/LabBookingItem'
-import isBookingActive from '../../utils/isBookingActive'
-import { generateTimeOptions, renderDayContents } from '../../utils/labBookingCalendar';
+import { useUser } from '@/context/UserContext'
+import { useLabs } from '@/context/LabContext'
+import Carrousel from '@/components/Carrousel'
+import LabAccess from '@/components/LabAccess'
+import AccessControl from '@/components/AccessControl'
+import LabBookingItem from '@/components/LabBookingItem'
+import isBookingActive from '@/utils/isBookingActive'
+import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();

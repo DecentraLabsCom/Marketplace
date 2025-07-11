@@ -1,30 +1,42 @@
 "use client";
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
-import { useUser } from '../../context/UserContext';
-import { useLabs } from '../../context/LabContext';
-import useContractWriteFunction from '../../hooks/contract/useContractWriteFunction';
-import useLabFeedback from '../../hooks/useLabFeedback';
-import LabModal from '../../components/LabModal';
-import AccessControl from '../../components/AccessControl';
-import FeedbackModal from '../../components/FeedbackModal';
-import ProviderLabItem from '../../components/ProviderLabItem';
-import { renderDayContents } from '../../utils/labBookingCalendar';
+import { useUser } from '@/context/UserContext';
+import { useLabs } from '@/context/LabContext';
+import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
+import { useWaitForTransactionReceipt } from 'wagmi';
+import LabModal from '@/components/LabModal';
+import AccessControl from '@/components/AccessControl';
+import FeedbackModal from '@/components/FeedbackModal';
+import ProviderLabItem from '@/components/ProviderLabItem';
+import { renderDayContents } from '@/utils/labBookingCalendar';
 
 export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
 
-  const { contractWriteFunction: addLab, isSuccess: isAddSuccess, 
-    error: addError } = useContractWriteFunction('addLab');  
-  const { contractWriteFunction: deleteLab, isSuccess: isDeleteSuccess, 
-    error: deleteError } = useContractWriteFunction('deleteLab');
-  const { contractWriteFunction: updateLab, isSuccess: isUpdateSuccess, 
-    error: updateError } = useContractWriteFunction('updateLab');
-  const { contractWriteFunction: listLab, isSuccess: isListSuccess, 
-    error: listError } = useContractWriteFunction('listLab');
-  const { contractWriteFunction: unlistLab, isSuccess: isUnlistSuccess, 
-    error: unlistError } = useContractWriteFunction('unlistLab');
+  // Contract write functions
+  const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
+  const { contractWriteFunction: deleteLab } = useContractWriteFunction('deleteLab');
+  const { contractWriteFunction: updateLab } = useContractWriteFunction('updateLab');
+  const { contractWriteFunction: listLab } = useContractWriteFunction('listLab');
+  const { contractWriteFunction: unlistLab } = useContractWriteFunction('unlistLab');
+
+  // Transaction state management
+  const [lastTxHash, setLastTxHash] = useState(null);
+  const [txType, setTxType] = useState(null); // 'add', 'update', 'delete', 'list', 'unlist'
+  const [pendingData, setPendingData] = useState(null);
+  const [notification, setNotification] = useState(null);
+
+  // Wait for transaction receipt
+  const { 
+    data: receipt, 
+    isLoading: isWaitingForReceipt, 
+    isSuccess: isReceiptSuccess 
+  } = useWaitForTransactionReceipt({
+    hash: lastTxHash,
+    enabled: !!lastTxHash
+  });
 
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [selectedLabId, setSelectedLabId] = useState("");
@@ -40,14 +52,45 @@ export default function ProviderDashboard() {
   const [newLab, setNewLab] = useState(newLabStructure);
   const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
 
-  // Control feedback on success and on error & control action (set labs) on success
-  const { setPendingEditingLabs, setPendingDeleteLabs, setPendingNewLab,
-    setPendingListLabs, setPendingUnlistLabs,
-  } = useLabFeedback({ labs, setLabs,
-    setIsModalOpen, setShowFeedback, setFeedbackTitle, setFeedbackMessage,
-    isAddSuccess, isUpdateSuccess, isDeleteSuccess, isListSuccess, isUnlistSuccess,
-    addError, updateError, deleteError, listError, unlistError,
-  });
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isReceiptSuccess && receipt && txType && pendingData) {
+      console.log(`Transaction confirmed: ${txType}`, receipt.transactionHash);
+      
+      setNotification({
+        type: 'success',
+        message: `✅ ${txType.charAt(0).toUpperCase() + txType.slice(1)} operation confirmed onchain!`,
+        hash: receipt.transactionHash
+      });
+      
+      // Handle different transaction types
+      switch(txType) {
+        case 'add':
+          setLabs([...labs, pendingData]);
+          setIsModalOpen(false);
+          break;
+        case 'update':
+          setLabs(labs.map(lab => lab.id === pendingData.id ? pendingData : lab));
+          setIsModalOpen(false);
+          break;
+        case 'delete':
+          setLabs(labs.filter(lab => lab.id !== pendingData.id));
+          break;
+        case 'list':
+        case 'unlist':
+          setLabs(labs.map(lab => lab.id === pendingData.id ? pendingData : lab));
+          break;
+      }
+      
+      // Reset transaction state
+      setLastTxHash(null);
+      setTxType(null);
+      setPendingData(null);
+      
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    }
+  }, [isReceiptSuccess, receipt, txType, pendingData, labs, setLabs]);
 
   const dayContents = (day, currentDateRender) =>
     renderDayContents({
@@ -117,23 +160,14 @@ export default function ProviderDashboard() {
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
     if (labData.id) {
-      await handleEditLab({
-        labData, labs, user, updateLab, setPendingEditingLabs,
-        setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
-      });
+      await handleEditLab({ labData });
     } else {
-      await handleAddLab({
-        labData, labs, user, address, addLab, setPendingNewLab,
-        setFeedbackTitle, setFeedbackMessage, setShowFeedback
-      });
+      await handleAddLab({ labData });
     }
   };
 
   // Handle editing/updating a lab
-  async function handleEditLab({
-    labData, labs, user, updateLab, setPendingEditingLabs,
-    setFeedbackTitle, setFeedbackMessage, setShowFeedback, setIsModalOpen
-  }) {
+  async function handleEditLab({ labData }) {
     labData.uri = labData.uri || `Lab-${user.name}-${labData.id}.json`;
     const originalLab = labs.find(lab => lab.id == labData.id);
 
@@ -150,13 +184,15 @@ export default function ProviderDashboard() {
       originalLab.accessKey !== labData.accessKey;
 
     try {
-      const updatedLabs = labs.map((lab) =>
-        lab.id == labData.id ? { ...labData } : lab
-      );
       // 1. Update lab data
       if (hasChangedOnChainData) {
-        // 1a. If there is any change in the on-chain data, update blockchain and local state
-        const tx = await updateLab([
+        // 1a. If there is any change in the on-chain data, update blockchain
+        setNotification({
+          type: 'pending',
+          message: '⏳ Updating lab onchain...'
+        });
+
+        const txHash = await updateLab([
           labData.id,
           labData.uri,
           labData.price,
@@ -164,11 +200,23 @@ export default function ProviderDashboard() {
           labData.accessURI,
           labData.accessKey
         ]);
-        if (tx?.wait) await tx.wait();
-        setPendingEditingLabs(updatedLabs);
+        
+        if (txHash) {
+          setLastTxHash(txHash);
+          setTxType('update');
+          setPendingData(labData);
+        } else {
+          throw new Error('No transaction hash received');
+        }
       } else {
         // 1b. If there is no change in the on-chain data, just update the local state
-        setLabs(updatedLabs);
+        setLabs(labs.map((lab) => lab.id == labData.id ? { ...labData } : lab));
+        setIsModalOpen(false);
+        setNotification({
+          type: 'success',
+          message: '✅ Lab updated successfully (offchain changes only)!'
+        });
+        setTimeout(() => setNotification(null), 3000);
       }
 
       // 2. Save the JSON if necessary
@@ -181,9 +229,11 @@ export default function ProviderDashboard() {
           });
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         } catch (error) {
-          setFeedbackTitle('Error!');
-          setFeedbackMessage('Failed to save lab data.');
-          setShowFeedback(true);
+          setNotification({
+            type: 'error',
+            message: '❌ Failed to save lab data.'
+          });
+          setTimeout(() => setNotification(null), 5000);
           return;
         }
       }
@@ -196,136 +246,198 @@ export default function ProviderDashboard() {
           body: JSON.stringify({ labURI: originalLab.uri }),
         });
       }
-
-      if (!hasChangedOnChainData) {
-        setFeedbackTitle('Success!');
-        setFeedbackMessage('Lab updated successfully.');
-        setShowFeedback(true);
-        setIsModalOpen(false);
-      }
     } catch (error) {
-      setFeedbackTitle('Error!');
-      setFeedbackMessage('Failed to update lab on blockchain or save data.');
-      setShowFeedback(true);
+      console.error('Error updating lab:', error);
+      setNotification({
+        type: 'error',
+        message: `❌ Failed to update lab: ${error.message || 'Unknown error'}`
+      });
+      setTimeout(() => setNotification(null), 5000);
     }
   }
 
   // Handle adding a new lab
-  async function handleAddLab({
-    labData, labs, user, address, addLab, setPendingNewLab,
-    setFeedbackTitle, setFeedbackMessage, setShowFeedback
-  }) {
+  async function handleAddLab({ labData }) {
     const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
     labData.uri = labData.uri || `Lab-${user.name}-${maxId + 1}.json`;
 
     try {
+      setNotification({
+        type: 'pending',
+        message: '⏳ Adding lab onchain...'
+      });
+
       // 1. Launch the transaction to add the lab on-chain
-      const tx = await addLab([
+      const txHash = await addLab([
         labData.uri,
         labData.price,
         labData.auth,
         labData.accessURI,
         labData.accessKey
       ]);
-      if (tx?.wait) await tx.wait();
 
-      // 2. Update the local state
-      const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
-      setPendingNewLab(newLabRecord);
+      if (txHash) {
+        const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
+        setLastTxHash(txHash);
+        setTxType('add');
+        setPendingData(newLabRecord);
 
-      // 3. Save the JSON with the lab data if necessary
-      if (labData.uri.startsWith('Lab-')) {
-        const response = await fetch('/api/provider/saveLabData', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labData: newLabRecord }),
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        // 3. Save the JSON with the lab data if necessary
+        if (labData.uri.startsWith('Lab-')) {
+          const response = await fetch('/api/provider/saveLabData', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labData: newLabRecord }),
+          });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      } else {
+        throw new Error('No transaction hash received');
       }
     } catch (error) {
-      setFeedbackTitle('Error!');
-      setFeedbackMessage('Failed to add lab on blockchain or save data.');
-      setShowFeedback(true);
+      console.error('Error adding lab:', error);
+      setNotification({
+        type: 'error',
+        message: `❌ Failed to add lab: ${error.message || 'Unknown error'}`
+      });
+      setTimeout(() => setNotification(null), 5000);
     }
   }
 
   // Handle delete a lab
   const handleDeleteLab = async (labId) => {
-    const tx = await deleteLab([labId]);
-    if (tx?.wait) await tx.wait();
-
     const labToDelete = labs.find((lab) => lab.id == labId);
-    const labURI = labToDelete.uri;
-    const imagesToDelete = labToDelete.images;
-    const docsToDelete = labToDelete.docs;
-
+    
     try {
-      // Delete images
-      if (imagesToDelete && Array.isArray(imagesToDelete)) {
-        await Promise.all(imagesToDelete.map(async (imageToDelete) => {
-          if (imageToDelete) {
-            const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;            
-            const formDatatoDelete = new FormData();
-            formDatatoDelete.append('filePath', filePathToDelete);
-            formDatatoDelete.append('deletingLab', true);
-            const res = await fetch('/api/provider/deleteFile', {
-              method: 'POST',
-              body: formDatatoDelete,
-            });
-            if (!res.ok) throw new Error('Failed to delete image file: ' + filePathToDelete);
-          }
-        }));
+      setNotification({
+        type: 'pending',
+        message: '⏳ Deleting lab onchain...'
+      });
+
+      const txHash = await deleteLab([labId]);
+      
+      if (txHash) {
+        setLastTxHash(txHash);
+        setTxType('delete');
+        setPendingData(labToDelete);
+
+        // Delete associated files
+        const labURI = labToDelete.uri;
+        const imagesToDelete = labToDelete.images;
+        const docsToDelete = labToDelete.docs;
+
+        // Delete images
+        if (imagesToDelete && Array.isArray(imagesToDelete)) {
+          await Promise.all(imagesToDelete.map(async (imageToDelete) => {
+            if (imageToDelete) {
+              const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;            
+              const formDatatoDelete = new FormData();
+              formDatatoDelete.append('filePath', filePathToDelete);
+              formDatatoDelete.append('deletingLab', true);
+              const res = await fetch('/api/provider/deleteFile', {
+                method: 'POST',
+                body: formDatatoDelete,
+              });
+              if (!res.ok) throw new Error('Failed to delete image file: ' + filePathToDelete);
+            }
+          }));
+        }
+
+        // Delete docs
+        if (docsToDelete && Array.isArray(docsToDelete)) {
+          await Promise.all(docsToDelete.map(async (docToDelete) => {
+            if (docToDelete) {
+              const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
+              const formDatatoDelete = new FormData();
+              formDatatoDelete.append('filePath', filePathToDelete);
+              formDatatoDelete.append('deletingLab', true);
+              const res = await fetch('/api/provider/deleteFile', {
+                method: 'POST',
+                body: formDatatoDelete,
+              });
+              if (!res.ok) throw new Error('Failed to delete doc file: ' + filePathToDelete);
+            }
+          }));
+        }
+
+        const hasExternalUri = !!(labURI && (labURI.startsWith('http://') || labURI.startsWith('https://')));
+
+        // Only delete JSON if labURI is local
+        if (!hasExternalUri) {
+          const response = await fetch('/api/provider/deleteLabData', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labURI }),
+          });
+          if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
+        }
+      } else {
+        throw new Error('No transaction hash received');
       }
-
-      // Delete docs
-      if (docsToDelete && Array.isArray(docsToDelete)) {
-        await Promise.all(docsToDelete.map(async (docToDelete) => {
-          if (docToDelete) {
-            const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
-            const formDatatoDelete = new FormData();
-            formDatatoDelete.append('filePath', filePathToDelete);
-            formDatatoDelete.append('deletingLab', true);
-            const res = await fetch('/api/provider/deleteFile', {
-              method: 'POST',
-              body: formDatatoDelete,
-            });
-            if (!res.ok) throw new Error('Failed to delete doc file: ' + filePathToDelete);
-          }
-        }));
-      }
-
-      const hasExternalUri = !!(labURI && (labURI.startsWith('http://') || labURI.startsWith('https://')));
-
-      // Only delete JSON if labURI is local
-      if (!hasExternalUri) {
-        const response = await fetch('/api/provider/deleteLabData', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labURI }),
-        });
-        if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
-      }
-
-      // If all went well, update state and feedback
-      const updatedLabs = labs.filter((lab) => lab.id !== labId);
-      setPendingDeleteLabs(updatedLabs);
     } catch (error) {
-      setShowFeedback(true);
-      setFeedbackTitle("Error Deleting Lab");
-      setFeedbackMessage(error.message || "An error occurred while deleting lab data.");
+      console.error('Error deleting lab:', error);
+      setNotification({
+        type: 'error',
+        message: `❌ Failed to delete lab: ${error.message || 'Unknown error'}`
+      });
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
   // Handle listing a lab
   const handleList = async (labId) => {
-    listLab([labId]);
-    setPendingListLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: true } : lab)));
+    try {
+      setNotification({
+        type: 'pending',
+        message: '⏳ Listing lab onchain...'
+      });
+
+      const txHash = await listLab([labId]);
+      
+      if (txHash) {
+        const updatedLab = { ...labs.find(lab => lab.id === labId), listed: true };
+        setLastTxHash(txHash);
+        setTxType('list');
+        setPendingData(updatedLab);
+      } else {
+        throw new Error('No transaction hash received');
+      }
+    } catch (error) {
+      console.error('Error listing lab:', error);
+      setNotification({
+        type: 'error',
+        message: `❌ Failed to list lab: ${error.message || 'Unknown error'}`
+      });
+      setTimeout(() => setNotification(null), 5000);
+    }
   };
   
   // Handle unlisting a lab
   const handleUnlist = async (labId) => {
-    unlistLab([labId]);
-    setPendingUnlistLabs(labs.map((lab) => (lab.id === labId ? { ...lab, listed: false } : lab)));
+    try {
+      setNotification({
+        type: 'pending',
+        message: '⏳ Unlisting lab onchain...'
+      });
+
+      const txHash = await unlistLab([labId]);
+      
+      if (txHash) {
+        const updatedLab = { ...labs.find(lab => lab.id === labId), listed: false };
+        setLastTxHash(txHash);
+        setTxType('unlist');
+        setPendingData(updatedLab);
+      } else {
+        throw new Error('No transaction hash received');
+      }
+    } catch (error) {
+      console.error('Error unlisting lab:', error);
+      setNotification({
+        type: 'error',
+        message: `❌ Failed to unlist lab: ${error.message || 'Unknown error'}`
+      });
+      setTimeout(() => setNotification(null), 5000);
+    }
   };
 
   // Handle collecting balances from all labs
@@ -367,6 +479,33 @@ export default function ProviderDashboard() {
   return (
     <AccessControl requireWallet message="Please log in to manage your labs.">
       <div className="container mx-auto p-4">
+        {/* Notification */}
+        {notification && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md ${
+            notification.type === 'success' ? 'bg-green-600' :
+            notification.type === 'pending' ? 'bg-blue-600' :
+            notification.type === 'warning' ? 'bg-yellow-600' :
+            'bg-red-600'
+          }`}>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="text-white font-medium">{notification.message}</p>
+                {notification.hash && (
+                  <p className="text-gray-200 text-sm mt-1 break-all">
+                    Hash: {notification.hash.slice(0, 10)}...{notification.hash.slice(-8)}
+                  </p>
+                )}
+              </div>
+              <button 
+                onClick={() => setNotification(null)}
+                className="ml-2 text-white hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
         </div>

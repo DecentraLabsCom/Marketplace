@@ -2,7 +2,7 @@ import { http, webSocket, createConfig, fallback } from 'wagmi';
 import { mainnet, polygon, sepolia } from 'wagmi/chains';
 import { walletConnect, metaMask} from 'wagmi/connectors';
 import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
-        quicknodeNetworks, chainstackNetworks, infuraNetworks } from './networkConfig';
+        quicknodeNetworks, chainstackNetworks, infuraNetworks } from '@/utils/networkConfig';
 
 let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
 let moralisProjectId = process.env.NEXT_PUBLIC_MORALIS_ID;

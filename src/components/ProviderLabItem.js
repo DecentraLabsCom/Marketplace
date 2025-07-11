@@ -1,5 +1,5 @@
 import React from "react";
-import Carrousel from "./Carrousel";
+import Carrousel from "@/components/Carrousel";
 
 const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCollect, onDelete, onList, onUnlist }) {
   return (

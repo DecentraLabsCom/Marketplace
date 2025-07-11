@@ -1,13 +1,13 @@
 import 'react-datepicker/dist/react-datepicker.css'
-import '../styles/global.css'
-import ClientQueryProvider from '../context/ClientQueryProvider'
-import ClientWagmiProvider from '../context/ClientWagmiProvider'
-import { UserData } from '../context/UserContext'
-import { UserEventProvider } from "../context/UserEventContext";
-import { LabData } from '../context/LabContext'
-import { LabEventProvider } from "../context/LabEventContext";
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import '@/styles/global.css'
+import ClientQueryProvider from '@/context/ClientQueryProvider'
+import ClientWagmiProvider from '@/context/ClientWagmiProvider'
+import { UserData } from '@/context/UserContext'
+import { UserEventProvider } from "@/context/UserEventContext";
+import { LabData } from '@/context/LabContext'
+import { LabEventProvider } from "@/context/LabEventContext";
+import Navbar from '@/components/Navbar'
+import Footer from '@/components/Footer'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',

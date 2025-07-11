@@ -1,11 +1,11 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import LabAccess from "./LabAccess";
-import { useUser } from '../context/UserContext';
+import LabAccess from "@/components/LabAccess";
+import { useUser } from '@/context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
-import MediaDisplayWithFallback from "./MediaDisplayWithFallback";
+import MediaDisplayWithFallback from "@/components/MediaDisplayWithFallback";
 
 const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected, user, isSSO } = useUser();

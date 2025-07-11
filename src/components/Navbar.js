@@ -4,8 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
-import { useUser } from '../context/UserContext';
-import Login from './Login';
+import { useUser } from '@/context/UserContext';
+import Login from '@/components/Login';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);

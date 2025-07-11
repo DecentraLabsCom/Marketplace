@@ -1,6 +1,6 @@
 "use client";
 import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi';
-import { useUser } from '../context/UserContext';
+import { useUser } from '@/context/UserContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 

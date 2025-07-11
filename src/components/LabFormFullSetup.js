@@ -1,7 +1,7 @@
 import React from "react";
 import { UploadCloud, Link, XCircle } from 'lucide-react';
-import ImagePreviewList from './ImagePreviewList.js';
-import DocPreviewList from './DocPreviewList.js';
+import ImagePreviewList from '@/components/ImagePreviewList.js';
+import DocPreviewList from '@/components/DocPreviewList.js';
 
 export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExternalURI, imageInputType,
   setImageInputType, imageUrls, imageLinkRef, imageUploadRef, handleImageChange, removeImage, localImages,

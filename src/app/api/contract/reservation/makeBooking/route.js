@@ -1,5 +1,5 @@
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '../../../../../utils/retry';
+import retry from '@/utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -13,7 +13,8 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
 
-    console.log(`Attempting to call reservationRequest for labId: ${labId}, start: ${start}, end (calculated): ${end}`);
+    console.log(`Attempting to call reservationRequest for labId: ${labId}, 
+      start: ${start}, end (calculated): ${end}`);
 
     // Call contract
     const tx = await retry(() => contract.reservationRequest(labId, start, end));

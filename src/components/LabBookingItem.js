@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import ConfirmModal from "./ConfirmModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const LabBookingItem = React.memo(function LabBookingItem({ lab, booking, onCancel, onRefund, isModalOpen,
     closeModal }) {

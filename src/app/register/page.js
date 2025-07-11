@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { IoPerson } from 'react-icons/io5';
 import ReactFlagsSelect from 'react-flags-select';
-import { useUser } from '../../context/UserContext';
-import AccessControl from '../../components/AccessControl';
+import { useUser } from '@/context/UserContext';
+import AccessControl from '@/components/AccessControl';
 
 const providerSchema = z.object({
   name: z.string().min(1, 'Provider name is required'),

@@ -1,9 +1,9 @@
 "use client"
 import { createContext, useContext, useEffect, useRef } from "react";
 import { usePublicClient } from 'wagmi';
-import { useLabs } from "./LabContext";
-import { contractABI, contractAddresses } from '../contracts/diamond';
-import { selectChain } from '../utils/selectChain';
+import { useLabs } from "@/context/LabContext";
+import { contractABI, contractAddresses } from '@/contracts/diamond';
+import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
 
 function toIdString(id) {

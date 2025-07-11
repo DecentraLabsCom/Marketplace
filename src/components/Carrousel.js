@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import MediaDisplayWithFallback from './MediaDisplayWithFallback';
+import MediaDisplayWithFallback from '@/components/MediaDisplayWithFallback';
 
 const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);

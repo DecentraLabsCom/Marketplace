@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { useUser } from '../context/UserContext';
-import Account from '../utils/account';
-import WalletLogin from './WalletLogin';
-import InstitutionalLogin from './InstitutionalLogin';
+import { useUser } from '@/context/UserContext';
+import Account from '@/utils/account';
+import WalletLogin from '@/components/WalletLogin';
+import InstitutionalLogin from '@/components/InstitutionalLogin';
 import { FaSignInAlt } from 'react-icons/fa';
 
 export default function Login() {

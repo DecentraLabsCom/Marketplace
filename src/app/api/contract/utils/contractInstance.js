@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
-import { contractABI, contractAddresses } from '../../../../contracts/diamond';
-import { defaultChain } from '../../../../utils/networkConfig.js';
+import { contractABI, contractAddresses } from '@/contracts/diamond';
+import { defaultChain } from '@/utils/networkConfig.js';
 import getProvider from './getProvider';
 
 export async function getContractInstance() {

@@ -1,6 +1,6 @@
 import React from "react";
 import { XCircle } from "lucide-react";
-import MediaDisplayWithFallback from "./MediaDisplayWithFallback";
+import MediaDisplayWithFallback from "@/components/MediaDisplayWithFallback";
 
 const ImagePreviewList = React.memo(function ImagePreviewList({ imageUrls, removeImage, isExternalURI }) {
   return (

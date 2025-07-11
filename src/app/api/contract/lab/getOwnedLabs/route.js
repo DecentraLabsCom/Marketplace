@@ -1,5 +1,5 @@
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '../../../../../utils/retry';
+import retry from '@/utils/retry';
 
 export async function GET(request) {
   const { wallet } = await request.json();

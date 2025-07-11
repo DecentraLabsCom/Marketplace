@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '../context/UserContext';
-import { useLabs } from '../context/LabContext';
-import Carrousel from './Carrousel';
-import DocsCarrousel from './DocsCarrousel';
+import { useUser } from '@/context/UserContext';
+import { useLabs } from '@/context/LabContext';
+import Carrousel from '@/components/Carrousel';
+import DocsCarrousel from '@/components/DocsCarrousel';
 
 export default function LabDetail({ id, provider }) {
   const { isLoggedIn, address, user, isSSO } = useUser();

@@ -1,21 +1,37 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
-import { useLabs } from "../context/LabContext";
-import Carrousel from "./Carrousel";
-import AccessControl from './AccessControl';
-import { generateTimeOptions, renderDayContents } from '../utils/labBookingCalendar';
-import useContractWriteFunction from "../hooks/contract/useContractWriteFunction";
+import { useLabs } from "@/context/LabContext";
+import Carrousel from "@/components/Carrousel";
+import AccessControl from '@/components/AccessControl';
+import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
+import useContractWriteFunction from "@/hooks/contract/useContractWriteFunction";
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
+import { contractAddresses } from "@/contracts/diamond";
 
 export default function LabReservation({ id }) {
-  const { labs } = useLabs();
+  const { labs, fetchBookings } = useLabs();
+  const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
   const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
   const [selectedLab, setSelectedLab] = useState(null);
   const [isClient, setIsClient] = useState(false);
-  const { contractWriteFunction: reservationRequest, isSuccess: isBookingSuccess, 
-      error: bookingError } = useContractWriteFunction('reservationRequest'); 
+  const [isBooking, setIsBooking] = useState(false);
+  const [lastTxHash, setLastTxHash] = useState(null);
+  const [pendingAlert, setPendingAlert] = useState(null);
+  const [notification, setNotification] = useState(null);
+  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
+  
+  // Wait for transaction receipt
+  const { 
+    data: receipt, 
+    isLoading: isWaitingForReceipt, 
+    isSuccess: isReceiptSuccess 
+  } = useWaitForTransactionReceipt({
+    hash: lastTxHash,
+    enabled: !!lastTxHash
+  });
 
   const parseDate = (str) => {
     if (!str) return new Date();
@@ -55,6 +71,35 @@ export default function LabReservation({ id }) {
     setIsClient(true);
   }, []);
 
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isReceiptSuccess && receipt) {
+      console.log('Transaction confirmed via useWaitForTransactionReceipt:', receipt.transactionHash);
+      
+      // Close any pending alert and show success message
+      if (pendingAlert) {
+        clearTimeout(pendingAlert);
+        setPendingAlert(null);
+      }
+      
+      setIsBooking(false);
+      setLastTxHash(null);
+      
+      // Show success notification
+      setNotification({
+        type: 'success',
+        message: '✅ Reservation successfully confirmed onchain!',
+        hash: receipt.transactionHash
+      });
+      
+      // Update local state by refetching bookings from the contract
+      fetchBookings();
+      
+      // Auto-hide notification after 5 seconds
+      setTimeout(() => setNotification(null), 5000);
+    }
+  }, [isReceiptSuccess, receipt, fetchBookings, pendingAlert]);
+
   if (!isClient) return null;
 
   // Min and max dates for the calendar
@@ -92,6 +137,30 @@ export default function LabReservation({ id }) {
   };
 
   const handleBooking = async () => {
+    if (isBooking) return; // Prevent double clicks
+    
+    // Validations
+    if (!isConnected) {
+      alert('Please connect your wallet first.');
+      return;
+    }
+    
+    if (!selectedAvailableTime) {
+      alert('Please select an available time.');
+      return;
+    }
+
+    if (!selectedLab?.id) {
+      alert('Please select a lab.');
+      return;
+    }
+
+    const contractAddress = contractAddresses[chain?.name?.toLowerCase()];
+    if (!contractAddress || contractAddress === "0x...") {
+      alert(`Contract not deployed on ${chain?.name || 'this network'}. Please switch to a supported network.`);
+      return;
+    }
+
     const labId = Number(selectedLab?.id);
 
     // --- 1. Calculate `start` (Unix timestamp in seconds) ---
@@ -106,42 +175,102 @@ export default function LabReservation({ id }) {
     // Convert to Unix timestamp in seconds
     const start = Math.floor(startDate.getTime() / 1000);
 
-    // --- 2. Calculate `timeslot` (duration in seconds) ---
+    // --- 2. Calculate `timeslot` (duration in seconds) and endtime ---
     const timeslot = time * 60;
-
     const end = start + timeslot;
 
-    try {
-      console.log(`Attempting to call reservationRequest for labId: ${labId}, start: ${start}, end (calculated): ${end}`);
-      // Call contract
-      const tx = await reservationRequest(labId, start, end);
-      console.log('Transaction sent:', tx.hash);
-      let receipt = null;
-      if (tx?.wait) {
-        receipt = await tx.wait();
-        console.log('Transaction confirmed:', receipt.transactionHash);
-      } else {
-        console.warn('Transaction object does not have a .wait() method, skipping confirmation wait.');
-      }
+    setIsBooking(true);
 
-      if (receipt.transactionHash) {
-        console.log('Booking successful');
-        // - Display a success message to the user
-        // - Update UI state to reflect the reservation
+    try {
+      console.log(`Attempting to call reservationRequest for labId: ${labId}, start: ${start}, end: ${end}`);
+      console.log('Arguments:', [labId, start, end]);
+      
+      // Call contract - pass arguments as array
+      const txHash = await reservationRequest([labId, start, end]);
+      console.log('Transaction result:', txHash);
+      
+      if (txHash) {
+        console.log('Transaction sent with hash:', txHash);
+        setLastTxHash(txHash);
+        
+        // Show pending notification
+        setNotification({
+          type: 'pending',
+          message: '⏳ Transaction sent! Waiting for confirmation...',
+          hash: txHash
+        });
+        
+        // Show a timeout-based alert that will be replaced by confirmation
+        const alertTimeout = setTimeout(() => {
+          setNotification({
+            type: 'warning',
+            message: '⚠️ Transaction is taking longer than usual. Please check your wallet.',
+            hash: txHash
+          });
+        }, 30000); // 30 seconds timeout
+        
+        setPendingAlert(alertTimeout);
       } else {
-        console.error('Booking failed');
-        // Display an error message to the user
+        console.error('No transaction hash received. Full response:', txHash);
+        alert('Transaction may have been sent but no hash received. Please check your wallet.');
+        setIsBooking(false);
       }
     } catch (error) {
       console.error('Error making booking request:', error);
-      // Handle network errors or unexpected fetch errors
-      // Display a generic error message to the user
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        data: error.data,
+        stack: error.stack
+      });
+      
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        alert('Transaction rejected by user.');
+      } else if (error.message?.includes('insufficient funds')) {
+        alert('Insufficient funds to complete the transaction.');
+      } else if (error.message?.includes('user rejected') || error.message?.includes('User denied')) {
+        alert('Transaction rejected by user.');
+      } else if (error.message?.includes('network')) {
+        alert('Network error. Please check your connection and try again.');
+      } else if (error.message?.includes('wallet')) {
+        alert('Wallet connection error. Please check your wallet and try again.');
+      } else {
+        alert(`Error creating reservation: ${error.message || 'Unknown error'}. Please check your wallet connection and try again.`);
+      }
+      setIsBooking(false); // Set to false on error
     }
   }
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
       <div className="container mx-auto p-4 text-white">
+        {/* Notification */}
+        {notification && (
+          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md ${
+            notification.type === 'success' ? 'bg-green-600' :
+            notification.type === 'pending' ? 'bg-blue-600' :
+            notification.type === 'warning' ? 'bg-yellow-600' :
+            'bg-red-600'
+          }`}>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <p className="text-white font-medium">{notification.message}</p>
+                {notification.hash && (
+                  <p className="text-gray-200 text-sm mt-1 break-all">
+                    Hash: {notification.hash.slice(0, 10)}...{notification.hash.slice(-8)}
+                  </p>
+                )}
+              </div>
+              <button 
+                onClick={() => setNotification(null)}
+                className="ml-2 text-white hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
         </div>
@@ -213,7 +342,8 @@ export default function LabReservation({ id }) {
                 <div className="flex-1">
                   <label className="block text-lg font-semibold">Available times:</label>
                   <select
-                    className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
+                    className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 
+                      'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
                     value={selectedAvailableTime}
                     onChange={e => setSelectedAvailableTime(e.target.value)}
                     disabled={!availableTimes.some(t => !t.disabled)}
@@ -239,9 +369,16 @@ export default function LabReservation({ id }) {
           <div className="flex justify-center">
             <button
               onClick={handleBooking} 
-              className="w-1/3 bg-[#715c8c] text-white p-3 rounded mt-6 hover:bg-[#333f63]"
+              disabled={isBooking || isWaitingForReceipt || !selectedAvailableTime}
+              className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
+                isBooking || isWaitingForReceipt || !selectedAvailableTime
+                  ? 'bg-gray-500 cursor-not-allowed' 
+                  : 'bg-[#715c8c] hover:bg-[#333f63]'
+              }`}
             >
-              Make Booking
+              {isBooking ? 'Sending...' : 
+               isWaitingForReceipt ? 'Confirming...' : 
+               'Make Booking'}
             </button>
           </div>
         )}

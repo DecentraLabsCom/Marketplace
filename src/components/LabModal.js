@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useReducer, useRef, useCallback } from 'react';
-import LabFormFullSetup from './LabFormFullSetup';
-import LabFormQuickSetup from './LabFormQuickSetup';
-import { validateLabFull, validateLabQuick } from '../utils/labValidation';
+import LabFormFullSetup from '@/components/LabFormFullSetup';
+import LabFormQuickSetup from '@/components/LabFormQuickSetup';
+import { validateLabFull, validateLabQuick } from '@/utils/labValidation';
 
 const initialState = (lab) => ({
   activeTab: 'full',

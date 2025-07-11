@@ -1,10 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
 import pLimit from 'p-limit';
-import { simLabsData } from '../../../../../utils/simLabsData';
+import { simLabsData } from '@/utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '../../../../../utils/retry';
-import getIsVercel from '../../../../../utils/isVercel';
+import retry from '@/utils/retry';
+import getIsVercel from '@/utils/isVercel';
 
 export async function GET(request) {
   function parseAttributes(attributes = []) {

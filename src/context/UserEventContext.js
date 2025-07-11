@@ -2,8 +2,8 @@
 import { createContext, useContext, useEffect } from "react";
 import { useWatchContractEvent } from 'wagmi';
 //import { useLabs } from "./UserContext";
-import { contractABI, contractAddresses } from '../contracts/diamond';
-import { selectChain } from '../utils/selectChain';
+import { contractABI, contractAddresses } from '@/contracts/diamond';
+import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
 
 const LabEventContext = createContext();

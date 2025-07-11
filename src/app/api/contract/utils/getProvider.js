@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
-        quicknodeNetworks, chainstackNetworks } from '../../../../utils/networkConfig';
+        quicknodeNetworks, chainstackNetworks } from '@/utils/networkConfig';
 
 export default async function getProvider(network) {
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
