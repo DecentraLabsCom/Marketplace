@@ -16,7 +16,7 @@ export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
-  const { addTemporaryNotification } = useNotifications();
+  const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -24,8 +24,12 @@ export default function LabReservation({ id }) {
   const [selectedLab, setSelectedLab] = useState(null);
   const [isClient, setIsClient] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  
+  // Transaction state management (modernized pattern)
   const [lastTxHash, setLastTxHash] = useState(null);
-  const [pendingAlert, setPendingAlert] = useState(null);
+  const [txType, setTxType] = useState(null); // 'reservation'
+  const [pendingData, setPendingData] = useState(null);
+  
   const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
   
   // Wait for transaction receipt
@@ -76,33 +80,22 @@ export default function LabReservation({ id }) {
     setIsClient(true);
   }, []);
 
-  // Cleanup timeout on component unmount
-  useEffect(() => {
-    return () => {
-      if (pendingAlert) {
-        clearTimeout(pendingAlert);
-      }
-    };
-  }, [pendingAlert]);
-
   // Handle transaction confirmation
   useEffect(() => {
-    if (isReceiptSuccess && receipt) {
-      // Close any pending alert and show success message
-      if (pendingAlert) {
-        clearTimeout(pendingAlert);
-        setPendingAlert(null);
-      }
+    if (isReceiptSuccess && receipt && txType && pendingData) {
+      
+      addPersistentNotification('success', '✅ Reservation request confirmed onchain! Processing your booking...');
       
       setIsBooking(false);
-      setLastTxHash(null);
       
-      // Show success notification - reservation will be automatically processed by ReservationEventContext
-      addTemporaryNotification('success', '✅ Reservation request sent! Waiting for confirmation...');
+      // Reset transaction state
+      setLastTxHash(null);
+      setTxType(null);
+      setPendingData(null);
 
       // The ReservationEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, pendingAlert]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]);
 
   if (!isClient) return null;
 
@@ -247,30 +240,19 @@ export default function LabReservation({ id }) {
     const { labId, start, timeslot } = bookingData;
     const end = start + timeslot; // Wallet booking needs end time
 
-    // Clear any existing timeout before starting new booking
-    if (pendingAlert) {
-      clearTimeout(pendingAlert);
-      setPendingAlert(null);
-    }
-
     setIsBooking(true);
 
     try {
+      // Show pending notification
+      addTemporaryNotification('pending', '⏳ Transaction sent! Waiting for confirmation...');
+      
       // Call contract - pass arguments as array
       const txHash = await reservationRequest([labId, start, end]);
       
       if (txHash) {
         setLastTxHash(txHash);
-        
-        // Show pending notification
-        addTemporaryNotification('pending', '⏳ Transaction sent! Waiting for confirmation...');
-        
-        // Show a timeout-based alert that will be replaced by confirmation
-        const alertTimeout = setTimeout(() => {
-          addTemporaryNotification('warning', '⚠️ Transaction is taking longer than usual. Please check your wallet.');
-        }, 30000); // 30 seconds timeout
-        
-        setPendingAlert(alertTimeout);
+        setTxType('reservation');
+        setPendingData({ labId, start, end, timeslot });
       } else {
         addTemporaryNotification('warning', '⚠️ Transaction may have been sent but no hash received. Please check your wallet.');
         setIsBooking(false);
@@ -290,12 +272,6 @@ export default function LabReservation({ id }) {
         addTemporaryNotification('error', '👛 Wallet connection error. Please check your wallet and try again.');
       } else {
         addTemporaryNotification('error', `❌ Error creating reservation: ${error.message || 'Unknown error'}. Please check your wallet connection and try again.`);
-      }
-      
-      // Clear timeout on error
-      if (pendingAlert) {
-        clearTimeout(pendingAlert);
-        setPendingAlert(null);
       }
       
       setIsBooking(false); // Set to false on error

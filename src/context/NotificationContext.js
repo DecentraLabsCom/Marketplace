@@ -13,8 +13,8 @@ export function NotificationProvider({ children }) {
             type,
             message,
             timestamp: new Date(),
-            autoHide: options.autoHide !== false, // Default true
-            duration: options.duration || 8000, // Default 8 seconds
+            autoHide: options.autoHide !== false,   // Default true
+            duration: options.duration || 6000,     // Default 6 seconds
             hash: options.hash || null,
             ...options
         };

@@ -3,17 +3,18 @@ import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
+import { useNotifications } from '@/context/NotificationContext';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
 import { useWaitForTransactionReceipt } from 'wagmi';
 import LabModal from '@/components/LabModal';
 import AccessControl from '@/components/AccessControl';
-import FeedbackModal from '@/components/FeedbackModal';
 import ProviderLabItem from '@/components/ProviderLabItem';
 import { renderDayContents } from '@/utils/labBookingCalendar';
 
 export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
+  const { addTemporaryNotification, addPersistentNotification } = useNotifications();
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
@@ -26,7 +27,6 @@ export default function ProviderDashboard() {
   const [lastTxHash, setLastTxHash] = useState(null);
   const [txType, setTxType] = useState(null); // 'add', 'update', 'delete', 'list', 'unlist'
   const [pendingData, setPendingData] = useState(null);
-  const [notification, setNotification] = useState(null);
 
   // Wait for transaction receipt
   const { 
@@ -41,9 +41,6 @@ export default function ProviderDashboard() {
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackTitle, setFeedbackTitle] = useState('');
-  const [feedbackMessage, setFeedbackMessage] = useState('');
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
@@ -55,13 +52,8 @@ export default function ProviderDashboard() {
   // Handle transaction confirmation
   useEffect(() => {
     if (isReceiptSuccess && receipt && txType && pendingData) {
-      console.log(`Transaction confirmed: ${txType}`, receipt.transactionHash);
       
-      setNotification({
-        type: 'success',
-        message: `✅ ${txType.charAt(0).toUpperCase() + txType.slice(1)} operation confirmed onchain!`,
-        hash: receipt.transactionHash
-      });
+      addPersistentNotification('success', `✅ ${txType.charAt(0).toUpperCase() + txType.slice(1)} operation confirmed onchain!`);
       
       // Handle different transaction types
       switch(txType) {
@@ -86,11 +78,8 @@ export default function ProviderDashboard() {
       setLastTxHash(null);
       setTxType(null);
       setPendingData(null);
-      
-      // Auto-hide notification after 5 seconds
-      setTimeout(() => setNotification(null), 5000);
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, labs, setLabs]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, labs, setLabs, addPersistentNotification]);
 
   const dayContents = (day, currentDateRender) =>
     renderDayContents({
@@ -187,10 +176,7 @@ export default function ProviderDashboard() {
       // 1. Update lab data
       if (hasChangedOnChainData) {
         // 1a. If there is any change in the on-chain data, update blockchain
-        setNotification({
-          type: 'pending',
-          message: '⏳ Updating lab onchain...'
-        });
+        addTemporaryNotification('pending', '⏳ Updating lab onchain...');
 
         let txHash;
         
@@ -242,11 +228,7 @@ export default function ProviderDashboard() {
         // 1b. If there is no change in the on-chain data, just update the local state
         setLabs(labs.map((lab) => lab.id == labData.id ? { ...labData } : lab));
         setIsModalOpen(false);
-        setNotification({
-          type: 'success',
-          message: '✅ Lab updated successfully (offchain changes only)!'
-        });
-        setTimeout(() => setNotification(null), 3000);
+        addTemporaryNotification('success', '✅ Lab updated successfully (offchain changes only)!');
       }
 
       // 2. Save the JSON if necessary
@@ -259,11 +241,7 @@ export default function ProviderDashboard() {
           });
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         } catch (error) {
-          setNotification({
-            type: 'error',
-            message: '❌ Failed to save lab data.'
-          });
-          setTimeout(() => setNotification(null), 5000);
+          addTemporaryNotification('error', '❌ Failed to save lab data.');
           return;
         }
       }
@@ -278,11 +256,7 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       console.error('Error updating lab:', error);
-      setNotification({
-        type: 'error',
-        message: `❌ Failed to update lab: ${error.message || 'Unknown error'}`
-      });
-      setTimeout(() => setNotification(null), 5000);
+      addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
     }
   }
 
@@ -292,10 +266,7 @@ export default function ProviderDashboard() {
     labData.uri = labData.uri || `Lab-${user.name}-${maxId + 1}.json`;
 
     try {
-      setNotification({
-        type: 'pending',
-        message: '⏳ Adding lab onchain...'
-      });
+      addTemporaryNotification('pending', '⏳ Adding lab onchain...');
 
       let txHash;
       
@@ -354,11 +325,7 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       console.error('Error adding lab:', error);
-      setNotification({
-        type: 'error',
-        message: `❌ Failed to add lab: ${error.message || 'Unknown error'}`
-      });
-      setTimeout(() => setNotification(null), 5000);
+      addTemporaryNotification('error', `❌ Failed to add lab: ${formatErrorMessage(error)}`);
     }
   }
 
@@ -367,10 +334,7 @@ export default function ProviderDashboard() {
     const labToDelete = labs.find((lab) => lab.id == labId);
     
     try {
-      setNotification({
-        type: 'pending',
-        message: '⏳ Deleting lab onchain...'
-      });
+      addTemporaryNotification('pending', '⏳ Deleting lab onchain...');
 
       const txHash = await deleteLab([labId]);
       
@@ -434,21 +398,14 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       console.error('Error deleting lab:', error);
-      setNotification({
-        type: 'error',
-        message: `❌ Failed to delete lab: ${error.message || 'Unknown error'}`
-      });
-      setTimeout(() => setNotification(null), 5000);
+      addTemporaryNotification('error', `❌ Failed to delete lab: ${formatErrorMessage(error)}`);
     }
   };
 
   // Handle listing a lab
   const handleList = async (labId) => {
     try {
-      setNotification({
-        type: 'pending',
-        message: '⏳ Listing lab onchain...'
-      });
+      addTemporaryNotification('pending', '⏳ Listing lab onchain...');
 
       const txHash = await listLab([labId]);
       
@@ -462,21 +419,14 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       console.error('Error listing lab:', error);
-      setNotification({
-        type: 'error',
-        message: `❌ Failed to list lab: ${error.message || 'Unknown error'}`
-      });
-      setTimeout(() => setNotification(null), 5000);
+      addTemporaryNotification('error', `❌ Failed to list lab: ${formatErrorMessage(error)}`);
     }
   };
   
   // Handle unlisting a lab
   const handleUnlist = async (labId) => {
     try {
-      setNotification({
-        type: 'pending',
-        message: '⏳ Unlisting lab onchain...'
-      });
+      addTemporaryNotification('pending', '⏳ Unlisting lab onchain...');
 
       const txHash = await unlistLab([labId]);
       
@@ -490,43 +440,45 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       console.error('Error unlisting lab:', error);
-      setNotification({
-        type: 'error',
-        message: `❌ Failed to unlist lab: ${error.message || 'Unknown error'}`
-      });
-      setTimeout(() => setNotification(null), 5000);
+      addTemporaryNotification('error', `❌ Failed to unlist lab: ${formatErrorMessage(error)}`);
     }
   };
 
   // Handle collecting balances from all labs
   const handleCollectAll = async () => {
     try {
+      addTemporaryNotification('pending', '⏳ Collecting all balances...');
+      
       const res = await fetch('/api/contract/reservation/claimAllBalance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),
       });
       if (!res.ok) throw new Error('Failed to collect balance');
-      setFeedbackMessage('All balances collected successfully.');
-      setShowFeedback(true);
+      
+      addTemporaryNotification('success', '✅ All balances collected successfully!');
     } catch (err) {
       console.error(err);
+      addTemporaryNotification('error', `❌ Failed to collect balances: ${formatErrorMessage(err)}`);
     }
   };
   
   // Handle collecting balance from a specific lab
   const handleCollect = async (labId) => {
     try {
+      addTemporaryNotification('pending', '⏳ Collecting lab balance...');
+      
       const res = await fetch('/api/contract/reservation/claimLabBalance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, labId }),
       });
       if (!res.ok) throw new Error('Failed to collect balance');
-      setFeedbackMessage('Balance collected successfully.');
-      setShowFeedback(true);
+      
+      addTemporaryNotification('success', '✅ Balance collected successfully!');
     } catch (err) {
       console.error(err);
+      addTemporaryNotification('error', `❌ Failed to collect balance: ${formatErrorMessage(err)}`);
     }
   };
 
@@ -534,36 +486,39 @@ export default function ProviderDashboard() {
     setSelectedLabId(e.target.value);
   };
 
+  // Helper function to clean and shorten error messages
+  const formatErrorMessage = (error) => {
+    let message = error.message || 'Unknown error';
+    
+    // Common patterns to simplify
+    const patterns = [
+      { regex: /execution reverted:?\s*/i, replacement: '' },
+      { regex: /VM Exception while processing transaction:?\s*/i, replacement: '' },
+      { regex: /Error:\s*/i, replacement: '' },
+      { regex: /Failed to.*?:\s*/i, replacement: '' },
+      { regex: /HTTP error! status: (\d+)/, replacement: 'Server error ($1)' },
+      { regex: /network.*?error/i, replacement: 'Network error' },
+      { regex: /insufficient.*?funds/i, replacement: 'Insufficient funds' },
+      { regex: /user.*?rejected/i, replacement: 'Transaction rejected' },
+      { regex: /wallet.*?connection/i, replacement: 'Wallet error' }
+    ];
+    
+    // Apply patterns
+    patterns.forEach(({ regex, replacement }) => {
+      message = message.replace(regex, replacement);
+    });
+    
+    // Truncate if still too long
+    if (message.length > 80) {
+      message = message.substring(0, 77) + '...';
+    }
+    
+    return message.trim() || 'Operation failed';
+  };
+
   return (
     <AccessControl requireWallet message="Please log in to manage your labs.">
       <div className="container mx-auto p-4">
-        {/* Notification */}
-        {notification && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md ${
-            notification.type === 'success' ? 'bg-green-600' :
-            notification.type === 'pending' ? 'bg-blue-600' :
-            notification.type === 'warning' ? 'bg-yellow-600' :
-            'bg-red-600'
-          }`}>
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <p className="text-white font-medium">{notification.message}</p>
-                {notification.hash && (
-                  <p className="text-gray-200 text-sm mt-1 break-all">
-                    Hash: {notification.hash.slice(0, 10)}...{notification.hash.slice(-8)}
-                  </p>
-                )}
-              </div>
-              <button 
-                onClick={() => setNotification(null)}
-                className="ml-2 text-white hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
         </div>
@@ -651,9 +606,6 @@ export default function ProviderDashboard() {
 
         <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
           lab={selectedLab || newLab} maxId={maxId} />
-
-        <FeedbackModal isOpen={showFeedback} title={feedbackTitle} message={feedbackMessage} 
-          onClose={() => setShowFeedback(false)} />
       </div>
     </AccessControl>
   );

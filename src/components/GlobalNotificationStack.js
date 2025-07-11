@@ -8,16 +8,16 @@ export default function GlobalNotificationStack() {
   if (!notifications || notifications.length === 0) return null;
 
   return (
-    <div className="fixed z-50" style={{ top: '16px', right: '16px' }}>
+    <div className="fixed z-50" style={{ bottom: '16px', left: '16px' }}>
       {notifications.map((notification, index) => (
         <div 
           key={notification.id}
-          className={`mb-3 p-4 rounded-lg shadow-lg max-w-md animate-slide-in ${
-            notification.type === 'success' ? 'bg-green-600' :
-            notification.type === 'error' ? 'bg-red-600' :
-            notification.type === 'warning' ? 'bg-yellow-600' :
-            notification.type === 'pending' ? 'bg-blue-600' :
-            'bg-gray-600'
+          className={`mb-3 p-4 rounded-lg shadow-lg max-w-sm sm:max-w-md animate-slide-in ${
+            notification.type === 'success' ? 'bg-[#7b976e]' : 
+            notification.type === 'error' ? 'bg-[#a87583]' : 
+            notification.type === 'warning' ? 'bg-[#bcc4fc]' : 
+            notification.type === 'pending' ? 'bg-[#715c8c]' : 
+            'bg-[#335763]'
           }`}
           style={{
             animationDelay: `${index * 100}ms`
