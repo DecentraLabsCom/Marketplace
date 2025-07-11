@@ -6,10 +6,25 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import { useUser } from '@/context/UserContext';
 import Login from '@/components/Login';
+import { validateProviderRole } from '@/utils/roleValidation';
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { isLoggedIn, isProvider, isProviderLoading } = useUser();
+  const { isLoggedIn, isProvider, isProviderLoading, isSSO, user } = useUser();
+
+  // Check if user can see and access the "Register as Provider" option
+  const showRegisterButton = () => {
+    // Don't show if not logged in or already a provider
+    if (!isLoggedIn || isProvider) return false;
+    
+    // For wallet users, always show (they can register manually via form)
+    if (!isSSO) return true;
+    
+    // For SSO users, only show if they have valid SAML2 role
+    if (!user) return false;
+    const roleValidation = validateProviderRole(user.role, user.scopedRole);
+    return roleValidation.isValid;
+  };
 
   const menuButton = (href, label) => (
     <Link href={href}
@@ -36,7 +51,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 font-bold">
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
-            {!isProvider && menuButton("/register", "Register as a Provider")}
+            {showRegisterButton() && menuButton("/register", "Register as a Provider")}
             {isProvider && menuButton("/providerdashboard", "Lab Panel")}
           </div>
           )}
@@ -66,7 +81,7 @@ export default function Navbar() {
                 <Link href="/userdashboard" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
                   Dashboard
                 </Link>
-                {!isProvider && (
+                {showRegisterButton() && (
                   <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
                     Register as a Provider
                   </Link>

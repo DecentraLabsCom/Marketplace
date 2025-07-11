@@ -31,50 +31,72 @@ export function UserData({ children }) {
     const isLoggedIn = isConnected || isSSO;
 
     useEffect(() => {
-        if (isLoggedIn && address) {
+        if (isLoggedIn) {
             setIsProviderLoading(true);
-            // Check if user is a provider by calling the contract
-            fetch('/api/contract/provider/isLabProvider', {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ wallet: address }),
-            })
-            .then((res) => res.json())
-            .then((data) => {
-                setIsProvider(prev => prev !== data.isLabProvider ? data.isLabProvider : prev);
-            })
-            .catch((error) => console.error("Error checking provider status:", error))
-            .finally(() => setIsProviderLoading(false));
+            
+            if (isSSO && user?.email) {
+                // For SSO users, check provider status by email
+                fetch('/api/contract/provider/isSSOProvider', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email: user.email }),
+                })
+                .then((res) => res.json())
+                .then((data) => {
+                    setIsProvider(prev => prev !== data.isLabProvider ? data.isLabProvider : prev);
+                })
+                .catch((error) => console.error("Error checking SSO provider status:", error))
+                .finally(() => setIsProviderLoading(false));
+            } else if (address) {
+                // For wallet users, check provider status by wallet address
+                fetch('/api/contract/provider/isLabProvider', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ wallet: address }),
+                })
+                .then((res) => res.json())
+                .then((data) => {
+                    setIsProvider(prev => prev !== data.isLabProvider ? data.isLabProvider : prev);
+                })
+                .catch((error) => console.error("Error checking wallet provider status:", error))
+                .finally(() => setIsProviderLoading(false));
 
-            // Get lab provider name and add the name of the provider to the user object
-            fetch('/api/contract/provider/getLabProviderName', {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ wallet: address }),
-            })
-            .then((res) => {
-                if (!res.ok) {
-                    if (res.status === 404) return { name: null };
-                    throw new Error("Error fetching provider name");
-                }
-                return res.json();
-            })
-            .then((data) => {
-                setUser(prev => {
-                    if ((!data.name && prev?.name) || 
-                        (data.name && (!prev || prev.name !== data.name))) {
-                        return { ...prev, name: data.name };
+                // Get lab provider name and add the name of the provider to the user object
+                fetch('/api/contract/provider/getLabProviderName', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ wallet: address }),
+                })
+                .then((res) => {
+                    if (!res.ok) {
+                        if (res.status === 404) return { name: null };
+                        throw new Error("Error fetching provider name");
                     }
-                    return prev;
-                });
-            })
-            .catch((error) => console.error("Error fetching provider name:", error));
+                    return res.json();
+                })
+                .then((data) => {
+                    setUser(prev => {
+                        if ((!data.name && prev?.name) || 
+                            (data.name && (!prev || prev.name !== data.name))) {
+                            return { ...prev, name: data.name };
+                        }
+                        return prev;
+                    });
+                })
+                .catch((error) => console.error("Error fetching provider name:", error));
+            } else {
+                setIsProviderLoading(false);
+            }
+        } else {
+            setIsProviderLoading(false);
         }
-    }, [isLoggedIn, address]);
+    }, [isLoggedIn, address, user?.email, isSSO]);
 
     return (
         <UserContext.Provider value={{

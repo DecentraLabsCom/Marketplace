@@ -11,6 +11,14 @@ export async function POST(request) {
     let providers = [];
     const isVercel = getIsVercel();
 
+    // Add metadata for tracking
+    const providerWithMetadata = {
+      ...provider,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+      registrationType: provider.registrationType || 'manual'
+    };
+
     if (!isVercel) {
       // LOCAL: Use filesystem
       const DATA_FILE = path.resolve(process.cwd(), 'data', 'pendingProviders.json');
@@ -18,7 +26,7 @@ export async function POST(request) {
         const file = fs.readFileSync(DATA_FILE, 'utf-8');
         providers = JSON.parse(file);
       }
-      providers.push({ ...provider, createdAt: new Date().toISOString() });
+      providers.push(providerWithMetadata);
       fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
       fs.writeFileSync(DATA_FILE, JSON.stringify(providers, null, 2));
     } else {
@@ -40,7 +48,7 @@ export async function POST(request) {
         // Blob may not exist yet
         providers = [];
       }
-      providers.push({ ...provider, createdAt: new Date().toISOString() });
+      providers.push(providerWithMetadata);
       await put(`data/${blobName}`, JSON.stringify(providers, null, 2), 
                 { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }

@@ -1,16 +1,18 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
+import { useUser } from "@/context/UserContext";
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
 import useContractWriteFunction from "@/hooks/contract/useContractWriteFunction";
-import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { contractAddresses } from "@/contracts/diamond";
 
 export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
+  const { isSSO } = useUser();
   const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -86,11 +88,7 @@ export default function LabReservation({ id }) {
       setLastTxHash(null);
       
       // Show success notification
-      setNotification({
-        type: 'success',
-        message: '✅ Reservation successfully confirmed onchain!',
-        hash: receipt.transactionHash
-      });
+      showNotification('success', '✅ Reservation successfully confirmed onchain!', receipt.transactionHash);
       
       // Update local state by refetching bookings from the contract
       fetchBookings();
@@ -136,22 +134,108 @@ export default function LabReservation({ id }) {
     setSelectedLab(lab);
   };
 
-  const handleBooking = async () => {
-    if (isBooking) return; // Prevent double clicks
-    
-    // Validations
-    if (!isConnected) {
-      alert('Please connect your wallet first.');
-      return;
+  // Common notification and state management
+  const showNotification = (type, message, hash = null, autoHide = true) => {
+    setNotification({ type, message, hash });
+    if (autoHide) {
+      setTimeout(() => setNotification(null), 5000);
     }
-    
+  };
+
+  const handleBookingSuccess = () => {
+    fetchBookings(); // Update local state
+    setIsBooking(false);
+  };
+
+  // Common validation and calculation logic
+  const validateAndCalculateBooking = () => {
+    // Common validations
     if (!selectedAvailableTime) {
       alert('Please select an available time.');
-      return;
+      return null;
     }
 
     if (!selectedLab?.id) {
       alert('Please select a lab.');
+      return null;
+    }
+
+    const labId = Number(selectedLab?.id);
+
+    // Calculate start time (Unix timestamp in seconds)
+    const [hours, minutes] = selectedAvailableTime.split(':').map(Number);
+    const startDate = new Date(date);
+    startDate.setHours(hours);
+    startDate.setMinutes(minutes);
+    startDate.setSeconds(0);
+    startDate.setMilliseconds(0);
+    const start = Math.floor(startDate.getTime() / 1000);
+
+    // Calculate timeslot (duration in seconds)
+    const timeslot = time * 60;
+
+    return { labId, start, timeslot };
+  };
+
+  const handleBooking = async () => {
+    if (isBooking) return; // Prevent double clicks
+    
+    // Route to appropriate booking method based on authentication type
+    if (isSSO) {
+      return await handleServerSideBooking();
+    } else {
+      return await handleWalletBooking();
+    }
+  };
+
+  // Server-side booking for SSO users
+  const handleServerSideBooking = async () => {
+    const bookingData = validateAndCalculateBooking();
+    if (!bookingData) return;
+
+    const { labId, start, timeslot } = bookingData;
+
+    setIsBooking(true);
+    
+    // Show pending notification
+    showNotification('pending', '⏳ Processing your reservation...', null, false);
+
+    try {
+      console.log(`Server-side booking for labId: ${labId}, start: ${start}, timeslot: ${timeslot}`);
+      
+      const response = await fetch('/api/contract/reservation/makeBooking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ labId, start, timeslot })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Server booking failed');
+      }
+
+      const result = await response.json();
+      console.log('Server booking result:', result);
+
+      // Show success notification
+      showNotification('success', '✅ Reservation successfully created!');
+      handleBookingSuccess();
+
+    } catch (error) {
+      console.error('Error making server-side booking:', error);
+      showNotification('error', `❌ Failed to create reservation: ${error.message}`);
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  // Wallet-based booking for wallet users
+  const handleWalletBooking = async () => {
+    // Wallet-specific validations
+    if (!isConnected) {
+      alert('Please connect your wallet first.');
       return;
     }
 
@@ -161,23 +245,11 @@ export default function LabReservation({ id }) {
       return;
     }
 
-    const labId = Number(selectedLab?.id);
+    const bookingData = validateAndCalculateBooking();
+    if (!bookingData) return;
 
-    // --- 1. Calculate `start` (Unix timestamp in seconds) ---
-    // Combine date and start time (selectedAvailableTime)
-    const [hours, minutes] = selectedAvailableTime.split(':').map(Number);
-    const startDate = new Date(date);
-    startDate.setHours(hours);
-    startDate.setMinutes(minutes);
-    startDate.setSeconds(0);
-    startDate.setMilliseconds(0);
-
-    // Convert to Unix timestamp in seconds
-    const start = Math.floor(startDate.getTime() / 1000);
-
-    // --- 2. Calculate `timeslot` (duration in seconds) and endtime ---
-    const timeslot = time * 60;
-    const end = start + timeslot;
+    const { labId, start, timeslot } = bookingData;
+    const end = start + timeslot; // Wallet booking needs end time
 
     setIsBooking(true);
 
@@ -194,19 +266,11 @@ export default function LabReservation({ id }) {
         setLastTxHash(txHash);
         
         // Show pending notification
-        setNotification({
-          type: 'pending',
-          message: '⏳ Transaction sent! Waiting for confirmation...',
-          hash: txHash
-        });
+        showNotification('pending', '⏳ Transaction sent! Waiting for confirmation...', txHash, false);
         
         // Show a timeout-based alert that will be replaced by confirmation
         const alertTimeout = setTimeout(() => {
-          setNotification({
-            type: 'warning',
-            message: '⚠️ Transaction is taking longer than usual. Please check your wallet.',
-            hash: txHash
-          });
+          showNotification('warning', '⚠️ Transaction is taking longer than usual. Please check your wallet.', txHash, false);
         }, 30000); // 30 seconds timeout
         
         setPendingAlert(alertTimeout);
@@ -239,7 +303,7 @@ export default function LabReservation({ id }) {
       }
       setIsBooking(false); // Set to false on error
     }
-  }
+  };
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -369,15 +433,15 @@ export default function LabReservation({ id }) {
           <div className="flex justify-center">
             <button
               onClick={handleBooking} 
-              disabled={isBooking || isWaitingForReceipt || !selectedAvailableTime}
+              disabled={isBooking || (isWaitingForReceipt && !isSSO) || !selectedAvailableTime}
               className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                isBooking || isWaitingForReceipt || !selectedAvailableTime
+                isBooking || (isWaitingForReceipt && !isSSO) || !selectedAvailableTime
                   ? 'bg-gray-500 cursor-not-allowed' 
                   : 'bg-[#715c8c] hover:bg-[#333f63]'
               }`}
             >
-              {isBooking ? 'Sending...' : 
-               isWaitingForReceipt ? 'Confirming...' : 
+              {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 
+               (isWaitingForReceipt && !isSSO) ? 'Confirming...' : 
                'Make Booking'}
             </button>
           </div>

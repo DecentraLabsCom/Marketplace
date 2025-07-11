@@ -192,14 +192,44 @@ export default function ProviderDashboard() {
           message: '⏳ Updating lab onchain...'
         });
 
-        const txHash = await updateLab([
-          labData.id,
-          labData.uri,
-          labData.price,
-          labData.auth,
-          labData.accessURI,
-          labData.accessKey
-        ]);
+        let txHash;
+        
+        if (isSSO) {
+          // For SSO users, use server-side transaction with unique provider wallet
+          const response = await fetch('/api/contract/lab/updateLabSSO', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              email: user.email,
+              labId: labData.id,
+              labData: {
+                uri: labData.uri,
+                price: labData.price,
+                auth: labData.auth,
+                accessURI: labData.accessURI,
+                accessKey: labData.accessKey
+              }
+            }),
+          });
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to update lab');
+          }
+          
+          const result = await response.json();
+          txHash = result.txHash;
+        } else {
+          // For wallet users, use client-side transaction
+          txHash = await updateLab([
+            labData.id,
+            labData.uri,
+            labData.price,
+            labData.auth,
+            labData.accessURI,
+            labData.accessKey
+          ]);
+        }
         
         if (txHash) {
           setLastTxHash(txHash);
@@ -267,14 +297,42 @@ export default function ProviderDashboard() {
         message: '⏳ Adding lab onchain...'
       });
 
-      // 1. Launch the transaction to add the lab on-chain
-      const txHash = await addLab([
-        labData.uri,
-        labData.price,
-        labData.auth,
-        labData.accessURI,
-        labData.accessKey
-      ]);
+      let txHash;
+      
+      if (isSSO) {
+        // For SSO users, use server-side transaction with unique provider wallet
+        const response = await fetch('/api/contract/lab/createLabSSO', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: user.email,
+            labData: {
+              uri: labData.uri,
+              price: labData.price,
+              auth: labData.auth,
+              accessURI: labData.accessURI,
+              accessKey: labData.accessKey
+            }
+          }),
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create lab');
+        }
+        
+        const result = await response.json();
+        txHash = result.txHash;
+      } else {
+        // For wallet users, use client-side transaction
+        txHash = await addLab([
+          labData.uri,
+          labData.price,
+          labData.auth,
+          labData.accessURI,
+          labData.accessKey
+        ]);
+      }
 
       if (txHash) {
         const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };

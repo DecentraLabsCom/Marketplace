@@ -5,6 +5,7 @@ import { IoPerson } from 'react-icons/io5';
 import ReactFlagsSelect from 'react-flags-select';
 import { useUser } from '@/context/UserContext';
 import AccessControl from '@/components/AccessControl';
+import { validateProviderRole, getRoleDisplayName } from '@/utils/roleValidation';
 
 const providerSchema = z.object({
   name: z.string().min(1, 'Provider name is required'),
@@ -35,27 +36,41 @@ export default function RegisterProviderForm() {
     //if (true) {
       const autoRegister = async () => {
         try {
+          // Validate user role before allowing registration
+          const roleValidation = validateProviderRole(user.role, user.scopedRole);
+          
+          if (!roleValidation.isValid) {
+            throw new Error(roleValidation.reason);
+          }
+
+          // For SSO users, register them automatically on the blockchain
+          // using a server-side wallet address
           const providerData = {
-            name: user.name,
-            email: user.email,
-            wallet: user.wallet || '',
-            country: user.country || '',
+            name: user.name || user.affiliation || '',
+            email: user.email || '',
+            affiliation: user.affiliation || '',
+            role: user.role || '',
+            scopedRole: user.scopedRole || ''
           };
-          /*const providerData = {
-            name: "UNED",
-            email: "contact@dia.uned.es",
-            wallet: "0x183F062B6A8C39B9A9e71898741ACf8f25E11561",
-            country: "Spain",
-          };*/
-          const res = await fetch('/api/contract/provider/addProvider', {
+
+          // Register directly on blockchain using server-side wallet
+          const res = await fetch('/api/contract/provider/addSSOProvider', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(providerData),
           });
-          if (!res.ok) throw new Error('Failed to register provider');
+          
+          if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'Failed to register provider');
+          }
+          
+          const result = await res.json();
+          console.log('SSO provider registered:', result);
           setIsSuccess(true);
         } catch (err) {
-          setAutoError('Automatic registration failed. Please contact support.');
+          console.error('Registration error:', err);
+          setAutoError(`Registration failed: ${err.message}`);
         }
       };
       autoRegister();
@@ -119,9 +134,47 @@ export default function RegisterProviderForm() {
     setFormData({ ...formData, country: code });
   };
 
+  // Check if SSO user has valid role for provider registration
+  const checkUserRole = () => {
+    if (!isSSO || !user) return { isValid: false, reason: 'No user data' };
+    return validateProviderRole(user.role, user.scopedRole);
+  };
+
+  const roleCheck = checkUserRole();
+
   // Automatic registration when accessed using SSO
   if (isSSO) {
   //if (true) {
+    // If user doesn't have valid role, show access denied message
+    if (!roleCheck.isValid) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[300px]">        <div className="bg-white rounded-lg shadow-lg p-6 w-96 flex flex-col items-center">
+          <h2 className="text-center text-lg font-bold mb-4 text-red-600">
+            Access Denied
+          </h2>
+          <div className="text-center mb-4">
+            <p className="text-sm text-gray-700 mb-2">
+              {roleCheck.reason}
+            </p>
+            <div className="bg-gray-50 rounded-lg p-3 mb-3">
+              <p className="text-xs text-gray-600 mb-1">Your current role:</p>
+              <p className="text-sm font-semibold text-gray-800">
+                {getRoleDisplayName(user.role)}
+              </p>
+              {user.scopedRole && user.scopedRole !== user.role && (
+                <p className="text-xs text-gray-600 mt-1">
+                  Scoped role: {getRoleDisplayName(user.scopedRole)}
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Eligible roles: Faculty, Staff, Employees, Members, Affiliates
+            </p>
+          </div>
+        </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px]">
         {!autoRequested ? (
@@ -140,8 +193,11 @@ export default function RegisterProviderForm() {
         ) : isSuccess ? (
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-center text-lg font-bold mb-4 text-black">
-              You have been registered as a provider!
+              Registration Successful!
             </h2>
+            <p className="text-center text-sm text-gray-600 mb-4">
+              You have been automatically registered as a provider. You can now access the provider dashboard to manage your labs.
+            </p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
