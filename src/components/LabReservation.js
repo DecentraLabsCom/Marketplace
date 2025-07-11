@@ -4,6 +4,7 @@ import DatePicker from "react-datepicker";
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { useUser } from "@/context/UserContext";
+import { useReservationEvents } from "@/context/ReservationEventContext";
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
@@ -13,6 +14,7 @@ import { contractAddresses } from "@/contracts/diamond";
 export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
   const { isSSO } = useUser();
+  const { processingReservations } = useReservationEvents();
   const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -87,16 +89,15 @@ export default function LabReservation({ id }) {
       setIsBooking(false);
       setLastTxHash(null);
       
-      // Show success notification
-      showNotification('success', '✅ Reservation successfully confirmed onchain!', receipt.transactionHash);
+      // Show success notification - reservation will be automatically processed by ReservationEventContext
+      showNotification('success', '✅ Reservation request sent! Processing automatically...', receipt.transactionHash);
       
-      // Update local state by refetching bookings from the contract
-      fetchBookings();
+      // The ReservationEventContext will handle updating bookings when confirmed/denied
       
       // Auto-hide notification after 5 seconds
       setTimeout(() => setNotification(null), 5000);
     }
-  }, [isReceiptSuccess, receipt, fetchBookings, pendingAlert]);
+  }, [isReceiptSuccess, receipt, pendingAlert]);
 
   if (!isClient) return null;
 
@@ -337,6 +338,11 @@ export default function LabReservation({ id }) {
 
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
+          {processingReservations.size > 0 && (
+            <div className="mt-2 text-yellow-300">
+              ⏳ Processing {processingReservations.size} reservation{processingReservations.size > 1 ? 's' : ''}...
+            </div>
+          )}
         </div>
 
         <div className="mb-6">

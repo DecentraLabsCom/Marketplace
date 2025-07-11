@@ -22,6 +22,8 @@ export async function POST(request) {
     const receipt = await tx.wait();
     console.log('Transaction confirmed:', receipt.transactionHash);
 
+    // The ReservationEventContext will automatically handle the ReservationRequested event
+
     // Return data to client
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {

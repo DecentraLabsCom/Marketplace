@@ -6,6 +6,7 @@ import { UserData } from '@/context/UserContext'
 import { UserEventProvider } from "@/context/UserEventContext";
 import { LabData } from '@/context/LabContext'
 import { LabEventProvider } from "@/context/LabEventContext";
+import { ReservationEventProvider } from "@/context/ReservationEventContext";
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 
@@ -54,13 +55,15 @@ export default function RootLayout({ children }) {
             <UserData>
               <LabData>
                 <LabEventProvider>
-                  <header className="sticky top-0 z-50">
-                    <Navbar />
-                  </header>
-                  <main className="grow">
-                      {children}
-                  </main>
-                  <Footer />
+                  <ReservationEventProvider>
+                    <header className="sticky top-0 z-50">
+                      <Navbar />
+                    </header>
+                    <main className="grow">
+                        {children}
+                    </main>
+                    <Footer />
+                  </ReservationEventProvider>
                 </LabEventProvider>
               </LabData>
             </UserData>
