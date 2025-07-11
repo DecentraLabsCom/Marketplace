@@ -52,8 +52,18 @@ export async function GET(request) {
             if (labData.base.uri.startsWith('Lab-')) {
               if (!isVercel) {
                 const filePath = path.join(process.cwd(), 'data', labData.base.uri);
-                const fileContent = await fs.readFile(filePath, 'utf-8');
-                metadata = JSON.parse(fileContent);
+                try {
+                  const fileContent = await fs.readFile(filePath, 'utf-8');
+                  metadata = JSON.parse(fileContent);
+                } catch (fileError) {
+                  console.error(`Error reading metadata file for lab ${labId} (${labData.base.uri}):`, fileError.message);
+                  // Use default metadata when file is missing
+                  metadata = {
+                    name: `Lab ${labId}`,
+                    description: "Metadata file not found",
+                    attributes: []
+                  };
+                }
               } else {
                 const blobName = labData.base.uri;
                 const blobUrl = path.join(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL, 'data', blobName);
@@ -62,16 +72,34 @@ export async function GET(request) {
                   metadata = await response.json();
                 } else {
                   console.error(`Failed to fetch blob data for ${blobName}: ${response.statusText}`);
+                  metadata = {
+                    name: `Lab ${labId}`,
+                    description: "Metadata not available",
+                    attributes: []
+                  };
                 }
               }
             } else {
               const response = await fetch(labData.base.uri);
               if (response.ok) {
                 metadata = await response.json();
+              } else {
+                console.error(`Failed to fetch metadata from URI ${labData.base.uri}`);
+                metadata = {
+                  name: `Lab ${labId}`,
+                  description: "External metadata not available",
+                  attributes: []
+                };
               }
             }
           } catch (err) {
             console.error(`Error fetching metadata for lab ${labId}:`, err);
+            // Fallback metadata when all else fails
+            metadata = {
+              name: `Lab ${labId}`,
+              description: "Metadata unavailable",
+              attributes: []
+            };
           }
 
           // Parse attributes array to object

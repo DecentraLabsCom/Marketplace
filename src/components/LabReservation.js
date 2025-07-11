@@ -5,6 +5,7 @@ import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { useUser } from "@/context/UserContext";
 import { useReservationEvents } from "@/context/ReservationEventContext";
+import { useNotifications } from "@/context/NotificationContext";
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
@@ -15,6 +16,7 @@ export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
+  const { addTemporaryNotification } = useNotifications();
   const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -24,7 +26,6 @@ export default function LabReservation({ id }) {
   const [isBooking, setIsBooking] = useState(false);
   const [lastTxHash, setLastTxHash] = useState(null);
   const [pendingAlert, setPendingAlert] = useState(null);
-  const [notification, setNotification] = useState(null);
   const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
   
   // Wait for transaction receipt
@@ -75,11 +76,18 @@ export default function LabReservation({ id }) {
     setIsClient(true);
   }, []);
 
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (pendingAlert) {
+        clearTimeout(pendingAlert);
+      }
+    };
+  }, [pendingAlert]);
+
   // Handle transaction confirmation
   useEffect(() => {
     if (isReceiptSuccess && receipt) {
-      console.log('Transaction confirmed via useWaitForTransactionReceipt:', receipt.transactionHash);
-      
       // Close any pending alert and show success message
       if (pendingAlert) {
         clearTimeout(pendingAlert);
@@ -90,12 +98,9 @@ export default function LabReservation({ id }) {
       setLastTxHash(null);
       
       // Show success notification - reservation will be automatically processed by ReservationEventContext
-      showNotification('success', '✅ Reservation request sent! Processing automatically...', receipt.transactionHash);
-      
+      addTemporaryNotification('success', '✅ Reservation request sent! Waiting for confirmation...');
+
       // The ReservationEventContext will handle updating bookings when confirmed/denied
-      
-      // Auto-hide notification after 5 seconds
-      setTimeout(() => setNotification(null), 5000);
     }
   }, [isReceiptSuccess, receipt, pendingAlert]);
 
@@ -136,13 +141,6 @@ export default function LabReservation({ id }) {
   };
 
   // Common notification and state management
-  const showNotification = (type, message, hash = null, autoHide = true) => {
-    setNotification({ type, message, hash });
-    if (autoHide) {
-      setTimeout(() => setNotification(null), 5000);
-    }
-  };
-
   const handleBookingSuccess = () => {
     fetchBookings(); // Update local state
     setIsBooking(false);
@@ -152,12 +150,12 @@ export default function LabReservation({ id }) {
   const validateAndCalculateBooking = () => {
     // Common validations
     if (!selectedAvailableTime) {
-      alert('Please select an available time.');
+      addTemporaryNotification('error', '⚠️ Please select an available time.');
       return null;
     }
 
     if (!selectedLab?.id) {
-      alert('Please select a lab.');
+      addTemporaryNotification('error', '⚠️ Please select a lab.');
       return null;
     }
 
@@ -199,11 +197,9 @@ export default function LabReservation({ id }) {
     setIsBooking(true);
     
     // Show pending notification
-    showNotification('pending', '⏳ Processing your reservation...', null, false);
+    addTemporaryNotification('pending', '⏳ Processing your reservation...');
 
     try {
-      console.log(`Server-side booking for labId: ${labId}, start: ${start}, timeslot: ${timeslot}`);
-      
       const response = await fetch('/api/contract/reservation/makeBooking', {
         method: 'POST',
         headers: {
@@ -218,15 +214,14 @@ export default function LabReservation({ id }) {
       }
 
       const result = await response.json();
-      console.log('Server booking result:', result);
 
       // Show success notification
-      showNotification('success', '✅ Reservation successfully created!');
+      addTemporaryNotification('success', '✅ Reservation request sent! Waiting for confirmation...');
       handleBookingSuccess();
 
     } catch (error) {
       console.error('Error making server-side booking:', error);
-      showNotification('error', `❌ Failed to create reservation: ${error.message}`);
+      addTemporaryNotification('error', `❌ Failed to create reservation: ${error.message}`);
     } finally {
       setIsBooking(false);
     }
@@ -236,13 +231,13 @@ export default function LabReservation({ id }) {
   const handleWalletBooking = async () => {
     // Wallet-specific validations
     if (!isConnected) {
-      alert('Please connect your wallet first.');
+      addTemporaryNotification('error', '🔗 Please connect your wallet first.');
       return;
     }
 
     const contractAddress = contractAddresses[chain?.name?.toLowerCase()];
     if (!contractAddress || contractAddress === "0x...") {
-      alert(`Contract not deployed on ${chain?.name || 'this network'}. Please switch to a supported network.`);
+      addTemporaryNotification('error', `❌ Contract not deployed on ${chain?.name || 'this network'}. Please switch to a supported network.`);
       return;
     }
 
@@ -252,56 +247,57 @@ export default function LabReservation({ id }) {
     const { labId, start, timeslot } = bookingData;
     const end = start + timeslot; // Wallet booking needs end time
 
+    // Clear any existing timeout before starting new booking
+    if (pendingAlert) {
+      clearTimeout(pendingAlert);
+      setPendingAlert(null);
+    }
+
     setIsBooking(true);
 
     try {
-      console.log(`Attempting to call reservationRequest for labId: ${labId}, start: ${start}, end: ${end}`);
-      console.log('Arguments:', [labId, start, end]);
-      
       // Call contract - pass arguments as array
       const txHash = await reservationRequest([labId, start, end]);
-      console.log('Transaction result:', txHash);
       
       if (txHash) {
-        console.log('Transaction sent with hash:', txHash);
         setLastTxHash(txHash);
         
         // Show pending notification
-        showNotification('pending', '⏳ Transaction sent! Waiting for confirmation...', txHash, false);
+        addTemporaryNotification('pending', '⏳ Transaction sent! Waiting for confirmation...');
         
         // Show a timeout-based alert that will be replaced by confirmation
         const alertTimeout = setTimeout(() => {
-          showNotification('warning', '⚠️ Transaction is taking longer than usual. Please check your wallet.', txHash, false);
+          addTemporaryNotification('warning', '⚠️ Transaction is taking longer than usual. Please check your wallet.');
         }, 30000); // 30 seconds timeout
         
         setPendingAlert(alertTimeout);
       } else {
-        console.error('No transaction hash received. Full response:', txHash);
-        alert('Transaction may have been sent but no hash received. Please check your wallet.');
+        addTemporaryNotification('warning', '⚠️ Transaction may have been sent but no hash received. Please check your wallet.');
         setIsBooking(false);
       }
     } catch (error) {
       console.error('Error making booking request:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        data: error.data,
-        stack: error.stack
-      });
       
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        alert('Transaction rejected by user.');
+        addTemporaryNotification('warning', '🚫 Transaction rejected by user.');
       } else if (error.message?.includes('insufficient funds')) {
-        alert('Insufficient funds to complete the transaction.');
+        addTemporaryNotification('error', '💰 Insufficient funds to complete the transaction.');
       } else if (error.message?.includes('user rejected') || error.message?.includes('User denied')) {
-        alert('Transaction rejected by user.');
+        addTemporaryNotification('warning', '🚫 Transaction rejected by user.');
       } else if (error.message?.includes('network')) {
-        alert('Network error. Please check your connection and try again.');
+        addTemporaryNotification('error', '🌐 Network error. Please check your connection and try again.');
       } else if (error.message?.includes('wallet')) {
-        alert('Wallet connection error. Please check your wallet and try again.');
+        addTemporaryNotification('error', '👛 Wallet connection error. Please check your wallet and try again.');
       } else {
-        alert(`Error creating reservation: ${error.message || 'Unknown error'}. Please check your wallet connection and try again.`);
+        addTemporaryNotification('error', `❌ Error creating reservation: ${error.message || 'Unknown error'}. Please check your wallet connection and try again.`);
       }
+      
+      // Clear timeout on error
+      if (pendingAlert) {
+        clearTimeout(pendingAlert);
+        setPendingAlert(null);
+      }
+      
       setIsBooking(false); // Set to false on error
     }
   };
@@ -309,33 +305,6 @@ export default function LabReservation({ id }) {
   return (
     <AccessControl message="Please log in to view and make reservations.">
       <div className="container mx-auto p-4 text-white">
-        {/* Notification */}
-        {notification && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md ${
-            notification.type === 'success' ? 'bg-green-600' :
-            notification.type === 'pending' ? 'bg-blue-600' :
-            notification.type === 'warning' ? 'bg-yellow-600' :
-            'bg-red-600'
-          }`}>
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <p className="text-white font-medium">{notification.message}</p>
-                {notification.hash && (
-                  <p className="text-gray-200 text-sm mt-1 break-all">
-                    Hash: {notification.hash.slice(0, 10)}...{notification.hash.slice(-8)}
-                  </p>
-                )}
-              </div>
-              <button 
-                onClick={() => setNotification(null)}
-                className="ml-2 text-white hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
           {processingReservations.size > 0 && (

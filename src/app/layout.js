@@ -7,8 +7,10 @@ import { UserEventProvider } from "@/context/UserEventContext";
 import { LabData } from '@/context/LabContext'
 import { LabEventProvider } from "@/context/LabEventContext";
 import { ReservationEventProvider } from "@/context/ReservationEventContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
+import GlobalNotificationStack from '@/components/GlobalNotificationStack'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',
@@ -52,21 +54,24 @@ export default function RootLayout({ children }) {
       <body className="flex flex-col min-h-screen bg-[#262B2D]">
         <ClientQueryProvider>
           <ClientWagmiProvider>
-            <UserData>
-              <LabData>
-                <LabEventProvider>
-                  <ReservationEventProvider>
-                    <header className="sticky top-0 z-50">
-                      <Navbar />
-                    </header>
-                    <main className="grow">
-                        {children}
-                    </main>
-                    <Footer />
-                  </ReservationEventProvider>
-                </LabEventProvider>
-              </LabData>
-            </UserData>
+            <NotificationProvider>
+              <UserData>
+                <LabData>
+                  <LabEventProvider>
+                    <ReservationEventProvider>
+                      <header className="sticky top-0 z-50">
+                        <Navbar />
+                      </header>
+                      <main className="grow">
+                          {children}
+                      </main>
+                      <Footer />
+                      <GlobalNotificationStack />
+                    </ReservationEventProvider>
+                  </LabEventProvider>
+                </LabData>
+              </UserData>
+            </NotificationProvider>
           </ClientWagmiProvider>
         </ClientQueryProvider>
       </body>
