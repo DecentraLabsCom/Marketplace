@@ -17,7 +17,7 @@ export default function UserDashboard() {
   const [userData, setUserData] = useState(null);
   const now = new Date();
   const currentDate = now.toISOString().slice(0, 10);
-  const availableLab = labs.find(lab => isBookingActive(lab.bookingInfo));
+  const availableLab = labs.find(lab => lab.userBookings && isBookingActive(lab.userBookings));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
       
@@ -60,9 +60,14 @@ export default function UserDashboard() {
   useEffect(() => {
     if (labs) {
       const futureBookingDates = labs.reduce((dates, lab) => {
-        if (Array.isArray(lab.bookingInfo)) {
-          lab.bookingInfo
-            .filter(booking => booking.date >= currentDate)
+        if (Array.isArray(lab.userBookings)) {
+          lab.userBookings
+            .filter(booking => {
+              if (!booking.date || !booking.time || !booking.minutes) return false;
+              const endDateTime = new Date(`${booking.date}T${booking.time}`);
+              endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(booking.minutes));
+              return endDateTime.getTime() > now.getTime();
+            })
             .forEach(booking => {
               try {
                 const dateObject = new Date(booking.date);
@@ -78,14 +83,14 @@ export default function UserDashboard() {
       }, []);
       setBookedDates(futureBookingDates);
     }
-  }, [labs, currentDate]);
+  }, [labs, now]);
 
   // If there is no active booking, search for the first one in the future
   const firstActiveLab = !availableLab
     ? labs
         .map(lab => {
-          if (!Array.isArray(lab.bookingInfo)) return null;
-          const futureBooking = lab.bookingInfo
+          if (!Array.isArray(lab.userBookings)) return null;
+          const futureBooking = lab.userBookings
             .filter(b => b.date && b.time && new Date(`${b.date}T${b.time}`) > now)
             .sort((a, b) => new Date(`${a.date}T${a.time}`) 
               - new Date(`${b.date}T${b.time}`))[0];
@@ -131,13 +136,13 @@ export default function UserDashboard() {
   }
 
   // Find active booking or the next one in the future
-  const activeBooking = availableLab && Array.isArray(availableLab.bookingInfo)
-    ? availableLab.bookingInfo.find(b => isBookingActive([b]))
+  const activeBooking = availableLab && Array.isArray(availableLab.userBookings)
+    ? availableLab.userBookings.find(b => isBookingActive([b]))
     : null;
 
   const nextBooking = !availableLab && firstActiveLab 
-                      && Array.isArray(firstActiveLab.bookingInfo)
-    ? firstActiveLab.bookingInfo
+                      && Array.isArray(firstActiveLab.userBookings)
+    ? firstActiveLab.userBookings
         .filter(b => b.date && b.time && new Date(`${b.date}T${b.time}`) > now)
         .sort((a, b) => new Date(`${a.date}T${a.time}`) 
           - new Date(`${b.date}T${b.time}`))[0]
@@ -308,43 +313,59 @@ export default function UserDashboard() {
                 </h2>
                 <ul className='w-full flex-1'>
                   {userData.labs
-                    .filter(lab => Array.isArray(lab.bookingInfo) &&
-                      lab.bookingInfo.some(b => new Date(b.date).getTime() >= new Date(currentDate).getTime()))
+                    .filter(lab => Array.isArray(lab.userBookings) &&
+                      lab.userBookings.some(b => {
+                        if (!b.date || !b.time || !b.minutes) return false;
+                        const endDateTime = new Date(`${b.date}T${b.time}`);
+                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        return endDateTime.getTime() > now.getTime();
+                      }))
                     .flatMap((lab) => {
-                      const upcomingBookings = lab.bookingInfo.filter(b => new Date(b.date).getTime() >= new Date(currentDate).getTime())
-                        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                      const upcomingBookings = lab.userBookings.filter(b => {
+                        if (!b.date || !b.time || !b.minutes) return false;
+                        const endDateTime = new Date(`${b.date}T${b.time}`);
+                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        return endDateTime.getTime() > now.getTime();
+                      })
+                      .map(booking => ({
+                        ...booking,
+                        lab: lab,
+                        startDateTime: new Date(`${booking.date}T${booking.time}`)
+                      }));
 
-                      return upcomingBookings.map((booking) => {
-                        let startTime = null;
-                        let endTime = null;
+                      return upcomingBookings;
+                    })
+                    .sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
+                    .map((booking) => {
+                      let startTime = null;
+                      let endTime = null;
 
-                        if (booking?.time && booking?.minutes) {
-                          const startDateTimeString = `${booking.date}T${booking.time}`;
-                          const startDateObj = new Date(startDateTimeString);
+                      if (booking?.time && booking?.minutes) {
+                        const startDateTimeString = `${booking.date}T${booking.time}`;
+                        const startDateObj = new Date(startDateTimeString);
 
-                          if (!isNaN(startDateObj.getTime())) {
-                            startTime = booking.time;
-                            const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
-                            const endTimeDate = new Date(endTimeMilliseconds);
-                            const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                            const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
-                            endTime = `${endHours}:${endMinutes}`;
-                          }
+                        if (!isNaN(startDateObj.getTime())) {
+                          startTime = booking.time;
+                          const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
+                          const endTimeDate = new Date(endTimeMilliseconds);
+                          const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                          const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                          endTime = `${endHours}:${endMinutes}`;
                         }
+                      }
 
-                        return (
-                          <LabBookingItem
-                            key={`${lab.id}-${booking.date}-${booking.time}`}
-                            lab={lab}
-                            booking={booking}
-                            startTime={startTime}
-                            endTime={endTime}
-                            onCancel={() => openModal('cancel', lab.id, booking)}
-                            isModalOpen={isModalOpen}
-                            closeModal={closeModal}
-                          />
-                        );
-                      });
+                      return (
+                        <LabBookingItem
+                          key={`${booking.lab.id}-${booking.reservationKey || booking.date}-${booking.time}`}
+                          lab={booking.lab}
+                          booking={booking}
+                          startTime={startTime}
+                          endTime={endTime}
+                          onCancel={() => openModal('cancel', booking.lab.id, booking)}
+                          isModalOpen={isModalOpen}
+                          closeModal={closeModal}
+                        />
+                      );
                     })}
                 </ul>
               </div>
@@ -361,43 +382,59 @@ export default function UserDashboard() {
                 </h2>
                 <ul className='w-full flex-1'>
                   {userData.labs
-                    .filter((lab) => Array.isArray(lab.bookingInfo) &&
-                      lab.bookingInfo.some(b => new Date(b.date).getTime() < new Date(currentDate).getTime()))
+                    .filter((lab) => Array.isArray(lab.userBookings) &&
+                      lab.userBookings.some(b => {
+                        if (!b.date || !b.time || !b.minutes) return false;
+                        const endDateTime = new Date(`${b.date}T${b.time}`);
+                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        return endDateTime.getTime() <= now.getTime();
+                      }))
                     .flatMap((lab) => {
-                      const pastBookings = lab.bookingInfo.filter(b => new Date(b.date).getTime() < new Date(currentDate).getTime())
-                        .sort((x, y) => new Date(y.date).getTime() - new Date(x.date).getTime());
+                      const pastBookings = lab.userBookings.filter(b => {
+                        if (!b.date || !b.time || !b.minutes) return false;
+                        const endDateTime = new Date(`${b.date}T${b.time}`);
+                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        return endDateTime.getTime() <= now.getTime();
+                      })
+                      .map(booking => ({
+                        ...booking,
+                        lab: lab,
+                        startDateTime: new Date(`${booking.date}T${booking.time}`)
+                      }));
 
-                      return pastBookings.map((booking) => {
-                        let startTime = null;
-                        let endTime = null;
+                      return pastBookings;
+                    })
+                    .sort((a, b) => b.startDateTime.getTime() - a.startDateTime.getTime()) // Most recent first
+                    .map((booking) => {
+                      let startTime = null;
+                      let endTime = null;
 
-                        if (booking?.time && booking?.minutes) {
-                          const startDateTimeString = `${booking.date}T${booking.time}`;
-                          const startDateObj = new Date(startDateTimeString);
+                      if (booking?.time && booking?.minutes) {
+                        const startDateTimeString = `${booking.date}T${booking.time}`;
+                        const startDateObj = new Date(startDateTimeString);
 
-                          if (!isNaN(startDateObj.getTime())) {
-                            startTime = booking.time;
-                            const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
-                            const endTimeDate = new Date(endTimeMilliseconds);
-                            const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                            const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
-                            endTime = `${endHours}:${endMinutes}`;
-                          }
+                        if (!isNaN(startDateObj.getTime())) {
+                          startTime = booking.time;
+                          const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
+                          const endTimeDate = new Date(endTimeMilliseconds);
+                          const endHours = String(endTimeDate.getHours()).padStart(2, '0');
+                          const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                          endTime = `${endHours}:${endMinutes}`;
                         }
+                      }
 
-                        return (
-                          <LabBookingItem
-                            key={`${lab.id}-${booking.date}-${booking.time}`}
-                            lab={lab}
-                            booking={booking}
-                            startTime={startTime}
-                            endTime={endTime}
-                            onRefund={() => openModal('refund', lab.id, booking)}
-                            isModalOpen={isModalOpen}
-                            closeModal={closeModal}
-                          />
-                        );
-                      });
+                      return (
+                        <LabBookingItem
+                          key={`${booking.lab.id}-${booking.reservationKey || booking.date}-${booking.time}`}
+                          lab={booking.lab}
+                          booking={booking}
+                          startTime={startTime}
+                          endTime={endTime}
+                          onRefund={() => openModal('refund', booking.lab.id, booking)}
+                          isModalOpen={isModalOpen}
+                          closeModal={closeModal}
+                        />
+                      );
                     })}
                 </ul>
               </div>

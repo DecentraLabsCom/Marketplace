@@ -88,12 +88,23 @@ export function ReservationEventProvider({ children }) {
         eventName: 'ReservationConfirmed',
         onLogs(logs) {
             logs.forEach(log => {
-                const reservationKey = log.args.reservationKey;
+                // The reservationKey is in log.data
+                const reservationKey = log.data;
+                
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('ReservationConfirmed event:', { reservationKey, processingReservations: Array.from(processingReservations) });
+                }
                 
                 // Remove from processing
                 setProcessingReservations(prev => {
                     const newSet = new Set(prev);
+                    const hadKey = newSet.has(reservationKey);
                     newSet.delete(reservationKey);
+                    
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('Removing reservation key:', { reservationKey, hadKey, remaining: Array.from(newSet) });
+                    }
+                    
                     return newSet;
                 });
                 
@@ -113,13 +124,24 @@ export function ReservationEventProvider({ children }) {
         eventName: 'ReservationRequestDenied',
         onLogs(logs) {
             logs.forEach(log => {
-                const reservationKey = log.args.reservationKey;
-                const reason = log.args.reason || 'Reservation outside allowed dates';
+                // The reservationKey is in log.data
+                const reservationKey = log.data;
+                const reason = log.args?.reason || 'Reservation outside allowed dates';
+                
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('ReservationRequestDenied event:', { reservationKey, reason, processingReservations: Array.from(processingReservations) });
+                }
                 
                 // Remove from processing
                 setProcessingReservations(prev => {
                     const newSet = new Set(prev);
+                    const hadKey = newSet.has(reservationKey);
                     newSet.delete(reservationKey);
+                    
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('Removing reservation key (denied):', { reservationKey, hadKey, remaining: Array.from(newSet) });
+                    }
+                    
                     return newSet;
                 });
                 
@@ -175,7 +197,15 @@ export function ReservationEventProvider({ children }) {
         }
         
         // Add to processing set
-        setProcessingReservations(prev => new Set(prev).add(reservationKey));
+        setProcessingReservations(prev => {
+            const newSet = new Set(prev).add(reservationKey);
+            
+            if (process.env.NODE_ENV === 'development') {
+                console.log('Adding reservation to processing:', { reservationKey, total: newSet.size, allKeys: Array.from(newSet) });
+            }
+            
+            return newSet;
+        });
 
         try {
             // Get metadata URI from labs context
@@ -215,7 +245,13 @@ export function ReservationEventProvider({ children }) {
             // Remove from processing set on error
             setProcessingReservations(prev => {
                 const newSet = new Set(prev);
+                const hadKey = newSet.has(reservationKey);
                 newSet.delete(reservationKey);
+                
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('Removing reservation key (error):', { reservationKey, hadKey, error: error.message });
+                }
+                
                 return newSet;
             });
         }

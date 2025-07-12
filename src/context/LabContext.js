@@ -83,46 +83,88 @@ export function LabData({ children }) {
 
   const fetchBookings = async () => {
     try {
-      const response = await fetch('/api/contract/reservation/getBookings', {
+      // Fetch user's bookings (only if user is logged in)
+      let userBookingsData = [];
+      if (address) {
+        const userResponse = await fetch('/api/contract/reservation/getBookings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ wallet: address }),
+        });
+
+        if (!userResponse.ok) {
+          throw new Error(`Failed to fetch user reservations: ${userResponse.statusText}`);
+        }
+
+        userBookingsData = await userResponse.json();
+      }
+
+      // Fetch all bookings for calendar display
+      const allResponse = await fetch('/api/contract/reservation/getBookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ wallet: address }),
+        body: JSON.stringify({ wallet: null }), // Get all bookings
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch reservations: ${response.statusText}`);
+      if (!allResponse.ok) {
+        throw new Error(`Failed to fetch all reservations: ${allResponse.statusText}`);
       }
 
-      const bookingsData = await response.json();
+      const allBookingsData = await allResponse.json();
 
-      const bookingsMap = {};
-      for (const booking of bookingsData) {
-        if (!bookingsMap[booking.labId]) {
-          bookingsMap[booking.labId] = [];
+      // Group all bookings by labId for calendar display
+      const allBookingsMap = {};
+      for (const booking of allBookingsData) {
+        if (!allBookingsMap[booking.labId]) {
+          allBookingsMap[booking.labId] = [];
         }
-        bookingsMap[booking.labId].push(booking);
+        allBookingsMap[booking.labId].push(booking);
+      }
+
+      // Group user bookings by labId for user dashboard
+      const userBookingsMap = {};
+      for (const booking of userBookingsData) {
+        if (!userBookingsMap[booking.labId]) {
+          userBookingsMap[booking.labId] = [];
+        }
+        userBookingsMap[booking.labId].push(booking);
       }
 
       setLabs((prevLabs) => {
         const updatedLabs = prevLabs.map((lab) => ({
           ...lab,
-          bookingInfo: bookingsMap[lab.id] || [],
+          bookingInfo: allBookingsMap[lab.id] || [], // All bookings for calendar
+          userBookings: userBookingsMap[lab.id] || [], // User bookings for dashboard
         }));
         sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
         return updatedLabs;
       });
     } catch (err) {
       console.error('Error fetching reservations:', err);
+      // Fallback to empty arrays on error
+      setLabs((prevLabs) =>
+        prevLabs.map(lab => ({ 
+          ...lab, 
+          bookingInfo: [], 
+          userBookings: [] 
+        }))
+      );
     }
   };
 
   useEffect(() => {
     if (!address) {
-      // Clean bookingInfo if user is not logged in
+      // Clean bookingInfo and userBookings if user is not logged in
       setLabs((prevLabs) =>
-        prevLabs.map(lab => ({ ...lab, bookingInfo: [] }))
+        prevLabs.map(lab => ({ 
+          ...lab, 
+          bookingInfo: [], 
+          userBookings: [] 
+        }))
       );
       return;
     }
