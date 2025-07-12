@@ -15,11 +15,26 @@ export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
   const { labs, loading } = useLabs();
   const [userData, setUserData] = useState(null);
-  const now = new Date();
-  const currentDate = now.toISOString().slice(0, 10);
-  const availableLab = labs.find(lab => lab.userBookings && isBookingActive(lab.userBookings));
+  const [now, setNow] = useState(null);
+  const [currentDate, setCurrentDate] = useState(null);
+  const [availableLab, setAvailableLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
+
+  // Initialize time on client side only
+  useEffect(() => {
+    const currentTime = new Date();
+    setNow(currentTime);
+    setCurrentDate(currentTime.toISOString().slice(0, 10));
+  }, []);
+
+  // Update availableLab when labs or now changes
+  useEffect(() => {
+    if (labs && now) {
+      const lab = labs.find(lab => lab.userBookings && isBookingActive(lab.userBookings));
+      setAvailableLab(lab);
+    }
+  }, [labs, now]);
       
   const openModal = (type, labId) => {
     setSelectedLabId(labId);
@@ -58,7 +73,7 @@ export default function UserDashboard() {
     });
 
   useEffect(() => {
-    if (labs) {
+    if (labs && now) {
       const futureBookingDates = labs.reduce((dates, lab) => {
         if (Array.isArray(lab.userBookings)) {
           lab.userBookings
@@ -86,7 +101,7 @@ export default function UserDashboard() {
   }, [labs, now]);
 
   // If there is no active booking, search for the first one in the future
-  const firstActiveLab = !availableLab
+  const firstActiveLab = !availableLab && now && labs.length > 0
     ? labs
         .map(lab => {
           if (!Array.isArray(lab.userBookings)) return null;
@@ -127,7 +142,7 @@ export default function UserDashboard() {
     }
   }, [isLoggedIn, labs]);
 
-  if (!userData) {
+  if (!userData || !now) {
     return <div className="text-center p-2">Loading user data...</div>
   }
 
@@ -141,7 +156,7 @@ export default function UserDashboard() {
     : null;
 
   const nextBooking = !availableLab && firstActiveLab 
-                      && Array.isArray(firstActiveLab.userBookings)
+                      && Array.isArray(firstActiveLab.userBookings) && now
     ? firstActiveLab.userBookings
         .filter(b => b.date && b.time && new Date(`${b.date}T${b.time}`) > now)
         .sort((a, b) => new Date(`${a.date}T${a.time}`) 
@@ -312,7 +327,7 @@ export default function UserDashboard() {
                   Upcoming Bookings
                 </h2>
                 <ul className='w-full flex-1'>
-                  {userData.labs
+                  {now && userData.labs
                     .filter(lab => Array.isArray(lab.userBookings) &&
                       lab.userBookings.some(b => {
                         if (!b.date || !b.time || !b.minutes) return false;
@@ -366,7 +381,8 @@ export default function UserDashboard() {
                           closeModal={closeModal}
                         />
                       );
-                    })}
+                    }) || []}
+                  {!now && <li className="text-center text-gray-500">Loading...</li>}
                 </ul>
               </div>
               {/* Vertical divider */}
@@ -381,7 +397,7 @@ export default function UserDashboard() {
                   Past bookings
                 </h2>
                 <ul className='w-full flex-1'>
-                  {userData.labs
+                  {now && userData.labs
                     .filter((lab) => Array.isArray(lab.userBookings) &&
                       lab.userBookings.some(b => {
                         if (!b.date || !b.time || !b.minutes) return false;
@@ -435,7 +451,8 @@ export default function UserDashboard() {
                           closeModal={closeModal}
                         />
                       );
-                    })}
+                    }) || []}
+                  {!now && <li className="text-center text-gray-500">Loading...</li>}
                 </ul>
               </div>
             </div>
