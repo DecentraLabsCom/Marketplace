@@ -7,27 +7,56 @@ import isBookingActive from '@/utils/isBookingActive';
 
 export default function Market() {
   const searchInputRef = useRef(null);
-  const { labs, loading } = useLabs();
+  const { labs, loading, bookingsLoading } = useLabs();
   const { isLoggedIn } = useUser();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
   const [selectedProvider, setSelectedProvider] = useState("All");
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
+  const [searchDebounce, setSearchDebounce] = useState("");
 
-  // Get all lab categories and providers
+  // Get all lab categories and providersusing memoization
   const categories = useMemo(() => {
-    if (!labs) return [];
-    return [...new Set(labs.map((lab) => lab.category))];
+    if (!labs || labs.length === 0) return [];
+    const uniqueCategories = new Set();
+    labs.forEach(lab => {
+      if (lab.category) uniqueCategories.add(lab.category);
+    });
+    return Array.from(uniqueCategories).sort();
   }, [labs]);
 
   const providers = useMemo(() => {
-    if (!labs) return [];
-    return [...new Set(labs.map((lab) => lab.provider))];
+    if (!labs || labs.length === 0) return [];
+    const uniqueProviders = new Set();
+    labs.forEach(lab => {
+      if (lab.provider) uniqueProviders.add(lab.provider);
+    });
+    return Array.from(uniqueProviders).sort();
   }, [labs]);
 
-  // Search/filter options
+  // Debounced search effect for better performance
+  useEffect(() => {
+    const handleSearchInput = () => {
+      const value = searchInputRef.current?.value?.toLowerCase() || "";
+      const timeoutId = setTimeout(() => {
+        setSearchDebounce(value);
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    };
+
+    const searchInput = searchInputRef.current;
+    if (searchInput) {
+      searchInput.addEventListener('input', handleSearchInput);
+      return () => searchInput.removeEventListener('input', handleSearchInput);
+    }
+  }, []);
+
+  // Optimized search/filter with useMemo
   const search = useCallback(() => {
+    if (!labs) return;
+    
     let filtered = labs;
     if (selectedCategory !== "All") {
       filtered = filtered.filter((lab) => lab.category === selectedCategory);
@@ -40,7 +69,9 @@ export default function Market() {
     if (selectedProvider !== "All") {
       filtered = filtered.filter((lab) => lab.provider === selectedProvider);
     }
-    const value = searchInputRef.current?.value?.toLowerCase() || "";
+    
+    // Use debounced search value
+    const value = searchDebounce;
     if (selectedFilter === "Keyword" && value) {
       filtered = filtered.filter((lab) =>
         lab.keywords?.some((kw) => kw.toLowerCase().includes(value))
@@ -51,26 +82,33 @@ export default function Market() {
       );
     }
     setSearchFilteredLabs(filtered);
-  }, [labs, selectedCategory, selectedPrice, selectedProvider, selectedFilter]);
+  }, [labs, selectedCategory, selectedPrice, selectedProvider, selectedFilter, searchDebounce]);
 
   // Apply the search every time the filter options change
   useEffect(() => {
     search();
   }, [search]);
 
-  // Be able to search by pressing Enter key
-  const handleKeyDown = (event) => {
+  // Enable search on Enter key press
+  const handleKeyDown = useCallback((event) => {
     if (event.key === "Enter") {
-      search();
+      const value = searchInputRef.current?.value?.toLowerCase() || "";
+      setSearchDebounce(value);
     }
-  };
+  }, []);
+
+  // Optimized search trigger - also handles manual search button
+  const handleSearch = useCallback(() => {
+    const value = searchInputRef.current?.value?.toLowerCase() || "";
+    setSearchDebounce(value);
+  }, []);
 
   // Remove keyword and name filter when deleting input value
-  const handleInputChange = (event) => {
+  const handleInputChange = useCallback((event) => {
     if (!event.target.value) {
-      search();
+      setSearchDebounce("");
     }
-  };
+  }, []);
 
   const handlePriceClick = () => {
     if (selectedPrice === "Sort by Price") {
@@ -146,7 +184,7 @@ export default function Market() {
               focus:border-[#caddff] shadow-sm focus:shadow"
               onChange={handleInputChange}/>
 
-            <button onClick={search} className="absolute top-1 right-1 flex items-center rounded 
+            <button onClick={handleSearch} className="absolute top-1 right-1 flex items-center rounded 
               bg-[#715c8c]  py-1 px-2.5 border border-transparent text-center text-sm text-white 
               transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none 
               active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none 
@@ -180,11 +218,11 @@ export default function Market() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {Array.isArray(searchFilteredLabs) && searchFilteredLabs.map((lab) => {
             const hasActiveBooking = isLoggedIn ? 
-              isBookingActive(lab.bookingInfo) : false;
+              isBookingActive(lab.userBookings) : false;
             return (
               <LabCard key={lab.id} {...lab} 
                         activeBooking={hasActiveBooking} 
-                        image={lab.images[0]} />
+                        image={lab.images?.[0]} />
             );
           })}
         </div>

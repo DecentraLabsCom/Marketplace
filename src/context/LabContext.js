@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useUser } from '@/context/UserContext';
 
 const LabContext = createContext();
@@ -43,136 +43,197 @@ function normalizeLab(rawLab) {
     uri: rawLab.uri ?? "",
     reservations: Array.isArray(rawLab.reservations) ? rawLab.reservations : [],
     bookingInfo: Array.isArray(rawLab.bookingInfo) ? rawLab.bookingInfo : [],
+    userBookings: Array.isArray(rawLab.userBookings) ? rawLab.userBookings : [],
   };
 }
 
 export function LabData({ children }) {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [lastBookingsFetch, setLastBookingsFetch] = useState(0);
 
   const { isLoggedIn, address, user, isSSO } = useUser();
 
-  const fetchLabs = async () => {
+  // Memoized cache keys
+  const cacheKeys = useMemo(() => ({
+    labs: 'labs',
+    bookings: `bookings_${address || 'anonymous'}`,
+    timestamp: 'labs_timestamp'
+  }), [address]);
+
+  // Optimized fetchLabs with better caching
+  const fetchLabs = useCallback(async () => {
     setLoading(true);
     try {
-      const cachedLabs = sessionStorage.getItem('labs');
-      if (cachedLabs) {
-        setLabs(JSON.parse(cachedLabs));
-        return;
+      // Check cache with timestamp validation (10 minutes)
+      const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
+      const cachedTimestamp = sessionStorage.getItem(cacheKeys.timestamp);
+      const now = Date.now();
+      
+      if (cachedLabs && cachedTimestamp) {
+        const age = now - parseInt(cachedTimestamp);
+        if (age < 10 * 60 * 1000) { // 10 minutes
+          console.log('Using cached labs data');
+          setLabs(JSON.parse(cachedLabs));
+          setLoading(false);
+          return;
+        }
       }
 
-      const response = await fetch('/api/contract/lab/getAllLabs');
+      console.log('Fetching fresh labs data...');
+      const response = await fetch('/api/contract/lab/getAllLabs', {
+        headers: {
+          'Cache-Control': 'max-age=300' // 5 minutes
+        }
+      });
+      
       if (!response.ok) {
         throw new Error(`Failed to fetch labs: ${response.statusText}`);
       }
+      
       const data = await response.json();
       const normalized = data.map(normalizeLab);
 
-      sessionStorage.setItem('labs', JSON.stringify(normalized));
+      // Update cache with timestamp
+      sessionStorage.setItem(cacheKeys.labs, JSON.stringify(normalized));
+      sessionStorage.setItem(cacheKeys.timestamp, now.toString());
+      
       setLabs(normalized);
     } catch (err) {
       console.error('Error fetching labs:', err);
+      // Try to use stale cache on error
+      const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
+      if (cachedLabs) {
+        console.log('Using stale cache due to error');
+        setLabs(JSON.parse(cachedLabs));
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [cacheKeys]);
 
-  useEffect(() => {
-    fetchLabs();
-  }, []);
+  // fetchBookings with debouncing and smart caching
+  const fetchBookings = useCallback(async () => {
+    const now = Date.now();
+    
+    // Debounce: don't fetch if we just fetched within 30 seconds
+    if (now - lastBookingsFetch < 30000) {
+      console.log('Skipping bookings fetch - too recent');
+      return;
+    }
 
-  const fetchBookings = async () => {
+    setBookingsLoading(true);
+    setLastBookingsFetch(now);
+
     try {
-      // Fetch user's bookings (only if user is logged in)
-      let userBookingsData = [];
+      // Fetch both user and all bookings in parallel (only one API call each)
+      const fetchPromises = [];
+      
+      // Only fetch user bookings if logged in
       if (address) {
-        const userResponse = await fetch('/api/contract/reservation/getBookings', {
+        fetchPromises.push(
+          fetch('/api/contract/reservation/getBookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wallet: address }),
+          }).then(r => r.ok ? r.json() : [])
+        );
+      } else {
+        fetchPromises.push(Promise.resolve([]));
+      }
+
+      // Always fetch all bookings for calendar availability
+      fetchPromises.push(
+        fetch('/api/contract/reservation/getBookings', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ wallet: address }),
-        });
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: null }),
+        }).then(r => r.ok ? r.json() : [])
+      );
 
-        if (!userResponse.ok) {
-          throw new Error(`Failed to fetch user reservations: ${userResponse.statusText}`);
-        }
+      const [userBookingsData, allBookingsData] = await Promise.all(fetchPromises);
 
-        userBookingsData = await userResponse.json();
-      }
+      // Group bookings by labId
+      const allBookingsMap = new Map();
+      const userBookingsMap = new Map();
 
-      // Fetch all bookings for calendar display
-      const allResponse = await fetch('/api/contract/reservation/getBookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ wallet: null }), // Get all bookings
-      });
-
-      if (!allResponse.ok) {
-        throw new Error(`Failed to fetch all reservations: ${allResponse.statusText}`);
-      }
-
-      const allBookingsData = await allResponse.json();
-
-      // Group all bookings by labId for calendar display
-      const allBookingsMap = {};
       for (const booking of allBookingsData) {
-        if (!allBookingsMap[booking.labId]) {
-          allBookingsMap[booking.labId] = [];
+        if (!allBookingsMap.has(booking.labId)) {
+          allBookingsMap.set(booking.labId, []);
         }
-        allBookingsMap[booking.labId].push(booking);
+        allBookingsMap.get(booking.labId).push(booking);
       }
 
-      // Group user bookings by labId for user dashboard
-      const userBookingsMap = {};
       for (const booking of userBookingsData) {
-        if (!userBookingsMap[booking.labId]) {
-          userBookingsMap[booking.labId] = [];
+        if (!userBookingsMap.has(booking.labId)) {
+          userBookingsMap.set(booking.labId, []);
         }
-        userBookingsMap[booking.labId].push(booking);
+        userBookingsMap.get(booking.labId).push(booking);
       }
 
+      // Update labs with booking data
       setLabs((prevLabs) => {
         const updatedLabs = prevLabs.map((lab) => ({
           ...lab,
-          bookingInfo: allBookingsMap[lab.id] || [], // All bookings for calendar
-          userBookings: userBookingsMap[lab.id] || [], // User bookings for dashboard
+          bookingInfo: allBookingsMap.get(lab.id) || [],
+          userBookings: userBookingsMap.get(lab.id) || [],
         }));
-        sessionStorage.setItem('labs', JSON.stringify(updatedLabs));
+        
+        // Cache the updated labs
+        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
         return updatedLabs;
       });
+
     } catch (err) {
       console.error('Error fetching reservations:', err);
-      // Fallback to empty arrays on error
-      setLabs((prevLabs) =>
-        prevLabs.map(lab => ({ 
-          ...lab, 
-          bookingInfo: [], 
-          userBookings: [] 
-        }))
-      );
+      // Don't clear existing booking data on error, just log it
+    } finally {
+      setBookingsLoading(false);
     }
-  };
+  }, [address, cacheKeys.labs, lastBookingsFetch]);
 
+  // Initial labs fetch
   useEffect(() => {
+    fetchLabs();
+  }, [fetchLabs]);
+
+  // Smart bookings fetch - only when needed
+  useEffect(() => {
+    if (labs.length === 0) return;
+
+    // If user logs out, clear user bookings immediately
     if (!address) {
-      // Clean bookingInfo and userBookings if user is not logged in
       setLabs((prevLabs) =>
         prevLabs.map(lab => ({ 
           ...lab, 
-          bookingInfo: [], 
           userBookings: [] 
         }))
       );
       return;
     }
-    if (labs.length > 0) fetchBookings();
-  }, [address, labs.length]); 
+
+    // Fetch bookings when user logs in or labs are loaded
+    fetchBookings();
+  }, [labs.length, address, fetchBookings]);
+
+  // Memoized context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    labs,
+    setLabs,
+    loading,
+    bookingsLoading,
+    fetchLabs,
+    fetchBookings,
+    refreshLabs: () => {
+      sessionStorage.removeItem(cacheKeys.labs);
+      sessionStorage.removeItem(cacheKeys.timestamp);
+      fetchLabs();
+    }
+  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, cacheKeys]);
 
   return (
-    <LabContext.Provider value={{ labs, setLabs, loading, fetchLabs, fetchBookings }}> 
+    <LabContext.Provider value={contextValue}> 
       {children}
     </LabContext.Provider>
   );
