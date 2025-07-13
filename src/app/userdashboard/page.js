@@ -27,7 +27,6 @@ export default function UserDashboard() {
   const [selectedLabId, setSelectedLabId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isCanceling, setIsCanceling] = useState(false);
-  const [reservationStatuses, setReservationStatuses] = useState({}); // Store reservation statuses
 
   // Wagmi hooks for contract interaction
   const chainKey = defaultChain.name.toLowerCase();
@@ -66,52 +65,6 @@ export default function UserDashboard() {
     setIsCanceling(false);
   };
 
-  // Function to fetch reservation status
-  const fetchReservationStatus = async (reservationKey) => {
-    if (!reservationKey || reservationStatuses[reservationKey]) {
-      return reservationStatuses[reservationKey] || null;
-    }
-
-    try {
-      const response = await fetch('/api/contract/reservation/getReservation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reservationKey }),
-      });
-
-      if (response.ok) {
-        const { reservation } = await response.json();
-        setReservationStatuses(prev => ({
-          ...prev,
-          [reservationKey]: reservation
-        }));
-        return reservation;
-      }
-    } catch (error) {
-      console.warn('Failed to fetch reservation status for', reservationKey, error);
-    }
-
-    return null;
-  };
-
-  // Load reservation statuses when bookings change
-  useEffect(() => {
-    if (userData?.labs && now) {
-      const allBookings = userData.labs.flatMap(lab => 
-        Array.isArray(lab.userBookings) ? lab.userBookings : []
-      );
-      
-      // Fetch status for bookings that have reservationKey
-      allBookings.forEach(booking => {
-        if (booking.reservationKey && !reservationStatuses[booking.reservationKey]) {
-          fetchReservationStatus(booking.reservationKey);
-        }
-      });
-    }
-  }, [userData?.labs, now]);
-
   const handleCancellation = async (booking) => {
     if (!booking || !booking.reservationKey) {
       console.error('Missing booking or reservation key:', booking);
@@ -130,21 +83,15 @@ export default function UserDashboard() {
     reset();
     
     try {
-      // Get cached reservation status or use booking data directly
-      const reservationStatus = reservationStatuses[booking.reservationKey];
-      
-      // Quick check if cached status shows already canceled
-      if (reservationStatus?.isCanceled) {
-        throw new Error('This reservation is already canceled');
-      }
-      
-      // Determine cancellation method based on available data
-      if (reservationStatus?.isBooked || booking.status === "1" || booking.status === 1) {
+      // Determine cancellation method based on booking status
+      if (booking.status === "1" || booking.status === 1) {
         // BOOKED - use cancelBooking
-        await handleConfirmedBookingCancellation(booking, reservationStatus || { isBooked: true, exists: true });
-      } else if (reservationStatus?.isPending || booking.status === "0" || booking.status === 0) {
+        await handleConfirmedBookingCancellation(booking);
+      } else if (booking.status === "0" || booking.status === 0) {
         // PENDING - use cancelReservationRequest
-        await handleRequestedBookingCancellation(booking, reservationStatus || { isPending: true, exists: true });
+        await handleRequestedBookingCancellation(booking);
+      } else {
+        throw new Error('Invalid reservation state for cancellation');
       }
       
     } catch (error) {
@@ -154,7 +101,7 @@ export default function UserDashboard() {
     }
   };
 
-  const handleConfirmedBookingCancellation = async (booking, reservationStatus) => {
+  const handleConfirmedBookingCancellation = async (booking) => {
     if (!contractAddress) {
       throw new Error('Contract not available for this network');
     }
@@ -173,7 +120,7 @@ export default function UserDashboard() {
     addPersistentNotification('info', '🔄 Please confirm the booking cancellation in your wallet...');
   };
 
-  const handleRequestedBookingCancellation = async (booking, reservationStatus) => {
+  const handleRequestedBookingCancellation = async (booking) => {
     if (!contractAddress) {
       throw new Error('Contract not available for this network');
     }
@@ -198,19 +145,10 @@ export default function UserDashboard() {
       addPersistentNotification('success', '✅ Cancellation completed successfully!');
       setIsCanceling(false);
       
-      // Clear the reservation status cache for this booking to force refresh
-      if (selectedBooking?.reservationKey) {
-        setReservationStatuses(prev => {
-          const updated = { ...prev };
-          delete updated[selectedBooking.reservationKey];
-          return updated;
-        });
-      }
-      
       // Reset the transaction hash to prevent duplicate notifications
       reset();
     }
-  }, [isConfirmed, isCanceling, addPersistentNotification, reset, selectedBooking]);
+  }, [isConfirmed, isCanceling, addPersistentNotification, reset]);
 
   useEffect(() => {
     if (error && isCanceling) {
@@ -553,7 +491,6 @@ export default function UserDashboard() {
                           onCancel={handleCancellation}
                           isModalOpen={false}
                           closeModal={closeModal}
-                          reservationStatus={reservationStatuses[booking.reservationKey]}
                         />
                       );
                     }) || []}
@@ -580,9 +517,7 @@ export default function UserDashboard() {
                         endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
                         // Only include past bookings that were confirmed (not PENDING)
                         const hasReservationKey = b.reservationKey;
-                        // Use local booking status primarily, fallback to reservationStatuses if available
-                        const wasPending = b.status === "0" || b.status === 0 || 
-                                          (!b.status && reservationStatuses[b.reservationKey]?.isPending);
+                        const wasPending = b.status === "0" || b.status === 0;
                         return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
                       }))
                     .flatMap((lab) => {
@@ -592,9 +527,7 @@ export default function UserDashboard() {
                         endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
                         // Only include past bookings that were confirmed (not PENDING)
                         const hasReservationKey = b.reservationKey;
-                        // Use local booking status primarily, fallback to reservationStatuses if available
-                        const wasPending = b.status === "0" || b.status === 0 || 
-                                          (!b.status && reservationStatuses[b.reservationKey]?.isPending);
+                        const wasPending = b.status === "0" || b.status === 0;
                         return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
                       })
                       .map(booking => ({
@@ -635,7 +568,6 @@ export default function UserDashboard() {
                           onConfirmRefund={handleRefund}
                           isModalOpen={isModalOpen === 'refund' && selectedLabId === booking.lab.id && selectedBooking?.reservationKey === booking.reservationKey}
                           closeModal={closeModal}
-                          reservationStatus={reservationStatuses[booking.reservationKey]}
                         />
                       );
                     }) || []}

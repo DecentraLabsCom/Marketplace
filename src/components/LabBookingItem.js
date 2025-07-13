@@ -9,8 +9,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
     onRefund, 
     onConfirmRefund,
     isModalOpen,
-    closeModal,
-    reservationStatus = null // New prop for reservation status
+    closeModal
 }) {
     // Determine status display
     const getStatusDisplay = () => {
@@ -55,59 +54,11 @@ const LabBookingItem = React.memo(function LabBookingItem({
             };
         }
         
-        // Fall back to reservationStatus if no direct booking status
-        if (!reservationStatus || !reservationStatus.exists) {
-            return {
-                text: "Pending Confirmation",
-                className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-                icon: "⏳"
-            };
-        }
-        
-        if (reservationStatus.isPending) {
-            return {
-                text: "Pending",
-                className: "bg-orange-100 text-orange-800 border-orange-200",
-                icon: "⏳"
-            };
-        }
-        
-        if (reservationStatus.isCanceled) {
-            return {
-                text: "Cancelled",
-                className: "bg-red-100 text-red-800 border-red-200",
-                icon: "❌"
-            };
-        }
-        
-        if (reservationStatus.isUsed) {
-            return {
-                text: "Used",
-                className: "bg-green-100 text-green-800 border-green-200",
-                icon: "✅"
-            };
-        }
-        
-        if (reservationStatus.isCollected) {
-            return {
-                text: "Collected",
-                className: "bg-purple-100 text-purple-800 border-purple-200",
-                icon: "🎯"
-            };
-        }
-        
-        if (reservationStatus.isBooked) {
-            return {
-                text: "Confirmed",
-                className: "bg-blue-100 text-blue-800 border-blue-200",
-                icon: "✓"
-            };
-        }
-        
+        // Default fallback if no status is available
         return {
-            text: "Unknown Status",
-            className: "bg-gray-100 text-gray-800 border-gray-200",
-            icon: "❓"
+            text: "Pending Confirmation",
+            className: "bg-yellow-100 text-yellow-800 border-yellow-200",
+            icon: "⏳"
         };
     };
 
@@ -136,25 +87,23 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     <span className="mr-1">{statusDisplay.icon}</span>
                     {statusDisplay.text}
                 </span>
-                {/* Show cancel button for booked reservations or cancel request for pending ones (both in contract and local) */}
-                {typeof onCancel === "function" && (
-                    (reservationStatus?.isBooked || reservationStatus?.isPending || (!reservationStatus || !reservationStatus.exists)) && 
-                    !reservationStatus?.isCanceled && // Don't show cancel button if already canceled
-                    booking.status !== "4" && booking.status !== 4 && // Also check direct booking status
-                        <button
-                            onClick={() => {
-                                console.log('Cancel button clicked, executing cancellation:', { labId: lab.id, booking });
-                                onCancel(booking);
-                            }}
-                            className="bg-[#a87583] text-white px-3 py-1 rounded hover:bg-[#8a5c66] text-sm"
-                        >
-                            {reservationStatus?.isBooked ? "Cancel Booking" : "Cancel Request"}
-                        </button>
+                {/* Show cancel button for booked or pending reservations (not canceled) */}
+                {typeof onCancel === "function" && 
+                 booking.status !== "4" && booking.status !== 4 && // Not canceled
+                 (booking.status === "0" || booking.status === 0 || booking.status === "1" || booking.status === 1) && ( // PENDING or BOOKED
+                    <button
+                        onClick={() => {
+                            console.log('Cancel button clicked, executing cancellation:', { labId: lab.id, booking });
+                            onCancel(booking);
+                        }}
+                        className="bg-[#a87583] text-white px-3 py-1 rounded hover:bg-[#8a5c66] text-sm"
+                    >
+                        {(booking.status === "1" || booking.status === 1) ? "Cancel Booking" : "Cancel Request"}
+                    </button>
                 )}
-                {/* Only show refund button for reservations that existed in the contract and are not canceled */}
-                {typeof onRefund === "function" && reservationStatus?.exists && 
-                 !reservationStatus?.isCanceled && // Don't show refund button if canceled
-                 booking.status !== "4" && booking.status !== 4 && ( // Also check direct booking status
+                {/* Only show refund button for reservations that have a key and are not canceled */}
+                {typeof onRefund === "function" && booking.reservationKey && 
+                 booking.status !== "4" && booking.status !== 4 && ( // Not canceled
                     <button
                         onClick={() => onRefund(lab.id, booking)}
                         className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"
