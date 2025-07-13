@@ -98,6 +98,45 @@ export function UserData({ children }) {
         }
     }, [isLoggedIn, address, user?.email, isSSO]);
 
+    // Function to refresh provider status (useful for external updates)
+    const refreshProviderStatus = () => {
+        if (isLoggedIn) {
+            setIsProviderLoading(true);
+            
+            if (isSSO && user?.email) {
+                // For SSO users, check provider status by email
+                fetch('/api/contract/provider/isSSOProvider', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ email: user.email }),
+                })
+                .then((res) => res.json())
+                .then((data) => {
+                    setIsProvider(data.isLabProvider);
+                })
+                .catch((error) => console.error("Error refreshing SSO provider status:", error))
+                .finally(() => setIsProviderLoading(false));
+            } else if (address) {
+                // For wallet users, check provider status by wallet address
+                fetch('/api/contract/provider/isLabProvider', {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ wallet: address }),
+                })
+                .then((res) => res.json())
+                .then((data) => {
+                    setIsProvider(data.isLabProvider);
+                })
+                .catch((error) => console.error("Error refreshing wallet provider status:", error))
+                .finally(() => setIsProviderLoading(false));
+            }
+        }
+    };
+
     return (
         <UserContext.Provider value={{
             address: address ?? null,
@@ -106,7 +145,8 @@ export function UserData({ children }) {
             user,
             isLoggedIn: !!isConnected || isSSO,
             isProvider,
-            isProviderLoading
+            isProviderLoading,
+            refreshProviderStatus
         }}>
             {children}
         </UserContext.Provider>

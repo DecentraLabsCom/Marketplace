@@ -74,14 +74,12 @@ export function LabData({ children }) {
       if (cachedLabs && cachedTimestamp) {
         const age = now - parseInt(cachedTimestamp);
         if (age < 30 * 60 * 1000) { // 30 minutes
-          console.log('Using cached labs data');
           setLabs(JSON.parse(cachedLabs));
           setLoading(false);
           return;
         }
       }
 
-      console.log('Fetching fresh labs data...');
       const response = await fetch('/api/contract/lab/getAllLabs', {
         headers: {
           'Cache-Control': 'max-age=900' // 15 minutes to match server cache
@@ -105,7 +103,6 @@ export function LabData({ children }) {
       // Try to use stale cache on error
       const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
       if (cachedLabs) {
-        console.log('Using stale cache due to error');
         setLabs(JSON.parse(cachedLabs));
       }
     } finally {
@@ -119,7 +116,6 @@ export function LabData({ children }) {
     
     // Debounce: don't fetch if we just fetched within 30 seconds
     if (now - lastBookingsFetch < 30000) {
-      console.log('Skipping bookings fetch - too recent');
       return;
     }
 
@@ -223,10 +219,42 @@ export function LabData({ children }) {
       // Only update cache if we actually made changes
       if (hasChanges) {
         sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Removed booking with reservationKey:', reservationKey);
+      }
+      
+      return updatedLabs;
+    });
+  }, [cacheKeys.labs]);
+
+  // Remove all bookings/reservations for a specific lab when it's deleted
+  const removeBookingsForDeletedLab = useCallback((deletedLabId) => {
+    setLabs((prevLabs) => {
+      let hasChanges = false;
+      const updatedLabs = prevLabs.map((lab) => {
+        // Remove all bookings and reservations that belong to the deleted lab
+        const updatedBookingInfo = lab.bookingInfo.filter(
+          booking => booking.labId !== deletedLabId
+        );
+        const updatedUserBookings = lab.userBookings.filter(
+          booking => booking.labId !== deletedLabId
+        );
+
+        // Only update if something changed
+        if (updatedBookingInfo.length !== lab.bookingInfo.length || 
+            updatedUserBookings.length !== lab.userBookings.length) {
+          hasChanges = true;
+          return {
+            ...lab,
+            bookingInfo: updatedBookingInfo,
+            userBookings: updatedUserBookings,
+          };
         }
+        
+        return lab;
+      });
+
+      // Only update cache if we actually made changes
+      if (hasChanges) {
+        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
       }
       
       return updatedLabs;
@@ -266,12 +294,13 @@ export function LabData({ children }) {
     fetchLabs,
     fetchBookings,
     removeCanceledBooking,
+    removeBookingsForDeletedLab,
     refreshLabs: () => {
       sessionStorage.removeItem(cacheKeys.labs);
       sessionStorage.removeItem(cacheKeys.timestamp);
       fetchLabs();
     }
-  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, cacheKeys]);
+  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, removeBookingsForDeletedLab, cacheKeys]);
 
   return (
     <LabContext.Provider value={contextValue}> 

@@ -56,9 +56,10 @@ export default function RootLayout({ children }) {
           <ClientWagmiProvider>
             <NotificationProvider>
               <UserData>
-                <LabData>
-                  <LabEventProvider>
-                    <ReservationEventProvider>
+                <UserEventProvider>
+                  <LabData>
+                    <LabEventProvider>
+                      <ReservationEventProvider>
                       <header className="sticky top-0 z-50">
                         <Navbar />
                       </header>
@@ -70,7 +71,8 @@ export default function RootLayout({ children }) {
                     </ReservationEventProvider>
                   </LabEventProvider>
                 </LabData>
-              </UserData>
+              </UserEventProvider>
+            </UserData>
             </NotificationProvider>
           </ClientWagmiProvider>
         </ClientQueryProvider>
