@@ -3,7 +3,9 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useLabs } from '@/context/LabContext';
 import { useUser } from '@/context/UserContext';
 import LabCard from "@/components/LabCard";
+import { LabCardGridSkeleton } from '@/components/skeletons';
 import isBookingActive from '@/utils/isBookingActive';
+import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function Market() {
   const searchInputRef = useRef(null);
@@ -15,6 +17,9 @@ export default function Market() {
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
   const [searchDebounce, setSearchDebounce] = useState("");
+  
+  // Real-time booking status updates - triggers re-render when booking status might change
+  const updateTrigger = useMinuteUpdates(isLoggedIn, labs);
 
   // Get all lab categories and providersusing memoization
   const categories = useMemo(() => {
@@ -213,7 +218,7 @@ export default function Market() {
       {/* Labs Grid */}
       <section>
       {loading ? (
-        <div className="text-center">Loading labs...</div>
+        <LabCardGridSkeleton count={6} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {Array.isArray(searchFilteredLabs) && searchFilteredLabs.map((lab) => {

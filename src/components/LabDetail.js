@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
 import Carrousel from '@/components/Carrousel';
 import DocsCarrousel from '@/components/DocsCarrousel';
+import { LabHeroSkeleton } from '@/components/skeletons';
 
 export default function LabDetail({ id, provider }) {
   const { isLoggedIn, address, user, isSSO } = useUser();
@@ -20,7 +21,11 @@ export default function LabDetail({ id, provider }) {
   }, [id, labs]);
 
   if (loading) {
-    return <div className="text-center">Loading lab details...</div>;
+    return (
+      <main className="container mx-auto p-6">
+        <LabHeroSkeleton />
+      </main>
+    );
   }
 
   if (!lab) {

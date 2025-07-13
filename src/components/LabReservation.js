@@ -16,7 +16,7 @@ export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
-  const { addTemporaryNotification, addPersistentNotification, addErrorNotification } = useNotifications();
+  const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -36,7 +36,9 @@ export default function LabReservation({ id }) {
   const { 
     data: receipt, 
     isLoading: isWaitingForReceipt, 
-    isSuccess: isReceiptSuccess 
+    isSuccess: isReceiptSuccess,
+    isError: isReceiptError,
+    error: receiptError
   } = useWaitForTransactionReceipt({
     hash: lastTxHash,
     enabled: !!lastTxHash
@@ -82,11 +84,11 @@ export default function LabReservation({ id }) {
     setIsClient(true);
   }, []);
 
-  // Handle transaction confirmation
+  // Handle transaction confirmation and errors
   useEffect(() => {
     if (isReceiptSuccess && receipt && txType && pendingData) {
-      
-      addPersistentNotification('success', '✅ Reservation request confirmed onchain! Processing your booking...');
+      // Show confirmation message when transaction is completed
+      addTemporaryNotification('pending', '⏳ Reservation requested. Waiting for confirmation...');
       
       setIsBooking(false);
       
@@ -97,7 +99,23 @@ export default function LabReservation({ id }) {
 
       // The ReservationEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (isReceiptError && receiptError && lastTxHash) {    
+      // Show error notification
+      addErrorNotification(receiptError, 'Transaction error: ');
+      
+      // Reset booking state
+      setIsBooking(false);
+      
+      // Reset transaction state
+      setLastTxHash(null);
+      setTxType(null);
+      setPendingData(null);
+    }
+  }, [isReceiptError, receiptError, lastTxHash, addErrorNotification]);
 
   if (!isClient) return null;
 
@@ -216,12 +234,10 @@ export default function LabReservation({ id }) {
       const result = await response.json();
 
       // Show success notification
-      addTemporaryNotification('success', '✅ Reservation request sent! Waiting for confirmation...');
       handleBookingSuccess();
 
     } catch (error) {
-      console.error('Error making server-side booking:', error);
-      addErrorNotification(error, 'Failed to create reservation');
+      addErrorNotification(error, 'Failed to create reservation: ');
     } finally {
       setIsBooking(false);
     }
@@ -237,7 +253,8 @@ export default function LabReservation({ id }) {
 
     const contractAddress = contractAddresses[chain?.name?.toLowerCase()];
     if (!contractAddress || contractAddress === "0x...") {
-      addTemporaryNotification('error', `❌ Contract not deployed on ${chain?.name || 'this network'}. Please switch to a supported network.`);
+      addTemporaryNotification('error', 
+        `❌ Contract not deployed on ${chain?.name || 'this network'}. Please switch to a supported network.`);
       return;
     }
 
@@ -251,7 +268,7 @@ export default function LabReservation({ id }) {
 
     try {
       // Show pending notification
-      addTemporaryNotification('pending', '⏳ Transaction sent! Waiting for confirmation...');
+      addTemporaryNotification('pending', '⏳ Sending reservation request...');
       
       // Call contract - pass arguments as array
       const txHash = await reservationRequest([labId, start, end]);
@@ -261,7 +278,8 @@ export default function LabReservation({ id }) {
         setTxType('reservation');
         setPendingData({ labId, start, end, timeslot });
       } else {
-        addTemporaryNotification('warning', '⚠️ Transaction may have been sent but no hash received. Please check your wallet.');
+        addTemporaryNotification('warning', 
+          '⚠️ Transaction may have been sent but no hash received. Please check your wallet.');
         setIsBooking(false);
       }
     } catch (error) {
@@ -270,7 +288,7 @@ export default function LabReservation({ id }) {
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         addTemporaryNotification('warning', '🚫 Transaction rejected by user.');
       } else {
-        addErrorNotification(error, 'Reservation creation');
+        addErrorNotification(error, 'Reservation creation failed: ');
       }
       
       setIsBooking(false); // Set to false on error
@@ -385,15 +403,16 @@ export default function LabReservation({ id }) {
           <div className="flex justify-center">
             <button
               onClick={handleBooking} 
-              disabled={isBooking || (isWaitingForReceipt && !isSSO) || !selectedAvailableTime}
+              disabled={isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime}
               className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                isBooking || (isWaitingForReceipt && !isSSO) || !selectedAvailableTime
+                isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime
                   ? 'bg-gray-500 cursor-not-allowed' 
                   : 'bg-[#715c8c] hover:bg-[#333f63]'
               }`}
             >
               {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 
-               (isWaitingForReceipt && !isSSO) ? 'Confirming...' : 
+               (isWaitingForReceipt && !isSSO && !isReceiptError) ? 'Confirming...' :
+               isReceiptError ? 'Try Again' :
                'Make Booking'}
             </button>
           </div>

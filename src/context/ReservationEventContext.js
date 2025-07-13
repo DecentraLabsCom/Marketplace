@@ -109,7 +109,7 @@ export function ReservationEventProvider({ children }) {
                 });
                 
                 // Show success notification
-                addPersistentNotification('success', '✅ Reservation confirmed and booked successfully!');
+                addPersistentNotification('success', '✅ Reservation confirmed and stored onchain!');
                 
                 // Refresh bookings to show the confirmed reservation
                 fetchBookings();

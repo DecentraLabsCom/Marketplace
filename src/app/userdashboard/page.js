@@ -12,12 +12,14 @@ import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
 import AccessControl from '@/components/AccessControl'
 import LabBookingItem from '@/components/LabBookingItem'
+import { DashboardSectionSkeleton } from '@/components/skeletons'
 import isBookingActive from '@/utils/isBookingActive'
 import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
+import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
-  const { labs, loading } = useLabs();
+  const { labs, loading, bookingsLoading } = useLabs();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const [userData, setUserData] = useState(null);
   const [now, setNow] = useState(null);
@@ -27,15 +29,9 @@ export default function UserDashboard() {
   const [selectedLabId, setSelectedLabId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isCanceling, setIsCanceling] = useState(false);
-
-  // Wagmi hooks for contract interaction
-  const chainKey = defaultChain.name.toLowerCase();
-  const contractAddress = contractAddresses[chainKey];
   
-  const { writeContract, data: hash, error, isPending, reset } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  });
+  // Real-time booking status updates - triggers re-render when booking status might change
+  const updateTrigger = useMinuteUpdates(isLoggedIn, labs);
 
   // Initialize time on client side only
   useEffect(() => {
@@ -255,11 +251,39 @@ export default function UserDashboard() {
   }, [isLoggedIn, labs]);
 
   if (!userData || !now) {
-    return <div className="text-center p-2">Loading user data...</div>
+    return (
+      <AccessControl message="Please log in to view and make reservations.">
+        <div className="container mx-auto p-4 space-y-6">
+          <DashboardSectionSkeleton />
+          <div className="flex md:flex-row flex-col gap-4">
+            <div className="md:w-1/2">
+              <DashboardSectionSkeleton />
+            </div>
+            <div className="md:w-1/2">
+              <DashboardSectionSkeleton />
+            </div>
+          </div>
+        </div>
+      </AccessControl>
+    )
   }
 
   if (loading) {
-    return <div className="text-center">Loading lab details...</div>;
+    return (
+      <AccessControl message="Please log in to view your dashboard.">
+        <div className="container mx-auto p-4 space-y-6">
+          <DashboardSectionSkeleton />
+          <div className="flex md:flex-row flex-col gap-4">
+            <div className="md:w-1/2">
+              <DashboardSectionSkeleton />
+            </div>
+            <div className="md:w-1/2">
+              <DashboardSectionSkeleton />
+            </div>
+          </div>
+        </div>
+      </AccessControl>
+    )
   }
 
   // Find active booking or the next one in the future
@@ -439,7 +463,10 @@ export default function UserDashboard() {
                   Upcoming Bookings
                 </h2>
                 <ul className='w-full flex-1'>
-                  {now && userData.labs
+                  {bookingsLoading ? (
+                    <DashboardSectionSkeleton title={false} />
+                  ) : (
+                    now && userData.labs
                     .filter(lab => Array.isArray(lab.userBookings) &&
                       lab.userBookings.some(b => {
                         if (!b.date || !b.time || !b.minutes) return false;
@@ -493,8 +520,9 @@ export default function UserDashboard() {
                           closeModal={closeModal}
                         />
                       );
-                    }) || []}
-                  {!now && <li className="text-center text-gray-500">Loading...</li>}
+                    }) || []
+                  )}
+                  {!now && !bookingsLoading && <li className="text-center text-gray-500">Loading...</li>}
                 </ul>
               </div>
               {/* Vertical divider */}
@@ -509,7 +537,10 @@ export default function UserDashboard() {
                   Past bookings
                 </h2>
                 <ul className='w-full flex-1'>
-                  {now && userData.labs
+                  {bookingsLoading ? (
+                    <DashboardSectionSkeleton title={false} />
+                  ) : (
+                    now && userData.labs
                     .filter((lab) => Array.isArray(lab.userBookings) &&
                       lab.userBookings.some(b => {
                         if (!b.date || !b.time || !b.minutes) return false;
@@ -570,8 +601,9 @@ export default function UserDashboard() {
                           closeModal={closeModal}
                         />
                       );
-                    }) || []}
-                  {!now && <li className="text-center text-gray-500">Loading...</li>}
+                    }) || []
+                  )}
+                  {!now && !bookingsLoading && <li className="text-center text-gray-500">Loading...</li>}
                 </ul>
               </div>
             </div>
