@@ -7,10 +7,10 @@ import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 import getIsVercel from '@/utils/isVercel';
 
-// Server-side cache with TTL (5 minutes)
+// Server-side cache with TTL (15 minutes - increased to reduce API calls)
 let labsCache = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
 export async function GET(request) {
   // Check server-side cache first
@@ -20,7 +20,7 @@ export async function GET(request) {
     return Response.json(labsCache, { 
       status: 200,
       headers: {
-        'Cache-Control': 'public, max-age=300', // 5 minutes browser cache
+        'Cache-Control': 'public, max-age=900', // 15 minutes browser cache
       }
     });
   }
@@ -142,13 +142,44 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('Error fetching labs metadata:', error);
+    
+    // Check if it's a rate limiting error (429)
+    if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+      console.log('Rate limit hit, returning cached data if available or fallback');
+      
+      // If we have cached data, return it even if expired
+      if (labsCache) {
+        console.log('Returning expired cached data due to rate limiting');
+        return Response.json(labsCache, { 
+          status: 200,
+          headers: {
+            'Cache-Control': 'public, max-age=60', // Short cache due to rate limiting
+            'X-Rate-Limited': 'true'
+          }
+        });
+      }
+    }
+    
     try {
       const fallbackLabs = simLabsData();
-      return Response.json(fallbackLabs, { status: 200 });
+      console.log('Using simulation data as fallback');
+      return Response.json(fallbackLabs, { 
+        status: 200,
+        headers: {
+          'X-Fallback-Data': 'true'
+        }
+      });
     } catch (fallbackError) {
       console.error('Error fetching fallback labs data:', fallbackError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch labs metadata and fallback data' }),
-        { status: 500 });
+      return new Response(JSON.stringify({ 
+        error: 'Service temporarily unavailable due to rate limiting',
+        message: 'Please try again in a few minutes'
+      }), { 
+        status: 503,
+        headers: {
+          'Retry-After': '300' // 5 minutes
+        }
+      });
     }
   }
 }

@@ -66,14 +66,14 @@ export function LabData({ children }) {
   const fetchLabs = useCallback(async () => {
     setLoading(true);
     try {
-      // Check cache with timestamp validation (10 minutes)
+      // Check cache with timestamp validation (30 minutes - increased to reduce API calls)
       const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
       const cachedTimestamp = sessionStorage.getItem(cacheKeys.timestamp);
       const now = Date.now();
       
       if (cachedLabs && cachedTimestamp) {
         const age = now - parseInt(cachedTimestamp);
-        if (age < 10 * 60 * 1000) { // 10 minutes
+        if (age < 30 * 60 * 1000) { // 30 minutes
           console.log('Using cached labs data');
           setLabs(JSON.parse(cachedLabs));
           setLoading(false);
@@ -84,7 +84,7 @@ export function LabData({ children }) {
       console.log('Fetching fresh labs data...');
       const response = await fetch('/api/contract/lab/getAllLabs', {
         headers: {
-          'Cache-Control': 'max-age=300' // 5 minutes
+          'Cache-Control': 'max-age=900' // 15 minutes to match server cache
         }
       });
       
@@ -193,6 +193,46 @@ export function LabData({ children }) {
     }
   }, [address, cacheKeys.labs, lastBookingsFetch]);
 
+  // Efficiently remove a canceled booking without refetching all data
+  const removeCanceledBooking = useCallback((reservationKey) => {
+    setLabs((prevLabs) => {
+      let hasChanges = false;
+      const updatedLabs = prevLabs.map((lab) => {
+        // Remove from both bookingInfo and userBookings arrays
+        const updatedBookingInfo = lab.bookingInfo.filter(
+          booking => booking.reservationKey !== reservationKey
+        );
+        const updatedUserBookings = lab.userBookings.filter(
+          booking => booking.reservationKey !== reservationKey
+        );
+
+        // Only update if something changed
+        if (updatedBookingInfo.length !== lab.bookingInfo.length || 
+            updatedUserBookings.length !== lab.userBookings.length) {
+          hasChanges = true;
+          return {
+            ...lab,
+            bookingInfo: updatedBookingInfo,
+            userBookings: updatedUserBookings,
+          };
+        }
+        
+        return lab;
+      });
+
+      // Only update cache if we actually made changes
+      if (hasChanges) {
+        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Removed booking with reservationKey:', reservationKey);
+        }
+      }
+      
+      return updatedLabs;
+    });
+  }, [cacheKeys.labs]);
+
   // Initial labs fetch
   useEffect(() => {
     fetchLabs();
@@ -213,7 +253,7 @@ export function LabData({ children }) {
       return;
     }
 
-    // Fetch bookings when user logs in or labs are loaded
+    // Auto-fetch bookings when labs are loaded or user changes
     fetchBookings();
   }, [labs.length, address, fetchBookings]);
 
@@ -225,12 +265,13 @@ export function LabData({ children }) {
     bookingsLoading,
     fetchLabs,
     fetchBookings,
+    removeCanceledBooking,
     refreshLabs: () => {
       sessionStorage.removeItem(cacheKeys.labs);
       sessionStorage.removeItem(cacheKeys.timestamp);
       fetchLabs();
     }
-  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, cacheKeys]);
+  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, cacheKeys]);
 
   return (
     <LabContext.Provider value={contextValue}> 
@@ -240,7 +281,12 @@ export function LabData({ children }) {
 }
 
 export function useLabs() {
-  const ctx = useContext(LabContext);
-  if (!ctx) throw new Error("useLabs must be used within a LabData provider");
-  return ctx;
+  const context = useContext(LabContext);
+  if (!context) {
+    throw new Error('useLabs must be used within a LabData');
+  }
+  return context;
 }
+
+// For backwards compatibility
+export const LabProvider = LabData;

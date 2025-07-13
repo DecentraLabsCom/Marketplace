@@ -16,67 +16,124 @@ export default async function getProvider(network) {
 
     const providers = [];
 
-    providers.push(new ethers.WebSocketProvider(
-        `wss://${defaultNetworks[network.id]}`,
-        networkInfo
-    ));
-    providers.push(new ethers.JsonRpcProvider(
-        `https://${defaultNetworks[network.id]}`,
-        networkInfo, options
-    ));
+    // Add both WebSocket and HTTP providers with try-catch
+    try {
+        providers.push(new ethers.WebSocketProvider(
+            `wss://${defaultNetworks[network.id]}`,
+            networkInfo
+        ));
+    } catch (e) {
+        console.warn('Default WebSocket provider failed to initialize:', e.message);
+    }
+
+    try {
+        providers.push(new ethers.JsonRpcProvider(
+            `https://${defaultNetworks[network.id]}`,
+            networkInfo, options
+        ));
+    } catch (e) {
+        console.warn('Default HTTP provider failed to initialize:', e.message);
+    }
 
     if (alchemyProjectId) {
-        providers.push(new ethers.WebSocketProvider(
-            `wss:${alchemyNetworks[network.id]}${alchemyProjectId}`,
-            networkInfo
-        ));
-        providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
+        try {
+            providers.push(new ethers.WebSocketProvider(
+                `wss://${alchemyNetworks[network.id]}${alchemyProjectId}`,
+                networkInfo
+            ));
+        } catch (e) {
+            console.warn('Alchemy WebSocket provider failed to initialize:', e.message);
+        }
+        
+        try {
+            providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
+        } catch (e) {
+            console.warn('Alchemy provider failed to initialize:', e.message);
+        }
     }
-    /*if (moralisProjectId) {
-        providers.push(new ethers.JsonRpcProvider(
-            `https://${moralisNetworks[network.id]}${moralisProjectId}`,
-            networkInfo, options
-        ));
-    }*/
+
     if (ankrProjectId) {
-        providers.push(new ethers.JsonRpcProvider(
-            `https://${ankrNetworks[network.id]}${ankrProjectId}`,
-            networkInfo, options
-        ));
+        try {
+            providers.push(new ethers.JsonRpcProvider(
+                `https://${ankrNetworks[network.id]}${ankrProjectId}`,
+                networkInfo, options
+            ));
+        } catch (e) {
+            console.warn('Ankr provider failed to initialize:', e.message);
+        }
     }
+
     if (quicknodeProjectId) {
-        providers.push(new ethers.WebSocketProvider(
-            `wss://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-            networkInfo
-        ));
-        providers.push(new ethers.JsonRpcProvider(
-            `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-            networkInfo, options
-        ));
+        try {
+            providers.push(new ethers.WebSocketProvider(
+                `wss://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
+                networkInfo
+            ));
+        } catch (e) {
+            console.warn('Quicknode WebSocket provider failed to initialize:', e.message);
+        }
+        
+        try {
+            providers.push(new ethers.JsonRpcProvider(
+                `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
+                networkInfo, options
+            ));
+        } catch (e) {
+            console.warn('Quicknode HTTP provider failed to initialize:', e.message);
+        }
     }
+
     if (chainstackProjectId) {
-        providers.push(new ethers.WebSocketProvider(
-            `wss://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-            networkInfo
-        ));
-        providers.push(new ethers.JsonRpcProvider(
-            `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-            networkInfo, options
-        ));
+        try {
+            providers.push(new ethers.WebSocketProvider(
+                `wss://${chainstackNetworks[network.id]}${chainstackProjectId}`,
+                networkInfo
+            ));
+        } catch (e) {
+            console.warn('Chainstack WebSocket provider failed to initialize:', e.message);
+        }
+        
+        try {
+            providers.push(new ethers.JsonRpcProvider(
+                `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
+                networkInfo, options
+            ));
+        } catch (e) {
+            console.warn('Chainstack HTTP provider failed to initialize:', e.message);
+        }
     }
+
     if (infuraProjectId) {
-        providers.push(
-            new ethers.InfuraProvider(
-              network.id,
-              infuraSecretKey
-                ? { projectId: infuraProjectId, projectSecret: infuraSecretKey }
-                : infuraProjectId
-            )
-        );
+        try {
+            providers.push(
+                new ethers.InfuraProvider(
+                  network.id,
+                  infuraSecretKey
+                    ? { projectId: infuraProjectId, projectSecret: infuraSecretKey }
+                    : infuraProjectId
+                )
+            );
+        } catch (e) {
+            console.warn('Infura provider failed to initialize:', e.message);
+        }
     }
     
     // Fallback to the official RPC if others fail
-    providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
+    try {
+        providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
+    } catch (e) {
+        console.warn('Official RPC provider failed to initialize:', e.message);
+    }
 
-    return new ethers.FallbackProvider(providers, networkInfo, {quorum: 1});
+    if (providers.length === 0) {
+        throw new Error('No providers could be initialized');
+    }
+
+    console.log(`Initialized ${providers.length} providers for ${network.name}`);
+    
+    return new ethers.FallbackProvider(providers, networkInfo, {
+        quorum: 1,
+        stallTimeout: 2000,  // 2 seconds before trying next provider
+        priority: 1,         // Lower priority = higher preference
+    });
 }

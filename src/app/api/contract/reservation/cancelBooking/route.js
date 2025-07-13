@@ -1,24 +1,35 @@
 import { getContractInstance } from '../../utils/contractInstance';
+import retry from '@/utils/retry';
 
 export async function POST(request) {
-  const body = await request.json();
-  const { wallet } = body;
-  if (!wallet) {
-    return Response.json({ error: 'Missing required fields' }, { status: 400 });
-  }
-
-  // Check other required params (labId...) are also provided
-
   try {
-    const contract = await getContractInstance();
+    const body = await request.json();
+    const { reservationKey } = body;
+    
+    if (!reservationKey) {
+      return Response.json({ error: 'Missing reservationKey' }, { status: 400 });
+    }
 
-    // Call contract
-    // ...
+    console.log('Cancel booking request for reservationKey:', reservationKey);
 
-    // Return data to client
-    return Response.json({ success: true }, { status: 200 });
+    // Validate reservationKey format (should be bytes32)
+    if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
+      return Response.json({ error: 'Invalid reservationKey format' }, { status: 400 });
+    }
+
+    // Return success - the actual transaction will be done from frontend
+    return Response.json({ 
+      success: true,
+      message: 'Cancellation request validated',
+      reservationKey: reservationKey
+    }, { status: 200 });
+
   } catch (error) {
-    console.error('Error when trying to cancel a reservation:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error processing cancel booking request:', error);
+    
+    return Response.json({ 
+      error: 'Failed to process cancellation request',
+      details: error.message 
+    }, { status: 500 });
   }
 }

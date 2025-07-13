@@ -56,7 +56,7 @@ export function ReservationEventProvider({ children }) {
     const { chain } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const { fetchBookings, labs } = useLabs();
+    const { fetchBookings, removeCanceledBooking, labs } = useLabs();
     const { addPersistentNotification } = useNotifications();
     const [processingReservations, setProcessingReservations] = useState(new Set());
 
@@ -256,6 +256,46 @@ export function ReservationEventProvider({ children }) {
             });
         }
     };
+
+    // Listen for BookingCanceled events to update info
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'BookingCanceled',
+        onLogs(logs) {
+            logs.forEach(log => {
+                // The reservationKey is in log.data for BookingCanceled event
+                const reservationKey = log.data;
+                
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('BookingCanceled event:', { reservationKey });
+                }
+                
+                // Efficiently remove the canceled booking from existing state
+                removeCanceledBooking(reservationKey);
+            });
+        },
+    });
+
+    // Listen for ReservationRequestCanceled events to update info
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'ReservationRequestCanceled',
+        onLogs(logs) {
+            logs.forEach(log => {
+                // The reservationKey is in log.data for ReservationRequestCanceled event
+                const reservationKey = log.data;
+                
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('ReservationRequestCanceled event:', { reservationKey });
+                }
+                
+                // Efficiently remove the canceled booking from existing state
+                removeCanceledBooking(reservationKey);
+            });
+        },
+    });
 
     return (
         <ReservationEventContext.Provider value={{

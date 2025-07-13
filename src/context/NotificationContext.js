@@ -51,12 +51,42 @@ export function NotificationProvider({ children }) {
         return addNotification(type, message, { ...options, autoHide: true, duration: 10000 });
     };
 
+    // Function to handle error messages with user-friendly formatting
+    const addErrorNotification = (error, context = '') => {
+        console.error(`Error in ${context}:`, error);
+        
+        let errorMessage = '❌ An error occurred';
+        
+        if (typeof error === 'string') {
+            errorMessage = `❌ ${error}`;
+        } else if (error?.message) {
+            // Handle user rejection specifically
+            if (error.message.includes('User rejected') || 
+                error.message.includes('User denied') ||
+                error.message.includes('user rejected')) {
+                errorMessage = '❌ Transaction cancelled by user';
+            } else if (error.message.includes('insufficient funds')) {
+                errorMessage = '❌ Insufficient funds for transaction';
+            } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                errorMessage = '❌ Network error. Please check your connection';
+            } else if (error.message.includes('validation')) {
+                errorMessage = '❌ Validation failed';
+            } else {
+                // For other errors, show a generic message but preserve context if provided
+                errorMessage = context ? `❌ ${context} failed` : '❌ Operation failed';
+            }
+        }
+        
+        return addPersistentNotification('error', errorMessage);
+    };
+
     return (
         <NotificationContext.Provider value={{
             notifications,
             addNotification,
             addTemporaryNotification,
             addPersistentNotification,
+            addErrorNotification,
             removeNotification,
             clearAllNotifications
         }}>

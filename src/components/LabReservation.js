@@ -16,7 +16,7 @@ export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
-  const { addTemporaryNotification, addPersistentNotification } = useNotifications();
+  const { addTemporaryNotification, addPersistentNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -69,7 +69,9 @@ export default function LabReservation({ id }) {
     const availableTimes = generateTimeOptions({
       date,
       interval: time,
-      bookingInfo: selectedLab.bookingInfo
+      bookingInfo: (selectedLab.bookingInfo || []).filter(booking => 
+        booking.status !== "4" && booking.status !== 4 // Exclude cancelled bookings
+      )
     });
     const firstAvailable = availableTimes.find(t => !t.disabled);
     setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
@@ -111,7 +113,9 @@ export default function LabReservation({ id }) {
     ? generateTimeOptions({
         date,
         interval: time,
-        bookingInfo: selectedLab.bookingInfo
+        bookingInfo: (selectedLab.bookingInfo || []).filter(booking => 
+          booking.status !== "4" && booking.status !== 4 // Exclude cancelled bookings
+        )
       })
     : [];
 
@@ -120,10 +124,13 @@ export default function LabReservation({ id }) {
     renderDayContents({
       day,
       currentDateRender,
-      bookingInfo: (selectedLab?.bookingInfo || []).map(booking => ({
-        ...booking,
-        labName: selectedLab?.name
-      }))
+      bookingInfo: (selectedLab?.bookingInfo || [])
+        .filter(booking => booking.status !== "4" && booking.status !== 4) // Exclude cancelled bookings
+        .map(booking => ({
+          ...booking,
+          labName: selectedLab?.name,
+          status: booking.status // Ensure status is included for styling
+        }))
     });
 
   // Change lab
@@ -214,7 +221,7 @@ export default function LabReservation({ id }) {
 
     } catch (error) {
       console.error('Error making server-side booking:', error);
-      addTemporaryNotification('error', `❌ Failed to create reservation: ${error.message}`);
+      addErrorNotification(error, 'Failed to create reservation');
     } finally {
       setIsBooking(false);
     }
@@ -262,16 +269,8 @@ export default function LabReservation({ id }) {
       
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         addTemporaryNotification('warning', '🚫 Transaction rejected by user.');
-      } else if (error.message?.includes('insufficient funds')) {
-        addTemporaryNotification('error', '💰 Insufficient funds to complete the transaction.');
-      } else if (error.message?.includes('user rejected') || error.message?.includes('User denied')) {
-        addTemporaryNotification('warning', '🚫 Transaction rejected by user.');
-      } else if (error.message?.includes('network')) {
-        addTemporaryNotification('error', '🌐 Network error. Please check your connection and try again.');
-      } else if (error.message?.includes('wallet')) {
-        addTemporaryNotification('error', '👛 Wallet connection error. Please check your wallet and try again.');
       } else {
-        addTemporaryNotification('error', `❌ Error creating reservation: ${error.message || 'Unknown error'}. Please check your wallet connection and try again.`);
+        addErrorNotification(error, 'Reservation creation');
       }
       
       setIsBooking(false); // Set to false on error
@@ -330,6 +329,8 @@ export default function LabReservation({ id }) {
                     dayClassName={day =>
                       selectedLab?.bookingInfo?.some(
                         b => {
+                          // Exclude cancelled bookings from calendar highlighting
+                          if (b.status === "4" || b.status === 4) return false;
                           // Make sure b.date is valid
                           const bookingDate = new Date(b.date);
                           return !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString();

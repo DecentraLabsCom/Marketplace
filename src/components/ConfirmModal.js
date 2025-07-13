@@ -14,7 +14,9 @@ export default function ConfirmModal({ isOpen, onClose, onContinue }) {
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/20 flex justify-center items-center z-50">
+      <div className="fixed inset-0 bg-black/20 flex justify-center items-center z-50"
+        onClick={onClose}
+      >
         <div className="bg-white rounded-lg shadow-lg p-6 w-96"
         onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg text-gray-800 font-bold mb-4">

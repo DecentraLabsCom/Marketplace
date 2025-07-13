@@ -14,7 +14,7 @@ import { renderDayContents } from '@/utils/labBookingCalendar';
 export default function ProviderDashboard() {
   const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
-  const { addTemporaryNotification, addPersistentNotification } = useNotifications();
+  const { addTemporaryNotification, addPersistentNotification, addErrorNotification } = useNotifications();
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
@@ -109,30 +109,33 @@ export default function ProviderDashboard() {
 
       ownedLabs.forEach(lab => {
         if (Array.isArray(lab.bookingInfo)) {
-          lab.bookingInfo.forEach(booking => {
-            try {
-              const bookingDateObject = new Date(booking.date);
+          lab.bookingInfo
+            .filter(booking => booking.status !== "4" && booking.status !== 4) // Exclude cancelled bookings
+            .forEach(booking => {
+              try {
+                const bookingDateObject = new Date(booking.date);
 
-              if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
-                // Convert date to string YYYY-MM-DD for tooltip
-                const yyyy = bookingDateObject.getFullYear();
-                const mm = String(bookingDateObject.getMonth() + 1).padStart(2, '0');
-                const dd = String(bookingDateObject.getDate()).padStart(2, '0');
-                const dateString = `${yyyy}-${mm}-${dd}`;
+                if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
+                  // Convert date to string YYYY-MM-DD for tooltip
+                  const yyyy = bookingDateObject.getFullYear();
+                  const mm = String(bookingDateObject.getMonth() + 1).padStart(2, '0');
+                  const dd = String(bookingDateObject.getDate()).padStart(2, '0');
+                  const dateString = `${yyyy}-${mm}-${dd}`;
 
-                allBookingsDetails.push({
-                  labId: lab.id,
-                  labName: lab.name,
-                  date: bookingDateObject,
-                  time: booking.time,
-                  minutes: booking.minutes,
-                  dateString,
-                });
+                  allBookingsDetails.push({
+                    labId: lab.id,
+                    labName: lab.name,
+                    date: bookingDateObject,
+                    time: booking.time,
+                    minutes: booking.minutes,
+                    dateString,
+                    status: booking.status, // Include status for calendar styling
+                  });
+                }
+              } catch (error) {
+                console.error("Error converting date in lab:", lab.name, booking.date, error);
               }
-            } catch (error) {
-              console.error("Error converting date in lab:", lab.name, booking.date, error);
-            }
-          });
+            });
         }
       });
       setBookedDates(allBookingsDetails);

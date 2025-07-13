@@ -4,6 +4,10 @@ import DatePicker from "react-datepicker"
 import Link from 'next/link'
 import { useUser } from '@/context/UserContext'
 import { useLabs } from '@/context/LabContext'
+import { useNotifications } from '@/context/NotificationContext'
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
+import { defaultChain } from '@/utils/networkConfig'
 import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
 import AccessControl from '@/components/AccessControl'
@@ -14,12 +18,25 @@ import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalend
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
   const { labs, loading } = useLabs();
+  const { addPersistentNotification, addErrorNotification } = useNotifications();
   const [userData, setUserData] = useState(null);
   const [now, setNow] = useState(null);
   const [currentDate, setCurrentDate] = useState(null);
   const [availableLab, setAvailableLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [reservationStatuses, setReservationStatuses] = useState({}); // Store reservation statuses
+
+  // Wagmi hooks for contract interaction
+  const chainKey = defaultChain.name.toLowerCase();
+  const contractAddress = contractAddresses[chainKey];
+  
+  const { writeContract, data: hash, error, isPending, reset } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   // Initialize time on client side only
   useEffect(() => {
@@ -36,23 +53,175 @@ export default function UserDashboard() {
     }
   }, [labs, now]);
       
-  const openModal = (type, labId) => {
+  const openModal = (type, labId, booking = null) => {
     setSelectedLabId(labId);
+    setSelectedBooking(booking);
     setIsModalOpen(type);
   };
 
   const closeModal = () => {
     setIsModalOpen(null);
     setSelectedLabId(null);
+    setSelectedBooking(null);
+    setIsCanceling(false);
   };
 
-  const handleCancellation = () => {
-    console.log('The cancellation for lab ' + selectedLabId + ' is being processed...');
-    closeModal();
+  // Function to fetch reservation status
+  const fetchReservationStatus = async (reservationKey) => {
+    if (!reservationKey || reservationStatuses[reservationKey]) {
+      return reservationStatuses[reservationKey] || null;
+    }
+
+    try {
+      const response = await fetch('/api/contract/reservation/getReservation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reservationKey }),
+      });
+
+      if (response.ok) {
+        const { reservation } = await response.json();
+        setReservationStatuses(prev => ({
+          ...prev,
+          [reservationKey]: reservation
+        }));
+        return reservation;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch reservation status for', reservationKey, error);
+    }
+
+    return null;
   };
+
+  // Load reservation statuses when bookings change
+  useEffect(() => {
+    if (userData?.labs && now) {
+      const allBookings = userData.labs.flatMap(lab => 
+        Array.isArray(lab.userBookings) ? lab.userBookings : []
+      );
+      
+      // Fetch status for bookings that have reservationKey
+      allBookings.forEach(booking => {
+        if (booking.reservationKey && !reservationStatuses[booking.reservationKey]) {
+          fetchReservationStatus(booking.reservationKey);
+        }
+      });
+    }
+  }, [userData?.labs, now]);
+
+  const handleCancellation = async (booking) => {
+    if (!booking || !booking.reservationKey) {
+      console.error('Missing booking or reservation key:', booking);
+      addErrorNotification('No booking selected or missing reservation key', '');
+      return;
+    }
+
+    // Check if already canceled using direct booking status
+    if (booking.status === "4" || booking.status === 4) {
+      addErrorNotification('This reservation is already canceled', '');
+      return;
+    }
+
+    setIsCanceling(true);
+    setSelectedBooking(booking);
+    reset();
+    
+    try {
+      // Get cached reservation status or use booking data directly
+      const reservationStatus = reservationStatuses[booking.reservationKey];
+      
+      // Quick check if cached status shows already canceled
+      if (reservationStatus?.isCanceled) {
+        throw new Error('This reservation is already canceled');
+      }
+      
+      // Determine cancellation method based on available data
+      if (reservationStatus?.isBooked || booking.status === "1" || booking.status === 1) {
+        // BOOKED - use cancelBooking
+        await handleConfirmedBookingCancellation(booking, reservationStatus || { isBooked: true, exists: true });
+      } else if (reservationStatus?.isPending || booking.status === "0" || booking.status === 0) {
+        // PENDING - use cancelReservationRequest
+        await handleRequestedBookingCancellation(booking, reservationStatus || { isPending: true, exists: true });
+      }
+      
+    } catch (error) {
+      console.error('Cancellation failed:', error);
+      addErrorNotification(error.message || 'Cancellation failed', '');
+      setIsCanceling(false);
+    }
+  };
+
+  const handleConfirmedBookingCancellation = async (booking, reservationStatus) => {
+    if (!contractAddress) {
+      throw new Error('Contract not available for this network');
+    }
+
+    console.log('Processing confirmed booking cancellation (BOOKED state)...');
+
+    // Execute contract transaction immediately - let the contract handle all validations
+    writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: 'cancelBooking',
+      args: [booking.reservationKey],
+      gas: 300000n,
+    });
+
+    addPersistentNotification('info', '🔄 Please confirm the booking cancellation in your wallet...');
+  };
+
+  const handleRequestedBookingCancellation = async (booking, reservationStatus) => {
+    if (!contractAddress) {
+      throw new Error('Contract not available for this network');
+    }
+
+    console.log('Processing pending reservation request cancellation (PENDING state)...');
+
+    // Execute contract transaction immediately - let the contract handle all validations
+    writeContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: 'cancelReservationRequest',
+      args: [booking.reservationKey],
+      gas: 300000n,
+    });
+
+    addPersistentNotification('info', '🔄 Please confirm the request cancellation in your wallet...');
+  };
+
+  // Handle transaction results
+  useEffect(() => {
+    if (isConfirmed && isCanceling) {
+      addPersistentNotification('success', '✅ Cancellation completed successfully!');
+      setIsCanceling(false);
+      
+      // Clear the reservation status cache for this booking to force refresh
+      if (selectedBooking?.reservationKey) {
+        setReservationStatuses(prev => {
+          const updated = { ...prev };
+          delete updated[selectedBooking.reservationKey];
+          return updated;
+        });
+      }
+      
+      // Reset the transaction hash to prevent duplicate notifications
+      reset();
+    }
+  }, [isConfirmed, isCanceling, addPersistentNotification, reset, selectedBooking]);
+
+  useEffect(() => {
+    if (error && isCanceling) {
+      addErrorNotification(error, 'Booking cancellation');
+      setIsCanceling(false);
+      // Reset the error to prevent it from triggering again
+      reset();
+    }
+  }, [error, isCanceling, addErrorNotification, reset]);
 
   const handleRefund = () => {
-    console.log('The refund for lab ' + selectedLabId + ' is being processed...');
     closeModal();
   };
 
@@ -65,10 +234,13 @@ export default function UserDashboard() {
       day,
       currentDateRender,
       bookingInfo: labs.flatMap(lab =>
-        (lab.bookingInfo || []).map(booking => ({
-          ...booking,
-          labName: lab.name
-        }))
+        (lab.bookingInfo || [])
+          .filter(booking => booking.status !== "4" && booking.status !== 4) // Exclude cancelled bookings
+          .map(booking => ({
+            ...booking,
+            labName: lab.name,
+            status: booking.status // Ensure status is included for styling
+          }))
       ),
     });
 
@@ -79,6 +251,8 @@ export default function UserDashboard() {
           lab.userBookings
             .filter(booking => {
               if (!booking.date || !booking.time || !booking.minutes) return false;
+              // Exclude cancelled bookings from calendar highlights
+              if (booking.status === "4" || booking.status === 4) return false;
               const endDateTime = new Date(`${booking.date}T${booking.time}`);
               endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(booking.minutes));
               return endDateTime.getTime() > now.getTime();
@@ -376,9 +550,10 @@ export default function UserDashboard() {
                           booking={booking}
                           startTime={startTime}
                           endTime={endTime}
-                          onCancel={() => openModal('cancel', booking.lab.id, booking)}
-                          isModalOpen={isModalOpen}
+                          onCancel={handleCancellation}
+                          isModalOpen={false}
                           closeModal={closeModal}
+                          reservationStatus={reservationStatuses[booking.reservationKey]}
                         />
                       );
                     }) || []}
@@ -403,14 +578,24 @@ export default function UserDashboard() {
                         if (!b.date || !b.time || !b.minutes) return false;
                         const endDateTime = new Date(`${b.date}T${b.time}`);
                         endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
-                        return endDateTime.getTime() <= now.getTime();
+                        // Only include past bookings that were confirmed (not PENDING)
+                        const hasReservationKey = b.reservationKey;
+                        // Use local booking status primarily, fallback to reservationStatuses if available
+                        const wasPending = b.status === "0" || b.status === 0 || 
+                                          (!b.status && reservationStatuses[b.reservationKey]?.isPending);
+                        return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
                       }))
                     .flatMap((lab) => {
                       const pastBookings = lab.userBookings.filter(b => {
                         if (!b.date || !b.time || !b.minutes) return false;
                         const endDateTime = new Date(`${b.date}T${b.time}`);
                         endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
-                        return endDateTime.getTime() <= now.getTime();
+                        // Only include past bookings that were confirmed (not PENDING)
+                        const hasReservationKey = b.reservationKey;
+                        // Use local booking status primarily, fallback to reservationStatuses if available
+                        const wasPending = b.status === "0" || b.status === 0 || 
+                                          (!b.status && reservationStatuses[b.reservationKey]?.isPending);
+                        return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
                       })
                       .map(booking => ({
                         ...booking,
@@ -446,9 +631,11 @@ export default function UserDashboard() {
                           booking={booking}
                           startTime={startTime}
                           endTime={endTime}
-                          onRefund={() => openModal('refund', booking.lab.id, booking)}
-                          isModalOpen={isModalOpen}
+                          onRefund={(labId, booking) => openModal('refund', labId, booking)}
+                          onConfirmRefund={handleRefund}
+                          isModalOpen={isModalOpen === 'refund' && selectedLabId === booking.lab.id && selectedBooking?.reservationKey === booking.reservationKey}
                           closeModal={closeModal}
+                          reservationStatus={reservationStatuses[booking.reservationKey]}
                         />
                       );
                     }) || []}
