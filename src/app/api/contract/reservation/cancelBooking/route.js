@@ -1,6 +1,3 @@
-import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
-
 export async function POST(request) {
   try {
     const body = await request.json();

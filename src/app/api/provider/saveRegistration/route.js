@@ -45,6 +45,7 @@ export async function POST(request) {
           providers = [];
         }
       } catch (e) {
+        console.warn(`Failed to fetch existing providers blob:`, e.message);
         // Blob may not exist yet
         providers = [];
       }

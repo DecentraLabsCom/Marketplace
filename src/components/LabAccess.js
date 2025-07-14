@@ -64,6 +64,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
         setTimeout(() => setErrorMessage(null), 1500);
       }
     } catch (error) {
+      console.error('Lab access error:', error);
       setErrorMessage("There was an error verifying your booking. Try again.");
       setTimeout(() => setErrorMessage(null), 1500);
     } finally {
@@ -79,7 +80,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
     <div onClick={handleAccess} className="text-center">
       {/* Show the error message */}
       {errorMessage && ( 
-        <div className={`fixed z-20 top-1/2 left-1/2 p-4 w-3/4 transform -translate-x-1/2 
+        <div className={`fixed z-20 top-1/2 left-1/2 p-4 w-3/4 -translate-x-1/2 
           -translate-y-1/2 bg-[#715c8c] text-white rounded-lg shadow-lg opacity-85`}>
             {errorMessage}
         </div>

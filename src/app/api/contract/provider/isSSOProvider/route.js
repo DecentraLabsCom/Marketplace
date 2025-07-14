@@ -33,6 +33,7 @@ export async function POST(request) {
           break;
         }
       } catch (error) {
+        console.warn(`Failed to fetch provider ${i}:`, error.message);
         // Provider might not exist or be inactive, continue
         continue;
       }

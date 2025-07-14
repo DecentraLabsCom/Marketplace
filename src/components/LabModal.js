@@ -182,7 +182,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
       dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
     }
-  }, [isOpen, lab]);
+  }, [isOpen, lab, jsonFileRegex]);
 
   const handleImageChange = useCallback((e) => {
         if (e.target.files) {
@@ -249,7 +249,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                 uploadImages();
             }
         }
-    }, [localLab, localImages, imageUrls, lab.id, maxId]);
+    }, [localLab, localImages, imageUrls, currentLabId, lab]);
 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
@@ -301,7 +301,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         }
       }
     }
-  }, [localLab, localDocs, docUrls, lab.id, maxId]);
+  }, [localLab, localDocs, currentLabId]);
 
   const removeImage = (index) => {
     const newImages = localImages.filter((_, i) => i !== index);

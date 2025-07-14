@@ -25,7 +25,8 @@ export async function GET(request) {
             name = metadata?.name ?? name;
           }
         } catch (err) {
-          // Ignore fetch errors and keep default name
+          console.warn(`Failed to fetch metadata for lab ${labId} from ${lab.base.uri}:`, err.message);
+          // Keep default name and continue
         }
         ownedLabs.push({
           id: labId,

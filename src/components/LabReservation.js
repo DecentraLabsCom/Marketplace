@@ -231,11 +231,8 @@ export default function LabReservation({ id }) {
         throw new Error(errorData.error || 'Server booking failed');
       }
 
-      const result = await response.json();
-
       // Show success notification
       handleBookingSuccess();
-
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ');
     } finally {

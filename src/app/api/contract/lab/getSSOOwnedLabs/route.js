@@ -34,7 +34,8 @@ export async function POST(request) {
             labMetadata = await response.json();
           }
         } catch (err) {
-          // Ignore fetch errors
+          console.warn(`Failed to fetch metadata for SSO lab ${labId} from ${lab.base.uri}:`, err.message);
+          // Continue with default metadata
         }
 
         // Check if this lab's metadata indicates it belongs to this email/provider

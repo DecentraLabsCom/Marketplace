@@ -1,6 +1,5 @@
 import { ethers } from 'ethers';
 import { contractABI, contractAddresses } from '@/contracts/diamond';
-import { isVercel } from '@/utils/isVercel';
 
 export async function POST(request) {
   try {

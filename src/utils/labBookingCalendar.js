@@ -54,14 +54,8 @@ export function renderDayContents({ day, currentDateRender, bookingInfo }) {
         });
 
     let title = undefined;
-    let hasPendingBookings = false;
 
     if (bookingsOnDay.length > 0) {
-        // Check if any booking is pending
-        hasPendingBookings = bookingsOnDay.some(booking => 
-            booking.status === "0" || booking.status === 0
-        );
-
         title = bookingsOnDay.map((booking) => {
             if (booking?.time && booking?.minutes) {
                 // Build startDate correctly depending on the type of date

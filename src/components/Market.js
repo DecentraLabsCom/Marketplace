@@ -9,7 +9,7 @@ import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function Market() {
   const searchInputRef = useRef(null);
-  const { labs, loading, bookingsLoading } = useLabs();
+  const { labs, loading } = useLabs();
   const { isLoggedIn } = useUser();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
@@ -17,9 +17,6 @@ export default function Market() {
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
   const [searchDebounce, setSearchDebounce] = useState("");
-  
-  // Real-time booking status updates - triggers re-render when booking status might change
-  const updateTrigger = useMinuteUpdates(isLoggedIn, labs);
 
   // Get all lab categories and providersusing memoization
   const categories = useMemo(() => {

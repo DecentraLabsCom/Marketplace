@@ -8,10 +8,10 @@ import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import MediaDisplayWithFallback from "@/components/MediaDisplayWithFallback";
 
 const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
-  const { address, isConnected, user, isSSO } = useUser();
+  const { address, isConnected } = useUser();
  
   return (
-    <div className={`relative group rounded-md shadow-md bg-gray-200 transform 
+    <div className={`relative group rounded-md shadow-md bg-gray-200 
       transition-transform duration-300 hover:scale-105 
       ${activeBooking ? 'border-4 border-[#715c8c] animate-glow' : ''}`} 
       style={{ height: '400px' }}>

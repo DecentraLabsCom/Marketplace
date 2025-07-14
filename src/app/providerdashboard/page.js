@@ -12,7 +12,7 @@ import ProviderLabItem from '@/components/ProviderLabItem';
 import { renderDayContents } from '@/utils/labBookingCalendar';
 
 export default function ProviderDashboard() {
-  const { address, isConnected, isLoggedIn, user, isSSO } = useUser();
+  const { address, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
   const { addTemporaryNotification, addPersistentNotification, addErrorNotification } = useNotifications();
 
@@ -31,7 +31,6 @@ export default function ProviderDashboard() {
   // Wait for transaction receipt
   const { 
     data: receipt, 
-    isLoading: isWaitingForReceipt, 
     isSuccess: isReceiptSuccess 
   } = useWaitForTransactionReceipt({
     hash: lastTxHash,
@@ -105,6 +104,7 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     if (ownedLabs) {
+      const today = new Date();
       const allBookingsDetails = [];
 
       ownedLabs.forEach(lab => {
@@ -140,14 +140,15 @@ export default function ProviderDashboard() {
       });
       setBookedDates(allBookingsDetails);
     }
-  }, [ownedLabs, today.toDateString()]);
+  }, [ownedLabs]);
 
   // Automatically set the first lab as the selected lab
+  const hasOwnedLabs = ownedLabs.length > 0;
   useEffect(() => {
-    if (ownedLabs.length > 0 && !selectedLabId && !isModalOpen) {
+    if (hasOwnedLabs && !selectedLabId && !isModalOpen) {
       setSelectedLabId(ownedLabs[0].id);
     }
-  }, [ownedLabs, selectedLabId, isModalOpen]);
+  }, [hasOwnedLabs, selectedLabId, isModalOpen, ownedLabs]);
 
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
@@ -244,7 +245,7 @@ export default function ProviderDashboard() {
           });
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         } catch (error) {
-          addTemporaryNotification('error', '❌ Failed to save lab data.');
+          addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
           return;
         }
       }

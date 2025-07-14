@@ -116,7 +116,7 @@ export default function RegisterProviderForm() {
         // Clear form upon success
         setFormData({ name: '', email: '', wallet: '', country: '' });
       } catch (err) {
-        setErrors({ general: ['Failed to save provider. Try again later.'] });
+        setErrors({ general: [`Failed to save provider: ${err.message || 'Try again later.'}`] });
       }
     } else {
       // Form data is invalid, update error state

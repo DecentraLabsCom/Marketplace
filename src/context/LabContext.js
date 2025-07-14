@@ -53,7 +53,7 @@ export function LabData({ children }) {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [lastBookingsFetch, setLastBookingsFetch] = useState(0);
 
-  const { isLoggedIn, address, user, isSSO } = useUser();
+  const { address } = useUser();
 
   // Memoized cache keys
   const cacheKeys = useMemo(() => ({

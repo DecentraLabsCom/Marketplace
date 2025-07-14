@@ -236,9 +236,6 @@ export function ReservationEventProvider({ children }) {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            const result = await response.json();
-
         } catch (error) {
             console.error('Error processing reservation request:', error);
             

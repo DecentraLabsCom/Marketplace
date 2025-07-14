@@ -187,7 +187,7 @@ export default function MediaDisplayWithFallback({
         className={className} 
         style={style} 
         sizes={sizes} 
-        onError={(e) => {
+        onError={() => {
           if (isVercel && !hasVercelBlobFailed) {
             setHasVercelBlobFailed(true); // Try local fallback
           } else if (!isVercel && !hasLocalFallbackFailed) {
@@ -215,7 +215,7 @@ export default function MediaDisplayWithFallback({
       return (
         <div className="flex flex-col items-center justify-center bg-red-100 text-red-700 rounded-lg p-4 
         text-center" style={{ height: height, width: width }}>
-          <XCircle className="h-8 w-8 mb-2" />
+          <XCircle className="size-8 mb-2" />
           <p>Document could not be loaded.</p>
           <p className="text-sm">Please check the URL or try again.</p>
         </div>
@@ -232,7 +232,7 @@ export default function MediaDisplayWithFallback({
             height={height} 
             width={width} 
             className={className}
-            onError={(e) => {
+            onError={() => {
               setHasDocError(true);
               setIsLoadingDoc(false);
             }}

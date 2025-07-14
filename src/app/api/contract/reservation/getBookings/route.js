@@ -2,7 +2,7 @@ import { simBookings } from '@/utils/simBookings';
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
-export async function GET(request) {
+export async function GET() {
   // Support GET requests for fetching all bookings
   return handleRequest(null);
 }

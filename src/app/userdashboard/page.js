@@ -14,7 +14,6 @@ import LabBookingItem from '@/components/LabBookingItem'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
 import isBookingActive from '@/utils/isBookingActive'
 import { renderDayContents } from '@/utils/labBookingCalendar';
-import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
@@ -34,7 +33,6 @@ export default function UserDashboard() {
   // Wait for transaction receipt
   const { 
     data: receipt, 
-    isLoading: isWaitingForReceipt, 
     isSuccess: isReceiptSuccess,
     error: receiptError
   } = useWaitForTransactionReceipt({
@@ -49,9 +47,6 @@ export default function UserDashboard() {
   const [selectedLabId, setSelectedLabId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   
-  // Real-time booking status updates - triggers re-render when booking status might change
-  const updateTrigger = useMinuteUpdates(isLoggedIn, labs);
-
   // Initialize time on client side only
   useEffect(() => {
     const currentTime = new Date();
@@ -258,7 +253,6 @@ export default function UserDashboard() {
   // To show starting and ending times of bookings
   const getBookingTimes = booking => {
     if (!booking?.time || !booking?.minutes) return { start: null, end: null };
-    const [hours, minutes] = booking.time.split(':').map(Number);
     const startDate = new Date(`${booking.date}T${booking.time}`);
     const endDate = new Date(startDate.getTime() + booking.minutes * 60 * 1000);
     return {
@@ -279,7 +273,7 @@ export default function UserDashboard() {
         labs: labs,
       });
     }
-  }, [isLoggedIn, labs]);
+  }, [isLoggedIn, labs, address, user?.id, user?.affiliation]);
 
   if (!userData || !now) {
     return (
@@ -371,7 +365,7 @@ export default function UserDashboard() {
                         <div className='flex flex-col items-center'>
                           <div key={availableLab.id} className={`md:w-[320px] w-[305px] group 
                             justify-between items-center shadow-md bg-gray-200 
-                            transform transition-transform duration-300 
+                            transition-transform duration-300 
                             hover:scale-105 mr-3 mb-4 p-2 h-[320px] rounded-lg flex 
                             flex-col border-4 border-[#715c8c] animate-glow`}>
                             <div className='rounded-lg h-[150px] w-full mb-4'>
@@ -419,10 +413,10 @@ export default function UserDashboard() {
                     ) : firstActiveLab && nextBooking ? (
                       <React.Fragment key={firstActiveLab.id}>
                         <div className='flex flex-col items-center'>
-                          <div key={firstActiveLab.id} className={`w-[320px] group 
-                            justify-between items-center shadow-md bg-gray-200 transform
+                          <div key={firstActiveLab.id} className={`size-[320px] group 
+                            justify-between items-center shadow-md bg-gray-200 
                             transition-transform duration-300 hover:scale-105 mr-3 mb-4
-                            border-2 p-2 h-[320px] rounded-lg flex flex-col`}>
+                            border-2 p-2 rounded-lg flex flex-col`}>
                             <div className='rounded-lg h-[150px] w-full mb-4'>
                               <Carrousel lab={firstActiveLab} maxHeight={210} />
                             </div>

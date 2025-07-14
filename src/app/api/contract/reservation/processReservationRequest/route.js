@@ -208,6 +208,7 @@ async function confirmReservation(contract, reservationKey) {
 
 async function denyReservation(contract, reservationKey, reason) {
   try {
+    console.log(`Denying reservation ${reservationKey}: ${reason}`);
     // The contract function only accepts reservationKey, not reason
     const tx = await retry(() => contract.denyReservationRequest(reservationKey));
     await tx.wait();

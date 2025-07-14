@@ -10,7 +10,7 @@ export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const toggleModal = () => setIsModalOpen(!isModalOpen);
 
-  const { isConnected, user, isLoggedIn } = useUser();
+  const { isLoggedIn } = useUser();
 
   // Close modal on Escape key press
   useEffect(() => {

@@ -12,7 +12,7 @@ let labsCache = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
-export async function GET(request) {
+export async function GET() {
   // Check server-side cache first
   const now = Date.now();
   if (labsCache && (now - cacheTimestamp) < CACHE_TTL) {

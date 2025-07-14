@@ -26,7 +26,7 @@ const DocPreviewList = React.memo(function DocPreviewList({ docUrls, removeDoc, 
                 className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed"
                 disabled={isExternalURI}
               >
-                <XCircle className="h-4 w-4" />
+                <XCircle className="size-4" />
               </button>
             </li>
           );

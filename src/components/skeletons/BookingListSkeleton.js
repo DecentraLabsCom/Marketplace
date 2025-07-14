@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard, SkeletonText, SkeletonButton } from './Skeleton';
+import { Skeleton, SkeletonCard, SkeletonButton } from './Skeleton';
 
 export function BookingItemSkeleton() {
   return (
