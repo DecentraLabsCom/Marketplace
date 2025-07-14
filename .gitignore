@@ -45,3 +45,6 @@ next-env.d.ts
 
 # certificates
 /certificates
+
+# development documentation (temporary features)
+CUSTODIAL_WALLET_SYSTEM.md
