@@ -2,28 +2,49 @@
 import React, { useEffect, useState } from 'react'
 import DatePicker from "react-datepicker"
 import Link from 'next/link'
+import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useLabs } from '@/context/LabContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
-import { defaultChain } from '@/utils/networkConfig'
 import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
 import AccessControl from '@/components/AccessControl'
 import LabBookingItem from '@/components/LabBookingItem'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
+import { defaultChain } from '@/utils/networkConfig'
 import isBookingActive from '@/utils/isBookingActive'
-import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
+import { renderDayContents } from '@/utils/labBookingCalendar';
 import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
   const { labs, loading, bookingsLoading } = useLabs();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
+  const { chain } = useAccount();
+  
+  // Contract interaction hooks
+  const { 
+    writeContract, 
+    data: hash, 
+    error: writeError,
+    reset 
+  } = useWriteContract();
+  
+  const { 
+    isLoading: isConfirming, 
+    isSuccess: isConfirmed,
+    error: confirmError 
+  } = useWaitForTransactionReceipt({
+    hash,
+  });
+  
+  // Get contract address for current chain
+  const contractAddress = contractAddresses[chain?.name?.toLowerCase()] || 
+                          contractAddresses[defaultChain.name.toLowerCase()];
+  
   const [userData, setUserData] = useState(null);
   const [now, setNow] = useState(null);
-  const [currentDate, setCurrentDate] = useState(null);
   const [availableLab, setAvailableLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
@@ -37,7 +58,6 @@ export default function UserDashboard() {
   useEffect(() => {
     const currentTime = new Date();
     setNow(currentTime);
-    setCurrentDate(currentTime.toISOString().slice(0, 10));
   }, []);
 
   // Update availableLab when labs or now changes
@@ -102,8 +122,6 @@ export default function UserDashboard() {
       throw new Error('Contract not available for this network');
     }
 
-    console.log('Processing confirmed booking cancellation (BOOKED state)...');
-
     // Execute contract transaction immediately - let the contract handle all validations
     writeContract({
       address: contractAddress,
@@ -120,8 +138,6 @@ export default function UserDashboard() {
     if (!contractAddress) {
       throw new Error('Contract not available for this network');
     }
-
-    console.log('Processing pending reservation request cancellation (PENDING state)...');
 
     // Execute contract transaction immediately - let the contract handle all validations
     writeContract({
@@ -147,13 +163,14 @@ export default function UserDashboard() {
   }, [isConfirmed, isCanceling, addPersistentNotification, reset]);
 
   useEffect(() => {
-    if (error && isCanceling) {
+    if ((writeError || confirmError) && isCanceling) {
+      const error = writeError || confirmError;
       addErrorNotification(error, 'Booking cancellation');
       setIsCanceling(false);
       // Reset the error to prevent it from triggering again
       reset();
     }
-  }, [error, isCanceling, addErrorNotification, reset]);
+  }, [writeError, confirmError, isCanceling, addErrorNotification, reset]);
 
   const handleRefund = () => {
     closeModal();
