@@ -8,7 +8,7 @@ export default function useContractWriteFunction(functionName) {
   const contractAddress = contractAddresses[safeChain.name.toLowerCase()]
   const { writeContractAsync, ...rest } = useWriteContract()
 
-  async function contractWriteFunction(args) {
+  async function contractWriteFunction(args, options = {}) {
     console.log('Contract write function called with:', {
       functionName,
       args,
@@ -16,7 +16,8 @@ export default function useContractWriteFunction(functionName) {
       safeChain: safeChain.name,
       chainId: safeChain.id,
       userAddress,
-      isConnected
+      isConnected,
+      options
     })
 
     if (!isConnected) {
@@ -27,13 +28,16 @@ export default function useContractWriteFunction(functionName) {
       throw new Error(`Contract address not found for chain: ${safeChain.name}`)
     }
 
-    const result = await writeContractAsync({
+    const contractCall = {
       address: contractAddress,
       abi: contractABI,
       functionName: functionName,
       chainId: safeChain.id,
-      args
-    })
+      args,
+      ...options // This allows passing gas, value, etc.
+    }
+
+    const result = await writeContractAsync(contractCall)
 
     console.log('Contract write result:', result)
     return result

@@ -2,17 +2,16 @@
 import React, { useEffect, useState } from 'react'
 import DatePicker from "react-datepicker"
 import Link from 'next/link'
-import { useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
+import { useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useLabs } from '@/context/LabContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { contractABI, contractAddresses } from '@/contracts/diamond'
+import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
 import AccessControl from '@/components/AccessControl'
 import LabBookingItem from '@/components/LabBookingItem'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
-import { defaultChain } from '@/utils/networkConfig'
 import isBookingActive from '@/utils/isBookingActive'
 import { renderDayContents } from '@/utils/labBookingCalendar';
 import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
@@ -21,27 +20,27 @@ export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
   const { labs, loading, bookingsLoading } = useLabs();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
-  const { chain } = useAccount();
+  const { isConnected } = useAccount();
   
-  // Contract interaction hooks
-  const { 
-    writeContract, 
-    data: hash, 
-    error: writeError,
-    reset 
-  } = useWriteContract();
+  // Contract write functions
+  const { contractWriteFunction: cancelBooking } = useContractWriteFunction('cancelBooking');
+  const { contractWriteFunction: cancelReservationRequest } = useContractWriteFunction('cancelReservationRequest');
   
+  // Transaction state management
+  const [lastTxHash, setLastTxHash] = useState(null);
+  const [txType, setTxType] = useState(null); // 'cancelBooking', 'cancelReservationRequest'
+  const [pendingData, setPendingData] = useState(null);
+  
+  // Wait for transaction receipt
   const { 
-    isLoading: isConfirming, 
-    isSuccess: isConfirmed,
-    error: confirmError 
+    data: receipt, 
+    isLoading: isWaitingForReceipt, 
+    isSuccess: isReceiptSuccess,
+    error: receiptError
   } = useWaitForTransactionReceipt({
-    hash,
+    hash: lastTxHash,
+    enabled: !!lastTxHash
   });
-  
-  // Get contract address for current chain
-  const contractAddress = contractAddresses[chain?.name?.toLowerCase()] || 
-                          contractAddresses[defaultChain.name.toLowerCase()];
   
   const [userData, setUserData] = useState(null);
   const [now, setNow] = useState(null);
@@ -49,7 +48,6 @@ export default function UserDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [isCanceling, setIsCanceling] = useState(false);
   
   // Real-time booking status updates - triggers re-render when booking status might change
   const updateTrigger = useMinuteUpdates(isLoggedIn, labs);
@@ -78,7 +76,6 @@ export default function UserDashboard() {
     setIsModalOpen(null);
     setSelectedLabId(null);
     setSelectedBooking(null);
-    setIsCanceling(false);
   };
 
   const handleCancellation = async (booking) => {
@@ -94,9 +91,12 @@ export default function UserDashboard() {
       return;
     }
 
-    setIsCanceling(true);
+    if (!isConnected) {
+      addErrorNotification('Please connect your wallet first', '');
+      return;
+    }
+
     setSelectedBooking(booking);
-    reset();
     
     try {
       // Determine cancellation method based on booking status
@@ -113,64 +113,78 @@ export default function UserDashboard() {
     } catch (error) {
       console.error('Cancellation failed:', error);
       addErrorNotification(error.message || 'Cancellation failed', '');
-      setIsCanceling(false);
     }
   };
 
   const handleConfirmedBookingCancellation = async (booking) => {
-    if (!contractAddress) {
-      throw new Error('Contract not available for this network');
-    }
-
-    // Execute contract transaction immediately - let the contract handle all validations
-    writeContract({
-      address: contractAddress,
-      abi: contractABI,
-      functionName: 'cancelBooking',
-      args: [booking.reservationKey],
-      gas: 300000n,
-    });
-
     addPersistentNotification('info', '🔄 Please confirm the booking cancellation in your wallet...');
+
+    try {
+      const txHash = await cancelBooking([booking.reservationKey], { gas: 300000n });
+      
+      if (txHash) {
+        setLastTxHash(txHash);
+        setTxType('cancelBooking');
+        setPendingData({ booking });
+      } else {
+        throw new Error('No transaction hash received');
+      }
+    } catch (error) {
+      console.error('Cancel booking error:', error);
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        addPersistentNotification('warning', '🚫 Transaction rejected by user.');
+      } else {
+        addErrorNotification(error, 'Booking cancellation failed: ');
+      }
+    }
   };
 
   const handleRequestedBookingCancellation = async (booking) => {
-    if (!contractAddress) {
-      throw new Error('Contract not available for this network');
-    }
-
-    // Execute contract transaction immediately - let the contract handle all validations
-    writeContract({
-      address: contractAddress,
-      abi: contractABI,
-      functionName: 'cancelReservationRequest',
-      args: [booking.reservationKey],
-      gas: 300000n,
-    });
-
     addPersistentNotification('info', '🔄 Please confirm the request cancellation in your wallet...');
+
+    try {
+      const txHash = await cancelReservationRequest([booking.reservationKey], { gas: 300000n });
+      
+      if (txHash) {
+        setLastTxHash(txHash);
+        setTxType('cancelReservationRequest');
+        setPendingData({ booking });
+      } else {
+        throw new Error('No transaction hash received');
+      }
+    } catch (error) {
+      console.error('Cancel reservation request error:', error);
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        addPersistentNotification('warning', '🚫 Transaction rejected by user.');
+      } else {
+        addErrorNotification(error, 'Request cancellation failed: ');
+      }
+    }
   };
 
-  // Handle transaction results
+  // Handle transaction confirmation
   useEffect(() => {
-    if (isConfirmed && isCanceling) {
+    if (isReceiptSuccess && receipt && txType && pendingData) {
       addPersistentNotification('success', '✅ Cancellation completed successfully!');
-      setIsCanceling(false);
       
-      // Reset the transaction hash to prevent duplicate notifications
-      reset();
+      // Reset transaction state
+      setLastTxHash(null);
+      setTxType(null);
+      setPendingData(null);
     }
-  }, [isConfirmed, isCanceling, addPersistentNotification, reset]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]);
 
+  // Handle transaction errors
   useEffect(() => {
-    if ((writeError || confirmError) && isCanceling) {
-      const error = writeError || confirmError;
-      addErrorNotification(error, 'Booking cancellation');
-      setIsCanceling(false);
-      // Reset the error to prevent it from triggering again
-      reset();
+    if (receiptError && lastTxHash) {
+      addErrorNotification(receiptError, 'Transaction confirmation failed: ');
+      
+      // Reset transaction state
+      setLastTxHash(null);
+      setTxType(null);
+      setPendingData(null);
     }
-  }, [writeError, confirmError, isCanceling, addErrorNotification, reset]);
+  }, [receiptError, lastTxHash, addErrorNotification]);
 
   const handleRefund = () => {
     closeModal();
