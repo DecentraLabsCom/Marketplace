@@ -5,7 +5,6 @@ import { useUser } from '@/context/UserContext';
 import LabCard from "@/components/LabCard";
 import { LabCardGridSkeleton } from '@/components/skeletons';
 import isBookingActive from '@/utils/isBookingActive';
-import { useMinuteUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function Market() {
   const searchInputRef = useRef(null);

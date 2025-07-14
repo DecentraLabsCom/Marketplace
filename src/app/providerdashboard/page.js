@@ -14,7 +14,7 @@ import { renderDayContents } from '@/utils/labBookingCalendar';
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
-  const { addTemporaryNotification, addPersistentNotification, addErrorNotification } = useNotifications();
+  const { addTemporaryNotification, addPersistentNotification } = useNotifications();
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  

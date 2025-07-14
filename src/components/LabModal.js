@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useReducer, useRef, useCallback } from 'react';
+import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react';
 import LabFormFullSetup from '@/components/LabFormFullSetup';
 import LabFormQuickSetup from '@/components/LabFormQuickSetup';
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation';
@@ -68,7 +68,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const docUploadRef = useRef(null);
 
   const currentLabId = lab.id || maxId + 1;
-  const jsonFileRegex = new RegExp(/^[\w\-._/]+\.json$/i);
+  const jsonFileRegex = useMemo(() => new RegExp(/^[\w\-._/]+\.json$/i), []);
 
   const uploadFile = async (file, destinationFolder, labId) => {
     const formData = new FormData();
