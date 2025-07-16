@@ -1393,7 +1393,7 @@ export const contractABI = [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
@@ -1406,7 +1406,7 @@ export const contractABI = [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
@@ -1432,7 +1432,7 @@ export const contractABI = [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
@@ -1445,13 +1445,13 @@ export const contractABI = [
     "anonymous": false,
     "inputs": [
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "address",
         "name": "renter",
         "type": "address"
       },
       {
-        "indexed": false,
+        "indexed": true,
         "internalType": "uint256",
         "name": "tokenId",
         "type": "uint256"
@@ -1541,7 +1541,7 @@ export const contractABI = [
         "type": "bytes32"
       }
     ],
-    "name": "confimReservationRequest",
+    "name": "confirmReservationRequest",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
