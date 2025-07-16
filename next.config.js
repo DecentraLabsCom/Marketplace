@@ -9,8 +9,16 @@ const nextConfig = {
   publicRuntimeConfig: {
     basePath: '', //appendPath,
   },
+  turbopack: {
+  },
   webpack(config) {
     config.resolve.alias['@'] = path.resolve('./src');
+    // For OneDrive
+    config.watchOptions = {
+      aggregateTimeout: 300,
+      poll: 1000,
+      ignored: /node_modules/,
+    };
     return config;
   },
   images: {
