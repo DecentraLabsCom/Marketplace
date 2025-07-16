@@ -109,7 +109,7 @@ export function ReservationEventProvider({ children }) {
                 });
                 
                 // Show success notification
-                addPersistentNotification('success', '✅ Reservation confirmed and stored onchain!');
+                addPersistentNotification('success', '✅ Reservation confirmed and recorded onchain!');
                 
                 // Refresh bookings to show the confirmed reservation
                 fetchBookings();
@@ -129,7 +129,7 @@ export function ReservationEventProvider({ children }) {
                 const reason = log.args?.reason || 'Reservation outside allowed dates';
                 
                 if (process.env.NODE_ENV === 'development') {
-                    console.log('ReservationRequestDenied event:', { reservationKey, reason, processingReservations: Array.from(processingReservations) });
+                    console.log('🔍 ReservationRequestDenied event:', { reservationKey, reason, processingReservations: Array.from(processingReservations) });
                 }
                 
                 // Remove from processing

@@ -151,9 +151,13 @@ export async function POST(request) {
       if (isDev) debugMessages.push('Step 5: Reservation is outside allowed dates, denying...');
       let reason = 'Reservation outside allowed dates';
       if (reservationStart < labOpens) {
-        reason = 'Reservation starts before lab opens';
+        reason = `Reservation starts before lab opens (${new Date(reservationStart * 1000).toISOString()} < ${new Date(labOpens * 1000).toISOString()})`;
       } else if (reservationEnd > labCloses) {
-        reason = 'Reservation ends after lab closes';
+        reason = `Reservation ends after lab closes (${new Date(reservationEnd * 1000).toISOString()} > ${new Date(labCloses * 1000).toISOString()})`;
+      }
+      
+      if (isDev) {
+        console.log('🔍 RESERVATION DEBUG - DENIAL REASON:', reason);
       }
       
       await denyReservation(contract, reservationKey, reason);
@@ -196,8 +200,7 @@ export async function POST(request) {
 
 async function confirmReservation(contract, reservationKey) {
   try {
-    // TODO: Change when the typo in the contract function is fixed
-    const tx = await retry(() => contract.confimReservationRequest(reservationKey));
+    const tx = await retry(() => contract.confirmReservationRequest(reservationKey));
     await tx.wait();
     return tx.hash;
   } catch (error) {
