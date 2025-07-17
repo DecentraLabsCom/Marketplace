@@ -7,49 +7,6 @@ import { contractABI, contractAddresses } from '@/contracts/diamond';
 import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
 
-// Helper function to parse hex data manually
-const parseReservationRequestedData = (data) => {
-    try {
-        // Remove 0x prefix and split into 32-byte chunks
-        const cleanData = data.slice(2);
-        const chunks = [];
-        for (let i = 0; i < cleanData.length; i += 64) {
-            chunks.push(cleanData.slice(i, i + 64));
-        }
-        
-        if (chunks.length >= 5) {
-            // Parse based on the event structure:
-            // renter (address) - 32 bytes, but address is last 20 bytes
-            const renter = '0x' + chunks[0].slice(24); // Remove padding, get last 20 bytes
-            
-            // tokenId (uint256) - 32 bytes
-            const tokenId = BigInt('0x' + chunks[1]);
-            
-            // start (uint256) - 32 bytes  
-            const start = BigInt('0x' + chunks[2]);
-            
-            // end (uint256) - 32 bytes
-            const end = BigInt('0x' + chunks[3]);
-            
-            // reservationKey (bytes32) - 32 bytes
-            const reservationKey = '0x' + chunks[4];
-            
-            return {
-                renter,
-                tokenId,
-                start,
-                end,
-                reservationKey
-            };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error parsing reservation data:', error);
-        return null;
-    }
-};
-
 const ReservationEventContext = createContext();
 
 export function ReservationEventProvider({ children }) {
@@ -67,16 +24,11 @@ export function ReservationEventProvider({ children }) {
         eventName: 'ReservationRequested',
         onLogs(logs) {
             logs.forEach(log => {
-                // If args is empty, try to parse manually from topics and data
-                if (!log.args || Object.keys(log.args).length === 0) {
-                    const parsedData = parseReservationRequestedData(log.data);
-                    if (parsedData) {
-                        handleReservationRequested(parsedData);
-                        return;
-                    }
+                if (log.args) {
+                    handleReservationRequested(log.args);
+                } else {
+                    console.error('ReservationRequested event received without parsed args:', log);
                 }
-                
-                handleReservationRequested(log.args);
             });
         },
     });
@@ -88,11 +40,15 @@ export function ReservationEventProvider({ children }) {
         eventName: 'ReservationConfirmed',
         onLogs(logs) {
             logs.forEach(log => {
-                // The reservationKey is in log.data
-                const reservationKey = log.data;
+                const { reservationKey } = log.args || {};
                 
                 if (process.env.NODE_ENV === 'development') {
                     console.log('ReservationConfirmed event:', { reservationKey, processingReservations: Array.from(processingReservations) });
+                }
+                
+                if (!reservationKey) {
+                    console.error('ReservationConfirmed event missing reservationKey:', log);
+                    return;
                 }
                 
                 // Remove from processing
@@ -124,12 +80,15 @@ export function ReservationEventProvider({ children }) {
         eventName: 'ReservationRequestDenied',
         onLogs(logs) {
             logs.forEach(log => {
-                // The reservationKey is in log.data
-                const reservationKey = log.data;
-                const reason = log.args?.reason || 'Reservation outside allowed dates';
+                const { reservationKey } = log.args || {};
                 
                 if (process.env.NODE_ENV === 'development') {
-                    console.log('🔍 ReservationRequestDenied event:', { reservationKey, reason, processingReservations: Array.from(processingReservations) });
+                    console.log('🔍 ReservationRequestDenied event:', { reservationKey, processingReservations: Array.from(processingReservations) });
+                }
+                
+                if (!reservationKey) {
+                    console.error('ReservationRequestDenied event missing reservationKey:', log);
+                    return;
                 }
                 
                 // Remove from processing
@@ -145,54 +104,28 @@ export function ReservationEventProvider({ children }) {
                     return newSet;
                 });
                 
-                // Show denial notification with reason
-                addPersistentNotification('error', `❌ Reservation denied: ${reason}`);
+                // Show denial notification
+                addPersistentNotification('error', '❌ Reservation denied: Reservation outside allowed dates');
             });
         },
     });
 
     const handleReservationRequested = async (args) => {
-        // The ReservationRequested event has these parameters:
-        // - renter (indexed, address) 
-        // - tokenId (indexed, uint256) - this is the labId
-        // - start (uint256)
-        // - end (uint256) 
-        // - reservationKey (bytes32)
+        const { renter, tokenId, start, end, reservationKey } = args;
         
-        let reservationKey, labId, user, start, end;
-        
-        if (Array.isArray(args)) {
-            // If args is an array, extract by position
-            [user, labId, start, end, reservationKey] = args;
-        } else if (args && typeof args === 'object') {
-            // If args is an object, extract by property names matching the ABI
-            const { renter, tokenId, start: startTime, end: endTime, reservationKey: resKey } = args;
-            user = renter;
-            labId = tokenId;
-            start = startTime;
-            end = endTime;
-            reservationKey = resKey;
-            
-            // Sometimes the args might be numbered (0, 1, 2, etc.)
-            if (!user && args[0] !== undefined) {
-                user = args[0];
-                labId = args[1];
-                start = args[2];
-                end = args[3];
-                reservationKey = args[4];
-            }
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 ReservationRequested event:', {
+                renter,
+                tokenId: tokenId?.toString(),
+                start: start?.toString(),
+                end: end?.toString(),
+                reservationKey
+            });
         }
         
         // Validate that all required arguments exist
-        if (!reservationKey || !labId || !user || !start || !end) {
-            console.error('ReservationRequested event missing required arguments:', {
-                reservationKey,
-                labId,
-                user,
-                start,
-                end,
-                originalArgs: args
-            });
+        if (!reservationKey || !tokenId || !renter || !start || !end) {
+            console.error('ReservationRequested event missing required arguments:', args);
             return;
         }
         
@@ -201,7 +134,7 @@ export function ReservationEventProvider({ children }) {
             const newSet = new Set(prev).add(reservationKey);
             
             if (process.env.NODE_ENV === 'development') {
-                console.log('Adding reservation to processing:', { reservationKey, total: newSet.size, allKeys: Array.from(newSet) });
+                console.log('Adding reservation to processing:', { reservationKey, total: newSet.size });
             }
             
             return newSet;
@@ -209,14 +142,15 @@ export function ReservationEventProvider({ children }) {
 
         try {
             // Get metadata URI from labs context
-            const lab = labs?.find(lab => lab.id === labId.toString());
+            const lab = labs?.find(lab => lab.id === tokenId.toString());
             
             if (!lab || !lab.uri) {
-                console.error('Lab not found in context or missing uri:', { labId: labId.toString(), availableLabs: labs?.map(l => ({ id: l.id, uri: l.uri })) });
+                console.error('Lab not found in context or missing uri:', { 
+                    labId: tokenId.toString(), 
+                    availableLabs: labs?.map(l => ({ id: l.id, uri: l.uri })) 
+                });
                 throw new Error('Could not get metadata URI from labs context');
             }
-            
-            const metadataUri = lab.uri;
 
             // Process the reservation request via API
             const response = await fetch('/api/contract/reservation/processReservationRequest', {
@@ -226,10 +160,10 @@ export function ReservationEventProvider({ children }) {
                 },
                 body: JSON.stringify({
                     reservationKey: reservationKey,
-                    labId: labId.toString(),
+                    labId: tokenId.toString(),
                     start: start.toString(),
                     end: end.toString(),
-                    metadataUri: metadataUri
+                    metadataUri: lab.uri
                 }),
             });
 
@@ -242,11 +176,10 @@ export function ReservationEventProvider({ children }) {
             // Remove from processing set on error
             setProcessingReservations(prev => {
                 const newSet = new Set(prev);
-                const hadKey = newSet.has(reservationKey);
                 newSet.delete(reservationKey);
                 
                 if (process.env.NODE_ENV === 'development') {
-                    console.log('Removing reservation key (error):', { reservationKey, hadKey, error: error.message });
+                    console.log('Removing reservation key (error):', { reservationKey, error: error.message });
                 }
                 
                 return newSet;
@@ -261,11 +194,15 @@ export function ReservationEventProvider({ children }) {
         eventName: 'BookingCanceled',
         onLogs(logs) {
             logs.forEach(log => {
-                // The reservationKey is in log.data for BookingCanceled event
-                const reservationKey = log.data;
+                const { reservationKey } = log.args || {};
                 
                 if (process.env.NODE_ENV === 'development') {
                     console.log('BookingCanceled event:', { reservationKey });
+                }
+                
+                if (!reservationKey) {
+                    console.error('BookingCanceled event missing reservationKey:', log);
+                    return;
                 }
                 
                 // Efficiently remove the canceled booking from existing state
@@ -281,11 +218,15 @@ export function ReservationEventProvider({ children }) {
         eventName: 'ReservationRequestCanceled',
         onLogs(logs) {
             logs.forEach(log => {
-                // The reservationKey is in log.data for ReservationRequestCanceled event
-                const reservationKey = log.data;
+                const { reservationKey } = log.args || {};
                 
                 if (process.env.NODE_ENV === 'development') {
                     console.log('ReservationRequestCanceled event:', { reservationKey });
+                }
+                
+                if (!reservationKey) {
+                    console.error('ReservationRequestCanceled event missing reservationKey:', log);
+                    return;
                 }
                 
                 // Efficiently remove the canceled booking from existing state
