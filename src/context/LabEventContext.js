@@ -1,5 +1,5 @@
 "use client"
-import { createContext, useContext } from "react";
+import { createContext, useContext, useRef, useCallback, useState } from "react";
 import { useWatchContractEvent } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { contractABI, contractAddresses } from '@/contracts/diamond';
@@ -21,10 +21,93 @@ export function LabEventProvider({ children }) {
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { setLabs, fetchLabs, removeBookingsForDeletedLab } = useLabs();
 
-    // Handlers for each event
+    // Debouncing and state management for intelligent updates
+    const lastEventTime = useRef(new Map()); // Track last event time by type
+    const pendingUpdates = useRef(new Set()); // Track pending lab IDs for updates
+    const updateTimeoutRef = useRef(null);
+
+    // Manual update tracking for coordination (useState for reactivity)
+    const [manualUpdateInProgress, setManualUpdateInProgressState] = useState(false);
+    const manualUpdateTimeout = useRef(null);
+
+    // Function to check if manual update is in progress
+    const isManualUpdateInProgress = manualUpdateInProgress;
+
+    // Function to set manual update in progress
+    const setManualUpdateInProgress = useCallback((inProgress, duration = 3000) => {
+        setManualUpdateInProgressState(inProgress);
+        
+        if (inProgress) {
+            // Clear existing timeout
+            if (manualUpdateTimeout.current) {
+                clearTimeout(manualUpdateTimeout.current);
+            }
+            
+            // Auto-clear after duration
+            manualUpdateTimeout.current = setTimeout(() => {
+                setManualUpdateInProgressState(false);
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('🕒 Manual update timeout cleared');
+                }
+            }, duration);
+        } else {
+            // Clear timeout immediately
+            if (manualUpdateTimeout.current) {
+                clearTimeout(manualUpdateTimeout.current);
+                manualUpdateTimeout.current = null;
+            }
+        }
+    }, []);
+
+    // Smart cache invalidation - preserves sessionStorage timestamps
+    const invalidateLabCache = useCallback((labId = null) => {
+        if (labId) {
+            // Selective invalidation - mark specific lab as needing update
+            pendingUpdates.current.add(labId);
+        } else {
+            // Full invalidation - clear all cache
+            sessionStorage.removeItem('labs');
+            sessionStorage.removeItem('labs_timestamp');
+        }
+    }, []);
+
+    // Debounced batch update for multiple lab changes
+    const scheduleLabsUpdate = useCallback((delay = 500) => {
+        if (updateTimeoutRef.current) {
+            clearTimeout(updateTimeoutRef.current);
+        }
+        
+        updateTimeoutRef.current = setTimeout(() => {
+            if (pendingUpdates.current.size > 0) {
+                console.log('Processing batch lab updates for IDs:', Array.from(pendingUpdates.current));
+                pendingUpdates.current.clear();
+                fetchLabs();
+            }
+        }, delay);
+    }, [fetchLabs]);
+
+    // Enhanced event handlers with collision prevention
     async function handleLabAdded(args) {
+        const eventKey = `LabAdded_${args._labId}`;
+        const now = Date.now();
+        
+        // Prevent duplicate processing of same event within 2 seconds
+        if (lastEventTime.current.has(eventKey) && 
+            now - lastEventTime.current.get(eventKey) < 2000) {
+            return;
+        }
+        lastEventTime.current.set(eventKey, now);
+
+        // ✅ CHECK: Skip if manual update is in progress
+        if (isManualUpdateInProgress) {
+            if (process.env.NODE_ENV === 'development') {
+                console.log('⏸️ Skipping LabAdded event - manual update in progress:', args._labId);
+            }
+            return;
+        }
+
         if (process.env.NODE_ENV === 'development') {
-            console.log('LabAdded event received:', args);
+            console.log('🔥 LabAdded event received (processing):', args);
         }
         
         try {
@@ -57,14 +140,19 @@ export function LabEventProvider({ children }) {
                 }
             }
 
-            // Add the new lab to the state
+            // Smart state update - prevent duplicates and handle concurrent updates
             setLabs(prev => {
-                // Check if lab already exists to avoid duplicates
                 const existingLabIndex = prev.findIndex(lab => toIdString(lab.id) === labId);
                 if (existingLabIndex !== -1) {
                     // Update existing lab instead of adding duplicate
                     const updatedLabs = [...prev];
-                    updatedLabs[existingLabIndex] = { ...updatedLabs[existingLabIndex], ...newLab };
+                    updatedLabs[existingLabIndex] = { 
+                        ...updatedLabs[existingLabIndex], 
+                        ...newLab,
+                        // Preserve existing booking data if available
+                        bookingInfo: updatedLabs[existingLabIndex].bookingInfo || [],
+                        userBookings: updatedLabs[existingLabIndex].userBookings || []
+                    };
                     return updatedLabs;
                 } else {
                     // Add new lab
@@ -72,38 +160,95 @@ export function LabEventProvider({ children }) {
                 }
             });
 
+            // Update cache timestamp to prevent unnecessary fetches
+            invalidateLabCache(labId);
+
             if (process.env.NODE_ENV === 'development') {
-                console.log('Successfully added new lab to state:', newLab);
+                console.log('✅ Successfully processed LabAdded event:', newLab);
             }
             
         } catch (error) {
-            console.error('Error handling LabAdded event:', error);
-            // Fallback: use fetchLabs to refresh all data
-            fetchLabs();
+            console.error('❌ Error handling LabAdded event:', error);
+            // Fallback: schedule a delayed full refresh instead of immediate
+            scheduleLabsUpdate(1000);
         }
     }
 
     function handleLabDeleted(args) {
+        const eventKey = `LabDeleted_${args._labId}`;
+        const now = Date.now();
+        
+        // Prevent duplicate processing
+        if (lastEventTime.current.has(eventKey) && 
+            now - lastEventTime.current.get(eventKey) < 2000) {
+            return;
+        }
+        lastEventTime.current.set(eventKey, now);
+
+        // ✅ CHECK: Skip if manual update is in progress
+        if (isManualUpdateInProgress) {
+            if (process.env.NODE_ENV === 'development') {
+                console.log('⏸️ Skipping LabDeleted event - manual update in progress:', args._labId);
+            }
+            return;
+        }
+
         if (process.env.NODE_ENV === 'development') {
-            console.log('LabDeleted event received:', args);
+            console.log('🗑️ LabDeleted event received (processing):', args);
         }
         
         const deletedLabId = toIdString(args._labId);
         
         // Remove the lab from the labs array
-        setLabs(prev => prev.filter(lab => toIdString(lab.id) !== deletedLabId));
+        setLabs(prev => {
+            const filteredLabs = prev.filter(lab => toIdString(lab.id) !== deletedLabId);
+            
+            // Only update cache if there was actually a change
+            if (filteredLabs.length !== prev.length) {
+                invalidateLabCache(deletedLabId);
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('✅ Successfully removed lab from state:', deletedLabId);
+                }
+            }
+            
+            return filteredLabs;
+        });
         
         // Remove all bookings/reservations for this deleted lab
         removeBookingsForDeletedLab(deletedLabId);
     }
 
     function handleLabUpdated(args) {
+        const eventKey = `LabUpdated_${args._labId}`;
+        const now = Date.now();
+        
+        // Prevent duplicate processing and batch multiple updates
+        if (lastEventTime.current.has(eventKey) && 
+            now - lastEventTime.current.get(eventKey) < 2000) {
+            return;
+        }
+        lastEventTime.current.set(eventKey, now);
+
+        // ✅ CHECK: Skip if manual update is in progress
+        if (isManualUpdateInProgress) {
+            if (process.env.NODE_ENV === 'development') {
+                console.log('⏸️ Skipping LabUpdated event - manual update in progress:', args._labId);
+            }
+            return;
+        }
+
         if (process.env.NODE_ENV === 'development') {
-            console.log('LabUpdated event received:', args);
+            console.log('📝 LabUpdated event received (scheduling update):', args);
         }
         
-        // Trigger a refetch to get the updated lab data
-        fetchLabs();
+        const labId = toIdString(args._labId);
+        
+        // Mark this lab for update and schedule batch processing
+        pendingUpdates.current.add(labId);
+        invalidateLabCache(labId);
+        
+        // Use debounced update to batch multiple rapid changes
+        scheduleLabsUpdate(1500); // Slightly longer delay for updates to batch them
     }
 
     // Listen for LabAdded events
@@ -143,7 +288,13 @@ export function LabEventProvider({ children }) {
     });
 
     return (
-        <LabEventContext.Provider value={{}}>
+        <LabEventContext.Provider value={{ 
+            invalidateLabCache,
+            scheduleLabsUpdate,
+            isManualUpdateInProgress,
+            setManualUpdateInProgress,
+            pendingUpdates: pendingUpdates.current
+        }}>
             {children}
         </LabEventContext.Provider>
     );

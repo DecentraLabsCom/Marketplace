@@ -286,6 +286,29 @@ export function LabData({ children }) {
   }, [labs.length, address, fetchBookings]);
 
   // Memoized context value to prevent unnecessary re-renders
+  // Clear cache and force refresh - useful for event-driven updates
+  const clearCacheAndRefresh = useCallback(() => {
+    sessionStorage.removeItem(cacheKeys.labs);
+    sessionStorage.removeItem(cacheKeys.timestamp);
+    fetchLabs();
+  }, [cacheKeys, fetchLabs]);
+
+  // Smart update function for event-driven changes
+  const updateLabInState = useCallback((labId, updates) => {
+    setLabs((prevLabs) => {
+      const updatedLabs = prevLabs.map((lab) => {
+        if (lab.id === labId) {
+          return { ...lab, ...updates };
+        }
+        return lab;
+      });
+      
+      // Update cache with the new data
+      sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
+      return updatedLabs;
+    });
+  }, [cacheKeys.labs]);
+
   const contextValue = useMemo(() => ({
     labs,
     setLabs,
@@ -295,12 +318,15 @@ export function LabData({ children }) {
     fetchBookings,
     removeCanceledBooking,
     removeBookingsForDeletedLab,
+    clearCacheAndRefresh,
+    updateLabInState,
+    // Keep existing function for backwards compatibility
     refreshLabs: () => {
       sessionStorage.removeItem(cacheKeys.labs);
       sessionStorage.removeItem(cacheKeys.timestamp);
       fetchLabs();
     }
-  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, removeBookingsForDeletedLab, cacheKeys]);
+  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, removeBookingsForDeletedLab, clearCacheAndRefresh, updateLabInState, cacheKeys]);
 
   return (
     <LabContext.Provider value={contextValue}> 

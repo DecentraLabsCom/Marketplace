@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
 import { useNotifications } from '@/context/NotificationContext';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
+import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
 import LabModal from '@/components/LabModal';
 import AccessControl from '@/components/AccessControl';
@@ -15,6 +16,7 @@ export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
+  const { coordinatedLabUpdate, coordinatedRefresh } = useLabEventCoordinator();
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
@@ -176,6 +178,9 @@ export default function ProviderDashboard() {
       originalLab.accessURI !== labData.accessURI ||
       originalLab.accessKey !== labData.accessKey;
 
+    // Use coordinated update to prevent collisions with blockchain events
+    await coordinatedLabUpdate(async () => {
+
     try {
       // 1. Update lab data
       if (hasChangedOnChainData) {
@@ -261,7 +266,9 @@ export default function ProviderDashboard() {
     } catch (error) {
       console.error('Error updating lab:', error);
       addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
+      throw error; // Re-throw for coordinatedLabUpdate to handle
     }
+    }, labData.id); // End of coordinatedLabUpdate - pass labId for targeted cache invalidation
   }
 
   // Handle adding a new lab
@@ -269,88 +276,94 @@ export default function ProviderDashboard() {
     const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
     labData.uri = labData.uri || `Lab-${user.name}-${maxId + 1}.json`;
 
-    try {
-      addTemporaryNotification('pending', '⏳ Adding lab onchain...');
+    // Use coordinated update to prevent collisions with blockchain events
+    await coordinatedLabUpdate(async () => {
+      try {
+        addTemporaryNotification('pending', '⏳ Adding lab onchain...');
 
-      let txHash;
-      
-      if (isSSO) {
-        // For SSO users, use server-side transaction with unique provider wallet
-        const response = await fetch('/api/contract/lab/createLabSSO', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: user.email,
-            labData: {
-              uri: labData.uri,
-              price: labData.price,
-              auth: labData.auth,
-              accessURI: labData.accessURI,
-              accessKey: labData.accessKey
-            }
-          }),
-        });
+        let txHash;
         
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create lab');
-        }
-        
-        const result = await response.json();
-        txHash = result.txHash;
-      } else {
-        // For wallet users, use client-side transaction
-        txHash = await addLab([
-          labData.uri,
-          labData.price,
-          labData.auth,
-          labData.accessURI,
-          labData.accessKey
-        ]);
-      }
-
-      if (txHash) {
-        const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
-        setLastTxHash(txHash);
-        setTxType('add');
-        setPendingData(newLabRecord);
-
-        // 3. Save the JSON with the lab data if necessary
-        if (labData.uri.startsWith('Lab-')) {
-          const response = await fetch('/api/provider/saveLabData', {
+        if (isSSO) {
+          // For SSO users, use server-side transaction with unique provider wallet
+          const response = await fetch('/api/contract/lab/createLabSSO', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ labData: newLabRecord }),
+            body: JSON.stringify({ 
+              email: user.email,
+              labData: {
+                uri: labData.uri,
+                price: labData.price,
+                auth: labData.auth,
+                accessURI: labData.accessURI,
+                accessKey: labData.accessKey
+              }
+            }),
           });
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create lab');
+          }
+          
+          const result = await response.json();
+          txHash = result.txHash;
+        } else {
+          // For wallet users, use client-side transaction
+          txHash = await addLab([
+            labData.uri,
+            labData.price,
+            labData.auth,
+            labData.accessURI,
+            labData.accessKey
+          ]);
         }
-      } else {
-        throw new Error('No transaction hash received');
+
+        if (txHash) {
+          const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
+          setLastTxHash(txHash);
+          setTxType('add');
+          setPendingData(newLabRecord);
+
+          // 3. Save the JSON with the lab data if necessary
+          if (labData.uri.startsWith('Lab-')) {
+            const response = await fetch('/api/provider/saveLabData', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ labData: newLabRecord }),
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          }
+        } else {
+          throw new Error('No transaction hash received');
+        }
+      } catch (error) {
+        console.error('Error adding lab:', error);
+        addTemporaryNotification('error', `❌ Failed to add lab: ${formatErrorMessage(error)}`);
+        throw error; // Re-throw for coordinatedLabUpdate to handle
       }
-    } catch (error) {
-      console.error('Error adding lab:', error);
-      addTemporaryNotification('error', `❌ Failed to add lab: ${formatErrorMessage(error)}`);
-    }
+    }); // End of coordinatedLabUpdate - null because new lab ID isn't known yet
   }
 
   // Handle delete a lab
   const handleDeleteLab = async (labId) => {
     const labToDelete = labs.find((lab) => lab.id == labId);
     
-    try {
-      addTemporaryNotification('pending', '⏳ Deleting lab onchain...');
+    // Use coordinated update to prevent collisions with blockchain events
+    await coordinatedLabUpdate(async () => {
+      try {
+        addTemporaryNotification('pending', '⏳ Deleting lab onchain...');
 
-      const txHash = await deleteLab([labId]);
-      
-      if (txHash) {
-        setLastTxHash(txHash);
-        setTxType('delete');
-        setPendingData(labToDelete);
+        const txHash = await deleteLab([labId]);
+        
+        if (txHash) {
+          setLastTxHash(txHash);
+          setTxType('delete');
+          setPendingData(labToDelete);
 
-        // Delete associated files
-        const labURI = labToDelete.uri;
-        const imagesToDelete = labToDelete.images;
-        const docsToDelete = labToDelete.docs;
+          // Delete associated files
+          const labURI = labToDelete.uri;
+          const imagesToDelete = labToDelete.images;
+          const docsToDelete = labToDelete.docs;
 
         // Delete images
         if (imagesToDelete && Array.isArray(imagesToDelete)) {
@@ -403,7 +416,9 @@ export default function ProviderDashboard() {
     } catch (error) {
       console.error('Error deleting lab:', error);
       addTemporaryNotification('error', `❌ Failed to delete lab: ${formatErrorMessage(error)}`);
+      throw error; // Re-throw for coordinatedLabUpdate to handle
     }
+    }, labId); // End of coordinatedLabUpdate - pass labId for targeted cache invalidation
   };
 
   // Handle listing a lab

@@ -7,6 +7,7 @@ import { useUser } from '@/context/UserContext'
 import { useLabs } from '@/context/LabContext'
 import { useNotifications } from '@/context/NotificationContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
+import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator'
 import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
 import AccessControl from '@/components/AccessControl'
@@ -19,6 +20,7 @@ export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
   const { labs, loading, bookingsLoading } = useLabs();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
+  const { coordinatedBookingCancellation } = useReservationEventCoordinator();
   const { isConnected } = useAccount();
   
   // Contract write functions
@@ -114,47 +116,57 @@ export default function UserDashboard() {
   const handleConfirmedBookingCancellation = async (booking) => {
     addPersistentNotification('info', '🔄 Please confirm the booking cancellation in your wallet...');
 
-    try {
-      const txHash = await cancelBooking([booking.reservationKey], { gas: 300000n });
-      
-      if (txHash) {
-        setLastTxHash(txHash);
-        setTxType('cancelBooking');
-        setPendingData({ booking });
-      } else {
-        throw new Error('No transaction hash received');
+    // Use coordinated cancellation to prevent event collisions
+    await coordinatedBookingCancellation(async () => {
+      try {
+        const txHash = await cancelBooking([booking.reservationKey], { gas: 300000n });
+        
+        if (txHash) {
+          setLastTxHash(txHash);
+          setTxType('cancelBooking');
+          setPendingData({ booking });
+          return txHash;
+        } else {
+          throw new Error('No transaction hash received');
+        }
+      } catch (error) {
+        console.error('Cancel booking error:', error);
+        if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+          addPersistentNotification('warning', '🚫 Transaction rejected by user.');
+        } else {
+          addErrorNotification(error, 'Booking cancellation failed: ');
+        }
+        throw error;
       }
-    } catch (error) {
-      console.error('Cancel booking error:', error);
-      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        addPersistentNotification('warning', '🚫 Transaction rejected by user.');
-      } else {
-        addErrorNotification(error, 'Booking cancellation failed: ');
-      }
-    }
+    }, booking.reservationKey);
   };
 
   const handleRequestedBookingCancellation = async (booking) => {
     addPersistentNotification('info', '🔄 Please confirm the request cancellation in your wallet...');
 
-    try {
-      const txHash = await cancelReservationRequest([booking.reservationKey], { gas: 300000n });
-      
-      if (txHash) {
-        setLastTxHash(txHash);
-        setTxType('cancelReservationRequest');
-        setPendingData({ booking });
-      } else {
-        throw new Error('No transaction hash received');
+    // Use coordinated cancellation to prevent event collisions
+    await coordinatedBookingCancellation(async () => {
+      try {
+        const txHash = await cancelReservationRequest([booking.reservationKey], { gas: 300000n });
+        
+        if (txHash) {
+          setLastTxHash(txHash);
+          setTxType('cancelReservationRequest');
+          setPendingData({ booking });
+          return txHash;
+        } else {
+          throw new Error('No transaction hash received');
+        }
+      } catch (error) {
+        console.error('Cancel reservation request error:', error);
+        if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+          addPersistentNotification('warning', '🚫 Transaction rejected by user.');
+        } else {
+          addErrorNotification(error, 'Request cancellation failed: ');
+        }
+        throw error;
       }
-    } catch (error) {
-      console.error('Cancel reservation request error:', error);
-      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        addPersistentNotification('warning', '🚫 Transaction rejected by user.');
-      } else {
-        addErrorNotification(error, 'Request cancellation failed: ');
-      }
-    }
+    }, booking.reservationKey);
   };
 
   // Handle transaction confirmation

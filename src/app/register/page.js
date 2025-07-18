@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { IoPerson } from 'react-icons/io5';
 import ReactFlagsSelect from 'react-flags-select';
 import { useUser } from '@/context/UserContext';
+import { useUserEventCoordinator } from '@/hooks/useUserEventCoordinator';
 import AccessControl from '@/components/AccessControl';
 import { validateProviderRole, getRoleDisplayName } from '@/utils/roleValidation';
 
@@ -19,6 +20,7 @@ const providerSchema = z.object({
 
 export default function RegisterProviderForm() {
   const { isSSO, user, isProvider, address } = useUser();
+  const { coordinatedProviderRegistration } = useUserEventCoordinator();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -53,20 +55,24 @@ export default function RegisterProviderForm() {
             scopedRole: user.scopedRole || ''
           };
 
-          // Register directly on blockchain using server-side wallet
-          const res = await fetch('/api/contract/provider/addSSOProvider', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(providerData),
-          });
+          // Register directly on blockchain using server-side wallet with coordination
+          await coordinatedProviderRegistration(async () => {
+            const res = await fetch('/api/contract/provider/addSSOProvider', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(providerData),
+            });
+            
+            if (!res.ok) {
+              const errorData = await res.json();
+              throw new Error(errorData.error || 'Failed to register provider');
+            }
+            
+            const result = await res.json();
+            console.log('SSO provider registered:', result);
+            return result;
+          }, user.email); // Use email as user identifier
           
-          if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || 'Failed to register provider');
-          }
-          
-          const result = await res.json();
-          console.log('SSO provider registered:', result);
           setIsSuccess(true);
         } catch (err) {
           console.error('Registration error:', err);
@@ -105,12 +111,18 @@ export default function RegisterProviderForm() {
 
     if (result.success) {
       try {
-        const res = await fetch('/api/provider/saveRegistration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-        if (!res.ok) throw new Error('Failed to save provider');
+        // Use coordinated registration to prevent event collisions
+        await coordinatedProviderRegistration(async () => {
+          const res = await fetch('/api/provider/saveRegistration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          });
+          if (!res.ok) throw new Error('Failed to save provider');
+          const result = await res.json();
+          return result;
+        }, formData.wallet); // Use wallet address as user identifier
+        
         setIsSuccess(true);
         setErrors({});
         // Clear form upon success
