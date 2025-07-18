@@ -32,9 +32,9 @@ export default function LabDetail({ id, provider }) {
 
   return (
     <main className="container mx-auto p-6">
-      <section className="flex justify-center gap-10">
+      <section className="flex flex-col md:flex-row md:justify-center gap-6 md:gap-10">
         {/* Carousel Section */}
-        <article className="md:w-1/2 flex flex-col p-4">
+        <article className="w-full md:w-1/2 flex flex-col p-4">
           <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} />
             <button className="bg-[#715c8c] hover:bg-[#333f63] text-white px-4 py-2 rounded mt-6 
@@ -46,7 +46,7 @@ export default function LabDetail({ id, provider }) {
         </article>
 
         {/* Lab Details Section */}
-        <article className="md:w-2/5 mt-4">
+        <article className="w-full md:w-2/5 mt-4">
           <header>
             <h1 className="text-2xl text-[#caddff] font-bold pb-2 text-center">
               {lab?.name}

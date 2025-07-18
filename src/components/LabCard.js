@@ -26,9 +26,11 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         )}
       </div>
       <div className="p-4 h-1/3">
-        <h2 className="text-2xl font-bold mt-4 text-[#333f63]">{name}</h2>
-        <p className="text-[#3f3363] font-semibold text-sm mt-2">{provider}</p>
-        <p className="text-[#335763] font-semibold mt-2">{price} $LAB / hour</p>
+        <h2 className="text-xl min-[1280px]:text-2xl font-bold min-[768px]:mt-2 text-[#333f63]">{name}</h2>
+        <div className="md:flex md:justify-between md:items-center min-[1280px]:block min-[768px]:mt-4">
+          <p className="text-[#3f3363] font-semibold text-sm mt-2">{provider}</p>
+          <p className="text-[#335763] font-semibold mt-2 md:mt-2">{price} $LAB / hour</p>
+        </div>
       </div>
       <Link href={`/lab/${id}/${provider}`}>
         <div className="absolute inset-0 flex items-center justify-center opacity-0 

@@ -6,8 +6,10 @@ import { useLabs } from "@/context/LabContext";
 import { useUser } from "@/context/UserContext";
 import { useReservationEvents } from "@/context/ReservationEventContext";
 import { useNotifications } from "@/context/NotificationContext";
+import { useLabToken } from "@/hooks/useLabToken";
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
+import LabTokenInfo from '@/components/LabTokenInfo';
 import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
 import useContractWriteFunction from "@/hooks/contract/useContractWriteFunction";
 import { contractAddresses } from "@/contracts/diamond";
@@ -27,8 +29,20 @@ export default function LabReservation({ id }) {
   
   // Transaction state management (modernized pattern)
   const [lastTxHash, setLastTxHash] = useState(null);
-  const [txType, setTxType] = useState(null); // 'reservation'
+  const [txType, setTxType] = useState(null); // 'reservation', 'approval'
   const [pendingData, setPendingData] = useState(null);
+  
+  // Lab token hook for payment handling
+  const { 
+    balance: userBalance,
+    allowance: userAllowance,
+    calculateReservationCost, 
+    checkBalanceAndAllowance, 
+    approveLabTokens, 
+    formatTokenAmount: formatBalance,
+    isLoading: isLabTokenLoading,
+    labTokenAddress
+  } = useLabToken();
   
   const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
   
@@ -83,6 +97,9 @@ export default function LabReservation({ id }) {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Calculate total cost for the reservation
+  const totalCost = selectedLab ? calculateReservationCost(selectedLab.price, time) : 0n;
 
   // Handle transaction confirmation and errors
   useEffect(() => {
@@ -261,11 +278,46 @@ export default function LabReservation({ id }) {
     const { labId, start, timeslot } = bookingData;
     const end = start + timeslot; // Wallet booking needs end time
 
+    // Calculate cost and validate payment
+    const cost = totalCost;
+    if (cost <= 0) {
+      addTemporaryNotification('error', '❌ Unable to calculate booking cost.');
+      return;
+    }
+
+    // Check if user has enough LAB tokens
+    if (userBalance < cost) {
+      addTemporaryNotification('error', 
+        `❌ Insufficient LAB tokens. Required: ${formatBalance(cost)} LAB, Available: ${formatBalance(userBalance)} LAB`);
+      return;
+    }
+
     setIsBooking(true);
 
     try {
-      // Show pending notification
-      addTemporaryNotification('pending', '⏳ Sending reservation request...');
+      // Step 1: Check and handle token approval
+      addTemporaryNotification('pending', '⏳ Checking token approval...');
+      
+      if (userAllowance < cost) {
+        addTemporaryNotification('pending', '⏳ Approving LAB tokens...');
+        
+        try {
+          await approveLabTokens(cost);
+          addTemporaryNotification('success', '✅ LAB tokens approved successfully!');
+        } catch (approvalError) {
+          console.error('Token approval failed:', approvalError);
+          if (approvalError.code === 4001 || approvalError.code === 'ACTION_REJECTED') {
+            addTemporaryNotification('warning', '🚫 Token approval rejected by user.');
+          } else {
+            addErrorNotification(approvalError, 'Token approval failed: ');
+          }
+          setIsBooking(false);
+          return;
+        }
+      }
+
+      // Step 2: Make the reservation with payment
+      addTemporaryNotification('pending', '⏳ Sending reservation request with payment...');
       
       // Call contract - pass arguments as array
       const txHash = await reservationRequest([labId, start, end]);
@@ -273,7 +325,9 @@ export default function LabReservation({ id }) {
       if (txHash) {
         setLastTxHash(txHash);
         setTxType('reservation');
-        setPendingData({ labId, start, end, timeslot });
+        setPendingData({ labId, start, end, timeslot, cost });
+        addTemporaryNotification('success', 
+          `✅ Payment of ${formatBalance(cost)} LAB sent! Confirming transaction...`);
       } else {
         addTemporaryNotification('warning', 
           '⚠️ Transaction may have been sent but no hash received. Please check your wallet.');
@@ -319,21 +373,21 @@ export default function LabReservation({ id }) {
         </div>
 
         {selectedLab && (
-          <div className="flex flex-col md:flex-row gap-6 p-4">
-            <div className="md:w-1/2 flex flex-col items-center justify-center">
-              <div className="w-full h-[400px] flex items-center justify-center">
+          <div className="flex flex-col min-[1280px]:flex-row gap-6 p-4 min-[1280px]:items-stretch">
+            <div className="min-[1280px]:w-1/2 flex flex-col items-center justify-center">
+              <div className="w-full flex-1 flex items-center justify-center min-h-[400px]">
                 <Carrousel lab={selectedLab} />
               </div>
             </div>
 
-            <div className="md:w-1/2 mt-2">
-              <p className="text-white text-sm text-justify mb-4">{selectedLab.description}</p>
-              <p className="text-[#335763] font-semibold text-xl">{selectedLab.price} $LAB / hour</p>
+            <div className="min-[1280px]:w-1/2 flex flex-col justify-between">
+              <p className="text-white text-base text-justify mb-2">{selectedLab.description}</p>
 
-              <div className="flex flex-col md:flex-row gap-4 mt-6 items-center">
-                <div className="flex-1">
-                  <label className="block text-lg font-semibold">Select the date:</label>
-                  <DatePicker
+              <div className="flex flex-col lg:flex-row gap-8 items-start">
+                <div className="w-full lg:w-72 flex flex-col items-center lg:items-start">
+                  <label className="block text-lg font-semibold mb-2">Select the date:</label>
+                  <div className="w-fit">
+                    <DatePicker
                     calendarClassName="custom-datepicker"
                     selected={date}
                     onChange={(newDate) => setDate(newDate)}
@@ -344,9 +398,7 @@ export default function LabReservation({ id }) {
                     dayClassName={day =>
                       selectedLab?.bookingInfo?.some(
                         b => {
-                          // Exclude cancelled bookings from calendar highlighting
                           if (b.status === "4" || b.status === 4) return false;
-                          // Make sure b.date is valid
                           const bookingDate = new Date(b.date);
                           return !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString();
                         }
@@ -355,64 +407,78 @@ export default function LabReservation({ id }) {
                         : undefined
                     }
                   />
+                  </div>
                 </div>
-
-                <div className="flex-1">
-                  <label className="block text-lg font-semibold">Time interval:</label>
-                  <select
-                    className="w-full p-3 border-2 bg-gray-800 text-white rounded"
-                    value={time}
-                    onChange={(e) => setTime(Number(e.target.value))}
-                  >
-                    {selectedLab.timeSlots.map((slot) => (
-                      <option key={slot} value={slot}>{slot} minutes</option>
-                    ))}
-                  </select>
+                <div className="w-full lg:w-72 flex flex-col gap-6">
+                  <div>
+                    <label className="block text-lg font-semibold mb-2">Duration:</label>
+                    <select
+                      className="w-full p-3 border-2 bg-gray-800 text-white rounded"
+                      value={time}
+                      onChange={(e) => setTime(Number(e.target.value))}
+                    >
+                      {selectedLab.timeSlots.map((slot) => (
+                        <option key={slot} value={slot}>{slot} minutes</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-lg font-semibold mb-2">Starting time:</label>
+                    <select
+                      className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 
+                        'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
+                      value={selectedAvailableTime}
+                      onChange={e => setSelectedAvailableTime(e.target.value)}
+                      disabled={!availableTimes.some(t => !t.disabled)}
+                    >
+                      {availableTimes.map((timeOption, i) => (
+                        <option
+                          key={i}
+                          value={timeOption.value}
+                          disabled={timeOption.disabled}
+                          style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
+                        >
+                          {timeOption.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-
-                <div className="flex-1">
-                  <label className="block text-lg font-semibold">Available times:</label>
-                  <select
-                    className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 
-                      'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
-                    value={selectedAvailableTime}
-                    onChange={e => setSelectedAvailableTime(e.target.value)}
-                    disabled={!availableTimes.some(t => !t.disabled)}
-                  >
-                    {availableTimes.map((timeOption, i) => (
-                      <option
-                        key={i}
-                        value={timeOption.value}
-                        disabled={timeOption.disabled}
-                        style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
-                      >
-                        {timeOption.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!isSSO && (
+                  <div className="w-full lg:w-96 flex flex-col">
+                    <label className="block text-lg font-semibold mb-2">Payment info:</label>
+                    <LabTokenInfo 
+                      className="h-fit"
+                      labPrice={selectedLab.price}
+                      durationMinutes={time}
+                    />
+                    <p className="text-[#335763] font-semibold text-xl mt-4 text-center">{selectedLab.price} $LAB / hour</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {selectedLab && (
-          <div className="flex justify-center">
-            <button
-              onClick={handleBooking} 
-              disabled={isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime}
-              className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime
-                  ? 'bg-gray-500 cursor-not-allowed' 
-                  : 'bg-[#715c8c] hover:bg-[#333f63]'
-              }`}
-            >
-              {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 
-               (isWaitingForReceipt && !isSSO && !isReceiptError) ? 'Confirming...' :
-               isReceiptError ? 'Try Again' :
-               'Make Booking'}
-            </button>
-          </div>
+          <>
+            <div className="flex justify-center">
+              <button
+                onClick={handleBooking} 
+                disabled={isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime}
+                className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
+                  isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime
+                    ? 'bg-gray-500 cursor-not-allowed' 
+                    : 'bg-[#715c8c] hover:bg-[#333f63]'
+                }`}
+              >
+                {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 
+                 (isWaitingForReceipt && !isSSO && !isReceiptError) ? 'Confirming...' :
+                 isReceiptError ? 'Try Again' :
+                 'Make Booking'}
+              </button>
+            </div>
+          </>
         )}
       </div>
     </AccessControl>

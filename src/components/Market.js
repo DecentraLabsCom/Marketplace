@@ -216,7 +216,7 @@ export default function Market() {
       {loading ? (
         <LabCardGridSkeleton count={6} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 min-[1024px]:grid-cols-3 gap-6">
           {Array.isArray(searchFilteredLabs) && searchFilteredLabs.map((lab) => {
             const hasActiveBooking = isLoggedIn ? 
               isBookingActive(lab.userBookings) : false;

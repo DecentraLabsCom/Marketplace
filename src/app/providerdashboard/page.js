@@ -527,9 +527,9 @@ export default function ProviderDashboard() {
           <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
         </div>
 
-        <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col min-[1080px]:flex-row">
 
-          <div className="w-full md:w-2/3">
+          <div className="w-full min-[1080px]:w-2/3">
             <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
             {loading ? (
               <p className="text-gray-300 text-center">Loading labs...</p>
@@ -584,7 +584,7 @@ export default function ProviderDashboard() {
             </div>
           </div>
 
-          <div className="w-full md:w-1/3 mt-8 md:mt-0">
+          <div className="w-full min-[1080px]:w-1/3 mt-8 min-[1080px]:mt-0">
             <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
             <div className="flex justify-center">
                 <DatePicker

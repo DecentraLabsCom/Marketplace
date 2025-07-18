@@ -1,16 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
 
 /**
- * Hook híbrido para actualizaciones eficientes de bookings activos.
- * Combina:
- * 1. Comparaciones locales rápidas (sin fetch)
- * 2. Actualizaciones precisas en momentos clave
- * 3. Sincronización con eventos de contrato
+ * Hybrid hook for efficient active booking updates.
+ * Combines:
+ * 1. Fast local comparisons (no fetch)
+ * 2. Precise updates at key moments
+ * 3. Contract event synchronization
  * 
- * @param {Array} userBookings - Array de bookings del usuario
- * @param {boolean} isLoggedIn - Si el usuario está logueado
- * @param {Function} refreshBookings - Función para refrescar desde contrato (opcional)
- * @returns {number} forceUpdateTrigger - Valor que cambia cuando hay que actualizar
+ * @param {Array} userBookings - User bookings array
+ * @param {boolean} isLoggedIn - Whether the user is logged in
+ * @param {Function} refreshBookings - Function to refresh from contract (optional)
+ * @returns {number} forceUpdateTrigger - Value that changes when update is needed
  */
 export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refreshBookings = null) {
   const [forceUpdateTrigger, setForceUpdateTrigger] = useState(0);
@@ -24,30 +24,30 @@ export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refre
     let nextUpdateTime = null;
     let needsContractSync = false;
 
-    // Buscar el próximo momento cuando algún booking cambie de estado
+    // Find the next moment when any booking changes state
     userBookings.forEach(booking => {
       if (!booking.date || !booking.time || !booking.minutes) return;
       
       const startTime = new Date(`${booking.date}T${booking.time}`);
       const endTime = new Date(startTime.getTime() + parseInt(booking.minutes, 10) * 60000);
       
-      // Si el booking va a empezar en el futuro
+      // If the booking will start in the future
       if (startTime > now) {
         if (!nextUpdateTime || startTime < nextUpdateTime) {
           nextUpdateTime = startTime;
-          needsContractSync = true; // Al inicio necesitamos verificar con contrato
+          needsContractSync = true; // At start we need to verify with contract
         }
       }
-      // Si el booking está activo y va a terminar
+      // If the booking is active and about to end
       else if (now >= startTime && now < endTime) {
         if (!nextUpdateTime || endTime < nextUpdateTime) {
           nextUpdateTime = endTime;
-          needsContractSync = false; // Al final solo necesitamos actualización local
+          needsContractSync = false; // At the end we only need local update
         }
       }
     });
 
-    // Programar la actualización exactamente cuando cambie el estado
+    // Schedule the update exactly when the state changes
     if (nextUpdateTime) {
       const timeUntilUpdate = nextUpdateTime.getTime() - now.getTime();
       
@@ -60,9 +60,9 @@ export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refre
         });
       }
       
-      // Agregar un pequeño delay (1 segundo) para asegurar que el cambio se detecte
+      // Add a small delay (1 second) to ensure the change is detected
       const timeout = setTimeout(async () => {
-        // Si necesitamos sincronizar con el contrato (ej: al inicio de booking)
+        // If we need to sync with contract (e.g., at booking start)
         if (needsContractSync && refreshBookings) {
           if (process.env.NODE_ENV === 'development') {
             console.log('🔄 Syncing with contract for booking state change...');
@@ -70,10 +70,10 @@ export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refre
           await refreshBookings();
         }
         
-        // Forzar re-render para actualizar UI
+        // Force re-render to update UI
         setForceUpdateTrigger(prev => prev + 1);
         
-        // Programar la siguiente actualización recursivamente
+        // Schedule the next update recursively
         scheduleNextUpdate();
       }, timeUntilUpdate + 1000);
 
@@ -92,11 +92,11 @@ export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refre
 }
 
 /**
- * Hook simplificado pero más eficiente para updates regulares
- * Solo hace polling cuando es absolutamente necesario
+ * Simplified but more efficient hook for regular updates
+ * Only does polling when absolutely necessary
  * @param {boolean} isLoggedIn 
  * @param {Array} labs 
- * @param {Function} refreshBookings - Función para refrescar desde contrato
+ * @param {Function} refreshBookings - Function to refresh from contract
  * @returns {number} forceUpdateTrigger
  */
 export function useMinuteUpdates(isLoggedIn, labs, refreshBookings = null) {
@@ -106,15 +106,15 @@ export function useMinuteUpdates(isLoggedIn, labs, refreshBookings = null) {
   useEffect(() => {
     if (!isLoggedIn || !labs?.length) return;
 
-    // Estrategia híbrida: 
-    // 1. Actualizaciones locales cada minuto (sin fetch)
-    // 2. Sync con contrato cada 5 minutos (con fetch)
+    // Hybrid strategy: 
+    // 1. Local updates every minute (no fetch)
+    // 2. Contract sync every 5 minutes (with fetch)
     
     const interval = setInterval(async () => {
       const now = Date.now();
       const minutesSinceLastSync = (now - lastSync) / (1000 * 60);
       
-      // Cada 5 minutos, sincronizar con el contrato
+      // Every 5 minutes, sync with contract
       if (minutesSinceLastSync >= 5 && refreshBookings) {
         if (process.env.NODE_ENV === 'development') {
           console.log('🔄 Periodic contract sync (every 5 minutes)');
@@ -123,7 +123,7 @@ export function useMinuteUpdates(isLoggedIn, labs, refreshBookings = null) {
         setLastSync(now);
       }
       
-      // Siempre forzar re-render para checks locales
+      // Always force re-render for local checks
       setForceUpdateTrigger(prev => prev + 1);
     }, 60000); // Every minute
 
@@ -134,8 +134,8 @@ export function useMinuteUpdates(isLoggedIn, labs, refreshBookings = null) {
 }
 
 /**
- * Hook que se sincroniza con eventos de contrato para máxima eficiencia
- * Usa ReservationEventContext para updates inmediatos
+ * Hook that syncs with contract events for maximum efficiency
+ * Uses ReservationEventContext for immediate updates
  * @param {boolean} isLoggedIn 
  * @param {Array} labs 
  * @returns {number} forceUpdateTrigger
@@ -143,9 +143,9 @@ export function useMinuteUpdates(isLoggedIn, labs, refreshBookings = null) {
 export function useContractEventUpdates(isLoggedIn, labs) {
   const [forceUpdateTrigger, setForceUpdateTrigger] = useState(0);
   
-  // Este hook se activará automáticamente cuando ReservationEventContext
-  // detecte eventos de BookingCreated, BookingCanceled, etc.
-  // Solo necesitamos forzar re-render cuando cambian los labs
+  // This hook will automatically activate when ReservationEventContext
+  // detects events like BookingCreated, BookingCanceled, etc.
+  // We only need to force re-render when labs change
   useEffect(() => {
     if (isLoggedIn && labs?.length) {
       setForceUpdateTrigger(prev => prev + 1);
