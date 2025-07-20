@@ -259,13 +259,13 @@ async function handleRequest(wallet) {
       } catch (keysError) {
         devLog.warn(`[${requestId}] 🔑 Failed to get reservation keys, using generated keys:`, keysError.message);
         // Fallback to generated keys
-        reservationKeys = allReservationsData.map((reservation, index) => {
+        reservationKeys = allReservationsData.map((reservation) => {
           return `0x${Buffer.from(`${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`).toString('hex').padStart(64, '0')}`;
         });
       }
     } else {
       // For display purposes, generate stable keys based on reservation data
-      reservationKeys = allReservationsData.map((reservation, index) => {
+      reservationKeys = allReservationsData.map((reservation) => {
         return `0x${Buffer.from(`${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`).toString('hex').padStart(64, '0')}`;
       });
     }
@@ -348,7 +348,7 @@ async function handleRequest(wallet) {
     });
     
     // FALLBACK STRATEGY: Multi-layer fallback system for RPC issues
-    let fallbackUsed = 'none';
+    let fallbackUsed;
     
     // FALLBACK 1: Try extended cache (5 minutes) during RPC saturation
     const now = Date.now();

@@ -17,7 +17,7 @@ export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
   const { labs, setLabs, loading } = useLabs();
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
-  const { coordinatedLabUpdate, coordinatedRefresh } = useLabEventCoordinator();
+  const { coordinatedLabUpdate } = useLabEventCoordinator();
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  

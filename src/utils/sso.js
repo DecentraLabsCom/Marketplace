@@ -1,4 +1,5 @@
 import { ServiceProvider, IdentityProvider } from "saml2-js";
+import { devLog } from "@/utils/logger";
 import xml2js from "xml2js";
 
 export async function createSession(response, userData) {

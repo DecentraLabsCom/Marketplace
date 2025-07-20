@@ -82,7 +82,7 @@ export default function RegisterProviderForm() {
       };
       autoRegister();
     }
-  }, [isSSO, user, autoRequested, isSuccess, isProvider]);
+  }, [isSSO, user, autoRequested, isSuccess, isProvider, coordinatedProviderRegistration]);
 
 
   useEffect(() => {

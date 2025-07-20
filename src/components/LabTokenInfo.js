@@ -4,7 +4,6 @@ import { useLabToken } from '@/hooks/useLabToken';
 export default function LabTokenInfo({ labPrice, durationMinutes, className = '' }) {
   const { 
     balance, 
-    allowance, 
     decimals, 
     calculateReservationCost, 
     checkBalanceAndAllowance, 
@@ -63,7 +62,7 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
           <div className="mt-3 space-y-1">
             {/* Balance state */}
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${hasSufficientBalance ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div className={`size-2 rounded-full ${hasSufficientBalance ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className={`text-sm ${hasSufficientBalance ? 'text-green-400' : 'text-red-400'}`}>
                 {hasSufficientBalance ? 'Sufficient balance' : 'Insufficient balance'}
               </span>
@@ -71,7 +70,7 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
 
             {/* Approval state */}
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${hasSufficientAllowance ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+              <div className={`size-2 rounded-full ${hasSufficientAllowance ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
               <span className={`text-sm ${hasSufficientAllowance ? 'text-green-400' : 'text-yellow-400'}`}>
                 {hasSufficientAllowance ? 'Tokens approved' : 'Approval required'}
               </span>

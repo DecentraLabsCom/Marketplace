@@ -35,14 +35,10 @@ export default function LabReservation({ id }) {
   
   // Lab token hook for payment handling
   const { 
-    balance: userBalance,
-    allowance: userAllowance,
     calculateReservationCost, 
     checkBalanceAndAllowance, 
     approveLabTokens, 
     formatTokenAmount: formatBalance,
-    isLoading: isLabTokenLoading,
-    labTokenAddress,
     refreshTokenData
   } = useLabToken();
   
