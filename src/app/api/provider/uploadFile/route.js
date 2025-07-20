@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
@@ -54,7 +56,7 @@ export async function POST(req) {
 
     return NextResponse.json({ filePath }, { status: 200 });
   } catch (error) {
-    console.error('Error uploading file:', error);
+    devLog.error('Error uploading file:', error);
     return NextResponse.json(
       { error: 'Failed to upload file', details: error.message },
       { status: 500 },

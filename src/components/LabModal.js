@@ -3,6 +3,7 @@ import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'reac
 import LabFormFullSetup from '@/components/LabFormFullSetup';
 import LabFormQuickSetup from '@/components/LabFormQuickSetup';
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation';
+import devLog from '@/utils/logger';
 
 const initialState = (lab) => ({
   activeTab: 'full',
@@ -112,7 +113,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       const errorData = await response.json();
       throw new Error(`Failed to delete file: ${errorData.details || response.statusText}`);
     }
-    console.log(`Temporal file ${filePath} deleted successfully.`);
+    devLog.log(`Temporal file ${filePath} deleted successfully.`);
   }, []);
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         .then(results => {
           results.forEach((result, index) => {
             if (result.status === 'rejected') {
-              console.error(`Failed deleting ${uploadedTempFiles.current[index]}:`, result.reason);
+              devLog.error(`Failed deleting ${uploadedTempFiles.current[index]}:`, result.reason);
             }
           });
           uploadedTempFiles.current = [];
@@ -191,7 +192,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
             if (!currentLabId) {
-              console.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
+              devLog.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
               return;
             }
 
@@ -219,7 +220,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                             },
                         });
                     } catch (error) {
-                        console.error("Error uploading", error);
+                        devLog.error("Error uploading", error);
                     }
                 }
                 uploadImages();
@@ -243,7 +244,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
                             },
                         });
                     } catch (error) {
-                        console.error("Error uploading", error);
+                        devLog.error("Error uploading", error);
                     }
                 }
                 uploadImages();
@@ -277,7 +278,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             },
           });
         } catch (error) {
-          console.error("Error uploading docs", error);
+          devLog.error("Error uploading docs", error);
         }
       } else { // If all files are PDFs
         dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...files] });
@@ -297,7 +298,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
             },
           });
         } catch (error) {
-          console.error("Error uploading docs", error);
+          devLog.error("Error uploading docs", error);
         }
       }
     }
@@ -324,10 +325,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         body: formDatatoDelete,
       }).then(response => {
         if (!response.ok) {
-          console.error('Failed to delete image file:', filePathToDelete);
+          devLog.error('Failed to delete image file:', filePathToDelete);
         }
       }).catch(error => {
-        console.error('Error deleting image file:', error);
+        devLog.error('Error deleting image file:', error.message);
       });
     }
 
@@ -359,10 +360,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         body: formDatatoDelete,
       }).then(response => {
         if (!response.ok) {
-          console.error('Failed to delete doc file:', filePathToDelete);
+          devLog.error('Failed to delete doc file:', filePathToDelete);
         }
       }).catch(error => {
-        console.error('Error deleting doc file:', error);
+        devLog.error('Error deleting doc file:', error);
       });
     }
 
@@ -445,7 +446,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
           .then(results => {
             results.forEach((result, index) => {
               if (result.status === 'rejected') {
-                  console.error(`Failed deleting temp file ${uploadedTempFiles.current[index]}:`, result.reason);
+                  devLog.error(`Failed deleting temp file ${uploadedTempFiles.current[index]}:`, result.reason);
               }
             });
             uploadedTempFiles.current = [];
@@ -526,7 +527,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         focusFirstError(currentErrors, 'full');
       }
     } catch (error) {
-      console.error('Error saving lab:', error);
+      devLog.error('Error saving lab:', error);
     }
   }
 

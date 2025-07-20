@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useConnect, useDisconnect } from 'wagmi';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWallet } from '@fortawesome/free-solid-svg-icons';
+import devLog from '@/utils/logger';
 
 export default function WalletLogin({ setIsModalOpen }) {
   const { connectors, connect } = useConnect();
@@ -46,7 +47,7 @@ export default function WalletLogin({ setIsModalOpen }) {
                       connect({ connector });
                       closeModal();
                     } catch (error) {
-                      console.error('Error connecting wallet:', error);
+                      devLog.error('Error connecting wallet:', error);
                     }
                   }} />
               ))}

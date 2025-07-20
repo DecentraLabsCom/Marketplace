@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
@@ -82,7 +84,7 @@ export async function POST(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error fetching reservation:', error);
+    devLog.error('Error fetching reservation:', error);
     
     return Response.json({ 
       error: 'Failed to fetch reservation',

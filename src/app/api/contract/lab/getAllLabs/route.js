@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 // Optimized API route with server-side caching and batch operations
 import fs from 'fs/promises';
 import path from 'path';
@@ -16,7 +18,7 @@ export async function GET() {
   // Check server-side cache first
   const now = Date.now();
   if (labsCache && (now - cacheTimestamp) < CACHE_TTL) {
-    console.log('Returning cached labs data');
+    devLog.log('Returning cached labs data');
     return Response.json(labsCache, { 
       status: 200,
       headers: {
@@ -92,7 +94,7 @@ export async function GET() {
               uri: labData.base.uri,
             };
           } catch (error) {
-            console.error(`Error processing lab ${labId}:`, error);
+            devLog.error(`Error processing lab ${labId}:`, error);
             // Return minimal lab data on error
             return {
               id: labId,
@@ -126,7 +128,7 @@ export async function GET() {
     // Log failed labs for monitoring
     const failedLabs = labs.filter(result => result.status === 'rejected');
     if (failedLabs.length > 0) {
-      console.warn(`Failed to fetch ${failedLabs.length} labs`);
+      devLog.warn(`Failed to fetch ${failedLabs.length} labs`);
     }
 
     // Update cache
@@ -141,15 +143,15 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching labs metadata:', error);
+    devLog.error('Error fetching labs metadata:', error);
     
     // Check if it's a rate limiting error (429)
     if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
-      console.log('Rate limit hit, returning cached data if available or fallback');
+      devLog.log('Rate limit hit, returning cached data if available or fallback');
       
       // If we have cached data, return it even if expired
       if (labsCache) {
-        console.log('Returning expired cached data due to rate limiting');
+        devLog.log('Returning expired cached data due to rate limiting');
         return Response.json(labsCache, { 
           status: 200,
           headers: {
@@ -162,7 +164,7 @@ export async function GET() {
     
     try {
       const fallbackLabs = simLabsData();
-      console.log('Using simulation data as fallback');
+      devLog.log('Using simulation data as fallback');
       return Response.json(fallbackLabs, { 
         status: 200,
         headers: {
@@ -170,7 +172,7 @@ export async function GET() {
         }
       });
     } catch (fallbackError) {
-      console.error('Error fetching fallback labs data:', fallbackError);
+      devLog.error('Error fetching fallback labs data:', fallbackError);
       return new Response(JSON.stringify({ 
         error: 'Service temporarily unavailable due to rate limiting',
         message: 'Please try again in a few minutes'
@@ -239,7 +241,7 @@ async function fetchMetadataOptimized(uri, labId, isVercel, timeout = 5000) {
       }
     }
   } catch (error) {
-    console.error(`Failed to fetch metadata for ${uri}:`, error.message);
+    devLog.error(`Failed to fetch metadata for ${uri}:`, error.message);
   }
 
   return defaultMetadata;

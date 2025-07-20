@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import ConfirmModal from "@/components/ConfirmModal";
+import devLog from '@/utils/logger';
 
 const LabBookingItem = React.memo(function LabBookingItem({ 
     lab, 
@@ -93,7 +94,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
                  (booking.status === "0" || booking.status === 0 || booking.status === "1" || booking.status === 1) && ( // PENDING or BOOKED
                     <button
                         onClick={() => {
-                            console.log('Cancel button clicked, executing cancellation:', { labId: lab.id, booking });
+                            // Log critical action for debugging
+                            devLog.log('Cancel booking action:', { labId: lab.id, bookingStatus: booking.status });
                             onCancel(booking);
                         }}
                         className="bg-[#a87583] text-white px-3 py-1 rounded hover:bg-[#8a5c66] text-sm"
@@ -118,12 +120,11 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     isOpen={isModalOpen}
                     onClose={closeModal}
                     onContinue={() => {
-                        console.log('Modal continue clicked for refund');
                         if (typeof onConfirmRefund === "function") {
-                            console.log('Calling onConfirmRefund');
+                            devLog.log('Confirming refund request');
                             onConfirmRefund();
                         } else {
-                            console.error('No refund confirm function available');
+                            devLog.error('No refund confirm function available');
                         }
                         // Don't call closeModal here - let the parent handle it
                     }}

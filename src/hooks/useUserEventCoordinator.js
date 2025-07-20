@@ -5,6 +5,7 @@
 import { useCallback } from 'react';
 import { useUser } from '@/context/UserContext';
 import { useUserEvents } from '@/context/UserEventContext';
+import devLog from '@/utils/logger';
 
 export function useUserEventCoordinator() {
   const { refreshProviderStatus } = useUser();
@@ -22,7 +23,7 @@ export function useUserEventCoordinator() {
   const coordinatedUserUpdate = useCallback(async (updateFunction, userId = null) => {
     // Check if an update is already in progress
     if (isManualUpdateInProgress) {
-      console.warn('[UserEventCoordinator] Manual update already in progress, skipping...');
+      devLog.warn('[UserEventCoordinator] Manual update already in progress, skipping...');
       return;
     }
 
@@ -45,7 +46,7 @@ export function useUserEventCoordinator() {
 
       return result;
     } catch (error) {
-      console.error('Manual user update failed:', error);
+      devLog.error('Manual user update failed:', error);
       throw error;
     } finally {
       // Clear the flag after a delay to allow events to settle
@@ -64,7 +65,7 @@ export function useUserEventCoordinator() {
         refreshProviderStatus();
       }
     } else {
-      console.log('Manual user update in progress, skipping automatic refresh');
+      devLog.log('Manual user update in progress, skipping automatic refresh');
     }
   }, [refreshProviderStatus, isManualUpdateInProgress]);
 

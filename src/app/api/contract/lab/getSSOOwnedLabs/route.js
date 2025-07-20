@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 import { ethers } from 'ethers';
@@ -34,7 +36,7 @@ export async function POST(request) {
             labMetadata = await response.json();
           }
         } catch (err) {
-          console.warn(`Failed to fetch metadata for SSO lab ${labId} from ${lab.base.uri}:`, err.message);
+          devLog.warn(`Failed to fetch metadata for SSO lab ${labId} from ${lab.base.uri}:`, err.message);
           // Continue with default metadata
         }
 
@@ -60,7 +62,7 @@ export async function POST(request) {
 
     return Response.json({ labs: ownedLabs }, { status: 200 });
   } catch (error) {
-    console.error('Error getting SSO owned labs:', error);
+    devLog.error('Error getting SSO owned labs:', error);
     return Response.json({ error: 'Failed to get owned labs' }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 
 export async function POST(request) {
@@ -33,7 +35,7 @@ export async function POST(request) {
           break;
         }
       } catch (error) {
-        console.warn(`Failed to fetch provider ${i}:`, error.message);
+        devLog.warn(`Failed to fetch provider ${i}:`, error.message);
         // Provider might not exist or be inactive, continue
         continue;
       }
@@ -41,7 +43,7 @@ export async function POST(request) {
 
     return Response.json({ isLabProvider: isProvider }, { status: 200 });
   } catch (error) {
-    console.error('Error checking SSO provider status:', error);
+    devLog.error('Error checking SSO provider status:', error);
     return Response.json({ error: 'Failed to check provider status' }, { status: 500 });
   }
 }

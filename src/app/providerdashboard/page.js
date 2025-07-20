@@ -8,6 +8,7 @@ import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
 import LabModal from '@/components/LabModal';
+import devLog from '@/utils/logger';
 import AccessControl from '@/components/AccessControl';
 import ProviderLabItem from '@/components/ProviderLabItem';
 import { renderDayContents } from '@/utils/labBookingCalendar';
@@ -135,7 +136,7 @@ export default function ProviderDashboard() {
                   });
                 }
               } catch (error) {
-                console.error("Error converting date in lab:", lab.name, booking.date, error);
+                devLog.error("Error converting date in lab:", lab.name, booking.date, error);
               }
             });
         }
@@ -264,7 +265,7 @@ export default function ProviderDashboard() {
         });
       }
     } catch (error) {
-      console.error('Error updating lab:', error);
+      devLog.error('Error updating lab:', error);
       addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
       throw error; // Re-throw for coordinatedLabUpdate to handle
     }
@@ -337,7 +338,7 @@ export default function ProviderDashboard() {
           throw new Error('No transaction hash received');
         }
       } catch (error) {
-        console.error('Error adding lab:', error);
+        devLog.error('Error adding lab:', error);
         addTemporaryNotification('error', `❌ Failed to add lab: ${formatErrorMessage(error)}`);
         throw error; // Re-throw for coordinatedLabUpdate to handle
       }
@@ -414,7 +415,7 @@ export default function ProviderDashboard() {
         throw new Error('No transaction hash received');
       }
     } catch (error) {
-      console.error('Error deleting lab:', error);
+      devLog.error('Error deleting lab:', error);
       addTemporaryNotification('error', `❌ Failed to delete lab: ${formatErrorMessage(error)}`);
       throw error; // Re-throw for coordinatedLabUpdate to handle
     }
@@ -437,7 +438,7 @@ export default function ProviderDashboard() {
         throw new Error('No transaction hash received');
       }
     } catch (error) {
-      console.error('Error listing lab:', error);
+      devLog.error('Error listing lab:', error);
       addTemporaryNotification('error', `❌ Failed to list lab: ${formatErrorMessage(error)}`);
     }
   };
@@ -458,7 +459,7 @@ export default function ProviderDashboard() {
         throw new Error('No transaction hash received');
       }
     } catch (error) {
-      console.error('Error unlisting lab:', error);
+      devLog.error('Error unlisting lab:', error);
       addTemporaryNotification('error', `❌ Failed to unlist lab: ${formatErrorMessage(error)}`);
     }
   };
@@ -477,7 +478,7 @@ export default function ProviderDashboard() {
       
       addTemporaryNotification('success', '✅ All balances collected successfully!');
     } catch (err) {
-      console.error(err);
+      devLog.error(err);
       addTemporaryNotification('error', `❌ Failed to collect balances: ${formatErrorMessage(err)}`);
     }
   };
@@ -496,7 +497,7 @@ export default function ProviderDashboard() {
       
       addTemporaryNotification('success', '✅ Balance collected successfully!');
     } catch (err) {
-      console.error(err);
+      devLog.error(err);
       addTemporaryNotification('error', `❌ Failed to collect balance: ${formatErrorMessage(err)}`);
     }
   };

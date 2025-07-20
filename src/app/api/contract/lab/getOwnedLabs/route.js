@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
@@ -25,7 +27,7 @@ export async function GET(request) {
             name = metadata?.name ?? name;
           }
         } catch (err) {
-          console.warn(`Failed to fetch metadata for lab ${labId} from ${lab.base.uri}:`, err.message);
+          devLog.warn(`Failed to fetch metadata for lab ${labId} from ${lab.base.uri}:`, err.message);
           // Keep default name and continue
         }
         ownedLabs.push({
@@ -37,7 +39,7 @@ export async function GET(request) {
 
     return Response.json(ownedLabs, { status: 200 });
   } catch (error) {
-    console.error('Error fetching list of owned labs:', error);
+    devLog.error('Error fetching list of owned labs:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

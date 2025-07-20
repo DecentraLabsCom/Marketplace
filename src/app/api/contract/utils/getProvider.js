@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
         quicknodeNetworks, chainstackNetworks } from '@/utils/networkConfig';
+import devLog from '@/utils/logger';
 
 export default async function getProvider(network) {
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
@@ -23,7 +24,7 @@ export default async function getProvider(network) {
             networkInfo
         ));
     } catch (e) {
-        console.warn('Default WebSocket provider failed to initialize:', e.message);
+        devLog.warn('Default WebSocket provider failed to initialize:', e.message);
     }
 
     try {
@@ -32,7 +33,7 @@ export default async function getProvider(network) {
             networkInfo, options
         ));
     } catch (e) {
-        console.warn('Default HTTP provider failed to initialize:', e.message);
+        devLog.warn('Default HTTP provider failed to initialize:', e.message);
     }
 
     if (alchemyProjectId) {
@@ -42,13 +43,13 @@ export default async function getProvider(network) {
                 networkInfo
             ));
         } catch (e) {
-            console.warn('Alchemy WebSocket provider failed to initialize:', e.message);
+            devLog.warn('Alchemy WebSocket provider failed to initialize:', e.message);
         }
         
         try {
             providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
         } catch (e) {
-            console.warn('Alchemy provider failed to initialize:', e.message);
+            devLog.warn('Alchemy provider failed to initialize:', e.message);
         }
     }
 
@@ -59,7 +60,7 @@ export default async function getProvider(network) {
                 networkInfo, options
             ));
         } catch (e) {
-            console.warn('Ankr provider failed to initialize:', e.message);
+            devLog.warn('Ankr provider failed to initialize:', e.message);
         }
     }
 
@@ -70,7 +71,7 @@ export default async function getProvider(network) {
                 networkInfo
             ));
         } catch (e) {
-            console.warn('Quicknode WebSocket provider failed to initialize:', e.message);
+            devLog.warn('Quicknode WebSocket provider failed to initialize:', e.message);
         }
         
         try {
@@ -79,7 +80,7 @@ export default async function getProvider(network) {
                 networkInfo, options
             ));
         } catch (e) {
-            console.warn('Quicknode HTTP provider failed to initialize:', e.message);
+            devLog.warn('Quicknode HTTP provider failed to initialize:', e.message);
         }
     }
 
@@ -90,7 +91,7 @@ export default async function getProvider(network) {
                 networkInfo
             ));
         } catch (e) {
-            console.warn('Chainstack WebSocket provider failed to initialize:', e.message);
+            devLog.warn('Chainstack WebSocket provider failed to initialize:', e.message);
         }
         
         try {
@@ -99,7 +100,7 @@ export default async function getProvider(network) {
                 networkInfo, options
             ));
         } catch (e) {
-            console.warn('Chainstack HTTP provider failed to initialize:', e.message);
+            devLog.warn('Chainstack HTTP provider failed to initialize:', e.message);
         }
     }
 
@@ -114,7 +115,7 @@ export default async function getProvider(network) {
                 )
             );
         } catch (e) {
-            console.warn('Infura provider failed to initialize:', e.message);
+            devLog.warn('Infura provider failed to initialize:', e.message);
         }
     }
     
@@ -122,14 +123,14 @@ export default async function getProvider(network) {
     try {
         providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
     } catch (e) {
-        console.warn('Official RPC provider failed to initialize:', e.message);
+        devLog.warn('Official RPC provider failed to initialize:', e.message);
     }
 
     if (providers.length === 0) {
         throw new Error('No providers could be initialized');
     }
 
-    console.log(`Initialized ${providers.length} providers for ${network.name}`);
+    devLog.log(`Initialized ${providers.length} providers for ${network.name}`);
     
     return new ethers.FallbackProvider(providers, networkInfo, {
         quorum: 1,

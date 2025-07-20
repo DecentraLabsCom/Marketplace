@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLabToken } from '@/hooks/useLabToken';
 
 export default function LabTokenInfo({ labPrice, durationMinutes, className = '' }) {
@@ -12,9 +12,19 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
     labTokenAddress
   } = useLabToken();
 
-  // Calculate the reservation cost
-  const reservationCost = calculateReservationCost(labPrice, durationMinutes);
-  const { hasSufficientBalance, hasSufficientAllowance } = checkBalanceAndAllowance(reservationCost);
+  // Memoize calculations to prevent unnecessary re-renders
+  const calculations = useMemo(() => {
+    const reservationCost = calculateReservationCost(labPrice, durationMinutes);
+    const { hasSufficientBalance, hasSufficientAllowance } = checkBalanceAndAllowance(reservationCost);
+    
+    return {
+      reservationCost,
+      hasSufficientBalance,
+      hasSufficientAllowance
+    };
+  }, [labPrice, durationMinutes, calculateReservationCost, checkBalanceAndAllowance]);
+
+  const { reservationCost, hasSufficientBalance, hasSufficientAllowance } = calculations;
 
   // Don't show if there is no data or address associated to the token
   if (!labTokenAddress || !decimals) {

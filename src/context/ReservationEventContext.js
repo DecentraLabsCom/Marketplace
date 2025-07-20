@@ -6,6 +6,7 @@ import { useNotifications } from "@/context/NotificationContext";
 import { contractABI, contractAddresses } from '@/contracts/diamond';
 import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
+import devLog from '@/utils/logger';
 
 const ReservationEventContext = createContext();
 
@@ -54,9 +55,7 @@ export function ReservationEventProvider({ children }) {
         
         bookingUpdateTimeoutRef.current = setTimeout(() => {
             if (pendingBookingUpdates.current.size > 0) {
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('📊 Processing batch booking updates for keys:', Array.from(pendingBookingUpdates.current));
-                }
+                devLog.log('📊 Processing batch booking updates for keys:', Array.from(pendingBookingUpdates.current));
                 pendingBookingUpdates.current.clear();
                 fetchBookings();
             }
@@ -75,7 +74,7 @@ export function ReservationEventProvider({ children }) {
                 if (log.args) {
                     handleReservationRequested(log.args);
                 } else {
-                    console.error('ReservationRequested event received without parsed args:', log);
+                    devLog.error('ReservationRequested event received without parsed args:', log);
                 }
             });
         },
@@ -85,7 +84,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationConfirmed = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            console.log('[ReservationEventContext] Skipping ReservationConfirmed event - manual update in progress');
+            devLog.log('[ReservationEventContext] Skipping ReservationConfirmed event - manual update in progress');
             return;
         }
 
@@ -100,15 +99,13 @@ export function ReservationEventProvider({ children }) {
         }
         lastEventTime.current.set(eventKey, now);
         
-        if (process.env.NODE_ENV === 'development') {
-            console.log('✅ ReservationConfirmed event received (processing):', { 
-                reservationKey, 
-                processingReservations: Array.from(processingReservations) 
-            });
-        }
+        devLog.log('✅ ReservationConfirmed event received (processing):', { 
+            reservationKey, 
+            processingReservations: Array.from(processingReservations) 
+        });
         
         if (!reservationKey) {
-            console.error('❌ ReservationConfirmed event missing reservationKey:', args);
+            devLog.error('❌ ReservationConfirmed event missing reservationKey:', args);
             return;
         }
         
@@ -118,19 +115,28 @@ export function ReservationEventProvider({ children }) {
             const hadKey = newSet.has(reservationKey);
             newSet.delete(reservationKey);
             
-            if (process.env.NODE_ENV === 'development') {
-                console.log('➖ Removing reservation key from processing:', { 
-                    reservationKey, 
-                    hadKey, 
-                    remaining: Array.from(newSet) 
-                });
-            }
+            devLog.log('➖ Removing reservation key from processing:', { 
+                reservationKey, 
+                hadKey, 
+                remaining: Array.from(newSet) 
+            });
             
             return newSet;
         });
         
         // Show success notification
         addPersistentNotification('success', '✅ Reservation confirmed and recorded onchain!');
+        
+        // Invalidate server-side cache to ensure fresh data on next fetch
+        try {
+            fetch('/api/contract/reservation/invalidateCache', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'ReservationConfirmed', reservationKey })
+            }).catch(err => devLog.warn('Cache invalidation failed:', err));
+        } catch (error) {
+            devLog.warn('Cache invalidation request failed:', error);
+        }
         
         // Mark for smart batch update
         invalidateBookingCache(reservationKey);
@@ -153,7 +159,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationRequestDenied = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            console.log('[ReservationEventContext] Skipping ReservationRequestDenied event - manual update in progress');
+            devLog.log('[ReservationEventContext] Skipping ReservationRequestDenied event - manual update in progress');
             return;
         }
 
@@ -168,15 +174,13 @@ export function ReservationEventProvider({ children }) {
         }
         lastEventTime.current.set(eventKey, now);
         
-        if (process.env.NODE_ENV === 'development') {
-            console.log('❌ ReservationRequestDenied event received (processing):', { 
-                reservationKey, 
-                processingReservations: Array.from(processingReservations) 
-            });
-        }
+        devLog.log('❌ ReservationRequestDenied event received (processing):', { 
+            reservationKey, 
+            processingReservations: Array.from(processingReservations) 
+        });
         
         if (!reservationKey) {
-            console.error('❌ ReservationRequestDenied event missing reservationKey:', args);
+            devLog.error('❌ ReservationRequestDenied event missing reservationKey:', args);
             return;
         }
         
@@ -186,13 +190,11 @@ export function ReservationEventProvider({ children }) {
             const hadKey = newSet.has(reservationKey);
             newSet.delete(reservationKey);
             
-            if (process.env.NODE_ENV === 'development') {
-                console.log('➖ Removing reservation key (denied):', { 
-                    reservationKey, 
-                    hadKey, 
-                    remaining: Array.from(newSet) 
-                });
-            }
+            devLog.log('➖ Removing reservation key (denied):', { 
+                reservationKey, 
+                hadKey, 
+                remaining: Array.from(newSet) 
+            });
             
             return newSet;
         });
@@ -218,6 +220,12 @@ export function ReservationEventProvider({ children }) {
     });
 
     const handleReservationRequested = async (args) => {
+        // Skip event processing if manual update is in progress
+        if (manualUpdateInProgress) {
+            devLog.log('[ReservationEventContext] Skipping ReservationRequested event - manual update in progress');
+            return;
+        }
+
         const { renter, tokenId, start, end, reservationKey } = args;
         const eventKey = `ReservationRequested_${reservationKey}`;
         const now = Date.now();
@@ -229,19 +237,17 @@ export function ReservationEventProvider({ children }) {
         }
         lastEventTime.current.set(eventKey, now);
         
-        if (process.env.NODE_ENV === 'development') {
-            console.log('� ReservationRequested event received (processing):', {
-                renter,
-                tokenId: tokenId?.toString(),
-                start: start?.toString(),
-                end: end?.toString(),
-                reservationKey
-            });
-        }
+        devLog.log('� ReservationRequested event received (processing):', {
+            renter,
+            tokenId: tokenId?.toString(),
+            start: start?.toString(),
+            end: end?.toString(),
+            reservationKey
+        });
         
         // Validate that all required arguments exist
         if (!reservationKey || !tokenId || !renter || !start || !end) {
-            console.error('❌ ReservationRequested event missing required arguments:', args);
+            devLog.error('❌ ReservationRequested event missing required arguments:', args);
             return;
         }
         
@@ -249,9 +255,7 @@ export function ReservationEventProvider({ children }) {
         setProcessingReservations(prev => {
             const newSet = new Set(prev).add(reservationKey);
             
-            if (process.env.NODE_ENV === 'development') {
-                console.log('➕ Adding reservation to processing:', { reservationKey, total: newSet.size });
-            }
+            devLog.log('➕ Adding reservation to processing:', { reservationKey, total: newSet.size });
             
             return newSet;
         });
@@ -261,7 +265,7 @@ export function ReservationEventProvider({ children }) {
             const lab = labs?.find(lab => lab.id === tokenId.toString());
             
             if (!lab || !lab.uri) {
-                console.error('❌ Lab not found in context or missing uri:', { 
+                devLog.error('❌ Lab not found in context or missing uri:', { 
                     labId: tokenId.toString(), 
                     availableLabs: labs?.map(l => ({ id: l.id, uri: l.uri })) 
                 });
@@ -287,16 +291,14 @@ export function ReservationEventProvider({ children }) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
         } catch (error) {
-            console.error('Error processing reservation request:', error);
+            devLog.error('Error processing reservation request:', error);
             
             // Remove from processing set on error
             setProcessingReservations(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(reservationKey);
                 
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('Removing reservation key (error):', { reservationKey, error: error.message });
-                }
+                devLog.log('Removing reservation key (error):', { reservationKey, error: error.message });
                 
                 return newSet;
             });
@@ -307,7 +309,7 @@ export function ReservationEventProvider({ children }) {
     const handleBookingCanceled = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            console.log('[ReservationEventContext] Skipping BookingCanceled event - manual update in progress');
+            devLog.log('[ReservationEventContext] Skipping BookingCanceled event - manual update in progress');
             return;
         }
 
@@ -322,12 +324,10 @@ export function ReservationEventProvider({ children }) {
         }
         lastEventTime.current.set(eventKey, now);
         
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🗑️ BookingCanceled event received (processing):', { reservationKey });
-        }
+        devLog.log('🗑️ BookingCanceled event received (processing):', { reservationKey });
         
         if (!reservationKey) {
-            console.error('❌ BookingCanceled event missing reservationKey:', args);
+            devLog.error('❌ BookingCanceled event missing reservationKey:', args);
             return;
         }
         
@@ -343,7 +343,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationRequestCanceled = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            console.log('[ReservationEventContext] Skipping ReservationRequestCanceled event - manual update in progress');
+            devLog.log('[ReservationEventContext] Skipping ReservationRequestCanceled event - manual update in progress');
             return;
         }
 
@@ -358,12 +358,10 @@ export function ReservationEventProvider({ children }) {
         }
         lastEventTime.current.set(eventKey, now);
         
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🗑️ ReservationRequestCanceled event received (processing):', { reservationKey });
-        }
+        devLog.log('🗑️ ReservationRequestCanceled event received (processing):', { reservationKey });
         
         if (!reservationKey) {
-            console.error('❌ ReservationRequestCanceled event missing reservationKey:', args);
+            devLog.error('❌ ReservationRequestCanceled event missing reservationKey:', args);
             return;
         }
         

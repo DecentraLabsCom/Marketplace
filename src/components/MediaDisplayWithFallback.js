@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { XCircle } from 'lucide-react';
+import devLog from '@/utils/logger';
 
 export default function MediaDisplayWithFallback({ 
   mediaPath, 
@@ -145,7 +146,7 @@ export default function MediaDisplayWithFallback({
         if (error.name === 'AbortError') {
           return;
         }
-        console.warn(`Fetch failed for doc from ${currentAttemptType}: ${urlToAttempt}. Error: ${error.message}`);
+        devLog.warn(`Fetch failed for doc from ${currentAttemptType}: ${urlToAttempt}. Error: ${error.message}`);
         
         // Move to the next attempt phase
         setDocAttemptPhase(prevPhase => prevPhase + 1);
@@ -155,7 +156,10 @@ export default function MediaDisplayWithFallback({
     executeDocAttempt();
 
     return () => {
-      abortController.abort(); 
+      // Only abort if the component is actually unmounting or the signal is still valid
+      if (!signal.aborted) {
+        abortController.abort('Component cleanup');
+      }
     };
 
   }, [mediaPath, mediaType, isVercel, docAttemptPhase]);

@@ -8,6 +8,7 @@ import { useLabs } from '@/context/LabContext'
 import { useNotifications } from '@/context/NotificationContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator'
+import devLog from '@/utils/logger'
 import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
 import AccessControl from '@/components/AccessControl'
@@ -77,7 +78,7 @@ export default function UserDashboard() {
 
   const handleCancellation = async (booking) => {
     if (!booking || !booking.reservationKey) {
-      console.error('Missing booking or reservation key:', booking);
+      devLog.error('Missing booking or reservation key:', booking);
       addErrorNotification('No booking selected or missing reservation key', '');
       return;
     }
@@ -108,7 +109,7 @@ export default function UserDashboard() {
       }
       
     } catch (error) {
-      console.error('Cancellation failed:', error);
+      devLog.error('Cancellation failed:', error);
       addErrorNotification(error.message || 'Cancellation failed', '');
     }
   };
@@ -130,7 +131,7 @@ export default function UserDashboard() {
           throw new Error('No transaction hash received');
         }
       } catch (error) {
-        console.error('Cancel booking error:', error);
+        devLog.error('Cancel booking error:', error);
         if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
           addPersistentNotification('warning', '🚫 Transaction rejected by user.');
         } else {
@@ -158,7 +159,7 @@ export default function UserDashboard() {
           throw new Error('No transaction hash received');
         }
       } catch (error) {
-        console.error('Cancel reservation request error:', error);
+        devLog.error('Cancel reservation request error:', error);
         if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
           addPersistentNotification('warning', '🚫 Transaction rejected by user.');
         } else {
@@ -236,7 +237,7 @@ export default function UserDashboard() {
                   dates.push(dateObject);
                 }
               } catch (error) {
-                console.error("Error converting date:", booking.date, error);
+                devLog.error("Error converting date:", booking.date, error);
               }
             });
         }
@@ -456,7 +457,7 @@ export default function UserDashboard() {
                             </span>
                           )}
                           <Link href={`/lab/${firstActiveLab.id}`} className='px-3 mt-3 py-1 
-                            rounded text-sm bg-yellow-500 hover:bg-yellow-300 text-white'>
+                            rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'>
                               Explore this lab
                           </Link>
                         </div>

@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
@@ -10,7 +12,7 @@ export async function POST(req) {
         let filePath = formData.get('filePath'); 
 
         if (!filePath) {
-            console.error('Error: File path is required.');
+            devLog.error('Error: File path is required.');
             return NextResponse.json({ error: 'File path is required' }, { status: 400 });
         }
 
@@ -44,13 +46,13 @@ export async function POST(req) {
             try {
                 await fs.unlink(fullFilePath); 
                 deleteSuccessful = true;
-                console.log(`Successfully deleted file locally: ${fullFilePath}`);
+                devLog.log(`Successfully deleted file locally: ${fullFilePath}`);
             } catch (deleteError) {
                 if (deleteError.code === 'ENOENT') {
                     deleteSuccessful = true; 
-                    console.warn(`File not found, but deletion considered successful: ${fullFilePath}`);
+                    devLog.warn(`File not found, but deletion considered successful: ${fullFilePath}`);
                 } else {
-                    console.error('Error deleting file locally:', deleteError);
+                    devLog.error('Error deleting file locally:', deleteError);
                     return NextResponse.json(
                         { error: 'Failed to delete file locally', details: deleteError.message },
                         { status: 500 },
@@ -62,14 +64,14 @@ export async function POST(req) {
                 const blobPath = `data/${filePath.replace(/\\/g, '/')}`; 
                 const result = await del(blobPath);
                 if (result) {
-                    console.log(`Blob deleted from Vercel: ${blobPath}`);
+                    devLog.log(`Blob deleted from Vercel: ${blobPath}`);
                     deleteSuccessful = true;
                 } else {
-                    console.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
+                    devLog.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
                     deleteSuccessful = true;
                 }
             } catch (error) {
-                console.error("Error deleting blob from Vercel:", error);
+                devLog.error("Error deleting blob from Vercel:", error);
                 return NextResponse.json(
                     { error: 'Failed to delete file from Vercel Blob.', details: error.message },
                     { status: 500 }
@@ -82,7 +84,7 @@ export async function POST(req) {
             const pathSegments = filePath.split(path.sep); 
 
             if (pathSegments.length < 3) {
-                console.warn(`File path ${filePath} does not have expected segments (ID/type/file). 
+                devLog.warn(`File path ${filePath} does not have expected segments (ID/type/file). 
                     Length: ${pathSegments.length}. Skipping directory cleanup.`);
                 return NextResponse.json({
                     message: 'File deleted, but directory cleanup skipped due to invalid path structure.'
@@ -100,47 +102,32 @@ export async function POST(req) {
             const fullTypeSubDir = path.join(publicDir, labId, typeDirName); 
             const fullLabIdDir = path.join(publicDir, labId);         
 
-            console.log('Calculated fullTypeSubDir (e.g., .../public/57/images):', fullTypeSubDir);
-            console.log('Calculated fullLabIdDir (e.g., .../public/57):', fullLabIdDir);
+            devLog.log('Directory paths calculated:', { fullTypeSubDir, fullLabIdDir });
 
             if (!isVercel) {
                 // FIRSTLY: Delete 'images'/'docs' folder if empty
                 try {
                     const typeSubDirContents = await fs.readdir(fullTypeSubDir);
-                    console.log(`Contents of ${fullTypeSubDir}:`, typeSubDirContents);
                     if (typeSubDirContents.length === 0) {
                         await fs.rmdir(fullTypeSubDir);
-                        console.log(`Successfully deleted empty directory: ${fullTypeSubDir}`);
-                    } else {
-                        console.log(`Directory ${fullTypeSubDir} is NOT empty.`);
+                        devLog.log(`Successfully deleted empty directory: ${fullTypeSubDir}`);
                     }
                 } catch (dirError) {
-                    if (dirError.code === 'ENOENT') {
-                        console.log(`Directory ${fullTypeSubDir} did not exist, skipping deletion.`);
-                    } else if (dirError.code === 'ENOTEMPTY') {
-                        console.log(`Directory ${fullTypeSubDir} is not empty, skipping deletion.`);
-                    } else {
-                        console.warn(`Could not delete directory ${fullTypeSubDir}:`, dirError.message);
+                    if (dirError.code !== 'ENOENT' && dirError.code !== 'ENOTEMPTY') {
+                        devLog.warn(`Could not delete directory ${fullTypeSubDir}:`, dirError.message);
                     }
                 }
 
                 // SECONDLY: Delete lab id folder if empty
                 try {
                     const labIdDirContents = await fs.readdir(fullLabIdDir);
-                    console.log(`Contents of ${fullLabIdDir}:`, labIdDirContents);
                     if (labIdDirContents.length === 0) {
                         await fs.rmdir(fullLabIdDir);
-                        console.log(`Successfully deleted empty directory: ${fullLabIdDir}`);
-                    } else {
-                        console.log(`Directory ${fullLabIdDir} is NOT empty.`);
+                        devLog.log(`Successfully deleted empty lab directory: ${fullLabIdDir}`);
                     }
                 } catch (dirError) {
-                    if (dirError.code === 'ENOENT') {
-                        console.log(`Directory ${fullLabIdDir} did not exist, skipping deletion.`);
-                    } else if (dirError.code === 'ENOTEMPTY') {
-                        console.log(`Directory ${fullLabIdDir} is not empty, skipping deletion.`);
-                    } else {
-                        console.warn(`Could not delete directory ${fullLabIdDir}:`, dirError.message);
+                    if (dirError.code !== 'ENOENT' && dirError.code !== 'ENOTEMPTY') {
+                        devLog.warn(`Could not delete lab directory ${fullLabIdDir}:`, dirError.message);
                     }
                 }
             }
@@ -149,7 +136,7 @@ export async function POST(req) {
         return NextResponse.json({ message: 'File deleted successfully' }, { status: 200 });
 
     } catch (error) {
-        console.error('--- Error general en deleteFile endpoint ---', error);
+        devLog.error('--- Error general en deleteFile endpoint ---', error);
         return NextResponse.json(
             { error: 'Internal server error', details: error.message },
             { status: 500 },

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import devLog from '@/utils/logger';
 
 /**
  * Hybrid hook for efficient active booking updates.
@@ -51,22 +52,16 @@ export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refre
     if (nextUpdateTime) {
       const timeUntilUpdate = nextUpdateTime.getTime() - now.getTime();
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`⏰ Next booking status update scheduled:`, {
-          time: nextUpdateTime.toLocaleString(),
-          secondsUntil: Math.round(timeUntilUpdate / 1000),
-          willSyncContract: needsContractSync,
-          strategy: needsContractSync ? 'contract-sync' : 'local-update'
-        });
-      }
+      devLog.log(`⏰ Next booking update in ${Math.round(timeUntilUpdate / 1000)}s`, {
+        time: nextUpdateTime.toLocaleString(),
+        strategy: needsContractSync ? 'contract-sync' : 'local-update'
+      });
       
       // Add a small delay (1 second) to ensure the change is detected
       const timeout = setTimeout(async () => {
         // If we need to sync with contract (e.g., at booking start)
         if (needsContractSync && refreshBookings) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔄 Syncing with contract for booking state change...');
-          }
+          devLog.log('🔄 Contract sync for booking state change');
           await refreshBookings();
         }
         
@@ -116,9 +111,7 @@ export function useMinuteUpdates(isLoggedIn, labs, refreshBookings = null) {
       
       // Every 5 minutes, sync with contract
       if (minutesSinceLastSync >= 5 && refreshBookings) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔄 Periodic contract sync (every 5 minutes)');
-        }
+        devLog.log('🔄 Periodic contract sync (5min)');
         await refreshBookings();
         setLastSync(now);
       }

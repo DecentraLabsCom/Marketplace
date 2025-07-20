@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
@@ -18,7 +20,7 @@ export async function POST(request) {
     // Return ok signal to client
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error adding provider:', error);
+    devLog.error('Error adding provider:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

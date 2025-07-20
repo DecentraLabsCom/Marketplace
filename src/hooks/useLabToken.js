@@ -4,6 +4,46 @@ import { parseUnits, formatUnits } from 'viem';
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
 import { contractAddresses } from '@/contracts/diamond';
 import { selectChain } from '@/utils/selectChain';
+import devLog from '@/utils/logger';
+
+// Session storage key for decimals cache
+const DECIMALS_CACHE_KEY = 'lab_token_decimals_cache';
+
+/**
+ * Utility to get cached decimals or return null
+ */
+const getCachedDecimals = (chainName) => {
+  try {
+    const cache = JSON.parse(sessionStorage.getItem(DECIMALS_CACHE_KEY) || '{}');
+    return cache[chainName] || null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Utility to cache decimals for a specific chain
+ */
+const setCachedDecimals = (chainName, decimals) => {
+  try {
+    const cache = JSON.parse(sessionStorage.getItem(DECIMALS_CACHE_KEY) || '{}');
+    cache[chainName] = decimals;
+    sessionStorage.setItem(DECIMALS_CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    devLog.warn('Failed to cache decimals:', error);
+  }
+};
+
+/**
+ * Clear decimals cache (useful for debugging or network switches)
+ */
+export const clearDecimalsCache = () => {
+  try {
+    sessionStorage.removeItem(DECIMALS_CACHE_KEY);
+  } catch (error) {
+    devLog.warn('Failed to clear decimals cache:', error);
+  }
+};
 
 /**
  * Hook to handle LAB token operations
@@ -12,12 +52,14 @@ import { selectChain } from '@/utils/selectChain';
 export function useLabToken() {
   const { address, chain } = useAccount();
   const safeChain = selectChain(chain);
-  const labTokenAddress = contractAddressesLAB[safeChain.name.toLowerCase()];
-  const diamondContractAddress = contractAddresses[safeChain.name.toLowerCase()];
+  const chainName = safeChain.name.toLowerCase();
+  const labTokenAddress = contractAddressesLAB[chainName];
+  const diamondContractAddress = contractAddresses[chainName];
   
   const { writeContractAsync } = useWriteContract();
   const [lastTxHash, setLastTxHash] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [cachedDecimals, setCachedDecimalsState] = useState(() => getCachedDecimals(chainName));
 
   // Read user balance
   const { data: balance, refetch: refetchBalance } = useReadContract({
@@ -37,13 +79,30 @@ export function useLabToken() {
     enabled: !!address && !!labTokenAddress && !!diamondContractAddress
   });
 
-  // Read token decimals
-  const { data: decimals } = useReadContract({
+  // Read token decimals only if not cached
+  const { data: contractDecimals } = useReadContract({
     address: labTokenAddress,
     abi: labTokenABI,
     functionName: 'decimals',
-    enabled: !!labTokenAddress
+    enabled: !!labTokenAddress && cachedDecimals === null
   });
+
+  // Update cached decimals when we get them from contract
+  useEffect(() => {
+    if (contractDecimals !== undefined && cachedDecimals === null) {
+      setCachedDecimals(chainName, contractDecimals);
+      setCachedDecimalsState(contractDecimals);
+    }
+  }, [contractDecimals, cachedDecimals, chainName]);
+
+  // Update cached decimals when chain changes
+  useEffect(() => {
+    const newCachedDecimals = getCachedDecimals(chainName);
+    setCachedDecimalsState(newCachedDecimals);
+  }, [chainName]);
+
+  // Use cached decimals if available, otherwise fall back to contract data
+  const decimals = cachedDecimals !== null ? cachedDecimals : contractDecimals;
 
   // Wait for transaction confirmation
   const { isLoading: isWaitingForReceipt, isSuccess: isReceiptSuccess } = useWaitForTransactionReceipt({
@@ -81,9 +140,11 @@ export function useLabToken() {
       const totalCost = pricePerMinute * durationMinutes;
       
       // Convert to wei (considering token decimals)
-      return parseUnits(totalCost.toString(), decimals);
+      const costInWei = parseUnits(totalCost.toString(), decimals);
+      
+      return costInWei;
     } catch (error) {
-      console.error('Error calculating reservation cost:', error);
+      devLog.error('Error calculating reservation cost:', error);
       return 0n;
     }
   };
@@ -135,6 +196,24 @@ export function useLabToken() {
   };
 
   /**
+   * Check if user has sufficient balance for a specific lab booking
+   * @param {string} labPrice - Laboratory hourly price (in LAB)
+   * @param {number} durationMinutes - Duration in minutes
+   * @returns {object} - Balance check result with detailed info
+   */
+  const checkSufficientBalance = (labPrice, durationMinutes) => {
+    const cost = calculateReservationCost(labPrice, durationMinutes);
+    const userBalance = balance || 0n;
+    
+    return {
+      hasSufficient: userBalance >= cost,
+      cost,
+      balance: userBalance,
+      shortfall: cost > userBalance ? cost - userBalance : 0n
+    };
+  };
+
+  /**
    * Format token amount to a human-readable string
    * @param {bigint} amount - Amount in wei
    * @returns {string} - Formatted amount
@@ -142,6 +221,15 @@ export function useLabToken() {
   const formatTokenAmount = (amount) => {
     if (!amount || !decimals) return '0';
     return formatUnits(amount, decimals);
+  };
+
+  /**
+   * Manually refresh balance and allowance data
+   * Useful for external components to trigger updates
+   */
+  const refreshTokenData = () => {
+    refetchBalance();
+    refetchAllowance();
   };
 
   return {
@@ -156,10 +244,15 @@ export function useLabToken() {
     calculateReservationCost,
     approveLabTokens,
     checkBalanceAndAllowance,
+    checkSufficientBalance,
     formatTokenAmount,
+    refreshTokenData,
     
     // Functions to refresh
     refetchBalance,
-    refetchAllowance
+    refetchAllowance,
+    
+    // Cache utilities
+    clearDecimalsCache
   };
 }

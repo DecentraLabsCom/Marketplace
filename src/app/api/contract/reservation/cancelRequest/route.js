@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { ethers } from 'ethers';
 import { contractABI, contractAddresses } from '@/contracts/diamond';
 
@@ -14,7 +16,7 @@ export async function POST(request) {
       return Response.json({ error: 'Missing userAddress' }, { status: 400 });
     }
 
-    console.log('Validating cancel reservation request for reservationKey:', reservationKey);
+    devLog.log('Validating cancel reservation request for reservationKey:', reservationKey);
 
     // Validate reservationKey format (should be bytes32)
     if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
@@ -43,7 +45,7 @@ export async function POST(request) {
     
     // Get reservation details
     const reservation = await contract.getReservation(reservationKey);
-    console.log('Reservation details:', reservation);
+    devLog.log('Reservation details:', reservation);
 
     // Check if reservation exists
     if (!reservation.exists) {
@@ -76,7 +78,7 @@ export async function POST(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error validating cancel reservation request:', error);
+    devLog.error('Error validating cancel reservation request:', error);
     
     return Response.json({ 
       error: 'Failed to validate request cancellation',

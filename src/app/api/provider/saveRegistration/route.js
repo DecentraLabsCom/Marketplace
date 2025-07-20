@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import fs from 'fs';
 import path from 'path';
 import { put } from '@vercel/blob';
@@ -45,7 +47,7 @@ export async function POST(request) {
           providers = [];
         }
       } catch (e) {
-        console.warn(`Failed to fetch existing providers blob:`, e.message);
+        devLog.warn(`Failed to fetch existing providers blob:`, e.message);
         // Blob may not exist yet
         providers = [];
       }
@@ -56,7 +58,7 @@ export async function POST(request) {
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error saving provider:', error);
+    devLog.error('Error saving provider:', error);
     return Response.json({ error: 'Failed to save provider' }, { status: 500 });
   }
 }

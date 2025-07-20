@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
@@ -40,7 +42,7 @@ export async function POST(request) {
     });
     
   } catch (error) {
-    console.error('Error getting reservation status:', error);
+    devLog.error('Error getting reservation status:', error);
     return Response.json({ 
       error: 'Failed to get reservation status',
       details: error.message 

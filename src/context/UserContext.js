@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { useAccount } from "wagmi";
+import { devLog } from '@/utils/logger';
 
 const UserContext = createContext();
 
@@ -25,7 +26,7 @@ export function UserData({ children }) {
                 setIsProviderLoading(false);
             }
         })
-        .catch((error) => console.error("Error fetching session:", error));
+        .catch((error) => devLog.error("Error fetching session:", error));
     }, []);
 
     const isLoggedIn = isConnected || isSSO;
@@ -47,7 +48,7 @@ export function UserData({ children }) {
                 .then((data) => {
                     setIsProvider(prev => prev !== data.isLabProvider ? data.isLabProvider : prev);
                 })
-                .catch((error) => console.error("Error checking SSO provider status:", error))
+                .catch((error) => devLog.error("Error checking SSO provider status:", error))
                 .finally(() => setIsProviderLoading(false));
             } else if (address) {
                 // For wallet users, check provider status by wallet address
@@ -62,7 +63,7 @@ export function UserData({ children }) {
                 .then((data) => {
                     setIsProvider(prev => prev !== data.isLabProvider ? data.isLabProvider : prev);
                 })
-                .catch((error) => console.error("Error checking wallet provider status:", error))
+                .catch((error) => devLog.error("Error checking wallet provider status:", error))
                 .finally(() => setIsProviderLoading(false));
 
                 // Get lab provider name and add the name of the provider to the user object
@@ -89,7 +90,7 @@ export function UserData({ children }) {
                         return prev;
                     });
                 })
-                .catch((error) => console.error("Error fetching provider name:", error));
+                .catch((error) => devLog.error("Error fetching provider name:", error));
             } else {
                 setIsProviderLoading(false);
             }

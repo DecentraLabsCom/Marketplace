@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSignMessage } from 'wagmi';
+import devLog from '@/utils/logger';
 
 export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
         setTimeout(() => setErrorMessage(null), 1500);
       }
     } catch (error) {
-      console.error('Lab access error:', error);
+      devLog.error('Lab access error:', error);
       setErrorMessage("There was an error verifying your booking. Try again.");
       setTimeout(() => setErrorMessage(null), 1500);
     } finally {

@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 import { ethers } from 'ethers';
@@ -15,7 +17,7 @@ export async function POST(request) {
   const roleValidation = validateProviderRole(role, scopedRole);
   
   if (!roleValidation.isValid) {
-    console.log(`Registration denied for role: "${role}", scopedRole: "${scopedRole}"`);
+    devLog.log(`Registration denied for role: "${role}", scopedRole: "${scopedRole}"`);
     return Response.json({ 
       error: roleValidation.reason 
     }, { status: 403 });
@@ -32,13 +34,13 @@ export async function POST(request) {
     // Use affiliation as country if available, otherwise use a default
     const country = affiliation || 'Unknown';
 
-    console.log(`Registering SSO provider: ${name} with server wallet: ${providerWallet}`);
+    devLog.log(`Registering SSO provider: ${name} with server wallet: ${providerWallet}`);
 
     // Call contract with server-managed wallet address
     const tx = await retry(() => contract.addProvider(name, providerWallet, email, country));
     await tx.wait();
 
-    console.log(`SSO provider registered successfully: ${name}`);
+    devLog.log(`SSO provider registered successfully: ${name}`);
 
     // Return success with the wallet address used
     return Response.json({ 
@@ -47,7 +49,7 @@ export async function POST(request) {
       transactionHash: tx.hash 
     }, { status: 200 });
   } catch (error) {
-    console.error('Error registering SSO provider:', error);
+    devLog.error('Error registering SSO provider:', error);
     return Response.json({ error: 'Failed to register provider' }, { status: 500 });
   }
 }

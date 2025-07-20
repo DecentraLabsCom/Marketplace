@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
@@ -13,21 +15,21 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
 
-    console.log(`Attempting to call reservationRequest for labId: ${labId}, 
+    devLog.log(`Attempting to call reservationRequest for labId: ${labId}, 
       start: ${start}, end (calculated): ${end}`);
 
     // Call contract
     const tx = await retry(() => contract.reservationRequest(labId, start, end));
-    console.log('Transaction sent:', tx.hash);
+    devLog.log('Transaction sent:', tx.hash);
     const receipt = await tx.wait();
-    console.log('Transaction confirmed:', receipt.transactionHash);
+    devLog.log('Transaction confirmed:', receipt.transactionHash);
 
     // The ReservationEventContext will automatically handle the ReservationRequested event
 
     // Return data to client
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error('Error when trying to book the lab:', error);
+    devLog.error('Error when trying to book the lab:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 
@@ -17,7 +19,7 @@ export async function POST(request) {
     // Return data to client
     return Response.json({succsess: true}, { status: 200 });
   } catch (error) {
-    console.error('Error when trying to delete a provider:', error);
+    devLog.error('Error when trying to delete a provider:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

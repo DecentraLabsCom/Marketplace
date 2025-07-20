@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
@@ -42,7 +44,7 @@ export async function POST(req) {
           existingData = [];
         }
       } catch (e) {
-        console.warn(`Failed to fetch existing blob data for ${blobName}:`, e.message);
+        devLog.warn(`Failed to fetch existing blob data for ${blobName}:`, e.message);
         // Blob may not exist yet
         existingData = [];
       }

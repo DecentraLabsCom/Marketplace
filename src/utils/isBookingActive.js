@@ -6,6 +6,8 @@
  * @param {Array} bookingInfo - Array of booking objects
  * @returns {boolean} - True if there's an active booking right now
  */
+import devLog from '@/utils/logger';
+
 export default function isBookingActive(bookingInfo) {
     if (!Array.isArray(bookingInfo)) return false;
     const now = new Date();
@@ -21,7 +23,7 @@ export default function isBookingActive(bookingInfo) {
       
       // Optional debugging for development
       if (process.env.NODE_ENV === 'development' && isActive) {
-        console.log(`Active booking found:`, {
+        devLog.log(`Active booking found:`, {
           labId: b.labId,
           start: start.toLocaleString(),
           end: end.toLocaleString(),

@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
 import fs from 'fs/promises';
@@ -76,7 +78,7 @@ export async function POST(request) {
         if (isDev) debugMessages.push('Metadata fetched successfully from external URI');
       }
     } catch (metadataError) {
-      console.error('Error fetching metadata:', metadataError);
+      devLog.error('Error fetching metadata:', metadataError);
       if (isDev) debugMessages.push(`Error fetching metadata: ${metadataError.message}`);
       throw new Error(`Failed to load lab metadata: ${metadataError.message}`);
     }
@@ -157,7 +159,7 @@ export async function POST(request) {
       }
       
       if (isDev) {
-        console.log('🔍 RESERVATION DEBUG - DENIAL REASON:', reason);
+        devLog.log('🔍 RESERVATION DEBUG - DENIAL REASON:', reason);
       }
       
       await denyReservation(contract, reservationKey, reason);
@@ -176,14 +178,14 @@ export async function POST(request) {
     }
     
   } catch (error) {
-    console.error('Error processing reservation request:', error);
+    devLog.error('Error processing reservation request:', error);
     
     // In case of error, try to deny the reservation to prevent it from being stuck
     try {
       const contract = await getContractInstance();
       await denyReservation(contract, reservationKey, 'Processing error');
     } catch (denyError) {
-      console.error('Failed to deny reservation after error:', denyError);
+      devLog.error('Failed to deny reservation after error:', denyError);
     }
     
     const errorResponse = { 
@@ -204,20 +206,20 @@ async function confirmReservation(contract, reservationKey) {
     await tx.wait();
     return tx.hash;
   } catch (error) {
-    console.error('Error confirming reservation:', error);
+    devLog.error('Error confirming reservation:', error);
     throw error;
   }
 }
 
 async function denyReservation(contract, reservationKey, reason) {
   try {
-    console.log(`Denying reservation ${reservationKey}: ${reason}`);
+    devLog.log(`Denying reservation ${reservationKey}: ${reason}`);
     // The contract function only accepts reservationKey, not reason
     const tx = await retry(() => contract.denyReservationRequest(reservationKey));
     await tx.wait();
     return tx.hash;
   } catch (error) {
-    console.error('Error denying reservation:', error);
+    devLog.error('Error denying reservation:', error);
     throw error;
   }
 }

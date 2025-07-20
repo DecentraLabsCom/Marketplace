@@ -5,6 +5,7 @@
 import { useCallback } from 'react';
 import { useLabs } from '@/context/LabContext';
 import { useReservationEvents } from '@/context/ReservationEventContext';
+import devLog from '@/utils/logger';
 
 export function useReservationEventCoordinator() {
   const { fetchBookings, removeCanceledBooking } = useLabs();
@@ -22,7 +23,7 @@ export function useReservationEventCoordinator() {
   const coordinatedReservationUpdate = useCallback(async (updateFunction, reservationKey = null) => {
     // Check if an update is already in progress
     if (isManualUpdateInProgress) {
-      console.warn('[ReservationEventCoordinator] Manual update already in progress, skipping...');
+      devLog.warn('[ReservationEventCoordinator] Manual update already in progress, skipping...');
       return;
     }
 
@@ -45,7 +46,7 @@ export function useReservationEventCoordinator() {
 
       return result;
     } catch (error) {
-      console.error('Manual reservation update failed:', error);
+      devLog.error('Manual reservation update failed:', error);
       throw error;
     } finally {
       // Clear the flag after a delay to allow events to settle
@@ -62,7 +63,7 @@ export function useReservationEventCoordinator() {
     if (!isManualUpdateInProgress) {
       fetchBookings();
     } else {
-      console.log('Manual booking update in progress, skipping automatic refresh');
+      devLog.log('Manual booking update in progress, skipping automatic refresh');
     }
   }, [fetchBookings, isManualUpdateInProgress]);
 

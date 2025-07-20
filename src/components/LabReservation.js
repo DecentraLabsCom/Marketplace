@@ -13,6 +13,7 @@ import LabTokenInfo from '@/components/LabTokenInfo';
 import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
 import useContractWriteFunction from "@/hooks/contract/useContractWriteFunction";
 import { contractAddresses } from "@/contracts/diamond";
+import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
   const { labs, fetchBookings } = useLabs();
@@ -41,7 +42,8 @@ export default function LabReservation({ id }) {
     approveLabTokens, 
     formatTokenAmount: formatBalance,
     isLoading: isLabTokenLoading,
-    labTokenAddress
+    labTokenAddress,
+    refreshTokenData
   } = useLabToken();
   
   const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
@@ -109,6 +111,11 @@ export default function LabReservation({ id }) {
       
       setIsBooking(false);
       
+      // Refresh token data for wallet users to update allowance/balance
+      if (!isSSO) {
+        refreshTokenData();
+      }
+      
       // Reset transaction state
       setLastTxHash(null);
       setTxType(null);
@@ -116,7 +123,7 @@ export default function LabReservation({ id }) {
 
       // The ReservationEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -278,34 +285,34 @@ export default function LabReservation({ id }) {
     const { labId, start, timeslot } = bookingData;
     const end = start + timeslot; // Wallet booking needs end time
 
-    // Calculate cost and validate payment
+    // Calculate cost and validate payment using improved function
     const cost = totalCost;
     if (cost <= 0) {
       addTemporaryNotification('error', '❌ Unable to calculate booking cost.');
       return;
     }
 
-    // Check if user has enough LAB tokens
-    if (userBalance < cost) {
+    // Use improved balance checking function
+    const paymentCheck = checkBalanceAndAllowance(cost);
+    
+    if (!paymentCheck.hasSufficientBalance) {
       addTemporaryNotification('error', 
-        `❌ Insufficient LAB tokens. Required: ${formatBalance(cost)} LAB, Available: ${formatBalance(userBalance)} LAB`);
+        `❌ Insufficient LAB tokens. Required: ${formatBalance(cost)} LAB, Available: ${formatBalance(paymentCheck.balance)} LAB`);
       return;
     }
 
     setIsBooking(true);
 
     try {
-      // Step 1: Check and handle token approval
-      addTemporaryNotification('pending', '⏳ Checking token approval...');
-      
-      if (userAllowance < cost) {
+      // Step 1: Handle token approval if needed (only show notification if approval is actually needed)
+      if (!paymentCheck.hasSufficientAllowance) {
         addTemporaryNotification('pending', '⏳ Approving LAB tokens...');
         
         try {
           await approveLabTokens(cost);
           addTemporaryNotification('success', '✅ LAB tokens approved successfully!');
         } catch (approvalError) {
-          console.error('Token approval failed:', approvalError);
+          devLog.error('Token approval failed:', approvalError);
           if (approvalError.code === 4001 || approvalError.code === 'ACTION_REJECTED') {
             addTemporaryNotification('warning', '🚫 Token approval rejected by user.');
           } else {
@@ -318,6 +325,23 @@ export default function LabReservation({ id }) {
 
       // Step 2: Make the reservation with payment
       addTemporaryNotification('pending', '⏳ Sending reservation request with payment...');
+      
+      // Final validation: check if the time slot is still available right before transaction
+      const finalAvailableTimes = generateTimeOptions({
+        date,
+        interval: time,
+        bookingInfo: (selectedLab.bookingInfo || []).filter(booking => 
+          booking.status !== "4" && booking.status !== 4
+        )
+      });
+      
+      const slotStillAvailable = finalAvailableTimes.find(t => t.value === selectedAvailableTime && !t.disabled);
+      if (!slotStillAvailable) {
+        addTemporaryNotification('error', 
+          '❌ The selected time slot is no longer available. Please select a different time.');
+        setIsBooking(false);
+        return;
+      }
       
       // Call contract - pass arguments as array
       const txHash = await reservationRequest([labId, start, end]);
@@ -334,10 +358,16 @@ export default function LabReservation({ id }) {
         setIsBooking(false);
       }
     } catch (error) {
-      console.error('Error making booking request:', error);
+      devLog.error('Error making booking request:', error);
       
+      // More specific error handling
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         addTemporaryNotification('warning', '🚫 Transaction rejected by user.');
+      } else if (error.message?.includes('execution reverted')) {
+        addTemporaryNotification('error', 
+          '❌ Transaction failed: The reservation request was reverted. This could be due to timing conflicts or the time slot becoming unavailable. Please try again.');
+      } else if (error.message?.includes('insufficient funds')) {
+        addTemporaryNotification('error', '❌ Insufficient funds for gas or tokens.');
       } else {
         addErrorNotification(error, 'Reservation creation failed: ');
       }

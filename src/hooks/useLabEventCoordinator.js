@@ -5,6 +5,7 @@
 import { useCallback } from 'react';
 import { useLabs } from '@/context/LabContext';
 import { useLabEvents } from '@/context/LabEventContext';
+import devLog from '@/utils/logger';
 
 export function useLabEventCoordinator() {
   const { clearCacheAndRefresh, updateLabInState } = useLabs();
@@ -22,7 +23,7 @@ export function useLabEventCoordinator() {
   const coordinatedLabUpdate = useCallback(async (updateFunction, labId = null) => {
     // Check if an update is already in progress
     if (isManualUpdateInProgress) {
-      console.warn('[LabEventCoordinator] Manual update already in progress, skipping...');
+      devLog.warn('[LabEventCoordinator] Manual update already in progress, skipping...');
       return;
     }
 
@@ -45,7 +46,7 @@ export function useLabEventCoordinator() {
 
       return result;
     } catch (error) {
-      console.error('Manual lab update failed:', error);
+      devLog.error('Manual lab update failed:', error);
       throw error;
     } finally {
       // Clear the flag after a delay to allow events to settle
@@ -62,7 +63,7 @@ export function useLabEventCoordinator() {
     if (!isManualUpdateInProgress) {
       clearCacheAndRefresh();
     } else {
-      console.log('Manual update in progress, skipping automatic refresh');
+      devLog.log('Manual update in progress, skipping automatic refresh');
     }
   }, [clearCacheAndRefresh, isManualUpdateInProgress]);
 

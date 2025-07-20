@@ -80,7 +80,7 @@ export async function parseSAMLResponse(samlResponse) {
   return new Promise((resolve, reject) => {
     sp.post_assert(idp, { request_body: { SAMLResponse: samlResponse } }, (err, samlAssertion) => {
       if (err) {
-        console.error("SAML Assertion Error:", err);
+        devLog.error("SAML Assertion Error:", err);
         return reject(err);
       }
 

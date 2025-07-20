@@ -7,6 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { useUserEventCoordinator } from '@/hooks/useUserEventCoordinator';
 import AccessControl from '@/components/AccessControl';
 import { validateProviderRole, getRoleDisplayName } from '@/utils/roleValidation';
+import devLog from '@/utils/logger';
 
 const providerSchema = z.object({
   name: z.string().min(1, 'Provider name is required'),
@@ -69,13 +70,13 @@ export default function RegisterProviderForm() {
             }
             
             const result = await res.json();
-            console.log('SSO provider registered:', result);
+            devLog.log('SSO provider registered:', result);
             return result;
           }, user.email); // Use email as user identifier
           
           setIsSuccess(true);
         } catch (err) {
-          console.error('Registration error:', err);
+          devLog.error('Registration error:', err);
           setAutoError(`Registration failed: ${err.message}`);
         }
       };

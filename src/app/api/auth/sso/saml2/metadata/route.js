@@ -1,5 +1,6 @@
 import { createServiceProvider } from "@/utils/sso";
 import { NextResponse } from "next/server";
+import devLog from '@/utils/logger';
 
 export async function GET() {
     const sp = createServiceProvider();
@@ -21,7 +22,7 @@ export async function GET() {
             headers: { "Content-Type": "application/xml" },
         });
     } catch (error) {
-        console.error("Error generating SAML metadata:", error);
+        devLog.error("Error generating SAML metadata:", error);
         return new NextResponse("Unexpected error generating metadata", { status: 500 });
     }
 }

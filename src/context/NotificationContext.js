@@ -1,5 +1,6 @@
 "use client"
 import { createContext, useContext, useState } from "react";
+import { devLog } from '@/utils/logger';
 
 const NotificationContext = createContext();
 
@@ -53,15 +54,20 @@ export function NotificationProvider({ children }) {
 
     // Function to handle error messages with user-friendly formatting
     const addErrorNotification = (error, context = '') => {
-        console.error(`Error in ${context}:`, error);
+        devLog.error(`Error in ${context}:`, error);
         
         let errorMessage = '❌ An error occurred';
         
         if (typeof error === 'string') {
             errorMessage = `❌ ${error}`;
         } else if (error?.message) {
+            // Handle AbortController errors specifically
+            if (error.name === 'AbortError' || error.message.includes('aborted')) {
+                errorMessage = '⚠️ Request was cancelled due to timeout';
+                return addTemporaryNotification('warning', errorMessage);
+            }
             // Handle user rejection specifically
-            if (error.message.includes('User rejected') || 
+            else if (error.message.includes('User rejected') || 
                 error.message.includes('User denied') ||
                 error.message.includes('user rejected')) {
                 errorMessage = '❌ Transaction cancelled by user';

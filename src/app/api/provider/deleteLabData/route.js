@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 import path from 'path';
 import { promises as fs } from 'fs';
 import { NextResponse } from 'next/server';
@@ -28,16 +30,16 @@ export async function POST(req) {
             const blobPath = `data/${labURI}`;
             const result = await del(blobPath);
             if (result) {
-              console.log(`Blob deleted from Vercel: ${blobPath}`);
+              devLog.log(`Blob deleted from Vercel: ${blobPath}`);
               return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
                 { status: 200 });
             } else {
-              console.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
+              devLog.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
               return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
                 { status: 200 });
             }
         } catch (error) {
-            console.error("Error deleting data:", error);
+            devLog.error("Error deleting data:", error);
             return NextResponse.json(
                 { error: 'Failed to delete lab data.', details: error.message },
                 { status: 500 }

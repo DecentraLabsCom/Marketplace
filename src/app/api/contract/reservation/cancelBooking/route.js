@@ -1,3 +1,5 @@
+import devLog from '@/utils/logger';
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -7,7 +9,7 @@ export async function POST(request) {
       return Response.json({ error: 'Missing reservationKey' }, { status: 400 });
     }
 
-    console.log('Cancel booking request for reservationKey:', reservationKey);
+    devLog.log('Cancel booking request for reservationKey:', reservationKey);
 
     // Validate reservationKey format (should be bytes32)
     if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
@@ -22,7 +24,7 @@ export async function POST(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('Error processing cancel booking request:', error);
+    devLog.error('Error processing cancel booking request:', error);
     
     return Response.json({ 
       error: 'Failed to process cancellation request',

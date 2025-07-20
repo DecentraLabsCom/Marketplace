@@ -41,9 +41,7 @@ export function UserEventProvider({ children }) {
             // Auto-clear after duration
             manualUpdateTimeout.current = setTimeout(() => {
                 setManualUpdateInProgressState(false);
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('🕒 Manual update timeout cleared (UserEvent)');
-                }
+                devLog.log('🕒 Manual update timeout cleared (UserEvent)');
             }, duration);
         } else {
             // Clear timeout immediately
@@ -74,7 +72,7 @@ export function UserEventProvider({ children }) {
         
         updateTimeoutRef.current = setTimeout(() => {
             if (pendingUpdates.current.size > 0) {
-                console.log('Processing batch user updates for IDs:', Array.from(pendingUpdates.current));
+                devLog.log('Processing batch user updates for IDs:', Array.from(pendingUpdates.current));
                 pendingUpdates.current.clear();
                 if (typeof refreshProviderStatus === 'function') {
                     refreshProviderStatus();
@@ -97,15 +95,11 @@ export function UserEventProvider({ children }) {
 
         // ✅ CHECK: Skip if manual update is in progress
         if (isManualUpdateInProgress) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ Skipping ProviderAdded event - manual update in progress:', args._account);
-            }
+            devLog.log('⏸️ Skipping ProviderAdded event - manual update in progress:', args._account);
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🏢 ProviderAdded event received (processing):', args);
-        }
+        devLog.log('🏢 ProviderAdded event received (processing):', args);
 
         const { _account, _name, _email, _country } = args;
         
@@ -139,15 +133,11 @@ export function UserEventProvider({ children }) {
 
         // ✅ CHECK: Skip if manual update is in progress
         if (isManualUpdateInProgress) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ Skipping ProviderRemoved event - manual update in progress:', args._account);
-            }
+            devLog.log('⏸️ Skipping ProviderRemoved event - manual update in progress:', args._account);
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🗑️ ProviderRemoved event received (processing):', args);
-        }
+        devLog.log('🗑️ ProviderRemoved event received (processing):', args);
 
         const { _account } = args;
         
@@ -181,15 +171,11 @@ export function UserEventProvider({ children }) {
 
         // ✅ CHECK: Skip if manual update is in progress
         if (isManualUpdateInProgress) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ Skipping ProviderUpdated event - manual update in progress:', args._account);
-            }
+            devLog.log('⏸️ Skipping ProviderUpdated event - manual update in progress:', args._account);
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log('📝 ProviderUpdated event received (scheduling update):', args);
-        }
+        devLog.log('📝 ProviderUpdated event received (scheduling update):', args);
         
         const { _account, _name, _email, _country } = args;
         
@@ -206,9 +192,7 @@ export function UserEventProvider({ children }) {
             scheduleUserUpdate(500); // Slightly longer delay for updates to batch them
         } else {
             // Another provider was updated
-            if (process.env.NODE_ENV === 'development') {
-                console.log('📝 Provider updated:', _name, 'from', _country);
-            }
+            devLog.log('📝 Provider updated:', _name, 'from', _country);
         }
     }
 

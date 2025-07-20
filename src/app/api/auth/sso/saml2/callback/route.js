@@ -1,5 +1,6 @@
 import { parseSAMLResponse, createSession } from "@/utils/sso";
 import { NextResponse } from "next/server";
+import devLog from '@/utils/logger';
 
 export async function POST(request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(request) {
     await createSession(response, userData);
     return response;
   } catch (error) {
-    console.error("Error processing SAML response:", error);
+    devLog.error("Error processing SAML response:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

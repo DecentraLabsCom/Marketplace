@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useUser } from '@/context/UserContext';
+import devLog from '@/utils/logger';
 
 const LabContext = createContext();
 
@@ -99,7 +100,7 @@ export function LabData({ children }) {
       
       setLabs(normalized);
     } catch (err) {
-      console.error('Error fetching labs:', err);
+      devLog.error('Error fetching labs:', err);
       // Try to use stale cache on error
       const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
       if (cachedLabs) {
@@ -123,32 +124,57 @@ export function LabData({ children }) {
     setLastBookingsFetch(now);
 
     try {
-      // Fetch both user and all bookings in parallel (only one API call each)
-      const fetchPromises = [];
+      // OPTIMIZATION: Fetch all bookings with timeout for RPC saturation scenarios
+      devLog.log('Fetching all bookings with optimized single call...');
       
-      // Only fetch user bookings if logged in
-      if (address) {
-        fetchPromises.push(
-          fetch('/api/contract/reservation/getBookings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wallet: address }),
-          }).then(r => r.ok ? r.json() : [])
-        );
-      } else {
-        fetchPromises.push(Promise.resolve([]));
+      const controller = new AbortController();
+      let timeoutId;
+      
+      // Use Promise.race with proper cleanup
+      const fetchPromise = fetch('/api/contract/reservation/getBookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet: null }), // Get all bookings
+        signal: controller.signal
+      });
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort('Request timeout');
+          reject(new Error('Request timeout after 30 seconds'));
+        }, 30000);
+      });
+      
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      
+      // Clear timeout if fetch succeeded
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const allBookingsData = await response.json();
+      const cacheInfo = response.headers.get('X-Cache') || 'UNKNOWN';
+      const fallbackInfo = response.headers.get('X-Fallback');
+      
+      devLog.log(`Fetched ${allBookingsData.length} total bookings (Cache: ${cacheInfo}${fallbackInfo ? `, Fallback: ${fallbackInfo}` : ''})`);
+      
+      // Show user notification if we're using fallback data
+      if (fallbackInfo) {
+        devLog.warn(`⚠️ Using fallback data due to RPC issues: ${fallbackInfo}`);
       }
 
-      // Always fetch all bookings for calendar availability
-      fetchPromises.push(
-        fetch('/api/contract/reservation/getBookings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet: null }),
-        }).then(r => r.ok ? r.json() : [])
-      );
-
-      const [userBookingsData, allBookingsData] = await Promise.all(fetchPromises);
+      // Filter user bookings on the client side
+      const userBookingsData = address 
+        ? allBookingsData.filter(booking => 
+            booking.renter && booking.renter.toLowerCase() === address.toLowerCase()
+          )
+        : [];
+      
+      devLog.log(`Filtered ${userBookingsData.length} user bookings for address: ${address}`);
 
       // Group bookings by labId
       const allBookingsMap = new Map();
@@ -182,8 +208,36 @@ export function LabData({ children }) {
       });
 
     } catch (err) {
-      console.error('Error fetching reservations:', err);
+      devLog.error('Error fetching reservations:', err);
+      
+      // Enhanced error handling for AbortController and RPC issues
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        devLog.warn('⚠️ Booking fetch was aborted - likely timeout or cancellation');
+      } else if (err.message?.includes('Request timeout')) {
+        devLog.warn('⚠️ Booking fetch timed out (30s) - likely RPC saturation');
+      } else if (err.message?.includes('429')) {
+        devLog.warn('⚠️ RPC rate limited (429) - servers are saturated');
+      } else if (err.message?.includes('timeout')) {
+        devLog.warn('⚠️ Request timeout - RPC may be overloaded');
+      } else {
+        devLog.error('Unexpected error:', err);
+      }
+      
       // Don't clear existing booking data on error, just log it
+      // This preserves user experience when RPC is temporarily unavailable
+      
+      // Add user notification for timeout/abort errors
+      if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('timeout')) {
+        // Show user-friendly notification about RPC issues
+        try {
+          const { addTemporaryNotification } = require('@/context/NotificationContext');
+          if (addTemporaryNotification) {
+            addTemporaryNotification('warning', '⚠️ Network is slow - using cached data');
+          }
+        } catch (notificationError) {
+          // Ignore notification errors
+        }
+      }
     } finally {
       setBookingsLoading(false);
     }

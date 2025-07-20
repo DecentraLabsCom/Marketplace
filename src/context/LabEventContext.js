@@ -3,6 +3,7 @@ import { createContext, useContext, useRef, useCallback, useState } from "react"
 import { useWatchContractEvent } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { contractABI, contractAddresses } from '@/contracts/diamond';
+import { devLog } from '@/utils/logger';
 import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
 
@@ -46,9 +47,7 @@ export function LabEventProvider({ children }) {
             // Auto-clear after duration
             manualUpdateTimeout.current = setTimeout(() => {
                 setManualUpdateInProgressState(false);
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('🕒 Manual update timeout cleared');
-                }
+                devLog.log('🕒 Manual update timeout cleared');
             }, duration);
         } else {
             // Clear timeout immediately
@@ -79,7 +78,7 @@ export function LabEventProvider({ children }) {
         
         updateTimeoutRef.current = setTimeout(() => {
             if (pendingUpdates.current.size > 0) {
-                console.log('Processing batch lab updates for IDs:', Array.from(pendingUpdates.current));
+                devLog.log('Processing batch lab updates for IDs:', Array.from(pendingUpdates.current));
                 pendingUpdates.current.clear();
                 fetchLabs();
             }
@@ -100,15 +99,11 @@ export function LabEventProvider({ children }) {
 
         // ✅ CHECK: Skip if manual update is in progress
         if (isManualUpdateInProgress) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ Skipping LabAdded event - manual update in progress:', args._labId);
-            }
+            devLog.log('⏸️ Skipping LabAdded event - manual update in progress:', args._labId);
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🔥 LabAdded event received (processing):', args);
-        }
+        devLog.log('🔥 LabAdded event received (processing):', args);
         
         try {
             const labId = toIdString(args._labId);
@@ -136,7 +131,7 @@ export function LabEventProvider({ children }) {
                         Object.assign(newLab, metadata);
                     }
                 } catch (metadataError) {
-                    console.warn('Could not fetch metadata for new lab:', metadataError);
+                    devLog.warn('Could not fetch metadata for new lab:', metadataError);
                 }
             }
 
@@ -163,12 +158,9 @@ export function LabEventProvider({ children }) {
             // Update cache timestamp to prevent unnecessary fetches
             invalidateLabCache(labId);
 
-            if (process.env.NODE_ENV === 'development') {
-                console.log('✅ Successfully processed LabAdded event:', newLab);
-            }
-            
+            devLog.log('✅ Successfully processed LabAdded event:', newLab);    
         } catch (error) {
-            console.error('❌ Error handling LabAdded event:', error);
+            devLog.error('❌ Error handling LabAdded event:', error);
             // Fallback: schedule a delayed full refresh instead of immediate
             scheduleLabsUpdate(1000);
         }
@@ -187,15 +179,11 @@ export function LabEventProvider({ children }) {
 
         // ✅ CHECK: Skip if manual update is in progress
         if (isManualUpdateInProgress) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ Skipping LabDeleted event - manual update in progress:', args._labId);
-            }
+            devLog.log('⏸️ Skipping LabDeleted event - manual update in progress:', args._labId);
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log('🗑️ LabDeleted event received (processing):', args);
-        }
+        devLog.log('🗑️ LabDeleted event received (processing):', args);
         
         const deletedLabId = toIdString(args._labId);
         
@@ -206,9 +194,7 @@ export function LabEventProvider({ children }) {
             // Only update cache if there was actually a change
             if (filteredLabs.length !== prev.length) {
                 invalidateLabCache(deletedLabId);
-                if (process.env.NODE_ENV === 'development') {
-                    console.log('✅ Successfully removed lab from state:', deletedLabId);
-                }
+                devLog.log('✅ Successfully removed lab from state:', deletedLabId);
             }
             
             return filteredLabs;
@@ -231,15 +217,11 @@ export function LabEventProvider({ children }) {
 
         // ✅ CHECK: Skip if manual update is in progress
         if (isManualUpdateInProgress) {
-            if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ Skipping LabUpdated event - manual update in progress:', args._labId);
-            }
+            devLog.log('⏸️ Skipping LabUpdated event - manual update in progress:', args._labId);
             return;
         }
 
-        if (process.env.NODE_ENV === 'development') {
-            console.log('📝 LabUpdated event received (scheduling update):', args);
-        }
+        devLog.log('📝 LabUpdated event received (scheduling update):', args);
         
         const labId = toIdString(args._labId);
         

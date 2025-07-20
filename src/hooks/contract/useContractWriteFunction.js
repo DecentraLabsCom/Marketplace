@@ -1,6 +1,7 @@
 import { useWriteContract, useAccount } from 'wagmi'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/selectChain'
+import devLog from '@/utils/logger'
 
 export default function useContractWriteFunction(functionName) {
   const { chain, address: userAddress, isConnected } = useAccount()
@@ -9,7 +10,7 @@ export default function useContractWriteFunction(functionName) {
   const { writeContractAsync, ...rest } = useWriteContract()
 
   async function contractWriteFunction(args, options = {}) {
-    console.log('Contract write function called with:', {
+    devLog.log('Contract write function called with:', {
       functionName,
       args,
       contractAddress,
@@ -39,7 +40,7 @@ export default function useContractWriteFunction(functionName) {
 
     const result = await writeContractAsync(contractCall)
 
-    console.log('Contract write result:', result)
+    devLog.log('Contract write result:', result)
     return result
   }
 
