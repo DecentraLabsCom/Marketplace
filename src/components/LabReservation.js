@@ -345,6 +345,7 @@ export default function LabReservation({ id }) {
       if (txHash) {
         setLastTxHash(txHash);
         setTxType('reservation');
+        console.log(`Transaction cost: ${formatBalance(cost)} LAB`);
         setPendingData({ labId, start, end, timeslot, cost });
         addTemporaryNotification('success', 
           `✅ Payment of ${formatBalance(cost)} LAB sent! Confirming transaction...`);

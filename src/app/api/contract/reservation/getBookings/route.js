@@ -347,13 +347,9 @@ async function handleRequest(wallet) {
       fallbacksAttempted: 0
     });
     
-    // FALLBACK STRATEGY: Multi-layer fallback system for RPC issues
-    let fallbackUsed;
-    
     // FALLBACK 1: Try extended cache (5 minutes) during RPC saturation
     const now = Date.now();
     if (extendedCache && extendedCacheTimestamp && (now - extendedCacheTimestamp < EXTENDED_CACHE_DURATION)) {
-      fallbackUsed = 'extended_cache';
       devLog.log(`[${requestId}] 🕐 Using extended cache (${Math.round((now - extendedCacheTimestamp) / 1000)}s old)`);
       let bookings = extendedCache;
       
@@ -377,7 +373,6 @@ async function handleRequest(wallet) {
     // FALLBACK 2: Try to get ANY cached data regardless of age (emergency fallback)
     const emergencyCache = getCache();
     if (emergencyCache.data && emergencyCache.data.length > 0) {
-      fallbackUsed = 'emergency_cache';
       const cacheAge = Math.round((now - emergencyCache.timestamp) / 1000);
       devLog.log(`[${requestId}] 🚨 Using emergency cache (${cacheAge}s old)`);
       let bookings = emergencyCache.data;
@@ -418,7 +413,6 @@ async function handleRequest(wallet) {
     }
     
     // FALLBACK 4: Simulated bookings for demo purposes
-    fallbackUsed = 'simulated_data';
     devLog.warn(`[${requestId}] 🎭 All caches empty, using simulated data`);
     try {
       const fallbackBookings = simBookings();

@@ -64,6 +64,7 @@ export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExte
       {errors.description && <p className="text-red-500 text-sm !mt-[-2px]">{errors.description}</p>}
       <input
         type="number"
+        step="any"
         placeholder="Price"
         value={localLab.price}
         onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}

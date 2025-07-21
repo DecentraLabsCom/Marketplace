@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useUser } from '@/context/UserContext';
+import { useLabToken } from '@/hooks/useLabToken';
 import devLog from '@/utils/logger';
 
 const LabContext = createContext();
@@ -55,6 +56,7 @@ export function LabData({ children }) {
   const [lastBookingsFetch, setLastBookingsFetch] = useState(0);
 
   const { address } = useUser();
+  const { decimals } = useLabToken();
 
   // Memoized cache keys
   const cacheKeys = useMemo(() => ({
@@ -92,7 +94,7 @@ export function LabData({ children }) {
       }
       
       const data = await response.json();
-      const normalized = data.map(normalizeLab);
+      const normalized = data.map(lab => normalizeLab(lab));
 
       // Update cache with timestamp
       sessionStorage.setItem(cacheKeys.labs, JSON.stringify(normalized));
@@ -234,7 +236,7 @@ export function LabData({ children }) {
           if (addTemporaryNotification) {
             addTemporaryNotification('warning', '⚠️ Network is slow - using cached data');
           }
-        } catch (notificationError) {
+        } catch {
           // Ignore notification errors
         }
       }
@@ -352,6 +354,7 @@ export function LabData({ children }) {
     setLabs((prevLabs) => {
       const updatedLabs = prevLabs.map((lab) => {
         if (lab.id === labId) {
+          // Note: price should come already normalized from API or events
           return { ...lab, ...updates };
         }
         return lab;

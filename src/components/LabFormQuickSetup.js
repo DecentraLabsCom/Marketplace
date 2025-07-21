@@ -5,6 +5,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
     <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
       <input
         type="number"
+        step="any"
         placeholder="Price"
         value={localLab.price}
         onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}

@@ -4,8 +4,10 @@ import devLog from '@/utils/logger';
 import fs from 'fs/promises';
 import path from 'path';
 import pLimit from 'p-limit';
+import { formatUnits } from 'viem';
 import { simLabsData } from '@/utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
+import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
 import retry from '@/utils/retry';
 import getIsVercel from '@/utils/isVercel';
 
@@ -13,6 +15,48 @@ import getIsVercel from '@/utils/isVercel';
 let labsCache = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+// Cache for LAB token decimals
+let labTokenDecimals = null;
+
+// Function to get LAB token decimals
+async function getLabTokenDecimals() {
+  if (labTokenDecimals !== null) {
+    return labTokenDecimals;
+  }
+  
+  try {
+    const contract = await getContractInstance();
+    const chainName = contract.runner?.provider?.network?.name?.toLowerCase() || 'localhost';
+    const labTokenAddress = contractAddressesLAB[chainName];
+    
+    if (!labTokenAddress) {
+      devLog.warn('LAB token address not found for chain:', chainName);
+      return 6; // Default to 6 decimals for LAB token
+    }
+    
+    // Create LAB token contract instance
+    const labTokenContract = new contract.constructor(labTokenAddress, labTokenABI, contract.runner);
+    labTokenDecimals = await retry(() => labTokenContract.decimals());
+    
+    return labTokenDecimals;
+  } catch (error) {
+    devLog.error('Error getting LAB token decimals:', error);
+    return 6; // Default to 6 decimals for LAB token if error
+  }
+}
+
+// Function to convert price from token units to human format
+function convertPriceToHuman(priceString, decimals) {
+  if (!priceString || priceString === '0') return 0;
+  
+  try {
+    return parseFloat(formatUnits(BigInt(priceString), decimals));
+  } catch (error) {
+    devLog.error('Error converting price to human format:', error);
+    return parseFloat(priceString); // Fallback to original value
+  }
+}
 
 export async function GET() {
   // Check server-side cache first
@@ -38,6 +82,9 @@ export async function GET() {
   try {
     const isVercel = getIsVercel();
     const contract = await getContractInstance();
+
+    // Get LAB token decimals for price conversion
+    const decimals = await getLabTokenDecimals();
 
     // Batch contract calls for better performance
     const [providerList, labIds] = await Promise.all([
@@ -79,7 +126,7 @@ export async function GET() {
               name: metadata?.name ?? `Lab ${labId}`,
               category: attrs?.category ?? "",
               keywords: attrs?.keywords ?? [],
-              price: parseFloat(labData.base.price),
+              price: convertPriceToHuman(labData.base.price.toString(), decimals),
               description: metadata?.description ?? "No description available.",
               provider: providerName, 
               providerAddress: providerAddress,

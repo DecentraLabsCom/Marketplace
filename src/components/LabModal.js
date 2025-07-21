@@ -1,7 +1,9 @@
 "use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react';
+import { formatUnits } from 'viem';
 import LabFormFullSetup from '@/components/LabFormFullSetup';
 import LabFormQuickSetup from '@/components/LabFormQuickSetup';
+import { useLabToken } from '@/hooks/useLabToken';
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation';
 import devLog from '@/utils/logger';
 
@@ -34,6 +36,7 @@ function reducer(state, action) {
 }
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
+  const { decimals } = useLabToken();
   const [state, dispatch] = useReducer(reducer, lab, initialState);
   const {
     activeTab,
@@ -155,7 +158,20 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
     if (isOpen) {
-      dispatch({ type: 'MERGE_LOCAL_LAB', value: lab ? { ...lab } : {} });
+      let labToMerge = lab ? { ...lab } : {};
+      
+      // Convert price from token units back to human format for editing
+      if (labToMerge.price && decimals) {
+        try {
+          const priceInHumanFormat = formatUnits(BigInt(labToMerge.price), decimals);
+          labToMerge.price = priceInHumanFormat;
+        } catch (error) {
+          devLog.error('Error converting price from token units:', error);
+          // Keep original price if conversion fails
+        }
+      }
+      
+      dispatch({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
       const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
       dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
       const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
@@ -183,7 +199,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
       dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
     }
-  }, [isOpen, lab, jsonFileRegex]);
+  }, [isOpen, lab, jsonFileRegex, decimals]);
 
   const handleImageChange = useCallback((e) => {
         if (e.target.files) {

@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
+import { parseUnits } from 'viem';
 import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { useLabToken } from '@/hooks/useLabToken';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
 import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
@@ -18,6 +20,7 @@ export default function ProviderDashboard() {
   const { labs, setLabs, loading } = useLabs();
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
+  const { decimals } = useLabToken();
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
@@ -155,6 +158,19 @@ export default function ProviderDashboard() {
 
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
+    // Convert price from user input to token units
+    if (labData.price && decimals) {
+      try {
+        // Convert the price to token units (multiply by decimals)
+        const priceInTokenUnits = parseUnits(labData.price.toString(), decimals);
+        labData = { ...labData, price: priceInTokenUnits.toString() };
+      } catch (error) {
+        devLog.error('Error converting price to token units:', error);
+        addTemporaryNotification('error', '❌ Invalid price format. Please enter a valid number.');
+        return;
+      }
+    }
+    
     if (labData.id) {
       await handleEditLab({ labData });
     } else {
