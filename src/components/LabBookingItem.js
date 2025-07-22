@@ -12,7 +12,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
     onRefund, 
     onConfirmRefund,
     isModalOpen,
-    closeModal
+    closeModal,
+    onClearError
 }) {
     // Determine status display
     const getStatusDisplay = () => {
@@ -68,7 +69,21 @@ const LabBookingItem = React.memo(function LabBookingItem({
     const statusDisplay = getStatusDisplay();
 
     return (
-        <li className="flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow">
+        <li className={`flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
+            {booking.hasCancellationError && (
+                <div className="w-full mb-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm flex justify-between items-center">
+                    <span>⚠️ Cancellation failed. Please try again.</span>
+                    {onClearError && (
+                        <button 
+                            onClick={() => onClearError(booking.reservationKey)}
+                            className="text-red-500 hover:text-red-700 font-bold text-lg leading-none"
+                            title="Clear error"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            )}
             <div className="w-full flex flex-col md:flex-row items-center justify-between">
                 <div className="flex-1">
                 <Link

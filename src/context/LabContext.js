@@ -250,18 +250,68 @@ export function LabData({ children }) {
     setLabs((prevLabs) => {
       let hasChanges = false;
       const updatedLabs = prevLabs.map((lab) => {
-        // Remove from both bookingInfo and userBookings arrays
-        const updatedBookingInfo = lab.bookingInfo.filter(
-          booking => booking.reservationKey !== reservationKey
-        );
-        const updatedUserBookings = lab.userBookings.filter(
-          booking => booking.reservationKey !== reservationKey
-        );
+        // Mark bookings as cancelled instead of removing them
+        const updatedBookingInfo = lab.bookingInfo.map(booking => {
+          if (booking.reservationKey === reservationKey) {
+            hasChanges = true;
+            return { ...booking, status: "4" }; // Mark as cancelled
+          }
+          return booking;
+        });
+        
+        const updatedUserBookings = lab.userBookings.map(booking => {
+          if (booking.reservationKey === reservationKey) {
+            hasChanges = true;
+            return { ...booking, status: "4" }; // Mark as cancelled
+          }
+          return booking;
+        });
 
         // Only update if something changed
-        if (updatedBookingInfo.length !== lab.bookingInfo.length || 
-            updatedUserBookings.length !== lab.userBookings.length) {
-          hasChanges = true;
+        if (hasChanges) {
+          return {
+            ...lab,
+            bookingInfo: updatedBookingInfo,
+            userBookings: updatedUserBookings,
+          };
+        }
+        
+        return lab;
+      });
+
+      // Only update cache if we actually made changes
+      if (hasChanges) {
+        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
+      }
+      
+      return updatedLabs;
+    });
+  }, [cacheKeys.labs]);
+
+  // Restore booking to its original status when cancellation fails
+  const restoreBookingStatus = useCallback((reservationKey, originalStatus) => {
+    setLabs((prevLabs) => {
+      let hasChanges = false;
+      const updatedLabs = prevLabs.map((lab) => {
+        // Restore booking status to original
+        const updatedBookingInfo = lab.bookingInfo.map(booking => {
+          if (booking.reservationKey === reservationKey) {
+            hasChanges = true;
+            return { ...booking, status: originalStatus };
+          }
+          return booking;
+        });
+        
+        const updatedUserBookings = lab.userBookings.map(booking => {
+          if (booking.reservationKey === reservationKey) {
+            hasChanges = true;
+            return { ...booking, status: originalStatus };
+          }
+          return booking;
+        });
+
+        // Only update if something changed
+        if (hasChanges) {
           return {
             ...lab,
             bookingInfo: updatedBookingInfo,
@@ -374,6 +424,7 @@ export function LabData({ children }) {
     fetchLabs,
     fetchBookings,
     removeCanceledBooking,
+    restoreBookingStatus,
     removeBookingsForDeletedLab,
     clearCacheAndRefresh,
     updateLabInState,
@@ -383,7 +434,7 @@ export function LabData({ children }) {
       sessionStorage.removeItem(cacheKeys.timestamp);
       fetchLabs();
     }
-  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, removeBookingsForDeletedLab, clearCacheAndRefresh, updateLabInState, cacheKeys]);
+  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, restoreBookingStatus, removeBookingsForDeletedLab, clearCacheAndRefresh, updateLabInState, cacheKeys]);
 
   return (
     <LabContext.Provider value={contextValue}> 
