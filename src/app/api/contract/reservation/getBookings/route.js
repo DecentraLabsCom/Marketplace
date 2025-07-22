@@ -141,7 +141,7 @@ async function fetchReservationsIndividually(contract, requestId) {
         const reservationPromises = validKeys.map((key, index) => 
           contract.getReservation(key)
             .then(reservation => {
-              return reservation;
+              return { key, reservation };
             })
             .catch(error => {
               devLog.warn(`[${requestId}] ⚠️ Failed to get reservation for key ${key}:`, error.message);
@@ -149,18 +149,18 @@ async function fetchReservationsIndividually(contract, requestId) {
             })
         );
         
-        const reservations = await Promise.all(reservationPromises);
-        const validReservations = reservations.filter(res => res !== null && res !== undefined);
+        const reservationResults = await Promise.all(reservationPromises);
+        const validReservations = reservationResults.filter(res => res !== null && res !== undefined && res.reservation !== null);
         
         devLog.log(`[${requestId}] 📊 Batch ${i}-${batchEnd - 1} results:`, {
-          total: reservations.length,
+          total: reservationResults.length,
           valid: validReservations.length,
-          null: reservations.filter(r => r === null).length,
-          undefined: reservations.filter(r => r === undefined).length
+          null: reservationResults.filter(r => r === null).length,
+          undefined: reservationResults.filter(r => r === undefined).length
         });
         
         // Filter for relevant reservations (performance optimization)
-        const relevantReservations = validReservations.filter(isReservationRelevant);
+        const relevantReservations = validReservations.filter(res => isReservationRelevant(res.reservation));
         
         devLog.log(`[${requestId}] 📦 Batch processed: ${validReservations.length} total, ${relevantReservations.length} relevant`);
         allReservations.push(...relevantReservations);
@@ -324,13 +324,12 @@ async function handleRequest(wallet, clearCache = false) {
     const blockchainTime = Date.now() - blockchainStartTime;
     
     // Generate stable keys for reservations (needed for frontend operations)
-    const allReservations = allReservationsData.map((reservation, index) => {
-      // Generate deterministic key based on reservation data
-      const keyData = `${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`;
-      const reservationKey = `0x${Buffer.from(keyData).toString('hex').padStart(64, '0')}`;
+    const allReservations = allReservationsData.map((reservationData, index) => {
+      const reservationKey = reservationData.key;
+      const reservation = reservationData.reservation;
       
       return {
-        reservationKey,
+        reservationKey: reservationKey,
         labId: reservation.labId.toString(),
         renter: reservation.renter,
         price: reservation.price?.toString() || "0", // Handle missing price field

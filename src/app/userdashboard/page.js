@@ -21,6 +21,7 @@ export default function UserDashboard() {
   const { labs, loading, bookingsLoading } = useLabs();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();
+
   const { isConnected } = useAccount();
   
   // Contract write functions
@@ -119,6 +120,8 @@ export default function UserDashboard() {
     // Use coordinated cancellation to prevent event collisions
     await coordinatedBookingCancellation(async () => {
       try {
+        console.log('Using reservation key directly:', booking.reservationKey);
+        
         const txHash = await cancelBooking([booking.reservationKey], { gas: 300000n });
         
         if (txHash) {
@@ -147,6 +150,8 @@ export default function UserDashboard() {
     // Use coordinated cancellation to prevent event collisions
     await coordinatedBookingCancellation(async () => {
       try {
+        console.log('Using reservation key directly (request):', booking.reservationKey);
+        
         const txHash = await cancelReservationRequest([booking.reservationKey], { gas: 300000n });
         
         if (txHash) {
