@@ -77,11 +77,6 @@ async function fetchReservationsIndividually(contract, requestId) {
     devLog.log(`[${requestId}] 🔍 Raw totalReservations result:`, {
       result: totalReservationsResult,
       type: typeof totalReservationsResult,
-      constructor: totalReservationsResult?.constructor?.name,
-      isNull: totalReservationsResult === null,
-      isUndefined: totalReservationsResult === undefined,
-      isBigInt: typeof totalReservationsResult === 'bigint',
-      stringValue: totalReservationsResult?.toString?.(),
       numberValue: totalReservationsResult ? Number(totalReservationsResult) : 'N/A'
     });
     
@@ -134,8 +129,7 @@ async function fetchReservationsIndividually(contract, requestId) {
         devLog.log(`[${requestId}] 🔑 Keys for batch ${i}-${batchEnd - 1}:`, {
           totalKeys: reservationKeys.length,
           validKeys: validKeys.length,
-          sampleKeys: validKeys.slice(0, 3).map(key => key ? `${key.toString().slice(0, 20)}...` : 'null'),
-          allKeys: reservationKeys.map(key => key?.toString() || 'undefined/null')
+          sampleKeys: validKeys.slice(0, 3).map(key => key ? `${key.toString().slice(0, 20)}...` : 'null')
         });
         
         if (validKeys.length === 0) {

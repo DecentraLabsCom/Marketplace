@@ -2,6 +2,7 @@
 import React from 'react';
 import DatePicker from 'react-datepicker';
 import { renderDayContents } from '@/utils/labBookingCalendar';
+import { devLog } from '@/utils/logger';
 
 /**
  * Reusable calendar component that shows bookings with tooltips and highlighting
@@ -37,7 +38,7 @@ export default function CalendarWithBookings({
     
     // Check if we have the necessary fields for date calculation
     if (!booking.date) {
-      console.warn('Booking missing date field:', booking);
+      devLog.warn('Booking missing date field:', booking);
       return false; // Don't show bookings without date
     }
     
@@ -45,21 +46,21 @@ export default function CalendarWithBookings({
     
     const isPastBooking = (booking) => {
       try {
-        if (!booking.time || !booking.minutes) {
-          // If no time info, compare by date only
+        if (!booking.start || !booking.end) {
+          // If no timestamp info, compare by date only
           const bookingDate = new Date(booking.date);
           if (isNaN(bookingDate.getTime())) return false;
           const bookingDateStart = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
           const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
           return bookingDateStart < todayStart;
         } else {
-          // If we have complete time info, calculate precise end time
-          const endDateTime = new Date(`${booking.date}T${booking.time}`);
-          endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(booking.minutes));
+          // Use Unix timestamps to determine if booking has ended
+          const endTimestamp = parseInt(booking.end) * 1000; // Convert to milliseconds
+          const endDateTime = new Date(endTimestamp);
           return endDateTime < today;
         }
       } catch (error) {
-        console.warn('Error calculating booking time:', booking, error);
+        devLog.warn('Error calculating booking time:', booking, error);
         return false; // Assume not past if we can't calculate
       }
     };

@@ -1,10 +1,12 @@
 import { format, isToday } from "date-fns";
+import { devLog } from '@/utils/logger';
 
 // Returns the available time slots for a specific day
 export function generateTimeOptions({ date, interval, bookingInfo }) {
     const options = [];
     const now = new Date();
 
+    devLog.log(bookingInfo)
     const dayBookings = (bookingInfo || []).filter(
         (b) => new Date(b.date).toDateString() === date.toDateString()
     );
@@ -25,8 +27,12 @@ export function generateTimeOptions({ date, interval, bookingInfo }) {
         isBlocked = true;
         } else {
         isBlocked = dayBookings.some((booking) => {
-            const bookingStart = new Date(`${booking.date}T${booking.time}`);
-            const bookingEnd = new Date(bookingStart.getTime() + parseInt(booking.minutes) * 60000);
+            if (!booking.start || !booking.end) return false;
+            
+            // Convert Unix timestamps to Date objects
+            const bookingStart = new Date(parseInt(booking.start) * 1000);
+            const bookingEnd = new Date(parseInt(booking.end) * 1000);
+            
             return slotStart < bookingEnd && slotEnd > bookingStart;
         });
         }
@@ -57,29 +63,20 @@ export function renderDayContents({ day, currentDateRender, bookingInfo }) {
 
     if (bookingsOnDay.length > 0) {
         title = bookingsOnDay.map((booking) => {
-            if (booking?.time && booking?.minutes) {
-                // Build startDate correctly depending on the type of date
-                let startDate;
-                if (booking.dateString) {
-                    startDate = new Date(`${booking.dateString}T${booking.time}`);
-                } else if (typeof booking.date === "string") {
-                    startDate = new Date(`${booking.date}T${booking.time}`);
-                } else if (booking.date instanceof Date) {
-                    // If it's a Date, clone it and set the hours/minutes
-                    startDate = new Date(booking.date);
-                    const [h, m] = booking.time.split(":").map(Number);
-                    startDate.setHours(h, m, 0, 0);
-                } else {
-                    return 'Booked';
-                }
-                if (isNaN(startDate)) return 'Booked';
-                const endTimeDate = new Date(startDate.getTime() + parseInt(booking.minutes) * 60 * 1000);
-                const endTime = `${String(endTimeDate.getHours()).padStart(2, '0')}:` + 
-                                `${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+            if (booking?.start && booking?.end) {
+                // Convert Unix timestamps to Date objects
+                const startDate = new Date(parseInt(booking.start) * 1000);
+                const endDate = new Date(parseInt(booking.end) * 1000);
+                
+                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return 'Booked';
+                
+                // Format time strings
+                const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+                const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
                 
                 // Add status indicator to the booking text
                 const statusText = (booking.status === "0" || booking.status === 0) ? " (Pending)" : "";
-                return `${booking.labName ? booking.labName + ': ' : ''}${booking.time} - ${endTime}${statusText}`;
+                return `${booking.labName ? booking.labName + ': ' : ''}${startTime} - ${endTime}${statusText}`;
             }
             const statusText = (booking.status === "0" || booking.status === 0) ? " (Pending)" : "";
             return booking.labName ? `Booked: ${booking.labName}${statusText}` : `Booked${statusText}`;

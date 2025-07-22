@@ -6,17 +6,18 @@
  * @param {Array} bookingInfo - Array of booking objects
  * @returns {boolean} - True if there's an active booking right now
  */
-import devLog from '@/utils/logger';
+import { devLog } from '@/utils/logger';
 
 export default function isBookingActive(bookingInfo) {
     if (!Array.isArray(bookingInfo)) return false;
     const now = new Date();
   
     return bookingInfo.some(b => {
-      if (!b.date || !b.time || !b.minutes) return false;
+      if (!b.start || !b.end) return false;
       
-      const start = new Date(`${b.date}T${b.time}`);
-      const end = new Date(start.getTime() + parseInt(b.minutes, 10) * 60000);
+      // Convert Unix timestamps to Date objects
+      const start = new Date(parseInt(b.start) * 1000);
+      const end = new Date(parseInt(b.end) * 1000);
       
       // Booking is active only during the reserved time slot
       const isActive = now >= start && now < end;

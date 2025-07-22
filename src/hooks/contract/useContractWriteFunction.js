@@ -1,7 +1,7 @@
 import { useWriteContract, useAccount } from 'wagmi'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/selectChain'
-import devLog from '@/utils/logger'
+import { devLog } from '@/utils/logger'
 
 export default function useContractWriteFunction(functionName) {
   const { chain, address: userAddress, isConnected } = useAccount()

@@ -117,7 +117,7 @@ export function UserData({ children }) {
                 .then((data) => {
                     setIsProvider(data.isLabProvider);
                 })
-                .catch((error) => console.error("Error refreshing SSO provider status:", error))
+                .catch((error) => devLog.error("Error refreshing SSO provider status:", error))
                 .finally(() => setIsProviderLoading(false));
             } else if (address) {
                 // For wallet users, check provider status by wallet address
@@ -132,7 +132,7 @@ export function UserData({ children }) {
                 .then((data) => {
                     setIsProvider(data.isLabProvider);
                 })
-                .catch((error) => console.error("Error refreshing wallet provider status:", error))
+                .catch((error) => devLog.error("Error refreshing wallet provider status:", error))
                 .finally(() => setIsProviderLoading(false));
             }
         }

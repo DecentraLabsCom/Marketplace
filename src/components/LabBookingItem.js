@@ -6,6 +6,8 @@ import devLog from '@/utils/logger';
 const LabBookingItem = React.memo(function LabBookingItem({ 
     lab, 
     booking, 
+    startTime,
+    endTime,
     onCancel, 
     onRefund, 
     onConfirmRefund,
@@ -76,7 +78,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     {lab.name}
                 </Link>
                 <div className="text-gray-600 text-sm mt-1">
-                    {booking?.date} {booking?.time} ({booking?.minutes} min)
+                    {booking?.date} {startTime && endTime ? `${startTime} - ${endTime}` : 'Time not available'}
                 </div>
                 <div className="text-gray-500 text-xs">
                     Provider: {lab.provider}

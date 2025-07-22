@@ -214,25 +214,22 @@ export default function UserDashboard() {
         .map(lab => {
           if (!Array.isArray(lab.userBookings)) return null;
           const futureBooking = lab.userBookings
-            .filter(b => b.date && b.time && new Date(`${b.date}T${b.time}`) > now)
-            .sort((a, b) => new Date(`${a.date}T${a.time}`) 
-              - new Date(`${b.date}T${b.time}`))[0];
+            .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
+            .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
           return futureBooking ? { lab, booking: futureBooking } : null;
         })
         .filter(Boolean)
-        .sort((a, b) => new Date(`${a.booking.date}T${a.booking.time}`) 
-          - new Date(`${b.booking.date}T${b.booking.time}`))[0]?.lab
+        .sort((a, b) => parseInt(a.booking.start) - parseInt(b.booking.start))[0]?.lab
     : null;
 
   // To show starting and ending times of bookings
   const getBookingTimes = booking => {
-    if (!booking?.time || !booking?.minutes) return { start: null, end: null };
-    const startDate = new Date(`${booking.date}T${booking.time}`);
-    const endDate = new Date(startDate.getTime() + booking.minutes * 60 * 1000);
+    if (!booking?.start || !booking?.end) return { start: null, end: null };
+    const startDate = new Date(parseInt(booking.start) * 1000);
+    const endDate = new Date(parseInt(booking.end) * 1000);
     return {
-      start: booking.time,
-      end: `${String(endDate.getHours()).padStart(2, '0')}:
-            ${String(endDate.getMinutes()).padStart(2, '0')}`
+      start: `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`,
+      end: `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
     };
   };
 
@@ -293,9 +290,8 @@ export default function UserDashboard() {
   const nextBooking = !availableLab && firstActiveLab 
                       && Array.isArray(firstActiveLab.userBookings) && now
     ? firstActiveLab.userBookings
-        .filter(b => b.date && b.time && new Date(`${b.date}T${b.time}`) > now)
-        .sort((a, b) => new Date(`${a.date}T${a.time}`) 
-          - new Date(`${b.date}T${b.time}`))[0]
+        .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
+        .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0]
     : null;
 
   return (
@@ -466,22 +462,20 @@ export default function UserDashboard() {
                     now && userData.labs
                     .filter(lab => Array.isArray(lab.userBookings) &&
                       lab.userBookings.some(b => {
-                        if (!b.date || !b.time || !b.minutes) return false;
-                        const endDateTime = new Date(`${b.date}T${b.time}`);
-                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        if (!b.start || !b.end) return false;
+                        const endDateTime = new Date(parseInt(b.end) * 1000);
                         return endDateTime.getTime() > now.getTime();
                       }))
                     .flatMap((lab) => {
                       const upcomingBookings = lab.userBookings.filter(b => {
-                        if (!b.date || !b.time || !b.minutes) return false;
-                        const endDateTime = new Date(`${b.date}T${b.time}`);
-                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        if (!b.start || !b.end) return false;
+                        const endDateTime = new Date(parseInt(b.end) * 1000);
                         return endDateTime.getTime() > now.getTime();
                       })
                       .map(booking => ({
                         ...booking,
                         lab: lab,
-                        startDateTime: new Date(`${booking.date}T${booking.time}`)
+                        startDateTime: new Date(parseInt(booking.start) * 1000)
                       }));
 
                       return upcomingBookings;
@@ -491,23 +485,24 @@ export default function UserDashboard() {
                       let startTime = null;
                       let endTime = null;
 
-                      if (booking?.time && booking?.minutes) {
-                        const startDateTimeString = `${booking.date}T${booking.time}`;
-                        const startDateObj = new Date(startDateTimeString);
+                      if (booking?.start && booking?.end) {
+                        const startDateObj = new Date(parseInt(booking.start) * 1000);
+                        const endDateObj = new Date(parseInt(booking.end) * 1000);
 
-                        if (!isNaN(startDateObj.getTime())) {
-                          startTime = booking.time;
-                          const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
-                          const endTimeDate = new Date(endTimeMilliseconds);
-                          const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                          const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                        if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+                          const startHours = String(startDateObj.getHours()).padStart(2, '0');
+                          const startMinutes = String(startDateObj.getMinutes()).padStart(2, '0');
+                          startTime = `${startHours}:${startMinutes}`;
+                          
+                          const endHours = String(endDateObj.getHours()).padStart(2, '0');
+                          const endMinutes = String(endDateObj.getMinutes()).padStart(2, '0');
                           endTime = `${endHours}:${endMinutes}`;
                         }
                       }
 
                       return (
                         <LabBookingItem
-                          key={`${booking.lab.id}-${booking.reservationKey || booking.date}-${booking.time}`}
+                          key={`${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`}
                           lab={booking.lab}
                           booking={booking}
                           startTime={startTime}
@@ -540,9 +535,8 @@ export default function UserDashboard() {
                     now && userData.labs
                     .filter((lab) => Array.isArray(lab.userBookings) &&
                       lab.userBookings.some(b => {
-                        if (!b.date || !b.time || !b.minutes) return false;
-                        const endDateTime = new Date(`${b.date}T${b.time}`);
-                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        if (!b.start || !b.end) return false;
+                        const endDateTime = new Date(parseInt(b.end) * 1000);
                         // Only include past bookings that were confirmed (not PENDING)
                         const hasReservationKey = b.reservationKey;
                         const wasPending = b.status === "0" || b.status === 0;
@@ -550,9 +544,8 @@ export default function UserDashboard() {
                       }))
                     .flatMap((lab) => {
                       const pastBookings = lab.userBookings.filter(b => {
-                        if (!b.date || !b.time || !b.minutes) return false;
-                        const endDateTime = new Date(`${b.date}T${b.time}`);
-                        endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(b.minutes));
+                        if (!b.start || !b.end) return false;
+                        const endDateTime = new Date(parseInt(b.end) * 1000);
                         // Only include past bookings that were confirmed (not PENDING)
                         const hasReservationKey = b.reservationKey;
                         const wasPending = b.status === "0" || b.status === 0;
@@ -561,7 +554,7 @@ export default function UserDashboard() {
                       .map(booking => ({
                         ...booking,
                         lab: lab,
-                        startDateTime: new Date(`${booking.date}T${booking.time}`)
+                        startDateTime: new Date(parseInt(booking.start) * 1000)
                       }));
 
                       return pastBookings;
@@ -571,23 +564,24 @@ export default function UserDashboard() {
                       let startTime = null;
                       let endTime = null;
 
-                      if (booking?.time && booking?.minutes) {
-                        const startDateTimeString = `${booking.date}T${booking.time}`;
-                        const startDateObj = new Date(startDateTimeString);
+                      if (booking?.start && booking?.end) {
+                        const startDateObj = new Date(parseInt(booking.start) * 1000);
+                        const endDateObj = new Date(parseInt(booking.end) * 1000);
 
-                        if (!isNaN(startDateObj.getTime())) {
-                          startTime = booking.time;
-                          const endTimeMilliseconds = startDateObj.getTime() + parseInt(booking.minutes) * 60 * 1000;
-                          const endTimeDate = new Date(endTimeMilliseconds);
-                          const endHours = String(endTimeDate.getHours()).padStart(2, '0');
-                          const endMinutes = String(endTimeDate.getMinutes()).padStart(2, '0');
+                        if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+                          const startHours = String(startDateObj.getHours()).padStart(2, '0');
+                          const startMinutes = String(startDateObj.getMinutes()).padStart(2, '0');
+                          startTime = `${startHours}:${startMinutes}`;
+                          
+                          const endHours = String(endDateObj.getHours()).padStart(2, '0');
+                          const endMinutes = String(endDateObj.getMinutes()).padStart(2, '0');
                           endTime = `${endHours}:${endMinutes}`;
                         }
                       }
 
                       return (
                         <LabBookingItem
-                          key={`${booking.lab.id}-${booking.reservationKey || booking.date}-${booking.time}`}
+                          key={`${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`}
                           lab={booking.lab}
                           booking={booking}
                           startTime={startTime}

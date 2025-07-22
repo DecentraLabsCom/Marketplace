@@ -27,10 +27,11 @@ export function useRealTimeBookingUpdates(userBookings, isLoggedIn = true, refre
 
     // Find the next moment when any booking changes state
     userBookings.forEach(booking => {
-      if (!booking.date || !booking.time || !booking.minutes) return;
+      if (!booking.start || !booking.end) return;
       
-      const startTime = new Date(`${booking.date}T${booking.time}`);
-      const endTime = new Date(startTime.getTime() + parseInt(booking.minutes, 10) * 60000);
+      // Convert Unix timestamps to Date objects
+      const startTime = new Date(parseInt(booking.start) * 1000);
+      const endTime = new Date(parseInt(booking.end) * 1000);
       
       // If the booking will start in the future
       if (startTime > now) {
