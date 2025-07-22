@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from 'react';
-import DatePicker from 'react-datepicker';
 import { parseUnits } from 'viem';
 import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
@@ -13,7 +12,7 @@ import LabModal from '@/components/LabModal';
 import devLog from '@/utils/logger';
 import AccessControl from '@/components/AccessControl';
 import ProviderLabItem from '@/components/ProviderLabItem';
-import { renderDayContents } from '@/utils/labBookingCalendar';
+import CalendarWithBookings from '@/components/CalendarWithBookings';
 
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
@@ -86,19 +85,11 @@ export default function ProviderDashboard() {
     }
   }, [isReceiptSuccess, receipt, txType, pendingData, labs, setLabs, addPersistentNotification]);
 
-  const dayContents = (day, currentDateRender) =>
-    renderDayContents({
-      day,
-      currentDateRender,
-      bookingInfo: bookedDates // bookedDates ya es un array de objetos con labName, date, time, minutes, etc.
-    });
-
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
 
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
-  const [bookedDates, setBookedDates] = useState([]);
 
   // Filter labs owned by the user
   useEffect(() => {
@@ -107,46 +98,6 @@ export default function ProviderDashboard() {
       setOwnedLabs(userLabs);
     }
   }, [address, labs]);
-
-  useEffect(() => {
-    if (ownedLabs) {
-      const today = new Date();
-      const allBookingsDetails = [];
-
-      ownedLabs.forEach(lab => {
-        if (Array.isArray(lab.bookingInfo)) {
-          lab.bookingInfo
-            .filter(booking => booking.status !== "4" && booking.status !== 4) // Exclude cancelled bookings
-            .forEach(booking => {
-              try {
-                const bookingDateObject = new Date(booking.date);
-
-                if (!isNaN(bookingDateObject.getTime()) && bookingDateObject.getTime() >= today.getTime()) {
-                  // Convert date to string YYYY-MM-DD for tooltip
-                  const yyyy = bookingDateObject.getFullYear();
-                  const mm = String(bookingDateObject.getMonth() + 1).padStart(2, '0');
-                  const dd = String(bookingDateObject.getDate()).padStart(2, '0');
-                  const dateString = `${yyyy}-${mm}-${dd}`;
-
-                  allBookingsDetails.push({
-                    labId: lab.id,
-                    labName: lab.name,
-                    date: bookingDateObject,
-                    time: booking.time,
-                    minutes: booking.minutes,
-                    dateString,
-                    status: booking.status, // Include status for calendar styling
-                  });
-                }
-              } catch (error) {
-                devLog.error("Error converting date in lab:", lab.name, booking.date, error);
-              }
-            });
-        }
-      });
-      setBookedDates(allBookingsDetails);
-    }
-  }, [ownedLabs]);
 
   // Automatically set the first lab as the selected lab
   const hasOwnedLabs = ownedLabs.length > 0;
@@ -619,21 +570,19 @@ export default function ProviderDashboard() {
           <div className="w-full min-[1080px]:w-1/3 mt-8 min-[1080px]:mt-0">
             <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
             <div className="flex justify-center">
-                <DatePicker
-                  calendarClassName="custom-datepicker"
-                  selected={date}
-                  inline
+                <CalendarWithBookings
+                  selectedDate={date}
+                  onDateChange={(newDate) => setDate(newDate)}
+                  bookingInfo={ownedLabs.flatMap(lab => 
+                    (lab.bookingInfo || []).map(booking => ({
+                      ...booking,
+                      labName: lab.name,
+                      status: booking.status
+                    }))
+                  )}
                   minDate={today}
-                  onChange={(newDate) => setDate(newDate)}
                   filterDate={() => false}
-                  dayClassName={day =>
-                    bookedDates.some(
-                      (bookingDetail) => bookingDetail.date.toDateString() === day.toDateString()
-                    )
-                      ? "bg-[#9fc6f5] text-white"
-                      : undefined
-                  }
-                  renderDayContents={dayContents}
+                  displayMode="provider-dashboard"
                 />
             </div>
           </div>

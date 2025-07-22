@@ -1,7 +1,7 @@
-import { simBookings } from '@/utils/simBookings';
-import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
 import { getCache, setCache, isCacheValid } from '../cache';
+import { getContractInstance } from '../../utils/contractInstance';
+import { simBookings } from '@/utils/simBookings';
+import retry from '@/utils/retry';
 import devLog from '@/utils/logger';
 
 // Extended cache for RPC failure scenarios  
@@ -9,30 +9,210 @@ let extendedCache = null;
 let extendedCacheTimestamp = null;
 const EXTENDED_CACHE_DURATION = 300000; // 5 minutes during RPC issues
 
-export async function GET() {
+export async function GET(request) {
   // Support GET requests for fetching all bookings
-  return handleRequest(null);
+  const url = new URL(request.url);
+  const clearCache = url.searchParams.get('clearCache') === 'true';
+  return handleRequest(null, clearCache);
 }
 
 export async function POST(request) {
   const body = await request.json();
   const { wallet } = body;
-  return handleRequest(wallet);
+  const url = new URL(request.url);
+  const clearCache = url.searchParams.get('clearCache') === 'true';
+  return handleRequest(wallet, clearCache);
 }
 
-async function handleRequest(wallet) {
+// Helper function to calculate if a reservation is in a relevant time window
+function isReservationRelevant(reservation) {
+  const now = Date.now() / 1000; // Unix timestamp in seconds
+  const start = parseInt(reservation.start);
+  const end = parseInt(reservation.end);
+  
+  // Include reservations that:
+  // 1. Are currently active (started but not ended)
+  // 2. Will start in the future
+  // 3. Ended within the last 90 days (for extended history in user/provider dashboards)
+  const ninetyDaysAgo = now - (90 * 24 * 60 * 60);
+  
+  return end >= ninetyDaysAgo; // Keep recent and future reservations
+}
+
+// Efficient batch fetcher that gets reservations individually
+async function fetchReservationsIndividually(contract, requestId) {
+  const blockchainStartTime = Date.now();
+  
+  try {
+    // Step 1: Get total count of reservations with enhanced debugging
+    devLog.log(`[${requestId}] 📊 Getting total reservations count...`);
+        
+    // Call totalReservations
+    let totalReservationsResult;
+    try {
+      devLog.log(`[${requestId}] 🔄 Attempting direct call to totalReservations()...`);
+      totalReservationsResult = await contract.totalReservations();
+      devLog.log(`[${requestId}] 📥 Direct call result:`, {
+        result: totalReservationsResult,
+        type: typeof totalReservationsResult,
+        constructor: totalReservationsResult?.constructor?.name
+      });
+    } catch (directError) {
+      devLog.error(`[${requestId}] ❌ Direct call failed:`, directError.message);
+      
+      // Try with retry wrapper
+      try {
+        devLog.log(`[${requestId}] 🔄 Attempting with retry wrapper...`);
+        totalReservationsResult = await retry(() => contract.totalReservations(), { maxRetries: 2, delay: 500 });
+        devLog.log(`[${requestId}] 📥 Retry wrapper result:`, {
+          result: totalReservationsResult,
+          type: typeof totalReservationsResult
+        });
+      } catch (retryError) {
+        devLog.error(`[${requestId}] ❌ Retry wrapper also failed:`, retryError.message);
+        throw retryError;
+      }
+    }
+    
+    devLog.log(`[${requestId}] 🔍 Raw totalReservations result:`, {
+      result: totalReservationsResult,
+      type: typeof totalReservationsResult,
+      constructor: totalReservationsResult?.constructor?.name,
+      isNull: totalReservationsResult === null,
+      isUndefined: totalReservationsResult === undefined,
+      isBigInt: typeof totalReservationsResult === 'bigint',
+      stringValue: totalReservationsResult?.toString?.(),
+      numberValue: totalReservationsResult ? Number(totalReservationsResult) : 'N/A'
+    });
+    
+    // Handle different types of responses
+    let totalCount = 0;
+    if (typeof totalReservationsResult === 'bigint') {
+      totalCount = Number(totalReservationsResult);
+    } else {
+      devLog.warn(`[${requestId}] ⚠️ Unexpected totalReservations type:`, {
+        type: typeof totalReservationsResult,
+        value: totalReservationsResult
+      });
+      totalCount = 0;
+    }
+    
+    devLog.log(`[${requestId}] 📋 Total reservations in contract: ${totalCount} (Expected from Etherscan: 81)`);
+    
+    // Step 2: Get reservation keys in batches to avoid overwhelming RPC
+    const BATCH_SIZE = 10; // Process in small batches to avoid RPC saturation
+    const allReservations = [];
+    const now = Date.now() / 1000;
+    
+    for (let i = 0; i < totalCount; i += BATCH_SIZE) {
+      const batchEnd = Math.min(i + BATCH_SIZE, totalCount);
+      devLog.log(`[${requestId}] 🔄 Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(totalCount / BATCH_SIZE)} (${i}-${batchEnd - 1})`);
+      
+      try {
+        // Get reservation keys for this batch
+        const keyPromises = [];
+        for (let j = i; j < batchEnd; j++) {
+          keyPromises.push(
+            contract.reservationKeyByIndex(j)
+              .then(result => {
+                return result;
+              })
+              .catch(error => {
+                devLog.warn(`[${requestId}] ⚠️ Failed to get reservation key at index ${j}:`, error.message);
+                return null;
+              })
+          );
+        }
+        
+        const reservationKeys = await Promise.all(keyPromises);
+        const validKeys = reservationKeys.filter(key => 
+          key !== null && 
+          key !== undefined && 
+          key !== '0x0000000000000000000000000000000000000000000000000000000000000000'
+        );
+        
+        devLog.log(`[${requestId}] 🔑 Keys for batch ${i}-${batchEnd - 1}:`, {
+          totalKeys: reservationKeys.length,
+          validKeys: validKeys.length,
+          sampleKeys: validKeys.slice(0, 3).map(key => key ? `${key.toString().slice(0, 20)}...` : 'null'),
+          allKeys: reservationKeys.map(key => key?.toString() || 'undefined/null')
+        });
+        
+        if (validKeys.length === 0) {
+          devLog.warn(`[${requestId}] ⚠️ No valid keys in batch ${i}-${batchEnd - 1}`);
+          continue;
+        }
+        
+        // Get reservation details for valid keys
+        const reservationPromises = validKeys.map((key, index) => 
+          contract.getReservation(key)
+            .then(reservation => {
+              return reservation;
+            })
+            .catch(error => {
+              devLog.warn(`[${requestId}] ⚠️ Failed to get reservation for key ${key}:`, error.message);
+              return null;
+            })
+        );
+        
+        const reservations = await Promise.all(reservationPromises);
+        const validReservations = reservations.filter(res => res !== null && res !== undefined);
+        
+        devLog.log(`[${requestId}] 📊 Batch ${i}-${batchEnd - 1} results:`, {
+          total: reservations.length,
+          valid: validReservations.length,
+          null: reservations.filter(r => r === null).length,
+          undefined: reservations.filter(r => r === undefined).length
+        });
+        
+        // Filter for relevant reservations (performance optimization)
+        const relevantReservations = validReservations.filter(isReservationRelevant);
+        
+        devLog.log(`[${requestId}] 📦 Batch processed: ${validReservations.length} total, ${relevantReservations.length} relevant`);
+        allReservations.push(...relevantReservations);
+        
+        // Small delay between batches to avoid overwhelming RPC
+        if (batchEnd < totalCount) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+      } catch (batchError) {
+        devLog.error(`[${requestId}] ❌ Error processing batch ${i}-${batchEnd - 1}:`, batchError.message);
+        // Continue with next batch instead of failing completely
+        continue;
+      }
+    }
+    
+    const fetchTime = Date.now() - blockchainStartTime;
+    devLog.log(`[${requestId}] ✅ Individual fetch completed:`, {
+      totalCount,
+      relevantCount: allReservations.length,
+      time: `${fetchTime}ms`,
+      avgTimePerReservation: `${Math.round(fetchTime / Math.max(totalCount, 1))}ms`
+    });
+    
+    return allReservations;
+    
+  } catch (error) {
+    devLog.error(`[${requestId}] ❌ Error in individual reservation fetch:`, error.message);
+    throw error;
+  }
+}
+
+async function handleRequest(wallet, clearCache = false) {
   // wallet can be null to fetch all bookings, or a specific address to filter by user
   const startTime = Date.now();
   const requestId = Math.random().toString(36).substr(2, 9);
   
   devLog.log(`[${requestId}] 📊 getBookings request started`, {
     wallet: wallet ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}` : 'ALL',
+    clearCache,
     timestamp: new Date().toISOString()
   });
 
   try {
-    // STEP 1: Check normal cache first (30 seconds)
-    if (isCacheValid()) {
+    // STEP 1: Check normal cache first (30 seconds) - skip if clearCache is true
+    if (!clearCache && isCacheValid()) {
       devLog.log(`[${requestId}] ⚡ Cache HIT - serving from cache`, {
         cacheAge: `${Math.round((Date.now() - getCache().timestamp) / 1000)}s`
       });
@@ -82,249 +262,117 @@ async function handleRequest(wallet) {
       throw new Error('RPC_UNAVAILABLE');
     }
 
-    // STEP 3: Try optimized blockchain call with shorter timeout
+    // STEP 3: Fetch reservations individually for better performance and reliability
     let allReservationsData;
     try {
-      // Debug contract details before calling getAllReservations
       devLog.log(`[${requestId}] 🔍 Contract debug info:`, {
         contractAddress: contract.address || contract.target,
-        hasGetAllReservations: typeof contract.getAllReservations === 'function',
-        contractMethods: Object.getOwnPropertyNames(contract).filter(name => typeof contract[name] === 'function')
+        hasTotalReservations: typeof contract.totalReservations === 'function',
+        hasReservationKeyByIndex: typeof contract.reservationKeyByIndex === 'function',
+        hasGetReservation: typeof contract.getReservation === 'function'
       });
 
-      // Test a simpler method first to verify contract connectivity
-      try {
-        devLog.log(`[${requestId}] 🧪 Testing getLabTokenAddress()...`);
-        const labTokenAddress = await contract.getLabTokenAddress();
-        devLog.log(`[${requestId}] ✅ getLabTokenAddress result:`, labTokenAddress);
-      } catch (testError) {
-        devLog.error(`[${requestId}] ❌ getLabTokenAddress failed:`, testError.message);
-      }
-
-      devLog.log(`[${requestId}] 📡 Calling contract.getAllReservations()...`);
+      devLog.log(`[${requestId}] 📡 Fetching reservations individually...`);
       
-      const result = await Promise.race([
-        retry(async () => {
-          devLog.log(`[${requestId}] 🔄 Attempting getAllReservations call...`);
-          const response = await contract.getAllReservations();
-          devLog.log(`[${requestId}] 📥 getAllReservations raw response:`, {
-            response: response,
-            type: typeof response,
-            constructor: response?.constructor?.name,
-            isArray: Array.isArray(response),
-            length: response?.length,
-            stringified: JSON.stringify(response)?.substring(0, 200)
-          });
-          return response;
-        }, { maxRetries: 2, delay: 1000 }),
+      // Use individual fetching method
+      allReservationsData = await Promise.race([
+        fetchReservationsIndividually(contract, requestId),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('getAllReservations timeout')), 15000)
+          setTimeout(() => reject(new Error('Individual fetch timeout')), 30000)
         )
       ]);
       
-      // Enhanced logging to debug getAllReservations response
-      devLog.log(`[${requestId}] 🔍 getAllReservations final result:`, {
-        result: result,
-        type: typeof result,
-        isArray: Array.isArray(result),
-        length: result?.length,
-        firstItem: result?.[0],
-        isNullish: result == null,
-        isUndefined: result === undefined,
-        isNull: result === null
-      });
-      
-      // Handle undefined/null result from RPC saturation or contract issues
-      if (result === undefined || result === null) {
-        devLog.warn(`[${requestId}] ⚠️ getAllReservations returned ${result} - this may indicate no reservations exist or a contract issue`);
-        // Instead of throwing error, treat as empty array
-        allReservationsData = [];
-        const fetchTime = Date.now() - blockchainStartTime;
-        devLog.log(`[${requestId}] 📭 Treating undefined getAllReservations as empty array:`, {
-          count: 0,
-          time: `${fetchTime}ms`,
-          method: 'optimized-empty'
-        });
-      } else {
-        allReservationsData = Array.isArray(result) ? result : [];
-        const fetchTime = Date.now() - blockchainStartTime;
-        devLog.log(`[${requestId}] 🎯 getAllReservations success:`, {
-          count: allReservationsData.length,
-          time: `${fetchTime}ms`,
-          method: 'optimized'
-        });
-      }
     } catch (blockchainError) {
-      const fallbackStartTime = Date.now();
-      devLog.warn(`[${requestId}] ⚠️ getAllReservations failed, trying fallback:`, {
+      devLog.warn(`[${requestId}] ⚠️ Individual reservation fetch failed:`, {
         error: blockchainError.message,
-        time: `${fallbackStartTime - blockchainStartTime}ms`
+        time: `${Date.now() - blockchainStartTime}ms`
       });
       
-      // FALLBACK: Use the original individual calls method but with smaller batch
+      // If individual fetch fails, try a simpler approach with just total count
       try {
-        const totalReservations = await retry(() => contract.totalReservations(), { maxRetries: 1, delay: 500 });
-        devLog.log(`[${requestId}] 🔍 totalReservations raw result:`, {
-          result: totalReservations,
-          type: typeof totalReservations,
-          toString: totalReservations?.toString?.()
+        const totalReservationsResult = await retry(() => contract.totalReservations(), { maxRetries: 1, delay: 500 });
+        
+        devLog.log(`[${requestId}] 🔍 Fallback totalReservations result:`, {
+          result: totalReservationsResult,
+          type: typeof totalReservationsResult,
+          isNull: totalReservationsResult === null,
+          isUndefined: totalReservationsResult === undefined
         });
         
-        // Handle undefined/null result from RPC issues
-        if (totalReservations === undefined || totalReservations === null) {
-          devLog.warn(`[${requestId}] ⚠️ totalReservations returned ${totalReservations}, using empty data`);
-          allReservationsData = [];
-        } else if (totalReservations === 0n) {
+        let totalCount = 0;
+        if (totalReservationsResult === undefined || totalReservationsResult === null) {
+          totalCount = 0;
+        } else if (typeof totalReservationsResult === 'bigint') {
+          totalCount = Number(totalReservationsResult);
+        } else if (typeof totalReservationsResult === 'number') {
+          totalCount = totalReservationsResult;
+        } else if (totalReservationsResult && typeof totalReservationsResult.toString === 'function') {
+          totalCount = parseInt(totalReservationsResult.toString());
+        } else {
+          totalCount = 0;
+        }
+        
+        if (totalCount === 0) {
+          devLog.log(`[${requestId}] 📭 No reservations available (total: ${totalCount})`);
           allReservationsData = [];
         } else {
-          const maxToFetch = Math.min(Number(totalReservations), 20);
-          devLog.log(`[${requestId}] 🔄 Fetching last ${maxToFetch}/${Number(totalReservations)} reservations individually...`);
-          
-          const reservationPromises = [];
-          for (let i = Math.max(0, Number(totalReservations) - maxToFetch); i < Number(totalReservations); i++) {
-            reservationPromises.push(
-              retry(() => contract.reservationKeyByIndex(i), { maxRetries: 1, delay: 200 })
-                .then(key => retry(() => contract.getReservation(key), { maxRetries: 1, delay: 200 }))
-                .catch(err => {
-                  devLog.warn(`Failed to get reservation at index ${i}:`, err);
-                  return null;
-                })
-            );
-          }
-          
-          const results = await Promise.all(reservationPromises);
-          allReservationsData = results.filter(r => r !== null);
-          const totalFallbackTime = Date.now() - fallbackStartTime;
-          devLog.log(`[${requestId}] 🔄 Fallback method completed:`, {
-            fetched: allReservationsData.length,
-            total: Number(totalReservations),
-            time: `${totalFallbackTime}ms`,
-            method: 'individual'
-          });
+          // If we can't fetch individually, at least log the total and return empty for now
+          devLog.warn(`[${requestId}] ⚠️ Found ${totalCount} reservations but individual fetch failed`);
+          allReservationsData = [];
         }
-      } catch (fallbackError) {
-        devLog.error(`[${requestId}] ❌ Both methods failed:`, {
-          primary: blockchainError.message,
-          fallback: fallbackError.message,
-          totalTime: `${Date.now() - blockchainStartTime}ms`
-        });
-        throw new Error('BLOCKCHAIN_CALL_FAILED');
+      } catch (totalError) {
+        devLog.error(`[${requestId}] ❌ Even totalReservations failed:`, totalError.message);
+        throw new Error('CONTRACT_UNREACHABLE');
       }
     }
     
-    if (allReservationsData.length === 0) {
-      devLog.log(`[${requestId}] 📭 No reservations found, caching empty result`);
-      setCache([]);
-      // Also cache in extended cache
-      extendedCache = [];
-      extendedCacheTimestamp = Date.now();
-      
-      const responseTime = Date.now() - startTime;
-      return Response.json([], { 
-        status: 200,
-        headers: {
-          'X-Request-ID': requestId,
-          'X-Response-Time': `${responseTime}ms`
-        }
-      });
-    }
-
-    // STEP 4: Process reservation keys efficiently
-    let reservationKeys = [];
+    // STEP 4: Process and format the reservations
+    const blockchainTime = Date.now() - blockchainStartTime;
     
-    // Check if wallet is provided - if so, we might need real keys for user operations
-    const needRealKeys = wallet !== null;
-    
-    if (needRealKeys) {
-      // Get keys in parallel for better performance with shorter timeout
-      devLog.log(`[${requestId}] 🔑 Fetching reservation keys for user operations...`);
-      try {
-        reservationKeys = await Promise.race([
-          Promise.all(
-            Array.from({ length: allReservationsData.length }, async (_, i) => {
-              try {
-                return await retry(() => contract.reservationKeyByIndex(i), { maxRetries: 1, delay: 500 });
-              } catch (error) {
-                devLog.warn(`[${requestId}] ⚠️ Failed to get reservation key at index ${i}:`, error.message);
-                // Generate a deterministic key based on reservation data for consistency
-                const reservation = allReservationsData[i];
-                return `0x${Buffer.from(`${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`).toString('hex').padStart(64, '0')}`;
-              }
-            })
-          ),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Reservation keys timeout')), 10000)
-          )
-        ]);
-      } catch (keysError) {
-        devLog.warn(`[${requestId}] 🔑 Failed to get reservation keys, using generated keys:`, keysError.message);
-        // Fallback to generated keys
-        reservationKeys = allReservationsData.map((reservation) => {
-          return `0x${Buffer.from(`${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`).toString('hex').padStart(64, '0')}`;
-        });
-      }
-    } else {
-      // For display purposes, generate stable keys based on reservation data
-      reservationKeys = allReservationsData.map((reservation) => {
-        return `0x${Buffer.from(`${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`).toString('hex').padStart(64, '0')}`;
-      });
-    }
-
-    // STEP 5: Process and format data
+    // Generate stable keys for reservations (needed for frontend operations)
     const allReservations = allReservationsData.map((reservation, index) => {
+      // Generate deterministic key based on reservation data
+      const keyData = `${reservation.labId}_${reservation.renter}_${reservation.start}_${reservation.end}`;
+      const reservationKey = `0x${Buffer.from(keyData).toString('hex').padStart(64, '0')}`;
+      
       return {
-        reservationKey: reservationKeys[index],
+        reservationKey,
         labId: reservation.labId.toString(),
         renter: reservation.renter,
-        price: reservation.price.toString(),
+        price: reservation.price?.toString() || "0", // Handle missing price field
         start: reservation.start.toString(),
         end: reservation.end.toString(),
-        status: reservation.status.toString()
+        status: reservation.status.toString(),
+        date: new Date(parseInt(reservation.start) * 1000).toLocaleDateString('en-US'),
+        id: index
       };
     });
 
-    // Convert to the expected format for the frontend
-    const formattedBookings = allReservations.map(reservation => {
-      const startTime = new Date(parseInt(reservation.start) * 1000);
-      const endTime = new Date(parseInt(reservation.end) * 1000);
-      const currentTime = new Date();
-      
-      return {
-        reservationKey: reservation.reservationKey,
-        labId: reservation.labId,
-        renter: reservation.renter,
-        date: startTime.toISOString().split('T')[0], // YYYY-MM-DD format
-        time: startTime.toTimeString().slice(0, 5), // HH:MM format
-        minutes: Math.round((endTime - startTime) / (1000 * 60)), // Duration in minutes
-        start: reservation.start,
-        end: reservation.end,
-        status: reservation.status,
-        activeBooking: reservation.status === '1' && startTime <= currentTime && endTime > currentTime
-      };
+    devLog.log(`[${requestId}] 🔄 Processing completed:`, {
+      rawCount: allReservationsData.length,
+      processedCount: allReservations.length,
+      blockchainTime: `${blockchainTime}ms`
     });
-
-    // STEP 6: Cache the results (both normal and extended)
-    setCache(formattedBookings);
-    extendedCache = formattedBookings;
-    extendedCacheTimestamp = Date.now();
 
     // Filter by user if wallet provided
-    let bookings = formattedBookings;
-    
+    let bookings = allReservations;
     if (wallet) {
       const originalCount = bookings.length;
       bookings = bookings.filter(reservation => 
         reservation.renter.toLowerCase() === wallet.toLowerCase()
       );
-      devLog.log(`[${requestId}] 🔍 User filter applied: ${originalCount} → ${bookings.length}`);
+      devLog.log(`[${requestId}] 🔍 Filtered bookings: ${originalCount} → ${bookings.length} for user`);
     }
 
+    // STEP 5: Cache the results
+    setCache(allReservations);
+    extendedCache = allReservations;
+    extendedCacheTimestamp = Date.now();
+
     const totalResponseTime = Date.now() - startTime;
-    const blockchainTime = Date.now() - blockchainStartTime;
-    
     devLog.log(`[${requestId}] ✅ Request completed successfully:`, {
-      totalBookings: formattedBookings.length,
-      userBookings: bookings.length,
+      total: allReservations.length,
+      filtered: bookings.length,
       totalTime: `${totalResponseTime}ms`,
       blockchainTime: `${blockchainTime}ms`,
       cached: true
@@ -339,18 +387,17 @@ async function handleRequest(wallet) {
         'X-Blockchain-Time': `${blockchainTime}ms`
       }
     });
+    
   } catch (error) {
     const totalTime = Date.now() - startTime;
     devLog.error(`[${requestId}] 💥 Request failed after ${totalTime}ms:`, {
       error: error.message,
-      wallet: wallet ? 'user' : 'all',
-      fallbacksAttempted: 0
+      wallet: wallet ? 'user' : 'all'
     });
-    
-    // FALLBACK 1: Try extended cache (5 minutes) during RPC saturation
-    const now = Date.now();
-    if (extendedCache && extendedCacheTimestamp && (now - extendedCacheTimestamp < EXTENDED_CACHE_DURATION)) {
-      devLog.log(`[${requestId}] 🕐 Using extended cache (${Math.round((now - extendedCacheTimestamp) / 1000)}s old)`);
+
+    // Check for extended cache during RPC issues
+    if (extendedCache && (Date.now() - extendedCacheTimestamp < EXTENDED_CACHE_DURATION)) {
+      devLog.log(`[${requestId}] 🔄 Using extended cache due to RPC issues`);
       let bookings = extendedCache;
       
       if (wallet) {
@@ -363,86 +410,44 @@ async function handleRequest(wallet) {
         status: 200,
         headers: { 
           'X-Cache': 'EXTENDED',
-          'X-Fallback': 'RPC_SATURATED',
           'X-Request-ID': requestId,
-          'X-Response-Time': `${Date.now() - startTime}ms`
+          'X-Response-Time': `${totalTime}ms`
         }
       });
     }
     
-    // FALLBACK 2: Try to get ANY cached data regardless of age (emergency fallback)
-    const emergencyCache = getCache();
-    if (emergencyCache.data && emergencyCache.data.length > 0) {
-      const cacheAge = Math.round((now - emergencyCache.timestamp) / 1000);
-      devLog.log(`[${requestId}] 🚨 Using emergency cache (${cacheAge}s old)`);
-      let bookings = emergencyCache.data;
-      
-      if (wallet) {
-        bookings = bookings.filter(reservation => 
-          reservation.renter.toLowerCase() === wallet.toLowerCase()
-        );
-      }
-      
-      return Response.json(bookings, { 
-        status: 200,
-        headers: { 
-          'X-Cache': 'EMERGENCY',
-          'X-Fallback': 'STALE_CACHE'
-        }
-      });
-    }
-    
-    // FALLBACK 3: Check if we have any extended cache, even if expired
-    if (extendedCache && extendedCache.length > 0) {
-      devLog.warn(`[${requestId}] ⚠️ Using expired extended cache as last resort`);
-      let bookings = extendedCache;
-      
-      if (wallet) {
-        bookings = bookings.filter(reservation => 
-          reservation.renter.toLowerCase() === wallet.toLowerCase()
-        );
-      }
-      
-      return Response.json(bookings, { 
-        status: 200,
-        headers: { 
-          'X-Cache': 'EXPIRED',
-          'X-Fallback': 'EXPIRED_CACHE'
-        }
-      });
-    }
-    
-    // FALLBACK 4: Simulated bookings for demo purposes
-    devLog.warn(`[${requestId}] 🎭 All caches empty, using simulated data`);
-    try {
+    // Fallback to simulation data if all else fails
+    if (error.message.includes('RPC_UNAVAILABLE') || error.message.includes('CONTRACT_UNREACHABLE')) {
+      devLog.log(`[${requestId}] 📋 Using fallback simulation data`);
       const fallbackBookings = simBookings();
-      devLog.log(`[${requestId}] ✅ Fallback completed with simulated data (${fallbackBookings.length} items)`);
-      return Response.json(fallbackBookings, { 
+      
+      let bookings = fallbackBookings;
+      if (wallet) {
+        bookings = bookings.filter(reservation => 
+          reservation.renter.toLowerCase() === wallet.toLowerCase()
+        );
+      }
+      
+      return Response.json(bookings, { 
         status: 200,
         headers: { 
-          'X-Cache': 'SIMULATED',
-          'X-Fallback': 'DEMO_DATA',
+          'X-Fallback': 'SIMULATION',
           'X-Request-ID': requestId,
-          'X-Response-Time': `${Date.now() - startTime}ms`
-        }
-      });
-    } catch (fallbackError) {
-      devLog.error(`[${requestId}] ❌ Simulated bookings failed:`, fallbackError.message);
-      
-      // FALLBACK 5: Empty array with error information
-      const finalTime = Date.now() - startTime;
-      devLog.error(`[${requestId}] 💀 Total system failure after ${finalTime}ms`);
-      
-      return Response.json([], { 
-        status: 200,
-        headers: { 
-          'X-Cache': 'EMPTY',
-          'X-Fallback': 'TOTAL_FAILURE',
-          'X-Error': error.message?.substring(0, 100) || 'Unknown error',
-          'X-Request-ID': requestId,
-          'X-Response-Time': `${finalTime}ms`
+          'X-Response-Time': `${totalTime}ms`
         }
       });
     }
+
+    return Response.json({ 
+      error: 'Failed to fetch reservations',
+      message: error.message,
+      requestId 
+    }, { 
+      status: 500,
+      headers: {
+        'X-Request-ID': requestId,
+        'X-Response-Time': `${totalTime}ms`
+      }
+    });
   }
 }

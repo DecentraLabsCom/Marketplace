@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import DatePicker from "react-datepicker";
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { useUser } from "@/context/UserContext";
@@ -10,7 +9,8 @@ import { useLabToken } from "@/hooks/useLabToken";
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import LabTokenInfo from '@/components/LabTokenInfo';
-import { generateTimeOptions, renderDayContents } from '@/utils/labBookingCalendar';
+import { generateTimeOptions } from '@/utils/labBookingCalendar';
+import CalendarWithBookings from '@/components/CalendarWithBookings';
 import useContractWriteFunction from "@/hooks/contract/useContractWriteFunction";
 import { contractAddresses } from "@/contracts/diamond";
 import devLog from '@/utils/logger';
@@ -89,7 +89,7 @@ export default function LabReservation({ id }) {
     });
     const firstAvailable = availableTimes.find(t => !t.disabled);
     setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
-  }, [date, time, selectedLab]);
+  }, [date, time, selectedLab, selectedLab?.bookingInfo]); // Added selectedLab?.bookingInfo as dependency
 
   // To avoid hydration warning in SSR
   useEffect(() => {
@@ -111,6 +111,34 @@ export default function LabReservation({ id }) {
       if (!isSSO) {
         refreshTokenData();
       }
+      
+      // Invalidate cache and refresh bookings to show the new reservation immediately
+      const invalidateAndRefresh = async () => {
+        try {
+          // Invalidate the bookings cache
+          await fetch('/api/contract/reservation/invalidateCache', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              reason: 'new_reservation',
+              reservationKey: pendingData?.reservationKey
+            })
+          });
+          
+          // Force refresh the bookings data
+          await fetchBookings(true); // Pass true to force refresh
+          
+          devLog.log('Cache invalidated and bookings refreshed after new reservation');
+        } catch (error) {
+          devLog.error('Error invalidating cache after reservation:', error);
+          // Still try to refresh bookings even if cache invalidation fails
+          fetchBookings(true); // Pass true to force refresh
+        }
+      };
+      
+      invalidateAndRefresh();
       
       // Reset transaction state
       setLastTxHash(null);
@@ -157,20 +185,6 @@ export default function LabReservation({ id }) {
       })
     : [];
 
-  // Render days with reservation tooltips
-  const dayContents = (day, currentDateRender) =>
-    renderDayContents({
-      day,
-      currentDateRender,
-      bookingInfo: (selectedLab?.bookingInfo || [])
-        .filter(booking => booking.status !== "4" && booking.status !== 4) // Exclude cancelled bookings
-        .map(booking => ({
-          ...booking,
-          labName: selectedLab?.name,
-          status: booking.status // Ensure status is included for styling
-        }))
-    });
-
   // Change lab
   const handleLabChange = (e) => {
     const selectedId = e.target.value;
@@ -180,7 +194,7 @@ export default function LabReservation({ id }) {
 
   // Common notification and state management
   const handleBookingSuccess = () => {
-    fetchBookings(); // Update local state
+    fetchBookings(true); // Update local state (force refresh)
     setIsBooking(false);
   };
 
@@ -345,7 +359,6 @@ export default function LabReservation({ id }) {
       if (txHash) {
         setLastTxHash(txHash);
         setTxType('reservation');
-        console.log(`Transaction cost: ${formatBalance(cost)} LAB`);
         setPendingData({ labId, start, end, timeslot, cost });
         addTemporaryNotification('success', 
           `✅ Payment of ${formatBalance(cost)} LAB sent! Confirming transaction...`);
@@ -414,26 +427,18 @@ export default function LabReservation({ id }) {
                 <div className="w-full lg:w-72 flex flex-col items-center lg:items-start">
                   <label className="block text-lg font-semibold mb-2">Select the date:</label>
                   <div className="w-fit">
-                    <DatePicker
-                    calendarClassName="custom-datepicker"
-                    selected={date}
-                    onChange={(newDate) => setDate(newDate)}
-                    minDate={minDate}
-                    maxDate={maxDate}
-                    inline
-                    renderDayContents={dayContents}
-                    dayClassName={day =>
-                      selectedLab?.bookingInfo?.some(
-                        b => {
-                          if (b.status === "4" || b.status === 4) return false;
-                          const bookingDate = new Date(b.date);
-                          return !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString();
-                        }
-                      )
-                        ? "bg-[#9fc6f5] text-white"
-                        : undefined
-                    }
-                  />
+                    <CalendarWithBookings
+                      selectedDate={date}
+                      onDateChange={(newDate) => setDate(newDate)}
+                      bookingInfo={(selectedLab?.bookingInfo || []).map(booking => ({
+                        ...booking,
+                        labName: selectedLab?.name,
+                        status: booking.status
+                      }))}
+                      minDate={minDate}
+                      maxDate={maxDate}
+                      displayMode="lab-reservation"
+                    />
                   </div>
                 </div>
                 <div className="w-full lg:w-72 flex flex-col gap-6">

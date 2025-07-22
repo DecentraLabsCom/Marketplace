@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useState } from 'react'
-import DatePicker from "react-datepicker"
 import Link from 'next/link'
 import { useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
@@ -15,7 +14,7 @@ import AccessControl from '@/components/AccessControl'
 import LabBookingItem from '@/components/LabBookingItem'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
 import isBookingActive from '@/utils/isBookingActive'
-import { renderDayContents } from '@/utils/labBookingCalendar';
+import CalendarWithBookings from '@/components/CalendarWithBookings';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
@@ -201,49 +200,11 @@ export default function UserDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
-  const [bookedDates, setBookedDates] = useState([]);
-  const dayContents = (day, currentDateRender) =>
-    renderDayContents({
-      day,
-      currentDateRender,
-      bookingInfo: labs.flatMap(lab =>
-        (lab.bookingInfo || [])
-          .filter(booking => booking.status !== "4" && booking.status !== 4) // Exclude cancelled bookings
-          .map(booking => ({
-            ...booking,
-            labName: lab.name,
-            status: booking.status // Ensure status is included for styling
-          }))
-      ),
-    });
 
   useEffect(() => {
     if (labs && now) {
-      const futureBookingDates = labs.reduce((dates, lab) => {
-        if (Array.isArray(lab.userBookings)) {
-          lab.userBookings
-            .filter(booking => {
-              if (!booking.date || !booking.time || !booking.minutes) return false;
-              // Exclude cancelled bookings from calendar highlights
-              if (booking.status === "4" || booking.status === 4) return false;
-              const endDateTime = new Date(`${booking.date}T${booking.time}`);
-              endDateTime.setMinutes(endDateTime.getMinutes() + parseInt(booking.minutes));
-              return endDateTime.getTime() > now.getTime();
-            })
-            .forEach(booking => {
-              try {
-                const dateObject = new Date(booking.date);
-                if (!isNaN(dateObject)) {
-                  dates.push(dateObject);
-                }
-              } catch (error) {
-                devLog.error("Error converting date:", booking.date, error);
-              }
-            });
-        }
-        return dates;
-      }, []);
-      setBookedDates(futureBookingDates);
+      // This useEffect was used to calculate calendar highlights,
+      // but now that's handled by CalendarWithBookings component
     }
   }, [labs, now]);
 
@@ -475,20 +436,18 @@ export default function UserDashboard() {
               <div className="border shadow text-white rounded p-6 mb-1 flex-1 min-[1280px]:w-1/4 flex justify-center 
                 items-center">
                 <div className="flex flex-row">
-                  <DatePicker
-                    calendarClassName="custom-datepicker"
-                    selected={date}
-                    onChange={(newDate) => setDate(newDate)}
+                  <CalendarWithBookings
+                    selectedDate={date}
+                    onDateChange={(newDate) => setDate(newDate)}
+                    bookingInfo={labs.flatMap(lab =>
+                      (lab.bookingInfo || []).map(booking => ({
+                        ...booking,
+                        labName: lab.name,
+                        status: booking.status
+                      }))
+                    )}
                     minDate={today}
-                    inline
-                    dayClassName={day =>
-                      bookedDates.some(
-                        (d) => d.toDateString() === day.toDateString()
-                      )
-                        ? "bg-[#9fc6f5] text-white"
-                        : undefined
-                    }
-                    renderDayContents={dayContents}
+                    displayMode="user-dashboard"
                   />
                 </div>
               </div>

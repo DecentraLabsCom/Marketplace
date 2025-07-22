@@ -114,11 +114,11 @@ export function LabData({ children }) {
   }, [cacheKeys]);
 
   // fetchBookings with debouncing and smart caching
-  const fetchBookings = useCallback(async () => {
+  const fetchBookings = useCallback(async (force = false) => {
     const now = Date.now();
     
-    // Debounce: don't fetch if we just fetched within 30 seconds
-    if (now - lastBookingsFetch < 30000) {
+    // Debounce: don't fetch if we just fetched within 30 seconds (unless forced)
+    if (!force && now - lastBookingsFetch < 30000) {
       return;
     }
 
@@ -127,13 +127,13 @@ export function LabData({ children }) {
 
     try {
       // OPTIMIZATION: Fetch all bookings with timeout for RPC saturation scenarios
-      devLog.log('Fetching all bookings with optimized single call...');
+      devLog.log('Fetching all bookings with optimized single call...', { force });
       
       const controller = new AbortController();
       let timeoutId;
       
       // Use Promise.race with proper cleanup
-      const fetchPromise = fetch('/api/contract/reservation/getBookings', {
+      const fetchPromise = fetch(`/api/contract/reservation/getBookings${force ? '?clearCache=true' : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet: null }), // Get all bookings
