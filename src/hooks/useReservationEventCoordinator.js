@@ -3,12 +3,12 @@
  * Prevents race conditions and duplicate API calls for booking-related operations
  */
 import { useCallback } from 'react';
-import { useLabs } from '@/context/LabContext';
-import { useReservationEvents } from '@/context/ReservationEventContext';
+import { useBookings } from '@/context/BookingContext';
+import { useReservationEvents } from '@/context/BookingEventContext';
 import devLog from '@/utils/logger';
 
 export function useReservationEventCoordinator() {
-  const { fetchBookings, removeCanceledBooking } = useLabs();
+  const { fetchBookings, removeBooking } = useBookings();
   const { 
     invalidateBookingCache, 
     scheduleBookingUpdate,
@@ -76,11 +76,11 @@ export function useReservationEventCoordinator() {
       const result = await cancelFunction();
       
       // Immediately update local state for better UX
-      removeCanceledBooking(reservationKey);
+      removeBooking(reservationKey);
       
       return result;
     }, reservationKey);
-  }, [coordinatedReservationUpdate, removeCanceledBooking]);
+  }, [coordinatedReservationUpdate, removeBooking]);
 
   /**
    * Check if manual booking update is in progress

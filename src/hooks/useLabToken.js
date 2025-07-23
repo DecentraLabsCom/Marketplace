@@ -224,6 +224,38 @@ export function useLabToken() {
   };
 
   /**
+   * Smart price formatter that handles both human-readable and token unit formats
+   * @param {string|number|bigint} price - Price in any format
+   * @returns {string} - Human-readable price
+   */
+  const formatPrice = (price) => {
+    if (!price || price === '0') return '0';
+    
+    try {
+      const priceStr = price.toString();
+      
+      // If it contains a decimal point, it's likely already in human format
+      if (priceStr.includes('.')) {
+        const numPrice = parseFloat(priceStr);
+        return isNaN(numPrice) ? '0' : numPrice.toString();
+      }
+      
+      // If it's a very large number (more than 6 digits), assume it's in token units
+      if (priceStr.length > 6 && !priceStr.includes('.')) {
+        return formatUnits(BigInt(priceStr), decimals);
+      }
+      
+      // Otherwise, it's likely already in human format
+      const numPrice = parseFloat(priceStr);
+      return isNaN(numPrice) ? '0' : numPrice.toString();
+      
+    } catch (error) {
+      devLog.error('Error formatting price:', error, 'Price:', price);
+      return '0';
+    }
+  };
+
+  /**
    * Manually refresh balance and allowance data
    * Useful for external components to trigger updates
    */
@@ -246,6 +278,7 @@ export function useLabToken() {
     checkBalanceAndAllowance,
     checkSufficientBalance,
     formatTokenAmount,
+    formatPrice,
     refreshTokenData,
     
     // Functions to refresh

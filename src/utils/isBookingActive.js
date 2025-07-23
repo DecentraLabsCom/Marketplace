@@ -7,7 +7,7 @@
  * @param {Array} bookingInfo - Array of booking objects with start, end, and status
  * @returns {boolean} - True if there's an active confirmed booking right now
  */
-import { devLog } from '@/utils/logger';
+import devLog from '@/utils/logger';
 
 export default function isBookingActive(bookingInfo) {
     if (!Array.isArray(bookingInfo)) return false;
@@ -17,7 +17,7 @@ export default function isBookingActive(bookingInfo) {
       if (!b.start || !b.end) return false;
       
       // Only confirmed bookings can be active (not pending, cancelled, etc.)
-      console.log("Booking status:", b.status);
+      devLog.log("Booking status:", b.status);
       if (b.status !== "1") {
         return false;
       }

@@ -59,15 +59,16 @@ export default function ProviderDashboard() {
       
       addPersistentNotification('success', `✅ ${txType.charAt(0).toUpperCase() + txType.slice(1)} operation confirmed onchain!`);
       
-      // Handle different transaction types
+      // Update local state immediately with the confirmed changes
       switch(txType) {
         case 'add':
           setLabs([...labs, pendingData]);
-          setIsModalOpen(false);
+          setIsModalOpen(false); // Only close for new labs
           break;
         case 'update':
+          // Update local state immediately - DON'T close modal
           setLabs(labs.map(lab => lab.id === pendingData.id ? pendingData : lab));
-          setIsModalOpen(false);
+          devLog.log('ProviderDashboard: Lab updated in local state, modal remains open');
           break;
         case 'delete':
           setLabs(labs.filter(lab => lab.id !== pendingData.id));
@@ -86,6 +87,17 @@ export default function ProviderDashboard() {
   }, [isReceiptSuccess, receipt, txType, pendingData, labs, setLabs, addPersistentNotification]);
 
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
+  
+  // Log when selectedLab changes to verify updates are reflected
+  useEffect(() => {
+    if (selectedLab) {
+      devLog.log('ProviderDashboard: Selected lab updated:', {
+        id: selectedLab.id,
+        name: selectedLab.name,
+        price: selectedLab.price
+      });
+    }
+  }, [selectedLab]);
 
   // Calendar
   const today = new Date();
@@ -109,7 +121,10 @@ export default function ProviderDashboard() {
 
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
-    // Convert price from user input to token units
+    // Store the original human-readable price for local state updates
+    const originalPrice = labData.price;
+    
+    // Convert price from user input to token units for blockchain operations
     if (labData.price && decimals) {
       try {
         // Convert the price to token units (multiply by decimals)
@@ -123,14 +138,14 @@ export default function ProviderDashboard() {
     }
     
     if (labData.id) {
-      await handleEditLab({ labData });
+      await handleEditLab({ labData, originalPrice });
     } else {
       await handleAddLab({ labData });
     }
   };
 
   // Handle editing/updating a lab
-  async function handleEditLab({ labData }) {
+  async function handleEditLab({ labData, originalPrice }) {
     labData.uri = labData.uri || `Lab-${user.name}-${labData.id}.json`;
     const originalLab = labs.find(lab => lab.id == labData.id);
 
@@ -197,15 +212,18 @@ export default function ProviderDashboard() {
         if (txHash) {
           setLastTxHash(txHash);
           setTxType('update');
-          setPendingData(labData);
+          // Store pending data with human-readable price for consistent local state
+          setPendingData({ ...labData, price: originalPrice });
         } else {
           throw new Error('No transaction hash received');
         }
       } else {
         // 1b. If there is no change in the on-chain data, just update the local state
-        setLabs(labs.map((lab) => lab.id == labData.id ? { ...labData } : lab));
-        setIsModalOpen(false);
+        // Keep price in human-readable format for consistency
+        setLabs(labs.map((lab) => lab.id == labData.id ? { ...labData, price: originalPrice } : lab));
+        // DON'T close modal - let user close it manually
         addTemporaryNotification('success', '✅ Lab updated successfully (offchain changes only)!');
+        devLog.log('ProviderDashboard: Lab updated locally (offchain), modal remains open');
       }
 
       // 2. Save the JSON if necessary
@@ -214,7 +232,8 @@ export default function ProviderDashboard() {
           const response = await fetch('/api/provider/saveLabData', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ labData }),
+            // Save with human-readable price for JSON consistency
+            body: JSON.stringify({ labData: { ...labData, price: originalPrice } }),
           });
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         } catch (error) {

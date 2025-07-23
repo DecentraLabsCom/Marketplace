@@ -3,7 +3,7 @@ import { createContext, useContext, useRef, useCallback, useState } from "react"
 import { useWatchContractEvent } from 'wagmi';
 import { contractABI, contractAddresses } from '@/contracts/diamond';
 import { selectChain } from '@/utils/selectChain';
-import { devLog } from '@/utils/logger';
+import devLog from '@/utils/logger';
 import { useAccount } from "wagmi";
 import { useUser } from './UserContext';
 import { useNotifications } from './NotificationContext';

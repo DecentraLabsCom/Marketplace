@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useLabs } from '@/context/LabContext'
+import { useBookings } from '@/context/BookingContext'
 import { useNotifications } from '@/context/NotificationContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator'
@@ -18,9 +19,44 @@ import CalendarWithBookings from '@/components/CalendarWithBookings';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
-  const { labs, loading, bookingsLoading, restoreBookingStatus } = useLabs();
+  const { labs, loading } = useLabs();
+  const { 
+    userBookings, 
+    bookingsLoading, 
+    bookingsStatus,
+    updateBookingInState
+  } = useBookings();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();
+
+  // Debug: Log booking data from BookingContext
+  useEffect(() => {
+    if (labs && labs.length > 0) {
+      devLog.log('UserDashboard: Received labs data:', {
+        labsCount: labs.length,
+        address,
+        labs: labs.map(lab => ({
+          id: lab.id,
+          name: lab.name
+        }))
+      });
+    }
+  }, [labs, address]);
+
+  useEffect(() => {
+    if (userBookings && userBookings.length > 0) {
+      devLog.log('UserDashboard: Received user bookings data:', {
+        userBookingsCount: userBookings.length,
+        address,
+        bookingsStatus,
+        userBookings: userBookings.map(booking => ({
+          reservationKey: booking.reservationKey,
+          labId: booking.labId,
+          status: booking.status
+        }))
+      });
+    }
+  }, [userBookings, address, bookingsStatus]);
 
   const { isConnected } = useAccount();
   
@@ -55,17 +91,26 @@ export default function UserDashboard() {
   
   // Initialize time on client side only
   useEffect(() => {
-    const currentTime = new Date();
-    setNow(currentTime);
+    setNow(new Date());
   }, []);
 
   // Update availableLab when labs or now changes
   useEffect(() => {
     if (labs && now) {
-      const lab = labs.find(lab => lab.userBookings && isBookingActive(lab.userBookings));
-      setAvailableLab(lab);
+      const getAvailableLab = () => {
+        if (!labs?.length) return null;
+        // Find a lab with active bookings using userBookings from BookingContext
+        const labsWithActiveBookings = labs.filter(lab => {
+          const labUserBookings = userBookings?.filter(booking => booking.labId === lab.id) || [];
+          return isBookingActive(labUserBookings);
+        });
+        return labsWithActiveBookings[0] || null;
+      };
+      
+      const availableLab = getAvailableLab();
+      setAvailableLab(availableLab);
     }
-  }, [labs, now]);
+  }, [labs, now, userBookings]);
       
   const openModal = (type, labId, booking = null) => {
     setSelectedLabId(labId);
@@ -141,7 +186,7 @@ export default function UserDashboard() {
       // Use coordinated cancellation to prevent event collisions
       await coordinatedBookingCancellation(async () => {
         try {
-          console.log('Using reservation key directly:', bookingKey);
+          devLog.log('Using reservation key directly:', bookingKey);
           
           const txHash = await cancelBooking([bookingKey], { gas: 300000n });
           
@@ -191,7 +236,7 @@ export default function UserDashboard() {
       // Use coordinated cancellation to prevent event collisions
       await coordinatedBookingCancellation(async () => {
         try {
-          console.log('Using reservation key directly (request):', bookingKey);
+          devLog.log('Using reservation key directly (request):', bookingKey);
           
           const txHash = await cancelReservationRequest([bookingKey], { gas: 300000n });
           
@@ -257,8 +302,8 @@ export default function UserDashboard() {
       const bookingKey = pendingData.booking.reservationKey;
       const originalStatus = pendingData.booking.status;
       
-      // Restore the booking to its original status
-      restoreBookingStatus(bookingKey, originalStatus);
+      // Restore the booking to its original status using BookingContext
+      updateBookingInState(bookingKey, { status: originalStatus });
       
       // Mark as failed for visual feedback
       setFailedCancellations(prev => new Set([...prev, bookingKey]));
@@ -277,7 +322,7 @@ export default function UserDashboard() {
       setTxType(null);
       setPendingData(null);
     }
-  }, [receiptError, lastTxHash, pendingData, addErrorNotification, restoreBookingStatus]);
+  }, [receiptError, lastTxHash, pendingData, addErrorNotification, updateBookingInState]);
 
   const handleRefund = () => {
     closeModal();
@@ -298,8 +343,10 @@ export default function UserDashboard() {
   const firstActiveLab = !availableLab && now && labs.length > 0
     ? labs
         .map(lab => {
-          if (!Array.isArray(lab.userBookings)) return null;
-          const futureBooking = lab.userBookings
+          // Get user bookings for this lab from BookingContext
+          const labUserBookings = userBookings?.filter(booking => booking.labId === lab.id) || [];
+          if (!Array.isArray(labUserBookings)) return null;
+          const futureBooking = labUserBookings
             .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
             .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
           return futureBooking ? { lab, booking: futureBooking } : null;
@@ -332,7 +379,7 @@ export default function UserDashboard() {
     }
   }, [isLoggedIn, labs, address, user?.id, user?.affiliation]);
 
-  if (!userData || !now) {
+  if (!now || (!userData && loading)) {
     return (
       <AccessControl message="Please log in to view and make reservations.">
         <div className="container mx-auto p-4 space-y-6">
@@ -369,13 +416,15 @@ export default function UserDashboard() {
   }
 
   // Find active booking or the next one in the future
-  const activeBooking = availableLab && Array.isArray(availableLab.userBookings)
-    ? availableLab.userBookings.find(b => isBookingActive([b]))
+  const activeBooking = availableLab && userBookings
+    ? userBookings
+        .filter(booking => booking.labId === availableLab.id)
+        .find(b => isBookingActive([b]))
     : null;
 
-  const nextBooking = !availableLab && firstActiveLab 
-                      && Array.isArray(firstActiveLab.userBookings) && now
-    ? firstActiveLab.userBookings
+  const nextBooking = !availableLab && firstActiveLab && userBookings && now
+    ? userBookings
+        .filter(booking => booking.labId === firstActiveLab.id)
         .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
         .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0]
     : null;
@@ -395,10 +444,10 @@ export default function UserDashboard() {
               Profile
             </h2>
             <p className="text-gray-700">
-              <strong>Name:</strong>{userData.name}
+              <strong>Name:</strong>{userData?.name || 'N/A'}
             </p>
             <p className="text-gray-700 break-words">
-              <strong>Email:</strong> {userData.email}
+              <strong>Email:</strong> {userData?.email || 'N/A'}
             </p>
           </div>
 
@@ -440,7 +489,7 @@ export default function UserDashboard() {
                               </span>
                             </div>
                             {availableLab && (
-                              <LabAccess userWallet={user.userid} 
+                              <LabAccess userWallet={user?.userid || address} 
                                       hasActiveBooking={!!activeBooking} 
                                       auth={availableLab.auth} />
                             )}
@@ -538,37 +587,34 @@ export default function UserDashboard() {
             <div className="flex min-[1280px]:flex-row flex-col gap-4 mt-6">
               {/* Upcoming booked labs */}
               <div className="min-[1280px]:w-1/2 flex flex-col h-full min-h-[350px]">
-                <h2 className="text-2xl font-semibold mb-4 text-center">
-                  Upcoming Bookings
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-semibold text-center flex-1">
+                    Upcoming Bookings
+                  </h2>
+                </div>
                 <ul className='w-full flex-1'>
                   {bookingsLoading ? (
                     <DashboardSectionSkeleton title={false} />
                   ) : (
-                    now && userData.labs
-                    .filter(lab => Array.isArray(lab.userBookings) &&
-                      lab.userBookings.some(b => {
-                        if (!b.start || !b.end) return false;
-                        const endDateTime = new Date(parseInt(b.end) * 1000);
-                        return endDateTime.getTime() > now.getTime();
-                      }))
-                    .flatMap((lab) => {
-                      const upcomingBookings = lab.userBookings.filter(b => {
-                        if (!b.start || !b.end) return false;
-                        const endDateTime = new Date(parseInt(b.end) * 1000);
-                        return endDateTime.getTime() > now.getTime();
-                      })
-                      .map(booking => ({
-                        ...booking,
-                        lab: lab,
-                        startDateTime: new Date(parseInt(booking.start) * 1000),
-                        // Add visual feedback for failed cancellations
-                        hasCancellationError: failedCancellations.has(booking.reservationKey)
-                      }));
-
-                      return upcomingBookings;
-                    })
-                    .sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
+                    now && userBookings && userBookings.length > 0 ? (
+                      userBookings
+                        .filter(booking => {
+                          if (!booking.start || !booking.end) return false;
+                          const endDateTime = new Date(parseInt(booking.end) * 1000);
+                          return endDateTime.getTime() > now.getTime();
+                        })
+                        .map(booking => {
+                          const lab = labs.find(l => l.id === booking.labId);
+                          return {
+                            ...booking,
+                            lab: lab,
+                            startDateTime: new Date(parseInt(booking.start) * 1000),
+                            // Add visual feedback for failed cancellations
+                            hasCancellationError: failedCancellations.has(booking.reservationKey)
+                          };
+                        })
+                        .filter(booking => booking.lab) // Only include bookings with valid labs
+                        .sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
                     .map((booking) => {
                       let startTime = null;
                       let endTime = null;
@@ -601,7 +647,12 @@ export default function UserDashboard() {
                           closeModal={closeModal}
                         />
                       );
-                    }) || []
+                    })
+                    ) : (
+                      <li className="text-center text-gray-500 py-8">
+                        No upcoming bookings found.
+                      </li>
+                    )
                   )}
                   {!now && !bookingsLoading && <li className="text-center text-gray-500">Loading...</li>}
                 </ul>
@@ -621,67 +672,64 @@ export default function UserDashboard() {
                   {bookingsLoading ? (
                     <DashboardSectionSkeleton title={false} />
                   ) : (
-                    now && userData.labs
-                    .filter((lab) => Array.isArray(lab.userBookings) &&
-                      lab.userBookings.some(b => {
-                        if (!b.start || !b.end) return false;
-                        const endDateTime = new Date(parseInt(b.end) * 1000);
-                        // Only include past bookings that were confirmed (not PENDING)
-                        const hasReservationKey = b.reservationKey;
-                        const wasPending = b.status === "0" || b.status === 0;
-                        return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
-                      }))
-                    .flatMap((lab) => {
-                      const pastBookings = lab.userBookings.filter(b => {
-                        if (!b.start || !b.end) return false;
-                        const endDateTime = new Date(parseInt(b.end) * 1000);
-                        // Only include past bookings that were confirmed (not PENDING)
-                        const hasReservationKey = b.reservationKey;
-                        const wasPending = b.status === "0" || b.status === 0;
-                        return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
-                      })
-                      .map(booking => ({
-                        ...booking,
-                        lab: lab,
-                        startDateTime: new Date(parseInt(booking.start) * 1000)
-                      }));
+                    now && userBookings && userBookings.length > 0 ? (
+                      userBookings
+                        .filter(booking => {
+                          if (!booking.start || !booking.end) return false;
+                          const endDateTime = new Date(parseInt(booking.end) * 1000);
+                          // Only include past bookings that were confirmed (not PENDING)
+                          const hasReservationKey = booking.reservationKey;
+                          const wasPending = booking.status === "0" || booking.status === 0;
+                          return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
+                        })
+                        .map(booking => {
+                          const lab = labs.find(l => l.id === booking.labId);
+                          return {
+                            ...booking,
+                            lab: lab,
+                            startDateTime: new Date(parseInt(booking.start) * 1000)
+                          };
+                        })
+                        .filter(booking => booking.lab) // Only include bookings with valid labs
+                        .sort((a, b) => b.startDateTime.getTime() - a.startDateTime.getTime()) // Most recent first
+                        .map((booking) => {
+                          let startTime = null;
+                          let endTime = null;
 
-                      return pastBookings;
-                    })
-                    .sort((a, b) => b.startDateTime.getTime() - a.startDateTime.getTime()) // Most recent first
-                    .map((booking) => {
-                      let startTime = null;
-                      let endTime = null;
+                          if (booking?.start && booking?.end) {
+                            const startDateObj = new Date(parseInt(booking.start) * 1000);
+                            const endDateObj = new Date(parseInt(booking.end) * 1000);
 
-                      if (booking?.start && booking?.end) {
-                        const startDateObj = new Date(parseInt(booking.start) * 1000);
-                        const endDateObj = new Date(parseInt(booking.end) * 1000);
+                            if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
+                              const startHours = String(startDateObj.getHours()).padStart(2, '0');
+                              const startMinutes = String(startDateObj.getMinutes()).padStart(2, '0');
+                              startTime = `${startHours}:${startMinutes}`;
+                              
+                              const endHours = String(endDateObj.getHours()).padStart(2, '0');
+                              const endMinutes = String(endDateObj.getMinutes()).padStart(2, '0');
+                              endTime = `${endHours}:${endMinutes}`;
+                            }
+                          }
 
-                        if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
-                          const startHours = String(startDateObj.getHours()).padStart(2, '0');
-                          const startMinutes = String(startDateObj.getMinutes()).padStart(2, '0');
-                          startTime = `${startHours}:${startMinutes}`;
-                          
-                          const endHours = String(endDateObj.getHours()).padStart(2, '0');
-                          const endMinutes = String(endDateObj.getMinutes()).padStart(2, '0');
-                          endTime = `${endHours}:${endMinutes}`;
-                        }
-                      }
-
-                      return (
-                        <LabBookingItem
-                          key={`${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`}
-                          lab={booking.lab}
-                          booking={booking}
-                          startTime={startTime}
-                          endTime={endTime}
-                          onRefund={(labId, booking) => openModal('refund', labId, booking)}
-                          onConfirmRefund={handleRefund}
-                          isModalOpen={isModalOpen === 'refund' && selectedLabId === booking.lab.id && selectedBooking?.reservationKey === booking.reservationKey}
-                          closeModal={closeModal}
-                        />
-                      );
-                    }) || []
+                          return (
+                            <LabBookingItem
+                              key={`${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`}
+                              lab={booking.lab}
+                              booking={booking}
+                              startTime={startTime}
+                              endTime={endTime}
+                              onRefund={(labId, booking) => openModal('refund', labId, booking)}
+                              onConfirmRefund={handleRefund}
+                              isModalOpen={isModalOpen === 'refund' && selectedLabId === booking.lab.id && selectedBooking?.reservationKey === booking.reservationKey}
+                              closeModal={closeModal}
+                            />
+                          );
+                        })
+                    ) : (
+                      <li className="text-center text-gray-500 py-8">
+                        No past bookings found.
+                      </li>
+                    )
                   )}
                   {!now && !bookingsLoading && <li className="text-center text-gray-500">Loading...</li>}
                 </ul>

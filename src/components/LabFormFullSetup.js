@@ -1,4 +1,3 @@
-import React from "react";
 import { UploadCloud, Link, XCircle } from 'lucide-react';
 import ImagePreviewList from '@/components/ImagePreviewList.js';
 import DocPreviewList from '@/components/DocPreviewList.js';

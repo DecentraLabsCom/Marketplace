@@ -2,8 +2,9 @@
 import { createContext, useContext, useRef, useCallback, useState } from "react";
 import { useWatchContractEvent } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
+import { useBookings } from "@/context/BookingContext";
 import { contractABI, contractAddresses } from '@/contracts/diamond';
-import { devLog } from '@/utils/logger';
+import devLog from '@/utils/logger';
 import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
 
@@ -20,7 +21,8 @@ export function LabEventProvider({ children }) {
     const { chain } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const { setLabs, fetchLabs, removeBookingsForDeletedLab } = useLabs();
+    const { setLabs, fetchLabs } = useLabs();
+    const { fetchBookings } = useBookings();
 
     // Debouncing and state management for intelligent updates
     const lastEventTime = useRef(new Map()); // Track last event time by type
@@ -200,8 +202,8 @@ export function LabEventProvider({ children }) {
             return filteredLabs;
         });
         
-        // Remove all bookings/reservations for this deleted lab
-        removeBookingsForDeletedLab(deletedLabId);
+        // Force refresh bookings to get updated data
+        fetchBookings(true);
     }
 
     function handleLabUpdated(args) {

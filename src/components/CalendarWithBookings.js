@@ -2,7 +2,7 @@
 import React from 'react';
 import DatePicker from 'react-datepicker';
 import { renderDayContents } from '@/utils/labBookingCalendar';
-import { devLog } from '@/utils/logger';
+import devLog from '@/utils/logger';
 
 /**
  * Reusable calendar component that shows bookings with tooltips and highlighting

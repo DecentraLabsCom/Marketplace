@@ -1,454 +1,340 @@
-"use client";
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useUser } from '@/context/UserContext';
-import { useLabToken } from '@/hooks/useLabToken';
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  createBlockchainError, 
+  ErrorSeverity, 
+  ErrorCategory,
+  ErrorBoundary 
+} from '@/utils/errorBoundaries';
+import { deduplicatedFetch } from '@/utils/requestDeduplication';
+import { cacheManager, CACHE_TTL } from '@/utils/cacheManager';
+import { createOptimizedContext } from '@/utils/optimizedContext';
 import devLog from '@/utils/logger';
 
-const LabContext = createContext();
+// Cache configuration
+const CACHE_KEYS = {
+  LABS: 'labs_data',
+  LABS_TIMESTAMP: 'labs_timestamp',
+};
 
-function normalizeLab(rawLab) {
-  return {
-    id: String(rawLab.id ?? rawLab.labId ?? ""),
-    name: rawLab.name ?? "",
-    category: rawLab.category ?? "",
-    keywords: Array.isArray(rawLab.keywords)
-      ? rawLab.keywords
-      : typeof rawLab.keywords === "string"
-        ? rawLab.keywords.split(",").map(k => k.trim()).filter(Boolean)
-        : [],
-    price: typeof rawLab.price === "number"
-      ? rawLab.price
-      : parseFloat(rawLab.price ?? "0"),
-    description: rawLab.description ?? "",
-    provider: rawLab.provider ?? "",
-    providerAddress: rawLab.providerAddress ?? "",
-    auth: rawLab.auth ?? "",
-    accessURI: rawLab.accessURI ?? "",
-    accessKey: rawLab.accessKey ?? "",
-    timeSlots: Array.isArray(rawLab.timeSlots)
-      ? rawLab.timeSlots.map(Number).filter(Boolean)
-      : typeof rawLab.timeSlots === "string"
-        ? rawLab.timeSlots.split(",").map(Number).filter(Boolean)
-        : [60],
-    opens: rawLab.opens ?? "",
-    closes: rawLab.closes ?? "",
-    docs: Array.isArray(rawLab.docs)
-      ? rawLab.docs
-      : typeof rawLab.docs === "string"
-        ? rawLab.docs.split(",").map(d => d.trim()).filter(Boolean)
-        : [],
-    images: Array.isArray(rawLab.images)
-      ? rawLab.images
-      : typeof rawLab.images === "string"
-        ? rawLab.images.split(",").map(i => i.trim()).filter(Boolean)
-        : [],
-    uri: rawLab.uri ?? "",
-    reservations: Array.isArray(rawLab.reservations) ? rawLab.reservations : [],
-    bookingInfo: Array.isArray(rawLab.bookingInfo) ? rawLab.bookingInfo : [],
-    userBookings: Array.isArray(rawLab.userBookings) ? rawLab.userBookings : [],
-  };
-}
+// Create optimized context
+const { Provider: OptimizedLabProvider, useContext: useLabContext } = createOptimizedContext('LabContext');
 
-export function LabData({ children }) {
-  const [labs, setLabs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
-  const [lastBookingsFetch, setLastBookingsFetch] = useState(0);
+// Core lab data provider without bookings logic
+function LabDataCore({ children }) {
+  devLog.log('LabContext: LabDataCore component initialized');
+  const [labs, setLabsState] = useState([]);
+  const [isLoading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [lastFetch, setLastFetch] = useState(0);
 
-  const { address } = useUser();
-  const { decimals } = useLabToken();
+  // Enhanced setLabs that also updates cache
+  const setLabs = useCallback((newLabs) => {
+    if (typeof newLabs === 'function') {
+      setLabsState(prevLabs => {
+        const updatedLabs = newLabs(prevLabs);
+        // Update cache whenever labs are modified
+        cacheManager.set(CACHE_KEYS.LABS, updatedLabs, CACHE_TTL.LABS);
+        return updatedLabs;
+      });
+    } else {
+      setLabsState(newLabs);
+      // Update cache whenever labs are modified
+      cacheManager.set(CACHE_KEYS.LABS, newLabs, CACHE_TTL.LABS);
+    }
+  }, []);
 
-  // Memoized cache keys
-  const cacheKeys = useMemo(() => ({
-    labs: 'labs',
-    bookings: `bookings_${address || 'anonymous'}`,
-    timestamp: 'labs_timestamp'
-  }), [address]);
+  // Enhanced error handling
+  const handleError = useCallback((error, context = {}) => {
+    devLog.error('LabContext: Error occurred:', error, context);
+    setError({
+      message: error.message,
+      code: error.code,
+      context,
+      timestamp: new Date(),
+    });
+  }, []);
 
-  // Optimized fetchLabs with better caching
-  const fetchLabs = useCallback(async () => {
-    setLoading(true);
+  // Enhanced fetchLabs with better caching and deduplication
+  const fetchLabs = useCallback(async (force = false) => {
     try {
-      // Check cache with timestamp validation (30 minutes - increased to reduce API calls)
-      const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
-      const cachedTimestamp = sessionStorage.getItem(cacheKeys.timestamp);
+      // Prevent redundant calls
       const now = Date.now();
+      if (!force && isLoading) {
+        devLog.log('LabContext: Fetch already in progress, skipping...');
+        return labs;
+      }
       
-      if (cachedLabs && cachedTimestamp) {
-        const age = now - parseInt(cachedTimestamp);
-        if (age < 30 * 60 * 1000) { // 30 minutes
-          setLabs(JSON.parse(cachedLabs));
+      // Check if we recently fetched (debounce)
+      if (!force && lastFetch && (now - lastFetch < 5000)) { // 5 second debounce
+        devLog.log('LabContext: Fetch debounced (5s), using current data');
+        return labs;
+      }
+
+      setLoading(true);
+      setError(null);
+      setLastFetch(now);
+
+      // Try cache first unless forced
+      if (!force) {
+        const cached = cacheManager.get(CACHE_KEYS.LABS);
+        if (cached && Array.isArray(cached)) {
+          devLog.log('LabContext: Labs cache hit', `${cached.length} labs`);
+          setLabs(cached);
           setLoading(false);
-          return;
+          setIsInitialized(true);
+          return cached;
         }
       }
 
-      const response = await fetch('/api/contract/lab/getAllLabs', {
-        headers: {
-          'Cache-Control': 'max-age=900' // 15 minutes to match server cache
-        }
+      devLog.log('LabContext: Fetching labs from API...', { force });
+      
+      const response = await deduplicatedFetch('/api/contract/lab/getAllLabs', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      }, force ? 0 : 300000); // 5 minutes cache unless forced
+
+      devLog.log('LabContext: Response received', { ok: response.ok, status: response.status });
+
+      if (!response.ok) {
+        throw createBlockchainError(`HTTP ${response.status}: ${response.statusText}`, {
+          status: response.status,
+          context: 'fetchLabs'
+        });
+      }
+
+      const data = await response.json();
+      devLog.log('LabContext: Data parsed', { dataType: typeof data, isArray: Array.isArray(data), length: data?.length });
+      
+      // Validate that we got an array
+      if (!Array.isArray(data)) {
+        throw createBlockchainError('Invalid labs data received', {
+          receivedType: typeof data,
+          context: 'fetchLabs'
+        });
+      }
+
+      // Initialize booking arrays for each lab (empty since bookings are handled separately)
+      const labsWithBookingStructure = data.map(lab => ({
+        ...lab,
+        bookingInfo: [], // Will be populated by BookingContext
+        userBookings: [], // Will be populated by BookingContext
+      }));
+
+      devLog.log('LabContext: Labs processed', { count: labsWithBookingStructure.length });
+
+      // Cache the labs
+      cacheManager.set(CACHE_KEYS.LABS, labsWithBookingStructure, CACHE_TTL.LABS);
+      
+      const cacheInfo = response.headers.get('X-Cache') || 'UNKNOWN';
+      devLog.log(`Fetched ${labsWithBookingStructure.length} labs (Cache: ${cacheInfo})`);
+      
+      setLabs(labsWithBookingStructure);
+      setIsInitialized(true);
+      devLog.log('LabContext: State updated with labs');
+      return labsWithBookingStructure;
+
+    } catch (err) {
+      devLog.error('LabContext: fetchLabs error:', err);
+      handleError(err, {
+        context: 'fetchLabs',
+        force,
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.BLOCKCHAIN
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch labs: ${response.statusText}`);
+      // Try to use cached data as fallback
+      const cached = cacheManager.get(CACHE_KEYS.LABS, true); // Allow stale
+      if (cached && Array.isArray(cached)) {
+        devLog.warn('Using stale labs cache due to error');
+        setLabs(cached);
+        return cached;
       }
       
-      const data = await response.json();
-      const normalized = data.map(lab => normalizeLab(lab));
-
-      // Update cache with timestamp
-      sessionStorage.setItem(cacheKeys.labs, JSON.stringify(normalized));
-      sessionStorage.setItem(cacheKeys.timestamp, now.toString());
-      
-      setLabs(normalized);
-    } catch (err) {
-      devLog.error('Error fetching labs:', err);
-      // Try to use stale cache on error
-      const cachedLabs = sessionStorage.getItem(cacheKeys.labs);
-      if (cachedLabs) {
-        setLabs(JSON.parse(cachedLabs));
-      }
+      throw err;
     } finally {
       setLoading(false);
     }
-  }, [cacheKeys]);
+  }, [handleError]);
 
-  // fetchBookings with debouncing and smart caching
-  const fetchBookings = useCallback(async (force = false) => {
-    const now = Date.now();
-    
-    // Debounce: don't fetch if we just fetched within 30 seconds (unless forced)
-    if (!force && now - lastBookingsFetch < 30000) {
-      return;
-    }
+  // Initial load effect - optimized to prevent redundant calls
+  useEffect(() => {
+    devLog.log('LabContext: useEffect triggered - initializing labs');
+    let mounted = true;
 
-    setBookingsLoading(true);
-    setLastBookingsFetch(now);
+    const initializeLabs = async () => {
+      try {
+        // Skip if already initialized and has data
+        if (isInitialized && labs.length > 0) {
+          devLog.log('LabContext: Already initialized with data, skipping');
+          return;
+        }
+
+        devLog.log('LabContext: initializeLabs function called');
+        // Check cache first
+        const cached = cacheManager.get(CACHE_KEYS.LABS);
+        if (cached && Array.isArray(cached)) {
+          devLog.log('LabContext: Loading labs from cache immediately', { count: cached.length });
+          setLabs(cached);
+          setIsInitialized(true);
+        } else {
+          devLog.log('LabContext: No cache found, will fetch fresh data');
+        }
+        
+        // Always fetch fresh data if mounted and not already loading
+        if (mounted && !isLoading) {
+          devLog.log('LabContext: Component is mounted, calling fetchLabs()');
+          await fetchLabs();
+          devLog.log('LabContext: fetchLabs() completed successfully');
+        } else {
+          devLog.log('LabContext: Component unmounted or already loading, skipping fetchLabs()');
+        }
+      } catch (error) {
+        devLog.error('LabContext: Error in initializeLabs:', error);
+      }
+    };
+
+    devLog.log('LabContext: About to call initializeLabs()');
+    initializeLabs();
+
+    return () => {
+      devLog.log('LabContext: useEffect cleanup - setting mounted to false');
+      mounted = false;
+    };
+  }, []); // Remove fetchLabs dependency to prevent re-runs
+
+  // Smart refresh effect - background refresh of stale cache
+  useEffect(() => {
+    let smartRefreshTimer;
 
     try {
-      // OPTIMIZATION: Fetch all bookings with timeout for RPC saturation scenarios
-      devLog.log('Fetching all bookings with optimized single call...', { force });
-      
-      const controller = new AbortController();
-      let timeoutId;
-      
-      // Use Promise.race with proper cleanup
-      const fetchPromise = fetch(`/api/contract/reservation/getBookings${force ? '?clearCache=true' : ''}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet: null }), // Get all bookings
-        signal: controller.signal
-      });
-      
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-          controller.abort('Request timeout');
-          reject(new Error('Request timeout after 30 seconds'));
-        }, 30000);
-      });
-      
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      
-      // Clear timeout if fetch succeeded
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const allBookingsData = await response.json();
-      const cacheInfo = response.headers.get('X-Cache') || 'UNKNOWN';
-      const fallbackInfo = response.headers.get('X-Fallback');
-      
-      devLog.log(`Fetched ${allBookingsData.length} total bookings (Cache: ${cacheInfo}${fallbackInfo ? `, Fallback: ${fallbackInfo}` : ''})`);
-      
-      // Show user notification if we're using fallback data
-      if (fallbackInfo) {
-        devLog.warn(`⚠️ Using fallback data due to RPC issues: ${fallbackInfo}`);
-      }
-
-      // Filter user bookings on the client side
-      const userBookingsData = address 
-        ? allBookingsData.filter(booking => 
-            booking.renter && booking.renter.toLowerCase() === address.toLowerCase()
-          )
-        : [];
-      
-      devLog.log(`Filtered ${userBookingsData.length} user bookings for address: ${address}`);
-
-      // Group bookings by labId
-      const allBookingsMap = new Map();
-      const userBookingsMap = new Map();
-
-      for (const booking of allBookingsData) {
-        if (!allBookingsMap.has(booking.labId)) {
-          allBookingsMap.set(booking.labId, []);
-        }
-        allBookingsMap.get(booking.labId).push(booking);
-      }
-
-      for (const booking of userBookingsData) {
-        if (!userBookingsMap.has(booking.labId)) {
-          userBookingsMap.set(booking.labId, []);
-        }
-        userBookingsMap.get(booking.labId).push(booking);
-      }
-
-      // Update labs with booking data
-      setLabs((prevLabs) => {
-        const updatedLabs = prevLabs.map((lab) => ({
-          ...lab,
-          bookingInfo: allBookingsMap.get(lab.id) || [],
-          userBookings: userBookingsMap.get(lab.id) || [],
-        }));
-        
-        // Cache the updated labs
-        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
-        return updatedLabs;
-      });
-
-    } catch (err) {
-      devLog.error('Error fetching reservations:', err);
-      
-      // Enhanced error handling for AbortController and RPC issues
-      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        devLog.warn('⚠️ Booking fetch was aborted - likely timeout or cancellation');
-      } else if (err.message?.includes('Request timeout')) {
-        devLog.warn('⚠️ Booking fetch timed out (30s) - likely RPC saturation');
-      } else if (err.message?.includes('429')) {
-        devLog.warn('⚠️ RPC rate limited (429) - servers are saturated');
-      } else if (err.message?.includes('timeout')) {
-        devLog.warn('⚠️ Request timeout - RPC may be overloaded');
-      } else {
-        devLog.error('Unexpected error:', err);
-      }
-      
-      // Don't clear existing booking data on error, just log it
-      // This preserves user experience when RPC is temporarily unavailable
-      
-      // Add user notification for timeout/abort errors
-      if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('timeout')) {
-        // Show user-friendly notification about RPC issues
+      // Smart refresh logic: if cache is older than 1 hour, refresh in background
+      const shouldSmartRefresh = () => {
         try {
-          const { addTemporaryNotification } = require('@/context/NotificationContext');
-          if (addTemporaryNotification) {
-            addTemporaryNotification('warning', '⚠️ Network is slow - using cached data');
-          }
-        } catch {
-          // Ignore notification errors
+          const timestamp = cacheManager.get(CACHE_KEYS.LABS_TIMESTAMP);
+          if (!timestamp) return false;
+          
+          const now = Date.now();
+          const cacheAge = now - timestamp;
+          const oneHour = 60 * 60 * 1000;
+          
+          return cacheAge > oneHour;
+        } catch (error) {
+          devLog.error('LabContext: Error in shouldSmartRefresh:', error);
+          return false;
         }
-      }
-    } finally {
-      setBookingsLoading(false);
-    }
-  }, [address, cacheKeys.labs, lastBookingsFetch]);
+      };
 
-  // Efficiently remove a canceled booking without refetching all data
-  const removeCanceledBooking = useCallback((reservationKey) => {
-    setLabs((prevLabs) => {
-      let hasChanges = false;
-      const updatedLabs = prevLabs.map((lab) => {
-        // Mark bookings as cancelled instead of removing them
-        const updatedBookingInfo = lab.bookingInfo.map(booking => {
-          if (booking.reservationKey === reservationKey) {
-            hasChanges = true;
-            return { ...booking, status: "4" }; // Mark as cancelled
+      if (shouldSmartRefresh()) {
+        smartRefreshTimer = setTimeout(() => {
+          try {
+            if (shouldSmartRefresh()) {
+              devLog.log('Smart refresh: Cache is older than 1 hour, refreshing labs in background');
+              fetchLabs(true);
+            }
+          } catch (error) {
+            devLog.error('LabContext: Error in smart refresh timer:', error);
           }
-          return booking;
-        });
-        
-        const updatedUserBookings = lab.userBookings.map(booking => {
-          if (booking.reservationKey === reservationKey) {
-            hasChanges = true;
-            return { ...booking, status: "4" }; // Mark as cancelled
-          }
-          return booking;
-        });
-
-        // Only update if something changed
-        if (hasChanges) {
-          return {
-            ...lab,
-            bookingInfo: updatedBookingInfo,
-            userBookings: updatedUserBookings,
-          };
-        }
-        
-        return lab;
-      });
-
-      // Only update cache if we actually made changes
-      if (hasChanges) {
-        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
+        }, 3000);
       }
-      
-      return updatedLabs;
-    });
-  }, [cacheKeys.labs]);
-
-  // Restore booking to its original status when cancellation fails
-  const restoreBookingStatus = useCallback((reservationKey, originalStatus) => {
-    setLabs((prevLabs) => {
-      let hasChanges = false;
-      const updatedLabs = prevLabs.map((lab) => {
-        // Restore booking status to original
-        const updatedBookingInfo = lab.bookingInfo.map(booking => {
-          if (booking.reservationKey === reservationKey) {
-            hasChanges = true;
-            return { ...booking, status: originalStatus };
-          }
-          return booking;
-        });
-        
-        const updatedUserBookings = lab.userBookings.map(booking => {
-          if (booking.reservationKey === reservationKey) {
-            hasChanges = true;
-            return { ...booking, status: originalStatus };
-          }
-          return booking;
-        });
-
-        // Only update if something changed
-        if (hasChanges) {
-          return {
-            ...lab,
-            bookingInfo: updatedBookingInfo,
-            userBookings: updatedUserBookings,
-          };
-        }
-        
-        return lab;
-      });
-
-      // Only update cache if we actually made changes
-      if (hasChanges) {
-        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
-      }
-      
-      return updatedLabs;
-    });
-  }, [cacheKeys.labs]);
-
-  // Remove all bookings/reservations for a specific lab when it's deleted
-  const removeBookingsForDeletedLab = useCallback((deletedLabId) => {
-    setLabs((prevLabs) => {
-      let hasChanges = false;
-      const updatedLabs = prevLabs.map((lab) => {
-        // Remove all bookings and reservations that belong to the deleted lab
-        const updatedBookingInfo = lab.bookingInfo.filter(
-          booking => booking.labId !== deletedLabId
-        );
-        const updatedUserBookings = lab.userBookings.filter(
-          booking => booking.labId !== deletedLabId
-        );
-
-        // Only update if something changed
-        if (updatedBookingInfo.length !== lab.bookingInfo.length || 
-            updatedUserBookings.length !== lab.userBookings.length) {
-          hasChanges = true;
-          return {
-            ...lab,
-            bookingInfo: updatedBookingInfo,
-            userBookings: updatedUserBookings,
-          };
-        }
-        
-        return lab;
-      });
-
-      // Only update cache if we actually made changes
-      if (hasChanges) {
-        sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
-      }
-      
-      return updatedLabs;
-    });
-  }, [cacheKeys.labs]);
-
-  // Initial labs fetch
-  useEffect(() => {
-    fetchLabs();
-  }, [fetchLabs]);
-
-  // Smart bookings fetch - only when needed
-  useEffect(() => {
-    if (labs.length === 0) return;
-
-    // If user logs out, clear user bookings immediately
-    if (!address) {
-      setLabs((prevLabs) =>
-        prevLabs.map(lab => ({ 
-          ...lab, 
-          userBookings: [] 
-        }))
-      );
-      return;
+    } catch (error) {
+      devLog.error('LabContext: Error in smart refresh effect:', error);
     }
 
-    // Auto-fetch bookings when labs are loaded or user changes
-    fetchBookings();
-  }, [labs.length, address, fetchBookings]);
+    return () => {
+      if (smartRefreshTimer) {
+        clearTimeout(smartRefreshTimer);
+      }
+    };
+  }, [labs, fetchLabs]);
 
-  // Memoized context value to prevent unnecessary re-renders
-  // Clear cache and force refresh - useful for event-driven updates
-  const clearCacheAndRefresh = useCallback(() => {
-    sessionStorage.removeItem(cacheKeys.labs);
-    sessionStorage.removeItem(cacheKeys.timestamp);
-    fetchLabs();
-  }, [cacheKeys, fetchLabs]);
-
-  // Smart update function for event-driven changes
+  // Update lab in state
   const updateLabInState = useCallback((labId, updates) => {
     setLabs((prevLabs) => {
       const updatedLabs = prevLabs.map((lab) => {
         if (lab.id === labId) {
-          // Note: price should come already normalized from API or events
           return { ...lab, ...updates };
         }
         return lab;
       });
       
-      // Update cache with the new data
-      sessionStorage.setItem(cacheKeys.labs, JSON.stringify(updatedLabs));
+      // Cache is automatically updated by setLabs
       return updatedLabs;
     });
-  }, [cacheKeys.labs]);
+  }, [setLabs]);
 
-  const contextValue = useMemo(() => ({
+  // Smart cache management
+  const clearCacheAndRefresh = useCallback(async () => {
+    try {
+      await cacheManager.remove(CACHE_KEYS.LABS);
+      await cacheManager.remove(CACHE_KEYS.LABS_TIMESTAMP);
+      fetchLabs(true);
+    } catch (error) {
+      devLog.error('LabContext: Error clearing cache:', error);
+      // If cache clearing fails, still try to refresh
+      fetchLabs(true);
+    }
+  }, [fetchLabs]);
+
+  // Context value
+  const value = {
     labs,
-    setLabs,
-    loading,
-    bookingsLoading,
+    setLabs, // Add setLabs for direct state manipulation
+    loading: isLoading,
+    error,
     fetchLabs,
-    fetchBookings,
-    removeCanceledBooking,
-    restoreBookingStatus,
-    removeBookingsForDeletedLab,
     clearCacheAndRefresh,
     updateLabInState,
-    // Keep existing function for backwards compatibility
-    refreshLabs: () => {
-      sessionStorage.removeItem(cacheKeys.labs);
-      sessionStorage.removeItem(cacheKeys.timestamp);
-      fetchLabs();
-    }
-  }), [labs, loading, bookingsLoading, fetchLabs, fetchBookings, removeCanceledBooking, restoreBookingStatus, removeBookingsForDeletedLab, clearCacheAndRefresh, updateLabInState, cacheKeys]);
+    forceRefreshLabs: () => fetchLabs(true),
+  };
 
   return (
-    <LabContext.Provider value={contextValue}> 
+    <OptimizedLabProvider value={value}>
       {children}
-    </LabContext.Provider>
+    </OptimizedLabProvider>
+  );
+}
+
+// Wrap with Error Boundary
+export function LabData({ children }) {
+  return (
+    <ErrorBoundary
+      name="LabDataProvider"
+      severity={ErrorSeverity.HIGH}
+      category={ErrorCategory.BUSINESS_LOGIC}
+      userMessage="Lab data system error. Please refresh the page."
+      fallback={() => (
+        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+          <h3 className="font-semibold text-red-800">Lab Data Error</h3>
+          <p className="text-red-700 mt-1">
+            Unable to load lab data. Please refresh the page.
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Refresh Page
+          </button>
+        </div>
+      )}
+    >
+      <LabDataCore>{children}</LabDataCore>
+    </ErrorBoundary>
   );
 }
 
 export function useLabs() {
-  const context = useContext(LabContext);
+  const context = useLabContext();
   if (!context) {
     throw new Error('useLabs must be used within a LabData');
   }
-  return context;
+  // Ensure labs is always an array, even during loading
+  return {
+    ...context,
+    labs: Array.isArray(context.labs) ? context.labs : []
+  };
 }
 
 // For backwards compatibility

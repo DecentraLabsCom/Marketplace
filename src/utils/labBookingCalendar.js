@@ -1,5 +1,5 @@
 import { format, isToday } from "date-fns";
-import { devLog } from '@/utils/logger';
+import devLog from '@/utils/logger';
 
 // Returns the available time slots for a specific day
 export function generateTimeOptions({ date, interval, bookingInfo }) {

@@ -163,8 +163,27 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       // Convert price from token units back to human format for editing
       if (labToMerge.price && decimals) {
         try {
-          const priceInHumanFormat = formatUnits(BigInt(labToMerge.price), decimals);
-          labToMerge.price = priceInHumanFormat;
+          let priceValue = labToMerge.price;
+          
+          // Handle different price formats
+          if (typeof priceValue === 'string') {
+            // Check if it's already in human format (contains decimal point)
+            if (priceValue.includes('.')) {
+              // Already in human format, use as is
+              labToMerge.price = priceValue;
+            } else {
+              // Assume it's in token units, convert to human format
+              const priceInHumanFormat = formatUnits(BigInt(priceValue), decimals);
+              labToMerge.price = priceInHumanFormat;
+            }
+          } else if (typeof priceValue === 'number') {
+            // Already in human format
+            labToMerge.price = priceValue.toString();
+          } else {
+            // Try to convert assuming it's token units
+            const priceInHumanFormat = formatUnits(BigInt(priceValue), decimals);
+            labToMerge.price = priceInHumanFormat;
+          }
         } catch (error) {
           devLog.error('Error converting price from token units:', error);
           // Keep original price if conversion fails
@@ -538,7 +557,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing
         // the modal
         uploadedTempFiles.current = [];
-        handleClose();
+        devLog.log('LabModal: Form submitted successfully, modal remains open');
       } else {
         focusFirstError(currentErrors, 'full');
       }
@@ -550,10 +569,15 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const handleSubmitQuick = async (e) => {
     e.preventDefault();
     const currentErrors = validateForm();
-    if (Object.keys(currentErrors).length === 0) {
-      await onSubmit(localLab);
-    } else {
-      focusFirstError(currentErrors, 'quick');
+    try {
+      if (Object.keys(currentErrors).length === 0) {
+        await onSubmit(localLab);
+        devLog.log('LabModal: Quick form submitted successfully, modal remains open');
+      } else {
+        focusFirstError(currentErrors, 'quick');
+      }
+    } catch (error) {
+      devLog.error('Error saving lab:', error);
     }
   };
 

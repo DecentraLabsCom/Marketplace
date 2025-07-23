@@ -12,6 +12,12 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { isLoggedIn, isProvider, isProviderLoading, isSSO, user } = useUser();
 
+  // More tolerant approach - show buttons if we're logged in, even if loading provider data
+  const showMenuButtons = isLoggedIn;
+  
+  // Only hide provider-specific buttons if we're still determining provider status
+  const showProviderButton = isProvider && !isProviderLoading;
+
   // Check if user can see and access the "Register as Provider" option
   const showRegisterButton = () => {
     // Don't show if not logged in or already a provider
@@ -28,7 +34,7 @@ export default function Navbar() {
 
   const menuButton = (href, label) => (
     <Link href={href}
-      className={"bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white p-3"}
+      className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white p-3"
     >
       {label}
     </Link>
@@ -47,12 +53,12 @@ export default function Navbar() {
 
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
-          {isLoggedIn && !isProviderLoading && (
+          {showMenuButtons && (
           <div className="hidden md:flex space-x-6 font-bold">
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
             {showRegisterButton() && menuButton("/register", "Register as a Provider")}
-            {isProvider && menuButton("/providerdashboard", "Lab Panel")}
+            {showProviderButton && menuButton("/providerdashboard", "Lab Panel")}
           </div>
           )}
           <div className="hidden md:block">
@@ -73,7 +79,7 @@ export default function Navbar() {
       {menuOpen && (
         <div className="md:hidden bg-[#caddff] text-[#333f63] shadow-md absolute inset-x-0 z-50">
           <div className="flex flex-col items-center py-4 space-y-2">
-            {isLoggedIn && !isProviderLoading && (
+            {showMenuButtons && (
               <>
                 <Link href="/reservation" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
                   Book a Lab
@@ -86,7 +92,7 @@ export default function Navbar() {
                     Register as a Provider
                   </Link>
                 )}
-                {isProvider && (
+                {showProviderButton && (
                   <Link href="/providerdashboard" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
                     Lab Panel
                   </Link>

@@ -3,12 +3,14 @@ import React from "react";
 import Link from "next/link";
 import LabAccess from "@/components/LabAccess";
 import { useUser } from '@/context/UserContext';
+import { useLabToken } from '@/hooks/useLabToken';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import MediaDisplayWithFallback from "@/components/MediaDisplayWithFallback";
 
 const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected } = useUser();
+  const { formatPrice } = useLabToken();
  
   return (
     <div className={`relative group rounded-md shadow-md bg-gray-200 
@@ -29,7 +31,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         <h2 className="text-xl min-[1280px]:text-2xl font-bold min-[768px]:mt-2 text-[#333f63]">{name}</h2>
         <div className="md:flex md:justify-between md:items-center min-[1280px]:block min-[768px]:mt-4">
           <p className="text-[#3f3363] font-semibold text-sm mt-2">{provider}</p>
-          <p className="text-[#335763] font-semibold mt-2 md:mt-2">{price} $LAB / hour</p>
+          <p className="text-[#335763] font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p>
         </div>
       </div>
       <Link href={`/lab/${id}/${provider}`}>

@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
+import { useBookings } from "@/context/BookingContext";
 import { useUser } from "@/context/UserContext";
-import { useReservationEvents } from "@/context/ReservationEventContext";
+import { useReservationEvents } from "@/context/BookingEventContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useLabToken } from "@/hooks/useLabToken";
 import Carrousel from "@/components/Carrousel";
@@ -16,7 +17,8 @@ import { contractAddresses } from "@/contracts/diamond";
 import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
-  const { labs, fetchBookings } = useLabs();
+  const { labs } = useLabs();
+  const { fetchBookings } = useBookings();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
@@ -147,7 +149,7 @@ export default function LabReservation({ id }) {
 
       // The ReservationEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refreshTokenData]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchBookings, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {

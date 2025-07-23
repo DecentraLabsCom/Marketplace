@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useRef, useCallback } from "react";
 import { useWatchContractEvent } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
+import { useBookings } from "@/context/BookingContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { contractABI, contractAddresses } from '@/contracts/diamond';
 import { selectChain } from '@/utils/selectChain';
@@ -14,7 +15,8 @@ export function ReservationEventProvider({ children }) {
     const { chain } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const { fetchBookings, removeCanceledBooking, labs } = useLabs();
+    const { labs } = useLabs();
+    const { fetchBookings, removeBooking } = useBookings();
     const { addPersistentNotification } = useNotifications();
     const [processingReservations, setProcessingReservations] = useState(new Set());
 
@@ -332,7 +334,7 @@ export function ReservationEventProvider({ children }) {
         }
         
         // Efficiently remove the canceled booking from existing state
-        removeCanceledBooking(reservationKey);
+        removeBooking(reservationKey);
         
         // Mark for smart batch update
         invalidateBookingCache(reservationKey);
@@ -373,7 +375,7 @@ export function ReservationEventProvider({ children }) {
         });
         
         // Efficiently remove the canceled request from existing state
-        removeCanceledBooking(reservationKey);
+        removeBooking(reservationKey);
         
         // Mark for smart batch update
         invalidateBookingCache(reservationKey);

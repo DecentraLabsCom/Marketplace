@@ -7,7 +7,7 @@ const isDevelopment = () => {
   return process.env.NODE_ENV === 'development';
 };
 
-export const devLog = {
+const devLog = {
   log: (...args) => {
     if (isDevelopment()) {
       console.log(...args);
@@ -36,4 +36,8 @@ export const devLog = {
 // Legacy support - export individual functions
 export const { log, warn, error, info } = devLog;
 
+// Named export
+export { devLog };
+
+// Default export
 export default devLog;

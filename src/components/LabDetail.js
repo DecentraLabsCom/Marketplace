@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLabs } from '@/context/LabContext';
+import { useLabToken } from '@/hooks/useLabToken';
 import Carrousel from '@/components/Carrousel';
 import DocsCarrousel from '@/components/DocsCarrousel';
 import { LabHeroSkeleton } from '@/components/skeletons';
 
 export default function LabDetail({ id, provider }) {
   const { labs, loading } = useLabs();
+  const { formatPrice } = useLabToken();
   const [lab, setLab] = useState(null);
   const router = useRouter();
 
@@ -57,7 +59,7 @@ export default function LabDetail({ id, provider }) {
           </header>
           <p className="text-sm text-justify">{lab?.description}</p>
           <p className="flex justify-between items-center text-[#335763] font-semibold mt-2">
-            <span>{lab?.price} $LAB / hour</span>
+            <span>{formatPrice(lab?.price)} $LAB / hour</span>
             {provider && (
               <span className="truncate max-w-[50%]" title={provider}>
                 Provider: {provider}

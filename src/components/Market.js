@@ -10,6 +10,7 @@ export default function Market() {
   const searchInputRef = useRef(null);
   const { labs, loading } = useLabs();
   const { isLoggedIn } = useUser();
+  
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
   const [selectedProvider, setSelectedProvider] = useState("All");

@@ -5,12 +5,15 @@ import ClientWagmiProvider from '@/context/ClientWagmiProvider'
 import { UserData } from '@/context/UserContext'
 import { UserEventProvider } from "@/context/UserEventContext";
 import { LabData } from '@/context/LabContext'
+import { BookingData } from '@/context/BookingContext'
 import { LabEventProvider } from "@/context/LabEventContext";
-import { ReservationEventProvider } from "@/context/ReservationEventContext";
+import { ReservationEventProvider } from "@/context/BookingEventContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import GlobalNotificationStack from '@/components/GlobalNotificationStack'
+import DataRefreshIndicator from '@/components/DataRefreshIndicator'
+import ClientOnly from '@/components/ClientOnly'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',
@@ -58,19 +61,24 @@ export default function RootLayout({ children }) {
               <UserData>
                 <UserEventProvider>
                   <LabData>
-                    <LabEventProvider>
-                      <ReservationEventProvider>
+                    <BookingData>
+                      <LabEventProvider>
+                        <ReservationEventProvider>
                       <header className="sticky top-0 z-50">
-                        <Navbar />
+                        <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
+                          <Navbar />
+                        </ClientOnly>
                       </header>
                       <main className="grow">
                           {children}
                       </main>
                       <Footer />
                       <GlobalNotificationStack />
+                      <DataRefreshIndicator />
                     </ReservationEventProvider>
                   </LabEventProvider>
-                </LabData>
+                </BookingData>
+              </LabData>
               </UserEventProvider>
             </UserData>
             </NotificationProvider>
