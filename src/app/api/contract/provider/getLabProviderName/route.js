@@ -1,7 +1,6 @@
 import devLog from '@/utils/logger';
 
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -12,7 +11,12 @@ export async function POST(request) {
 
   try {
     const contract = await getContractInstance();
-    const providerList = await retry(() => contract.getLabProviders());
+    const providerList = await Promise.race([
+      contract.getLabProviders(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('getLabProviders timeout')), 10000)
+      )
+    ]);
 
     const provider = providerList.find(
       (p) => p.account.toLowerCase() === wallet.toLowerCase()

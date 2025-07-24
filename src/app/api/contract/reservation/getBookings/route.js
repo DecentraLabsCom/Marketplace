@@ -446,7 +446,12 @@ async function handleRequest(wallet, clearCache = false) {
       
       // If individual fetch fails, try a simpler approach with just total count
       try {
-        const totalReservationsResult = await retry(() => contract.totalReservations(), { maxRetries: 1, delay: 500 });
+        const totalReservationsResult = await Promise.race([
+          contract.totalReservations(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('totalReservations timeout')), 5000)
+          )
+        ]);
         
         devLog.log(`[${requestId}] 🔍 Fallback totalReservations result:`, {
           result: totalReservationsResult,

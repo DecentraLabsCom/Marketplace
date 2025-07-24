@@ -1,7 +1,6 @@
 import devLog from '@/utils/logger';
 
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
 
 export async function POST(request) {
   try {
@@ -20,7 +19,12 @@ export async function POST(request) {
     const contract = await getContractInstance();
 
     // Get reservation data from contract
-    const reservationData = await retry(() => contract.getReservation(reservationKey));
+    const reservationData = await Promise.race([
+      contract.getReservation(reservationKey),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('getReservation timeout')), 10000)
+      )
+    ]);
 
     // Contract returns: { labId, renter, price, start, end, status }
     // Status: 0 = PENDING, 1 = BOOKED, 2 = USED, 3 = COLLECTED, 4 = CANCELLED

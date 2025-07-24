@@ -139,8 +139,11 @@ export function useLabToken() {
       // Calculate total cost
       const totalCost = pricePerMinute * durationMinutes;
       
+      // Format totalCost to avoid scientific notation for parseUnits
+      const totalCostFormatted = totalCost.toFixed(decimals);
+      
       // Convert to wei (considering token decimals)
-      const costInWei = parseUnits(totalCost.toString(), decimals);
+      const costInWei = parseUnits(totalCostFormatted, decimals);
       
       return costInWei;
     } catch (error) {

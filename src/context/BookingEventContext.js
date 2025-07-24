@@ -16,7 +16,7 @@ export function ReservationEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { labs } = useLabs();
-    const { fetchBookings, removeBooking } = useBookings();
+    const { fetchUserBookings, removeBooking } = useBookings();
     const { addPersistentNotification } = useNotifications();
     const [processingReservations, setProcessingReservations] = useState(new Set());
 
@@ -59,10 +59,10 @@ export function ReservationEventProvider({ children }) {
             if (pendingBookingUpdates.current.size > 0) {
                 devLog.log('📊 Processing batch booking updates for keys:', Array.from(pendingBookingUpdates.current));
                 pendingBookingUpdates.current.clear();
-                fetchBookings();
+                fetchUserBookings(true);
             }
         }, delay);
-    }, [fetchBookings]);
+    }, [fetchUserBookings]);
 
     // Enhanced event handlers with collision prevention
 
@@ -274,6 +274,14 @@ export function ReservationEventProvider({ children }) {
                 throw new Error('Could not get metadata URI from labs context');
             }
 
+            devLog.log('🔄 Processing reservation request via API...', {
+                reservationKey,
+                labId: tokenId.toString(),
+                start: start.toString(),
+                end: end.toString(),
+                metadataUri: lab.uri
+            });
+
             // Process the reservation request via API
             const response = await fetch('/api/contract/reservation/processReservationRequest', {
                 method: 'POST',
@@ -290,8 +298,20 @@ export function ReservationEventProvider({ children }) {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                devLog.error('❌ Process reservation API failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText
+                });
+                throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
             }
+
+            const result = await response.json();
+            devLog.log('✅ Process reservation API result:', result);
+            
+            // Note: We don't remove from processing here because the actual
+            // confirmation/denial will come via ReservationConfirmed/ReservationDenied events
         } catch (error) {
             devLog.error('Error processing reservation request:', error);
             

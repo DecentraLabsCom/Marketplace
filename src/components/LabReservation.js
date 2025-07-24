@@ -7,6 +7,7 @@ import { useUser } from "@/context/UserContext";
 import { useReservationEvents } from "@/context/BookingEventContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useLabToken } from "@/hooks/useLabToken";
+import { useLabBookings } from "@/hooks/useLabBookings";
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import LabTokenInfo from '@/components/LabTokenInfo';
@@ -18,7 +19,7 @@ import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
   const { labs } = useLabs();
-  const { fetchBookings } = useBookings();
+  const { fetchUserBookings } = useBookings();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
@@ -34,6 +35,14 @@ export default function LabReservation({ id }) {
   const [lastTxHash, setLastTxHash] = useState(null);
   const [txType, setTxType] = useState(null); // 'reservation', 'approval'
   const [pendingData, setPendingData] = useState(null);
+  
+  // Lab bookings hook for the current lab
+  const {
+    labBookings,
+    isLoading: isLoadingLabBookings,
+    error: labBookingsError,
+    refetch: refetchLabBookings
+  } = useLabBookings(selectedLab?.id);
   
   // Lab token hook for payment handling
   const { 
@@ -85,13 +94,13 @@ export default function LabReservation({ id }) {
     const availableTimes = generateTimeOptions({
       date,
       interval: time,
-      bookingInfo: (selectedLab.bookingInfo || []).filter(booking => 
+      bookingInfo: (labBookings || []).filter(booking => 
         booking.status !== "4" && booking.status !== 4 // Exclude cancelled bookings
       )
     });
     const firstAvailable = availableTimes.find(t => !t.disabled);
     setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
-  }, [date, time, selectedLab, selectedLab?.bookingInfo]); // Added selectedLab?.bookingInfo as dependency
+  }, [date, time, selectedLab, labBookings.length]); // Use labBookings.length to avoid infinite loops
 
   // To avoid hydration warning in SSR
   useEffect(() => {
@@ -130,13 +139,15 @@ export default function LabReservation({ id }) {
           });
           
           // Force refresh the bookings data
-          await fetchBookings(true); // Pass true to force refresh
+          await fetchUserBookings(true); // Refresh user bookings
+          await refetchLabBookings(); // Refresh lab bookings
           
           devLog.log('Cache invalidated and bookings refreshed after new reservation');
         } catch (error) {
           devLog.error('Error invalidating cache after reservation:', error);
           // Still try to refresh bookings even if cache invalidation fails
-          fetchBookings(true); // Pass true to force refresh
+          fetchUserBookings(true); // Refresh user bookings
+          refetchLabBookings(); // Refresh lab bookings
         }
       };
       
@@ -149,7 +160,7 @@ export default function LabReservation({ id }) {
 
       // The ReservationEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchBookings, refreshTokenData]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchUserBookings, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -181,7 +192,7 @@ export default function LabReservation({ id }) {
     ? generateTimeOptions({
         date,
         interval: time,
-        bookingInfo: (selectedLab.bookingInfo || []).filter(booking => 
+        bookingInfo: (labBookings || []).filter(booking => 
           booking.status !== "4" && booking.status !== 4 // Exclude cancelled bookings
         )
       })
@@ -196,7 +207,8 @@ export default function LabReservation({ id }) {
 
   // Common notification and state management
   const handleBookingSuccess = () => {
-    fetchBookings(true); // Update local state (force refresh)
+    fetchUserBookings(true); // Update user bookings (force refresh)
+    refetchLabBookings(); // Update lab bookings
     setIsBooking(false);
   };
 
@@ -342,7 +354,7 @@ export default function LabReservation({ id }) {
       const finalAvailableTimes = generateTimeOptions({
         date,
         interval: time,
-        bookingInfo: (selectedLab.bookingInfo || []).filter(booking => 
+        bookingInfo: (labBookings || []).filter(booking => 
           booking.status !== "4" && booking.status !== 4
         )
       });
@@ -398,6 +410,16 @@ export default function LabReservation({ id }) {
               ⏳ Processing {processingReservations.size} reservation{processingReservations.size > 1 ? 's' : ''}...
             </div>
           )}
+          {isLoadingLabBookings && selectedLab && (
+            <div className="mt-2 text-blue-300">
+              📅 Loading reservations for lab {selectedLab.name}...
+            </div>
+          )}
+          {labBookingsError && (
+            <div className="mt-2 text-red-300">
+              ❌ Error loading lab reservations: {labBookingsError}
+            </div>
+          )}
         </div>
 
         <div className="mb-6">
@@ -432,7 +454,7 @@ export default function LabReservation({ id }) {
                     <CalendarWithBookings
                       selectedDate={date}
                       onDateChange={(newDate) => setDate(newDate)}
-                      bookingInfo={(selectedLab?.bookingInfo || []).map(booking => ({
+                      bookingInfo={(labBookings || []).map(booking => ({
                         ...booking,
                         labName: selectedLab?.name,
                         status: booking.status

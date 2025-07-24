@@ -22,7 +22,7 @@ export function LabEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { setLabs, fetchLabs } = useLabs();
-    const { fetchBookings } = useBookings();
+    const { fetchUserBookings } = useBookings();
 
     // Debouncing and state management for intelligent updates
     const lastEventTime = useRef(new Map()); // Track last event time by type
@@ -202,8 +202,8 @@ export function LabEventProvider({ children }) {
             return filteredLabs;
         });
         
-        // Force refresh bookings to get updated data
-        fetchBookings(true);
+        // Force refresh user bookings to get updated data
+        fetchUserBookings(true);
     }
 
     function handleLabUpdated(args) {

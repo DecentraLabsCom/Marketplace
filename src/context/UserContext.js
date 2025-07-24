@@ -97,9 +97,11 @@ function UserDataCore({ children }) {
             // Check cache first
             const cached = cacheManager.get('sso_session');
             if (cached) {
+                devLog.log('🔄 UserContext: fetchSSOSession - Using CACHE (no API call)');
                 return cached;
             }
 
+            devLog.warn('🚨 UserContext: fetchSSOSession - Making API CALL to /api/auth/sso/session');
             const response = await fetch('/api/auth/sso/session', { 
                 method: 'GET' 
             });
@@ -137,9 +139,11 @@ function UserDataCore({ children }) {
             // Check cache first
             const cached = cacheManager.get(cacheKey);
             if (cached && cached.isLabProvider !== undefined) {
+                devLog.log(`🔄 UserContext: fetchProviderStatus(${identifier}) - Using CACHE (no API call)`);
                 return cached;
             }
 
+            devLog.warn(`🚨 UserContext: fetchProviderStatus(${identifier}) - Making API CALL to ${endpoint}`);
             const endpoint = isEmail ? 
                 '/api/contract/provider/isSSOProvider' : 
                 '/api/contract/provider/isLabProvider';
@@ -202,9 +206,11 @@ function UserDataCore({ children }) {
             // Check cache first
             const cached = cacheManager.get(cacheKey);
             if (cached && cached.name !== undefined) {
+                devLog.log(`🔄 UserContext: fetchProviderName(${wallet}) - Using CACHE (no API call)`);
                 return cached;
             }
 
+            devLog.warn(`🚨 UserContext: fetchProviderName(${wallet}) - Making API CALL to /api/contract/provider/getLabProviderName`);
             const response = await fetch('/api/contract/provider/getLabProviderName', {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -278,6 +284,7 @@ function UserDataCore({ children }) {
 
     // Check provider status when login state changes
     useEffect(() => {
+        devLog.warn('🔥 UserContext: Provider status useEffect TRIGGERED - This could cause API calls');
         let mounted = true;
         let currentRequest = null;
 

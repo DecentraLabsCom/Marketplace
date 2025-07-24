@@ -1,7 +1,6 @@
 import devLog from '@/utils/logger';
 
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
 import { ethers } from 'ethers';
 
 export async function POST(request) {
@@ -19,12 +18,22 @@ export async function POST(request) {
     const serverWallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
     const serverWalletAddress = serverWallet.address;
     
-    const labList = await retry(() => contract.getAllLabs());
+    const labList = await Promise.race([
+      contract.getAllLabs(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('getAllLabs timeout')), 15000)
+      )
+    ]);
 
     const ownedLabs = [];
     for (const lab of labList) {
       const labId = lab.labId.toString();
-      const owner = await retry(() => contract.ownerOf(labId));
+      const owner = await Promise.race([
+        contract.ownerOf(labId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`ownerOf timeout for ${labId}`)), 5000)
+        )
+      ]);
       
       // Check if this lab is owned by the server wallet
       if (owner.toLowerCase() === serverWalletAddress.toLowerCase()) {

@@ -23,7 +23,6 @@ const { Provider: OptimizedLabProvider, useContext: useLabContext } = createOpti
 
 // Core lab data provider without bookings logic
 function LabDataCore({ children }) {
-  devLog.log('LabContext: LabDataCore component initialized');
   const [labs, setLabsState] = useState([]);
   const [isLoading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -81,7 +80,7 @@ function LabDataCore({ children }) {
       if (!force) {
         const cached = cacheManager.get(CACHE_KEYS.LABS);
         if (cached && Array.isArray(cached)) {
-          devLog.log('LabContext: Labs cache hit', `${cached.length} labs`);
+          devLog.log('🔄 LabContext: fetchLabs - Using CACHE (no API call)', `${cached.length} labs`);
           setLabs(cached);
           setLoading(false);
           setIsInitialized(true);
@@ -89,7 +88,7 @@ function LabDataCore({ children }) {
         }
       }
 
-      devLog.log('LabContext: Fetching labs from API...', { force });
+      devLog.warn('🚨 LabContext: fetchLabs - Making API CALL to /api/contract/lab/getAllLabs', { force });
       
       const response = await deduplicatedFetch('/api/contract/lab/getAllLabs', {
         method: 'GET',
@@ -161,7 +160,7 @@ function LabDataCore({ children }) {
 
   // Initial load effect - optimized to prevent redundant calls
   useEffect(() => {
-    devLog.log('LabContext: useEffect triggered - initializing labs');
+    devLog.warn('🔥 LabContext: Labs initialization useEffect TRIGGERED - This could cause API calls');
     let mounted = true;
 
     const initializeLabs = async () => {

@@ -109,6 +109,14 @@ export async function POST(request) {
     const opensDate = new Date(opensAttr.value);
     const closesDate = new Date(closesAttr.value);
     
+    // Validate dates
+    if (isNaN(opensDate.getTime()) || isNaN(closesDate.getTime())) {
+      if (isDev) {
+        debugMessages.push(`Invalid date parsing - opens: "${opensAttr.value}" -> ${opensDate}, closes: "${closesAttr.value}" -> ${closesDate}`);
+      }
+      throw new Error(`Invalid date format in metadata. Opens: "${opensAttr.value}", Closes: "${closesAttr.value}"`);
+    }
+    
     if (isDev) {
       debugMessages.push(`Opens date: ${opensDate.toISOString()}`);
       debugMessages.push(`Closes date: ${closesDate.toISOString()}`);

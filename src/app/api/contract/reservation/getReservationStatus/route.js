@@ -1,7 +1,6 @@
 import devLog from '@/utils/logger';
 
 import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
 
 export async function POST(request) {
   const body = await request.json();
@@ -15,7 +14,12 @@ export async function POST(request) {
     const contract = await getContractInstance();
     
     // Get reservation status from contract
-    const reservation = await retry(() => contract.getReservation(reservationKey));
+    const reservation = await Promise.race([
+      contract.getReservation(reservationKey),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('getReservation timeout')), 10000)
+      )
+    ]);
     
     if (!reservation) {
       return Response.json({ 

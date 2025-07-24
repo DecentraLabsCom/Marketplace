@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@/context/UserContext';
 import devLog from '@/utils/logger';
 import { createOptimizedContext, useMemoizedValue, useDebounced } from '@/utils/optimizedContext';
@@ -16,12 +16,19 @@ import {
 const { Provider: OptimizedBookingProvider, useContext: useBookingContext } = createOptimizedContext('BookingContext');
 
 function BookingDataCore({ children }) {
-  // Enhanced state management
-  const [allBookings, setAllBookings] = useState([]);
+  // Enhanced state management for both user and lab bookings
   const [userBookings, setUserBookings] = useState([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
-  const [lastBookingsFetch, setLastBookingsFetch] = useState(0);
-  const [fetchAttempts, setFetchAttempts] = useState(0);
+  const [labBookings, setLabBookings] = useState(new Map()); // Map<labId, bookings[]>
+  const [userBookingsLoading, setUserBookingsLoading] = useState(false);
+  const [lastUserBookingsFetch, setLastUserBookingsFetch] = useState(0);
+
+  // Use refs to avoid dependency issues in useEffect
+  const userBookingsLoadingRef = useRef(false);
+  const lastUserBookingsFetchRef = useRef(0);
+  
+  // Keep refs in sync
+  userBookingsLoadingRef.current = userBookingsLoading;
+  lastUserBookingsFetchRef.current = lastUserBookingsFetch;
 
   // Get user context and error handler
   const userContext = useUser();
@@ -35,8 +42,6 @@ function BookingDataCore({ children }) {
     originalHandleError || ((error) => devLog.error('BookingContext error:', error)),
     [originalHandleError]
   );
-  
-  devLog.log('BookingContext: User address from context:', address);
 
   // Longer debounce for bookings to reduce RPC calls
   const debouncedAddress = useDebounced(address, 1500); // 1.5 seconds debounce
@@ -53,254 +58,162 @@ function BookingDataCore({ children }) {
 
   // Cache keys
   const CACHE_KEYS = useMemoizedValue(() => ({
-    ALL_BOOKINGS: 'all_bookings_v3',
-    USER_BOOKINGS: `user_bookings_v3_${debouncedAddress || 'anonymous'}`,
+    USER_BOOKINGS: `user_bookings_v4_${debouncedAddress || 'anonymous'}`,
+    LAB_BOOKINGS: (labId) => `lab_bookings_v4_${labId}`,
   }), [debouncedAddress]);
 
-  // Smart rate limiting - progressive backoff
-  const getRetryDelay = useCallback((attempts) => {
-    // Progressive backoff: 5s, 15s, 30s, 60s, 120s
-    const delays = [5000, 15000, 30000, 60000, 120000];
-    return delays[Math.min(attempts, delays.length - 1)];
-  }, []);
+  const fetchUserBookings = useCallback(async (force = false) => {
+    if (!debouncedAddress) {
+      devLog.log('BookingContext: No address provided for fetchUserBookings');
+      setUserBookings([]);
+      return [];
+    }
 
-  // Enhanced fetchBookings with intelligent rate limiting
-  const fetchBookings = useCallback(async (force = false) => {
     const now = Date.now();
+    const minInterval = 30000; // 30 seconds minimum interval
     
-    // Smart debouncing - reduced for initial loads, more aggressive after real failures
-    const hasSuccessfulFetch = allBookings.length > 0; // Have we ever gotten data?
-    let minInterval;
-    
-    if (!hasSuccessfulFetch) {
-      // If we've never gotten data successfully, be more permissive
-      minInterval = fetchAttempts > 3 ? 30000 : 10000; // 30s after 3 failures, 10s normally
-    } else {
-      // If we have data, use longer intervals to avoid spam
-      minInterval = fetchAttempts > 2 ? 120000 : 60000; // 2 minutes after failures, 1 minute normally
+    if (!force && now - lastUserBookingsFetch < minInterval) {
+      devLog.log(`BookingContext: User bookings fetch debounced (${minInterval/1000}s interval)`);
+      return userBookings;
     }
-    
-    if (!force && now - lastBookingsFetch < minInterval) {
-      devLog.log(`BookingContext: Fetch debounced (${minInterval/1000}s interval, ${Math.round((minInterval - (now - lastBookingsFetch))/1000)}s remaining)`);
-      return;
-    }
-
-    // Rate limiting after consecutive failures - but less strict for first loads
-    const maxAttempts = hasSuccessfulFetch ? 3 : 5; // Allow more attempts if we've never gotten data
-    if (fetchAttempts >= maxAttempts && !force) {
-      const retryDelay = getRetryDelay(fetchAttempts - maxAttempts);
-      const nextRetryTime = lastBookingsFetch + retryDelay;
-      if (now < nextRetryTime) {
-        const waitTime = Math.round((nextRetryTime - now) / 1000);
-        devLog.log(`BookingContext: Rate limited, next retry in ${waitTime}s`);
-        setBookingsStatus(prev => ({
-          ...prev,
-          nextRetryAt: new Date(nextRetryTime)
-        }));
-        return;
-      }
-    }
-
-    devLog.log('BookingContext: Starting bookings fetch', { 
-      force, 
-      attempts: fetchAttempts,
-      debouncedAddress 
-    });
-
-    setBookingsStatus(prev => ({
-      ...prev,
-      isLoading: true,
-      hasError: false,
-      nextRetryAt: null
-    }));
 
     try {
-      setBookingsLoading(true);
-      setLastBookingsFetch(now);
+      setUserBookingsLoading(true);
+      setLastUserBookingsFetch(now);
 
       // Try cache first unless forced
-      let allBookingsData;
       if (!force) {
-        const cached = cacheManager.get(CACHE_KEYS.ALL_BOOKINGS);
+        const cached = cacheManager.get(CACHE_KEYS.USER_BOOKINGS);
         if (cached && Array.isArray(cached)) {
-          devLog.log('BookingContext: Cache hit', `${cached.length} bookings`);
-          allBookingsData = cached;
+          devLog.log(`🔄 BookingContext: fetchUserBookings - Using CACHE (no API call) (${cached.length} bookings)`);
+          setUserBookings(cached);
+          return cached;
         }
       }
 
-      // Fetch if not in cache or forced
-      if (!allBookingsData) {
-        devLog.log('BookingContext: Fetching from API...');
-        
-        // Extended timeout for stability
-        const response = await deduplicatedFetch('/api/contract/reservation/getBookings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            wallet: null,
-            clearCache: force 
-          }),
-          signal: AbortSignal.timeout(90000) // 90 seconds
-        }, force ? 0 : 600000); // 10 minutes cache unless forced
+      devLog.warn('🚨 BookingContext: fetchUserBookings - Making API CALL to /api/contract/reservation/getUserBookings');
+      
+      const response = await deduplicatedFetch('/api/contract/reservation/getUserBookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userAddress: debouncedAddress,
+          clearCache: force 
+        }),
+        signal: AbortSignal.timeout(90000)
+      }, force ? 0 : 600000);
 
-        if (!response.ok) {
-          throw createBlockchainError(`HTTP ${response.status}: ${response.statusText}`, {
-            status: response.status,
-            context: 'fetchBookings'
-          });
-        }
-
-        allBookingsData = await response.json();
-        
-        if (!Array.isArray(allBookingsData)) {
-          devLog.warn('BookingContext: Invalid API response', allBookingsData);
-          allBookingsData = [];
-        }
-
-        // Cache for longer period
-        cacheManager.set(CACHE_KEYS.ALL_BOOKINGS, allBookingsData, CACHE_TTL.BOOKINGS * 2); // Double the cache time
-        devLog.log(`BookingContext: Cached ${allBookingsData.length} bookings`);
+      if (!response.ok) {
+        throw createBlockchainError(`HTTP ${response.status}: ${response.statusText}`, {
+          status: response.status,
+          context: 'fetchUserBookings'
+        });
       }
 
-      // Process bookings
-      setAllBookings(allBookingsData);
-
-      // Filter user bookings
-      const filteredUserBookings = debouncedAddress 
-        ? allBookingsData.filter(booking => {
-            const isUserBooking = booking.renter && booking.renter.toLowerCase() === debouncedAddress.toLowerCase();
-            if (isUserBooking) {
-              devLog.log('Found user booking:', {
-                reservationKey: booking.reservationKey,
-                labId: booking.labId,
-                status: booking.status
-              });
-            }
-            return isUserBooking;
-          })
-        : [];
-
-      setUserBookings(filteredUserBookings);
+      const userBookingsData = await response.json();
       
-      // Cache user bookings separately
-      if (debouncedAddress) {
-        cacheManager.set(CACHE_KEYS.USER_BOOKINGS, filteredUserBookings, CACHE_TTL.BOOKINGS);
+      if (!Array.isArray(userBookingsData)) {
+        devLog.warn('BookingContext: Invalid API response for user bookings', userBookingsData);
+        return [];
       }
 
-      devLog.log(`BookingContext: Processed ${filteredUserBookings.length} user bookings from ${allBookingsData.length} total`);
+      // Cache and update state
+      cacheManager.set(CACHE_KEYS.USER_BOOKINGS, userBookingsData, CACHE_TTL.BOOKINGS);
+      setUserBookings(userBookingsData);
+      
+      devLog.log(`BookingContext: Fetched ${userBookingsData.length} user bookings`);
+      return userBookingsData;
 
-      // Reset failure count on success
-      setFetchAttempts(0);
-      
-      setBookingsStatus(prev => ({
-        ...prev,
-        isLoading: false,
-        isUsingCache: !!allBookingsData && !force,
-        lastFetch: new Date(),
-        fetchAttempts: 0,
-        hasError: false
-      }));
-
-    } catch (err) {
-      devLog.error('BookingContext: Fetch error:', err);
-      
-      // Check if this is a rate limiting error (don't penalize as heavily)
-      const isRateLimitError = err.message?.includes('429') || 
-                              err.message?.includes('rate limit') ||
-                              err.message?.includes('Rate limited') ||
-                              err.status === 429;
-      
-      // Only increment attempts for non-rate-limit errors, or after multiple rate limit errors
-      let shouldIncrementAttempts = true;
-      if (isRateLimitError && fetchAttempts < 2) {
-        shouldIncrementAttempts = false; // Don't penalize first few rate limit errors
-        devLog.log('BookingContext: Rate limit detected, not incrementing attempt counter');
-      }
-      
-      const newAttempts = shouldIncrementAttempts ? fetchAttempts + 1 : fetchAttempts;
-      setFetchAttempts(newAttempts);
-      
-      setBookingsStatus(prev => ({
-        ...prev,
-        isLoading: false,
-        hasError: true,
-        fetchAttempts: newAttempts
-      }));
-
-      handleError(err, {
-        context: 'fetchBookings',
+    } catch (error) {
+      devLog.error('BookingContext: Error fetching user bookings:', error);
+      handleError(error, {
+        context: 'fetchUserBookings',
         address: debouncedAddress,
-        severity: isRateLimitError ? ErrorSeverity.LOW : ErrorSeverity.MEDIUM,
+        severity: ErrorSeverity.MEDIUM,
         category: ErrorCategory.BLOCKCHAIN
       });
-
-      // Try to use stale cache
-      const cachedBookings = cacheManager.get(CACHE_KEYS.ALL_BOOKINGS, true); // Allow stale
-      const cachedUserBookings = cacheManager.get(CACHE_KEYS.USER_BOOKINGS, true);
-      
-      if (cachedBookings && Array.isArray(cachedBookings)) {
-        devLog.warn('BookingContext: Using stale cache due to error');
-        setAllBookings(cachedBookings);
-        
-        if (cachedUserBookings && Array.isArray(cachedUserBookings)) {
-          setUserBookings(cachedUserBookings);
-        } else if (debouncedAddress) {
-          // Filter from stale all bookings
-          const filteredFromStale = cachedBookings.filter(booking => 
-            booking.renter && booking.renter.toLowerCase() === debouncedAddress.toLowerCase()
-          );
-          setUserBookings(filteredFromStale);
-        }
-
-        setBookingsStatus(prev => ({
-          ...prev,
-          isUsingCache: true,
-          lastFetch: new Date()
-        }));
-      }
-
-      // Schedule retry with backoff - different strategy for rate limits
-      const maxRetries = hasSuccessfulFetch ? 5 : 8; // More retries if we've never gotten data
-      if (newAttempts < maxRetries) {
-        let retryDelay;
-        if (isRateLimitError) {
-          // Shorter delays for rate limit errors
-          retryDelay = Math.min(5000 + (newAttempts * 2000), 15000); // 5s, 7s, 9s, 11s, 13s, 15s max
-        } else {
-          // Longer delays for real errors
-          retryDelay = getRetryDelay(Math.max(0, newAttempts - 1));
-        }
-        
-        devLog.log(`BookingContext: Scheduling retry ${newAttempts} in ${retryDelay/1000}s (${isRateLimitError ? 'rate-limit' : 'error'} type)`);
-        
-        setTimeout(() => {
-          devLog.log(`BookingContext: Auto-retry ${newAttempts} after ${isRateLimitError ? 'rate limit' : 'error'}`);
-          fetchBookings(false);
-        }, retryDelay);
-      }
-
+      return [];
     } finally {
-      setBookingsLoading(false);
+      setUserBookingsLoading(false);
     }
-  }, [
-    debouncedAddress, 
-    CACHE_KEYS.ALL_BOOKINGS, 
-    CACHE_KEYS.USER_BOOKINGS, 
-    lastBookingsFetch, 
-    fetchAttempts,
-    getRetryDelay,
-    handleError
-  ]);
+  }, [debouncedAddress, handleError]);
 
   // Manual refresh with rate limiting bypass
   const refreshBookings = useCallback(async () => {
     devLog.log('BookingContext: Manual refresh requested');
-    setFetchAttempts(0); // Reset attempts for manual refresh
-    await fetchBookings(true);
-  }, [fetchBookings]);
+    return await fetchUserBookings(true);
+  }, [fetchUserBookings]);
 
-  // Initialize bookings with cache-first approach - optimized
+  // Fetch bookings for a specific lab
+  const fetchLabBookings = useCallback(async (labId, force = false) => {
+    if (!labId) {
+      devLog.warn('BookingContext: No labId provided for fetchLabBookings');
+      return [];
+    }
+
+    const cacheKey = CACHE_KEYS.LAB_BOOKINGS(labId);
+    
+    try {
+      // Try cache first unless forced
+      if (!force) {
+        const cached = cacheManager.get(cacheKey);
+        if (cached && Array.isArray(cached)) {
+          devLog.log(`🔄 BookingContext: fetchLabBookings(${labId}) - Using CACHE (no API call)`, `${cached.length} bookings`);
+          
+          // Update state
+          setLabBookings(prev => new Map(prev).set(labId.toString(), cached));
+          return cached;
+        }
+      }
+
+      devLog.warn(`🚨 BookingContext: fetchLabBookings(${labId}) - Making API CALL to /api/contract/reservation/getLabBookings`);
+
+      const response = await deduplicatedFetch('/api/contract/reservation/getLabBookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          labId: labId,
+          clearCache: force 
+        }),
+        signal: AbortSignal.timeout(90000)
+      }, force ? 0 : 300000); // 5 minutes cache unless forced
+
+      if (!response.ok) {
+        throw createBlockchainError(`HTTP ${response.status}: ${response.statusText}`, {
+          status: response.status,
+          context: 'fetchLabBookings'
+        });
+      }
+
+      const labBookingsData = await response.json();
+      
+      if (!Array.isArray(labBookingsData)) {
+        devLog.warn(`BookingContext: Invalid API response for lab ${labId}`, labBookingsData);
+        return [];
+      }
+
+      // Cache and update state
+      cacheManager.set(cacheKey, labBookingsData, CACHE_TTL.BOOKINGS);
+      setLabBookings(prev => new Map(prev).set(labId.toString(), labBookingsData));
+      
+      devLog.log(`BookingContext: Fetched ${labBookingsData.length} bookings for lab ${labId}`);
+      return labBookingsData;
+
+    } catch (error) {
+      devLog.error(`BookingContext: Error fetching lab ${labId} bookings:`, error);
+      handleError(error, {
+        context: 'fetchLabBookings',
+        labId,
+        severity: ErrorSeverity.MEDIUM,
+        category: ErrorCategory.BLOCKCHAIN
+      });
+      return [];
+    }
+  }, [handleError]); // Removed CACHE_KEYS dependency as it's memoized
+
+  // Initialize user bookings when address changes
   useEffect(() => {
+    devLog.warn('🔥 BookingContext: User bookings useEffect TRIGGERED - This could cause API calls');
     if (!debouncedAddress) {
       devLog.log('BookingContext: No address, clearing user bookings');
       setUserBookings([]);
@@ -309,122 +222,153 @@ function BookingDataCore({ children }) {
 
     let mounted = true;
 
-    const initializeBookings = async () => {
+    const initializeUserBookings = async () => {
       try {
         // Skip if already loading to prevent redundant calls
-        if (bookingsLoading) {
-          devLog.log('BookingContext: Already loading, skipping initialization');
+        if (userBookingsLoadingRef.current) {
+          devLog.log('BookingContext: Already loading user bookings, skipping initialization');
           return;
         }
 
         // Try cache first for instant load
-        const cachedAll = cacheManager.get(CACHE_KEYS.ALL_BOOKINGS);
         const cachedUser = cacheManager.get(CACHE_KEYS.USER_BOOKINGS);
 
-        if (cachedAll && Array.isArray(cachedAll)) {
-          devLog.log(`BookingContext: Instant load from cache (${cachedAll.length} total bookings)`);
-          setAllBookings(cachedAll);
-
-          if (cachedUser && Array.isArray(cachedUser)) {
-            setUserBookings(cachedUser);
-            devLog.log(`BookingContext: Loaded ${cachedUser.length} cached user bookings`);
-          } else {
-            // Filter from cached all bookings
-            const filtered = cachedAll.filter(booking => 
-              booking.renter && booking.renter.toLowerCase() === debouncedAddress.toLowerCase()
-            );
-            setUserBookings(filtered);
-            devLog.log(`BookingContext: Filtered ${filtered.length} user bookings from cache`);
-          }
-
-          setBookingsStatus(prev => ({
-            ...prev,
-            isUsingCache: true,
-            lastFetch: new Date()
-          }));
+        if (cachedUser && Array.isArray(cachedUser)) {
+          devLog.log(`BookingContext: Instant load from cache (${cachedUser.length} user bookings)`);
+          setUserBookings(cachedUser);
         }
 
         // Only fetch fresh data if we don't have recent data and component is still mounted
-        const hasRecentData = lastBookingsFetch && (Date.now() - lastBookingsFetch < 30000); // 30 seconds
-        if (mounted && !hasRecentData && !bookingsLoading) {
-          devLog.log('BookingContext: Fetching fresh data in background');
-          await fetchBookings(false);
+        const hasRecentData = lastUserBookingsFetchRef.current && (Date.now() - lastUserBookingsFetchRef.current < 30000); // 30 seconds
+        if (mounted && !hasRecentData && !userBookingsLoadingRef.current) {
+          devLog.log('BookingContext: Fetching fresh user bookings in background');
+          await fetchUserBookings(false);
         } else if (hasRecentData) {
-          devLog.log('BookingContext: Using recent data, skipping fresh fetch');
+          devLog.log('BookingContext: Using recent user bookings data, skipping fresh fetch');
         }
       } catch (error) {
-        devLog.error('BookingContext: Initialize error:', error);
+        devLog.error('BookingContext: Initialize user bookings error:', error);
       }
     };
 
-    initializeBookings();
+    initializeUserBookings();
 
     return () => {
       mounted = false;
     };
-  }, [debouncedAddress]); // Simplified dependencies to reduce re-runs
+  }, [debouncedAddress]);
 
   // Booking state mutations
   const updateBookingStatus = useCallback((reservationKey, newStatus) => {
-    setAllBookings(prev => prev.map(booking => 
-      booking.reservationKey === reservationKey 
-        ? { ...booking, status: newStatus }
-        : booking
-    ));
-    
+    // Update user bookings
     setUserBookings(prev => prev.map(booking => 
       booking.reservationKey === reservationKey 
         ? { ...booking, status: newStatus }
         : booking
     ));
+    
+    // Update lab bookings
+    setLabBookings(prev => {
+      const newMap = new Map(prev);
+      newMap.forEach((bookings, labId) => {
+        const updatedBookings = bookings.map(booking =>
+          booking.reservationKey === reservationKey 
+            ? { ...booking, status: newStatus }
+            : booking
+        );
+        newMap.set(labId, updatedBookings);
+        // Update cache for this lab
+        cacheManager.set(CACHE_KEYS.LAB_BOOKINGS(labId), updatedBookings, CACHE_TTL.BOOKINGS);
+      });
+      return newMap;
+    });
 
-    // Update cache
-    const updatedAll = allBookings.map(booking => 
+    // Update user bookings cache
+    const updatedUserBookings = userBookings.map(booking => 
       booking.reservationKey === reservationKey 
         ? { ...booking, status: newStatus }
         : booking
     );
-    cacheManager.set(CACHE_KEYS.ALL_BOOKINGS, updatedAll, CACHE_TTL.BOOKINGS);
-  }, [allBookings, CACHE_KEYS.ALL_BOOKINGS]);
+    cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updatedUserBookings, CACHE_TTL.BOOKINGS);
+  }, [userBookings]);
 
   const removeBooking = useCallback((reservationKey) => {
-    setAllBookings(prev => prev.filter(booking => booking.reservationKey !== reservationKey));
-    setUserBookings(prev => prev.filter(booking => booking.reservationKey !== reservationKey));
+    // Remove from user bookings
+    setUserBookings(prev => {
+      const updated = prev.filter(booking => booking.reservationKey !== reservationKey);
+      // Update cache
+      cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updated, CACHE_TTL.BOOKINGS);
+      return updated;
+    });
+    
+    // Remove from lab bookings
+    setLabBookings(prev => {
+      const newMap = new Map(prev);
+      newMap.forEach((bookings, labId) => {
+        const updatedBookings = bookings.filter(booking => booking.reservationKey !== reservationKey);
+        newMap.set(labId, updatedBookings);
+        // Update cache for this lab
+        cacheManager.set(CACHE_KEYS.LAB_BOOKINGS(labId), updatedBookings, CACHE_TTL.BOOKINGS);
+      });
+      return newMap;
+    });
+  }, []);
 
-    // Update cache
-    const updatedAll = allBookings.filter(booking => booking.reservationKey !== reservationKey);
-    cacheManager.set(CACHE_KEYS.ALL_BOOKINGS, updatedAll, CACHE_TTL.BOOKINGS);
-  }, [allBookings, CACHE_KEYS.ALL_BOOKINGS]);
-
-  // Get bookings for a specific lab
+  // Get bookings for a specific lab (from lab-specific cache only)
   const getLabBookings = useCallback((labId) => {
-    return allBookings.filter(booking => booking.labId === labId);
-  }, [allBookings]);
+    const labSpecificBookings = labBookings.get(labId?.toString());
+    if (labSpecificBookings) {
+      return labSpecificBookings;
+    }
+    
+    // Return empty array if not found
+    return [];
+  }, [labBookings]);
 
   // Get user bookings for a specific lab
   const getUserLabBookings = useCallback((labId) => {
     return userBookings.filter(booking => booking.labId === labId);
   }, [userBookings]);
 
+  // Get cached lab bookings without fetching
+  const getCachedLabBookings = useCallback((labId) => {
+    return labBookings.get(labId?.toString()) || [];
+  }, [labBookings]);
+
+  // Check if lab bookings are loaded
+  const isLabBookingsLoaded = useCallback((labId) => {
+    return labBookings.has(labId?.toString());
+  }, [labBookings]);
+
   // Clear cache utility
   const clearBookingsCache = useCallback(() => {
-    cacheManager.delete(CACHE_KEYS.ALL_BOOKINGS);
     cacheManager.delete(CACHE_KEYS.USER_BOOKINGS);
-    setFetchAttempts(0);
-  }, [CACHE_KEYS.ALL_BOOKINGS, CACHE_KEYS.USER_BOOKINGS]);
+    
+    // Clear lab bookings cache
+    setLabBookings(prev => {
+      prev.forEach((_, labId) => {
+        cacheManager.delete(CACHE_KEYS.LAB_BOOKINGS(labId));
+      });
+      return new Map();
+    });
+    
+    setUserBookings([]);
+  }, []);
 
   // Context value
   const contextValue = useMemoizedValue(() => ({
     // Data
-    allBookings,
     userBookings,
+    labBookings,
     
     // Loading states
-    bookingsLoading,
+    bookingsLoading: userBookingsLoading, // Main loading state now refers to user bookings
     bookingsStatus,
+    userBookingsLoading,
     
     // Actions
-    fetchBookings,
+    fetchUserBookings,
+    fetchLabBookings,
     refreshBookings,
     updateBookingStatus,
     removeBooking,
@@ -433,24 +377,29 @@ function BookingDataCore({ children }) {
     // Getters
     getLabBookings,
     getUserLabBookings,
+    getCachedLabBookings,
+    isLabBookingsLoaded,
     
     // Utils
-    isLoading: bookingsLoading || bookingsStatus.isLoading,
+    isLoading: userBookingsLoading || bookingsStatus.isLoading,
     hasError: bookingsStatus.hasError,
     isUsingCache: bookingsStatus.isUsingCache,
     nextRetryAt: bookingsStatus.nextRetryAt,
   }), [
-    allBookings,
     userBookings,
-    bookingsLoading,
+    labBookings,
+    userBookingsLoading,
     bookingsStatus,
-    fetchBookings,
+    fetchUserBookings,
+    fetchLabBookings,
     refreshBookings,
     updateBookingStatus,
     removeBooking,
     clearBookingsCache,
     getLabBookings,
     getUserLabBookings,
+    getCachedLabBookings,
+    isLabBookingsLoaded,
   ]);
 
   return (

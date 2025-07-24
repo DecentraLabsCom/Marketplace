@@ -8,7 +8,7 @@ import { useReservationEvents } from '@/context/BookingEventContext';
 import devLog from '@/utils/logger';
 
 export function useReservationEventCoordinator() {
-  const { fetchBookings, removeBooking } = useBookings();
+  const { fetchUserBookings, removeBooking } = useBookings();
   const { 
     invalidateBookingCache, 
     scheduleBookingUpdate,
@@ -61,11 +61,11 @@ export function useReservationEventCoordinator() {
    */
   const coordinatedBookingRefresh = useCallback(() => {
     if (!isManualUpdateInProgress) {
-      fetchBookings();
+      fetchUserBookings(true);
     } else {
       devLog.log('Manual booking update in progress, skipping automatic refresh');
     }
-  }, [fetchBookings, isManualUpdateInProgress]);
+  }, [fetchUserBookings, isManualUpdateInProgress]);
 
   /**
    * Coordinated booking cancellation - handles both local state and blockchain events

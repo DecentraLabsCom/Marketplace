@@ -8,7 +8,6 @@ import { formatUnits } from 'viem';
 import { simLabsData } from '@/utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
-import retry from '@/utils/retry';
 import getIsVercel from '@/utils/isVercel';
 
 // Server-side cache with TTL (15 minutes - increased to reduce API calls)
@@ -37,7 +36,14 @@ async function getLabTokenDecimals() {
     
     // Create LAB token contract instance
     const labTokenContract = new contract.constructor(labTokenAddress, labTokenABI, contract.runner);
-    labTokenDecimals = await retry(() => labTokenContract.decimals());
+    
+    // Direct call with timeout
+    labTokenDecimals = await Promise.race([
+      labTokenContract.decimals(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('decimals() timeout')), 5000)
+      )
+    ]);
     
     return labTokenDecimals;
   } catch (error) {
@@ -88,8 +94,18 @@ export async function GET() {
 
     // Batch contract calls for better performance
     const [providerList, labIds] = await Promise.all([
-      retry(() => contract.getLabProviders()),
-      retry(() => contract.getAllLabs())
+      Promise.race([
+        contract.getLabProviders(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('getLabProviders timeout')), 15000)
+        )
+      ]),
+      Promise.race([
+        contract.getAllLabs(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('getAllLabs timeout')), 15000)
+        )
+      ])
     ]);
 
     // Create provider map
@@ -110,8 +126,18 @@ export async function GET() {
           try {
             // Parallelize contract calls
             const [labData, providerAddress] = await Promise.all([
-              retry(() => contract.getLab(labId)),
-              retry(() => contract.ownerOf(labId)),
+              Promise.race([
+                contract.getLab(labId),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error(`getLab timeout for ${labId}`)), 5000)
+                )
+              ]),
+              Promise.race([
+                contract.ownerOf(labId),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error(`ownerOf timeout for ${labId}`)), 5000)
+                )
+              ]),
             ]);
 
             // Optimized metadata fetching with fallbacks
