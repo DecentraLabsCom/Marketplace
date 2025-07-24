@@ -122,7 +122,7 @@ export function useLabToken() {
 
   /**
    * Calculate the total cost of a reservation
-   * @param {string} labPrice - Laboratory hourly price (in LAB)
+   * @param {string} labPrice - Laboratory price per second (from cache/backend)
    * @param {number} durationMinutes - Duration in minutes
    * @returns {bigint} - Total cost in token wei
    */
@@ -130,14 +130,12 @@ export function useLabToken() {
     if (!labPrice || !durationMinutes || !decimals) return 0n;
     
     try {
-      // Convert hourly price to number
-      const pricePerHour = parseFloat(labPrice);
+      // labPrice is already in per-second format from cache/backend
+      const pricePerSecond = parseFloat(labPrice);
       
-      // Calculate proportional price per minute
-      const pricePerMinute = pricePerHour / 60;
-      
-      // Calculate total cost
-      const totalCost = pricePerMinute * durationMinutes;
+      // Calculate total cost for the duration in seconds
+      const durationSeconds = durationMinutes * 60;
+      const totalCost = pricePerSecond * durationSeconds;
       
       // Format totalCost to avoid scientific notation for parseUnits
       const totalCostFormatted = totalCost.toFixed(decimals);
@@ -217,44 +215,42 @@ export function useLabToken() {
   };
 
   /**
-   * Format token amount to a human-readable string
+   * Format token amount to a human-readable string rounded to 2 decimals
    * @param {bigint} amount - Amount in wei
-   * @returns {string} - Formatted amount
+   * @returns {string} - Formatted amount with 2 decimal places
    */
   const formatTokenAmount = (amount) => {
-    if (!amount || !decimals) return '0';
-    return formatUnits(amount, decimals);
+    if (!amount || !decimals) return '0.00';
+    const formatted = parseFloat(formatUnits(amount, decimals));
+    const rounded = Math.round(formatted * 100) / 100;
+    return rounded.toFixed(2);
   };
 
   /**
-   * Smart price formatter that handles both human-readable and token unit formats
-   * @param {string|number|bigint} price - Price in any format
-   * @returns {string} - Human-readable price
+   * Format price from per-second format to per-hour format for UI display
+   * @param {string|number|bigint} price - Price per second in decimal format (always from cache/backend)
+   * @returns {string} - Human-readable price per hour rounded to 2 decimals
    */
   const formatPrice = (price) => {
-    if (!price || price === '0') return '0';
+    if (!price || price === '0') return '0.00';
     
     try {
-      const priceStr = price.toString();
+      // Backend always provides price in decimal format per second
+      const pricePerSecond = parseFloat(price.toString());
       
-      // If it contains a decimal point, it's likely already in human format
-      if (priceStr.includes('.')) {
-        const numPrice = parseFloat(priceStr);
-        return isNaN(numPrice) ? '0' : numPrice.toString();
-      }
+      if (isNaN(pricePerSecond)) return '0.00';
       
-      // If it's a very large number (more than 6 digits), assume it's in token units
-      if (priceStr.length > 6 && !priceStr.includes('.')) {
-        return formatUnits(BigInt(priceStr), decimals);
-      }
+      // Convert from per second to per hour
+      const pricePerHour = pricePerSecond * 3600;
       
-      // Otherwise, it's likely already in human format
-      const numPrice = parseFloat(priceStr);
-      return isNaN(numPrice) ? '0' : numPrice.toString();
+      // Round to 2 decimal places
+      const roundedPrice = Math.round(pricePerHour * 100) / 100;
+      
+      return roundedPrice.toFixed(2);
       
     } catch (error) {
       devLog.error('Error formatting price:', error, 'Price:', price);
-      return '0';
+      return '0.00';
     }
   };
 

@@ -158,7 +158,7 @@ export default async function getProvider(network) {
     
     const fallbackProvider = new ethers.FallbackProvider(providers, networkInfo, {
         quorum: 1,
-        stallTimeout: 1500,  // 1.5 seconds before trying next provider
+        stallTimeout: 4000,  // 4 seconds before trying next provider
         priority: 1,         // Lower priority = higher preference
     });
 

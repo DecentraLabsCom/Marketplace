@@ -2,6 +2,59 @@ import devLog from '@/utils/logger';
 
 import { getContractInstance } from '../../utils/contractInstance';
 import { ethers } from 'ethers';
+import { formatUnits } from 'viem';
+import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
+
+// Cache for LAB token decimals
+let labTokenDecimals = null;
+
+// Function to get LAB token decimals
+async function getLabTokenDecimals() {
+  if (labTokenDecimals !== null) {
+    return labTokenDecimals;
+  }
+  
+  try {
+    const contract = await getContractInstance();
+    const chainName = contract.runner?.provider?.network?.name?.toLowerCase() || 'localhost';
+    const labTokenAddress = contractAddressesLAB[chainName];
+    
+    if (!labTokenAddress) {
+      devLog.warn('LAB token address not found for chain:', chainName);
+      return 6; // Default to 6 decimals for LAB token
+    }
+    
+    // Create LAB token contract instance
+    const labTokenContract = new contract.constructor(labTokenAddress, labTokenABI, contract.runner);
+    
+    // Direct call with timeout
+    labTokenDecimals = await Promise.race([
+      labTokenContract.decimals(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('decimals() timeout')), 5000)
+      )
+    ]);
+    
+    return labTokenDecimals;
+  } catch (error) {
+    devLog.error('Error getting LAB token decimals:', error);
+    return 6; // Default to 6 decimals for LAB token if error
+  }
+}
+
+// Function to convert price from token units to human format
+// Keep price per second as stored in contract, UI will handle per hour conversion
+function convertPriceToHuman(priceString, decimals) {
+  if (!priceString || priceString === '0') return 0;
+  
+  try {
+    // Convert from wei to decimal format (per second, as stored in contract)
+    return parseFloat(formatUnits(BigInt(priceString), decimals));
+  } catch (error) {
+    devLog.error('Error converting price to human format:', error);
+    return parseFloat(priceString); // Fallback to original value
+  }
+}
 
 export async function POST(request) {
   const body = await request.json();
@@ -13,6 +66,9 @@ export async function POST(request) {
 
   try {
     const contract = await getContractInstance();
+    
+    // Get LAB token decimals for price conversion
+    const decimals = await getLabTokenDecimals();
     
     // For SSO providers, labs are owned by the server wallet
     const serverWallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY);
@@ -61,7 +117,7 @@ export async function POST(request) {
           name: name,
           opens: lab.base.opens.toString(),
           closes: lab.base.closes.toString(),
-          price: lab.base.price.toString(),
+          price: convertPriceToHuman(lab.base.price.toString(), decimals),
           uri: lab.base.uri,
           isPrivate: lab.base.isPrivate,
           owner: owner

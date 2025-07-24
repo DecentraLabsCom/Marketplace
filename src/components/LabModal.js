@@ -36,7 +36,7 @@ function reducer(state, action) {
 }
 
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
-  const { decimals } = useLabToken();
+  const { decimals, formatPrice } = useLabToken();
   const [state, dispatch] = useReducer(reducer, lab, initialState);
   const {
     activeTab,
@@ -160,32 +160,14 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     if (isOpen) {
       let labToMerge = lab ? { ...lab } : {};
       
-      // Convert price from token units back to human format for editing
+      // Convert price from per-second (cache format) to per-hour (UI input format)
       if (labToMerge.price && decimals) {
         try {
-          let priceValue = labToMerge.price;
-          
-          // Handle different price formats
-          if (typeof priceValue === 'string') {
-            // Check if it's already in human format (contains decimal point)
-            if (priceValue.includes('.')) {
-              // Already in human format, use as is
-              labToMerge.price = priceValue;
-            } else {
-              // Assume it's in token units, convert to human format
-              const priceInHumanFormat = formatUnits(BigInt(priceValue), decimals);
-              labToMerge.price = priceInHumanFormat;
-            }
-          } else if (typeof priceValue === 'number') {
-            // Already in human format
-            labToMerge.price = priceValue.toString();
-          } else {
-            // Try to convert assuming it's token units
-            const priceInHumanFormat = formatUnits(BigInt(priceValue), decimals);
-            labToMerge.price = priceInHumanFormat;
-          }
+          // Use formatPrice to convert from per-second to per-hour for input fields
+          const pricePerHour = formatPrice(labToMerge.price);
+          labToMerge.price = pricePerHour;
         } catch (error) {
-          devLog.error('Error converting price from token units:', error);
+          devLog.error('Error converting price for UI input:', error);
           // Keep original price if conversion fails
         }
       }

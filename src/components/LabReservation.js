@@ -50,6 +50,7 @@ export default function LabReservation({ id }) {
     checkBalanceAndAllowance, 
     approveLabTokens, 
     formatTokenAmount: formatBalance,
+    formatPrice,
     refreshTokenData
   } = useLabToken();
   
@@ -405,21 +406,13 @@ export default function LabReservation({ id }) {
       <div className="container mx-auto p-4 text-white">
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
-          {processingReservations.size > 0 && (
-            <div className="mt-2 text-yellow-300">
-              ⏳ Processing {processingReservations.size} reservation{processingReservations.size > 1 ? 's' : ''}...
-            </div>
-          )}
-          {isLoadingLabBookings && selectedLab && (
-            <div className="mt-2 text-blue-300">
-              📅 Loading reservations for lab {selectedLab.name}...
-            </div>
-          )}
-          {labBookingsError && (
-            <div className="mt-2 text-red-300">
-              ❌ Error loading lab reservations: {labBookingsError}
-            </div>
-          )}
+          <div className="mt-2 h-6 flex items-center justify-center">
+            {processingReservations.size > 0 && (
+              <span className="text-yellow-300">
+                ⏳ Processing {processingReservations.size} reservation{processingReservations.size > 1 ? 's' : ''}...
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="mb-6">
@@ -508,7 +501,7 @@ export default function LabReservation({ id }) {
                       labPrice={selectedLab.price}
                       durationMinutes={time}
                     />
-                    <p className="text-[#335763] font-semibold text-xl mt-4 text-center">{selectedLab.price} $LAB / hour</p>
+                    <p className="text-[#335763] font-semibold text-xl mt-4 text-center">{formatPrice(selectedLab.price)} $LAB / hour</p>
                   </div>
                 )}
               </div>
@@ -518,7 +511,7 @@ export default function LabReservation({ id }) {
 
         {selectedLab && (
           <>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center">
               <button
                 onClick={handleBooking} 
                 disabled={isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime}
@@ -533,6 +526,16 @@ export default function LabReservation({ id }) {
                  isReceiptError ? 'Try Again' :
                  'Make Booking'}
               </button>
+              {isLoadingLabBookings && selectedLab && (
+                <div className="mt-2 text-blue-300">
+                  📅 Loading reservations for lab {selectedLab.name}...
+                </div>
+              )}
+              {labBookingsError && (
+                <div className="mt-2 text-red-300">
+                  ❌ Error loading lab reservations: {labBookingsError}
+                </div>
+              )}
             </div>
           </>
         )}

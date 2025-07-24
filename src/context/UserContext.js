@@ -25,12 +25,23 @@ function UserDataCore({ children }) {
 
     // Safe error handler wrapper
     const handleError = useCallback((error, context = {}) => {
-        // Ensure we have a valid error object
-        if (!error || (typeof error === 'object' && Object.keys(error).length === 0)) {
-            const validError = new Error('Unknown error occurred');
+        // Only handle truly invalid errors (null, undefined, or empty objects without message)
+        if (!error) {
+            const validError = new Error('Null or undefined error in UserContext');
             validError.originalError = error;
+            validError.context = context;
             return originalHandleError(validError, context);
         }
+        
+        // If it's an object without message or name, but has other properties, let it through
+        if (typeof error === 'object' && !error.message && !error.name && Object.keys(error).length === 0) {
+            const validError = new Error('Empty error object in UserContext');
+            validError.originalError = error;
+            validError.context = context;
+            return originalHandleError(validError, context);
+        }
+        
+        // Pass through all other errors (including valid Error objects)
         return originalHandleError(error, context);
     }, [originalHandleError]);
 
@@ -143,55 +154,68 @@ function UserDataCore({ children }) {
                 return cached;
             }
 
-            devLog.warn(`🚨 UserContext: fetchProviderStatus(${identifier}) - Making API CALL to ${endpoint}`);
             const endpoint = isEmail ? 
                 '/api/contract/provider/isSSOProvider' : 
                 '/api/contract/provider/isLabProvider';
+
+            devLog.warn(`🚨 UserContext: fetchProviderStatus(${identifier}) - Making API CALL to ${endpoint}`);
             
-            const body = isEmail ? 
-                { email: identifier } : 
-                { wallet: identifier };
+            try {
+                const body = isEmail ? 
+                    { email: identifier } : 
+                    { wallet: identifier };
 
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    // Cache 404s for provider status too
-                    const result = { isLabProvider: false };
-                    cacheManager.set(cacheKey, result, 300000); // Cache 404s for 5 minutes
-                    return result;
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        devLog.log(`ℹ️ UserContext: fetchProviderStatus(${identifier}) - Not a provider (404), caching false result`);
+                        // Cache 404s for provider status too
+                        const result = { isLabProvider: false };
+                        cacheManager.set(cacheKey, result, 300000); // Cache 404s for 5 minutes
+                        return result;
+                    }
+                    throw createNetworkError("Failed to fetch provider status", {
+                        status: response.status,
+                        identifier,
+                        isEmail
+                    });
                 }
-                throw createNetworkError("Failed to fetch provider status", {
-                    status: response.status,
+
+                const data = await response.json();
+                
+                // Ensure we always have the expected structure
+                const result = {
+                    isLabProvider: Boolean(data?.isLabProvider || false),
+                    ...data
+                };
+                
+                devLog.log(`✅ UserContext: fetchProviderStatus(${identifier}) - isLabProvider: ${result.isLabProvider}`);
+                
+                // Cache the result
+                cacheManager.set(cacheKey, result, 300000); // 5 minutes (same as name cache)
+                
+                return result;
+            } catch (fetchError) {
+                // Handle fetch-level errors (network, etc.)
+                devLog.warn(`⚠️ UserContext: fetchProviderStatus(${identifier}) - Fetch error:`, fetchError.message);
+                throw fetchError;
+            }
+        }, 3, 1000).catch(error => {
+            // Only log actual errors, not expected 404s
+            if (!error.message?.includes('404')) {
+                handleError(error, {
+                    context: 'fetchProviderStatus',
                     identifier,
-                    isEmail
+                    isEmail,
+                    severity: ErrorSeverity.MEDIUM,
+                    category: ErrorCategory.BLOCKCHAIN
                 });
             }
-
-            const data = await response.json();
-            
-            // Ensure we always have the expected structure
-            const result = {
-                isLabProvider: Boolean(data?.isLabProvider || false),
-                ...data
-            };
-            
-            // Cache the result
-            cacheManager.set(cacheKey, result, 300000); // 5 minutes (same as name cache)
-            
-            return result;
-        }, 3, 1000).catch(error => {
-            handleError(error, {
-                context: 'fetchProviderStatus',
-                identifier,
-                isEmail,
-                severity: ErrorSeverity.MEDIUM,
-                category: ErrorCategory.BLOCKCHAIN
-            });
             
             // Return default structure instead of throwing
             return { isLabProvider: false };
@@ -211,43 +235,56 @@ function UserDataCore({ children }) {
             }
 
             devLog.warn(`🚨 UserContext: fetchProviderName(${wallet}) - Making API CALL to /api/contract/provider/getLabProviderName`);
-            const response = await fetch('/api/contract/provider/getLabProviderName', {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ wallet })
-            });
+            
+            try {
+                const response = await fetch('/api/contract/provider/getLabProviderName', {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ wallet })
+                });
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    const result = { name: null };
-                    cacheManager.set(cacheKey, result, 60000); // Cache 404s
-                    return result;
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        devLog.log(`ℹ️ UserContext: fetchProviderName(${wallet}) - Provider not found (404), caching null result`);
+                        const result = { name: null };
+                        cacheManager.set(cacheKey, result, 60000); // Cache 404s for 1 minute
+                        return result;
+                    }
+                    throw createNetworkError("Failed to fetch provider name", {
+                        status: response.status,
+                        wallet
+                    });
                 }
-                throw createNetworkError("Failed to fetch provider name", {
-                    status: response.status,
-                    wallet
+
+                const data = await response.json();
+                
+                // Ensure we always have the expected structure
+                const result = {
+                    name: data?.name || null,
+                    ...data
+                };
+                
+                devLog.log(`✅ UserContext: fetchProviderName(${wallet}) - Found name: ${result.name}`);
+                
+                // Cache the result
+                cacheManager.set(cacheKey, result, 300000); // 5 minutes
+                
+                return result;
+            } catch (fetchError) {
+                // Handle fetch-level errors (network, etc.)
+                devLog.warn(`⚠️ UserContext: fetchProviderName(${wallet}) - Fetch error:`, fetchError.message);
+                throw fetchError;
+            }
+        }, 3, 1000).catch(error => {
+            // Only log actual errors, not expected 404s
+            if (!error.message?.includes('404')) {
+                handleError(error, {
+                    context: 'fetchProviderName',
+                    wallet,
+                    severity: ErrorSeverity.LOW,
+                    category: ErrorCategory.NETWORK
                 });
             }
-
-            const data = await response.json();
-            
-            // Ensure we always have the expected structure
-            const result = {
-                name: data?.name || null,
-                ...data
-            };
-            
-            // Cache the result
-            cacheManager.set(cacheKey, result, 300000); // 5 minutes
-            
-            return result;
-        }, 3, 1000).catch(error => {
-            handleError(error, {
-                context: 'fetchProviderName',
-                wallet,
-                severity: ErrorSeverity.LOW,
-                category: ErrorCategory.NETWORK
-            });
             
             // Return default structure instead of throwing
             return { name: null };

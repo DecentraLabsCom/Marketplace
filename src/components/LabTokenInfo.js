@@ -43,7 +43,7 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
         <div className="flex justify-between">
           <span className="text-gray-300">$LAB Balance:</span>
           <span className="text-white font-mono">
-            {Math.floor(parseFloat(formatTokenAmount(balance || 0n)) * 100) / 100} $LAB
+            {formatTokenAmount(balance || 0n)} $LAB
           </span>
         </div>
 

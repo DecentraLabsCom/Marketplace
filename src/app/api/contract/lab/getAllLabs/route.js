@@ -53,10 +53,12 @@ async function getLabTokenDecimals() {
 }
 
 // Function to convert price from token units to human format
+// Keep price per second as stored in contract, UI will handle per hour conversion
 function convertPriceToHuman(priceString, decimals) {
   if (!priceString || priceString === '0') return 0;
   
   try {
+    // Convert from wei to decimal format (per second, as stored in contract)
     return parseFloat(formatUnits(BigInt(priceString), decimals));
   } catch (error) {
     devLog.error('Error converting price to human format:', error);
@@ -129,13 +131,13 @@ export async function GET() {
               Promise.race([
                 contract.getLab(labId),
                 new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error(`getLab timeout for ${labId}`)), 5000)
+                  setTimeout(() => reject(new Error(`getLab timeout for ${labId}`)), 12000) // Reduced to 12s
                 )
               ]),
               Promise.race([
                 contract.ownerOf(labId),
                 new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error(`ownerOf timeout for ${labId}`)), 5000)
+                  setTimeout(() => reject(new Error(`ownerOf timeout for ${labId}`)), 12000) // Reduced to 12s
                 )
               ]),
             ]);

@@ -1,15 +1,17 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useLabs } from '@/context/LabContext';
 import { useUser } from '@/context/UserContext';
+import { useLabs } from '@/context/LabContext';
+import { useBookings } from '@/context/BookingContext';
 import LabCard from "@/components/LabCard";
 import { LabCardGridSkeleton } from '@/components/skeletons';
 import isBookingActive from '@/utils/isBookingActive';
 
 export default function Market() {
   const searchInputRef = useRef(null);
-  const { labs, loading } = useLabs();
   const { isLoggedIn } = useUser();
+  const { labs, loading } = useLabs();
+  const { userBookings, bookingsStatus } = useBookings();
   
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
@@ -219,8 +221,11 @@ export default function Market() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 min-[1024px]:grid-cols-3 gap-6">
           {Array.isArray(searchFilteredLabs) && searchFilteredLabs.map((lab) => {
+            // Filter user bookings for this specific lab using BookingContext
+            const labUserBookings = isLoggedIn ? 
+              (userBookings?.filter(booking => booking.labId === lab.id) || []) : [];
             const hasActiveBooking = isLoggedIn ? 
-              isBookingActive(lab.userBookings) : false;
+              isBookingActive(labUserBookings) : false;
             return (
               <LabCard key={lab.id} {...lab} 
                         activeBooking={hasActiveBooking} 

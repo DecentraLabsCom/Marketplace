@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
 import { useNotifications } from '@/context/NotificationContext';
@@ -127,8 +127,12 @@ export default function ProviderDashboard() {
     // Convert price from user input to token units for blockchain operations
     if (labData.price && decimals) {
       try {
-        // Convert the price to token units (multiply by decimals)
-        const priceInTokenUnits = parseUnits(labData.price.toString(), decimals);
+        // Convert hourly price (UI) to per-second price (contract format)
+        const pricePerHour = parseFloat(labData.price.toString());
+        const pricePerSecond = pricePerHour / 3600; // Convert to per-second
+        
+        // Convert the per-second price to token units (multiply by decimals)
+        const priceInTokenUnits = parseUnits(pricePerSecond.toString(), decimals);
         labData = { ...labData, price: priceInTokenUnits.toString() };
       } catch (error) {
         devLog.error('Error converting price to token units:', error);
@@ -212,8 +216,10 @@ export default function ProviderDashboard() {
         if (txHash) {
           setLastTxHash(txHash);
           setTxType('update');
-          // Store pending data with human-readable price for consistent local state
-          setPendingData({ ...labData, price: originalPrice });
+          // Store pending data with per-second price
+          const pricePerHour = parseFloat(originalPrice);
+          const pricePerSecond = pricePerHour / 3600;
+          setPendingData({ ...labData, price: pricePerSecond });
         } else {
           throw new Error('No transaction hash received');
         }
@@ -306,7 +312,10 @@ export default function ProviderDashboard() {
         }
 
         if (txHash) {
-          const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address };
+          // Convert price from token units back to per-second decimal for cache consistency
+          const priceInTokenUnits = BigInt(labData.price);
+          const pricePerSecond = parseFloat(formatUnits(priceInTokenUnits, decimals));
+          const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address, price: pricePerSecond };
           setLastTxHash(txHash);
           setTxType('add');
           setPendingData(newLabRecord);
