@@ -6,12 +6,13 @@ import { useBookings } from '@/context/BookingContext';
 import LabCard from "@/components/LabCard";
 import { LabCardGridSkeleton } from '@/components/skeletons';
 import isBookingActive from '@/utils/isBookingActive';
+import { useRealTimeBookingUpdates } from '@/hooks/useRealTimeBookingUpdates';
 
 export default function Market() {
   const searchInputRef = useRef(null);
   const { isLoggedIn } = useUser();
   const { labs, loading } = useLabs();
-  const { userBookings, bookingsStatus } = useBookings();
+  const { userBookings, bookingsStatus, refreshBookings } = useBookings();
   
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
@@ -19,6 +20,9 @@ export default function Market() {
   const [selectedFilter, setSelectedFilter] = useState("Keyword");
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
   const [searchDebounce, setSearchDebounce] = useState("");
+
+  // Enable real-time updates for booking states
+  useRealTimeBookingUpdates(userBookings, isLoggedIn, refreshBookings);
 
   // Get all lab categories and providersusing memoization
   const categories = useMemo(() => {
