@@ -7,8 +7,6 @@ import pLimit from 'p-limit';
 import { formatUnits } from 'viem';
 import { simLabsData } from '@/utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
-import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
-import { defaultChain } from '@/utils/networkConfig';
 import getIsVercel from '@/utils/isVercel';
 
 // Server-side cache with TTL (15 minutes - increased to reduce API calls)
@@ -26,17 +24,8 @@ async function getLabTokenDecimals() {
   }
   
   try {
-    const contract = await getContractInstance();
-    const chainName = defaultChain.name.toLowerCase();
-    const labTokenAddress = contractAddressesLAB[chainName];
-    
-    if (!labTokenAddress) {
-      devLog.warn('LAB token address not found for chain:', chainName);
-      return 6; // Default to 6 decimals for LAB token
-    }
-    
-    // Create LAB token contract instance
-    const labTokenContract = new contract.constructor(labTokenAddress, labTokenABI, contract.runner);
+    // Get LAB token contract instance directly
+    const labTokenContract = await getContractInstance('lab');
     
     // Direct call with timeout
     labTokenDecimals = await Promise.race([
@@ -45,6 +34,9 @@ async function getLabTokenDecimals() {
         setTimeout(() => reject(new Error('decimals() timeout')), 5000)
       )
     ]);
+    
+    // Convert BigInt to number for compatibility
+    labTokenDecimals = Number(labTokenDecimals);
     
     return labTokenDecimals;
   } catch (error) {
