@@ -12,7 +12,7 @@ import devLog from '@/utils/logger';
 const ReservationEventContext = createContext();
 
 export function ReservationEventProvider({ children }) {
-    const { chain } = useAccount();
+    const { chain, address } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { labs } = useLabs();
@@ -33,6 +33,9 @@ export function ReservationEventProvider({ children }) {
     
     // Store mapping of reservationKey to event data for precise optimistic booking updates
     const reservationEventData = useRef(new Map()); // Map<reservationKey, {labId, start, end, renter}>
+    
+    // Timeout tracking for pending reservations (auto-cleanup after 5 minutes)
+    const pendingReservationTimeouts = useRef(new Map()); // Map<reservationKey, timeoutId>
 
     // Function to update both user and lab bookings for cross-user propagation
     const updateAllRelevantBookings = useCallback(async (labId, reason = 'event') => {
@@ -159,6 +162,66 @@ export function ReservationEventProvider({ children }) {
         }, delay);
     }, [updateAllRelevantBookings, updateAllLabBookings]);
 
+    // Enhanced timeout and fallback system for stuck reservations
+    const setupReservationTimeout = useCallback((reservationKey, labId, timeoutMinutes = 5) => {
+        // Clear any existing timeout for this reservation
+        if (pendingReservationTimeouts.current.has(reservationKey)) {
+            clearTimeout(pendingReservationTimeouts.current.get(reservationKey));
+        }
+
+        // Set new timeout
+        const timeoutId = setTimeout(async () => {
+            devLog.warn(`⏰ Reservation timeout reached for ${reservationKey} after ${timeoutMinutes} minutes`);
+            
+            // Check if reservation is still in processing state
+            if (processingReservations.has(reservationKey)) {
+                devLog.warn(`🔄 Forcing blockchain refetch for stuck reservation: ${reservationKey}`);
+                
+                // Remove from processing state
+                setProcessingReservations(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(reservationKey);
+                    devLog.log(`🧹 Removed stuck reservation from processing: ${reservationKey}`);
+                    return newSet;
+                });
+                
+                // Force complete cache invalidation and blockchain refetch
+                invalidateBookingCache();
+                
+                // Trigger comprehensive update
+                if (labId) {
+                    await updateAllRelevantBookings(labId, 'timeout_fallback');
+                } else {
+                    await updateAllLabBookings('timeout_fallback');
+                }
+                
+                // Show user notification about the fallback
+                addPersistentNotification('warning', 
+                    '⚠️ Reservation status updated from blockchain due to delayed confirmation.'
+                );
+            }
+            
+            // Clean up
+            pendingReservationTimeouts.current.delete(reservationKey);
+            reservationEventData.current.delete(reservationKey);
+            
+        }, timeoutMinutes * 60 * 1000); // Convert minutes to milliseconds
+        
+        // Store timeout ID for cleanup
+        pendingReservationTimeouts.current.set(reservationKey, timeoutId);
+        
+        devLog.log(`⏰ Set ${timeoutMinutes}min timeout for reservation: ${reservationKey}`);
+    }, [processingReservations, invalidateBookingCache, updateAllRelevantBookings, updateAllLabBookings, addPersistentNotification]);
+
+    // Clean up timeout when reservation is resolved
+    const clearReservationTimeout = useCallback((reservationKey) => {
+        if (pendingReservationTimeouts.current.has(reservationKey)) {
+            clearTimeout(pendingReservationTimeouts.current.get(reservationKey));
+            pendingReservationTimeouts.current.delete(reservationKey);
+            devLog.log(`🧹 Cleared timeout for resolved reservation: ${reservationKey}`);
+        }
+    }, []);
+
     // Enhanced event handlers with collision prevention
 
     // Listen for ReservationRequested events
@@ -207,25 +270,39 @@ export function ReservationEventProvider({ children }) {
             return;
         }
         
-        // Remove from processing
-        setProcessingReservations(prev => {
-            const newSet = new Set(prev);
-            const hadKey = newSet.has(reservationKey);
-            newSet.delete(reservationKey);
-            
-            devLog.log('➖ Removing reservation key from processing:', { 
-                reservationKey, 
-                hadKey, 
-                remaining: Array.from(newSet) 
+        // Get stored event data to check if this is current user's reservation
+        const confirmedEventData = reservationEventData.current.get(reservationKey);
+        const isCurrentUserReservation = confirmedEventData && address && 
+            confirmedEventData.renter.toLowerCase() === address.toLowerCase();
+        
+        // Remove from processing ONLY if it's the current user's reservation
+        if (isCurrentUserReservation) {
+            setProcessingReservations(prev => {
+                const newSet = new Set(prev);
+                const hadKey = newSet.has(reservationKey);
+                newSet.delete(reservationKey);
+                
+                devLog.log('➖ Removing reservation key from processing (current user):', { 
+                    reservationKey, 
+                    hadKey, 
+                    remaining: Array.from(newSet),
+                    currentUser: address 
+                });
+                
+                return newSet;
             });
-            
-            return newSet;
-        });
+        } else {
+            devLog.log('ℹ️ Skipping processing removal for other user:', { 
+                reservationKey, 
+                eventDataRenter: confirmedEventData?.renter, 
+                currentUser: address 
+            });
+        }
         
         // Update optimistic booking status to confirmed (status: "1")
         try {
-            // Get stored event data for precise matching
-            const eventData = reservationEventData.current.get(reservationKey);
+            // Get stored event data for precise matching (reuse confirmedEventData from above)
+            const eventData = confirmedEventData;
             
             if (eventData) {
                 // Use precise matching with stored event data
@@ -349,26 +426,40 @@ export function ReservationEventProvider({ children }) {
             return;
         }
         
-        // Remove from processing
-        setProcessingReservations(prev => {
-            const newSet = new Set(prev);
-            const hadKey = newSet.has(reservationKey);
-            newSet.delete(reservationKey);
-            
-            devLog.log('➖ Removing reservation key (denied):', { 
-                reservationKey, 
-                hadKey, 
-                remaining: Array.from(newSet) 
+        // Get stored event data to check if this is current user's reservation
+        const deniedEventData = reservationEventData.current.get(reservationKey);
+        const isCurrentUserReservation = deniedEventData && address && 
+            deniedEventData.renter.toLowerCase() === address.toLowerCase();
+        
+        // Remove from processing ONLY if it's the current user's reservation
+        if (isCurrentUserReservation) {
+            setProcessingReservations(prev => {
+                const newSet = new Set(prev);
+                const hadKey = newSet.has(reservationKey);
+                newSet.delete(reservationKey);
+                
+                devLog.log('➖ Removing reservation key (denied - current user):', { 
+                    reservationKey, 
+                    hadKey, 
+                    remaining: Array.from(newSet),
+                    currentUser: address 
+                });
+                
+                return newSet;
             });
-            
-            return newSet;
-        });
+        } else {
+            devLog.log('ℹ️ Skipping processing removal for other user (denied):', { 
+                reservationKey, 
+                eventDataRenter: deniedEventData?.renter, 
+                currentUser: address 
+            });
+        }
         
         // Show denial notification
         addPersistentNotification('error', '❌ Reservation denied: Reservation outside allowed dates');
         
-        // Get stored event data to update the correct lab
-        const eventData = reservationEventData.current.get(reservationKey);
+        // Get stored event data to update the correct lab (reuse deniedEventData from above)
+        const eventData = deniedEventData;
         
         // Mark for smart batch update (cleanup denied reservations)
         invalidateBookingCache(reservationKey);
@@ -438,14 +529,25 @@ export function ReservationEventProvider({ children }) {
             data: reservationEventData.current.get(reservationKey) 
         });
         
-        // Add to processing set
-        setProcessingReservations(prev => {
-            const newSet = new Set(prev).add(reservationKey);
+        // Add to processing set ONLY if it's the current user's reservation
+        if (address && renter.toString().toLowerCase() === address.toLowerCase()) {
+            setProcessingReservations(prev => {
+                const newSet = new Set(prev).add(reservationKey);
+                
+                devLog.log('➕ Adding reservation to processing (current user):', { reservationKey, total: newSet.size, currentUser: address });
+                
+                return newSet;
+            });
             
-            devLog.log('➕ Adding reservation to processing:', { reservationKey, total: newSet.size });
-            
-            return newSet;
-        });
+            // Set up timeout for automatic fallback (5 minutes)
+            setupReservationTimeout(reservationKey, tokenId.toString(), 5);
+        } else {
+            devLog.log('ℹ️ Skipping processing notification for other user:', { 
+                reservationKey, 
+                renter: renter.toString(), 
+                currentUser: address 
+            });
+        }
 
         try {
             // Get metadata URI from labs context
