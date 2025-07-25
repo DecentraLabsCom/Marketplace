@@ -8,6 +8,7 @@ import { formatUnits } from 'viem';
 import { simLabsData } from '@/utils/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
+import { defaultChain } from '@/utils/networkConfig';
 import getIsVercel from '@/utils/isVercel';
 
 // Server-side cache with TTL (15 minutes - increased to reduce API calls)
@@ -26,7 +27,7 @@ async function getLabTokenDecimals() {
   
   try {
     const contract = await getContractInstance();
-    const chainName = contract.runner?.provider?.network?.name?.toLowerCase() || 'localhost';
+    const chainName = defaultChain.name.toLowerCase();
     const labTokenAddress = contractAddressesLAB[chainName];
     
     if (!labTokenAddress) {

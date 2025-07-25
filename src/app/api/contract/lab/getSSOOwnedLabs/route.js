@@ -4,6 +4,7 @@ import { getContractInstance } from '../../utils/contractInstance';
 import { ethers } from 'ethers';
 import { formatUnits } from 'viem';
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
+import { defaultChain } from '@/utils/networkConfig';
 
 // Cache for LAB token decimals
 let labTokenDecimals = null;
@@ -16,7 +17,7 @@ async function getLabTokenDecimals() {
   
   try {
     const contract = await getContractInstance();
-    const chainName = contract.runner?.provider?.network?.name?.toLowerCase() || 'localhost';
+    const chainName = defaultChain.name.toLowerCase();
     const labTokenAddress = contractAddressesLAB[chainName];
     
     if (!labTokenAddress) {
