@@ -292,6 +292,159 @@ function BookingDataCore({ children }) {
     cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updatedUserBookings, CACHE_TTL.BOOKINGS);
   }, [userBookings]);
 
+  // Update optimistic booking status and add reservationKey
+  const updateOptimisticBookingStatus = useCallback((labId, start, end, newStatus, reservationKey) => {
+    const labIdStr = labId?.toString();
+    
+    // Update user bookings - find optimistic booking by labId, start, end
+    setUserBookings(prev => prev.map(booking => {
+      if (booking.isOptimistic && 
+          booking.labId?.toString() === labIdStr && 
+          booking.start === start && 
+          booking.end === end) {
+        return { 
+          ...booking, 
+          status: newStatus, 
+          reservationKey: reservationKey,
+          isOptimistic: false // No longer optimistic, now confirmed
+        };
+      }
+      return booking;
+    }));
+    
+    // Update lab bookings - find optimistic booking by labId, start, end
+    setLabBookings(prev => {
+      const newMap = new Map(prev);
+      if (newMap.has(labIdStr)) {
+        const updatedBookings = newMap.get(labIdStr).map(booking => {
+          if (booking.isOptimistic && 
+              booking.labId?.toString() === labIdStr && 
+              booking.start === start && 
+              booking.end === end) {
+            return { 
+              ...booking, 
+              status: newStatus, 
+              reservationKey: reservationKey,
+              isOptimistic: false // No longer optimistic, now confirmed
+            };
+          }
+          return booking;
+        });
+        newMap.set(labIdStr, updatedBookings);
+        // Update cache for this lab
+        cacheManager.set(CACHE_KEYS.LAB_BOOKINGS(labIdStr), updatedBookings, CACHE_TTL.BOOKINGS);
+      }
+      return newMap;
+    });
+
+    // Update user bookings cache
+    const updatedUserBookings = userBookings.map(booking => {
+      if (booking.isOptimistic && 
+          booking.labId?.toString() === labIdStr && 
+          booking.start === start && 
+          booking.end === end) {
+        return { 
+          ...booking, 
+          status: newStatus, 
+          reservationKey: reservationKey,
+          isOptimistic: false
+        };
+      }
+      return booking;
+    });
+    cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updatedUserBookings, CACHE_TTL.BOOKINGS);
+    
+    devLog.log('✅ Updated optimistic booking to confirmed:', { 
+      labId: labIdStr, start, end, newStatus, reservationKey 
+    });
+  }, [userBookings]);
+
+  // Update specific optimistic booking to confirmed status using blockchain event data
+  const confirmOptimisticBookingByEventData = useCallback((labId, start, end, reservationKey, newStatus = "1") => {
+    const labIdStr = labId?.toString();
+    const startNum = typeof start === 'string' ? parseInt(start) : start;
+    const endNum = typeof end === 'string' ? parseInt(end) : end;
+    
+    devLog.log('🎯 Attempting to confirm specific optimistic booking:', { 
+      labId: labIdStr, start: startNum, end: endNum, reservationKey, newStatus 
+    });
+    
+    let bookingFound = false;
+    
+    // Update user bookings - find specific optimistic booking by labId, start, end
+    setUserBookings(prev => prev.map(booking => {
+      if (booking.isOptimistic && 
+          booking.labId?.toString() === labIdStr && 
+          booking.start === startNum && 
+          booking.end === endNum) {
+        bookingFound = true;
+        devLog.log('✅ Found and updating optimistic user booking:', booking);
+        return { 
+          ...booking, 
+          status: newStatus,
+          isOptimistic: false,
+          reservationKey: reservationKey
+        };
+      }
+      return booking;
+    }));
+    
+    // Update lab bookings - find specific optimistic booking by labId, start, end
+    setLabBookings(prev => {
+      const newMap = new Map(prev);
+      if (newMap.has(labIdStr)) {
+        const updatedBookings = newMap.get(labIdStr).map(booking => {
+          if (booking.isOptimistic && 
+              booking.labId?.toString() === labIdStr && 
+              booking.start === startNum && 
+              booking.end === endNum) {
+            devLog.log('✅ Found and updating optimistic lab booking:', booking);
+            return { 
+              ...booking, 
+              status: newStatus,
+              isOptimistic: false,
+              reservationKey: reservationKey
+            };
+          }
+          return booking;
+        });
+        newMap.set(labIdStr, updatedBookings);
+        // Update cache for this lab
+        cacheManager.set(CACHE_KEYS.LAB_BOOKINGS(labIdStr), updatedBookings, CACHE_TTL.BOOKINGS);
+      }
+      return newMap;
+    });
+
+    // Update user bookings cache
+    const updatedUserBookings = userBookings.map(booking => {
+      if (booking.isOptimistic && 
+          booking.labId?.toString() === labIdStr && 
+          booking.start === startNum && 
+          booking.end === endNum) {
+        return { 
+          ...booking, 
+          status: newStatus,
+          isOptimistic: false,
+          reservationKey: reservationKey
+        };
+      }
+      return booking;
+    });
+    cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updatedUserBookings, CACHE_TTL.BOOKINGS);
+    
+    if (bookingFound) {
+      devLog.log('✅ Successfully confirmed specific optimistic booking:', { 
+        labId: labIdStr, start: startNum, end: endNum, reservationKey 
+      });
+    } else {
+      devLog.warn('⚠️ No optimistic booking found for event data:', { 
+        labId: labIdStr, start: startNum, end: endNum, reservationKey 
+      });
+    }
+    
+    return bookingFound;
+  }, [userBookings]);
+
   const removeBooking = useCallback((reservationKey) => {
     // Remove from user bookings
     setUserBookings(prev => {
@@ -340,6 +493,73 @@ function BookingDataCore({ children }) {
     return labBookings.has(labId?.toString());
   }, [labBookings]);
 
+  // Add booking to lab cache (optimistic update)
+  const addBookingToLabCache = useCallback((labId, newBooking) => {
+    const normalizedLabId = labId?.toString();
+    if (!normalizedLabId || !newBooking) {
+      devLog.warn('BookingContext: addBookingToLabCache - missing labId or booking');
+      return;
+    }
+
+    devLog.log(`✨ BookingContext: Adding booking to cache for lab ${normalizedLabId}:`, newBooking);
+    
+    setLabBookings(prev => {
+      const newMap = new Map(prev);
+      const existingBookings = newMap.get(normalizedLabId) || [];
+      
+      // Check if booking already exists (avoid duplicates)
+      const bookingExists = existingBookings.some(booking => 
+        booking.reservationKey === newBooking.reservationKey ||
+        (booking.start === newBooking.start && booking.end === newBooking.end && booking.renter === newBooking.renter)
+      );
+      
+      if (!bookingExists) {
+        const updatedBookings = [...existingBookings, newBooking];
+        newMap.set(normalizedLabId, updatedBookings);
+        
+        // Update cache
+        cacheManager.set(CACHE_KEYS.LAB_BOOKINGS(normalizedLabId), updatedBookings, CACHE_TTL.BOOKINGS);
+        
+        devLog.log(`✅ BookingContext: Added booking to lab ${normalizedLabId} cache. Total bookings: ${updatedBookings.length}`);
+      } else {
+        devLog.log(`⚠️ BookingContext: Booking already exists in lab ${normalizedLabId} cache, skipping`);
+      }
+      
+      return newMap;
+    });
+  }, []);
+
+  // Add booking to user cache (optimistic update)
+  const addBookingToCache = useCallback((newBooking) => {
+    if (!newBooking) {
+      devLog.warn('BookingContext: addBookingToCache - missing booking');
+      return;
+    }
+
+    devLog.log(`✨ BookingContext: Adding booking to user cache:`, newBooking);
+    
+    setUserBookings(prev => {
+      // Check if booking already exists (avoid duplicates)
+      const bookingExists = prev.some(booking => 
+        booking.reservationKey === newBooking.reservationKey ||
+        (booking.start === newBooking.start && booking.end === newBooking.end && booking.renter === newBooking.renter)
+      );
+      
+      if (!bookingExists) {
+        const updatedBookings = [...prev, newBooking];
+        
+        // Update cache
+        cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updatedBookings, CACHE_TTL.BOOKINGS);
+        
+        devLog.log(`✅ BookingContext: Added booking to user cache. Total bookings: ${updatedBookings.length}`);
+        return updatedBookings;
+      } else {
+        devLog.log(`⚠️ BookingContext: Booking already exists in user cache, skipping`);
+        return prev;
+      }
+    });
+  }, []);
+
   // Clear cache utility
   const clearBookingsCache = useCallback(() => {
     cacheManager.delete(CACHE_KEYS.USER_BOOKINGS);
@@ -355,6 +575,23 @@ function BookingDataCore({ children }) {
     setUserBookings([]);
   }, []);
 
+  // Clear specific lab cache utility
+  const clearLabBookingsCache = useCallback((labId) => {
+    if (!labId) return;
+    
+    const normalizedLabId = labId.toString();
+    cacheManager.delete(CACHE_KEYS.LAB_BOOKINGS(normalizedLabId));
+    
+    // Remove from state
+    setLabBookings(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(normalizedLabId);
+      return newMap;
+    });
+    
+    devLog.log(`🗑️ Cleared cache for lab ${normalizedLabId}`);
+  }, []);
+
   // Context value
   const contextValue = useMemoizedValue(() => ({
     // Data
@@ -362,7 +599,7 @@ function BookingDataCore({ children }) {
     labBookings,
     
     // Loading states
-    bookingsLoading: userBookingsLoading, // Main loading state now refers to user bookings
+    bookingsLoading: userBookingsLoading, // Main loading state refers to user bookings
     bookingsStatus,
     userBookingsLoading,
     
@@ -371,8 +608,13 @@ function BookingDataCore({ children }) {
     fetchLabBookings,
     refreshBookings,
     updateBookingStatus,
+    updateOptimisticBookingStatus,
+    confirmOptimisticBookingByEventData,
     removeBooking,
     clearBookingsCache,
+    clearLabBookingsCache,
+    addBookingToLabCache,
+    addBookingToCache,
     
     // Getters
     getLabBookings,
@@ -394,8 +636,13 @@ function BookingDataCore({ children }) {
     fetchLabBookings,
     refreshBookings,
     updateBookingStatus,
+    updateOptimisticBookingStatus,
+    confirmOptimisticBookingByEventData,
     removeBooking,
     clearBookingsCache,
+    clearLabBookingsCache,
+    addBookingToLabCache,
+    addBookingToCache,
     getLabBookings,
     getUserLabBookings,
     getCachedLabBookings,

@@ -20,11 +20,11 @@ import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
   const { labs } = useLabs();
-  const { fetchUserBookings, userBookings, refreshBookings } = useBookings();
+  const { fetchUserBookings, userBookings, refreshBookings, addBookingToCache } = useBookings();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
-  const { chain, isConnected } = useAccount();
+  const { chain, isConnected, address } = useAccount();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
   const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
@@ -44,9 +44,8 @@ export default function LabReservation({ id }) {
   // Lab bookings hook for the current lab
   const {
     labBookings,
-    isLoading: isLoadingLabBookings,
-    error: labBookingsError,
-    refetch: refetchLabBookings
+    refetch: refetchLabBookings,
+    addBookingToCache: addBookingToLabCache
   } = useLabBookings(selectedLab?.id);
 
   // Debug: Log selectedLab changes
@@ -133,8 +132,35 @@ export default function LabReservation({ id }) {
       )
     });
     const firstAvailable = availableTimes.find(t => !t.disabled);
-    setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
-  }, [date, time, selectedLab, labBookings?.length]);
+    const newSelectedTime = firstAvailable ? firstAvailable.value : '';
+    
+    // Only update if the current selection is no longer available
+    if (selectedAvailableTime && !availableTimes.find(t => t.value === selectedAvailableTime && !t.disabled)) {
+      setSelectedAvailableTime(newSelectedTime);
+    } else if (!selectedAvailableTime) {
+      setSelectedAvailableTime(newSelectedTime);
+    }
+  }, [date, time, selectedLab, labBookings?.length, selectedAvailableTime]);
+
+  // Force refresh of selected time when forceRefresh changes
+  useEffect(() => {
+    if (!selectedLab || forceRefresh === 0) return;
+    
+    const availableTimes = generateTimeOptions({
+      date,
+      interval: time,
+      bookingInfo: (labBookings || []).filter(booking => 
+        booking.status !== "4" && booking.status !== 4
+      )
+    });
+    
+    // Revalidate current selection
+    const currentlySelected = availableTimes.find(t => t.value === selectedAvailableTime);
+    if (!currentlySelected || currentlySelected.disabled) {
+      const firstAvailable = availableTimes.find(t => !t.disabled);
+      setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
+    }
+  }, [forceRefresh, selectedLab, date, time, labBookings, selectedAvailableTime]);
 
   // Debug: Log when labBookings change to verify calendar updates
   useEffect(() => {
@@ -142,8 +168,6 @@ export default function LabReservation({ id }) {
       selectedLab: selectedLab,
       labBookings: labBookings,
       labBookingsLength: labBookings?.length || 0,
-      isLoadingLabBookings: isLoadingLabBookings,
-      labBookingsError: labBookingsError
     });
     
     if (selectedLab && labBookings) {
@@ -186,12 +210,10 @@ export default function LabReservation({ id }) {
       devLog.log('❌ LabReservation: Missing selectedLab or labBookings', {
         hasSelectedLab: !!selectedLab,
         hasLabBookings: !!labBookings,
-        selectedLabId: selectedLab?.id,
-        isLoadingLabBookings: isLoadingLabBookings,
-        labBookingsError: labBookingsError
+        selectedLabId: selectedLab?.id
       });
     }
-  }, [selectedLab, labBookings, isLoadingLabBookings, labBookingsError]);
+  }, [selectedLab, labBookings]);
 
   // To avoid hydration warning in SSR
   useEffect(() => {
@@ -229,19 +251,29 @@ export default function LabReservation({ id }) {
             })
           });
           
-          // Force refresh the bookings data
-          await fetchUserBookings(true); // Refresh user bookings
-          await refetchLabBookings(); // Refresh lab bookings
+          // Force refresh the bookings data with multiple attempts
+          await Promise.all([
+            fetchUserBookings(true), // Refresh user bookings
+            refetchLabBookings() // Refresh lab bookings
+          ]);
           
-          // Force UI refresh
+          // Wait a bit and refresh again to ensure data consistency
+          setTimeout(async () => {
+            await refetchLabBookings();
+            setForceRefresh(prev => prev + 1);
+          }, 1000);
+          
+          // Force UI refresh immediately
           setForceRefresh(prev => prev + 1);
           
           devLog.log('Cache invalidated and bookings refreshed after new reservation');
         } catch (error) {
           devLog.error('Error invalidating cache after reservation:', error);
           // Still try to refresh bookings even if cache invalidation fails
-          fetchUserBookings(true); // Refresh user bookings
-          refetchLabBookings(); // Refresh lab bookings
+          await Promise.all([
+            fetchUserBookings(true), // Refresh user bookings
+            refetchLabBookings() // Refresh lab bookings
+          ]);
           setForceRefresh(prev => prev + 1); // Force UI refresh
         }
       };
@@ -301,10 +333,51 @@ export default function LabReservation({ id }) {
   };
 
   // Common notification and state management
-  const handleBookingSuccess = () => {
-    fetchUserBookings(true); // Update user bookings (force refresh)
-    refetchLabBookings(); // Update lab bookings
+  const handleBookingSuccess = async () => {
+    await Promise.all([
+      fetchUserBookings(true), // Update user bookings (force refresh)
+      refetchLabBookings() // Update lab bookings
+    ]);
+    
+    // Force UI refresh for calendar update
+    setForceRefresh(prev => prev + 1);
     setIsBooking(false);
+  };
+
+  // Optimistic cache update for immediate UI feedback
+  const addOptimisticBooking = (bookingData) => {
+    const { labId, start, timeslot, cost, optimisticBookingId } = bookingData;
+    
+    // Create optimistic booking object that matches the expected structure
+    const optimisticBooking = {
+      id: optimisticBookingId || `temp_${Date.now()}`, // Use passed ID or generate temporary ID
+      labId: labId,
+      user: address || 'current_user', // Use connected wallet address or SSO identifier
+      renter: address || 'current_user', // Add renter field for event matching
+      start: start,
+      end: start + timeslot,
+      duration: timeslot,
+      status: "0", // "0" = requested status
+      cost: cost?.toString() || "0",
+      isOptimistic: true, // Mark as optimistic for potential removal if tx fails
+      timestamp: Date.now(),
+      optimisticBookingId: optimisticBookingId // Store the optimistic ID for later reference
+    };
+
+    try {
+      // Add to both lab-specific cache and user bookings cache
+      if (selectedLab?.id) {
+        addBookingToLabCache(selectedLab.id, optimisticBooking);
+      }
+      addBookingToCache(optimisticBooking);
+      
+      // Force UI refresh for immediate calendar update
+      setForceRefresh(prev => prev + 1);
+      
+      devLog.log('✅ Optimistic booking added to cache:', optimisticBooking);
+    } catch (error) {
+      devLog.error('❌ Failed to add optimistic booking:', error);
+    }
   };
 
   // Common validation and calculation logic
@@ -374,8 +447,12 @@ export default function LabReservation({ id }) {
         throw new Error(errorData.error || 'Server booking failed');
       }
 
+      // Add optimistic booking to cache for immediate UI update
+      const optimisticBookingId = `temp_sso_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      addOptimisticBooking({ labId, start, timeslot, cost: totalCost, optimisticBookingId });
+
       // Show success notification
-      handleBookingSuccess();
+      await handleBookingSuccess();
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ');
     } finally {
@@ -466,9 +543,16 @@ export default function LabReservation({ id }) {
       const txHash = await reservationRequest([labId, start, end]);
       
       if (txHash) {
+        // Generate unique booking ID for tracking optimistic booking
+        const optimisticBookingId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         setLastTxHash(txHash);
         setTxType('reservation');
-        setPendingData({ labId, start, end, timeslot, cost });
+        setPendingData({ labId, start, end, timeslot, cost, optimisticBookingId });
+        
+        // Add optimistic booking to cache for immediate UI update
+        addOptimisticBooking({ labId, start, timeslot, cost, optimisticBookingId });
+        
         addTemporaryNotification('success', 
           `✅ Payment of ${formatBalance(cost)} LAB sent! Confirming transaction...`);
       } else {
@@ -566,7 +650,7 @@ export default function LabReservation({ id }) {
                       return null;
                     })()}
                     <CalendarWithBookings
-                      key={`calendar-${selectedLab?.id}-${labBookings?.length || 0}-${forceRefresh}-${date.getTime()}`}
+                      key={`calendar-${selectedLab?.id}-${labBookings?.length || 0}-${forceRefresh}-${date.getTime()}-${JSON.stringify(labBookings?.map(b => b.reservationKey) || [])}`}
                       selectedDate={date}
                       onDateChange={(newDate) => setDate(newDate)}
                       bookingInfo={(labBookings || []).map(booking => ({
@@ -649,16 +733,6 @@ export default function LabReservation({ id }) {
                  isReceiptError ? 'Try Again' :
                  'Make Booking'}
               </button>
-              {isLoadingLabBookings && selectedLab && (
-                <div className="mt-2 text-blue-300">
-                  📅 Loading reservations for lab {selectedLab.name}...
-                </div>
-              )}
-              {labBookingsError && (
-                <div className="mt-2 text-red-300">
-                  ❌ Error loading lab reservations: {labBookingsError}
-                </div>
-              )}
             </div>
           </>
         )}

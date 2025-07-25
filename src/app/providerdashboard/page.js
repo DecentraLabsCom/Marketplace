@@ -7,7 +7,7 @@ import { useNotifications } from '@/context/NotificationContext';
 import { useLabToken } from '@/hooks/useLabToken';
 import { useLabBookings } from '@/hooks/useLabBookings';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
-import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
+import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
 import LabModal from '@/components/LabModal';
 import devLog from '@/utils/logger';
@@ -20,6 +20,7 @@ export default function ProviderDashboard() {
   const { labs, setLabs, loading } = useLabs();
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
+  const { invalidateLabBookings, invalidateUserBookingsByLab } = useReservationEventCoordinator();
   const { decimals } = useLabToken();
   
   // State declarations
@@ -408,6 +409,22 @@ export default function ProviderDashboard() {
           });
           if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
         }
+
+        // CRITICAL: Clean up all bookings for this deleted lab
+        devLog.log('🗑️ Cleaning up all bookings for deleted lab:', labId);
+        
+        // Invalidate lab bookings (for provider view)
+        invalidateLabBookings(labId);
+        
+        // Invalidate user bookings that reference this lab (for all users)
+        await invalidateUserBookingsByLab(labId);
+        
+        devLog.log('✅ Successfully cleaned up all bookings for deleted lab:', labId);
+        
+        // Notify about booking cancellations
+        addTemporaryNotification('warning', 
+          `⚠️ Lab deleted successfully. All associated reservations have been automatically cancelled.`
+        );
       } else {
         throw new Error('No transaction hash received');
       }

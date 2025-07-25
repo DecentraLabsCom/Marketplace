@@ -14,7 +14,8 @@ export function useLabBookings(labId, autoFetch = true) {
     fetchLabBookings, 
     getLabBookings, 
     getCachedLabBookings,
-    isLabBookingsLoaded 
+    isLabBookingsLoaded,
+    addBookingToLabCache // ← Nueva función para actualización incremental
   } = useBookings();
   
   const { processingReservations } = useReservationEvents();
@@ -152,6 +153,17 @@ export function useLabBookings(labId, autoFetch = true) {
     return getBookingsByStatus(0);
   }, [getBookingsByStatus]);
 
+  // Add booking to local cache (optimistic update)
+  const addBookingToCache = useCallback((newBooking) => {
+    if (!normalizedLabId || !addBookingToLabCache) {
+      devLog.warn('useLabBookings: Cannot add booking to cache - missing labId or function');
+      return;
+    }
+    
+    devLog.log(`✨ useLabBookings: Adding booking to cache for lab ${normalizedLabId}:`, newBooking);
+    addBookingToLabCache(normalizedLabId, newBooking);
+  }, [normalizedLabId, addBookingToLabCache]);
+
   return {
     // Data
     bookings: labBookings,
@@ -163,12 +175,12 @@ export function useLabBookings(labId, autoFetch = true) {
         loading: loading
       });
       return labBookings;
-    })(), // Alias for backwards compatibility
+    })(),
     bookingsCount: labBookings.length,
     
     // Status
     loading,
-    isLoading: loading, // Alias for backwards compatibility
+    isLoading: loading,
     error,
     isLoaded,
     isFresh: isFresh(),
@@ -177,7 +189,8 @@ export function useLabBookings(labId, autoFetch = true) {
     // Actions
     fetchBookings,
     refreshBookings,
-    refetch: refreshBookings, // Alias for backwards compatibility
+    refetch: refreshBookings,
+    addBookingToCache: addBookingToLabCache, // Use the correct function from context 
     
     // Utilities
     getBookingsByStatus,

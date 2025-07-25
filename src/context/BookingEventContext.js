@@ -16,7 +16,7 @@ export function ReservationEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { labs } = useLabs();
-    const { fetchUserBookings, removeBooking } = useBookings();
+    const { fetchUserBookings, fetchLabBookings, removeBooking, updateBookingStatus, confirmOptimisticBookingByEventData } = useBookings();
     const { addPersistentNotification } = useNotifications();
     const [processingReservations, setProcessingReservations] = useState(new Set());
 
@@ -30,14 +30,102 @@ export function ReservationEventProvider({ children }) {
     const lastEventTime = useRef(new Map()); // Track last event time by type
     const pendingBookingUpdates = useRef(new Set()); // Track pending reservation keys
     const bookingUpdateTimeoutRef = useRef(null);
+    
+    // Store mapping of reservationKey to event data for precise optimistic booking updates
+    const reservationEventData = useRef(new Map()); // Map<reservationKey, {labId, start, end, renter}>
+
+    // Function to update both user and lab bookings for cross-user propagation
+    const updateAllRelevantBookings = useCallback(async (labId, reason = 'event') => {
+        if (!labId) {
+            devLog.warn('[BookingEventContext] updateAllRelevantBookings: No labId provided');
+            return;
+        }
+        
+        devLog.log(`🔄 [BookingEventContext] Updating bookings for lab ${labId} (reason: ${reason})`);
+        
+        try {
+            // Update user bookings (for current user)
+            const userBookingsPromise = fetchUserBookings(true);
+            
+            // Update lab bookings (affects all users viewing this lab)
+            const labBookingsPromise = fetchLabBookings(labId, true);
+            
+            // Execute both updates in parallel for efficiency
+            await Promise.all([userBookingsPromise, labBookingsPromise]);
+            
+            devLog.log(`✅ [BookingEventContext] Successfully updated all bookings for lab ${labId}`);
+        } catch (error) {
+            devLog.error(`❌ [BookingEventContext] Failed to update bookings for lab ${labId}:`, error);
+        }
+    }, [fetchUserBookings, fetchLabBookings]);
+
+    // Function to update ALL lab bookings when we don't have specific labId
+    const updateAllLabBookings = useCallback(async (reason = 'event') => {
+        devLog.log(`🔄 [BookingEventContext] Updating ALL lab bookings (reason: ${reason})`);
+        
+        try {
+            // Get all unique lab IDs from current booking data and context
+            const labIds = new Set();
+            
+            // Add lab IDs from labs context
+            labs?.forEach(lab => {
+                if (lab.id) labIds.add(lab.id.toString());
+            });
+            
+            // Add lab IDs from stored event data
+            reservationEventData.current.forEach(eventData => {
+                if (eventData.labId) labIds.add(eventData.labId.toString());
+            });
+            
+            devLog.log(`📊 [BookingEventContext] Found ${labIds.size} unique labs to update:`, Array.from(labIds));
+            
+            if (labIds.size === 0) {
+                devLog.warn('[BookingEventContext] No lab IDs found for bulk update');
+                return;
+            }
+            
+            // Update user bookings once
+            const userBookingsPromise = fetchUserBookings(true);
+            
+            // Update each lab's bookings
+            const labBookingsPromises = Array.from(labIds).map(labId => 
+                fetchLabBookings(labId, true).catch(error => {
+                    devLog.error(`Failed to update lab ${labId}:`, error);
+                    return null; // Don't fail the entire batch
+                })
+            );
+            
+            // Execute all updates in parallel
+            await Promise.all([userBookingsPromise, ...labBookingsPromises]);
+            
+            devLog.log(`✅ [BookingEventContext] Successfully updated user bookings and ${labIds.size} lab bookings`);
+        } catch (error) {
+            devLog.error(`❌ [BookingEventContext] Failed to update all lab bookings:`, error);
+        }
+    }, [fetchUserBookings, fetchLabBookings, labs]);
 
     // Smart cache invalidation for booking-related updates
     const invalidateBookingCache = useCallback((reservationKey = null) => {
-        if (reservationKey) {
+        if (reservationKey && reservationKey.startsWith('lab_')) {
+            // Lab-specific invalidation (e.g., 'lab_123' for deleting all bookings of lab 123)
+            const labId = reservationKey.replace('lab_', '');
+            devLog.log(`🗑️ [BookingEventContext] Invalidating all bookings for lab ${labId}`);
+            
+            // Clear all cache keys that might contain this lab's bookings
+            const cacheKeys = ['bookings_', 'labs_timestamp', `lab_bookings_${labId}`];
+            cacheKeys.forEach(key => {
+                Object.keys(sessionStorage).forEach(storageKey => {
+                    if (storageKey.startsWith(key)) {
+                        sessionStorage.removeItem(storageKey);
+                    }
+                });
+            });
+            
+        } else if (reservationKey) {
             // Selective invalidation - mark specific reservation for update
             pendingBookingUpdates.current.add(reservationKey);
         } else {
-            // Full invalidation - clear booking cache (but preserve labs cache)
+            // Full invalidation - clear all booking cache (but preserve labs cache)
             const cacheKeys = ['bookings_', 'labs_timestamp']; // Multiple user cache keys
             cacheKeys.forEach(key => {
                 Object.keys(sessionStorage).forEach(storageKey => {
@@ -50,7 +138,7 @@ export function ReservationEventProvider({ children }) {
     }, []);
 
     // Debounced batch update for multiple booking changes
-    const scheduleBookingUpdate = useCallback((delay = 300) => {
+    const scheduleBookingUpdate = useCallback((delay = 300, labId = null) => {
         if (bookingUpdateTimeoutRef.current) {
             clearTimeout(bookingUpdateTimeoutRef.current);
         }
@@ -59,10 +147,17 @@ export function ReservationEventProvider({ children }) {
             if (pendingBookingUpdates.current.size > 0) {
                 devLog.log('📊 Processing batch booking updates for keys:', Array.from(pendingBookingUpdates.current));
                 pendingBookingUpdates.current.clear();
-                fetchUserBookings(true);
+                
+                if (labId) {
+                    // Update both user and lab bookings for cross-user propagation
+                    updateAllRelevantBookings(labId, 'batch_update');
+                } else {
+                    // No specific lab ID - update all lab bookings to ensure cross-user propagation
+                    updateAllLabBookings('batch_update_all');
+                }
             }
         }, delay);
-    }, [fetchUserBookings]);
+    }, [updateAllRelevantBookings, updateAllLabBookings]);
 
     // Enhanced event handlers with collision prevention
 
@@ -102,7 +197,8 @@ export function ReservationEventProvider({ children }) {
         lastEventTime.current.set(eventKey, now);
         
         devLog.log('✅ ReservationConfirmed event received (processing):', { 
-            reservationKey, 
+            reservationKey,
+            fullArgs: args, // Log all args to see what's available
             processingReservations: Array.from(processingReservations) 
         });
         
@@ -126,6 +222,70 @@ export function ReservationEventProvider({ children }) {
             return newSet;
         });
         
+        // Update optimistic booking status to confirmed (status: "1")
+        try {
+            // Get stored event data for precise matching
+            const eventData = reservationEventData.current.get(reservationKey);
+            
+            if (eventData) {
+                // Use precise matching with stored event data
+                const success = confirmOptimisticBookingByEventData(
+                    eventData.labId, 
+                    eventData.start, 
+                    eventData.end, 
+                    reservationKey, 
+                    "1"
+                );
+                
+                if (success) {
+                    devLog.log('✅ Successfully confirmed optimistic booking using event data:', { 
+                        reservationKey, eventData 
+                    });
+                    
+                    // Update lab bookings for cross-user propagation
+                    // This ensures that other users (like providers) see the new booking
+                    updateAllRelevantBookings(eventData.labId, 'reservation_confirmed');
+                } else {
+                    devLog.warn('⚠️ Failed to find optimistic booking, triggering blockchain refetch');
+                    
+                    // Force cache invalidation and refetch from blockchain
+                    invalidateBookingCache(reservationKey);
+                    scheduleBookingUpdate(100, eventData.labId); // Pass labId for cross-user update
+                }
+                
+                // Clean up stored event data
+                reservationEventData.current.delete(reservationKey);
+            } else {
+                devLog.warn('⚠️ No stored event data found, trying alternative approach:', { reservationKey });
+                
+                // Alternative approach: try to find and update any optimistic booking with this reservationKey
+                // This can happen if events arrive out of order
+                let foundAndUpdated = false;
+                
+                // Try to update by reservationKey directly (for existing optimistic bookings)
+                try {
+                    updateBookingStatus(reservationKey, "1");
+                    foundAndUpdated = true;
+                    devLog.log('✅ Updated booking by reservationKey directly:', { reservationKey });
+                } catch (error) {
+                    devLog.warn('⚠️ Could not update by reservationKey, forcing full refetch:', error);
+                }
+                
+                if (!foundAndUpdated) {
+                    // Force cache invalidation and refetch from blockchain
+                    invalidateBookingCache(reservationKey);
+                    scheduleBookingUpdate(100); // Quick refetch to get real blockchain data
+                    devLog.warn('🔄 Forced full blockchain refetch due to missing event data');
+                }
+            }
+        } catch (error) {
+            devLog.error('Failed to confirm optimistic booking, triggering blockchain refetch:', error);
+            
+            // Force cache invalidation and refetch from blockchain
+            invalidateBookingCache(reservationKey);
+            scheduleBookingUpdate(100); // Quick refetch to get real blockchain data
+        }
+        
         // Show success notification
         addPersistentNotification('success', '✅ Reservation confirmed and recorded onchain!');
         
@@ -140,9 +300,12 @@ export function ReservationEventProvider({ children }) {
             devLog.warn('Cache invalidation request failed:', error);
         }
         
-        // Mark for smart batch update
+        // NOTE: Skipping automatic refetch since optimistic update already handled the state change
+        // Mark for smart batch update - but delay it to avoid overwriting optimistic update
         invalidateBookingCache(reservationKey);
-        scheduleBookingUpdate(500); // Short delay for confirmed reservations
+        // scheduleBookingUpdate(500); // Commented out - optimistic update is sufficient
+        
+        devLog.log('✅ ReservationConfirmed handled optimistically, skipping immediate refetch');
     };
 
     // Listen for ReservationConfirmed events to update UI
@@ -204,9 +367,18 @@ export function ReservationEventProvider({ children }) {
         // Show denial notification
         addPersistentNotification('error', '❌ Reservation denied: Reservation outside allowed dates');
         
+        // Get stored event data to update the correct lab
+        const eventData = reservationEventData.current.get(reservationKey);
+        
         // Mark for smart batch update (cleanup denied reservations)
         invalidateBookingCache(reservationKey);
-        scheduleBookingUpdate(300); // Quick update for denied reservations
+        if (eventData && eventData.labId) {
+            scheduleBookingUpdate(300, eventData.labId); // Cross-user update with labId
+            // Clean up stored event data
+            reservationEventData.current.delete(reservationKey);
+        } else {
+            scheduleBookingUpdate(300); // Fallback without labId
+        }
     };
 
     // Listen for ReservationRequestDenied events to update UI
@@ -252,6 +424,19 @@ export function ReservationEventProvider({ children }) {
             devLog.error('❌ ReservationRequested event missing required arguments:', args);
             return;
         }
+        
+        // Store event data for precise optimistic booking matching
+        reservationEventData.current.set(reservationKey, {
+            labId: tokenId.toString(),
+            start: parseInt(start.toString()),
+            end: parseInt(end.toString()),
+            renter: renter.toString()
+        });
+        
+        devLog.log('📝 Stored reservation event data for mapping:', { 
+            reservationKey, 
+            data: reservationEventData.current.get(reservationKey) 
+        });
         
         // Add to processing set
         setProcessingReservations(prev => {
@@ -318,9 +503,9 @@ export function ReservationEventProvider({ children }) {
                     body: JSON.stringify({ reason: 'ReservationRequested', reservationKey })
                 });
                 
-                // Trigger booking updates to show the pending reservation
+                // Trigger booking updates to show the pending reservation for all users
                 invalidateBookingCache(reservationKey);
-                scheduleBookingUpdate(200); // Quick update for new pending reservations
+                scheduleBookingUpdate(200, tokenId.toString()); // Pass labId for cross-user update
                 
                 devLog.log('📅 Cache invalidated for new pending reservation:', reservationKey);
             } catch (cacheError) {
@@ -373,9 +558,29 @@ export function ReservationEventProvider({ children }) {
         // Efficiently remove the canceled booking from existing state
         removeBooking(reservationKey);
         
-        // Mark for smart batch update
+        // For canceled bookings, we need to ensure cross-user propagation
+        // Since we don't have labId directly, we'll update all lab bookings
         invalidateBookingCache(reservationKey);
-        scheduleBookingUpdate(400); // Medium delay for canceled bookings
+        
+        // Try to get labId from stored event data first
+        let labIdForUpdate = null;
+        reservationEventData.current.forEach((eventData, key) => {
+            if (key === reservationKey || eventData.renter === args?.renter) {
+                labIdForUpdate = eventData.labId;
+            }
+        });
+        
+        if (labIdForUpdate) {
+            scheduleBookingUpdate(400, labIdForUpdate); // Update specific lab
+            devLog.log('🔄 Scheduled targeted cross-user update for booking cancellation:', { reservationKey, labId: labIdForUpdate });
+        } else {
+            // Fallback: update all lab bookings to ensure cross-user propagation
+            scheduleBookingUpdate(400); // This will trigger updateAllLabBookings
+            devLog.log('🔄 Scheduled comprehensive cross-user update for booking cancellation:', { reservationKey });
+        }
+        
+        // Clean up any stored event data for this reservation
+        reservationEventData.current.delete(reservationKey);
     };
 
     // Enhanced ReservationRequestCanceled handler with collision prevention
@@ -414,9 +619,21 @@ export function ReservationEventProvider({ children }) {
         // Efficiently remove the canceled request from existing state
         removeBooking(reservationKey);
         
+        // Get stored event data for cross-user propagation
+        const eventData = reservationEventData.current.get(reservationKey);
+        
         // Mark for smart batch update
         invalidateBookingCache(reservationKey);
-        scheduleBookingUpdate(300); // Quick update for request cancellations
+        if (eventData && eventData.labId) {
+            scheduleBookingUpdate(300, eventData.labId); // Cross-user update with labId
+            // Clean up stored event data
+            reservationEventData.current.delete(reservationKey);
+            devLog.log('🔄 Scheduled targeted cross-user update for request cancellation:', { reservationKey, labId: eventData.labId });
+        } else {
+            // Fallback: update all lab bookings to ensure cross-user propagation
+            scheduleBookingUpdate(300); // This will trigger updateAllLabBookings
+            devLog.log('🔄 Scheduled comprehensive cross-user update for request cancellation:', { reservationKey });
+        }
     };
 
     // Listen for BookingCanceled events to update info
@@ -448,6 +665,8 @@ export function ReservationEventProvider({ children }) {
             processingReservations,
             invalidateBookingCache,
             scheduleBookingUpdate,
+            updateAllRelevantBookings,
+            updateAllLabBookings,
             pendingBookingUpdates: pendingBookingUpdates.current,
             setManualUpdateInProgress,
             isManualUpdateInProgress

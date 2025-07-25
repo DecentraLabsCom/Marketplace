@@ -234,7 +234,7 @@ export default function UserDashboard() {
           }
           throw error;
         }
-      }, bookingKey);
+      }, bookingKey, booking.labId); // Pass labId for cross-user propagation
     } catch (error) {
       // If the transaction fails immediately, don't add to canceling state
       devLog.error('Cancellation initiation failed:', error);
@@ -284,7 +284,7 @@ export default function UserDashboard() {
           }
           throw error;
         }
-      }, bookingKey);
+      }, bookingKey, booking.labId); // Pass labId for cross-user propagation
     } catch (error) {
       // If the transaction fails immediately, don't add to canceling state
       devLog.error('Cancellation initiation failed:', error);
