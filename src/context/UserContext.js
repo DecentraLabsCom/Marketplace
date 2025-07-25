@@ -51,6 +51,27 @@ function UserDataCore({ children }) {
     // Memoized login status
     const isLoggedIn = useMemoizedValue(() => isConnected || isSSO, [isConnected, isSSO]);
 
+    // Request deduplication tracking
+    const [activeRequests] = useState(() => new Set());
+    
+    // Helper to create unique request key
+    const getRequestKey = useCallback((identifier, isEmail = false, type = 'status') => {
+        return `${type}_${identifier}_${isEmail}`;
+    }, []);
+
+    // Helper to check if request is already in progress
+    const isRequestInProgress = useCallback((requestKey) => {
+        return activeRequests.has(requestKey);
+    }, [activeRequests]);
+
+    // Helper to track request start/end
+    const trackRequest = useCallback((requestKey, promise) => {
+        activeRequests.add(requestKey);
+        return promise.finally(() => {
+            activeRequests.delete(requestKey);
+        });
+    }, [activeRequests]);
+
     // Optimistic state management for better UX
     useEffect(() => {
         if (isLoggedIn && debouncedAddress) {
@@ -143,7 +164,15 @@ function UserDataCore({ children }) {
     }, [handleError]);
 
     const fetchProviderStatus = useCallback(async (identifier, isEmail = false) => {
-        return retryWithBackoff(async () => {
+        const requestKey = getRequestKey(identifier, isEmail, 'status');
+        
+        // Check if request is already in progress
+        if (isRequestInProgress(requestKey)) {
+            devLog.log(`⏳ UserContext: fetchProviderStatus(${identifier}) - Request already in progress, skipping`);
+            return { isLabProvider: false }; // Return cached or default value
+        }
+
+        return trackRequest(requestKey, retryWithBackoff(async () => {
             // Create cache key
             const cacheKey = `provider_status_${identifier}_${isEmail}`;
             
@@ -219,11 +248,19 @@ function UserDataCore({ children }) {
             
             // Return default structure instead of throwing
             return { isLabProvider: false };
-        });
-    }, [handleError, retryWithBackoff]);
+        }));
+    }, [handleError, retryWithBackoff, getRequestKey, isRequestInProgress, trackRequest]);
 
     const fetchProviderName = useCallback(async (wallet) => {
-        return retryWithBackoff(async () => {
+        const requestKey = getRequestKey(wallet, false, 'name');
+        
+        // Check if request is already in progress
+        if (isRequestInProgress(requestKey)) {
+            devLog.log(`⏳ UserContext: fetchProviderName(${wallet}) - Request already in progress, skipping`);
+            return { name: null }; // Return default value
+        }
+
+        return trackRequest(requestKey, retryWithBackoff(async () => {
             // Create cache key
             const cacheKey = `provider_name_${wallet}`;
             
@@ -245,7 +282,7 @@ function UserDataCore({ children }) {
 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        devLog.log(`ℹ️ UserContext: fetchProviderName(${wallet}) - Provider not found (404), caching null result`);
+                        devLog.log(`ℹ️ UserContext: fetchProviderName(${wallet}) - Not a provider (expected 404), caching null result`);
                         const result = { name: null };
                         cacheManager.set(cacheKey, result, 60000); // Cache 404s for 1 minute
                         return result;
@@ -288,8 +325,8 @@ function UserDataCore({ children }) {
             
             // Return default structure instead of throwing
             return { name: null };
-        });
-    }, [handleError, retryWithBackoff]);
+        }));
+    }, [handleError, retryWithBackoff, getRequestKey, isRequestInProgress, trackRequest]);
 
     // Check SSO session on mount
     useEffect(() => {
@@ -392,19 +429,29 @@ function UserDataCore({ children }) {
                         setIsProvider(Boolean(data.isLabProvider));
                     }
                 } else if (debouncedAddress) {
-                    // Wallet user - parallel calls for better UX, each handles its own errors
-                    const [statusResult, nameResult] = await Promise.allSettled([
-                        fetchProviderStatus(debouncedAddress, false),
-                        fetchProviderName(debouncedAddress)
-                    ]);
+                    // Wallet user - first check provider status, then fetch name only if they are a provider
+                    const statusResult = await fetchProviderStatus(debouncedAddress, false);
+                    
+                    let nameResult = { status: 'fulfilled', value: { name: null } };
+                    
+                    // Only fetch provider name if user is actually a provider
+                    if (statusResult?.isLabProvider) {
+                        devLog.log(`ℹ️ UserContext: User is a provider, fetching name`);
+                        nameResult = await Promise.allSettled([
+                            fetchProviderName(debouncedAddress)
+                        ]).then(results => results[0]);
+                    } else {
+                        devLog.log(`ℹ️ UserContext: User is not a provider, skipping name fetch`);
+                        // Cache that this user is not a provider to avoid future name calls
+                        cacheManager.set(`provider_name_${debouncedAddress}`, { name: null }, 300000);
+                    }
                     
                     if (mounted) {
                         // Handle provider status
-                        const isProviderStatus = statusResult.status === 'fulfilled' ? 
-                            Boolean(statusResult.value?.isLabProvider) : false;
+                        const isProviderStatus = Boolean(statusResult?.isLabProvider);
                         setIsProvider(isProviderStatus);
                         
-                        // Handle provider name (optimistically try to get it)
+                        // Handle provider name
                         const providerName = nameResult.status === 'fulfilled' ? 
                             (nameResult.value?.name || null) : null;
                         
@@ -478,18 +525,19 @@ function UserDataCore({ children }) {
                 cacheManager.remove(`provider_status_${address}_false`);
                 cacheManager.remove(`provider_name_${address}`);
                 
-                // Parallel calls for better UX
-                const [statusResult, nameResult] = await Promise.allSettled([
-                    fetchProviderStatus(address, false),
-                    fetchProviderName(address)
-                ]);
-                
-                const isProviderStatus = statusResult.status === 'fulfilled' ? 
-                    Boolean(statusResult.value?.isLabProvider) : false;
+                // Sequential calls - first check status, then name only if provider
+                const statusResult = await fetchProviderStatus(address, false);
+                const isProviderStatus = Boolean(statusResult?.isLabProvider);
                 setIsProvider(isProviderStatus);
                 
-                const providerName = nameResult.status === 'fulfilled' ? 
-                    (nameResult.value?.name || null) : null;
+                let providerName = null;
+                if (isProviderStatus) {
+                    const nameResult = await fetchProviderName(address);
+                    providerName = nameResult?.name || null;
+                } else {
+                    // Cache that this user is not a provider
+                    cacheManager.set(`provider_name_${address}`, { name: null }, 300000);
+                }
                 
                 setUser(prev => ({
                     ...prev,
