@@ -22,7 +22,7 @@ export function LabEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { setLabs, fetchLabs } = useLabs();
-    const { fetchUserBookings } = useBookings();
+    const { fetchUserBookings, clearBookingsCache } = useBookings();
 
     // Debouncing and state management for intelligent updates
     const lastEventTime = useRef(new Map()); // Track last event time by type
@@ -72,6 +72,21 @@ export function LabEventProvider({ children }) {
         }
     }, []);
 
+    // Invalidate booking data for a specific lab
+    const invalidateLabBookingData = useCallback((labId) => {
+        if (labId) {
+            // Clear the specific lab booking cache
+            const cacheKey = `lab_bookings_${labId}`;
+            sessionStorage.removeItem(cacheKey);
+            sessionStorage.removeItem(`${cacheKey}_timestamp`);
+            
+            // Also force refresh user bookings since they might be affected
+            fetchUserBookings(true);
+            
+            devLog.log(`🗑️ Invalidated booking data for lab ${labId}`);
+        }
+    }, [fetchUserBookings]);
+
     // Debounced batch update for multiple lab changes
     const scheduleLabsUpdate = useCallback((delay = 500) => {
         if (updateTimeoutRef.current) {
@@ -118,9 +133,7 @@ export function LabEventProvider({ children }) {
                 price: args._price?.toString() || "0",
                 auth: args._auth || "",
                 accessURI: args._accessURI || "",
-                accessKey: args._accessKey || "",
-                bookingInfo: [], // Empty initially
-                userBookings: [] // Empty initially
+                accessKey: args._accessKey || ""
             };
 
             // If we have a metadata URI, try to fetch additional metadata
@@ -145,10 +158,7 @@ export function LabEventProvider({ children }) {
                     const updatedLabs = [...prev];
                     updatedLabs[existingLabIndex] = { 
                         ...updatedLabs[existingLabIndex], 
-                        ...newLab,
-                        // Preserve existing booking data if available
-                        bookingInfo: updatedLabs[existingLabIndex].bookingInfo || [],
-                        userBookings: updatedLabs[existingLabIndex].userBookings || []
+                        ...newLab
                     };
                     return updatedLabs;
                 } else {
@@ -159,7 +169,7 @@ export function LabEventProvider({ children }) {
 
             // Update cache timestamp to prevent unnecessary fetches
             invalidateLabCache(labId);
-
+            
             devLog.log('✅ Successfully processed LabAdded event:', newLab);    
         } catch (error) {
             devLog.error('❌ Error handling LabAdded event:', error);
@@ -196,14 +206,16 @@ export function LabEventProvider({ children }) {
             // Only update cache if there was actually a change
             if (filteredLabs.length !== prev.length) {
                 invalidateLabCache(deletedLabId);
+                // Invalidate booking data for the deleted lab
+                invalidateLabBookingData(deletedLabId);
                 devLog.log('✅ Successfully removed lab from state:', deletedLabId);
             }
             
             return filteredLabs;
         });
         
-        // Force refresh user bookings to get updated data
-        fetchUserBookings(true);
+        // Force refresh user bookings to get updated data (remove this since it's now handled by invalidateLabBookingData)
+        // fetchUserBookings(true);
     }
 
     function handleLabUpdated(args) {
@@ -274,6 +286,7 @@ export function LabEventProvider({ children }) {
     return (
         <LabEventContext.Provider value={{ 
             invalidateLabCache,
+            invalidateLabBookingData,
             scheduleLabsUpdate,
             isManualUpdateInProgress,
             setManualUpdateInProgress,

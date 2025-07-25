@@ -119,92 +119,206 @@ export async function GET() {
     // Each lab makes 2 contract calls (getLab + ownerOf)
     const limit = pLimit(4);
 
-    // Batch process labs with better error handling
-    const labs = await Promise.allSettled(
+    // Function to fetch single lab with retries
+    async function fetchLabWithRetry(labId, maxRetries = 3, baseDelay = 1000) {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Parallelize contract calls
+          const [labData, providerAddress] = await Promise.all([
+            Promise.race([
+              contract.getLab(labId),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`getLab timeout for ${labId}`)), 12000)
+              )
+            ]),
+            Promise.race([
+              contract.ownerOf(labId),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(`ownerOf timeout for ${labId}`)), 12000)
+              )
+            ]),
+          ]);
+
+          // Optimized metadata fetching with fallbacks
+          let metadata = await fetchMetadataOptimized(labData.base.uri, labId, isVercel);
+
+          // Parse attributes
+          const attrs = parseAttributes(metadata.attributes);
+          const providerName = providerMap[providerAddress.toLowerCase()] || providerAddress;
+
+          // Return lab data directly for first attempt, structured response for retries
+          const labResult = {
+            id: labId,
+            name: metadata?.name ?? `Lab ${labId}`,
+            category: attrs?.category ?? "",
+            keywords: attrs?.keywords ?? [],
+            price: convertPriceToHuman(labData.base.price.toString(), decimals),
+            description: metadata?.description ?? "No description available.",
+            provider: providerName, 
+            providerAddress: providerAddress,
+            auth: labData.base.auth?.toString() ?? "",
+            accessURI: labData.base.accessURI?.toString() ?? "",
+            accessKey: labData.base.accessKey?.toString() ?? "",
+            timeSlots: attrs?.timeSlots ?? [60],
+            opens: attrs?.opens ?? "",
+            closes: attrs?.closes ?? "",
+            docs: attrs?.docs ?? [],
+            images: [metadata?.image, ...(attrs.additionalImages ?? [])].filter(Boolean),
+            uri: labData.base.uri,
+          };
+
+          // For single attempt (first try), return lab data directly for speed
+          if (maxRetries === 1) {
+            return labResult;
+          }
+          
+          // For retry attempts, return structured response
+          return {
+            success: true,
+            data: labResult
+          };
+        } catch (error) {
+          // For first attempt, let the error bubble up to be handled by Promise.allSettled
+          if (maxRetries === 1) {
+            throw error;
+          }
+          
+          devLog.warn(`Attempt ${attempt + 1} failed for lab ${labId}:`, error.message);
+          
+          if (attempt === maxRetries - 1) {
+            // Final attempt failed
+            devLog.error(`All ${maxRetries} attempts failed for lab ${labId}:`, error);
+            return {
+              success: false,
+              labId: labId,
+              error: error.message,
+              data: {
+                id: labId,
+                name: `Lab ${labId}`,
+                category: "",
+                keywords: [],
+                price: 0,
+                description: "Lab data temporarily unavailable",
+                provider: "Unknown",
+                providerAddress: "",
+                auth: "",
+                accessURI: "",
+                accessKey: "",
+                timeSlots: [60],
+                opens: "",
+                closes: "",
+                docs: [],
+                images: [],
+                uri: "",
+              }
+            };
+          }
+          
+          // Wait before retry with exponential backoff
+          const delay = baseDelay * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // First attempt: batch process all labs (optimized for speed)
+    const initialResults = await Promise.allSettled(
       labIds.map(async (labIdRaw) =>
         limit(async () => {
           const labId = labIdRaw.toString();
-
-          try {
-            // Parallelize contract calls
-            const [labData, providerAddress] = await Promise.all([
-              Promise.race([
-                contract.getLab(labId),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error(`getLab timeout for ${labId}`)), 12000) // Reduced to 12s
-                )
-              ]),
-              Promise.race([
-                contract.ownerOf(labId),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error(`ownerOf timeout for ${labId}`)), 12000) // Reduced to 12s
-                )
-              ]),
-            ]);
-
-            // Optimized metadata fetching with fallbacks
-            let metadata = await fetchMetadataOptimized(labData.base.uri, labId, isVercel);
-
-            // Parse attributes
-            const attrs = parseAttributes(metadata.attributes);
-            const providerName = providerMap[providerAddress.toLowerCase()] || providerAddress;
-
-            return {
-              id: labId,
-              name: metadata?.name ?? `Lab ${labId}`,
-              category: attrs?.category ?? "",
-              keywords: attrs?.keywords ?? [],
-              price: convertPriceToHuman(labData.base.price.toString(), decimals),
-              description: metadata?.description ?? "No description available.",
-              provider: providerName, 
-              providerAddress: providerAddress,
-              auth: labData.base.auth?.toString() ?? "",
-              accessURI: labData.base.accessURI?.toString() ?? "",
-              accessKey: labData.base.accessKey?.toString() ?? "",
-              timeSlots: attrs?.timeSlots ?? [60],
-              opens: attrs?.opens ?? "",
-              closes: attrs?.closes ?? "",
-              docs: attrs?.docs ?? [],
-              images: [metadata?.image, ...(attrs.additionalImages ?? [])].filter(Boolean),
-              uri: labData.base.uri,
-            };
-          } catch (error) {
-            devLog.error(`Error processing lab ${labId}:`, error);
-            // Return minimal lab data on error
-            return {
-              id: labId,
-              name: `Lab ${labId}`,
-              category: "",
-              keywords: [],
-              price: 0,
-              description: "Lab data temporarily unavailable",
-              provider: "Unknown",
-              providerAddress: "",
-              auth: "",
-              accessURI: "",
-              accessKey: "",
-              timeSlots: [60],
-              opens: "",
-              closes: "",
-              docs: [],
-              images: [],
-              uri: "",
-            };
-          }
+          return await fetchLabWithRetry(labId, 1); // Single attempt first
         })
       )
     );
 
-    // Filter successful results
-    const successfulLabs = labs
-      .filter(result => result.status === 'fulfilled')
-      .map(result => result.value);
-
-    // Log failed labs for monitoring
-    const failedLabs = labs.filter(result => result.status === 'rejected');
-    if (failedLabs.length > 0) {
-      devLog.warn(`Failed to fetch ${failedLabs.length} labs`);
+    // Quick check: if all succeeded, return immediately (same speed as before)
+    const allSucceeded = initialResults.every(result => result.status === 'fulfilled');
+    
+    if (allSucceeded) {
+      const successfulLabs = initialResults.map(result => result.value);
+      
+      // Update cache and return immediately
+      labsCache = successfulLabs;
+      cacheTimestamp = now;
+      
+      return Response.json(successfulLabs, { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, max-age=300',
+        }
+      });
     }
+
+    // If some failed, proceed with retry logic
+    devLog.log(`Processing ${labIds.length} labs with retry mechanism - ${initialResults.filter(r => r.status === 'rejected').length} failed`);
+    
+    // Separate successful and failed results
+    const successfulLabs = [];
+    const failedLabIds = [];
+
+    initialResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successfulLabs.push(result.value);
+      } else {
+        const labId = labIds[index].toString();
+        failedLabIds.push(labId);
+        devLog.error(`Lab ${labId} failed:`, result.reason?.message || result.reason);
+      }
+    });
+
+    devLog.log(`Initial batch: ${successfulLabs.length} successful, ${failedLabIds.length} failed`);
+
+    // Retry failed labs with more attempts and longer delays
+    if (failedLabIds.length > 0) {
+      devLog.log(`Retrying ${failedLabIds.length} failed labs...`);
+      
+      const retryResults = await Promise.allSettled(
+        failedLabIds.map(async (labId) =>
+          limit(async () => {
+            return await fetchLabWithRetry(labId, 3, 2000); // 3 attempts with 2s base delay
+          })
+        )
+      );
+
+      // Process retry results
+      retryResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          if (result.value.success) {
+            successfulLabs.push(result.value.data);
+            devLog.log(`Successfully recovered lab ${result.value.data.id} on retry`);
+          } else {
+            // Still failed after retries, add fallback data
+            successfulLabs.push(result.value.data);
+            devLog.error(`Lab ${result.value.labId} failed after all retries: ${result.value.error}`);
+          }
+        } else {
+          // Final fallback for completely failed promises
+          const labId = failedLabIds[index];
+          successfulLabs.push({
+            id: labId,
+            name: `Lab ${labId}`,
+            category: "",
+            keywords: [],
+            price: 0,
+            description: "Lab data unavailable after retries",
+            provider: "Unknown",
+            providerAddress: "",
+            auth: "",
+            accessURI: "",
+            accessKey: "",
+            timeSlots: [60],
+            opens: "",
+            closes: "",
+            docs: [],
+            images: [],
+            uri: "",
+          });
+          devLog.error(`Complete failure for lab ${labId}:`, result.reason);
+        }
+      });
+    }
+
+    devLog.log(`Final results: ${successfulLabs.length} labs processed successfully`);
 
     // Update cache
     labsCache = successfulLabs;

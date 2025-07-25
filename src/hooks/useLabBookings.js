@@ -56,11 +56,11 @@ export function useLabBookings(labId, autoFetch = true) {
     setError(null);
 
     try {
-      devLog.log(`useLabBookings: Fetching bookings for lab ${normalizedLabId}`);
+      devLog.log(`🔍 useLabBookings: Fetching bookings for lab ${normalizedLabId}`);
       const bookings = await fetchLabBookings(normalizedLabId, force);
+      devLog.log(`✅ useLabBookings: Successfully fetched ${bookings.length} bookings for lab ${normalizedLabId}:`, bookings);
       setLastFetchTime(Date.now());
       setHasFetched(true); // Mark as successfully fetched
-      devLog.log(`useLabBookings: Successfully fetched ${bookings.length} bookings for lab ${normalizedLabId}`);
       return bookings;
     } catch (err) {
       devLog.error(`useLabBookings: Error fetching lab ${normalizedLabId} bookings:`, err);
@@ -155,7 +155,15 @@ export function useLabBookings(labId, autoFetch = true) {
   return {
     // Data
     bookings: labBookings,
-    labBookings, // Alias for backwards compatibility
+    labBookings: (() => {
+      devLog.log(`🔍 useLabBookings: Returning labBookings for lab ${normalizedLabId}:`, {
+        labBookings: labBookings,
+        bookingsCount: labBookings.length,
+        isLoaded: isLoaded,
+        loading: loading
+      });
+      return labBookings;
+    })(), // Alias for backwards compatibility
     bookingsCount: labBookings.length,
     
     // Status

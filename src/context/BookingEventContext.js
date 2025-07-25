@@ -310,6 +310,23 @@ export function ReservationEventProvider({ children }) {
             const result = await response.json();
             devLog.log('✅ Process reservation API result:', result);
             
+            // Invalidate cache immediately to show the pending reservation
+            try {
+                await fetch('/api/contract/reservation/invalidateCache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: 'ReservationRequested', reservationKey })
+                });
+                
+                // Trigger booking updates to show the pending reservation
+                invalidateBookingCache(reservationKey);
+                scheduleBookingUpdate(200); // Quick update for new pending reservations
+                
+                devLog.log('📅 Cache invalidated for new pending reservation:', reservationKey);
+            } catch (cacheError) {
+                devLog.warn('Cache invalidation failed for pending reservation:', cacheError);
+            }
+            
             // Note: We don't remove from processing here because the actual
             // confirmation/denial will come via ReservationConfirmed/ReservationDenied events
         } catch (error) {

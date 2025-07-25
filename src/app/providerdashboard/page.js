@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useLabToken } from '@/hooks/useLabToken';
+import { useLabBookings } from '@/hooks/useLabBookings';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
 import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
@@ -20,6 +21,13 @@ export default function ProviderDashboard() {
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
   const { decimals } = useLabToken();
+  
+  // State declarations
+  const [ownedLabs, setOwnedLabs] = useState([]);
+  const [selectedLabId, setSelectedLabId] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const { labBookings, isLoading: bookingsLoading } = useLabBookings(selectedLabId);
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
@@ -42,9 +50,6 @@ export default function ProviderDashboard() {
     enabled: !!lastTxHash
   });
 
-  const [ownedLabs, setOwnedLabs] = useState([]);
-  const [selectedLabId, setSelectedLabId] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
@@ -88,16 +93,13 @@ export default function ProviderDashboard() {
 
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
   
-  // Log when selectedLab changes to verify updates are reflected
-  useEffect(() => {
-    if (selectedLab) {
-      devLog.log('ProviderDashboard: Selected lab updated:', {
-        id: selectedLab.id,
-        name: selectedLab.name,
-        price: selectedLab.price
-      });
-    }
-  }, [selectedLab]);
+  const bookingInfo = (selectedLab && labBookings) 
+    ? labBookings.map(booking => ({
+        ...booking,
+        labName: selectedLab.name,
+        status: booking.status
+      }))
+    : [];
 
   // Calendar
   const today = new Date();
@@ -601,13 +603,7 @@ export default function ProviderDashboard() {
                 <CalendarWithBookings
                   selectedDate={date}
                   onDateChange={(newDate) => setDate(newDate)}
-                  bookingInfo={ownedLabs.flatMap(lab => 
-                    (lab.bookingInfo || []).map(booking => ({
-                      ...booking,
-                      labName: lab.name,
-                      status: booking.status
-                    }))
-                  )}
+                  bookingInfo={bookingInfo}
                   minDate={today}
                   filterDate={() => false}
                   displayMode="provider-dashboard"

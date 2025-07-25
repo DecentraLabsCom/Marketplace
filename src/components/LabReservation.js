@@ -8,6 +8,7 @@ import { useReservationEvents } from "@/context/BookingEventContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useLabToken } from "@/hooks/useLabToken";
 import { useLabBookings } from "@/hooks/useLabBookings";
+import { useRealTimeBookingUpdates } from '@/hooks/useRealTimeBookingUpdates';
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import LabTokenInfo from '@/components/LabTokenInfo';
@@ -19,7 +20,7 @@ import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
   const { labs } = useLabs();
-  const { fetchUserBookings } = useBookings();
+  const { fetchUserBookings, userBookings, refreshBookings } = useBookings();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
@@ -30,11 +31,15 @@ export default function LabReservation({ id }) {
   const [selectedLab, setSelectedLab] = useState(null);
   const [isClient, setIsClient] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [forceRefresh, setForceRefresh] = useState(0); // For forcing UI refreshes
   
   // Transaction state management (modernized pattern)
   const [lastTxHash, setLastTxHash] = useState(null);
   const [txType, setTxType] = useState(null); // 'reservation', 'approval'
   const [pendingData, setPendingData] = useState(null);
+  
+  // Enable real-time updates for booking states
+  useRealTimeBookingUpdates(userBookings, isConnected, refreshBookings);
   
   // Lab bookings hook for the current lab
   const {
@@ -43,6 +48,17 @@ export default function LabReservation({ id }) {
     error: labBookingsError,
     refetch: refetchLabBookings
   } = useLabBookings(selectedLab?.id);
+
+  // Debug: Log selectedLab changes
+  useEffect(() => {
+    console.log('🔍 LabReservation: selectedLab effect triggered:', {
+      selectedLab: selectedLab,
+      selectedLabId: selectedLab?.id,
+      selectedLabName: selectedLab?.name,
+      labs: labs?.length,
+      labsAvailable: labs?.map(l => ({ id: l.id, name: l.name }))
+    });
+  }, [selectedLab, labs]);
   
   // Lab token hook for payment handling
   const { 
@@ -76,9 +92,26 @@ export default function LabReservation({ id }) {
 
   // Select the lab by id
   useEffect(() => {
+    devLog.log('🔍 LabReservation: Lab selection effect triggered:', {
+      labsLength: labs.length,
+      id: id,
+      labsAvailable: labs.map(l => ({ id: l.id, name: l.name }))
+    });
+    
     if (labs.length && id) {
       const currentLab = labs.find((lab) => lab.id == id);
+      devLog.log('🔍 LabReservation: Found lab for id:', {
+        searchId: id,
+        foundLab: currentLab ? { id: currentLab.id, name: currentLab.name } : null
+      });
       setSelectedLab(currentLab);
+    } else {
+      devLog.log('❌ LabReservation: Cannot select lab:', {
+        hasLabs: labs.length > 0,
+        hasId: !!id,
+        labsLength: labs.length,
+        id: id
+      });
     }
   }, [id, labs]);
 
@@ -101,7 +134,64 @@ export default function LabReservation({ id }) {
     });
     const firstAvailable = availableTimes.find(t => !t.disabled);
     setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
-  }, [date, time, selectedLab, labBookings.length]); // Use labBookings.length to avoid infinite loops
+  }, [date, time, selectedLab, labBookings?.length]);
+
+  // Debug: Log when labBookings change to verify calendar updates
+  useEffect(() => {
+    devLog.log('🔍 LabReservation: labBookings effect triggered:', {
+      selectedLab: selectedLab,
+      labBookings: labBookings,
+      labBookingsLength: labBookings?.length || 0,
+      isLoadingLabBookings: isLoadingLabBookings,
+      labBookingsError: labBookingsError
+    });
+    
+    if (selectedLab && labBookings) {
+      devLog.log('✅ LabReservation: Lab bookings updated', {
+        labId: selectedLab.id,
+        labName: selectedLab.name,
+        bookingsCount: labBookings.length,
+        bookings: labBookings.map(b => ({
+          reservationKey: b.reservationKey,
+          start: b.start,
+          end: b.end,
+          status: b.status,
+          date: b.date,
+          labId: b.labId,
+          renter: b.renter
+        }))
+      });
+      
+      // Additional debug: Check which bookings are future
+      const now = new Date();
+      const futureBookings = labBookings.filter(booking => {
+        if (!booking.start) return false;
+        const startDate = new Date(parseInt(booking.start) * 1000);
+        return startDate > now;
+      });
+      
+      devLog.log('📅 LabReservation: Future bookings analysis', {
+        labId: selectedLab.id,
+        labName: selectedLab.name,
+        totalBookings: labBookings.length,
+        futureBookings: futureBookings.length,
+        futureBookingsDetails: futureBookings.map(b => ({
+          reservationKey: b.reservationKey,
+          startDate: new Date(parseInt(b.start) * 1000).toISOString(),
+          status: b.status,
+          renter: b.renter
+        }))
+      });
+    } else {
+      devLog.log('❌ LabReservation: Missing selectedLab or labBookings', {
+        hasSelectedLab: !!selectedLab,
+        hasLabBookings: !!labBookings,
+        selectedLabId: selectedLab?.id,
+        isLoadingLabBookings: isLoadingLabBookings,
+        labBookingsError: labBookingsError
+      });
+    }
+  }, [selectedLab, labBookings, isLoadingLabBookings, labBookingsError]);
 
   // To avoid hydration warning in SSR
   useEffect(() => {
@@ -143,12 +233,16 @@ export default function LabReservation({ id }) {
           await fetchUserBookings(true); // Refresh user bookings
           await refetchLabBookings(); // Refresh lab bookings
           
+          // Force UI refresh
+          setForceRefresh(prev => prev + 1);
+          
           devLog.log('Cache invalidated and bookings refreshed after new reservation');
         } catch (error) {
           devLog.error('Error invalidating cache after reservation:', error);
           // Still try to refresh bookings even if cache invalidation fails
           fetchUserBookings(true); // Refresh user bookings
           refetchLabBookings(); // Refresh lab bookings
+          setForceRefresh(prev => prev + 1); // Force UI refresh
         }
       };
       
@@ -444,7 +538,35 @@ export default function LabReservation({ id }) {
                 <div className="w-full lg:w-72 flex flex-col items-center lg:items-start">
                   <label className="block text-lg font-semibold mb-2">Select the date:</label>
                   <div className="w-fit">
+                    {/* Enhanced debugging for calendar data */}
+                    {(() => {
+                      const calendarBookingInfo = (labBookings || []).map(booking => ({
+                        ...booking,
+                        labName: selectedLab?.name,
+                        status: booking.status
+                      }));
+                      
+                      devLog.log('📊 LabReservation: Calendar booking info prepared', {
+                        selectedLabId: selectedLab?.id,
+                        selectedLabName: selectedLab?.name,
+                        originalLabBookings: labBookings?.length || 0,
+                        calendarBookingInfo: calendarBookingInfo.length,
+                        calendarData: calendarBookingInfo.map(b => ({
+                          reservationKey: b.reservationKey,
+                          labId: b.labId,
+                          start: b.start,
+                          end: b.end,
+                          status: b.status,
+                          startDate: b.start ? new Date(parseInt(b.start) * 1000).toISOString() : 'invalid',
+                          endDate: b.end ? new Date(parseInt(b.end) * 1000).toISOString() : 'invalid',
+                          renter: b.renter
+                        }))
+                      });
+                      
+                      return null;
+                    })()}
                     <CalendarWithBookings
+                      key={`calendar-${selectedLab?.id}-${labBookings?.length || 0}-${forceRefresh}-${date.getTime()}`}
                       selectedDate={date}
                       onDateChange={(newDate) => setDate(newDate)}
                       bookingInfo={(labBookings || []).map(booking => ({
@@ -474,6 +596,7 @@ export default function LabReservation({ id }) {
                   <div>
                     <label className="block text-lg font-semibold mb-2">Starting time:</label>
                     <select
+                      key={`time-dropdown-${selectedLab?.id}-${labBookings?.length || 0}-${forceRefresh}-${date.getTime()}`}
                       className={`w-full p-3 border-2 ${availableTimes.some(t => !t.disabled) ? 
                         'bg-gray-800 text-white' : 'bg-gray-600 text-gray-400'} rounded`}
                       value={selectedAvailableTime}

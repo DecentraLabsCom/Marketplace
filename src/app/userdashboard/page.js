@@ -90,6 +90,15 @@ export default function UserDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
+
+  const bookingInfo = userBookings.map(booking => {
+    const lab = labs.find(l => l.id === booking.labId);
+    return {
+      ...booking,
+      labName: lab?.name ?? `Lab ${booking.labId}`,
+      status: booking.status
+    };
+  });
   
   // State for optimistic UI updates
   const [failedCancellations, setFailedCancellations] = useState(new Set());
@@ -575,13 +584,7 @@ export default function UserDashboard() {
                   <CalendarWithBookings
                     selectedDate={date}
                     onDateChange={(newDate) => setDate(newDate)}
-                    bookingInfo={labs.flatMap(lab =>
-                      (lab.bookingInfo || []).map(booking => ({
-                        ...booking,
-                        labName: lab.name,
-                        status: booking.status
-                      }))
-                    )}
+                    bookingInfo={bookingInfo}
                     minDate={today}
                     displayMode="user-dashboard"
                   />

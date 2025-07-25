@@ -199,54 +199,170 @@ async function handleRequest(labId, clearCache = false) {
     // Fetch detailed reservation data for each lab reservation
     devLog.log(`[${requestId}] 🔍 Fetching detailed data for ${reservationCount} reservations...`);
     
-    const reservationPromises = Array.from({ length: reservationCount }, async (_, index) => {
-      try {
-        // Get reservation key by index for this lab
-        const reservationKey = await Promise.race([
-          contract.getReservationOfTokenByIndex(labId, index),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`Key fetch timeout for index ${index}`)), 3000)
-          )
-        ]);
-        
-        if (!reservationKey || reservationKey === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-          devLog.warn(`[${requestId}] ⚠️ Invalid reservation key for lab ${labId} index ${index}`);
-          return null;
+    // Function to fetch single reservation with retries
+    async function fetchReservationWithRetry(index, maxRetries = 3, baseDelay = 1000) {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          // Get reservation key by index for this lab
+          const reservationKey = await Promise.race([
+            contract.getReservationOfTokenByIndex(labId, index),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Key fetch timeout for index ${index}`)), 3000)
+            )
+          ]);
+          
+          if (!reservationKey || reservationKey === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+            devLog.warn(`[${requestId}] ⚠️ Invalid reservation key for lab ${labId} index ${index}`);
+            return null;
+          }
+          
+          // Get detailed reservation data
+          const reservation = await Promise.race([
+            contract.getReservation(reservationKey),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Reservation fetch timeout for key ${reservationKey}`)), 3000)
+            )
+          ]);
+          
+          if (!reservation) {
+            devLog.warn(`[${requestId}] ⚠️ No reservation data for key ${reservationKey}`);
+            return null;
+          }
+          
+          const reservationResult = {
+            reservationKey: reservationKey,
+            labId: reservation.labId.toString(),
+            renter: reservation.renter,
+            price: reservation.price?.toString() || "0",
+            start: reservation.start.toString(),
+            end: reservation.end.toString(),
+            status: reservation.status.toString(),
+            date: new Date(parseInt(reservation.start) * 1000).toLocaleDateString('en-US'),
+            id: index
+          };
+
+          // For single attempt (first try), return reservation data directly for speed
+          if (maxRetries === 1) {
+            return reservationResult;
+          }
+          
+          // For retry attempts, return structured response
+          return {
+            success: true,
+            data: reservationResult
+          };
+          
+        } catch (error) {
+          // For first attempt, let the error bubble up to be handled by Promise.allSettled
+          if (maxRetries === 1) {
+            throw error;
+          }
+          
+          devLog.warn(`[${requestId}] Attempt ${attempt + 1} failed for lab ${labId} reservation index ${index}:`, error.message);
+          
+          if (attempt === maxRetries - 1) {
+            // Final attempt failed
+            devLog.error(`[${requestId}] All ${maxRetries} attempts failed for lab ${labId} reservation index ${index}:`, error);
+            return {
+              success: false,
+              index: index,
+              error: error.message,
+              data: null
+            };
+          }
+          
+          // Wait before retry with exponential backoff
+          const delay = baseDelay * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-        
-        // Get detailed reservation data
-        const reservation = await Promise.race([
-          contract.getReservation(reservationKey),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(`Reservation fetch timeout for key ${reservationKey}`)), 3000)
-          )
-        ]);
-        
-        if (!reservation) {
-          devLog.warn(`[${requestId}] ⚠️ No reservation data for key ${reservationKey}`);
-          return null;
+      }
+    }
+
+    // First attempt: batch process all reservations (optimized for speed)
+    const initialResults = await Promise.allSettled(
+      Array.from({ length: reservationCount }, async (_, index) => {
+        return await fetchReservationWithRetry(index, 1); // Single attempt first
+      })
+    );
+
+    // Quick check: if all succeeded, return immediately (same speed as before)
+    const allSucceeded = initialResults.every(result => result.status === 'fulfilled' && result.value !== null);
+    
+    if (allSucceeded) {
+      const validReservations = initialResults
+        .map(result => result.value)
+        .filter(res => res !== null);
+      
+      const blockchainTime = Date.now() - blockchainStartTime;
+      
+      // Cache the results and return immediately
+      setCache(labId, validReservations);
+      
+      const totalTime = Date.now() - startTime;
+      devLog.log(`[${requestId}] ✅ Request completed successfully (fast path):`, {
+        labId,
+        reservationsCount: validReservations.length,
+        totalTime: `${totalTime}ms`,
+        blockchainTime: `${blockchainTime}ms`
+      });
+
+      return Response.json(validReservations, {
+        status: 200,
+        headers: {
+          'X-Cache': 'MISS',
+          'X-Request-ID': requestId,
+          'X-Response-Time': `${totalTime}ms`,
+          'X-Blockchain-Time': `${blockchainTime}ms`
         }
-        
-        return {
-          reservationKey: reservationKey,
-          labId: reservation.labId.toString(),
-          renter: reservation.renter,
-          price: reservation.price?.toString() || "0",
-          start: reservation.start.toString(),
-          end: reservation.end.toString(),
-          status: reservation.status.toString(),
-          date: new Date(parseInt(reservation.start) * 1000).toLocaleDateString('en-US'),
-          id: index
-        };
-        
-      } catch (error) {
-        devLog.warn(`[${requestId}] ⚠️ Failed to get reservation at index ${index} for lab ${labId}:`, error.message);
-        return null;
+      });
+    }
+
+    // If some failed, proceed with retry logic
+    const successfulReservations = [];
+    const failedIndices = [];
+
+    initialResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value !== null) {
+        successfulReservations.push(result.value);
+      } else {
+        failedIndices.push(index);
+        if (result.status === 'rejected') {
+          devLog.error(`[${requestId}] Lab ${labId} reservation index ${index} failed:`, result.reason?.message || result.reason);
+        }
       }
     });
 
-    const reservationResults = await Promise.all(reservationPromises);
-    const validReservations = reservationResults.filter(res => res !== null);
+    devLog.log(`[${requestId}] Initial batch: ${successfulReservations.length} successful, ${failedIndices.length} failed`);
+
+    // Retry failed reservations with more attempts and longer delays
+    if (failedIndices.length > 0) {
+      devLog.log(`[${requestId}] Retrying ${failedIndices.length} failed reservations...`);
+      
+      const retryResults = await Promise.allSettled(
+        failedIndices.map(async (index) => {
+          return await fetchReservationWithRetry(index, 3, 2000); // 3 attempts with 2s base delay
+        })
+      );
+
+      // Process retry results
+      retryResults.forEach((result, retryIndex) => {
+        const originalIndex = failedIndices[retryIndex];
+        
+        if (result.status === 'fulfilled') {
+          if (result.value && result.value.success && result.value.data) {
+            successfulReservations.push(result.value.data);
+            devLog.log(`[${requestId}] Successfully recovered lab ${labId} reservation index ${originalIndex} on retry`);
+          } else if (result.value && !result.value.success) {
+            devLog.error(`[${requestId}] Lab ${labId} reservation index ${originalIndex} failed after all retries: ${result.value.error}`);
+            // Don't add failed reservations to the final result
+          }
+        } else {
+          devLog.error(`[${requestId}] Complete failure for lab ${labId} reservation index ${originalIndex}:`, result.reason);
+        }
+      });
+    }
+
+    const validReservations = successfulReservations.filter(res => res !== null);
     
     const blockchainTime = Date.now() - blockchainStartTime;
     
