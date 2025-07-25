@@ -26,7 +26,6 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
     
-    const startTime = Date.now();
     devLog.log(`🔍 Getting lab provider name for wallet: ${wallet}`);
     
     // Retry with backoff for better reliability

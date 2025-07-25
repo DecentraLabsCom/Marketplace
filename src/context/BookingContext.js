@@ -47,7 +47,7 @@ function BookingDataCore({ children }) {
   const debouncedAddress = useDebounced(address, 1500); // 1.5 seconds debounce
 
   // Enhanced loading states
-  const [bookingsStatus, setBookingsStatus] = useState({
+  const [bookingsStatus] = useState({
     isLoading: false,
     hasError: false,
     lastFetch: null,
@@ -136,7 +136,7 @@ function BookingDataCore({ children }) {
     } finally {
       setUserBookingsLoading(false);
     }
-  }, [debouncedAddress, handleError]);
+  }, [debouncedAddress, handleError, CACHE_KEYS.USER_BOOKINGS, lastUserBookingsFetch, userBookings]);
 
   // Manual refresh with rate limiting bypass
   const refreshBookings = useCallback(async () => {
@@ -209,7 +209,7 @@ function BookingDataCore({ children }) {
       });
       return [];
     }
-  }, [handleError]); // Removed CACHE_KEYS dependency as it's memoized
+  }, [handleError, CACHE_KEYS]); // Added CACHE_KEYS dependency
 
   // Initialize user bookings when address changes
   useEffect(() => {
@@ -256,7 +256,7 @@ function BookingDataCore({ children }) {
     return () => {
       mounted = false;
     };
-  }, [debouncedAddress]);
+  }, [debouncedAddress, CACHE_KEYS.USER_BOOKINGS, fetchUserBookings]);
 
   // Booking state mutations
   const updateBookingStatus = useCallback((reservationKey, newStatus) => {
@@ -290,7 +290,7 @@ function BookingDataCore({ children }) {
         : booking
     );
     cacheManager.set(CACHE_KEYS.USER_BOOKINGS, updatedUserBookings, CACHE_TTL.BOOKINGS);
-  }, [userBookings]);
+  }, [userBookings, CACHE_KEYS]);
 
   // Update optimistic booking status and add reservationKey
   const updateOptimisticBookingStatus = useCallback((labId, start, end, newStatus, reservationKey) => {
@@ -357,7 +357,7 @@ function BookingDataCore({ children }) {
     devLog.log('✅ Updated optimistic booking to confirmed:', { 
       labId: labIdStr, start, end, newStatus, reservationKey 
     });
-  }, [userBookings]);
+  }, [userBookings, CACHE_KEYS]);
 
   // Update specific optimistic booking to confirmed status using blockchain event data
   const confirmOptimisticBookingByEventData = useCallback((labId, start, end, reservationKey, newStatus = "1") => {
@@ -443,7 +443,7 @@ function BookingDataCore({ children }) {
     }
     
     return bookingFound;
-  }, [userBookings]);
+  }, [userBookings, CACHE_KEYS]);
 
   const removeBooking = useCallback((reservationKey) => {
     // Remove from user bookings
@@ -465,7 +465,7 @@ function BookingDataCore({ children }) {
       });
       return newMap;
     });
-  }, []);
+  }, [CACHE_KEYS]);
 
   // Get bookings for a specific lab (from lab-specific cache only)
   const getLabBookings = useCallback((labId) => {
@@ -527,7 +527,7 @@ function BookingDataCore({ children }) {
       
       return newMap;
     });
-  }, []);
+  }, [CACHE_KEYS]);
 
   // Add booking to user cache (optimistic update)
   const addBookingToCache = useCallback((newBooking) => {
@@ -558,7 +558,7 @@ function BookingDataCore({ children }) {
         return prev;
       }
     });
-  }, []);
+  }, [CACHE_KEYS.USER_BOOKINGS]);
 
   // Clear cache utility
   const clearBookingsCache = useCallback(() => {
@@ -573,7 +573,7 @@ function BookingDataCore({ children }) {
     });
     
     setUserBookings([]);
-  }, []);
+  }, [CACHE_KEYS]);
 
   // Clear specific lab cache utility
   const clearLabBookingsCache = useCallback((labId) => {
@@ -590,7 +590,7 @@ function BookingDataCore({ children }) {
     });
     
     devLog.log(`🗑️ Cleared cache for lab ${normalizedLabId}`);
-  }, []);
+  }, [CACHE_KEYS]);
 
   // Context value
   const contextValue = useMemoizedValue(() => ({

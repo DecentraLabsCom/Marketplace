@@ -1,5 +1,5 @@
 "use client"
-import { createContext, useContext, useState, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useRef, useCallback, useEffect } from "react";
 import { useWatchContractEvent } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { useBookings } from "@/context/BookingContext";
