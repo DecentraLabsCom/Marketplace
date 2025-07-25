@@ -153,17 +153,6 @@ export function useLabBookings(labId, autoFetch = true) {
     return getBookingsByStatus(0);
   }, [getBookingsByStatus]);
 
-  // Add booking to local cache (optimistic update)
-  const addBookingToCache = useCallback((newBooking) => {
-    if (!normalizedLabId || !addBookingToLabCache) {
-      devLog.warn('useLabBookings: Cannot add booking to cache - missing labId or function');
-      return;
-    }
-    
-    devLog.log(`✨ useLabBookings: Adding booking to cache for lab ${normalizedLabId}:`, newBooking);
-    addBookingToLabCache(normalizedLabId, newBooking);
-  }, [normalizedLabId, addBookingToLabCache]);
-
   return {
     // Data
     bookings: labBookings,

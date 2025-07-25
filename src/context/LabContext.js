@@ -153,7 +153,7 @@ function LabDataCore({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [handleError]);
+  }, [handleError, isLoading, labs, lastFetch, setLabs]);
 
   // Initial load effect - optimized to prevent redundant calls
   useEffect(() => {
@@ -199,7 +199,7 @@ function LabDataCore({ children }) {
       devLog.log('LabContext: useEffect cleanup - setting mounted to false');
       mounted = false;
     };
-  }, []); // Remove fetchLabs dependency to prevent re-runs
+  }, [fetchLabs, isInitialized, isLoading, labs.length, setLabs]); // Added missing dependencies
 
   // Smart refresh effect - background refresh of stale cache
   useEffect(() => {

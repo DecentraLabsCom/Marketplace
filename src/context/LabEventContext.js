@@ -22,7 +22,7 @@ export function LabEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { setLabs, fetchLabs } = useLabs();
-    const { fetchUserBookings, clearBookingsCache } = useBookings();
+    const { fetchUserBookings } = useBookings();
 
     // Debouncing and state management for intelligent updates
     const lastEventTime = useRef(new Map()); // Track last event time by type

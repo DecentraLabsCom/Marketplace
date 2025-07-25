@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
+import { defaultNetworks, alchemyNetworks, ankrNetworks, 
         quicknodeNetworks, chainstackNetworks } from '@/utils/networkConfig';
 import devLog from '@/utils/logger';
 
@@ -17,7 +17,6 @@ export default async function getProvider(network) {
         return cached.provider;
     }
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
-    let moralisProjectId = process.env.NEXT_PUBLIC_MORALIS_ID;
     let ankrProjectId = process.env.NEXT_PUBLIC_ANKR_ID;
     let quicknodeProjectId = process.env.NEXT_PUBLIC_QUICKNODE_ID;
     let chainstackProjectId = process.env.NEXT_PUBLIC_CHAINSTACK_ID;

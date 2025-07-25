@@ -11,7 +11,6 @@ export function useReservationEventCoordinator() {
   const { fetchUserBookings, removeBooking } = useBookings();
   const { 
     invalidateBookingCache, 
-    scheduleBookingUpdate,
     updateAllRelevantBookings,
     updateAllLabBookings,
     setManualUpdateInProgress,
