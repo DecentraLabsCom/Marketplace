@@ -97,12 +97,6 @@ async function handleRequest(userAddress, clearCache = false) {
     let contract;
     try {
       contract = await getContractInstance();
-      devLog.log(`[${requestId}] 🔍 Contract debug info:`, {
-        contractAddress: contract.address || contract.target,
-        hasReservationsOf: typeof contract.reservationsOf === 'function',
-        hasReservationKeyOfUserByIndex: typeof contract.reservationKeyOfUserByIndex === 'function',
-        hasGetReservation: typeof contract.getReservation === 'function',
-      });
     } catch (contractError) {
       devLog.error(`[${requestId}] ❌ Contract instance failed:`, contractError.message);
       throw new Error('RPC_UNAVAILABLE');
@@ -359,7 +353,7 @@ async function handleRequest(userAddress, clearCache = false) {
       } else {
         failedIndices.push(index);
         if (result.status === 'rejected') {
-          devLog.error(`[${requestId}] Reservation index ${index} failed:`, result.reason?.message || result.reason);
+          devLog.error(`[${requestId}] Reservation index ${index} failed.`);
         }
       }
     });
@@ -385,7 +379,7 @@ async function handleRequest(userAddress, clearCache = false) {
             successfulReservations.push(result.value.data);
             devLog.log(`[${requestId}] Successfully recovered reservation index ${originalIndex} on retry`);
           } else if (result.value && !result.value.success) {
-            devLog.error(`[${requestId}] Reservation index ${originalIndex} failed after all retries: ${result.value.error}`);
+            devLog.error(`[${requestId}] Reservation index ${originalIndex} failed after all retries.`);
             // Don't add failed reservations to the final result
           }
         } else {

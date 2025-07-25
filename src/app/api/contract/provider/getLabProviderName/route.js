@@ -40,7 +40,6 @@ export async function POST(request) {
     });
 
     const elapsedTime = Date.now() - startTime;
-    devLog.log(`✅ getLabProviders completed in ${elapsedTime}ms`);
 
     const provider = providerList.find(
       (p) => p.account.toLowerCase() === wallet.toLowerCase()

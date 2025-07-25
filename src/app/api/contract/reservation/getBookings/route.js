@@ -374,13 +374,6 @@ async function handleRequest(wallet, clearCache = false) {
     // STEP 3: Fetch reservations individually for better performance and reliability
     let allReservationsData;
     try {
-      devLog.log(`[${requestId}] 🔍 Contract debug info:`, {
-        contractAddress: contract.address || contract.target,
-        hasTotalReservations: typeof contract.totalReservations === 'function',
-        hasReservationKeyByIndex: typeof contract.reservationKeyByIndex === 'function',
-        hasGetReservation: typeof contract.getReservation === 'function'
-      });
-
       devLog.log(`[${requestId}] 📡 Fetching reservations individually...`);
       
       // Use individual fetching method
