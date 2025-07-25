@@ -123,9 +123,6 @@ function LabDataCore({ children }) {
       }));
 
       devLog.log('LabContext: Labs processed', { count: labsWithBookingStructure.length });
-
-      // Cache the labs
-      cacheManager.set(CACHE_KEYS.LABS, labsWithBookingStructure, CACHE_TTL.LABS);
       
       const cacheInfo = response.headers.get('X-Cache') || 'UNKNOWN';
       devLog.log(`Fetched ${labsWithBookingStructure.length} labs (Cache: ${cacheInfo})`);
