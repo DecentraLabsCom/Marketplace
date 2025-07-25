@@ -36,6 +36,13 @@ export function ReservationEventProvider({ children }) {
     
     // Timeout tracking for pending reservations (auto-cleanup after 5 minutes)
     const pendingReservationTimeouts = useRef(new Map()); // Map<reservationKey, timeoutId>
+    
+    // Track failed event deliveries for pattern detection
+    const eventFailureTracker = useRef({
+        consecutiveFailures: 0,
+        lastFailureTime: null,
+        adaptiveTimeoutMinutes: 5 // Start with 5 minutes, can be adjusted
+    });
 
     // Function to update both user and lab bookings for cross-user propagation
     const updateAllRelevantBookings = useCallback(async (labId, reason = 'event') => {
@@ -163,7 +170,10 @@ export function ReservationEventProvider({ children }) {
     }, [updateAllRelevantBookings, updateAllLabBookings]);
 
     // Enhanced timeout and fallback system for stuck reservations
-    const setupReservationTimeout = useCallback((reservationKey, labId, timeoutMinutes = 5) => {
+    const setupReservationTimeout = useCallback((reservationKey, labId, timeoutMinutes = null) => {
+        // Use adaptive timeout based on recent failure patterns
+        const adaptiveTimeout = timeoutMinutes || eventFailureTracker.current.adaptiveTimeoutMinutes;
+        
         // Clear any existing timeout for this reservation
         if (pendingReservationTimeouts.current.has(reservationKey)) {
             clearTimeout(pendingReservationTimeouts.current.get(reservationKey));
@@ -171,7 +181,17 @@ export function ReservationEventProvider({ children }) {
 
         // Set new timeout
         const timeoutId = setTimeout(async () => {
-            devLog.warn(`⏰ Reservation timeout reached for ${reservationKey} after ${timeoutMinutes} minutes`);
+            devLog.warn(`⏰ Reservation timeout reached for ${reservationKey} after ${adaptiveTimeout} minutes`);
+            
+            // Track this as a potential failure
+            eventFailureTracker.current.consecutiveFailures++;
+            eventFailureTracker.current.lastFailureTime = Date.now();
+            
+            // Adjust adaptive timeout for future reservations (max 10 minutes)
+            if (eventFailureTracker.current.consecutiveFailures >= 3) {
+                eventFailureTracker.current.adaptiveTimeoutMinutes = Math.min(10, adaptiveTimeout + 2);
+                devLog.warn(`📈 Increasing adaptive timeout to ${eventFailureTracker.current.adaptiveTimeoutMinutes} minutes due to consecutive failures`);
+            }
             
             // Check if reservation is still in processing state
             if (processingReservations.has(reservationKey)) {
@@ -205,12 +225,12 @@ export function ReservationEventProvider({ children }) {
             pendingReservationTimeouts.current.delete(reservationKey);
             reservationEventData.current.delete(reservationKey);
             
-        }, timeoutMinutes * 60 * 1000); // Convert minutes to milliseconds
+        }, adaptiveTimeout * 60 * 1000); // Convert minutes to milliseconds
         
         // Store timeout ID for cleanup
         pendingReservationTimeouts.current.set(reservationKey, timeoutId);
         
-        devLog.log(`⏰ Set ${timeoutMinutes}min timeout for reservation: ${reservationKey}`);
+        devLog.log(`⏰ Set ${adaptiveTimeout}min timeout for reservation: ${reservationKey}`);
     }, [processingReservations, invalidateBookingCache, updateAllRelevantBookings, updateAllLabBookings, addPersistentNotification]);
 
     // Clean up timeout when reservation is resolved
@@ -219,8 +239,82 @@ export function ReservationEventProvider({ children }) {
             clearTimeout(pendingReservationTimeouts.current.get(reservationKey));
             pendingReservationTimeouts.current.delete(reservationKey);
             devLog.log(`🧹 Cleared timeout for resolved reservation: ${reservationKey}`);
+            
+            // Reset failure counter on successful event delivery
+            if (eventFailureTracker.current.consecutiveFailures > 0) {
+                eventFailureTracker.current.consecutiveFailures = Math.max(0, eventFailureTracker.current.consecutiveFailures - 1);
+                
+                // Gradually reduce adaptive timeout back to normal (minimum 3 minutes)
+                if (eventFailureTracker.current.consecutiveFailures === 0) {
+                    eventFailureTracker.current.adaptiveTimeoutMinutes = Math.max(3, eventFailureTracker.current.adaptiveTimeoutMinutes - 1);
+                    devLog.log(`📉 Reduced adaptive timeout to ${eventFailureTracker.current.adaptiveTimeoutMinutes} minutes after successful event`);
+                }
+            }
         }
     }, []);
+
+    // Proactive stuck reservation detection (runs every 2 minutes)
+    const checkStuckReservations = useCallback(async () => {
+        if (processingReservations.size === 0) return;
+        
+        devLog.log(`🔍 Checking ${processingReservations.size} processing reservations for stuck state...`);
+        
+        const stuckThreshold = 3 * 60 * 1000; // 3 minutes in milliseconds
+        const now = Date.now();
+        
+        // Check each processing reservation
+        for (const reservationKey of processingReservations) {
+            const eventData = reservationEventData.current.get(reservationKey);
+            
+            if (eventData) {
+                // Check if reservation has been processing for too long
+                const processingTime = now - (eventData.timestamp || now);
+                
+                if (processingTime > stuckThreshold) {
+                    devLog.warn(`⚠️ Detected stuck reservation (${Math.round(processingTime/1000/60)}min): ${reservationKey}`);
+                    
+                    try {
+                        // Force blockchain check for this specific reservation
+                        const response = await fetch('/api/contract/reservation/checkReservationStatus', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ reservationKey })
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            
+                            if (result.status !== 'pending') {
+                                devLog.log(`🔄 Found resolved status for stuck reservation: ${reservationKey} -> ${result.status}`);
+                                
+                                // Remove from processing and trigger update
+                                setProcessingReservations(prev => {
+                                    const newSet = new Set(prev);
+                                    newSet.delete(reservationKey);
+                                    return newSet;
+                                });
+                                
+                                // Trigger comprehensive refresh
+                                invalidateBookingCache();
+                                await updateAllRelevantBookings(eventData.labId, 'stuck_resolution');
+                                
+                                // Clean up
+                                clearReservationTimeout(reservationKey);
+                            }
+                        }
+                    } catch (error) {
+                        devLog.warn(`Failed to check stuck reservation ${reservationKey}:`, error);
+                    }
+                }
+            }
+        }
+    }, [processingReservations, invalidateBookingCache, updateAllRelevantBookings, clearReservationTimeout]);
+
+    // Set up periodic stuck reservation checking
+    useEffect(() => {
+        const interval = setInterval(checkStuckReservations, 2 * 60 * 1000); // Every 2 minutes
+        return () => clearInterval(interval);
+    }, [checkStuckReservations]);
 
     // Enhanced event handlers with collision prevention
 
@@ -291,6 +385,9 @@ export function ReservationEventProvider({ children }) {
                 
                 return newSet;
             });
+            
+            // Clear timeout since reservation is now confirmed
+            clearReservationTimeout(reservationKey);
         } else {
             devLog.log('ℹ️ Skipping processing removal for other user:', { 
                 reservationKey, 
@@ -447,6 +544,9 @@ export function ReservationEventProvider({ children }) {
                 
                 return newSet;
             });
+            
+            // Clear timeout since reservation is now denied
+            clearReservationTimeout(reservationKey);
         } else {
             devLog.log('ℹ️ Skipping processing removal for other user (denied):', { 
                 reservationKey, 
@@ -521,7 +621,8 @@ export function ReservationEventProvider({ children }) {
             labId: tokenId.toString(),
             start: parseInt(start.toString()),
             end: parseInt(end.toString()),
-            renter: renter.toString()
+            renter: renter.toString(),
+            timestamp: Date.now() // Add timestamp for stuck detection
         });
         
         devLog.log('📝 Stored reservation event data for mapping:', { 
@@ -539,8 +640,8 @@ export function ReservationEventProvider({ children }) {
                 return newSet;
             });
             
-            // Set up timeout for automatic fallback (5 minutes)
-            setupReservationTimeout(reservationKey, tokenId.toString(), 5);
+            // Set up timeout for automatic fallback (adaptive timeout)
+            setupReservationTimeout(reservationKey, tokenId.toString());
         } else {
             devLog.log('ℹ️ Skipping processing notification for other user:', { 
                 reservationKey, 
@@ -628,6 +729,9 @@ export function ReservationEventProvider({ children }) {
                 
                 return newSet;
             });
+            
+            // Clear timeout on error
+            clearReservationTimeout(reservationKey);
         }
     };
 

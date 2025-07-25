@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext';
 import { useLabs } from '@/context/LabContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useLabToken } from '@/hooks/useLabToken';
+import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
 import { useLabBookings } from '@/hooks/useLabBookings';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
 import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator';
