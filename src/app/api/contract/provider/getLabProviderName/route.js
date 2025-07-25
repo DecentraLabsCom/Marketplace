@@ -39,8 +39,6 @@ export async function POST(request) {
       ]);
     });
 
-    const elapsedTime = Date.now() - startTime;
-
     const provider = providerList.find(
       (p) => p.account.toLowerCase() === wallet.toLowerCase()
     );

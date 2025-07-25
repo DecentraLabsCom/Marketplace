@@ -1,7 +1,6 @@
 import { getCache, setCache, isCacheValid } from '../cache';
 import { getContractInstance } from '../../utils/contractInstance';
 import { simBookings } from '@/utils/simBookings';
-import retry from '@/utils/retry';
 import devLog from '@/utils/logger';
 
 // Extended cache for RPC failure scenarios  
@@ -238,7 +237,7 @@ async function fetchReservationsIndividually(contract, requestId) {
         }
         
         // Get reservation details for valid keys with timeout
-        const reservationPromises = validKeys.map((key, index) => 
+        const reservationPromises = validKeys.map((key) => 
           Promise.race([
             contract.getReservation(key),
             new Promise((_, reject) => 

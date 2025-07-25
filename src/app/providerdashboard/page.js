@@ -29,7 +29,7 @@ export default function ProviderDashboard() {
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const { labBookings, isLoading: bookingsLoading } = useLabBookings(selectedLabId);
+  const { labBookings } = useLabBookings(selectedLabId);
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  

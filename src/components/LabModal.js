@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react';
-import { formatUnits } from 'viem';
 import LabFormFullSetup from '@/components/LabFormFullSetup';
 import LabFormQuickSetup from '@/components/LabFormQuickSetup';
 import { useLabToken } from '@/hooks/useLabToken';
@@ -200,7 +199,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
       dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
     }
-  }, [isOpen, lab, jsonFileRegex, decimals]);
+  }, [isOpen, lab, jsonFileRegex, decimals, formatPrice]);
 
   const handleImageChange = useCallback((e) => {
         if (e.target.files) {
