@@ -199,7 +199,7 @@ function LabDataCore({ children }) {
       devLog.log('LabContext: useEffect cleanup - setting mounted to false');
       mounted = false;
     };
-  }, [fetchLabs, isInitialized, isLoading, labs.length, setLabs]); // Added missing dependencies
+  }, [isInitialized, isLoading, labs.length, setLabs]);
 
   // Smart refresh effect - background refresh of stale cache
   useEffect(() => {

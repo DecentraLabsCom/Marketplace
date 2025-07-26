@@ -500,7 +500,7 @@ function UserDataCore({ children }) {
         return () => {
             mounted = false;
         };
-    }, [isLoggedIn, debouncedAddress, user?.email, isSSO, fetchProviderStatus, fetchProviderName, getRequestKey, isRequestInProgress, user]);
+    }, [isLoggedIn, debouncedAddress, user?.email, isSSO, fetchProviderStatus, fetchProviderName, getRequestKey, isRequestInProgress]);
 
     // Refresh function with cache invalidation
     const refreshProviderStatus = useCallback(async () => {

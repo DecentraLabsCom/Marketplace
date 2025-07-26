@@ -136,7 +136,7 @@ function BookingDataCore({ children }) {
     } finally {
       setUserBookingsLoading(false);
     }
-  }, [debouncedAddress, handleError, CACHE_KEYS.USER_BOOKINGS, lastUserBookingsFetch, userBookings]);
+  }, [debouncedAddress, handleError, CACHE_KEYS.USER_BOOKINGS]);
 
   // Manual refresh with rate limiting bypass
   const refreshBookings = useCallback(async () => {
@@ -256,7 +256,7 @@ function BookingDataCore({ children }) {
     return () => {
       mounted = false;
     };
-  }, [debouncedAddress, CACHE_KEYS.USER_BOOKINGS, fetchUserBookings]);
+  }, [debouncedAddress, CACHE_KEYS.USER_BOOKINGS]);
 
   // Booking state mutations
   const updateBookingStatus = useCallback((reservationKey, newStatus) => {

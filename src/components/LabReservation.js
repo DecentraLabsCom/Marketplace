@@ -140,7 +140,7 @@ export default function LabReservation({ id }) {
     } else if (!selectedAvailableTime) {
       setSelectedAvailableTime(newSelectedTime);
     }
-  }, [date, time, selectedLab, labBookings, selectedAvailableTime]);
+  }, [date, time, selectedLab, labBookings?.length, selectedAvailableTime]);
 
   // Force refresh of selected time when forceRefresh changes
   useEffect(() => {
@@ -287,7 +287,7 @@ export default function LabReservation({ id }) {
 
       // The ReservationEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchUserBookings, refetchLabBookings, refreshTokenData]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchUserBookings, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {
