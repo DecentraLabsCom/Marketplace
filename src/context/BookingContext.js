@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@/context/UserContext';
-import { useReservationEvents } from '@/context/BookingEventContext';
+import { useBookingEvents } from '@/context/BookingEventContext';
 import devLog from '@/utils/logger';
 import { createOptimizedContext, useMemoizedValue, useDebounced } from '@/utils/optimizedContext';
 import { cacheManager, CACHE_TTL } from '@/utils/cacheManager';
@@ -706,7 +706,7 @@ const DEFAULT_CONFIG = {
 export function useAdvancedUserBookings(options = {}) {
   const config = { ...DEFAULT_CONFIG, ...options };
   const { address, isLoggedIn } = useUser();
-  const { processingReservations } = useReservationEvents();
+  const { processingBookings } = useBookingEvents();
   const context = useBookingContext();
   const { 
     userBookings, 
@@ -843,12 +843,12 @@ export function useAdvancedUserBookings(options = {}) {
   // ===========================
   
   useEffect(() => {
-    if (!config.enableContractEvents || !processingReservations) return;
+    if (!config.enableContractEvents || !processingBookings) return;
     
-    // Handle both Set and Array types for processingReservations
-    const reservationsCount = Array.isArray(processingReservations) 
-      ? processingReservations.length 
-      : processingReservations.size || 0;
+    // Handle both Set and Array types for processingBookings
+    const reservationsCount = Array.isArray(processingBookings) 
+      ? processingBookings.length 
+      : processingBookings.size || 0;
     
     log('Contract events monitoring enabled', { 
       processingCount: reservationsCount 
@@ -856,7 +856,7 @@ export function useAdvancedUserBookings(options = {}) {
     
     // Force update when processing reservations change
     setForceUpdateTrigger(prev => prev + 1);
-  }, [config.enableContractEvents, processingReservations, log]);
+  }, [config.enableContractEvents, processingBookings, log]);
 
   // ===========================
   // RETURN API
@@ -892,7 +892,7 @@ export function useAdvancedUserBookings(options = {}) {
 export function useAdvancedLabBookings(labId, options = {}) {
   const config = { ...DEFAULT_CONFIG, ...options };
   const normalizedLabId = labId?.toString();
-  const { processingReservations } = useReservationEvents();
+  const { processingBookings } = useBookingEvents();
   
   const context = useBookingContext();
   const { 
@@ -1026,15 +1026,15 @@ export function useAdvancedLabBookings(labId, options = {}) {
   // ===========================
   
   useEffect(() => {
-    if (!config.enableContractEvents || !processingReservations) return;
+    if (!config.enableContractEvents || !processingBookings) return;
     
-    // Handle both Set and Array types for processingReservations
-    const reservationsArray = Array.isArray(processingReservations) 
-      ? processingReservations 
-      : Array.from(processingReservations);
+    // Handle both Set and Array types for processingBookings
+    const reservationsArray = Array.isArray(processingBookings) 
+      ? processingBookings 
+      : Array.from(processingBookings);
     
     // Check if any processing reservation is for this lab
-    const labProcessingReservations = reservationsArray.filter(
+    const labProcessingBookings = reservationsArray.filter(
       reservation => {
         // Handle both string reservationKeys and reservation objects
         if (typeof reservation === 'string') {
@@ -1045,15 +1045,15 @@ export function useAdvancedLabBookings(labId, options = {}) {
       }
     );
     
-    if (labProcessingReservations.length > 0) {
+    if (labProcessingBookings.length > 0) {
       if (config.enableDebugLogs) {
         devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Contract events for this lab detected`, { 
-          count: labProcessingReservations.length 
+          count: labProcessingBookings.length 
         });
       }
       setForceUpdateTrigger(prev => prev + 1);
     }
-  }, [config.enableContractEvents, config.enableDebugLogs, config.strategy, processingReservations, normalizedLabId]);
+  }, [config.enableContractEvents, config.enableDebugLogs, config.strategy, processingBookings, normalizedLabId]);
 
   // ===========================
   // RETURN API

@@ -9,16 +9,16 @@ import { selectChain } from '@/utils/selectChain';
 import { useAccount } from "wagmi";
 import devLog from '@/utils/logger';
 
-const ReservationEventContext = createContext();
+const BookingEventContext = createContext();
 
-export function ReservationEventProvider({ children }) {
+export function BookingEventProvider({ children }) {
     const { chain, address } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const { labs } = useLabs();
     const { fetchUserBookings, fetchLabBookings, removeBooking, updateBookingStatus, confirmOptimisticBookingByEventData } = useBookings();
     const { addPersistentNotification } = useNotifications();
-    const [processingReservations, setProcessingReservations] = useState(new Set());
+    const [processingBookings, setProcessingBookings] = useState(new Set());
 
     // Manual update coordination system (prevents UI + blockchain event duplicates)
     const [manualUpdateInProgress, setManualUpdateInProgress] = useState(false);
@@ -194,11 +194,11 @@ export function ReservationEventProvider({ children }) {
             }
             
             // Check if reservation is still in processing state
-            if (processingReservations.has(reservationKey)) {
+            if (processingBookings.has(reservationKey)) {
                 devLog.warn(`🔄 Forcing blockchain refetch for stuck reservation: ${reservationKey}`);
                 
                 // Remove from processing state
-                setProcessingReservations(prev => {
+                setProcessingBookings(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(reservationKey);
                     devLog.log(`🧹 Removed stuck reservation from processing: ${reservationKey}`);
@@ -231,7 +231,7 @@ export function ReservationEventProvider({ children }) {
         pendingReservationTimeouts.current.set(reservationKey, timeoutId);
         
         devLog.log(`⏰ Set ${adaptiveTimeout}min timeout for reservation: ${reservationKey}`);
-    }, [processingReservations, invalidateBookingCache, updateAllRelevantBookings, updateAllLabBookings, addPersistentNotification]);
+    }, [processingBookings, invalidateBookingCache, updateAllRelevantBookings, updateAllLabBookings, addPersistentNotification]);
 
     // Clean up timeout when reservation is resolved
     const clearReservationTimeout = useCallback((reservationKey) => {
@@ -255,15 +255,15 @@ export function ReservationEventProvider({ children }) {
 
     // Proactive stuck reservation detection (runs every 2 minutes)
     const checkStuckReservations = useCallback(async () => {
-        if (processingReservations.size === 0) return;
+        if (processingBookings.size === 0) return;
         
-        devLog.log(`🔍 Checking ${processingReservations.size} processing reservations for stuck state...`);
+        devLog.log(`🔍 Checking ${processingBookings.size} processing reservations for stuck state...`);
         
         const stuckThreshold = 3 * 60 * 1000; // 3 minutes in milliseconds
         const now = Date.now();
         
         // Check each processing reservation
-        for (const reservationKey of processingReservations) {
+        for (const reservationKey of processingBookings) {
             const eventData = reservationEventData.current.get(reservationKey);
             
             if (eventData) {
@@ -288,7 +288,7 @@ export function ReservationEventProvider({ children }) {
                                 devLog.log(`🔄 Found resolved status for stuck reservation: ${reservationKey} -> ${result.status}`);
                                 
                                 // Remove from processing and trigger update
-                                setProcessingReservations(prev => {
+                                setProcessingBookings(prev => {
                                     const newSet = new Set(prev);
                                     newSet.delete(reservationKey);
                                     return newSet;
@@ -308,7 +308,7 @@ export function ReservationEventProvider({ children }) {
                 }
             }
         }
-    }, [processingReservations, invalidateBookingCache, updateAllRelevantBookings, clearReservationTimeout]);
+    }, [processingBookings, invalidateBookingCache, updateAllRelevantBookings, clearReservationTimeout]);
 
     // Set up periodic stuck reservation checking
     useEffect(() => {
@@ -338,7 +338,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationConfirmed = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            devLog.log('[ReservationEventContext] Skipping ReservationConfirmed event - manual update in progress');
+            devLog.log('[BookingEventContext] Skipping ReservationConfirmed event - manual update in progress');
             return;
         }
 
@@ -356,7 +356,7 @@ export function ReservationEventProvider({ children }) {
         devLog.log('✅ ReservationConfirmed event received (processing):', { 
             reservationKey,
             fullArgs: args, // Log all args to see what's available
-            processingReservations: Array.from(processingReservations) 
+            processingBookings: Array.from(processingBookings) 
         });
         
         if (!reservationKey) {
@@ -371,7 +371,7 @@ export function ReservationEventProvider({ children }) {
         
         // Remove from processing ONLY if it's the current user's reservation
         if (isCurrentUserReservation) {
-            setProcessingReservations(prev => {
+            setProcessingBookings(prev => {
                 const newSet = new Set(prev);
                 const hadKey = newSet.has(reservationKey);
                 newSet.delete(reservationKey);
@@ -498,7 +498,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationRequestDenied = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            devLog.log('[ReservationEventContext] Skipping ReservationRequestDenied event - manual update in progress');
+            devLog.log('[BookingEventContext] Skipping ReservationRequestDenied event - manual update in progress');
             return;
         }
 
@@ -515,7 +515,7 @@ export function ReservationEventProvider({ children }) {
         
         devLog.log('❌ ReservationRequestDenied event received (processing):', { 
             reservationKey, 
-            processingReservations: Array.from(processingReservations) 
+            processingBookings: Array.from(processingBookings) 
         });
         
         if (!reservationKey) {
@@ -530,7 +530,7 @@ export function ReservationEventProvider({ children }) {
         
         // Remove from processing ONLY if it's the current user's reservation
         if (isCurrentUserReservation) {
-            setProcessingReservations(prev => {
+            setProcessingBookings(prev => {
                 const newSet = new Set(prev);
                 const hadKey = newSet.has(reservationKey);
                 newSet.delete(reservationKey);
@@ -587,7 +587,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationRequested = async (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            devLog.log('[ReservationEventContext] Skipping ReservationRequested event - manual update in progress');
+            devLog.log('[BookingEventContext] Skipping ReservationRequested event - manual update in progress');
             return;
         }
 
@@ -632,7 +632,7 @@ export function ReservationEventProvider({ children }) {
         
         // Add to processing set ONLY if it's the current user's reservation
         if (address && renter.toString().toLowerCase() === address.toLowerCase()) {
-            setProcessingReservations(prev => {
+            setProcessingBookings(prev => {
                 const newSet = new Set(prev).add(reservationKey);
                 
                 devLog.log('➕ Adding reservation to processing (current user):', { reservationKey, total: newSet.size, currentUser: address });
@@ -721,7 +721,7 @@ export function ReservationEventProvider({ children }) {
             devLog.error('Error processing reservation request:', error);
             
             // Remove from processing set on error
-            setProcessingReservations(prev => {
+            setProcessingBookings(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(reservationKey);
                 
@@ -739,7 +739,7 @@ export function ReservationEventProvider({ children }) {
     const handleBookingCanceled = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            devLog.log('[ReservationEventContext] Skipping BookingCanceled event - manual update in progress');
+            devLog.log('[BookingEventContext] Skipping BookingCanceled event - manual update in progress');
             return;
         }
 
@@ -793,7 +793,7 @@ export function ReservationEventProvider({ children }) {
     const handleReservationRequestCanceled = (args) => {
         // Skip event processing if manual update is in progress
         if (manualUpdateInProgress) {
-            devLog.log('[ReservationEventContext] Skipping ReservationRequestCanceled event - manual update in progress');
+            devLog.log('[BookingEventContext] Skipping ReservationRequestCanceled event - manual update in progress');
             return;
         }
 
@@ -816,7 +816,7 @@ export function ReservationEventProvider({ children }) {
         }
         
         // Remove from processing set if it was there
-        setProcessingReservations(prev => {
+        setProcessingBookings(prev => {
             const newSet = new Set(prev);
             newSet.delete(reservationKey);
             return newSet;
@@ -867,8 +867,8 @@ export function ReservationEventProvider({ children }) {
     });
 
     return (
-        <ReservationEventContext.Provider value={{
-            processingReservations,
+        <BookingEventContext.Provider value={{
+            processingBookings,
             invalidateBookingCache,
             scheduleBookingUpdate,
             updateAllRelevantBookings,
@@ -878,14 +878,14 @@ export function ReservationEventProvider({ children }) {
             isManualUpdateInProgress
         }}>
             {children}
-        </ReservationEventContext.Provider>
+        </BookingEventContext.Provider>
     );
 }
 
-export function useReservationEvents() {
-    const context = useContext(ReservationEventContext);
+export function useBookingEvents() {
+    const context = useContext(BookingEventContext);
     if (!context) {
-        throw new Error('useReservationEvents must be used within a ReservationEventProvider');
+        throw new Error('useBookingEvents must be used within a BookingEventProvider');
     }
     return context;
 }

@@ -4,7 +4,7 @@
  */
 import { useCallback } from 'react';
 import { useBookings } from '@/context/BookingContext';
-import { useReservationEvents } from '@/context/BookingEventContext';
+import { useBookingEvents } from '@/context/BookingEventContext';
 import devLog from '@/utils/logger';
 
 export function useReservationEventCoordinator() {
@@ -15,7 +15,7 @@ export function useReservationEventCoordinator() {
     updateAllLabBookings,
     setManualUpdateInProgress,
     isManualUpdateInProgress 
-  } = useReservationEvents();
+  } = useBookingEvents();
 
   /**
    * Coordinated reservation update - use this instead of direct API calls

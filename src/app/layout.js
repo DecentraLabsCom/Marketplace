@@ -7,7 +7,7 @@ import { UserEventProvider } from "@/context/UserEventContext";
 import { LabData } from '@/context/LabContext'
 import { BookingData } from '@/context/BookingContext'
 import { LabEventProvider } from "@/context/LabEventContext";
-import { ReservationEventProvider } from "@/context/BookingEventContext";
+import { BookingEventProvider } from "@/context/BookingEventContext";
 import { NotificationProvider } from "@/context/NotificationContext";
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
@@ -63,7 +63,7 @@ export default function RootLayout({ children }) {
                   <LabData>
                     <BookingData>
                       <LabEventProvider>
-                        <ReservationEventProvider>
+                        <BookingEventProvider>
                       <header className="sticky top-0 z-50">
                         <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
                           <Navbar />
@@ -75,7 +75,7 @@ export default function RootLayout({ children }) {
                       <Footer />
                       <GlobalNotificationStack />
                       <DataRefreshIndicator />
-                    </ReservationEventProvider>
+                    </BookingEventProvider>
                   </LabEventProvider>
                 </BookingData>
               </LabData>

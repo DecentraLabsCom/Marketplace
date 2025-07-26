@@ -4,7 +4,7 @@ import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
 import { useBookings, useLabReservationBookings } from "@/context/BookingContext";
 import { useUser } from "@/context/UserContext";
-import { useReservationEvents } from "@/context/BookingEventContext";
+import { useBookingEvents } from "@/context/BookingEventContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useLabToken } from "@/hooks/useLabToken";
 import Carrousel from "@/components/Carrousel";
@@ -20,7 +20,7 @@ export default function LabReservation({ id }) {
   const { labs } = useLabs();
   const { fetchUserBookings, addBookingToCache } = useBookings();
   const { isSSO } = useUser();
-  const { processingReservations } = useReservationEvents();
+  const { processingBookings } = useBookingEvents();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected, address } = useAccount();
   const [date, setDate] = useState(new Date());
@@ -283,7 +283,7 @@ export default function LabReservation({ id }) {
       setTxType(null);
       setPendingData(null);
 
-      // The ReservationEventContext will handle updating bookings when confirmed/denied
+      // The BookingEventContext will handle updating bookings when confirmed/denied
     }
   }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchUserBookings, refreshTokenData]);
 
@@ -583,9 +583,9 @@ export default function LabReservation({ id }) {
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
           <div className="mt-2 h-6 flex items-center justify-center">
-            {processingReservations.size > 0 && (
+            {processingBookings.size > 0 && (
               <span className="text-yellow-300">
-                ⏳ Processing {processingReservations.size} reservation{processingReservations.size > 1 ? 's' : ''}...
+                ⏳ Processing {processingBookings.size} reservation{processingBookings.size > 1 ? 's' : ''}...
               </span>
             )}
           </div>
