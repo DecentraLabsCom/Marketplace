@@ -4,11 +4,10 @@ import Link from 'next/link'
 import { useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useLabs } from '@/context/LabContext'
-import { useBookings } from '@/context/BookingContext'
+import { useBookings, useUserDashboardBookings } from '@/context/BookingContext'
 import { useNotifications } from '@/context/NotificationContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
-import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator'
-import { useRealTimeBookingUpdates } from '@/hooks/useRealTimeBookingUpdates'
+import { useReservationEventCoordinator } from '@/hooks/useBookingEventCoordinator'
 import devLog from '@/utils/logger'
 import Carrousel from '@/components/Carrousel'
 import LabAccess from '@/components/LabAccess'
@@ -25,14 +24,13 @@ export default function UserDashboard() {
     userBookings, 
     bookingsLoading, 
     bookingsStatus,
-    updateBookingInState,
-    refreshBookings
+    updateBookingInState
   } = useBookings();
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();
 
-  // Enable real-time updates for booking states
-  useRealTimeBookingUpdates(userBookings, isLoggedIn, refreshBookings);
+  // Enable optimized updates for user dashboard
+  useUserDashboardBookings();
 
   // Debug: Log booking data from BookingContext
   useEffect(() => {

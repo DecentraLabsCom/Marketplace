@@ -2,13 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useLabs } from "@/context/LabContext";
-import { useBookings } from "@/context/BookingContext";
+import { useBookings, useLabReservationBookings } from "@/context/BookingContext";
 import { useUser } from "@/context/UserContext";
 import { useReservationEvents } from "@/context/BookingEventContext";
 import { useNotifications } from "@/context/NotificationContext";
 import { useLabToken } from "@/hooks/useLabToken";
-import { useLabBookings } from "@/hooks/useLabBookings";
-import { useRealTimeBookingUpdates } from '@/hooks/useRealTimeBookingUpdates';
 import Carrousel from "@/components/Carrousel";
 import AccessControl from '@/components/AccessControl';
 import LabTokenInfo from '@/components/LabTokenInfo';
@@ -20,7 +18,7 @@ import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
   const { labs } = useLabs();
-  const { fetchUserBookings, userBookings, refreshBookings, addBookingToCache } = useBookings();
+  const { fetchUserBookings, addBookingToCache } = useBookings();
   const { isSSO } = useUser();
   const { processingReservations } = useReservationEvents();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
@@ -38,15 +36,15 @@ export default function LabReservation({ id }) {
   const [txType, setTxType] = useState(null); // 'reservation', 'approval'
   const [pendingData, setPendingData] = useState(null);
   
-  // Enable real-time updates for booking states
-  useRealTimeBookingUpdates(userBookings, isConnected, refreshBookings);
+  // Enable optimized real-time updates for lab reservation
+  useLabReservationBookings(selectedLab?.id);
   
-  // Lab bookings hook for the current lab
+  // Lab bookings for the current lab
   const {
     labBookings,
-    refetch: refetchLabBookings,
+    refreshBookings: refetchLabBookings,
     addBookingToCache: addBookingToLabCache
-  } = useLabBookings(selectedLab?.id);
+  } = useLabReservationBookings(selectedLab?.id);
 
   // Debug: Log selectedLab changes
   useEffect(() => {

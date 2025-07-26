@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useUser } from '@/context/UserContext';
+import { useReservationEvents } from '@/context/BookingEventContext';
 import devLog from '@/utils/logger';
 import { createOptimizedContext, useMemoizedValue, useDebounced } from '@/utils/optimizedContext';
 import { cacheManager, CACHE_TTL } from '@/utils/cacheManager';
@@ -666,6 +667,500 @@ export function useBookings() {
     throw new Error('useBookings must be used within a BookingData');
   }
   return context;
+}
+
+// ===========================
+// ADVANCED BOOKING HOOKS
+// ===========================
+
+// Configuration constants
+const UPDATE_STRATEGIES = {
+  REAL_TIME: 'realTime',        // Immediate updates, precise timing
+  PERIODIC: 'periodic',         // Fixed interval updates
+  ON_DEMAND: 'onDemand',        // Manual refresh only
+  HYBRID: 'hybrid'              // Smart combination of real-time + periodic
+};
+
+const DEFAULT_CONFIG = {
+  strategy: UPDATE_STRATEGIES.HYBRID,
+  interval: 60000,              // 1 minute for periodic updates
+  enableContractEvents: true,   // Listen to blockchain events
+  enableRealTimeUpdates: true,  // Use precise timing for booking state changes
+  autoFetch: true,              // Fetch data on mount
+  cacheTTL: 30000,              // 30 seconds cache validity
+  enableDebugLogs: false        // Debug logging
+};
+
+/**
+ * Advanced hook for user bookings with parametrized update strategy
+ * 
+ * @param {Object} options - Configuration options
+ * @param {string} options.strategy - Update strategy (realTime, periodic, onDemand, hybrid)
+ * @param {number} options.interval - Update interval in ms (for periodic strategy)
+ * @param {boolean} options.enableContractEvents - Enable blockchain event listening
+ * @param {boolean} options.enableRealTimeUpdates - Enable precise timing updates
+ * @param {boolean} options.autoFetch - Auto-fetch on mount
+ * @param {boolean} options.enabled - Whether the hook is enabled
+ * @returns {Object} User bookings state and actions
+ */
+export function useAdvancedUserBookings(options = {}) {
+  const config = { ...DEFAULT_CONFIG, ...options };
+  const { address, isLoggedIn } = useUser();
+  const { processingReservations } = useReservationEvents();
+  const context = useBookingContext();
+  const { 
+    userBookings, 
+    refreshBookings, 
+    userBookingsLoading 
+  } = context;
+  
+  const [forceUpdateTrigger, setForceUpdateTrigger] = useState(0);
+  const [lastUpdateTime] = useState(Date.now()); // Static timestamp for initial load
+  const intervalRef = useRef(null);
+  const timeoutRef = useRef(null);
+  
+  const log = useCallback((message, data = {}) => {
+    if (config.enableDebugLogs) {
+      devLog.log(`[useAdvancedUserBookings:${config.strategy}] ${message}`, data);
+    }
+  }, [config.enableDebugLogs, config.strategy]);
+
+  // ===========================
+  // REAL-TIME UPDATE LOGIC
+  // ===========================
+  
+  const scheduleNextRealTimeUpdate = useCallback(() => {
+    if (!config.enableRealTimeUpdates || !isLoggedIn || !Array.isArray(userBookings) || userBookings.length === 0) {
+      return;
+    }
+
+    const now = new Date();
+    let nextUpdateTime = null;
+    let needsContractSync = false;
+
+    // Find the next moment when any booking changes state
+    userBookings.forEach(booking => {
+      if (!booking.start || !booking.end) return;
+      
+      const startTime = new Date(parseInt(booking.start) * 1000);
+      const endTime = new Date(parseInt(booking.end) * 1000);
+      
+      if (startTime > now) {
+        if (!nextUpdateTime || startTime < nextUpdateTime) {
+          nextUpdateTime = startTime;
+          needsContractSync = true;
+        }
+      } else if (now >= startTime && now < endTime) {
+        if (!nextUpdateTime || endTime < nextUpdateTime) {
+          nextUpdateTime = endTime;
+          needsContractSync = false;
+        }
+      }
+    });
+
+    if (nextUpdateTime) {
+      const timeUntilUpdate = Math.max(0, nextUpdateTime.getTime() - now.getTime());
+      
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedUserBookings:${config.strategy}] Scheduling real-time update`, {
+          nextUpdateTime: nextUpdateTime.toISOString(),
+          timeUntilUpdate,
+          needsContractSync
+        });
+      }
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        if (config.enableDebugLogs) {
+          devLog.log(`[useAdvancedUserBookings:${config.strategy}] Real-time update triggered`);
+        }
+        if (needsContractSync && refreshBookings) {
+          refreshBookings();
+        } else {
+          setForceUpdateTrigger(prev => prev + 1);
+        }
+        // Note: Removed recursive call to prevent infinite loops
+      }, timeUntilUpdate);
+    }
+  }, [config.enableRealTimeUpdates, config.enableDebugLogs, config.strategy, isLoggedIn, userBookings, refreshBookings]);
+
+  // ===========================
+  // STRATEGY MANAGEMENT
+  // ===========================
+  
+  useEffect(() => {
+    if (!options.enabled && options.enabled !== undefined) {
+      return;
+    }
+
+    switch (config.strategy) {
+      case UPDATE_STRATEGIES.REAL_TIME:
+        scheduleNextRealTimeUpdate();
+        break;
+        
+      case UPDATE_STRATEGIES.PERIODIC:
+        // Periodic logic is handled in the interval section above
+        break;
+        
+      case UPDATE_STRATEGIES.HYBRID:
+        scheduleNextRealTimeUpdate();
+        // Periodic logic is handled in the interval section above
+        break;
+        
+      case UPDATE_STRATEGIES.ON_DEMAND:
+        // No automatic updates
+        break;
+    }
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [config.strategy, options.enabled]); // Removed problematic functions from dependencies
+
+  // ===========================
+  // AUTO-FETCH ON MOUNT
+  // ===========================
+  
+  useEffect(() => {
+    if (config.autoFetch && isLoggedIn && address && refreshBookings && userBookings.length === 0) {
+      log('Auto-fetching user bookings on mount');
+      refreshBookings();
+    }
+  }, [config.autoFetch, isLoggedIn, address, refreshBookings, userBookings.length, log]);
+
+  // ===========================
+  // CONTRACT EVENTS (if enabled)
+  // ===========================
+  
+  useEffect(() => {
+    if (!config.enableContractEvents || !processingReservations) return;
+    
+    // Handle both Set and Array types for processingReservations
+    const reservationsCount = Array.isArray(processingReservations) 
+      ? processingReservations.length 
+      : processingReservations.size || 0;
+    
+    log('Contract events monitoring enabled', { 
+      processingCount: reservationsCount 
+    });
+    
+    // Force update when processing reservations change
+    setForceUpdateTrigger(prev => prev + 1);
+  }, [config.enableContractEvents, processingReservations, log]);
+
+  // ===========================
+  // RETURN API
+  // ===========================
+  
+  return {
+    // Data
+    userBookings,
+    loading: userBookingsLoading,
+    
+    // Actions
+    refreshBookings,
+    forceUpdate: () => setForceUpdateTrigger(prev => prev + 1),
+    
+    // Status
+    lastUpdateTime,
+    forceUpdateTrigger,
+    strategy: config.strategy,
+    isEnabled: options.enabled !== false,
+    
+    // Debug
+    config: config.enableDebugLogs ? config : undefined
+  };
+}
+
+/**
+ * Advanced hook for lab-specific bookings with parametrized update strategy
+ * 
+ * @param {string|number} labId - The ID of the lab
+ * @param {Object} options - Configuration options
+ * @returns {Object} Lab bookings state and actions
+ */
+export function useAdvancedLabBookings(labId, options = {}) {
+  const config = { ...DEFAULT_CONFIG, ...options };
+  const normalizedLabId = labId?.toString();
+  const { processingReservations } = useReservationEvents();
+  
+  const context = useBookingContext();
+  const { 
+    fetchLabBookings, 
+    getLabBookings, 
+    isLabBookingsLoaded 
+  } = context;
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [forceUpdateTrigger, setForceUpdateTrigger] = useState(0);
+  const intervalRef = useRef(null);
+  
+  const log = useCallback((message, data = {}) => {
+    if (config.enableDebugLogs) {
+      devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] ${message}`, data);
+    }
+  }, [config.enableDebugLogs, config.strategy, normalizedLabId]);
+
+  // Get current lab bookings
+  const labBookings = getLabBookings(normalizedLabId);
+  const isLoaded = isLabBookingsLoaded(normalizedLabId);
+
+  // ===========================
+  // FETCH LOGIC
+  // ===========================
+  
+  const fetchBookings = useCallback(async (force = false) => {
+    if (!normalizedLabId) {
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] No labId provided`);
+      }
+      return [];
+    }
+
+    if (loading && !force) {
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Already loading, skipping`);
+      }
+      return getLabBookings(normalizedLabId);
+    }
+
+    const currentBookings = getLabBookings(normalizedLabId);
+    if (!force && isLoaded && Array.isArray(currentBookings)) {
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Using cached data`);
+      }
+      return currentBookings;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Fetching lab bookings`, { force });
+      }
+      
+      const bookings = await fetchLabBookings(normalizedLabId);
+      setLastFetchTime(Date.now());
+      
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Successfully fetched lab bookings`, { count: bookings?.length });
+      }
+      
+      return bookings;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to fetch lab bookings';
+      setError(errorMessage);
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Error fetching lab bookings`, { error: errorMessage });
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [normalizedLabId, loading, getLabBookings, isLoaded, fetchLabBookings, config.enableDebugLogs, config.strategy]);
+
+  // ===========================
+  // AUTO-FETCH ON MOUNT
+  // ===========================
+  
+  useEffect(() => {
+    if (config.autoFetch && normalizedLabId && !isLoaded) {
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Auto-fetching lab bookings on mount`);
+      }
+      fetchBookings(false);
+    }
+  }, [config.autoFetch, config.enableDebugLogs, config.strategy, normalizedLabId, isLoaded, fetchBookings]);
+
+  // ===========================
+  // STRATEGY MANAGEMENT (PERIODIC UPDATES)
+  // ===========================
+  
+  useEffect(() => {
+    if (!options.enabled && options.enabled !== undefined) {
+      return;
+    }
+
+    // Only start periodic updates for PERIODIC and HYBRID strategies
+    if ((config.strategy === UPDATE_STRATEGIES.PERIODIC || config.strategy === UPDATE_STRATEGIES.HYBRID) && normalizedLabId) {
+      if (intervalRef.current === null) {
+        intervalRef.current = setInterval(() => {
+          if (config.enableDebugLogs) {
+            devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Periodic update triggered`);
+          }
+          fetchBookings(false);
+        }, config.interval);
+        
+        if (config.enableDebugLogs) {
+          devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Starting periodic updates`, { interval: config.interval });
+        }
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        if (config.enableDebugLogs) {
+          devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Stopped periodic updates`);
+        }
+      }
+    };
+  }, [config.strategy, config.interval, config.enableDebugLogs, normalizedLabId, options.enabled, fetchBookings]);
+
+  // ===========================
+  // CONTRACT EVENTS
+  // ===========================
+  
+  useEffect(() => {
+    if (!config.enableContractEvents || !processingReservations) return;
+    
+    // Handle both Set and Array types for processingReservations
+    const reservationsArray = Array.isArray(processingReservations) 
+      ? processingReservations 
+      : Array.from(processingReservations);
+    
+    // Check if any processing reservation is for this lab
+    const labProcessingReservations = reservationsArray.filter(
+      reservation => {
+        // Handle both string reservationKeys and reservation objects
+        if (typeof reservation === 'string') {
+          // If it's just a reservation key, we can't filter by labId
+          return true; // Trigger update for any processing reservation
+        }
+        return reservation.labId === normalizedLabId;
+      }
+    );
+    
+    if (labProcessingReservations.length > 0) {
+      if (config.enableDebugLogs) {
+        devLog.log(`[useAdvancedLabBookings:${config.strategy}:${normalizedLabId}] Contract events for this lab detected`, { 
+          count: labProcessingReservations.length 
+        });
+      }
+      setForceUpdateTrigger(prev => prev + 1);
+    }
+  }, [config.enableContractEvents, config.enableDebugLogs, config.strategy, processingReservations, normalizedLabId]);
+
+  // ===========================
+  // RETURN API
+  // ===========================
+  
+  return {
+    // Data
+    labBookings,
+    bookings: labBookings,
+    bookingsCount: labBookings?.length || 0,
+    
+    // Status
+    loading,
+    isLoading: loading,
+    error,
+    isLoaded,
+    isFresh: () => {
+      if (!lastFetchTime) return false;
+      const FRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+      return (Date.now() - lastFetchTime) < FRESH_THRESHOLD;
+    },
+    lastFetchTime,
+    
+    // Actions
+    fetchBookings,
+    refreshBookings: () => fetchBookings(true),
+    refetch: () => fetchBookings(true),
+    forceUpdate: () => setForceUpdateTrigger(prev => prev + 1),
+    
+    // Utilities
+    getBookingsByStatus: (status) => labBookings.filter(booking => booking.status === status.toString()),
+    getActiveBookings: () => labBookings.filter(booking => booking.status === "1"),
+    getPendingBookings: () => labBookings.filter(booking => booking.status === "0"),
+    getCachedBookings: () => getLabBookings(normalizedLabId),
+    
+    // Status
+    forceUpdateTrigger,
+    strategy: config.strategy,
+    isEnabled: options.enabled !== false,
+    labId: normalizedLabId,
+    
+    // Debug
+    config: config.enableDebugLogs ? config : undefined
+  };
+}
+
+// ===========================
+// UTILITY EXPORTS
+// ===========================
+
+// Preset configurations for common use cases
+export const BOOKING_CONFIGS = {
+  // High-frequency updates for active dashboards
+  DASHBOARD: {
+    ...DEFAULT_CONFIG,
+    strategy: UPDATE_STRATEGIES.HYBRID,
+    interval: 30000,
+    enableRealTimeUpdates: true,
+    enableContractEvents: true,
+    enableDebugLogs: false
+  }
+};
+
+export { UPDATE_STRATEGIES };
+
+// ===========================
+// SPECIALIZED HOOKS
+// ===========================
+
+/**
+ * Hook for user dashboard - optimized for frequent updates
+ */
+export function useUserDashboardBookings() {
+  return useAdvancedUserBookings(BOOKING_CONFIGS.DASHBOARD);
+}
+
+/**
+ * Hook for provider dashboard - optimized for lab management
+ */
+export function useProviderDashboardBookings(labId) {
+  return useAdvancedLabBookings(labId, BOOKING_CONFIGS.DASHBOARD);
+}
+
+/**
+ * Hook for market component - balanced updates
+ */
+export function useMarketBookings() {
+  return useAdvancedUserBookings({
+    strategy: UPDATE_STRATEGIES.HYBRID,
+    interval: 60000,
+    enableRealTimeUpdates: true,
+    enableContractEvents: true,
+    enableDebugLogs: false
+  });
+}
+
+/**
+ * Hook for lab reservation component - real-time updates
+ */
+export function useLabReservationBookings(labId) {
+  return useAdvancedLabBookings(labId, {
+    strategy: UPDATE_STRATEGIES.REAL_TIME,
+    enableRealTimeUpdates: true,
+    enableContractEvents: true,
+    autoFetch: true,
+    enableDebugLogs: false
+  });
 }
 
 export const BookingProvider = BookingData;

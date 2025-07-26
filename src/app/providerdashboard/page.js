@@ -6,9 +6,9 @@ import { useLabs } from '@/context/LabContext';
 import { useNotifications } from '@/context/NotificationContext';
 import { useLabToken } from '@/hooks/useLabToken';
 import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
-import { useLabBookings } from '@/hooks/useLabBookings';
+import { useProviderDashboardBookings } from '@/context/BookingContext';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
-import { useReservationEventCoordinator } from '@/hooks/useReservationEventCoordinator';
+import { useReservationEventCoordinator } from '@/hooks/useBookingEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
 import LabModal from '@/components/LabModal';
 import devLog from '@/utils/logger';
@@ -29,7 +29,7 @@ export default function ProviderDashboard() {
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const { labBookings } = useLabBookings(selectedLabId);
+  const { labBookings } = useProviderDashboardBookings(selectedLabId);
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
