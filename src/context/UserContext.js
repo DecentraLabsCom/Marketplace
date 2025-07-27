@@ -12,7 +12,6 @@ import {
 import { 
   ErrorBoundary, 
   useErrorHandler, 
-  createNetworkError, 
   ErrorSeverity,
   ErrorCategory 
 } from '@/utils/errorBoundaries';

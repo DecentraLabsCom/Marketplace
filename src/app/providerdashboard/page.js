@@ -127,6 +127,10 @@ export default function ProviderDashboard() {
 
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
   
+  // Ensure we have a valid lab object to pass to the modal
+  const modalLab = selectedLab ? selectedLab : (selectedLabId ? null : newLab);
+  const shouldShowModal = isModalOpen && modalLab;
+  
   const bookingInfo = (selectedLab && labBookings && !bookingsError) 
     ? labBookings.map(booking => ({
         ...booking,
@@ -564,8 +568,8 @@ export default function ProviderDashboard() {
           
         </div>
 
-        <LabModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
-          lab={selectedLab || newLab} maxId={maxId} />
+        <LabModal isOpen={shouldShowModal} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
+          lab={modalLab} maxId={maxId} key={modalLab?.id || 'new'} />
       </div>
     </AccessControl>
   );

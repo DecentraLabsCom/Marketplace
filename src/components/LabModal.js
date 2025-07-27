@@ -156,29 +156,45 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
-    if (isOpen) {
-      let labToMerge = lab ? { ...lab } : {};
-      
-      // Convert price from per-second (cache format) to per-hour (UI input format)
-      if (labToMerge.price && decimals) {
-        try {
-          // Use formatPrice to convert from per-second to per-hour for input fields
-          const pricePerHour = formatPrice(labToMerge.price);
-          labToMerge.price = pricePerHour;
-        } catch (error) {
-          devLog.error('Error converting price for UI input:', error);
-          // Keep original price if conversion fails
-        }
-      }
-      
-      dispatch({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
-      const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
-      dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
-      const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
-      dispatch({ type: 'SET_FIELD', field: 'isLocalURI', value: hasLocalUri });
-      dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
+    // Only run when modal is open
+    if (!isOpen) return;
+    
+    // Only run if we have a valid lab object
+    if (!lab || typeof lab !== 'object') {
+      devLog.warn('LabModal: Invalid lab object received:', lab);
+      return;
     }
-    if (isOpen && lab?.images?.length > 0) {
+
+    devLog.log('LabModal: Initializing with lab:', { labId: lab.id, labName: lab.name });
+
+    // Create a stable lab object to merge with local state
+    let labToMerge = { ...lab };
+    
+    // Convert price from per-second (cache format) to per-hour (UI input format)
+    if (labToMerge.price && decimals) {
+      try {
+        // Use formatPrice to convert from per-second to per-hour for input fields
+        const pricePerHour = formatPrice(labToMerge.price);
+        labToMerge.price = pricePerHour;
+      } catch (error) {
+        devLog.error('Error converting price for UI input:', error);
+        // Keep original price if conversion fails
+      }
+    }
+    
+    dispatch({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
+    
+    // Handle URI flags
+    const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
+    dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
+    
+    const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
+    dispatch({ type: 'SET_FIELD', field: 'isLocalURI', value: hasLocalUri });
+    
+    dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
+
+    // Handle images
+    if (lab?.images?.length > 0) {
       const initialImageUrls = lab.images.map(imageUrl => {
         if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
           return imageUrl;
@@ -192,14 +208,15 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
     }
 
-    if (isOpen && lab?.docs?.length > 0) {
+    // Handle docs
+    if (lab?.docs?.length > 0) {
       dispatch({ type: 'SET_FIELD', field: 'docUrls', value: lab.docs });
       dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'upload' });
     } else {
       dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
       dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
     }
-  }, [isOpen, lab, jsonFileRegex, decimals, formatPrice]);
+  }, [isOpen, lab?.id, lab?.name, lab?.price, lab?.uri, lab?.images?.length, lab?.docs?.length, jsonFileRegex, decimals, formatPrice]);
 
   const handleImageChange = useCallback((e) => {
         if (e.target.files) {
