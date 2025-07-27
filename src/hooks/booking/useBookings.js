@@ -4,7 +4,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { bookingServices } from '@/services/bookingServices'
-import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/queryKeys'
+import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // === QUERIES ===
@@ -31,6 +31,11 @@ export const useUserBookingsQuery = (userAddress, fromDate = null, toDate = null
 
 /**
  * Hook to get bookings for a specific lab
+ * @param {string|number} labId - Lab identifier
+ * @param {Date|string|null} [fromDate=null] - Start date filter for bookings
+ * @param {Date|string|null} [toDate=null] - End date filter for bookings
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab bookings, loading state, and error handling
  */
 export const useLabBookingsQuery = (labId, fromDate = null, toDate = null, options = {}) => {
   const queryKey = fromDate && toDate 
@@ -52,6 +57,7 @@ export const useLabBookingsQuery = (labId, fromDate = null, toDate = null, optio
 
 /**
  * Hook to create a booking
+ * @returns {Object} React Query mutation object for creating bookings with optimistic updates
  */
 export const useCreateBookingMutation = () => {
   const queryClient = useQueryClient();
@@ -150,6 +156,7 @@ export const useCreateBookingMutation = () => {
 
 /**
  * Hook to cancel a booking
+ * @returns {Object} React Query mutation object for canceling bookings with optimistic updates
  */
 export const useCancelBookingMutation = () => {
   const queryClient = useQueryClient();
@@ -222,40 +229,4 @@ export const useCancelBookingMutation = () => {
       });
     },
   });
-};
-
-// === UTILITIES ===
-
-/**
- * Hook to invalidate booking cache manually
- */
-export const useBookingCacheInvalidation = () => {
-  const queryClient = useQueryClient();
-  
-  return {
-    invalidateAllBookings: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BOOKINGS.all });
-    },
-    
-    invalidateUserBookings: (userAddress) => {
-      INVALIDATION_PATTERNS.userBookings(userAddress).forEach(queryKey => {
-        queryClient.invalidateQueries({ queryKey });
-      });
-    },
-    
-    invalidateLabBookings: (labId) => {
-      INVALIDATION_PATTERNS.labBookings(labId).forEach(queryKey => {
-        queryClient.invalidateQueries({ queryKey });
-      });
-    },
-    
-    // Force refetch without invalidation
-    refetchUserBookings: (userAddress) => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.BOOKINGS.user(userAddress) });
-    },
-    
-    refetchLabBookings: (labId) => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.BOOKINGS.lab(labId) });
-    },
-  };
 };

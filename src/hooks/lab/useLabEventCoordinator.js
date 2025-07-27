@@ -3,13 +3,10 @@
  * Prevents race conditions and duplicate API calls
  */
 import { useCallback } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useLabEvents } from '@/context/LabEventContext'
-import { QUERY_KEYS } from '@/utils/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 export function useLabEventCoordinator() {
-  const queryClient = useQueryClient();
   const { 
     invalidateAllLabCaches, 
     setManualUpdateInProgress,

@@ -137,4 +137,72 @@ export const bookingServices = {
       throw new Error(`Failed to cancel booking: ${error.message}`);
     }
   },
+
+  /**
+   * Confirm a reservation request
+   */
+  async confirmReservationRequest(reservationKey) {
+    if (!reservationKey) {
+      throw new Error('Reservation key is required');
+    }
+
+    try {
+      devLog.log(`Confirming reservation request: ${reservationKey}`);
+      
+      const response = await fetch('/api/contract/reservation/confirmReservationRequest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reservationKey }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      devLog.log('✅ Reservation confirmed:', result);
+      
+      return result;
+    } catch (error) {
+      devLog.error('Error confirming reservation request:', error);
+      throw new Error(`Failed to confirm reservation: ${error.message}`);
+    }
+  },
+
+  /**
+   * Deny a reservation request
+   */
+  async denyReservationRequest(reservationKey, reason = 'Denied by provider') {
+    if (!reservationKey) {
+      throw new Error('Reservation key is required');
+    }
+
+    try {
+      devLog.log(`Denying reservation request: ${reservationKey}`);
+      
+      const response = await fetch('/api/contract/reservation/denyReservationRequest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reservationKey, reason }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      devLog.log('✅ Reservation denied:', result);
+      
+      return result;
+    } catch (error) {
+      devLog.error('Error denying reservation request:', error);
+      throw new Error(`Failed to deny reservation: ${error.message}`);
+    }
+  },
 };

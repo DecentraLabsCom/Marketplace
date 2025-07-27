@@ -1,20 +1,27 @@
 "use client";
 import { createContext, useContext, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
-import { useQueryClient } from '@tanstack/react-query'
 import { useNotifications } from '@/context/NotificationContext'
+import { useLabCacheInvalidation } from '@/hooks/lab/useLabs'
+import { useCacheInvalidation } from '@/hooks/user/useUsers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
-import { QUERY_KEYS } from '@/utils/queryKeys'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
+import PropTypes from 'prop-types'
 
 const LabEventContext = createContext();
 
+/**
+ * Provider for lab-related blockchain events
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components
+ */
 export function LabEventProvider({ children }) {
     const { chain, address } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const queryClient = useQueryClient();
+    const labCacheInvalidation = useLabCacheInvalidation();
+    const cacheInvalidation = useCacheInvalidation();
     const { addPersistentNotification } = useNotifications();
     const [processingLabs, setProcessingLabs] = useState(new Set());
 
@@ -29,20 +36,14 @@ export function LabEventProvider({ children }) {
         devLog.log(`♻️ [LabEventContext] Invalidating caches (reason: ${reason}):`, { labId });
         
         // Always invalidate all labs query
-        await queryClient.invalidateQueries({ 
-            queryKey: [QUERY_KEYS.ALL_LABS]
-        });
+        labCacheInvalidation.invalidateLabList();
 
-        // Also invalidate lab token queries if specific labId
+        // Also invalidate lab data if specific labId
         if (labId) {
-            await queryClient.invalidateQueries({ 
-                queryKey: [QUERY_KEYS.LAB_TOKEN, labId.toString()]
-            });
+            labCacheInvalidation.invalidateLabData(labId);
             
             // And invalidate bookings for this lab too since lab changes affect bookings
-            await queryClient.invalidateQueries({ 
-                queryKey: [QUERY_KEYS.LAB_BOOKINGS, labId.toString()]
-            });
+            cacheInvalidation.invalidateLabBookings(labId);
         }
 
         devLog.log(`✅ [LabEventContext] Cache invalidation completed`);
@@ -150,9 +151,7 @@ export function LabEventProvider({ children }) {
                     await invalidateAllLabCaches(labId?.toString(), 'lab_deleted');
                     
                     // Also invalidate user bookings since they might reference the deleted lab
-                    await queryClient.invalidateQueries({ 
-                        queryKey: [QUERY_KEYS.USER_BOOKINGS]
-                    });
+                    cacheInvalidation.invalidateAllBookings();
 
                     // Show notification
                     addPersistentNotification(
@@ -191,3 +190,8 @@ export function useLabEvents() {
     }
     return context;
 }
+
+// PropTypes
+LabEventProvider.propTypes = {
+    children: PropTypes.node.isRequired,
+};

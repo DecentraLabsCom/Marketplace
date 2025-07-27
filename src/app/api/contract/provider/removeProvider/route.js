@@ -4,7 +4,7 @@
  */
 import { getContractInstance } from '../../utils/contractInstance'
 import devLog from '@/utils/dev/logger'
-import retry from '@/utils/retry'
+import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
 /**
  * Removes a lab provider from the blockchain registry
@@ -23,7 +23,7 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
 
-    const tx = await retry(() => contract.removeProvider(wallet));
+    const tx = await executeBlockchainTransaction(() => contract.removeProvider(wallet));
     await tx.wait();
 
     // Return data to client

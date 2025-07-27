@@ -1,48 +1,175 @@
 /**
  * API endpoint for creating new lab reservations
  * Handles POST requests to book lab time slots through smart contract
+ * 
+ * @description Optimized for React Query with proper error handling and blockchain best practices
+ * @version 2.0.0 - No server-side cache, React Query friendly
  */
 import devLog from '@/utils/dev/logger'
-
 import { getContractInstance } from '../../utils/contractInstance'
-import retry from '@/utils/retry'
+import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
 /**
  * Creates a new lab booking reservation
  * @param {Request} request - HTTP request with booking details
  * @param {Object} request.body - Request body
- * @param {string|number} request.body.labId - Lab identifier
- * @param {number} request.body.start - Booking start time (Unix timestamp)
- * @param {number} request.body.timeslot - Duration of booking in seconds
- * @returns {Response} JSON response with booking result or error
+ * @param {string|number} request.body.labId - Lab identifier (required)
+ * @param {number} request.body.start - Booking start time (Unix timestamp, required)
+ * @param {number} request.body.timeslot - Duration of booking in seconds (required)
+ * @returns {Response} JSON response with booking result, transaction hash, or detailed error
  */
 export async function POST(request) {
-  const body = await request.json();
-  const { labId, start, timeslot } = body;
-  if (!labId || !start || !timeslot) {
-    return Response.json({ error: 'Missing required fields' }, { status: 400 });
-  }
-
-  const end = start + timeslot;
-
+  const startTime = Date.now();
+  
   try {
-    const contract = await getContractInstance();
+    // Parse and validate request body
+    const body = await request.json();
+    const { labId, start, timeslot } = body;
+    
+    // Input validation with detailed errors
+    if (!labId && labId !== 0) {
+      return Response.json({ 
+        error: 'Missing required field: labId',
+        field: 'labId',
+        code: 'VALIDATION_ERROR'
+      }, { status: 400 });
+    }
+    
+    if (!start && start !== 0) {
+      return Response.json({ 
+        error: 'Missing required field: start',
+        field: 'start',
+        code: 'VALIDATION_ERROR'
+      }, { status: 400 });
+    }
+    
+    if (!timeslot || timeslot <= 0) {
+      return Response.json({ 
+        error: 'Invalid timeslot: must be a positive number',
+        field: 'timeslot',
+        code: 'VALIDATION_ERROR'
+      }, { status: 400 });
+    }
 
-    devLog.log(`Attempting to call reservationRequest for labId: ${labId}, 
-      start: ${start}, end (calculated): ${end}`);
+    // Calculate end time
+    const end = parseInt(start) + parseInt(timeslot);
+    
+    // Additional business logic validation
+    const now = Math.floor(Date.now() / 1000);
+    if (parseInt(start) < now) {
+      return Response.json({ 
+        error: 'Cannot book in the past',
+        field: 'start',
+        code: 'BUSINESS_LOGIC_ERROR'
+      }, { status: 400 });
+    }
 
-    // Call contract
-    const tx = await retry(() => contract.reservationRequest(labId, start, end));
-    devLog.log('Transaction sent:', tx.hash);
-    const receipt = await tx.wait();
-    devLog.log('Transaction confirmed:', receipt.transactionHash);
+    devLog.log(`Creating reservation request - labId: ${labId}, start: ${start}, end: ${end}, timeslot: ${timeslot}`);
 
-    // The BookingEventContext will automatically handle the ReservationRequested event
+    // Get contract instance with error handling
+    let contract;
+    try {
+      contract = await getContractInstance();
+    } catch (contractError) {
+      devLog.error('Failed to get contract instance:', contractError);
+      return Response.json({ 
+        error: 'Blockchain connection failed',
+        code: 'CONTRACT_ERROR',
+        retryable: true
+      }, { status: 503 });
+    }
 
-    // Return data to client
-    return Response.json({ success: true }, { status: 200 });
+    // Execute blockchain transaction WITHOUT retry (prevents duplicates)
+    let transactionHash;
+    let receipt;
+    
+    try {
+      const tx = await executeBlockchainTransaction(() => 
+        contract.reservationRequest(labId, start, end)
+      );
+      
+      transactionHash = tx.hash;
+      devLog.log('Transaction submitted:', transactionHash);
+      
+      // Wait for confirmation
+      receipt = await tx.wait();
+      devLog.log('Transaction confirmed:', receipt.transactionHash);
+      
+    } catch (blockchainError) {
+      devLog.error('Blockchain transaction failed:', blockchainError);
+      
+      // Parse blockchain error for better client handling
+      let errorCode = 'BLOCKCHAIN_ERROR';
+      let retryable = true;
+      
+      if (blockchainError.message?.includes('user rejected')) {
+        errorCode = 'USER_REJECTED';
+        retryable = false;
+      } else if (blockchainError.message?.includes('insufficient funds')) {
+        errorCode = 'INSUFFICIENT_FUNDS';
+        retryable = false;
+      } else if (blockchainError.message?.includes('nonce')) {
+        errorCode = 'NONCE_ERROR';
+        retryable = true;
+      }
+      
+      return Response.json({ 
+        error: 'Transaction failed',
+        code: errorCode,
+        retryable,
+        details: blockchainError.message
+      }, { status: 500 });
+    }
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+
+    // Return success response optimized for React Query
+    return Response.json({
+      success: true,
+      data: {
+        transactionHash,
+        blockHash: receipt.blockHash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed?.toString(),
+        labId,
+        start: parseInt(start),
+        end,
+        timeslot: parseInt(timeslot)
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        duration,
+        confirmed: true
+      }
+    }, { 
+      status: 201,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Content-Type': 'application/json'
+      }
+    });
+
   } catch (error) {
-    devLog.error('Error when trying to book the lab:', error);
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    devLog.error('Unexpected error in makeBooking:', error);
+    
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    return Response.json({ 
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR',
+      retryable: true,
+      meta: {
+        timestamp: new Date().toISOString(),
+        duration
+      }
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Content-Type': 'application/json'
+      }
+    });
   }
 }

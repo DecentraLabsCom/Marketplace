@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { ethers } from 'ethers'
-import { contractABI, contractAddresses } from '@/contracts/diamond'
-import { selectChain } from '@/utils/blockchain/selectChain'
+import { getContractInstance } from '../../utils/contractInstance'
+import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
+import devLog from '@/utils/dev/logger'
 
 /**
  * API route to check the current status of a reservation on the blockchain
@@ -15,24 +15,15 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Missing reservationKey' }, { status: 400 });
         }
 
-        // Get the appropriate chain configuration
-        const chain = selectChain();
-        const contractAddress = contractAddresses[chain.name.toLowerCase()];
-
-        if (!contractAddress || contractAddress === "0x...") {
-            return NextResponse.json({ 
-                error: `Contract not deployed on ${chain.name}` 
-            }, { status: 400 });
-        }
-
-        // Set up provider and contract
-        const provider = new ethers.JsonRpcProvider(chain.rpcUrls.default.http[0]);
-        const contract = new ethers.Contract(contractAddress, contractABI, provider);
+        devLog.log(`🔍 Checking status for reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+        
+        // Get contract instance
+        const contract = await getContractInstance();
 
         // Check reservation status on blockchain
         try {
             // Try to get reservation details
-            const reservation = await contract.getReservation(reservationKey);
+            const reservation = await retryBlockchainRead(() => contract.getReservation(reservationKey));
             
             if (reservation && reservation.length >= 6) {
                 const [labId, renter, start, end, status, cost] = reservation;

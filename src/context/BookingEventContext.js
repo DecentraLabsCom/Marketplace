@@ -1,20 +1,25 @@
 "use client";
 import { createContext, useContext, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
-import { useQueryClient } from '@tanstack/react-query'
 import { useNotifications } from '@/context/NotificationContext'
+import { useCacheInvalidation } from '@/hooks/user/useUsers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
-import { QUERY_KEYS } from '@/utils/queryKeys'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
+import PropTypes from 'prop-types'
 
 const BookingEventContext = createContext();
 
+/**
+ * Provider for booking-related blockchain events
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components
+ */
 export function BookingEventProvider({ children }) {
     const { chain, address } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const queryClient = useQueryClient();
+    const cacheInvalidation = useCacheInvalidation();
     const { addPersistentNotification } = useNotifications();
     const [processingBookings, setProcessingBookings] = useState(new Set());
 
@@ -28,21 +33,12 @@ export function BookingEventProvider({ children }) {
     const invalidateAllBookingCaches = async (labId = null, reason = 'event') => {
         devLog.log(`♻️ [BookingEventContext] Invalidating caches (reason: ${reason}):`, { labId });
         
-        // Always invalidate user bookings
-        await queryClient.invalidateQueries({ 
-            queryKey: [QUERY_KEYS.USER_BOOKINGS]
-        });
-
         if (labId) {
-            // Invalidate specific lab bookings
-            await queryClient.invalidateQueries({ 
-                queryKey: [QUERY_KEYS.LAB_BOOKINGS, labId.toString()]
-            });
+            // Invalidate specific lab and user bookings
+            cacheInvalidation.invalidateBookingRelatedData(address, labId);
         } else {
-            // Invalidate all lab bookings
-            await queryClient.invalidateQueries({ 
-                queryKey: [QUERY_KEYS.LAB_BOOKINGS]
-            });
+            // Invalidate all bookings
+            cacheInvalidation.invalidateAllBookings();
         }
 
         devLog.log(`✅ [BookingEventContext] Cache invalidation completed`);
@@ -272,3 +268,8 @@ export function useBookingEvents() {
     }
     return context;
 }
+
+// PropTypes
+BookingEventProvider.propTypes = {
+    children: PropTypes.node.isRequired,
+};

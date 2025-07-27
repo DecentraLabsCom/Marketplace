@@ -26,7 +26,6 @@ export function useUserEventCoordinator() {
   const { 
     invalidateProviderStatus,
     invalidateProviderName,
-    invalidateSSOSession,
     invalidateAllUserData 
   } = useUserCacheInvalidation();
   

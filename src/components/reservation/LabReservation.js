@@ -2,19 +2,18 @@
 import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
-import { useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
 import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/hooks/useLabToken'
+import { useCacheInvalidation } from '@/hooks/user/useUsers'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import AccessControl from '@/components/auth/AccessControl'
 import Carrousel from '@/components/ui/Carrousel'
 import LabTokenInfo from '@/components/reservation/LabTokenInfo'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import { contractAddresses } from '@/contracts/diamond'
-import { QUERY_KEYS } from '@/utils/queryKeys'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import devLog from '@/utils/dev/logger'
 
@@ -37,7 +36,10 @@ export default function LabReservation({ id }) {
   const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected, address } = useAccount();
-  const queryClient = useQueryClient();
+  
+  // Cache invalidation hooks
+  const cacheInvalidation = useCacheInvalidation();
+  
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
   const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
@@ -268,16 +270,12 @@ export default function LabReservation({ id }) {
             })
           });
           
-          // Invalidate user bookings cache for real-time updates across components
-          await queryClient.invalidateQueries({ 
-            queryKey: QUERY_KEYS.BOOKINGS.user(address || userAddress) 
-          });
+          // Invalidate cache for real-time updates across components
+          cacheInvalidation.invalidateUserBookings(address || userAddress);
           
-          // Invalidate ALL lab bookings cache for this specific lab (for provider dashboards)
+          // Invalidate lab bookings cache for this specific lab (for provider dashboards)
           if (labId) {
-            await queryClient.invalidateQueries({ 
-              queryKey: QUERY_KEYS.BOOKINGS.lab(labId) 
-            });
+            cacheInvalidation.invalidateLabBookings(labId);
           }
           
           // Force refresh the lab bookings data
@@ -352,15 +350,11 @@ export default function LabReservation({ id }) {
   // Common notification and state management
   const handleBookingSuccess = async () => {
     // Invalidate user bookings for real-time updates
-    await queryClient.invalidateQueries({ 
-      queryKey: QUERY_KEYS.BOOKINGS.user(address || userAddress) 
-    });
+    cacheInvalidation.invalidateUserBookings(address || userAddress);
     
     // Invalidate lab bookings for real-time updates across provider dashboards
     if (selectedLab?.id) {
-      await queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.lab(selectedLab.id) 
-      });
+      cacheInvalidation.invalidateLabBookings(selectedLab.id);
     }
     
     // Update lab bookings
@@ -374,52 +368,24 @@ export default function LabReservation({ id }) {
   // Optimistic cache update for immediate UI feedback
   const addOptimisticBooking = (bookingData) => {
     const { labId, start, timeslot, cost, optimisticBookingId } = bookingData;
-    
-    // Create optimistic booking object that matches the expected structure
-    const optimisticBooking = {
-      id: optimisticBookingId || `temp_${Date.now()}`, // Use passed ID or generate temporary ID
-      labId: labId,
-      user: address || userAddress || 'current_user', // Use connected wallet address or SSO identifier
-      renter: address || userAddress || 'current_user', // Add renter field for event matching
-      start: start,
-      end: start + timeslot,
-      duration: timeslot,
-      status: "0", // "0" = requested status
-      cost: cost?.toString() || "0",
-      isOptimistic: true, // Mark as optimistic for potential removal if tx fails
-      timestamp: Date.now(),
-      optimisticBookingId: optimisticBookingId // Store the optimistic ID for later reference
-    };
+    const userAddr = address || userAddress || 'current_user';
 
-    try {
-      // 🚀 UPDATE CACHE DIRECTLY instead of invalidating
-      
-      // 1. Update USER bookings cache (for UserDashboard, Market)
-      queryClient.setQueryData(
-        QUERY_KEYS.BOOKINGS.user(address || userAddress), 
-        (oldUserBookings = []) => {
-          devLog.log('✅ Adding optimistic booking to user cache:', optimisticBooking);
-          return [...oldUserBookings, optimisticBooking];
-        }
-      );
-      
-      // 2. Update LAB bookings cache (for ProviderDashboard, LabReservation)
-      queryClient.setQueryData(
-        QUERY_KEYS.BOOKINGS.lab(labId), 
-        (oldLabBookings = []) => {
-          devLog.log('✅ Adding optimistic booking to lab cache:', optimisticBooking);
-          return [...oldLabBookings, optimisticBooking];
-        }
-      );
-      
-      devLog.log('✅ Optimistic booking added to ALL relevant caches without refetch:', optimisticBooking);
-      
+    // Use the cache invalidation hook for optimistic updates
+    const optimisticBooking = cacheInvalidation.addOptimisticBooking({
+      labId,
+      start,
+      timeslot,
+      cost,
+      optimisticBookingId,
+      userAddress: userAddr
+    });
+
+    if (optimisticBooking) {
       // Force UI refresh for immediate calendar update
       setForceRefresh(prev => prev + 1);
-      
-    } catch (error) {
-      devLog.error('❌ Failed to handle optimistic booking:', error);
     }
+
+    return optimisticBooking;
   };
 
   // Common validation and calculation logic

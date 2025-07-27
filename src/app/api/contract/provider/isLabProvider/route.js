@@ -1,67 +1,68 @@
-/**
+﻿/**
  * API endpoint for checking if an address is a registered lab provider
- * Handles GET requests to validate provider status on the blockchain
  */
 import devLog from '@/utils/dev/logger'
 import { getContractInstance } from '../../utils/contractInstance'
+import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
-// Retry function with exponential backoff
-async function retryWithBackoff(fn, maxRetries = 2, baseDelay = 1000) {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (attempt === maxRetries - 1) throw error;
-      
-      const delay = baseDelay * Math.pow(2, attempt);
-      devLog.warn(`Attempt ${attempt + 1} failed, retrying in ${delay}ms:`, error.message);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-}
-
-/**
- * Checks if a wallet address is a registered lab provider
- * @param {Request} request - HTTP request with wallet address
- * @param {Object} request.body - Request body
- * @param {string} request.body.wallet - Wallet address to check (required)
- * @returns {Response} JSON response with provider status (boolean) or error
- */
-export async function POST(request) {
-  const body = await request.json();
-  const { wallet } = body;
-  if (!wallet) {
-    return Response.json({ error: 'Missing required fields' }, { status: 400 });
-  }
-
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const wallet = searchParams.get('wallet');
+    
+    if (!wallet) {
+      return Response.json({ error: 'Missing wallet parameter' }, { status: 400 });
+    }
+    
+    if (!/^0x[a-fA-F0-9]{40}$/.test(wallet.trim())) {
+      return Response.json({ error: 'Invalid wallet address format' }, { status: 400 });
+    }
+
     const contract = await getContractInstance();
     
-    const startTime = Date.now();
-    devLog.log(`🔍 Checking isLabProvider for wallet: ${wallet}`);
-
-    // Retry with backoff for better reliability
-    const isLabProvider = await retryWithBackoff(async () => {
+    const isLabProvider = await retryBlockchainRead(async () => {
       return await Promise.race([
         contract.isLabProvider(wallet),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('isLabProvider timeout')), 12000) // Reduced to 12s for faster failures
+          setTimeout(() => reject(new Error('timeout')), 10000)
         )
       ]);
     });
-    
-    const elapsedTime = Date.now() - startTime;
-    devLog.log(`✅ isLabProvider completed in ${elapsedTime}ms for wallet: ${wallet}`);
-    
-    return Response.json({isLabProvider}, { status: 200 });
+
+    return Response.json({
+      success: true,
+      data: {
+        wallet: wallet.toLowerCase(),
+        isLabProvider: Boolean(isLabProvider),
+        checked: true
+      }
+    }, { 
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
   } catch (error) {
-    devLog.error('Error when trying to check provider status:', error);
-    
-    // If it's a timeout, try to provide more context
-    if (error.message.includes('timeout')) {
-      devLog.error(`❌ Timeout occurred for wallet: ${wallet}, consider increasing timeout or checking network`);
-    }
-    
-    return Response.json({ error: 'Internal server error' }, { status: 500 });
+    devLog.error('Error in isLabProvider:', error);
+    return Response.json({ 
+      error: 'Internal server error' 
+    }, { status: 500 });
   }
+}
+
+export async function POST(request) {
+  const body = await request.json();
+  const { wallet } = body;
+  
+  if (!wallet) {
+    return Response.json({ error: 'Missing wallet field' }, { status: 400 });
+  }
+  
+  const url = new URL(request.url);
+  url.searchParams.set('wallet', wallet);
+  
+  const getRequest = new Request(url.toString(), {
+    method: 'GET',
+    headers: request.headers
+  });
+  
+  return GET(getRequest);
 }

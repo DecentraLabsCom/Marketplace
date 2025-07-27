@@ -5,7 +5,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userServices } from '@/services/userServices'
-import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/queryKeys'
+import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // ===============================
@@ -14,6 +14,8 @@ import devLog from '@/utils/dev/logger'
 
 /**
  * Hook to get SSO session data
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with SSO session data, loading state, and error handling
  */
 export const useSSOSessionQuery = (options = {}) => {
   return useQuery({
@@ -47,10 +49,14 @@ export const useSSOSessionQuery = (options = {}) => {
 
 /**
  * Hook to get provider status for a wallet address or email
+ * @param {string} identifier - Wallet address or email to check
+ * @param {boolean} [isEmail=false] - Whether the identifier is an email
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with provider status data, loading state, and error handling
  */
 export const useProviderStatusQuery = (identifier, isEmail = false, options = {}) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.PROVIDER_STATUS, identifier, isEmail],
+    queryKey: QUERY_KEYS.PROVIDER.status(identifier, isEmail),
     queryFn: async () => {
       if (!identifier) {
         throw new Error('Identifier is required for provider status');
@@ -101,10 +107,13 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
 
 /**
  * Hook to get provider name for a wallet address
+ * @param {string} wallet - Wallet address to get the provider name for
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with provider name data, loading state, and error handling
  */
 export const useProviderNameQuery = (wallet, options = {}) => {
   return useQuery({
-    queryKey: [QUERY_KEYS.PROVIDER_NAME, wallet],
+    queryKey: QUERY_KEYS.PROVIDER.name(wallet),
     queryFn: async () => {
       if (!wallet) {
         throw new Error('Wallet address is required for provider name');
@@ -148,6 +157,9 @@ export const useProviderNameQuery = (wallet, options = {}) => {
 
 /**
  * Hook to get user profile
+ * @param {string} userAddress - User's wallet address
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with user profile data, loading state, and error handling
  */
 export const useUserProfileQuery = (userAddress, options = {}) => {
   return useQuery({
@@ -163,6 +175,9 @@ export const useUserProfileQuery = (userAddress, options = {}) => {
 
 /**
  * Hook to get user status/permissions
+ * @param {string} userAddress - User's wallet address
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with user status data, loading state, and error handling
  */
 export const useUserStatusQuery = (userAddress, options = {}) => {
   return useQuery({
@@ -178,6 +193,9 @@ export const useUserStatusQuery = (userAddress, options = {}) => {
 
 /**
  * Combined hook for complete user data
+ * @param {string} userAddress - User's wallet address
+ * @param {Object} [options={}] - Additional react-query options to pass to underlying queries
+ * @returns {Object} Combined result object with profile and status queries, plus aggregated loading/error states
  */
 export const useUserDataQuery = (userAddress, options = {}) => {
   const profileQuery = useUserProfileQuery(userAddress, options);
@@ -199,39 +217,12 @@ export const useUserDataQuery = (userAddress, options = {}) => {
 };
 
 // ===============================
-// === DERIVED QUERIES ===
-// ===============================
-
-/**
- * Combined hook to check if the user is a provider
- */
-export const useIsProviderQuery = (userAddress, options = {}) => {
-  const statusQuery = useUserStatusQuery(userAddress, options);
-
-  return {
-    ...statusQuery,
-    data: statusQuery.data ? statusQuery.data.isProvider : undefined,
-  };
-};
-
-/**
- * Hook to check user permissions
- */
-export const useUserPermissionsQuery = (userAddress, options = {}) => {
-  const statusQuery = useUserStatusQuery(userAddress, options);
-
-  return {
-    ...statusQuery,
-    data: statusQuery.data ? statusQuery.data.permissions : undefined,
-  };
-};
-
-// ===============================
 // === MUTATIONS ===
 // ===============================
 
 /**
  * Hook to refresh SSO session
+ * @returns {Object} React Query mutation object for refreshing SSO session
  */
 export const useRefreshSSOSessionMutation = () => {
   const queryClient = useQueryClient();
@@ -266,6 +257,7 @@ export const useRefreshSSOSessionMutation = () => {
 
 /**
  * Hook to refresh provider status
+ * @returns {Object} React Query mutation object for refreshing provider status by identifier
  */
 export const useRefreshProviderStatusMutation = () => {
   const queryClient = useQueryClient();
@@ -276,13 +268,13 @@ export const useRefreshProviderStatusMutation = () => {
       
       // Invalidate the specific provider status query
       await queryClient.invalidateQueries({
-        queryKey: [QUERY_KEYS.PROVIDER_STATUS, identifier, isEmail]
+        queryKey: QUERY_KEYS.PROVIDER.status(identifier, isEmail)
       });
 
       // If it's a wallet, also invalidate provider name
       if (!isEmail) {
         await queryClient.invalidateQueries({
-          queryKey: [QUERY_KEYS.PROVIDER_NAME, identifier]
+          queryKey: QUERY_KEYS.PROVIDER.name(identifier)
         });
       }
 
@@ -303,6 +295,7 @@ export const useRefreshProviderStatusMutation = () => {
 
 /**
  * Hook to invalidate user cache manually
+ * @returns {Object} Object with functions for invalidating specific user/provider cache keys
  */
 export const useUserCacheInvalidation = () => {
   const queryClient = useQueryClient();
@@ -314,11 +307,11 @@ export const useUserCacheInvalidation = () => {
     },
     
     invalidateProviderStatus: (identifier, isEmail = false) => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROVIDER_STATUS, identifier, isEmail] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROVIDER.status(identifier, isEmail) });
     },
     
     invalidateProviderName: (wallet) => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.PROVIDER_NAME, wallet] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROVIDER.name(wallet) });
     },
 
     // User profile invalidation
@@ -348,131 +341,196 @@ export const useUserCacheInvalidation = () => {
 };
 
 // ===============================
-// === PREFETCH UTILITIES ===
+// === CACHE INVALIDATION HOOKS ===
 // ===============================
 
 /**
- * Hook to prefetch user data
+ * Hook to get cache invalidation functions
+ * Encapsulates query key logic and provides clean invalidation API
+ * @returns {Object} Object with functions for invalidating different types of cache data (bookings, labs, users, providers)
  */
-export const useUserPrefetch = () => {
+export const useCacheInvalidation = () => {
   const queryClient = useQueryClient();
-  
+
   return {
-    // SSO & Authentication prefetch
-    prefetchSSOSession: () => {
-      queryClient.prefetchQuery({
-        queryKey: [QUERY_KEYS.SSO_SESSION],
-        queryFn: async () => {
-          const response = await fetch('/api/auth/sso/session');
-          return response.json();
-        },
-        staleTime: 30 * 1000,
+    // Booking invalidations
+    invalidateUserBookings: (address) => {
+      if (!address) return;
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.BOOKINGS.user(address)
       });
+      devLog.log(`🔄 Invalidated user bookings for: ${address}`);
     },
 
-    prefetchProviderStatus: (identifier, isEmail = false) => {
-      queryClient.prefetchQuery({
-        queryKey: [QUERY_KEYS.PROVIDER_STATUS, identifier, isEmail],
-        queryFn: async () => {
-          const endpoint = '/api/contract/provider/isLabProvider';
-          const requestBody = isEmail ? { email: identifier } : { wallet: identifier };
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-          });
-          return response.json();
-        },
-        staleTime: 5 * 60 * 1000,
+    invalidateLabBookings: (labId) => {
+      if (!labId) return;
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.BOOKINGS.lab(labId)
       });
+      devLog.log(`🔄 Invalidated lab bookings for: ${labId}`);
     },
 
-    // User profile prefetch
-    prefetchUserProfile: (userAddress) => {
-      queryClient.prefetchQuery({
-        queryKey: QUERY_KEYS.USER.profile(userAddress),
-        queryFn: () => userServices.fetchUserProfile(userAddress),
-        staleTime: 15 * 60 * 1000,
+    invalidateAllBookings: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.BOOKINGS.all
       });
+      devLog.log(`🔄 Invalidated all bookings`);
     },
-    
-    prefetchUserStatus: (userAddress) => {
-      queryClient.prefetchQuery({
-        queryKey: QUERY_KEYS.USER.status(userAddress),
-        queryFn: () => userServices.fetchUserStatus(userAddress),
-        staleTime: 15 * 60 * 1000,
+
+    // Lab invalidations
+    invalidateLabData: (labId) => {
+      if (!labId) return;
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.LABS.data(labId)
       });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.LABS.owner(labId)
+      });
+      devLog.log(`🔄 Invalidated lab data for: ${labId}`);
     },
-    
-    prefetchAllUserData: (userAddress) => {
-      Promise.all([
-        queryClient.prefetchQuery({
-          queryKey: QUERY_KEYS.USER.profile(userAddress),
-          queryFn: () => userServices.fetchUserProfile(userAddress),
-          staleTime: 15 * 60 * 1000,
-        }),
-        queryClient.prefetchQuery({
-          queryKey: QUERY_KEYS.USER.status(userAddress),
-          queryFn: () => userServices.fetchUserStatus(userAddress),
-          staleTime: 15 * 60 * 1000,
-        }),
-      ]);
+
+    invalidateAllLabs: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.LABS.list
+      });
+      devLog.log(`🔄 Invalidated all labs`);
     },
-  };
-};
 
-// ===============================
-// === SYNCHRONIZATION UTILITIES ===
-// ===============================
+    // User invalidations
+    invalidateUserData: (address) => {
+      if (!address) return;
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.USER.profile(address)
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.USER.status(address)
+      });
+      devLog.log(`🔄 Invalidated user data for: ${address}`);
+    },
 
-/**
- * Hook to synchronize data between React Query and legacy contexts
- * Used during gradual migration
- */
-export const useUserSyncUtilities = () => {
-  const queryClient = useQueryClient();
-  
-  return {
-    // Synchronize data from React Query to legacy contexts
-    syncToLegacy: (userAddress, legacySetters) => {
-      const profile = queryClient.getQueryData(QUERY_KEYS.USER.profile(userAddress));
-      const status = queryClient.getQueryData(QUERY_KEYS.USER.status(userAddress));
-      const ssoData = queryClient.getQueryData([QUERY_KEYS.SSO_SESSION]);
-      const providerStatus = queryClient.getQueryData([QUERY_KEYS.PROVIDER_STATUS, userAddress, false]);
+    // SSO invalidations
+    invalidateSSOSession: () => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.SSO_SESSION
+      });
+      devLog.log(`🔄 Invalidated SSO session`);
+    },
+
+    // Provider invalidations
+    invalidateProviderData: (providerId) => {
+      if (!providerId) return;
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.PROVIDER.profile(providerId)
+      });
+      // Invalidate provider status for both email and wallet scenarios
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.PROVIDER.status(providerId, false)
+      });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.PROVIDER.status(providerId, true)
+      });
+      devLog.log(`🔄 Invalidated provider data for: ${providerId}`);
+    },
+
+    // Combined invalidations (common use cases)
+    invalidateBookingRelatedData: (address, labId) => {
+      if (address) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.BOOKINGS.user(address)
+        });
+      }
+      if (labId) {
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.BOOKINGS.lab(labId)
+        });
+      }
+      devLog.log(`🔄 Invalidated booking-related data (user: ${address}, lab: ${labId})`);
+    },
+
+    // Optimistic updates for immediate UI feedback
+    addOptimisticBooking: (bookingData) => {
+      const { labId, start, timeslot, cost, optimisticBookingId, userAddress } = bookingData;
       
-      if (profile && legacySetters.setProfile) {
-        legacySetters.setProfile(profile);
-      }
-      
-      if (status && legacySetters.setStatus) {
-        legacySetters.setStatus(status);
-      }
+      // Create optimistic booking object that matches the expected structure
+      const optimisticBooking = {
+        id: optimisticBookingId || `temp_${Date.now()}`,
+        labId: labId,
+        user: userAddress || 'current_user',
+        renter: userAddress || 'current_user',
+        start: start,
+        end: start + timeslot,
+        duration: timeslot,
+        status: "0", // "0" = requested status
+        cost: cost?.toString() || "0",
+        isOptimistic: true,
+        timestamp: Date.now(),
+        optimisticBookingId: optimisticBookingId
+      };
 
-      if (ssoData && legacySetters.setSSOData) {
-        legacySetters.setSSOData(ssoData);
-      }
-
-      if (providerStatus && legacySetters.setProviderStatus) {
-        legacySetters.setProviderStatus(providerStatus);
+      try {
+        // Update USER bookings cache (for UserDashboard, Market)
+        queryClient.setQueryData(
+          QUERY_KEYS.BOOKINGS.user(userAddress), 
+          (oldUserBookings = []) => {
+            devLog.log('✅ Adding optimistic booking to user cache:', optimisticBooking);
+            return [...oldUserBookings, optimisticBooking];
+          }
+        );
+        
+        // Update LAB bookings cache (for ProviderDashboard, LabReservation)
+        queryClient.setQueryData(
+          QUERY_KEYS.BOOKINGS.lab(labId), 
+          (oldLabBookings = []) => {
+            devLog.log('✅ Adding optimistic booking to lab cache:', optimisticBooking);
+            return [...oldLabBookings, optimisticBooking];
+          }
+        );
+        
+        devLog.log('✅ Optimistic booking added to ALL relevant caches without refetch:', optimisticBooking);
+        
+        return optimisticBooking;
+      } catch (error) {
+        devLog.error('❌ Failed to add optimistic booking:', error);
+        return null;
       }
     },
 
-    // Synchronize data from legacy contexts to React Query
-    syncFromLegacy: (userAddress, legacyData) => {
-      if (legacyData.profile) {
-        queryClient.setQueryData(QUERY_KEYS.USER.profile(userAddress), legacyData.profile);
-      }
-      
-      if (legacyData.status) {
-        queryClient.setQueryData(QUERY_KEYS.USER.status(userAddress), legacyData.status);
-      }
+    // Remove optimistic booking (for error handling)
+    removeOptimisticBooking: (optimisticBookingId, userAddress, labId) => {
+      if (!optimisticBookingId) return;
 
-      if (legacyData.ssoData) {
-        queryClient.setQueryData([QUERY_KEYS.SSO_SESSION], legacyData.ssoData);
-      }
-
-      if (legacyData.providerStatus) {
-        queryClient.setQueryData([QUERY_KEYS.PROVIDER_STATUS, userAddress, false], legacyData.providerStatus);
+      try {
+        // Remove from USER bookings cache
+        if (userAddress) {
+          queryClient.setQueryData(
+            QUERY_KEYS.BOOKINGS.user(userAddress), 
+            (oldUserBookings = []) => {
+              const filtered = oldUserBookings.filter(booking => 
+                booking.optimisticBookingId !== optimisticBookingId
+              );
+              devLog.log('🗑️ Removed optimistic booking from user cache:', optimisticBookingId);
+              return filtered;
+            }
+          );
+        }
+        
+        // Remove from LAB bookings cache
+        if (labId) {
+          queryClient.setQueryData(
+            QUERY_KEYS.BOOKINGS.lab(labId), 
+            (oldLabBookings = []) => {
+              const filtered = oldLabBookings.filter(booking => 
+                booking.optimisticBookingId !== optimisticBookingId
+              );
+              devLog.log('🗑️ Removed optimistic booking from lab cache:', optimisticBookingId);
+              return filtered;
+            }
+          );
+        }
+        
+        devLog.log('✅ Optimistic booking removed from caches:', optimisticBookingId);
+      } catch (error) {
+        devLog.error('❌ Failed to remove optimistic booking:', error);
       }
     },
   };

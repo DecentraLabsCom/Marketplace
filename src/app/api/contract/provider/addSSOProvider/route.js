@@ -1,7 +1,7 @@
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
-import retry from '@/utils/retry'
+import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 import { ethers } from 'ethers'
 import { validateProviderRole } from '@/utils/auth/roleValidation'
 
@@ -37,7 +37,7 @@ export async function POST(request) {
     devLog.log(`Registering SSO provider: ${name} with server wallet: ${providerWallet}`);
 
     // Call contract with server-managed wallet address
-    const tx = await retry(() => contract.addProvider(name, providerWallet, email, country));
+    const tx = await executeBlockchainTransaction(() => contract.addProvider(name, providerWallet, email, country));
     await tx.wait();
 
     devLog.log(`SSO provider registered successfully: ${name}`);

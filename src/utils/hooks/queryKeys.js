@@ -2,8 +2,13 @@
  * Unified Query Keys for React Query
  * Centralized key management for consistent cache invalidation
  * and query organization across the application
+ * INTERNAL USE ONLY - Components should use hooks, not direct query keys
  */
 
+/**
+ * Centralized query keys for React Query
+ * @constant {Object}
+ */
 export const QUERY_KEYS = {
   // Bookings
   BOOKINGS: {
@@ -13,18 +18,19 @@ export const QUERY_KEYS = {
     labWithDates: (labId, startDate, endDate) => ['bookings', 'lab', labId, startDate, endDate],
   },
   
-  // Labs
+  // Labs - Atomic endpoints only
   LABS: {
-    all: ['labs'],
-    detail: (id) => ['labs', id],
-    byProvider: (providerId) => ['labs', 'provider', providerId],
+    list: ['labs', 'list'],
+    decimals: ['labs', 'decimals'],
+    data: (labId) => ['labs', 'data', labId],
+    owner: (labId) => ['labs', 'owner', labId],
+    metadata: (uri) => ['labs', 'metadata', uri],
   },
   
   // User
   USER: {
     profile: (address) => ['user', 'profile', address],
     status: (address) => ['user', 'status', address],
-    bookings: (address) => ['user', 'bookings', address], // Alias of BOOKINGS.user
   },
   
   // SSO
@@ -33,16 +39,21 @@ export const QUERY_KEYS = {
   // Provider
   PROVIDER: {
     profile: (id) => ['provider', 'profile', id],
-    status: (id) => ['provider', 'status', id],
-    labs: (id) => ['provider', 'labs', id], // Alias of LABS.byProvider
+    status: (identifier, isEmail = false) => ['provider', 'status', identifier, isEmail],
+    name: (wallet) => ['provider', 'name', wallet],
   },
   
-  // Provider Status and Name
-  PROVIDER_STATUS: ['provider', 'status'],
-  PROVIDER_NAME: ['provider', 'name'],
+  // Providers (atomic)
+  PROVIDERS: {
+    list: ['providers', 'list'],
+  },
 };
 
 // Helper to invalidate related query keys
+/**
+ * Patterns for cache invalidation that cascade related data
+ * @constant {Object}
+ */
 export const INVALIDATION_PATTERNS = {
   // Invalidate all bookings when there are changes
   allBookings: () => [QUERY_KEYS.BOOKINGS.all],
@@ -50,7 +61,6 @@ export const INVALIDATION_PATTERNS = {
   // Invalidate bookings for a specific user
   userBookings: (address) => [
     QUERY_KEYS.BOOKINGS.user(address),
-    QUERY_KEYS.USER.bookings(address),
   ],
 
   // Invalidate bookings for a specific lab
@@ -61,7 +71,8 @@ export const INVALIDATION_PATTERNS = {
 
   // Invalidate lab data when a lab changes
   labData: (labId) => [
-    QUERY_KEYS.LABS.detail(labId),
+    QUERY_KEYS.LABS.data(labId),
+    QUERY_KEYS.LABS.owner(labId),
     ...INVALIDATION_PATTERNS.labBookings(labId),
   ],
 

@@ -1,21 +1,26 @@
 "use client";
 import { createContext, useContext, useRef, useCallback, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
-import { useQueryClient } from '@tanstack/react-query'
 import { useUser } from './UserContext'
 import { useNotifications } from './NotificationContext'
+import { useCacheInvalidation } from '@/hooks/user/useUsers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
-import { QUERY_KEYS } from '@/utils/queryKeys'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
+import PropTypes from 'prop-types'
 
 const UserEventContext = createContext();
 
+/**
+ * Provider for user-related blockchain events
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components
+ */
 export function UserEventProvider({ children }) {
     const { chain, address: userAddress } = useAccount();
     const { user, isSSO } = useUser();
     const { addPersistentNotification } = useNotifications();
-    const queryClient = useQueryClient();
+    const cacheInvalidation = useCacheInvalidation();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
 
@@ -77,18 +82,17 @@ export function UserEventProvider({ children }) {
             if (pendingUpdates.current.size > 0) {
                 devLog.log('Processing batch user updates for IDs:', Array.from(pendingUpdates.current));
                 
-                // Invalidate provider-related caches
-                await queryClient.invalidateQueries({
-                    queryKey: [QUERY_KEYS.PROVIDER_STATUS]
-                });
-                await queryClient.invalidateQueries({
-                    queryKey: [QUERY_KEYS.PROVIDER_NAME]
-                });
+                // Invalidate provider-related data using hooks
+                // Note: These were hardcoded keys that no longer exist
+                // This might need specific provider IDs to invalidate properly
+                for (const providerId of pendingUpdates.current) {
+                    cacheInvalidation.invalidateProviderData(providerId);
+                }
                 
                 pendingUpdates.current.clear();
             }
         }, delay);
-    }, [queryClient]);
+    }, [cacheInvalidation]);
 
     // Enhanced event handlers with collision prevention
     function handleProviderAdded(args) {
@@ -261,3 +265,8 @@ export function useUserEvents() {
     }
     return context;
 }
+
+// PropTypes
+UserEventProvider.propTypes = {
+    children: PropTypes.node.isRequired,
+};

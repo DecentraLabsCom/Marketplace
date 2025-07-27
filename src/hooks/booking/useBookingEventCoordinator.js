@@ -4,7 +4,7 @@
  */
 import { useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { QUERY_KEYS } from '@/utils/queryKeys'
+import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 export function useReservationEventCoordinator() {
@@ -38,20 +38,25 @@ export function useReservationEventCoordinator() {
       // Invalidate all relevant React Query caches
       devLog.log('♻️ [ReservationEventCoordinator] Invalidating caches...');
       
-      // Invalidate user bookings
+      // Invalidate all user bookings (broad invalidation for events)
       await queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.USER_BOOKINGS]
+        queryKey: QUERY_KEYS.BOOKINGS.all
       });
 
-      // If labId specified, invalidate lab bookings
+      // If labId specified, invalidate lab-specific bookings
       if (labId) {
         await queryClient.invalidateQueries({ 
-          queryKey: [QUERY_KEYS.LAB_BOOKINGS, labId.toString()]
+          predicate: (query) => 
+            query.queryKey[0] === 'bookings' && 
+            query.queryKey[1] === 'lab' && 
+            query.queryKey[2] === labId.toString()
         });
       } else {
         // Invalidate all lab bookings to ensure cross-user propagation
         await queryClient.invalidateQueries({ 
-          queryKey: [QUERY_KEYS.LAB_BOOKINGS]
+          predicate: (query) => 
+            query.queryKey[0] === 'bookings' && 
+            query.queryKey[1] === 'lab'
         });
       }
 
@@ -76,7 +81,7 @@ export function useReservationEventCoordinator() {
     if (!isManualUpdateInProgress) {
       devLog.log('🔄 [ReservationEventCoordinator] Refreshing all bookings');
       queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.USER_BOOKINGS]
+        queryKey: QUERY_KEYS.BOOKINGS.all
       });
     } else {
       devLog.log('Manual booking update in progress, skipping automatic refresh');
@@ -107,15 +112,15 @@ export function useReservationEventCoordinator() {
       if (labId) {
         // Refresh specific lab bookings
         await queryClient.invalidateQueries({ 
-          queryKey: [QUERY_KEYS.LAB_BOOKINGS, labId.toString()]
+          predicate: (query) => 
+            query.queryKey[0] === 'bookings' && 
+            query.queryKey[1] === 'lab' && 
+            query.queryKey[2] === labId.toString()
         });
       } else {
         // Refresh all bookings
         await queryClient.invalidateQueries({ 
-          queryKey: [QUERY_KEYS.USER_BOOKINGS]
-        });
-        await queryClient.invalidateQueries({ 
-          queryKey: [QUERY_KEYS.LAB_BOOKINGS]
+          queryKey: QUERY_KEYS.BOOKINGS.all
         });
       }
       
@@ -139,7 +144,10 @@ export function useReservationEventCoordinator() {
   const invalidateLabBookings = useCallback((labId) => {
     devLog.log('🗑️ [ReservationEventCoordinator] Invalidating bookings for deleted lab:', labId);
     queryClient.invalidateQueries({ 
-      queryKey: [QUERY_KEYS.LAB_BOOKINGS, labId.toString()]
+      predicate: (query) => 
+        query.queryKey[0] === 'bookings' && 
+        query.queryKey[1] === 'lab' && 
+        query.queryKey[2] === labId.toString()
     });
   }, [queryClient]);
 
@@ -151,9 +159,9 @@ export function useReservationEventCoordinator() {
     
     // Trigger a forced refresh of user bookings to remove references to deleted lab
     await coordinatedReservationUpdate(async () => {
-      // Force a complete refresh of user bookings
+      // Force a complete refresh of all user bookings
       await queryClient.invalidateQueries({ 
-        queryKey: [QUERY_KEYS.USER_BOOKINGS]
+        queryKey: QUERY_KEYS.BOOKINGS.all
       });
       return { success: true, action: 'lab_deletion_cleanup' };
     }, null, labId);
