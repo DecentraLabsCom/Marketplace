@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { contractABI, contractAddresses } from '@/contracts/diamond';
-import { selectChain } from '@/utils/selectChain';
+import { selectChain } from '@/utils/blockchain/selectChain';
 
 /**
  * API route to check the current status of a reservation on the blockchain

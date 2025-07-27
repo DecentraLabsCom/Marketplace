@@ -1,6 +1,6 @@
-import { parseSAMLResponse, createSession } from "@/utils/sso";
+import { parseSAMLResponse, createSession } from "@/utils/auth/sso";
 import { NextResponse } from "next/server";
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 export async function POST(request) {
   try {

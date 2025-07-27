@@ -1,4 +1,4 @@
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 import { ethers } from 'ethers';
 import { contractABI, contractAddresses } from '@/contracts/diamond';

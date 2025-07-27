@@ -1,6 +1,6 @@
-import { createServiceProvider } from "@/utils/sso";
+import { createServiceProvider } from "@/utils/auth/sso";
 import { NextResponse } from "next/server";
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 export async function GET() {
     const sp = createServiceProvider();

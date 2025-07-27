@@ -1,11 +1,11 @@
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 // Optimized API route with server-side caching and batch operations
 import fs from 'fs/promises';
 import path from 'path';
 import pLimit from 'p-limit';
 import { formatUnits } from 'viem';
-import { simLabsData } from '@/utils/simLabsData';
+import { simLabsData } from '@/utils/dev/simLabsData';
 import { getContractInstance } from '../../utils/contractInstance';
 import getIsVercel from '@/utils/isVercel';
 

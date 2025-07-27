@@ -8,19 +8,19 @@ import {
   useUpdateLabMutation, 
   useDeleteLabMutation, 
   useToggleLabStatusMutation 
-} from '@/hooks/useLabs';
-import { useLabBookingsQuery } from '@/hooks/useBookings';
+} from '@/hooks/lab/useLabs';
+import { useLabBookingsQuery } from '@/hooks/booking/useBookings';
 import { useNotifications } from '@/context/NotificationContext';
 import { useLabToken } from '@/hooks/useLabToken';
-import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
+import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
-import { useReservationEventCoordinator } from '@/hooks/useBookingEventCoordinator';
+import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
-import LabModal from '@/components/LabModal';
-import devLog from '@/utils/logger';
-import AccessControl from '@/components/AccessControl';
-import ProviderLabItem from '@/components/ProviderLabItem';
-import CalendarWithBookings from '@/components/CalendarWithBookings';
+import LabModal from '@/components/provider/LabModal';
+import devLog from '@/utils/dev/logger';
+import AccessControl from '@/components/auth/AccessControl';
+import ProviderLabItem from '@/components/provider/ProviderLabItem';
+import CalendarWithBookings from '@/components/booking/CalendarWithBookings';
 
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();

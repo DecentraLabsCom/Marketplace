@@ -4,7 +4,7 @@ import LabFormFullSetup from '@/components/LabFormFullSetup';
 import LabFormQuickSetup from '@/components/LabFormQuickSetup';
 import { useLabToken } from '@/hooks/useLabToken';
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation';
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 const initialState = (lab) => ({
   activeTab: 'full',

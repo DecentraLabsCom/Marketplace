@@ -1,4 +1,4 @@
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 import fs from 'fs';
 import path from 'path';

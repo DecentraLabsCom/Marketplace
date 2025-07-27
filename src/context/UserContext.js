@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 import { createOptimizedContext } from '@/utils/optimizedContext';
 import { 
   useSSOSessionQuery, 
   useProviderStatusQuery, 
   useProviderNameQuery,
   useRefreshProviderStatusMutation 
-} from '@/hooks/useUsers';
+} from '@/hooks/user/useUsers';
 import { 
   ErrorBoundary, 
   useErrorHandler, 

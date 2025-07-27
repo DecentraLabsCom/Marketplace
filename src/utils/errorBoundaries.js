@@ -3,7 +3,7 @@
  * Provides robust error boundaries and hierarchical error handling
  */
 import React from 'react';
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 /**
  * Error Severity Levels

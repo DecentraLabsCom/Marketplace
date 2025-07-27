@@ -1,6 +1,6 @@
 "use client"
 import { useContext, useState, useCallback } from "react";
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext';
 import { 
   ErrorBoundary, 

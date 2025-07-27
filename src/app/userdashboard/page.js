@@ -1,21 +1,20 @@
 "use client";
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useWaitForTransactionReceipt, useAccount } from 'wagmi'
+import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
-import { useAllLabsQuery } from '@/hooks/useLabs'
-import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/useBookings'
 import { useNotifications } from '@/context/NotificationContext'
-import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
-import { useReservationEventCoordinator } from '@/hooks/useBookingEventCoordinator'
-import devLog from '@/utils/logger'
-import Carrousel from '@/components/Carrousel'
-import LabAccess from '@/components/LabAccess'
-import AccessControl from '@/components/AccessControl'
-import LabBookingItem from '@/components/LabBookingItem'
+import { useAllLabsQuery } from '@/hooks/lab/useLabs'
+import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/booking/useBookings'
+import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
+import Carrousel from '@/components/ui/Carrousel'
+import LabAccess from '@/components/labs/LabAccess'
+import AccessControl from '@/components/auth/AccessControl'
+import LabBookingItem from '@/components/booking/LabBookingItem'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
-import isBookingActive from '@/utils/isBookingActive'
-import CalendarWithBookings from '@/components/CalendarWithBookings';
+import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
+import devLog from '@/utils/dev/logger'
+import isBookingActive from '@/utils/booking/isBookingActive'
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();

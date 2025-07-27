@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { defaultNetworks, alchemyNetworks, ankrNetworks, 
-        quicknodeNetworks, chainstackNetworks } from '@/utils/networkConfig';
-import devLog from '@/utils/logger';
+        quicknodeNetworks, chainstackNetworks } from '@/utils/blockchain/networkConfig';
+import devLog from '@/utils/dev/logger';
 
 // Provider cache to avoid reinitializing providers unnecessarily
 const providerCache = new Map();

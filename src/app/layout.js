@@ -7,11 +7,11 @@ import { UserEventProvider } from "@/context/UserEventContext";
 import { LabEventProvider } from "@/context/LabEventContext";
 import { BookingEventProvider } from "@/context/BookingEventContext";
 import { NotificationProvider } from "@/context/NotificationContext";
-import Navbar from '@/components/Navbar'
-import Footer from '@/components/Footer'
-import GlobalNotificationStack from '@/components/GlobalNotificationStack'
-import DataRefreshIndicator from '@/components/DataRefreshIndicator'
-import ClientOnly from '@/components/ClientOnly'
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
+import GlobalNotificationStack from '@/components/layout/GlobalNotificationStack'
+import DataRefreshIndicator from '@/components/layout/DataRefreshIndicator'
+import ClientOnly from '@/components/layout/ClientOnly'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',

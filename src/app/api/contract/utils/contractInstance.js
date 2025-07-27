@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { contractABI, contractAddresses } from '@/contracts/diamond';
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
-import { defaultChain } from '@/utils/networkConfig.js';
+import { defaultChain } from '@/utils/blockchain/networkConfig.js';
 import getProvider from './getProvider';
 
 export async function getContractInstance(contractType = 'diamond') {

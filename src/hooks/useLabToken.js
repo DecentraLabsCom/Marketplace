@@ -3,8 +3,8 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseUnits, formatUnits } from 'viem';
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab';
 import { contractAddresses } from '@/contracts/diamond';
-import { selectChain } from '@/utils/selectChain';
-import devLog from '@/utils/logger';
+import { selectChain } from '@/utils/blockchain/selectChain';
+import devLog from '@/utils/dev/logger';
 
 // Session storage key for decimals cache
 const DECIMALS_CACHE_KEY = 'lab_token_decimals_cache';

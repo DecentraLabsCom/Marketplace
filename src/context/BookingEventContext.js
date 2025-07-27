@@ -5,9 +5,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS } from '@/utils/queryKeys';
 import { useNotifications } from "@/context/NotificationContext";
 import { contractABI, contractAddresses } from '@/contracts/diamond';
-import { selectChain } from '@/utils/selectChain';
+import { selectChain } from '@/utils/blockchain/selectChain';
 import { useAccount } from "wagmi";
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 const BookingEventContext = createContext();
 

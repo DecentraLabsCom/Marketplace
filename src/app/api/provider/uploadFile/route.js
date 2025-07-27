@@ -1,4 +1,4 @@
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 import path from 'path';
 import { promises as fs } from 'fs';

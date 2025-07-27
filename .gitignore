@@ -48,7 +48,5 @@ next-env.d.ts
 /certificates
 
 # development documentation
-CONTEXTS_ANALYSIS.md
 CUSTODIAL_WALLET_SYSTEM.md
 LAB_PAYMENT_SYSTEM.md
-PROJECT_DOC.md

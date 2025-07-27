@@ -2,7 +2,7 @@
 // This ensures fresh data is fetched after blockchain state changes
 
 import { invalidateCache } from '../cache';
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 export async function POST(request) {
   try {

@@ -4,10 +4,10 @@ import { z } from 'zod';
 import { IoPerson } from 'react-icons/io5';
 import ReactFlagsSelect from 'react-flags-select';
 import { useUser } from '@/context/UserContext';
-import { useUserEventCoordinator } from '@/hooks/useUserEventCoordinator';
-import AccessControl from '@/components/AccessControl';
-import { validateProviderRole, getRoleDisplayName } from '@/utils/roleValidation';
-import devLog from '@/utils/logger';
+import { useUserEventCoordinator } from '@/hooks/user/useUserEventCoordinator';
+import AccessControl from '@/components/auth/AccessControl';
+import { validateProviderRole, getRoleDisplayName } from '@/utils/auth/roleValidation';
+import devLog from '@/utils/dev/logger';
 
 const providerSchema = z.object({
   name: z.string().min(1, 'Provider name is required'),

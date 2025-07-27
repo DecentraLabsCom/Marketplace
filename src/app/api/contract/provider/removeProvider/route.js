@@ -1,4 +1,4 @@
-import devLog from '@/utils/logger';
+import devLog from '@/utils/dev/logger';
 
 import { getContractInstance } from '../../utils/contractInstance';
 import retry from '@/utils/retry';
