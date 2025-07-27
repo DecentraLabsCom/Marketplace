@@ -1,7 +1,8 @@
-import React from "react";
-import Link from "next/link";
-import ConfirmModal from "@/components/ui/ConfirmModal";
-import devLog from '@/utils/dev/logger';
+import React from 'react'
+import PropTypes from 'prop-types'
+import Link from 'next/link'
+import ConfirmModal from '@/components/ui/ConfirmModal'
+import devLog from '@/utils/dev/logger'
 
 const LabBookingItem = React.memo(function LabBookingItem({ 
     lab, 
@@ -150,5 +151,41 @@ const LabBookingItem = React.memo(function LabBookingItem({
         </li>
     );
 });
+
+LabBookingItem.propTypes = {
+    lab: PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        name: PropTypes.string,
+        provider: PropTypes.string
+    }),
+    booking: PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        status: PropTypes.string,
+        hasEnded: PropTypes.bool,
+        requestDate: PropTypes.string,
+        endTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    }),
+    startTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    endTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    onCancel: PropTypes.func,
+    onRefund: PropTypes.func,
+    onConfirmRefund: PropTypes.func,
+    isModalOpen: PropTypes.bool,
+    closeModal: PropTypes.func,
+    onClearError: PropTypes.func
+}
+
+LabBookingItem.defaultProps = {
+    lab: {},
+    booking: {},
+    startTime: null,
+    endTime: null,
+    onCancel: null,
+    onRefund: null,
+    onConfirmRefund: null,
+    isModalOpen: false,
+    closeModal: null,
+    onClearError: null
+}
 
 export default LabBookingItem;

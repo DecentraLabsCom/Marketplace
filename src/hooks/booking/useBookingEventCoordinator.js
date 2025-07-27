@@ -2,10 +2,10 @@
  * Hook for coordinating manual reservation updates with blockchain events
  * Prevents race conditions and duplicate API calls for booking-related operations
  */
-import { useCallback, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEYS } from '@/utils/queryKeys';
-import devLog from '@/utils/dev/logger';
+import { useCallback, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { QUERY_KEYS } from '@/utils/queryKeys'
+import devLog from '@/utils/dev/logger'
 
 export function useReservationEventCoordinator() {
   const queryClient = useQueryClient();

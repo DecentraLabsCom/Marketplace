@@ -1,13 +1,11 @@
-import devLog from '@/utils/dev/logger';
-
-// Optimized API route with server-side caching and batch operations
-import fs from 'fs/promises';
-import path from 'path';
-import pLimit from 'p-limit';
-import { formatUnits } from 'viem';
-import { simLabsData } from '@/utils/dev/simLabsData';
-import { getContractInstance } from '../../utils/contractInstance';
-import getIsVercel from '@/utils/isVercel';
+import fs from 'fs/promises'
+import path from 'path'
+import pLimit from 'p-limit'
+import { formatUnits } from 'viem'
+import { getContractInstance } from '../../utils/contractInstance'
+import { simLabsData } from '@/utils/dev/simLabsData'
+import getIsVercel from '@/utils/isVercel'
+import devLog from '@/utils/dev/logger'
 
 // Server-side cache with TTL (15 minutes - increased to reduce API calls)
 let labsCache = null;

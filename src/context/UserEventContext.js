@@ -1,14 +1,13 @@
-"use client"
-import { createContext, useContext, useRef, useCallback, useState } from "react";
-import { useWatchContractEvent } from 'wagmi';
-import { useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEYS } from '@/utils/queryKeys';
-import { contractABI, contractAddresses } from '@/contracts/diamond';
-import { selectChain } from '@/utils/blockchain/selectChain';
-import devLog from '@/utils/dev/logger';
-import { useAccount } from "wagmi";
-import { useUser } from './UserContext';
-import { useNotifications } from './NotificationContext';
+"use client";
+import { createContext, useContext, useRef, useCallback, useState } from 'react'
+import { useWatchContractEvent, useAccount } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
+import { useUser } from './UserContext'
+import { useNotifications } from './NotificationContext'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
+import { QUERY_KEYS } from '@/utils/queryKeys'
+import { selectChain } from '@/utils/blockchain/selectChain'
+import devLog from '@/utils/dev/logger'
 
 const UserEventContext = createContext();
 

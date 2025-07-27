@@ -1,6 +1,6 @@
 // Simulated bookings for RPC fallback scenarios
 // Enhanced with realistic data that matches the expected format
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 let bookings = [
   {

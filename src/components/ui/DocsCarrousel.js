@@ -1,6 +1,7 @@
 "use client";
-import React, { useState } from 'react';
-import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback';
+import React, { useState } from 'react'
+import PropTypes from 'prop-types'
+import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
 const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -82,5 +83,14 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
     </div>
   );
 });
+
+DocsCarrousel.propTypes = {
+  docs: PropTypes.arrayOf(PropTypes.string).isRequired,
+  maxHeight: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+}
+
+DocsCarrousel.defaultProps = {
+  maxHeight: 200
+}
 
 export default DocsCarrousel;

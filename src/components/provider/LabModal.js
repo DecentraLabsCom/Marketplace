@@ -1,10 +1,11 @@
 "use client";
-import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react';
-import LabFormFullSetup from '@/components/provider/LabFormFullSetup';
-import LabFormQuickSetup from '@/components/provider/LabFormQuickSetup';
-import { useLabToken } from '@/hooks/useLabToken';
-import { validateLabFull, validateLabQuick } from '@/utils/labValidation';
-import devLog from '@/utils/dev/logger';
+import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
+import PropTypes from 'prop-types'
+import { useLabToken } from '@/hooks/useLabToken'
+import LabFormFullSetup from '@/components/provider/LabFormFullSetup'
+import LabFormQuickSetup from '@/components/provider/LabFormQuickSetup'
+import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
+import devLog from '@/utils/dev/logger'
 
 const initialState = (lab) => ({
   activeTab: 'full',
@@ -635,3 +636,24 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     </div>
   )
 };
+
+LabModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  lab: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+    description: PropTypes.string,
+    price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    auth: PropTypes.string,
+    images: PropTypes.array,
+    docs: PropTypes.array
+  }),
+  maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+}
+
+LabModal.defaultProps = {
+  lab: null,
+  maxId: 0
+}

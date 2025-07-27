@@ -1,13 +1,13 @@
-"use client"
-import { useContext, useState, useCallback } from "react";
-import devLog from '@/utils/dev/logger';
-import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext';
+"use client";
+import { useContext, useState, useCallback } from 'react'
+import devLog from '@/utils/dev/logger'
+import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
   ErrorSeverity,
   ErrorCategory 
-} from '@/utils/errorBoundaries';
+} from '@/utils/errorBoundaries'
 
 // Create optimized context
 const { Context: NotificationContext, Provider: OptimizedNotificationProvider } = createOptimizedContext('NotificationContext');

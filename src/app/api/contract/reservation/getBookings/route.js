@@ -1,7 +1,7 @@
-import { getCache, setCache, isCacheValid } from '../cache';
-import { getContractInstance } from '../../utils/contractInstance';
-import { simBookings } from '@/utils/dev/simBookings';
-import devLog from '@/utils/dev/logger';
+import { getCache, setCache, isCacheValid } from '../cache'
+import { getContractInstance } from '../../utils/contractInstance'
+import { simBookings } from '@/utils/dev/simBookings'
+import devLog from '@/utils/dev/logger'
 
 // Extended cache for RPC failure scenarios  
 let extendedCache = null;

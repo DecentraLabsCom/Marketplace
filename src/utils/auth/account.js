@@ -1,8 +1,8 @@
 "use client";
-import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi';
-import { useUser } from '@/context/UserContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
+import { useUser } from '@/context/UserContext'
 
 function formatAddress(address) {
   if (!address) return "Not connected";

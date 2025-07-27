@@ -1,6 +1,7 @@
-import React from "react";
-import { XCircle } from "lucide-react";
-import MediaDisplayWithFallback from "@/components/ui/media/MediaDisplayWithFallback";
+import React from 'react'
+import PropTypes from 'prop-types'
+import { XCircle } from 'lucide-react'
+import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
 const DocPreviewList = React.memo(function DocPreviewList({ docUrls, removeDoc, isExternalURI }) {
   if (!docUrls?.length) return null;
@@ -35,5 +36,15 @@ const DocPreviewList = React.memo(function DocPreviewList({ docUrls, removeDoc, 
     </div>
   );
 });
+
+DocPreviewList.propTypes = {
+  docUrls: PropTypes.arrayOf(PropTypes.string).isRequired,
+  removeDoc: PropTypes.func.isRequired,
+  isExternalURI: PropTypes.bool
+}
+
+DocPreviewList.defaultProps = {
+  isExternalURI: false
+}
 
 export default DocPreviewList;

@@ -1,8 +1,8 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
-import { getContractInstance } from '../../utils/contractInstance';
-import { ethers } from 'ethers';
-import { formatUnits } from 'viem';
+import { getContractInstance } from '../../utils/contractInstance'
+import { ethers } from 'ethers'
+import { formatUnits } from 'viem'
 
 // Cache for LAB token decimals
 let labTokenDecimals = null;

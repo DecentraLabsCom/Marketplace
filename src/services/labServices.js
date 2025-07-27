@@ -2,7 +2,7 @@
  * Lab API Services
  * Handles all lab-related API operations
  */
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 export const labServices = {
   /**

@@ -1,4 +1,4 @@
-import { mainnet, polygon, sepolia } from 'wagmi/chains';
+import { mainnet, polygon, sepolia } from 'wagmi/chains'
 
 export const defaultChain = sepolia;
 

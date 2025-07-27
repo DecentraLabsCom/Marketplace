@@ -1,8 +1,9 @@
 "use client";
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSignMessage } from 'wagmi';
-import devLog from '@/utils/dev/logger';
+import { useState } from 'react'
+import PropTypes from 'prop-types'
+import { useRouter } from 'next/navigation'
+import { useSignMessage } from 'wagmi'
+import devLog from '@/utils/dev/logger'
 
 export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
   const [loading, setLoading] = useState(false);
@@ -99,4 +100,15 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
       </div>
     </div>
   );
+}
+
+LabAccess.propTypes = {
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  userWallet: PropTypes.string.isRequired,
+  hasActiveBooking: PropTypes.bool.isRequired,
+  auth: PropTypes.string
+}
+
+LabAccess.defaultProps = {
+  auth: ''
 }

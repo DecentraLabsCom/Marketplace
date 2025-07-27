@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard } from './Skeleton';
+import { Skeleton, SkeletonCard } from './Skeleton'
 
 export function FormSkeleton() {
   return (

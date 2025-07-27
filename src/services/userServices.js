@@ -2,7 +2,7 @@
  * User API Services
  * Handles all user-related API operations
  */
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 export const userServices = {
   /**

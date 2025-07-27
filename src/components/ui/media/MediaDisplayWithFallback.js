@@ -1,8 +1,9 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import Image from 'next/image';
-import { XCircle } from 'lucide-react';
-import devLog from '@/utils/dev/logger';
+import React, { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
+import Image from 'next/image'
+import { XCircle } from 'lucide-react'
+import devLog from '@/utils/dev/logger'
 
 export default function MediaDisplayWithFallback({ 
   mediaPath, 
@@ -261,4 +262,28 @@ export default function MediaDisplayWithFallback({
 
   // If mediaType is not recognized or no valid src found
   return null;
+}
+
+MediaDisplayWithFallback.propTypes = {
+  mediaPath: PropTypes.string.isRequired,
+  mediaType: PropTypes.oneOf(['image', 'doc', 'link']).isRequired,
+  alt: PropTypes.string,
+  fill: PropTypes.bool,
+  className: PropTypes.string,
+  style: PropTypes.object,
+  sizes: PropTypes.string,
+  height: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  title: PropTypes.string
+}
+
+MediaDisplayWithFallback.defaultProps = {
+  alt: '',
+  fill: false,
+  className: '',
+  style: {},
+  sizes: undefined,
+  height: undefined,
+  width: undefined,
+  title: ''
 }

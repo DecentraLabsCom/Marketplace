@@ -2,7 +2,7 @@
  * Booking API Services
  * Handles all booking-related API operations
  */
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 export const bookingServices = {
   /**

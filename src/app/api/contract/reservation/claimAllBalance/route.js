@@ -1,6 +1,6 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
-import { getContractInstance } from '../../utils/contractInstance';
+import { getContractInstance } from '../../utils/contractInstance'
 
 export async function GET(request) {
   try {

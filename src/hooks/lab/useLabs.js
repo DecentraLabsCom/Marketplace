@@ -2,10 +2,10 @@
  * React Query Hooks for Labs
  * Replaces gradually the logic of LabContext
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { labServices } from '@/services/labServices';
-import { QUERY_KEYS } from '@/utils/queryKeys';
-import devLog from '@/utils/dev/logger';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { labServices } from '@/services/labServices'
+import { QUERY_KEYS } from '@/utils/queryKeys'
+import devLog from '@/utils/dev/logger'
 
 // === QUERIES ===
 

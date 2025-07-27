@@ -1,7 +1,7 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
-import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
+import { getContractInstance } from '../../utils/contractInstance'
+import retry from '@/utils/retry'
 
 export async function POST(request) {
   const body = await request.json();

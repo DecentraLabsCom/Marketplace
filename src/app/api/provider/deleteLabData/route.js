@@ -1,10 +1,9 @@
-import devLog from '@/utils/dev/logger';
-
-import path from 'path';
-import { promises as fs } from 'fs';
-import { NextResponse } from 'next/server';
-import { del } from '@vercel/blob';
-import getIsVercel from '@/utils/isVercel';
+import path from 'path'
+import { promises as fs } from 'fs'
+import { NextResponse } from 'next/server'
+import { del } from '@vercel/blob'
+import devLog from '@/utils/dev/logger'
+import getIsVercel from '@/utils/isVercel'
 
 export async function POST(req) {
   try {

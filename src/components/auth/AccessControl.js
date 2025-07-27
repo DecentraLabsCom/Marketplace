@@ -1,7 +1,8 @@
 "use client";
-import { useUser } from '@/context/UserContext';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect } from 'react'
+import PropTypes from 'prop-types'
+import { useRouter } from 'next/navigation'
+import { useUser } from '@/context/UserContext'
 
 /**
  * @param {object} props
@@ -43,4 +44,17 @@ export default function AccessControl({
   }
 
   return children;
+}
+
+AccessControl.propTypes = {
+  children: PropTypes.node.isRequired,
+  message: PropTypes.string,
+  requireWallet: PropTypes.bool,
+  requireSSO: PropTypes.bool
+}
+
+AccessControl.defaultProps = {
+  message: "Please log in to access this page.",
+  requireWallet: false,
+  requireSSO: false
 }

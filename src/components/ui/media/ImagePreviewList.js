@@ -1,6 +1,7 @@
-import React from "react";
-import { XCircle } from "lucide-react";
-import MediaDisplayWithFallback from "@/components/ui/media/MediaDisplayWithFallback";
+import React from 'react'
+import PropTypes from 'prop-types'
+import { XCircle } from 'lucide-react'
+import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
 const ImagePreviewList = React.memo(function ImagePreviewList({ imageUrls, removeImage, isExternalURI }) {
   return (
@@ -23,5 +24,15 @@ const ImagePreviewList = React.memo(function ImagePreviewList({ imageUrls, remov
     </div>
   );
 });
+
+ImagePreviewList.propTypes = {
+  imageUrls: PropTypes.arrayOf(PropTypes.string).isRequired,
+  removeImage: PropTypes.func.isRequired,
+  isExternalURI: PropTypes.bool
+}
+
+ImagePreviewList.defaultProps = {
+  isExternalURI: false
+}
 
 export default ImagePreviewList;

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from 'react'
+import PropTypes from 'prop-types'
 
 export default function ConfirmModal({ isOpen, onClose, onContinue }) {
     useEffect(() => {
@@ -32,4 +33,10 @@ export default function ConfirmModal({ isOpen, onClose, onContinue }) {
         </div>
       </div>
     );
+}
+
+ConfirmModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onContinue: PropTypes.func.isRequired
 }

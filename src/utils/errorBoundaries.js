@@ -2,8 +2,8 @@
  * Error Boundary System with Tiered Error Handling
  * Provides robust error boundaries and hierarchical error handling
  */
-import React from 'react';
-import devLog from '@/utils/dev/logger';
+import React from 'react'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Error Severity Levels

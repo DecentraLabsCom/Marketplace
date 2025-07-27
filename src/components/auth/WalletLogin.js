@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useConnect, useDisconnect } from 'wagmi';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWallet } from '@fortawesome/free-solid-svg-icons';
-import devLog from '@/utils/dev/logger';
+import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
+import { useConnect, useDisconnect } from 'wagmi'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faWallet } from '@fortawesome/free-solid-svg-icons'
+import devLog from '@/utils/dev/logger'
 
 export default function WalletLogin({ setIsModalOpen }) {
   const { connectors, connect } = useConnect();
@@ -81,4 +82,8 @@ function WalletOption({ connector, onClick }) {
       {connector.name}
     </button>
   );
+}
+
+WalletLogin.propTypes = {
+  setIsModalOpen: PropTypes.func.isRequired
 }

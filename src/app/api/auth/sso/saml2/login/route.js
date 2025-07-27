@@ -1,5 +1,5 @@
-import { createServiceProvider, createIdentityProvider } from "@/utils/auth/sso";
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
+import { createServiceProvider, createIdentityProvider } from '@/utils/auth/sso'
 
 export async function GET() {
   const sp = createServiceProvider();

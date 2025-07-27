@@ -1,5 +1,5 @@
-import config from '@/utils/blockchain/wagmiConfig';
-import { defaultChain } from '@/utils/blockchain/networkConfig';
+import config from '@/utils/blockchain/wagmiConfig'
+import { defaultChain } from '@/utils/blockchain/networkConfig'
 
 export const selectChain = (currentChain) => {
     const targetChain = config.chains.find(

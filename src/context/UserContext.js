@@ -1,20 +1,20 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useAccount } from "wagmi";
-import devLog from '@/utils/dev/logger';
-import { createOptimizedContext } from '@/utils/optimizedContext';
+import { useState, useEffect, useCallback } from 'react'
+import { useAccount } from 'wagmi'
 import { 
   useSSOSessionQuery, 
   useProviderStatusQuery, 
   useProviderNameQuery,
   useRefreshProviderStatusMutation 
-} from '@/hooks/user/useUsers';
+} from '@/hooks/user/useUsers'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
   ErrorSeverity,
   ErrorCategory 
-} from '@/utils/errorBoundaries';
+} from '@/utils/errorBoundaries'
+import { createOptimizedContext } from '@/utils/optimizedContext'
+import devLog from '@/utils/dev/logger'
 
 // Create optimized context with automatic memoization
 const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOptimizedContext('UserContext');

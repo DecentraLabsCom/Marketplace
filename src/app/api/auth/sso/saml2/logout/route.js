@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { parseStringPromise } from "xml2js";
-import devLog from '@/utils/dev/logger';
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { parseStringPromise } from 'xml2js'
+import devLog from '@/utils/dev/logger'
 
 // Validate SAML logout request structure
 function isValidSamlLogoutRequest(parsedXml) {

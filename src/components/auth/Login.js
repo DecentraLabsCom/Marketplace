@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useUser } from '@/context/UserContext';
-import Account from '@/utils/auth/account';
-import WalletLogin from '@/components/auth/WalletLogin';
-import InstitutionalLogin from '@/components/auth/InstitutionalLogin';
-import { FaSignInAlt } from 'react-icons/fa';
+import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
+import { FaSignInAlt } from 'react-icons/fa'
+import { useUser } from '@/context/UserContext'
+import WalletLogin from '@/components/auth/WalletLogin'
+import InstitutionalLogin from '@/components/auth/InstitutionalLogin'
+import Account from '@/utils/auth/account'
 
 export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,3 +54,6 @@ export default function Login() {
     </div>
   );
 }
+
+// Login component doesn't accept any props
+Login.propTypes = {}

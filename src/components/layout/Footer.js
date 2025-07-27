@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -51,3 +52,6 @@ export default function Footer() {
     </footer>
   );
 }
+
+// Footer component doesn't accept any props
+Footer.propTypes = {}

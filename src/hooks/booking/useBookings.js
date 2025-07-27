@@ -2,10 +2,10 @@
  * React Query Hooks for Bookings
  * Replaces gradually the logic of BookingContext
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { bookingServices } from '@/services/bookingServices';
-import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/queryKeys';
-import devLog from '@/utils/dev/logger';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { bookingServices } from '@/services/bookingServices'
+import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/queryKeys'
+import devLog from '@/utils/dev/logger'
 
 // === QUERIES ===
 

@@ -3,10 +3,10 @@ import '@/styles/global.css'
 import ClientQueryProvider from '@/context/ClientQueryProvider'
 import ClientWagmiProvider from '@/context/ClientWagmiProvider'
 import { UserData } from '@/context/UserContext'
-import { UserEventProvider } from "@/context/UserEventContext";
-import { LabEventProvider } from "@/context/LabEventContext";
-import { BookingEventProvider } from "@/context/BookingEventContext";
-import { NotificationProvider } from "@/context/NotificationContext";
+import { UserEventProvider } from '@/context/UserEventContext'
+import { LabEventProvider } from '@/context/LabEventContext'
+import { BookingEventProvider } from '@/context/BookingEventContext'
+import { NotificationProvider } from '@/context/NotificationContext'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import GlobalNotificationStack from '@/components/layout/GlobalNotificationStack'

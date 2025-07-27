@@ -1,6 +1,7 @@
-import { UploadCloud, Link, XCircle } from 'lucide-react';
-import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js';
-import DocPreviewList from '@/components/ui/media/DocPreviewList.js';
+import PropTypes from 'prop-types'
+import { UploadCloud, Link, XCircle } from 'lucide-react'
+import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
+import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
 
 export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExternalURI, imageInputType,
   setImageInputType, imageUrls, imageLinkRef, imageUploadRef, handleImageChange, removeImage, localImages,
@@ -356,4 +357,40 @@ export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExte
       </div>
     </form>
   );
+}
+
+LabFormFullSetup.propTypes = {
+  localLab: PropTypes.object,
+  setLocalLab: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  isExternalURI: PropTypes.bool,
+  imageInputType: PropTypes.string,
+  setImageInputType: PropTypes.func,
+  imageUrls: PropTypes.array,
+  imageLinkRef: PropTypes.object,
+  imageUploadRef: PropTypes.object,
+  handleImageChange: PropTypes.func,
+  removeImage: PropTypes.func,
+  localImages: PropTypes.array,
+  docInputType: PropTypes.string,
+  setDocInputType: PropTypes.func,
+  docUrls: PropTypes.array,
+  docLinkRef: PropTypes.object,
+  docUploadRef: PropTypes.object,
+  handleDocChange: PropTypes.func,
+  removeDoc: PropTypes.func,
+  localDocs: PropTypes.array,
+  nameRef: PropTypes.object,
+  categoryRef: PropTypes.object,
+  keywordsRef: PropTypes.object,
+  descriptionRef: PropTypes.object,
+  priceRef: PropTypes.object,
+  authRef: PropTypes.object,
+  accessURIRef: PropTypes.object,
+  accessKeyRef: PropTypes.object,
+  timeSlotsRef: PropTypes.object,
+  opensRef: PropTypes.object,
+  closesRef: PropTypes.object,
+  onSubmit: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired
 }

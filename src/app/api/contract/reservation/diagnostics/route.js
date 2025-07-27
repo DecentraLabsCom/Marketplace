@@ -1,8 +1,8 @@
 // Diagnostic endpoint for monitoring RPC and cache status
 // Useful for debugging RPC saturation issues
 
-import { getCacheStats } from '../cache';
-import { getContractInstance } from '../../utils/contractInstance';
+import { getCacheStats } from '../cache'
+import { getContractInstance } from '../../utils/contractInstance'
 
 export async function GET() {
   try {

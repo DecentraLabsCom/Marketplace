@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonCard, SkeletonText, SkeletonImage, SkeletonButton } from './Skeleton';
+import { Skeleton, SkeletonCard, SkeletonText, SkeletonImage, SkeletonButton } from './Skeleton'
 
 export function LabCardSkeleton() {
   return (

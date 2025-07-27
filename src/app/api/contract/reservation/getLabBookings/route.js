@@ -1,5 +1,5 @@
-import devLog from '@/utils/dev/logger';
-import { getContractInstance } from '../../utils/contractInstance';
+import devLog from '@/utils/dev/logger'
+import { getContractInstance } from '../../utils/contractInstance'
 
 // Rate limiting and cache management
 let rateLimitDetected = false;

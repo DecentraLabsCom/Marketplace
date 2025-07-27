@@ -1,21 +1,22 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
-import { useAllLabsQuery } from '@/hooks/lab/useLabs';
-import { useLabBookingsQuery } from '@/hooks/booking/useBookings';
-import { useUser } from "@/context/UserContext";
-import { useQueryClient } from '@tanstack/react-query';
-import { QUERY_KEYS } from '@/utils/queryKeys';
-import { useNotifications } from "@/context/NotificationContext";
-import { useLabToken } from "@/hooks/useLabToken";
-import Carrousel from "@/components/ui/Carrousel";
-import AccessControl from '@/components/auth/AccessControl';
-import LabTokenInfo from '@/components/reservation/LabTokenInfo';
-import { generateTimeOptions } from '@/utils/booking/labBookingCalendar';
-import CalendarWithBookings from '@/components/booking/CalendarWithBookings';
-import useContractWriteFunction from "@/hooks/contract/useContractWriteFunction";
-import { contractAddresses } from "@/contracts/diamond";
-import devLog from '@/utils/dev/logger';
+import React, { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
+import { useUser } from '@/context/UserContext'
+import { useNotifications } from '@/context/NotificationContext'
+import { useAllLabsQuery } from '@/hooks/lab/useLabs'
+import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
+import { useLabToken } from '@/hooks/useLabToken'
+import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
+import AccessControl from '@/components/auth/AccessControl'
+import Carrousel from '@/components/ui/Carrousel'
+import LabTokenInfo from '@/components/reservation/LabTokenInfo'
+import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
+import { contractAddresses } from '@/contracts/diamond'
+import { QUERY_KEYS } from '@/utils/queryKeys'
+import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
+import devLog from '@/utils/dev/logger'
 
 export default function LabReservation({ id }) {
   const { 
@@ -788,4 +789,8 @@ export default function LabReservation({ id }) {
       </div>
     </AccessControl>
   );
+}
+
+LabReservation.propTypes = {
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
 }

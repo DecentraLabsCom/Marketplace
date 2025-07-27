@@ -1,12 +1,13 @@
 "use client";
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars } from '@fortawesome/free-solid-svg-icons';
-import { useUser } from '@/context/UserContext';
-import Login from '@/components/auth/Login';
-import { validateProviderRole } from '@/utils/auth/roleValidation';
+import { useState } from 'react'
+import PropTypes from 'prop-types'
+import Link from 'next/link'
+import Image from 'next/image'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faBars } from '@fortawesome/free-solid-svg-icons'
+import { useUser } from '@/context/UserContext'
+import Login from '@/components/auth/Login'
+import { validateProviderRole } from '@/utils/auth/roleValidation'
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -111,3 +112,6 @@ export default function Navbar() {
     </nav>
   );
 }
+
+// Navbar component doesn't accept any props
+Navbar.propTypes = {}

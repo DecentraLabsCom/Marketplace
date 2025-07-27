@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'path'
 //const appendPath = process.env.NODE_ENV === 'production' ? '/marketplace' : '';
 
 /** @type {import('next').NextConfig} */

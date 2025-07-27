@@ -1,8 +1,8 @@
 /**
  * Optimized Context Pattern - Base utilities for memory-efficient contexts
  */
-import React, { useMemo, createContext, useContext, useState, useEffect } from 'react';
-import devLog from '@/utils/dev/logger';
+import React, { useMemo, createContext, useContext, useState, useEffect } from 'react'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Creates an optimized context with automatic memoization

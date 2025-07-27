@@ -1,8 +1,8 @@
 // Cache invalidation endpoint for when new reservations are made
 // This ensures fresh data is fetched after blockchain state changes
 
-import { invalidateCache } from '../cache';
-import devLog from '@/utils/dev/logger';
+import { invalidateCache } from '../cache'
+import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
   try {

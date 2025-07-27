@@ -1,6 +1,7 @@
 "use client";
-import React from 'react';
-import { useNotifications } from '@/context/NotificationContext';
+import React from 'react'
+import PropTypes from 'prop-types'
+import { useNotifications } from '@/context/NotificationContext'
 
 export default function GlobalNotificationStack() {
   const { notifications, removeNotification } = useNotifications();
@@ -50,3 +51,6 @@ export default function GlobalNotificationStack() {
     </div>
   );
 }
+
+// GlobalNotificationStack component doesn't accept any props
+GlobalNotificationStack.propTypes = {}

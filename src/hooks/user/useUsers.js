@@ -3,10 +3,10 @@
  * Unified file that combines SSO, authentication, profiles, and permissions
  * Replaces both useUser.js and useUsers.js
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { userServices } from '@/services/userServices';
-import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/queryKeys';
-import devLog from '@/utils/dev/logger';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { userServices } from '@/services/userServices'
+import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/queryKeys'
+import devLog from '@/utils/dev/logger'
 
 // ===============================
 // === SSO & AUTHENTICATION ===

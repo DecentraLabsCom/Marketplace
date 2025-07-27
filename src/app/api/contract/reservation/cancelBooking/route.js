@@ -1,4 +1,4 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
   try {

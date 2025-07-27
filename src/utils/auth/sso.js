@@ -1,6 +1,6 @@
-import { ServiceProvider, IdentityProvider } from "saml2-js";
-import devLog from "@/utils/dev/logger";
-import xml2js from "xml2js";
+import { ServiceProvider, IdentityProvider } from 'saml2-js'
+import xml2js from 'xml2js'
+import devLog from '@/utils/dev/logger'
 
 export async function createSession(response, userData) {
   // Create a cookie with the user information

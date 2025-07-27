@@ -3,15 +3,15 @@
  * Prevents race conditions and duplicate API calls for user-related operations
  * Updated to use React Query hooks from unified useUsers.js
  */
-import { useCallback } from 'react';
-import { useUser } from '@/context/UserContext';
-import { useUserEvents } from '@/context/UserEventContext';
+import { useCallback } from 'react'
+import { useUser } from '@/context/UserContext'
+import { useUserEvents } from '@/context/UserEventContext'
 import { 
   useUserCacheInvalidation,
   useRefreshProviderStatusMutation,
   useRefreshSSOSessionMutation 
-} from '@/hooks/user/useUsers';
-import devLog from '@/utils/dev/logger';
+} from '@/hooks/user/useUsers'
+import devLog from '@/utils/dev/logger'
 
 export function useUserEventCoordinator() {
   const { address } = useUser();

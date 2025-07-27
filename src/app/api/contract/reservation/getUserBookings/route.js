@@ -1,7 +1,7 @@
-import devLog from '@/utils/dev/logger';
-import { getContractInstance } from '../../utils/contractInstance';
-import { isAddress } from 'viem';
-import { ethers } from 'ethers';
+import devLog from '@/utils/dev/logger'
+import { getContractInstance } from '../../utils/contractInstance'
+import { isAddress } from 'viem'
+import { ethers } from 'ethers'
 
 // Rate limiting and cache management
 let rateLimitDetected = false;

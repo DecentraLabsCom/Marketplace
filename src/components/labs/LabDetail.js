@@ -1,11 +1,12 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAllLabsQuery } from '@/hooks/lab/useLabs';
-import { useLabToken } from '@/hooks/useLabToken';
-import Carrousel from '@/components/ui/Carrousel';
-import DocsCarrousel from '@/components/ui/DocsCarrousel';
-import { LabHeroSkeleton } from '@/components/skeletons';
+import { useState, useEffect } from 'react'
+import PropTypes from 'prop-types'
+import { useRouter } from 'next/navigation'
+import { useAllLabsQuery } from '@/hooks/lab/useLabs'
+import { useLabToken } from '@/hooks/useLabToken'
+import Carrousel from '@/components/ui/Carrousel'
+import DocsCarrousel from '@/components/ui/DocsCarrousel'
+import { LabHeroSkeleton } from '@/components/skeletons'
 
 export default function LabDetail({ id, provider }) {
   const { 
@@ -131,4 +132,9 @@ export default function LabDetail({ id, provider }) {
       </section>
     </main>
   )
+}
+
+LabDetail.propTypes = {
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  provider: PropTypes.string.isRequired
 }

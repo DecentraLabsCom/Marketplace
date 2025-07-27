@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types'
+
 export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLocalURI, priceRef, authRef,
   accessURIRef, accessKeyRef, uriRef, clickedToEditUri, setClickedToEditUri, handleUriChange,
   onSubmit, onCancel, lab }) {
@@ -99,4 +101,22 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       </div>
     </form>
   );
+}
+
+LabFormQuickSetup.propTypes = {
+  localLab: PropTypes.object.isRequired,
+  setLocalLab: PropTypes.func.isRequired,
+  errors: PropTypes.object,
+  isLocalURI: PropTypes.bool,
+  priceRef: PropTypes.object,
+  authRef: PropTypes.object,
+  accessURIRef: PropTypes.object,
+  accessKeyRef: PropTypes.object,
+  uriRef: PropTypes.object,
+  clickedToEditUri: PropTypes.bool,
+  setClickedToEditUri: PropTypes.func,
+  handleUriChange: PropTypes.func,
+  onSubmit: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  lab: PropTypes.object
 }

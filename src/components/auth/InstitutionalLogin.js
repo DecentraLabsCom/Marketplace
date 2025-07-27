@@ -1,7 +1,8 @@
 "use client";
-import { useRouter } from 'next/navigation';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUniversity } from '@fortawesome/free-solid-svg-icons';
+import PropTypes from 'prop-types'
+import { useRouter } from 'next/navigation'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faUniversity } from '@fortawesome/free-solid-svg-icons'
 
 export default function InstitutionalLogin({ setIsModalOpen }) {
   const router = useRouter();
@@ -21,4 +22,8 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
         Institutional Login
     </div>
   )
+}
+
+InstitutionalLogin.propTypes = {
+  setIsModalOpen: PropTypes.func.isRequired
 }

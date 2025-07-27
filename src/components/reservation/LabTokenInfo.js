@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { useLabToken } from '@/hooks/useLabToken';
+import React, { useMemo } from 'react'
+import PropTypes from 'prop-types'
+import { useLabToken } from '@/hooks/useLabToken'
 
 export default function LabTokenInfo({ labPrice, durationMinutes, className = '' }) {
   const { 
@@ -80,4 +81,14 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
       </div>
     </div>
   );
+}
+
+LabTokenInfo.propTypes = {
+  labPrice: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  durationMinutes: PropTypes.number.isRequired,
+  className: PropTypes.string
+}
+
+LabTokenInfo.defaultProps = {
+  className: ''
 }

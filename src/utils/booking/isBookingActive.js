@@ -7,7 +7,7 @@
  * @param {Array} bookingInfo - Array of booking objects with start, end, and status
  * @returns {boolean} - True if there's an active confirmed booking right now
  */
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 export default function isBookingActive(bookingInfo) {
     if (!Array.isArray(bookingInfo)) return false;

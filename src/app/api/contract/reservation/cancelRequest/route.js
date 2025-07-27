@@ -1,7 +1,7 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
-import { ethers } from 'ethers';
-import { contractABI, contractAddresses } from '@/contracts/diamond';
+import { ethers } from 'ethers'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
 
 export async function POST(request) {
   try {

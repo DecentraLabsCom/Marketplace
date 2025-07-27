@@ -1,5 +1,5 @@
-import devLog from '@/utils/dev/logger';
-import { getContractInstance } from '../../utils/contractInstance';
+import devLog from '@/utils/dev/logger'
+import { getContractInstance } from '../../utils/contractInstance'
 
 // Retry function with exponential backoff
 async function retryWithBackoff(fn, maxRetries = 2, baseDelay = 1000) {

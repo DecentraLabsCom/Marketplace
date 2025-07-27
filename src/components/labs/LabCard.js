@@ -1,12 +1,13 @@
 "use client";
-import React from "react";
-import Link from "next/link";
-import LabAccess from "@/components/labs/LabAccess";
-import { useUser } from '@/context/UserContext';
-import { useLabToken } from '@/hooks/useLabToken';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch } from '@fortawesome/free-solid-svg-icons';
-import MediaDisplayWithFallback from "@/components/ui/media/MediaDisplayWithFallback";
+import React from 'react'
+import PropTypes from 'prop-types'
+import Link from 'next/link'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faSearch } from '@fortawesome/free-solid-svg-icons'
+import { useUser } from '@/context/UserContext'
+import { useLabToken } from '@/hooks/useLabToken'
+import LabAccess from '@/components/labs/LabAccess'
+import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
 const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected } = useUser();
@@ -48,5 +49,21 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
     </div>
   );
 });
+
+LabCard.propTypes = {
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  name: PropTypes.string.isRequired,
+  provider: PropTypes.string.isRequired,
+  price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  auth: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
+  activeBooking: PropTypes.bool,
+  image: PropTypes.string
+}
+
+LabCard.defaultProps = {
+  auth: null,
+  activeBooking: false,
+  image: ''
+}
 
 export default LabCard;

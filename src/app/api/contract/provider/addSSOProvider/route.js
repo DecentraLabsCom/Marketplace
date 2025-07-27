@@ -1,9 +1,9 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
-import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
-import { ethers } from 'ethers';
-import { validateProviderRole } from '@/utils/auth/roleValidation';
+import { getContractInstance } from '../../utils/contractInstance'
+import retry from '@/utils/retry'
+import { ethers } from 'ethers'
+import { validateProviderRole } from '@/utils/auth/roleValidation'
 
 export async function POST(request) {
   const body = await request.json();

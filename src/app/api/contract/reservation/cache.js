@@ -1,7 +1,7 @@
 // Shared cache module for reservations
 // This allows cache invalidation across different API routes
 // Enhanced with RPC saturation tolerance
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
 let reservationsCache = null;
 let cacheTimestamp = null;

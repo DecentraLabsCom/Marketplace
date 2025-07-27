@@ -1,8 +1,9 @@
 "use client";
-import React from 'react';
-import DatePicker from 'react-datepicker';
-import { renderDayContents } from '@/utils/booking/labBookingCalendar';
-import devLog from '@/utils/dev/logger';
+import React from 'react'
+import PropTypes from 'prop-types'
+import DatePicker from 'react-datepicker'
+import { renderDayContents } from '@/utils/booking/labBookingCalendar'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Reusable calendar component that shows bookings with tooltips and highlighting
@@ -205,4 +206,35 @@ export default function CalendarWithBookings({
       renderDayContents={dayContents}
     />
   );
+}
+
+CalendarWithBookings.propTypes = {
+  selectedDate: PropTypes.instanceOf(Date),
+  onDateChange: PropTypes.func.isRequired,
+  bookingInfo: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    status: PropTypes.string,
+    start: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+    date: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    end: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)])
+  })),
+  minDate: PropTypes.instanceOf(Date),
+  maxDate: PropTypes.instanceOf(Date),
+  inline: PropTypes.bool,
+  calendarClassName: PropTypes.string,
+  filterDate: PropTypes.func,
+  highlightClassName: PropTypes.string,
+  displayMode: PropTypes.oneOf(['default', 'provider', 'user'])
+}
+
+CalendarWithBookings.defaultProps = {
+  selectedDate: null,
+  bookingInfo: [],
+  minDate: null,
+  maxDate: null,
+  inline: true,
+  calendarClassName: "custom-datepicker",
+  filterDate: null,
+  highlightClassName: "bg-[#9fc6f5] text-white",
+  displayMode: 'default'
 }

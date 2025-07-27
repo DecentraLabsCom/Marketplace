@@ -1,26 +1,26 @@
 "use client";
-import { useEffect, useState } from 'react';
-import { parseUnits, formatUnits } from 'viem';
-import { useUser } from '@/context/UserContext';
+import { useEffect, useState } from 'react'
+import { parseUnits } from 'viem'
+import { useWaitForTransactionReceipt } from 'wagmi'
+import { useUser } from '@/context/UserContext'
+import { useNotifications } from '@/context/NotificationContext'
 import { 
   useAllLabsQuery, 
   useCreateLabMutation, 
   useUpdateLabMutation, 
   useDeleteLabMutation, 
   useToggleLabStatusMutation 
-} from '@/hooks/lab/useLabs';
-import { useLabBookingsQuery } from '@/hooks/booking/useBookings';
-import { useNotifications } from '@/context/NotificationContext';
-import { useLabToken } from '@/hooks/useLabToken';
-import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator';
-import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
-import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator';
-import { useWaitForTransactionReceipt } from 'wagmi';
-import LabModal from '@/components/provider/LabModal';
-import devLog from '@/utils/dev/logger';
-import AccessControl from '@/components/auth/AccessControl';
-import ProviderLabItem from '@/components/provider/ProviderLabItem';
-import CalendarWithBookings from '@/components/booking/CalendarWithBookings';
+} from '@/hooks/lab/useLabs'
+import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
+import { useLabToken } from '@/hooks/useLabToken'
+import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
+import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
+import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
+import LabModal from '@/components/provider/LabModal'
+import AccessControl from '@/components/auth/AccessControl'
+import ProviderLabItem from '@/components/provider/ProviderLabItem'
+import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
+import devLog from '@/utils/dev/logger'
 
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();

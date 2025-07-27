@@ -1,5 +1,6 @@
-import React from "react";
-import Carrousel from "@/components/ui/Carrousel";
+import React from 'react'
+import PropTypes from 'prop-types'
+import Carrousel from '@/components/ui/Carrousel'
 
 const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCollect, onDelete, onList, onUnlist }) {
   return (
@@ -57,5 +58,18 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCol
     </div>
   );
 });
+
+ProviderLabItem.propTypes = {
+  lab: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string.isRequired,
+    images: PropTypes.array
+  }).isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onCollect: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  onList: PropTypes.func.isRequired,
+  onUnlist: PropTypes.func.isRequired
+}
 
 export default ProviderLabItem;

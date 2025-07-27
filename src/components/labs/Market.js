@@ -3,13 +3,14 @@
  * 
  */
 "use client";
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useUser } from '@/context/UserContext';
-import { useAllLabsQuery } from '@/hooks/lab/useLabs';
-import { useUserBookingsQuery } from '@/hooks/booking/useBookings';
-import LabCard from "@/components/labs/LabCard";
-import { LabCardGridSkeleton } from '@/components/skeletons';
-import isBookingActive from '@/utils/booking/isBookingActive';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import PropTypes from 'prop-types'
+import { useUser } from '@/context/UserContext'
+import { useAllLabsQuery } from '@/hooks/lab/useLabs'
+import { useUserBookingsQuery } from '@/hooks/booking/useBookings'
+import LabCard from '@/components/labs/LabCard'
+import { LabCardGridSkeleton } from '@/components/skeletons'
+import isBookingActive from '@/utils/booking/isBookingActive'
 
 export default function Market() {
   const searchInputRef = useRef(null);
@@ -282,3 +283,6 @@ export default function Market() {
     </main>
   );
 }
+
+// Market component doesn't accept any props
+Market.propTypes = {}

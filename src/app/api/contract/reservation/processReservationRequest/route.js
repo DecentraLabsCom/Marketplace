@@ -1,10 +1,10 @@
-import devLog from '@/utils/dev/logger';
+import devLog from '@/utils/dev/logger'
 
-import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
-import fs from 'fs/promises';
-import path from 'path';
-import getIsVercel from '@/utils/isVercel';
+import { getContractInstance } from '../../utils/contractInstance'
+import retry from '@/utils/retry'
+import fs from 'fs/promises'
+import path from 'path'
+import getIsVercel from '@/utils/isVercel'
 
 export async function POST(request) {
   const body = await request.json();
