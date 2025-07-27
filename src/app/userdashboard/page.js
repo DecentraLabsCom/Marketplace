@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
-import { useLabs } from '@/context/LabContext'
-import { useBookings, useUserDashboardBookings } from '@/context/BookingContext'
+import { useAllLabsQuery } from '@/hooks/useLabs'
+import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/useBookings'
 import { useNotifications } from '@/context/NotificationContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useReservationEventCoordinator } from '@/hooks/useBookingEventCoordinator'
@@ -19,20 +19,37 @@ import CalendarWithBookings from '@/components/CalendarWithBookings';
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
-  const { labs, loading } = useLabs();
+  
+  // 🚀 React Query for labs
   const { 
-    userBookings, 
-    bookingsLoading, 
-    bookingsStatus,
-    updateBookingInState
-  } = useBookings();
+    data: labs = [], 
+    isLoading: loading, 
+    isError: labsError,
+    error: labsErrorDetails 
+  } = useAllLabsQuery({
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false, // No automatic refetch
+  });
+
+  // 🚀 React Query for user bookings
+  const { 
+    data: userBookings = [], 
+    isLoading: bookingsLoading, 
+    isError: bookingsError,
+    error: bookingsErrorDetails 
+  } = useUserBookingsQuery(address, null, null, {
+    enabled: !!address && isLoggedIn,
+    staleTime: 2 * 60 * 1000, // 2 minutes - more dynamic bookings
+    refetchOnWindowFocus: true,
+  });
+
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();
 
-  // Enable optimized updates for user dashboard
-  useUserDashboardBookings();
+  // 🚀 React Query mutation for booking cancellation
+  const cancelBookingMutation = useCancelBookingMutation();
 
-  // Debug: Log booking data from BookingContext
+  // Debug: Log booking data from React Query
   useEffect(() => {
     if (labs && labs.length > 0) {
       devLog.log('UserDashboard: Received labs data:', {
@@ -51,7 +68,6 @@ export default function UserDashboard() {
       devLog.log('UserDashboard: Received user bookings data:', {
         userBookingsCount: userBookings.length,
         address,
-        bookingsStatus,
         userBookings: userBookings.map(booking => ({
           reservationKey: booking.reservationKey,
           labId: booking.labId,
@@ -59,34 +75,12 @@ export default function UserDashboard() {
         }))
       });
     }
-  }, [userBookings, address, bookingsStatus]);
+  }, [userBookings, address]);
 
   const { isConnected } = useAccount();
   
-  // Contract write functions
-  const { contractWriteFunction: cancelBooking } = useContractWriteFunction('cancelBooking');
-  const { contractWriteFunction: cancelReservationRequest } = useContractWriteFunction('cancelReservationRequest');
-  
-  // Transaction state management
-  const [lastTxHash, setLastTxHash] = useState(null);
-  const [txType, setTxType] = useState(null); // 'cancelBooking', 'cancelReservationRequest'
-  const [pendingData, setPendingData] = useState(null);
-  
-  // Wait for transaction receipt
-  const { 
-    data: receipt, 
-    isSuccess: isReceiptSuccess,
-    error: receiptError
-  } = useWaitForTransactionReceipt({
-    hash: lastTxHash,
-    enabled: !!lastTxHash
-  });
-  
-  const [userData, setUserData] = useState(null);
-  const [now, setNow] = useState(null);
-  const [availableLab, setAvailableLab] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedLabId, setSelectedLabId] = useState(null);
+  // State for UI feedback only
+  const [failedCancellations, setFailedCancellations] = useState(new Set());
   const [selectedBooking, setSelectedBooking] = useState(null);
 
   const bookingInfo = userBookings.map(booking => {
@@ -98,8 +92,12 @@ export default function UserDashboard() {
     };
   });
   
-  // State for optimistic UI updates
-  const [failedCancellations, setFailedCancellations] = useState(new Set());
+  // Additional state variables
+  const [userData, setUserData] = useState(null);
+  const [now, setNow] = useState(null);
+  const [availableLab, setAvailableLab] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedLabId, setSelectedLabId] = useState(null);
   
   // Initialize time on client side only
   useEffect(() => {
@@ -144,6 +142,7 @@ export default function UserDashboard() {
     });
   };
 
+  // 🚀 React Query booking cancellation handler
   const handleCancellation = async (booking) => {
     if (!booking || !booking.reservationKey) {
       devLog.error('Missing booking or reservation key:', booking);
@@ -151,7 +150,7 @@ export default function UserDashboard() {
       return;
     }
 
-    // Check if already canceled using direct booking status
+    // Check if already canceled
     if (booking.status === "4" || booking.status === 4) {
       addErrorNotification('This reservation is already canceled', '');
       return;
@@ -172,169 +171,46 @@ export default function UserDashboard() {
     setSelectedBooking(booking);
     
     try {
-      // Determine cancellation method based on booking status
-      if (booking.status === "1" || booking.status === 1) {
-        // BOOKED - use cancelBooking
-        await handleConfirmedBookingCancellation(booking);
-      } else if (booking.status === "0" || booking.status === 0) {
-        // PENDING - use cancelReservationRequest
-        await handleRequestedBookingCancellation(booking);
-      } else {
-        throw new Error('Invalid reservation state for cancellation');
-      }
+      // 🚀 Use React Query mutation with automatic optimistic updates and rollbacks
+      await cancelBookingMutation.mutateAsync({
+        reservationKey: booking.reservationKey,
+        userAddress: address,
+        labId: booking.labId,
+        status: booking.status
+      });
+      
+      addPersistentNotification('success', '✅ Booking canceled successfully!');
       
     } catch (error) {
       devLog.error('Cancellation failed:', error);
-      addErrorNotification(error.message || 'Cancellation failed', '');
-    }
-  };
-
-  const handleConfirmedBookingCancellation = async (booking) => {
-    const bookingKey = booking.reservationKey;
-    
-    try {
-      addPersistentNotification('info', '🔄 Please confirm the booking cancellation in your wallet...');
-
-      // Use coordinated cancellation to prevent event collisions
-      await coordinatedBookingCancellation(async () => {
-        try {
-          devLog.log('Using reservation key directly:', bookingKey);
-          
-          const txHash = await cancelBooking([bookingKey], { gas: 300000n });
-          
-          if (txHash) {
-            // The coordinatedBookingCancellation will handle marking as cancelled
-            // No need for optimistic UI state management here
-            setFailedCancellations(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(bookingKey);
-              return newSet;
-            });
-            
-            setLastTxHash(txHash);
-            setTxType('cancelBooking');
-            setPendingData({ booking });
-            
-            addPersistentNotification('info', '⏳ Transaction submitted. Waiting for confirmation...');
-            return txHash;
-          } else {
-            throw new Error('No transaction hash received');
-          }
-        } catch (error) {
-          devLog.error('Cancel booking error:', error);
-          
-          if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-            addPersistentNotification('warning', '🚫 Transaction rejected by user.');
-          } else {
-            // Add to failed cancellations for visual feedback
-            setFailedCancellations(prev => new Set([...prev, bookingKey]));
-            addErrorNotification(error, 'Booking cancellation failed: ');
-          }
-          throw error;
-        }
-      }, bookingKey, booking.labId); // Pass labId for cross-user propagation
-    } catch (error) {
-      // If the transaction fails immediately, don't add to canceling state
-      devLog.error('Cancellation initiation failed:', error);
-    }
-  };
-
-  const handleRequestedBookingCancellation = async (booking) => {
-    const bookingKey = booking.reservationKey;
-    
-    try {
-      addPersistentNotification('info', '🔄 Please confirm the request cancellation in your wallet...');
-
-      // Use coordinated cancellation to prevent event collisions
-      await coordinatedBookingCancellation(async () => {
-        try {
-          devLog.log('Using reservation key directly (request):', bookingKey);
-          
-          const txHash = await cancelReservationRequest([bookingKey], { gas: 300000n });
-          
-          if (txHash) {
-            // The coordinatedBookingCancellation will handle marking as cancelled
-            // No need for optimistic UI state management here
-            setFailedCancellations(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(bookingKey);
-              return newSet;
-            });
-            
-            setLastTxHash(txHash);
-            setTxType('cancelReservationRequest');
-            setPendingData({ booking });
-            
-            addPersistentNotification('info', '⏳ Transaction submitted. Waiting for confirmation...');
-            return txHash;
-          } else {
-            throw new Error('No transaction hash received');
-          }
-        } catch (error) {
-          devLog.error('Cancel reservation request error:', error);
-          
-          if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-            addPersistentNotification('warning', '🚫 Transaction rejected by user.');
-          } else {
-            // Add to failed cancellations for visual feedback
-            setFailedCancellations(prev => new Set([...prev, bookingKey]));
-            addErrorNotification(error, 'Request cancellation failed: ');
-          }
-          throw error;
-        }
-      }, bookingKey, booking.labId); // Pass labId for cross-user propagation
-    } catch (error) {
-      // If the transaction fails immediately, don't add to canceling state
-      devLog.error('Cancellation initiation failed:', error);
-    }
-  };
-
-  // Handle transaction confirmation
-  useEffect(() => {
-    if (isReceiptSuccess && receipt && txType && pendingData) {
-      addPersistentNotification('success', '✅ Cancellation completed successfully!');
       
-      // Transaction succeeded: DON'T remove from canceling state
-      // The booking should remain showing as "Cancelled" (status 4)
-      // We don't need to remove it from cancelingBookings since it should stay "Cancelled"
-      
-      // Reset transaction state
-      setLastTxHash(null);
-      setTxType(null);
-      setPendingData(null);
-    }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]);
-
-  // Handle transaction errors
-  useEffect(() => {
-    if (receiptError && lastTxHash && pendingData) {
-      addErrorNotification(receiptError, 'Transaction confirmation failed: ');
-      
-      // Transaction failed: restore booking to original state and mark as failed
-      const bookingKey = pendingData.booking.reservationKey;
-      const originalStatus = pendingData.booking.status;
-      
-      // Restore the booking to its original status using BookingContext
-      updateBookingInState(bookingKey, { status: originalStatus });
-      
-      // Mark as failed for visual feedback
-      setFailedCancellations(prev => new Set([...prev, bookingKey]));
+      // Add to failed cancellations for visual feedback
+      setFailedCancellations(prev => new Set([...prev, booking.reservationKey]));
       
       // Auto-clear failed state after 5 seconds
       setTimeout(() => {
         setFailedCancellations(prev => {
           const newSet = new Set(prev);
-          newSet.delete(bookingKey);
+          newSet.delete(booking.reservationKey);
           return newSet;
         });
       }, 5000);
       
-      // Reset transaction state
-      setLastTxHash(null);
-      setTxType(null);
-      setPendingData(null);
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        addPersistentNotification('warning', '🚫 Transaction rejected by user.');
+      } else {
+        addErrorNotification(error.message || 'Cancellation failed', '');
+      }
     }
-  }, [receiptError, lastTxHash, pendingData, addErrorNotification, updateBookingInState]);
+  };
+
+  // 🚀 All transaction handling is now done through React Query mutations
+  // Legacy blockchain transaction functions removed
+
+  // Additional utility functions
+
+  // 🚀 React Query handles all transaction management automatically
+  // No manual transaction state or confirmation handling needed
 
   const handleRefund = () => {
     closeModal();
@@ -355,7 +231,7 @@ export default function UserDashboard() {
   const firstActiveLab = !availableLab && now && labs.length > 0
     ? labs
         .map(lab => {
-          // Get user bookings for this lab from BookingContext
+          // Get user bookings for this lab from React Query data
           const labUserBookings = userBookings?.filter(booking => booking.labId === lab.id) || [];
           if (!Array.isArray(labUserBookings)) return null;
           const futureBooking = labUserBookings
@@ -440,6 +316,29 @@ export default function UserDashboard() {
         .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
         .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0]
     : null;
+
+  // ❌ Error handling for React Query
+  if (labsError || bookingsError) {
+    return (
+      <AccessControl message="Please log in to view and make reservations.">
+        <div className="container mx-auto p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+            <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Dashboard</h2>
+            <p className="text-red-600 mb-4">
+              {labsError && (labsErrorDetails?.message || 'Failed to load laboratory data')}
+              {bookingsError && (bookingsErrorDetails?.message || 'Failed to load booking data')}
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </AccessControl>
+    );
+  }
 
   return (
     <AccessControl message="Please log in to view and make reservations.">

@@ -1,14 +1,21 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLabs } from '@/context/LabContext';
+import { useAllLabsQuery } from '@/hooks/useLabs';
 import { useLabToken } from '@/hooks/useLabToken';
 import Carrousel from '@/components/Carrousel';
 import DocsCarrousel from '@/components/DocsCarrousel';
 import { LabHeroSkeleton } from '@/components/skeletons';
 
 export default function LabDetail({ id, provider }) {
-  const { labs, loading } = useLabs();
+  const { 
+    data: labs = [], 
+    isLoading: loading, 
+    isError: labsError,
+    error: labsErrorDetails 
+  } = useAllLabsQuery({
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
   const { formatPrice } = useLabToken();
   const [lab, setLab] = useState(null);
   const router = useRouter();
@@ -19,6 +26,26 @@ export default function LabDetail({ id, provider }) {
       setLab(currentLab);
     }
   }, [id, labs]);
+
+  // ❌ Error handling for React Query
+  if (labsError) {
+    return (
+      <main className="container mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+          <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Lab</h2>
+          <p className="text-red-600 mb-4">
+            {labsErrorDetails?.message || 'Failed to load laboratory data'}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (loading) {
     return (

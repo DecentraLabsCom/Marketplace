@@ -1,17 +1,41 @@
+/**
+ * Market Component
+ * 
+ */
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useUser } from '@/context/UserContext';
-import { useLabs } from '@/context/LabContext';
-import { useBookings, useMarketBookings } from '@/context/BookingContext';
+import { useAllLabsQuery } from '@/hooks/useLabs';
+import { useUserBookingsQuery } from '@/hooks/useBookings';
 import LabCard from "@/components/LabCard";
 import { LabCardGridSkeleton } from '@/components/skeletons';
 import isBookingActive from '@/utils/isBookingActive';
 
 export default function Market() {
   const searchInputRef = useRef(null);
-  const { isLoggedIn } = useUser();
-  const { labs, loading } = useLabs();
-  const { userBookings } = useBookings();
+  const { isLoggedIn, address, isSSO } = useUser();
+  
+  // 🚀 React Query for labs
+  const { 
+    data: labs = [], 
+    isLoading: loading, 
+    isError: labsError,
+    error: labsErrorDetails 
+  } = useAllLabsQuery({
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000, // Auto-refetch every 5 minutes
+  });
+  
+  // 🚀 React Query for user bookings
+  const { 
+    data: userBookings = [], 
+    isLoading: bookingsLoading 
+  } = useUserBookingsQuery(address, null, null, {
+    enabled: !!address && isLoggedIn,
+    staleTime: 2 * 60 * 1000, // 2 minutes - more dynamic bookings
+    refetchOnWindowFocus: true,
+  });
   
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price");
@@ -20,10 +44,7 @@ export default function Market() {
   const [searchFilteredLabs, setSearchFilteredLabs] = useState([]);
   const [searchDebounce, setSearchDebounce] = useState("");
 
-  // Enable optimized real-time updates for market component
-  useMarketBookings();
-
-  // Get all lab categories and providersusing memoization
+  // Get all lab categories and providers using memoization
   const categories = useMemo(() => {
     if (!labs || labs.length === 0) return [];
     const uniqueCategories = new Set();
@@ -91,10 +112,10 @@ export default function Market() {
     setSearchFilteredLabs(filtered);
   }, [labs, selectedCategory, selectedPrice, selectedProvider, selectedFilter, searchDebounce]);
 
-  // Apply the search every time the filter options change
+  // Apply the search every time the filter dependencies change directly
   useEffect(() => {
     search();
-  }, [search]);
+  }, [labs, selectedCategory, selectedPrice, selectedProvider, selectedFilter, searchDebounce]);
 
   // Enable search on Enter key press
   const handleKeyDown = useCallback((event) => {
@@ -126,6 +147,26 @@ export default function Market() {
       setSelectedPrice("Sort by Price");
     }
   };
+
+  // ❌ Error handling for React Query
+  if (labsError) {
+    return (
+      <main className="container mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+          <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
+          <p className="text-red-600 mb-4">
+            {labsErrorDetails?.message || 'Failed to load laboratory data'}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="container mx-auto p-6">

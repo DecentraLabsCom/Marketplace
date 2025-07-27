@@ -2,11 +2,17 @@
 import { useEffect, useState } from 'react';
 import { parseUnits, formatUnits } from 'viem';
 import { useUser } from '@/context/UserContext';
-import { useLabs } from '@/context/LabContext';
+import { 
+  useAllLabsQuery, 
+  useCreateLabMutation, 
+  useUpdateLabMutation, 
+  useDeleteLabMutation, 
+  useToggleLabStatusMutation 
+} from '@/hooks/useLabs';
+import { useLabBookingsQuery } from '@/hooks/useBookings';
 import { useNotifications } from '@/context/NotificationContext';
 import { useLabToken } from '@/hooks/useLabToken';
 import { useLabEventCoordinator } from '@/hooks/useLabEventCoordinator';
-import { useProviderDashboardBookings } from '@/context/BookingContext';
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction';
 import { useReservationEventCoordinator } from '@/hooks/useBookingEventCoordinator';
 import { useWaitForTransactionReceipt } from 'wagmi';
@@ -18,18 +24,44 @@ import CalendarWithBookings from '@/components/CalendarWithBookings';
 
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
-  const { labs, setLabs, loading } = useLabs();
+  
+  // 🚀 React Query for labs
+  const { 
+    data: labs = [], 
+    isLoading: loading, 
+    isError: labsError,
+    error: labsErrorDetails 
+  } = useAllLabsQuery({
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false, // No automatic refetch
+  });
+
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
-  const { invalidateLabBookings, invalidateUserBookingsByLab } = useReservationEventCoordinator();
+  const { invalidateUserBookingsByLab } = useReservationEventCoordinator();
   const { decimals } = useLabToken();
+
+  // 🚀 React Query mutations for lab management
+  const createLabMutation = useCreateLabMutation();
+  const updateLabMutation = useUpdateLabMutation();
+  const deleteLabMutation = useDeleteLabMutation();
+  const toggleLabStatusMutation = useToggleLabStatusMutation();
   
   // State declarations
   const [ownedLabs, setOwnedLabs] = useState([]);
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  const { labBookings } = useProviderDashboardBookings(selectedLabId);
+  // 🚀 React Query for lab bookings
+  const { 
+    data: labBookings = [], 
+    isLoading: bookingsLoading, 
+    isError: bookingsError,
+    error: bookingsErrorDetails 
+  } = useLabBookingsQuery(selectedLabId, null, null, {
+    enabled: !!selectedLabId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
 
   // Contract write functions
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
@@ -66,23 +98,23 @@ export default function ProviderDashboard() {
       
       addPersistentNotification('success', `✅ ${txType.charAt(0).toUpperCase() + txType.slice(1)} operation confirmed onchain!`);
       
-      // Update local state immediately with the confirmed changes
+      // 🚀 React Query mutations will automatically update the cache
+      // through invalidation and optimistic updates - no manual state management needed
       switch(txType) {
         case 'add':
-          setLabs([...labs, pendingData]);
+          // createLabMutation already handles cache updates
           setIsModalOpen(false); // Only close for new labs
           break;
         case 'update':
-          // Update local state immediately - DON'T close modal
-          setLabs(labs.map(lab => lab.id === pendingData.id ? pendingData : lab));
-          devLog.log('ProviderDashboard: Lab updated in local state, modal remains open');
+          // updateLabMutation already handles cache updates
+          devLog.log('ProviderDashboard: Lab updated via React Query, modal remains open');
           break;
         case 'delete':
-          setLabs(labs.filter(lab => lab.id !== pendingData.id));
+          // deleteLabMutation already handles cache updates
           break;
         case 'list':
         case 'unlist':
-          setLabs(labs.map(lab => lab.id === pendingData.id ? pendingData : lab));
+          // toggleLabStatusMutation already handles cache updates
           break;
       }
       
@@ -91,11 +123,11 @@ export default function ProviderDashboard() {
       setTxType(null);
       setPendingData(null);
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, labs, setLabs, addPersistentNotification]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]); // Removed 'labs' dependency
 
   const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
   
-  const bookingInfo = (selectedLab && labBookings) 
+  const bookingInfo = (selectedLab && labBookings && !bookingsError) 
     ? labBookings.map(booking => ({
         ...booking,
         labName: selectedLab.name,
@@ -107,21 +139,28 @@ export default function ProviderDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
 
-  // Filter labs owned by the user
+  // Filter labs owned by the user (with memoization-like effect)
   useEffect(() => {
-    if (address && labs) {
+    if (address && labs && labs.length > 0) {
       const userLabs = labs.filter((lab) => lab.providerAddress === String(address));
-      setOwnedLabs(userLabs);
+      
+      // Only update if there's actually a change to prevent loops
+      setOwnedLabs(prevLabs => {
+        if (prevLabs.length !== userLabs.length) return userLabs;
+        
+        const hasChanged = userLabs.some((lab, index) => lab.id !== prevLabs[index]?.id);
+        return hasChanged ? userLabs : prevLabs;
+      });
     }
   }, [address, labs]);
 
-  // Automatically set the first lab as the selected lab
+  // Automatically set the first lab as the selected lab (only once)
   const hasOwnedLabs = ownedLabs.length > 0;
   useEffect(() => {
     if (hasOwnedLabs && !selectedLabId && !isModalOpen) {
       setSelectedLabId(ownedLabs[0].id);
     }
-  }, [hasOwnedLabs, selectedLabId, isModalOpen, ownedLabs]);
+  }, [hasOwnedLabs, selectedLabId, isModalOpen]); // Removed 'ownedLabs' to prevent loops
 
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
@@ -227,16 +266,17 @@ export default function ProviderDashboard() {
         } else {
           throw new Error('No transaction hash received');
         }
-      } else {
-        // 1b. If there is no change in the on-chain data, just update the local state
+        } else {
+        // 1b. If there is no change in the on-chain data, just update via React Query
         // Keep price in human-readable format for consistency
-        setLabs(labs.map((lab) => lab.id == labData.id ? { ...labData, price: originalPrice } : lab));
+        updateLabMutation.mutate({
+          labId: labData.id,
+          labData: { ...labData, price: originalPrice }
+        });
         // DON'T close modal - let user close it manually
         addTemporaryNotification('success', '✅ Lab updated successfully (offchain changes only)!');
-        devLog.log('ProviderDashboard: Lab updated locally (offchain), modal remains open');
-      }
-
-      // 2. Save the JSON if necessary
+        devLog.log('ProviderDashboard: Lab updated via React Query (offchain), modal remains open');
+      }      // 2. Save the JSON if necessary
       if (labData.uri.startsWith('Lab-')) {
         try {
           const response = await fetch('/api/provider/saveLabData', {
@@ -268,214 +308,85 @@ export default function ProviderDashboard() {
     }, labData.id); // End of coordinatedLabUpdate - pass labId for targeted cache invalidation
   }
 
-  // Handle adding a new lab
+  // Handle adding a new lab using React Query mutation
   async function handleAddLab({ labData }) {
     const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
     labData.uri = labData.uri || `Lab-${user.name}-${maxId + 1}.json`;
 
-    // Use coordinated update to prevent collisions with blockchain events
-    await coordinatedLabUpdate(async () => {
-      try {
-        addTemporaryNotification('pending', '⏳ Adding lab onchain...');
-
-        let txHash;
-        
-        if (isSSO) {
-          // For SSO users, use server-side transaction with unique provider wallet
-          const response = await fetch('/api/contract/lab/createLabSSO', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              email: user.email,
-              labData: {
-                uri: labData.uri,
-                price: labData.price,
-                auth: labData.auth,
-                accessURI: labData.accessURI,
-                accessKey: labData.accessKey
-              }
-            }),
-          });
-          
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to create lab');
-          }
-          
-          const result = await response.json();
-          txHash = result.txHash;
-        } else {
-          // For wallet users, use client-side transaction
-          txHash = await addLab([
-            labData.uri,
-            labData.price,
-            labData.auth,
-            labData.accessURI,
-            labData.accessKey
-          ]);
-        }
-
-        if (txHash) {
-          // Convert price from token units back to per-second decimal for cache consistency
-          const priceInTokenUnits = BigInt(labData.price);
-          const pricePerSecond = parseFloat(formatUnits(priceInTokenUnits, decimals));
-          const newLabRecord = { ...labData, id: maxId + 1, providerAddress: address, price: pricePerSecond };
-          setLastTxHash(txHash);
-          setTxType('add');
-          setPendingData(newLabRecord);
-
-          // 3. Save the JSON with the lab data if necessary
-          if (labData.uri.startsWith('Lab-')) {
-            const response = await fetch('/api/provider/saveLabData', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ labData: newLabRecord }),
-            });
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          }
-        } else {
-          throw new Error('No transaction hash received');
-        }
-      } catch (error) {
-        devLog.error('Error adding lab:', error);
-        addTemporaryNotification('error', `❌ Failed to add lab: ${formatErrorMessage(error)}`);
-        throw error; // Re-throw for coordinatedLabUpdate to handle
-      }
-    }); // End of coordinatedLabUpdate - null because new lab ID isn't known yet
+    try {
+      addTemporaryNotification('pending', '⏳ Adding lab...');
+      
+      // 🚀 Use React Query mutation for lab creation
+      await createLabMutation.mutateAsync({
+        ...labData,
+        providerId: address, // Add provider info
+        isSSO,
+        userEmail: user.email
+      });
+      
+      addTemporaryNotification('success', '✅ Lab added successfully!');
+      setIsModalOpen(false);
+      
+    } catch (error) {
+      devLog.error('Error adding lab:', error);
+      addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
+    }
   }
 
-  // Handle delete a lab
+  // Handle delete a lab using React Query mutation
   const handleDeleteLab = async (labId) => {
-    const labToDelete = labs.find((lab) => lab.id == labId);
-    
-    // Use coordinated update to prevent collisions with blockchain events
-    await coordinatedLabUpdate(async () => {
-      try {
-        addTemporaryNotification('pending', '⏳ Deleting lab onchain...');
+    try {
+      addTemporaryNotification('pending', '⏳ Deleting lab...');
 
-        const txHash = await deleteLab([labId]);
-        
-        if (txHash) {
-          setLastTxHash(txHash);
-          setTxType('delete');
-          setPendingData(labToDelete);
+      // 🚀 Use React Query mutation for lab deletion
+      await deleteLabMutation.mutateAsync(labId);
+      
+      addTemporaryNotification('success', '✅ Lab deleted successfully!');
 
-          // Delete associated files
-          const labURI = labToDelete.uri;
-          const imagesToDelete = labToDelete.images;
-          const docsToDelete = labToDelete.docs;
+      // Clean up all bookings for this deleted lab using React Query
+      devLog.log('🗑️ Cleaning up all bookings for deleted lab:', labId);
+      
+      // The useBookingCacheInvalidation will handle cache cleanup
+      await invalidateUserBookingsByLab(labId);
+      devLog.log('✅ Successfully cleaned up all bookings for deleted lab:', labId);
+      
+      addTemporaryNotification('warning', 
+        `⚠️ Lab deleted successfully. All associated reservations have been automatically cancelled.`
+      );
 
-        // Delete images
-        if (imagesToDelete && Array.isArray(imagesToDelete)) {
-          await Promise.all(imagesToDelete.map(async (imageToDelete) => {
-            if (imageToDelete) {
-              const filePathToDelete = imageToDelete.startsWith('/') ? imageToDelete.substring(1) : imageToDelete;            
-              const formDatatoDelete = new FormData();
-              formDatatoDelete.append('filePath', filePathToDelete);
-              formDatatoDelete.append('deletingLab', true);
-              const res = await fetch('/api/provider/deleteFile', {
-                method: 'POST',
-                body: formDatatoDelete,
-              });
-              if (!res.ok) throw new Error('Failed to delete image file: ' + filePathToDelete);
-            }
-          }));
-        }
-
-        // Delete docs
-        if (docsToDelete && Array.isArray(docsToDelete)) {
-          await Promise.all(docsToDelete.map(async (docToDelete) => {
-            if (docToDelete) {
-              const filePathToDelete = docToDelete.startsWith('/') ? docToDelete.substring(1) : docToDelete;
-              const formDatatoDelete = new FormData();
-              formDatatoDelete.append('filePath', filePathToDelete);
-              formDatatoDelete.append('deletingLab', true);
-              const res = await fetch('/api/provider/deleteFile', {
-                method: 'POST',
-                body: formDatatoDelete,
-              });
-              if (!res.ok) throw new Error('Failed to delete doc file: ' + filePathToDelete);
-            }
-          }));
-        }
-
-        const hasExternalUri = !!(labURI && (labURI.startsWith('http://') || labURI.startsWith('https://')));
-
-        // Only delete JSON if labURI is local
-        if (!hasExternalUri) {
-          const response = await fetch('/api/provider/deleteLabData', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ labURI }),
-          });
-          if (!response.ok) throw new Error('Failed to delete the associated data file on the server.');
-        }
-
-        // CRITICAL: Clean up all bookings for this deleted lab
-        devLog.log('🗑️ Cleaning up all bookings for deleted lab:', labId);
-        
-        // Invalidate lab bookings (for provider view)
-        invalidateLabBookings(labId);
-        
-        // Invalidate user bookings that reference this lab (for all users)
-        await invalidateUserBookingsByLab(labId);
-        
-        devLog.log('✅ Successfully cleaned up all bookings for deleted lab:', labId);
-        
-        // Notify about booking cancellations
-        addTemporaryNotification('warning', 
-          `⚠️ Lab deleted successfully. All associated reservations have been automatically cancelled.`
-        );
-      } else {
-        throw new Error('No transaction hash received');
-      }
     } catch (error) {
       devLog.error('Error deleting lab:', error);
-      addTemporaryNotification('error', `❌ Failed to delete lab: ${formatErrorMessage(error)}`);
-      throw error; // Re-throw for coordinatedLabUpdate to handle
+      addTemporaryNotification('error', `❌ Failed to delete lab: ${error.message}`);
     }
-    }, labId); // End of coordinatedLabUpdate - pass labId for targeted cache invalidation
   };
 
-  // Handle listing a lab
+  // Handle listing a lab using React Query mutation
   const handleList = async (labId) => {
     try {
-      addTemporaryNotification('pending', '⏳ Listing lab onchain...');
+      addTemporaryNotification('pending', '⏳ Listing lab...');
 
-      const txHash = await listLab([labId]);
+      // 🚀 Use React Query mutation for lab status toggle
+      await toggleLabStatusMutation.mutateAsync({ labId, isListed: true });
       
-      if (txHash) {
-        const updatedLab = { ...labs.find(lab => lab.id === labId), listed: true };
-        setLastTxHash(txHash);
-        setTxType('list');
-        setPendingData(updatedLab);
-      } else {
-        throw new Error('No transaction hash received');
-      }
+      addTemporaryNotification('success', '✅ Lab listed successfully!');
     } catch (error) {
       devLog.error('Error listing lab:', error);
-      addTemporaryNotification('error', `❌ Failed to list lab: ${formatErrorMessage(error)}`);
+      addTemporaryNotification('error', `❌ Failed to list lab: ${error.message}`);
     }
   };
   
-  // Handle unlisting a lab
+  // Handle unlisting a lab using React Query mutation
   const handleUnlist = async (labId) => {
     try {
-      addTemporaryNotification('pending', '⏳ Unlisting lab onchain...');
+      addTemporaryNotification('pending', '⏳ Unlisting lab...');
 
-      const txHash = await unlistLab([labId]);
+      // 🚀 Use React Query mutation for lab status toggle
+      await toggleLabStatusMutation.mutateAsync({ labId, isListed: false });
       
-      if (txHash) {
-        const updatedLab = { ...labs.find(lab => lab.id === labId), listed: false };
-        setLastTxHash(txHash);
-        setTxType('unlist');
-        setPendingData(updatedLab);
-      } else {
-        throw new Error('No transaction hash received');
-      }
+      addTemporaryNotification('success', '✅ Lab unlisted successfully!');
     } catch (error) {
       devLog.error('Error unlisting lab:', error);
-      addTemporaryNotification('error', `❌ Failed to unlist lab: ${formatErrorMessage(error)}`);
+      addTemporaryNotification('error', `❌ Failed to unlist lab: ${error.message}`);
     }
   };
 
@@ -550,6 +461,28 @@ export default function ProviderDashboard() {
     
     return message.trim() || 'Operation failed';
   };
+
+  // ❌ Error handling for React Query
+  if (labsError) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <div className="container mx-auto p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+            <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
+            <p className="text-red-600 mb-4">
+              {labsErrorDetails?.message || 'Failed to load laboratory data'}
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </AccessControl>
+    );
+  }
 
   return (
     <AccessControl requireWallet message="Please log in to manage your labs.">

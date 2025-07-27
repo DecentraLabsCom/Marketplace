@@ -4,8 +4,6 @@ import ClientQueryProvider from '@/context/ClientQueryProvider'
 import ClientWagmiProvider from '@/context/ClientWagmiProvider'
 import { UserData } from '@/context/UserContext'
 import { UserEventProvider } from "@/context/UserEventContext";
-import { LabData } from '@/context/LabContext'
-import { BookingData } from '@/context/BookingContext'
 import { LabEventProvider } from "@/context/LabEventContext";
 import { BookingEventProvider } from "@/context/BookingEventContext";
 import { NotificationProvider } from "@/context/NotificationContext";
@@ -60,10 +58,8 @@ export default function RootLayout({ children }) {
             <NotificationProvider>
               <UserData>
                 <UserEventProvider>
-                  <LabData>
-                    <BookingData>
-                      <LabEventProvider>
-                        <BookingEventProvider>
+                  <LabEventProvider>
+                    <BookingEventProvider>
                       <header className="sticky top-0 z-50">
                         <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
                           <Navbar />
@@ -77,10 +73,8 @@ export default function RootLayout({ children }) {
                       <DataRefreshIndicator />
                     </BookingEventProvider>
                   </LabEventProvider>
-                </BookingData>
-              </LabData>
-              </UserEventProvider>
-            </UserData>
+                </UserEventProvider>
+              </UserData>
             </NotificationProvider>
           </ClientWagmiProvider>
         </ClientQueryProvider>

@@ -3,15 +3,15 @@
  * Prevents race conditions and duplicate API calls
  */
 import { useCallback } from 'react';
-import { useLabs } from '@/context/LabContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/utils/queryKeys';
 import { useLabEvents } from '@/context/LabEventContext';
 import devLog from '@/utils/logger';
 
 export function useLabEventCoordinator() {
-  const { clearCacheAndRefresh, updateLabInState } = useLabs();
+  const queryClient = useQueryClient();
   const { 
-    invalidateLabCache, 
-    scheduleLabsUpdate, 
+    invalidateAllLabCaches, 
     setManualUpdateInProgress,
     isManualUpdateInProgress 
   } = useLabEvents();
@@ -31,18 +31,19 @@ export function useLabEventCoordinator() {
     setManualUpdateInProgress(true);
 
     try {
+      devLog.log('🚀 [LabEventCoordinator] Starting coordinated lab update:', { 
+        labId,
+        timestamp: new Date().toISOString()
+      });
+
       // Execute the update function (API call, etc.)
       const result = await updateFunction();
 
-      // Invalidate cache for the specific lab or all labs
-      if (labId) {
-        invalidateLabCache(labId);
-      } else {
-        invalidateLabCache();
-      }
+      // Invalidate relevant React Query caches
+      devLog.log('♻️ [LabEventCoordinator] Invalidating caches...');
+      await invalidateAllLabCaches(labId, 'coordinated_manual_update');
 
-      // Schedule a refresh after manual update
-      scheduleLabsUpdate(200); // Short delay to allow for any pending events
+      devLog.log('✅ [LabEventCoordinator] Cache invalidation completed');
 
       return result;
     } catch (error) {
@@ -54,23 +55,23 @@ export function useLabEventCoordinator() {
         setManualUpdateInProgress(false);
       }, 1000);
     }
-  }, [isManualUpdateInProgress, setManualUpdateInProgress, invalidateLabCache, scheduleLabsUpdate]);
+  }, [isManualUpdateInProgress, setManualUpdateInProgress, invalidateAllLabCaches]);
 
   /**
    * Coordinated cache refresh - use when immediate UI update is needed
    */
-  const coordinatedRefresh = useCallback(() => {
+  const coordinatedRefresh = useCallback(async (labId = null) => {
     if (!isManualUpdateInProgress) {
-      clearCacheAndRefresh();
+      devLog.log('🔄 [LabEventCoordinator] Refreshing labs');
+      await invalidateAllLabCaches(labId, 'manual_refresh');
     } else {
       devLog.log('Manual update in progress, skipping automatic refresh');
     }
-  }, [clearCacheAndRefresh, isManualUpdateInProgress]);
+  }, [invalidateAllLabCaches, isManualUpdateInProgress]);
 
   /**
    * Check if manual update is in progress
    */
-  // Función para verificar si hay una actualización manual en progreso
   const isManualInProgress = useCallback(() => {
     return isManualUpdateInProgress;
   }, [isManualUpdateInProgress]);
@@ -78,7 +79,6 @@ export function useLabEventCoordinator() {
   return {
     coordinatedLabUpdate,
     coordinatedRefresh,
-    isManualInProgress,
-    updateLabInState
+    isManualInProgress
   };
 }

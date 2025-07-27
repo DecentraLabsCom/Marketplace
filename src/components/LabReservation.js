@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
-import { useLabs } from "@/context/LabContext";
-import { useBookings, useLabReservationBookings } from "@/context/BookingContext";
+import { useAllLabsQuery } from '@/hooks/useLabs';
+import { useLabBookingsQuery } from '@/hooks/useBookings';
 import { useUser } from "@/context/UserContext";
-import { useBookingEvents } from "@/context/BookingEventContext";
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/utils/queryKeys';
 import { useNotifications } from "@/context/NotificationContext";
 import { useLabToken } from "@/hooks/useLabToken";
 import Carrousel from "@/components/Carrousel";
@@ -17,12 +18,18 @@ import { contractAddresses } from "@/contracts/diamond";
 import devLog from '@/utils/logger';
 
 export default function LabReservation({ id }) {
-  const { labs } = useLabs();
-  const { fetchUserBookings, addBookingToCache } = useBookings();
-  const { isSSO } = useUser();
-  const { processingBookings } = useBookingEvents();
+  const { 
+    data: labs = [], 
+    isLoading: labsLoading, 
+    isError: labsError,
+    error: labsErrorDetails 
+  } = useAllLabsQuery({
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+  const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected, address } = useAccount();
+  const queryClient = useQueryClient();
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
   const [selectedAvailableTime, setSelectedAvailableTime] = useState('');
@@ -36,15 +43,16 @@ export default function LabReservation({ id }) {
   const [txType, setTxType] = useState(null); // 'reservation', 'approval'
   const [pendingData, setPendingData] = useState(null);
   
-  // Enable optimized real-time updates for lab reservation
-  useLabReservationBookings(selectedLab?.id);
-  
-  // Lab bookings for the current lab
+  // 🚀 React Query for lab bookings
   const {
-    labBookings,
-    refreshBookings: refetchLabBookings,
-    addBookingToCache: addBookingToLabCache
-  } = useLabReservationBookings(selectedLab?.id);
+    data: labBookings = [],
+    isLoading: bookingsLoading,
+    refetch: refetchLabBookings
+  } = useLabBookingsQuery(selectedLab?.id, null, null, {
+    enabled: !!selectedLab?.id,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    refetchOnWindowFocus: false,
+  });
 
   // Debug: Log selectedLab changes
   useEffect(() => {
@@ -237,7 +245,10 @@ export default function LabReservation({ id }) {
       // Invalidate cache and refresh bookings to show the new reservation immediately
       const invalidateAndRefresh = async () => {
         try {
-          // Invalidate the bookings cache
+          // Get labId from pendingData for invalidation
+          const labId = pendingData?.labId || selectedLab?.id;
+          
+          // Invalidate the bookings cache (server-side cache invalidation)
           await fetch('/api/contract/reservation/invalidateCache', {
             method: 'POST',
             headers: {
@@ -249,30 +260,30 @@ export default function LabReservation({ id }) {
             })
           });
           
-          // Force refresh the bookings data with multiple attempts
-          await Promise.all([
-            fetchUserBookings(true), // Refresh user bookings
-            refetchLabBookings() // Refresh lab bookings
-          ]);
+          // Invalidate user bookings cache for real-time updates across components
+          await queryClient.invalidateQueries({ 
+            queryKey: QUERY_KEYS.BOOKINGS.user(address || userAddress) 
+          });
           
-          // Wait a bit and refresh again to ensure data consistency
-          setTimeout(async () => {
-            await refetchLabBookings();
-            setForceRefresh(prev => prev + 1);
-          }, 1000);
+          // Invalidate ALL lab bookings cache for this specific lab (for provider dashboards)
+          if (labId) {
+            await queryClient.invalidateQueries({ 
+              queryKey: QUERY_KEYS.BOOKINGS.lab(labId) 
+            });
+          }
+          
+          // Force refresh the lab bookings data
+          await refetchLabBookings();
           
           // Force UI refresh immediately
           setForceRefresh(prev => prev + 1);
           
-          devLog.log('Cache invalidated and bookings refreshed after new reservation');
+          devLog.log('✅ Cache invalidated and bookings synced after new reservation');
         } catch (error) {
           devLog.error('Error invalidating cache after reservation:', error);
-          // Still try to refresh bookings even if cache invalidation fails
-          await Promise.all([
-            fetchUserBookings(true), // Refresh user bookings
-            refetchLabBookings() // Refresh lab bookings
-          ]);
-          setForceRefresh(prev => prev + 1); // Force UI refresh
+          // Fallback: still try to refresh current component
+          await refetchLabBookings();
+          setForceRefresh(prev => prev + 1);
         }
       };
       
@@ -285,7 +296,7 @@ export default function LabReservation({ id }) {
 
       // The BookingEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, fetchUserBookings, refreshTokenData]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refetchLabBookings, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -332,10 +343,20 @@ export default function LabReservation({ id }) {
 
   // Common notification and state management
   const handleBookingSuccess = async () => {
-    await Promise.all([
-      fetchUserBookings(true), // Update user bookings (force refresh)
-      refetchLabBookings() // Update lab bookings
-    ]);
+    // Invalidate user bookings for real-time updates
+    await queryClient.invalidateQueries({ 
+      queryKey: QUERY_KEYS.BOOKINGS.user(address || userAddress) 
+    });
+    
+    // Invalidate lab bookings for real-time updates across provider dashboards
+    if (selectedLab?.id) {
+      await queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.BOOKINGS.lab(selectedLab.id) 
+      });
+    }
+    
+    // Update lab bookings
+    await refetchLabBookings();
     
     // Force UI refresh for calendar update
     setForceRefresh(prev => prev + 1);
@@ -350,8 +371,8 @@ export default function LabReservation({ id }) {
     const optimisticBooking = {
       id: optimisticBookingId || `temp_${Date.now()}`, // Use passed ID or generate temporary ID
       labId: labId,
-      user: address || 'current_user', // Use connected wallet address or SSO identifier
-      renter: address || 'current_user', // Add renter field for event matching
+      user: address || userAddress || 'current_user', // Use connected wallet address or SSO identifier
+      renter: address || userAddress || 'current_user', // Add renter field for event matching
       start: start,
       end: start + timeslot,
       duration: timeslot,
@@ -363,18 +384,33 @@ export default function LabReservation({ id }) {
     };
 
     try {
-      // Add to both lab-specific cache and user bookings cache
-      if (selectedLab?.id) {
-        addBookingToLabCache(selectedLab.id, optimisticBooking);
-      }
-      addBookingToCache(optimisticBooking);
+      // 🚀 UPDATE CACHE DIRECTLY instead of invalidating
+      
+      // 1. Update USER bookings cache (for UserDashboard, Market)
+      queryClient.setQueryData(
+        QUERY_KEYS.BOOKINGS.user(address || userAddress), 
+        (oldUserBookings = []) => {
+          devLog.log('✅ Adding optimistic booking to user cache:', optimisticBooking);
+          return [...oldUserBookings, optimisticBooking];
+        }
+      );
+      
+      // 2. Update LAB bookings cache (for ProviderDashboard, LabReservation)
+      queryClient.setQueryData(
+        QUERY_KEYS.BOOKINGS.lab(labId), 
+        (oldLabBookings = []) => {
+          devLog.log('✅ Adding optimistic booking to lab cache:', optimisticBooking);
+          return [...oldLabBookings, optimisticBooking];
+        }
+      );
+      
+      devLog.log('✅ Optimistic booking added to ALL relevant caches without refetch:', optimisticBooking);
       
       // Force UI refresh for immediate calendar update
       setForceRefresh(prev => prev + 1);
       
-      devLog.log('✅ Optimistic booking added to cache:', optimisticBooking);
     } catch (error) {
-      devLog.error('❌ Failed to add optimistic booking:', error);
+      devLog.error('❌ Failed to handle optimistic booking:', error);
     }
   };
 
@@ -577,18 +613,33 @@ export default function LabReservation({ id }) {
     }
   };
 
+  // ❌ Error handling for React Query
+  if (labsError) {
+    return (
+      <AccessControl message="Please log in to view and make reservations.">
+        <div className="container mx-auto p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+            <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
+            <p className="text-red-600 mb-4">
+              {labsErrorDetails?.message || 'Failed to load laboratory data'}
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </AccessControl>
+    );
+  }
+
   return (
     <AccessControl message="Please log in to view and make reservations.">
       <div className="container mx-auto p-4 text-white">
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
-          <div className="mt-2 h-6 flex items-center justify-center">
-            {processingBookings.size > 0 && (
-              <span className="text-yellow-300">
-                ⏳ Processing {processingBookings.size} reservation{processingBookings.size > 1 ? 's' : ''}...
-              </span>
-            )}
-          </div>
         </div>
 
         <div className="mb-6">

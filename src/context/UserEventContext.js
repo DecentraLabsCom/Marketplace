@@ -1,6 +1,8 @@
 "use client"
 import { createContext, useContext, useRef, useCallback, useState } from "react";
 import { useWatchContractEvent } from 'wagmi';
+import { useQueryClient } from '@tanstack/react-query';
+import { QUERY_KEYS } from '@/utils/queryKeys';
 import { contractABI, contractAddresses } from '@/contracts/diamond';
 import { selectChain } from '@/utils/selectChain';
 import devLog from '@/utils/logger';
@@ -12,8 +14,9 @@ const UserEventContext = createContext();
 
 export function UserEventProvider({ children }) {
     const { chain, address: userAddress } = useAccount();
-    const { user, isSSO, refreshProviderStatus } = useUser();
+    const { user, isSSO } = useUser();
     const { addPersistentNotification } = useNotifications();
+    const queryClient = useQueryClient();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
 
@@ -71,16 +74,22 @@ export function UserEventProvider({ children }) {
             clearTimeout(updateTimeoutRef.current);
         }
         
-        updateTimeoutRef.current = setTimeout(() => {
+        updateTimeoutRef.current = setTimeout(async () => {
             if (pendingUpdates.current.size > 0) {
                 devLog.log('Processing batch user updates for IDs:', Array.from(pendingUpdates.current));
+                
+                // Invalidate provider-related caches
+                await queryClient.invalidateQueries({
+                    queryKey: [QUERY_KEYS.PROVIDER_STATUS]
+                });
+                await queryClient.invalidateQueries({
+                    queryKey: [QUERY_KEYS.PROVIDER_NAME]
+                });
+                
                 pendingUpdates.current.clear();
-                if (typeof refreshProviderStatus === 'function') {
-                    refreshProviderStatus();
-                }
             }
         }, delay);
-    }, [refreshProviderStatus]);
+    }, [queryClient]);
 
     // Enhanced event handlers with collision prevention
     function handleProviderAdded(args) {
