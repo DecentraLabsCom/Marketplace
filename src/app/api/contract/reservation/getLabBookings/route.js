@@ -1,3 +1,7 @@
+/**
+ * API endpoint for retrieving all bookings for a specific lab
+ * Handles GET requests to fetch lab-specific booking data with caching
+ */
 import devLog from '@/utils/dev/logger'
 import { getContractInstance } from '../../utils/contractInstance'
 
@@ -456,6 +460,13 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Retrieves all bookings for a specific lab with caching
+ * @param {Request} request - HTTP request with query parameters
+ * @param {string} request.searchParams.labId - Lab identifier (required)
+ * @param {boolean} [request.searchParams.clearCache] - Flag to clear cached data
+ * @returns {Response} JSON response with lab's booking array or error
+ */
 export async function GET(request) {
   const url = new URL(request.url);
   const labId = url.searchParams.get('labId');

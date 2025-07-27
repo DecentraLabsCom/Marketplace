@@ -2,6 +2,15 @@
 import { useEffect } from 'react'
 import PropTypes from 'prop-types'
 
+/**
+ * Reusable confirmation modal for user actions
+ * Provides Yes/No confirmation with escape key support
+ * @param {Object} props
+ * @param {boolean} props.isOpen - Whether modal is visible
+ * @param {Function} props.onClose - Handler for closing/canceling modal
+ * @param {Function} props.onContinue - Handler for confirming action
+ * @returns {JSX.Element} Modal dialog with confirmation buttons
+ */
 export default function ConfirmModal({ isOpen, onClose, onContinue }) {
     useEffect(() => {
         if (!isOpen) return;

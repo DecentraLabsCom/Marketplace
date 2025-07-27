@@ -1,7 +1,18 @@
+/**
+ * API endpoint for checking if an email is a registered SSO provider
+ * Handles POST requests to validate SSO provider status for email addresses
+ */
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
 
+/**
+ * Checks if an email address is registered as an SSO provider
+ * @param {Request} request - HTTP request with email address
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.email - Email address to check (required)
+ * @returns {Response} JSON response with SSO provider status (boolean) or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { email } = body;

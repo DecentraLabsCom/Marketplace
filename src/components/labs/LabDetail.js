@@ -8,6 +8,14 @@ import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 
+/**
+ * Detailed lab information display component
+ * Shows comprehensive lab data including images, documentation, pricing, and provider info
+ * @param {Object} props
+ * @param {string|number} props.id - Lab ID to display details for
+ * @param {string} props.provider - Provider address or identifier
+ * @returns {JSX.Element} Complete lab detail view with images, docs, and metadata
+ */
 export default function LabDetail({ id, provider }) {
   const { 
     data: labs = [], 

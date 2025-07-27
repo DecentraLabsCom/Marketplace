@@ -1,6 +1,15 @@
 import { format, isToday } from 'date-fns'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Generates available time slot options for a specific day
+ * Filters out past time slots and slots that conflict with existing bookings
+ * @param {Object} params - Parameters for time option generation
+ * @param {Date} params.date - Target date to generate time options for
+ * @param {number} params.interval - Time interval in minutes for each slot
+ * @param {Array} params.bookingInfo - Array of existing booking objects
+ * @returns {Array<Object>} Array of time slot objects with value, label, and disabled status
+ */
 // Returns the available time slots for a specific day
 export function generateTimeOptions({ date, interval, bookingInfo }) {
     const options = [];
@@ -50,6 +59,15 @@ export function generateTimeOptions({ date, interval, bookingInfo }) {
     return options;
 }
 
+/**
+ * Renders day contents for calendar with booking information tooltips
+ * Shows booking details when hovering over days that have reservations
+ * @param {Object} params - Parameters for day content rendering
+ * @param {Date} params.day - Calendar day being rendered
+ * @param {Date} params.currentDateRender - Current date being processed for rendering
+ * @param {Array} params.bookingInfo - Array of booking objects with date and time information
+ * @returns {JSX.Element} Rendered day content with booking tooltips
+ */
 // Returns the content of the day for the calendar (tooltip with reserved hours)
 export function renderDayContents({ day, currentDateRender, bookingInfo }) {
     const bookingsOnDay = (bookingInfo || [])

@@ -3,6 +3,14 @@ import React, { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
+/**
+ * Interactive image carousel component with automatic sliding
+ * Displays lab images with navigation controls and auto-advance functionality
+ * @param {Object} props - Component props
+ * @param {Object} props.lab - Lab object containing images array
+ * @param {string} [props.maxHeight] - Maximum height CSS value for the carousel
+ * @returns {JSX.Element} Image carousel with controls
+ */
 const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);

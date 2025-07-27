@@ -1,7 +1,16 @@
+/**
+ * API endpoint for claiming all available LAB token balance
+ * Handles GET requests to withdraw all accumulated LAB tokens from smart contract
+ */
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
 
+/**
+ * Claims all available LAB token balance for the caller
+ * @param {Request} request - HTTP request for balance claim
+ * @returns {Response} JSON response with balance claim result or error
+ */
 export async function GET(request) {
   try {
     const contract = await getContractInstance();

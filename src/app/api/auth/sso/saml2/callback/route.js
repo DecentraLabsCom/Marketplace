@@ -1,7 +1,17 @@
+/**
+ * API endpoint for handling SAML2 SSO callback from identity provider
+ * Processes SAML response and creates user session
+ */
 import { NextResponse } from 'next/server'
 import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Processes SAML2 callback response and creates user session
+ * @param {Request} request - HTTP POST request with SAML response
+ * @param {string} request.body.SAMLResponse - Base64 encoded SAML response
+ * @returns {Response} JSON response with session result or error
+ */
 export async function POST(request) {
   try {
     // Step 1: Process the SAML response sent by the IdP

@@ -9,6 +9,19 @@ import { useLabToken } from '@/hooks/useLabToken'
 import LabAccess from '@/components/labs/LabAccess'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
+/**
+ * Individual lab card component for displaying lab information in grid/list views
+ * Shows lab preview with image, pricing, and booking status
+ * @param {Object} props
+ * @param {string|number} props.id - Unique lab identifier
+ * @param {string} props.name - Lab name/title
+ * @param {string} props.provider - Lab provider address
+ * @param {string|number} props.price - Lab price per hour
+ * @param {string} props.auth - Authentication requirements
+ * @param {boolean} props.activeBooking - Whether user has active booking
+ * @param {string} props.image - Lab main image URL
+ * @returns {JSX.Element} Lab card with image, details, and action buttons
+ */
 const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
   const { address, isConnected } = useUser();
   const { formatPrice } = useLabToken();

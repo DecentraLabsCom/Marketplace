@@ -5,6 +5,22 @@ import Image from 'next/image'
 import { XCircle } from 'lucide-react'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Universal media display component with fallback handling
+ * Supports images, documents, and links with automatic error recovery
+ * @param {Object} props
+ * @param {string} props.mediaPath - Path or URL to media file
+ * @param {string} props.mediaType - Type of media: 'image', 'doc', or 'link'
+ * @param {string} props.alt - Alternative text for images
+ * @param {boolean} props.fill - Whether image should fill container
+ * @param {string} props.className - CSS classes to apply
+ * @param {Object} props.style - Inline styles
+ * @param {string} props.sizes - Image sizes attribute
+ * @param {string|number} props.height - Media height
+ * @param {string|number} props.width - Media width
+ * @param {string} props.title - Title attribute for links
+ * @returns {JSX.Element} Media element with fallback handling
+ */
 export default function MediaDisplayWithFallback({ 
   mediaPath, 
   mediaType, // 'image', 'doc' or 'link'

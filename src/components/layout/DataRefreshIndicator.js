@@ -5,6 +5,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSync, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 
+/**
+ * Data refresh indicator for prompting users to update stale provider status
+ * Shows when user has incomplete provider data and provides refresh button
+ * @returns {JSX.Element|null} Refresh indicator with button, or null if no refresh needed
+ */
 export default function DataRefreshIndicator() {
     const { hasIncompleteData, isProviderLoading, refreshProviderStatus } = useUser();
     const [isRefreshing, setIsRefreshing] = useState(false);

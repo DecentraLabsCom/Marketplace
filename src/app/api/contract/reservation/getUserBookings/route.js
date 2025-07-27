@@ -1,3 +1,7 @@
+/**
+ * API endpoint for retrieving user booking reservations
+ * Handles GET requests to fetch user-specific booking data with caching
+ */
 import devLog from '@/utils/dev/logger'
 import { getContractInstance } from '../../utils/contractInstance'
 import { isAddress } from 'viem'
@@ -480,6 +484,13 @@ export async function POST(request) {
   }
 }
 
+/**
+ * Retrieves all bookings for a specific user address
+ * @param {Request} request - HTTP request with query parameters
+ * @param {string} request.searchParams.userAddress - User's wallet address (required)
+ * @param {boolean} [request.searchParams.clearCache] - Flag to clear cached data
+ * @returns {Response} JSON response with user's booking array or error
+ */
 export async function GET(request) {
   const url = new URL(request.url);
   const userAddress = url.searchParams.get('userAddress');

@@ -18,6 +18,13 @@ import { QUERY_KEYS } from '@/utils/queryKeys'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Main lab reservation component that handles booking creation and management
+ * Integrates with calendar, pricing, blockchain transactions, and booking state
+ * @param {Object} props
+ * @param {string|number} props.id - Lab ID to display reservation interface for
+ * @returns {JSX.Element} Complete lab reservation interface with calendar and booking controls
+ */
 export default function LabReservation({ id }) {
   const { 
     data: labs = [], 

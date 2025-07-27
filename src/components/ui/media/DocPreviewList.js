@@ -3,6 +3,15 @@ import PropTypes from 'prop-types'
 import { XCircle } from 'lucide-react'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
+/**
+ * Document preview list component with removal functionality
+ * Displays uploaded documents with options to view and remove them
+ * @param {Object} props - Component props
+ * @param {Array} props.docUrls - Array of document URL strings
+ * @param {Function} props.removeDoc - Callback function to remove a document
+ * @param {boolean} [props.isExternalURI] - Whether URLs are external URIs
+ * @returns {JSX.Element|null} List of document previews or null if no documents
+ */
 const DocPreviewList = React.memo(function DocPreviewList({ docUrls, removeDoc, isExternalURI }) {
   if (!docUrls?.length) return null;
   return (

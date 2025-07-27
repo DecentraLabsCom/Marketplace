@@ -6,6 +6,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faWallet } from '@fortawesome/free-solid-svg-icons'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Wallet authentication component for connecting Web3 wallets
+ * Handles multiple wallet connectors (MetaMask, WalletConnect, etc.) and connection management
+ * @param {Object} props
+ * @param {Function} props.setIsModalOpen - Function to control parent modal visibility
+ * @returns {JSX.Element} Wallet connection interface with supported wallet options
+ */
 export default function WalletLogin({ setIsModalOpen }) {
   const { connectors, connect } = useConnect();
   const { disconnect } = useDisconnect();

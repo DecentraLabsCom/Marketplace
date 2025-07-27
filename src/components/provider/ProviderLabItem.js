@@ -2,6 +2,18 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Carrousel from '@/components/ui/Carrousel'
 
+/**
+ * Provider dashboard item for managing individual labs
+ * Displays lab info with action buttons for edit, collect, delete, list/unlist
+ * @param {Object} props
+ * @param {Object} props.lab - Lab object with id, name, images, price, status
+ * @param {Function} props.onEdit - Handler for editing lab
+ * @param {Function} props.onCollect - Handler for collecting lab earnings
+ * @param {Function} props.onDelete - Handler for deleting lab
+ * @param {Function} props.onList - Handler for listing lab in marketplace
+ * @param {Function} props.onUnlist - Handler for unlisting lab from marketplace
+ * @returns {JSX.Element} Provider lab management item with action buttons
+ */
 const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCollect, onDelete, onList, onUnlist }) {
   return (
     <div className="p-4 border rounded shadow max-w-4xl mx-auto">

@@ -1,3 +1,7 @@
+/**
+ * API endpoint for processing reservation requests by lab providers
+ * Handles POST requests to approve/deny pending reservation requests
+ */
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
@@ -6,6 +10,17 @@ import fs from 'fs/promises'
 import path from 'path'
 import getIsVercel from '@/utils/isVercel'
 
+/**
+ * Processes a pending reservation request (approve/deny)
+ * @param {Request} request - HTTP request with reservation details
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.reservationKey - Unique reservation identifier (required)
+ * @param {string|number} request.body.labId - Lab identifier (required)
+ * @param {number} request.body.start - Booking start time (Unix timestamp)
+ * @param {number} request.body.end - Booking end time (Unix timestamp)
+ * @param {string} request.body.metadataUri - URI for additional booking metadata
+ * @returns {Response} JSON response with processing result or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { reservationKey, labId, start, end, metadataUri } = body;

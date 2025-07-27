@@ -9,6 +9,11 @@ import { useUser } from '@/context/UserContext'
 import Login from '@/components/auth/Login'
 import { validateProviderRole } from '@/utils/auth/roleValidation'
 
+/**
+ * Main navigation bar component with responsive design and authentication-aware menu
+ * Provides access to all major sections based on user role and authentication status
+ * @returns {JSX.Element} Responsive navigation bar with logo, menu items, and user controls
+ */
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { isLoggedIn, isProvider, isProviderLoading, isSSO, user } = useUser();

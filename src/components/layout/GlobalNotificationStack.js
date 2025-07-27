@@ -3,6 +3,11 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { useNotifications } from '@/context/NotificationContext'
 
+/**
+ * Global notification system for displaying user feedback messages
+ * Manages toast-style notifications with auto-dismiss and manual close options
+ * @returns {JSX.Element|null} Notification stack positioned in bottom-left corner, or null if no notifications
+ */
 export default function GlobalNotificationStack() {
   const { notifications, removeNotification } = useNotifications();
 

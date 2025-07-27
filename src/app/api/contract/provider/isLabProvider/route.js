@@ -1,3 +1,7 @@
+/**
+ * API endpoint for checking if an address is a registered lab provider
+ * Handles GET requests to validate provider status on the blockchain
+ */
 import devLog from '@/utils/dev/logger'
 import { getContractInstance } from '../../utils/contractInstance'
 
@@ -16,6 +20,13 @@ async function retryWithBackoff(fn, maxRetries = 2, baseDelay = 1000) {
   }
 }
 
+/**
+ * Checks if a wallet address is a registered lab provider
+ * @param {Request} request - HTTP request with wallet address
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.wallet - Wallet address to check (required)
+ * @returns {Response} JSON response with provider status (boolean) or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { wallet } = body;

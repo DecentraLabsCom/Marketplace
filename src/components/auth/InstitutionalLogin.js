@@ -4,6 +4,13 @@ import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUniversity } from '@fortawesome/free-solid-svg-icons'
 
+/**
+ * Institutional login component for SAML2-based SSO authentication
+ * Redirects users to institutional identity provider for secure authentication
+ * @param {Object} props
+ * @param {Function} props.setIsModalOpen - Function to close the login modal before redirect
+ * @returns {JSX.Element} Institutional login button with university icon
+ */
 export default function InstitutionalLogin({ setIsModalOpen }) {
   const router = useRouter();
 

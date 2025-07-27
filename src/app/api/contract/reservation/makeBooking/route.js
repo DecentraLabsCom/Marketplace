@@ -1,8 +1,21 @@
+/**
+ * API endpoint for creating new lab reservations
+ * Handles POST requests to book lab time slots through smart contract
+ */
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
 import retry from '@/utils/retry'
 
+/**
+ * Creates a new lab booking reservation
+ * @param {Request} request - HTTP request with booking details
+ * @param {Object} request.body - Request body
+ * @param {string|number} request.body.labId - Lab identifier
+ * @param {number} request.body.start - Booking start time (Unix timestamp)
+ * @param {number} request.body.timeslot - Duration of booking in seconds
+ * @returns {Response} JSON response with booking result or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { labId, start, timeslot } = body;

@@ -24,7 +24,10 @@ export const useAllLabsQuery = (options = {}) => {
 };
 
 /**
- * Hook to get details of a specific lab
+ * Hook to get detailed information for a specific lab
+ * @param {string|number} labId - Unique identifier of the lab
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab details, loading state, and error handling
  */
 export const useLabDetailQuery = (labId, options = {}) => {
   return useQuery({
@@ -39,7 +42,10 @@ export const useLabDetailQuery = (labId, options = {}) => {
 };
 
 /**
- * Hook to get labs by a specific provider
+ * Hook to get all labs owned by a specific provider
+ * @param {string} providerId - Provider's unique identifier or wallet address
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with provider's labs, loading state, and error handling
  */
 export const useLabsByProviderQuery = (providerId, options = {}) => {
   return useQuery({
@@ -129,7 +135,9 @@ const searchLabs = (labs, searchTerm) => {
 };
 
 /**
- * Hook to invalidate lab cache manually
+ * Hook to manually invalidate lab cache and force refetch
+ * Useful for refreshing data after external changes or errors
+ * @returns {Object} Object with invalidation functions for different lab query types
  */
 export const useLabCacheInvalidation = () => {
   const queryClient = useQueryClient();

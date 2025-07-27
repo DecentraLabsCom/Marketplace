@@ -3,6 +3,11 @@ import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
 import Image from 'next/image'
 import Link from 'next/link'
 
+/**
+ * Site footer component with branding, links, and funding acknowledgments
+ * Displays logos, navigation links, and EU funding information
+ * @returns {JSX.Element} Footer with responsive grid layout and external logos
+ */
 export default function Footer() {
   return (
     <footer className="bg-[#333f63] text-center p-3 mt-8 relative">

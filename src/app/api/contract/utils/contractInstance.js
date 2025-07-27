@@ -1,9 +1,19 @@
+/**
+ * Contract instance utility for blockchain interactions
+ * Provides configured contract instances for diamond and lab token contracts
+ */
 import { ethers } from 'ethers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { defaultChain } from '@/utils/blockchain/networkConfig.js'
 import getProvider from './getProvider'
 
+/**
+ * Creates and configures a contract instance with signer
+ * @param {string} [contractType='diamond'] - Type of contract ('diamond' or 'lab')
+ * @returns {Promise<ethers.Contract>} Configured contract instance with signer
+ * @throws {Error} If contract address not found for current chain
+ */
 export async function getContractInstance(contractType = 'diamond') {
   const provider = await getProvider(defaultChain);
   const signer = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);

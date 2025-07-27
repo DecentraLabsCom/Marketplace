@@ -35,6 +35,17 @@ function reducer(state, action) {
   }
 }
 
+/**
+ * Modal for creating and editing lab information with full and quick setup modes
+ * Handles complex form state, file uploads, and validation
+ * @param {Object} props
+ * @param {boolean} props.isOpen - Whether the modal is visible
+ * @param {Function} props.onClose - Callback to close the modal
+ * @param {Function} props.onSubmit - Callback to submit lab data
+ * @param {Object} props.lab - Lab object for editing (null for creating new lab)
+ * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
+ * @returns {JSX.Element} Lab creation/editing modal component
+ */
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const { decimals, formatPrice } = useLabToken();
   const [state, dispatch] = useReducer(reducer, lab, initialState);

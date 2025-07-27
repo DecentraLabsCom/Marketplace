@@ -1,10 +1,12 @@
 /**
- * Market Component
- * 
+ * Main marketplace component displaying available labs with search and filtering
+ * Central hub for users to discover and access laboratory resources
+ * Integrates with user authentication, bookings, and lab data management
+ * @returns {JSX.Element} Complete marketplace interface with lab grid, search, and user-specific features
  */
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import PropTypes from 'prop-types'
+
 import { useUser } from '@/context/UserContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
 import { useUserBookingsQuery } from '@/hooks/booking/useBookings'

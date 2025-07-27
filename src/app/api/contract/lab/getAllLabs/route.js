@@ -1,3 +1,7 @@
+/**
+ * API endpoint for retrieving all available labs from the blockchain
+ * Handles GET requests to fetch lab data with caching and local data fallback
+ */
 import fs from 'fs/promises'
 import path from 'path'
 import pLimit from 'p-limit'
@@ -57,6 +61,11 @@ function convertPriceToHuman(priceString, decimals) {
   }
 }
 
+/**
+ * Retrieves all available labs from the blockchain with caching
+ * Implements server-side caching and fallback to local data files
+ * @returns {Response} JSON response with array of lab objects or error
+ */
 export async function GET() {
   // Check server-side cache first
   const now = Date.now();

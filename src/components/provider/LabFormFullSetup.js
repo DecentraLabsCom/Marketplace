@@ -3,6 +3,45 @@ import { UploadCloud, Link, XCircle } from 'lucide-react'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
 
+/**
+ * Comprehensive lab setup form with all available fields and file upload capabilities
+ * Handles both image and document uploads, with support for external URIs
+ * @param {Object} props
+ * @param {Object} props.localLab - Local lab state object
+ * @param {Function} props.setLocalLab - Function to update local lab state
+ * @param {Object} props.errors - Validation errors object
+ * @param {boolean} props.isExternalURI - Whether lab is using external URI
+ * @param {string} props.imageInputType - Current image input type ('link' or 'upload')
+ * @param {Function} props.setImageInputType - Function to set image input type
+ * @param {Array<string>} props.imageUrls - Array of image URLs
+ * @param {React.RefObject} props.imageLinkRef - Ref for image link input
+ * @param {React.RefObject} props.imageUploadRef - Ref for image upload input
+ * @param {Function} props.handleImageChange - Function to handle image changes
+ * @param {Function} props.removeImage - Function to remove image at index
+ * @param {Array<File>} props.localImages - Array of local image files
+ * @param {string} props.docInputType - Current document input type ('link' or 'upload')
+ * @param {Function} props.setDocInputType - Function to set document input type
+ * @param {Array<string>} props.docUrls - Array of document URLs
+ * @param {React.RefObject} props.docLinkRef - Ref for document link input
+ * @param {React.RefObject} props.docUploadRef - Ref for document upload input
+ * @param {Function} props.handleDocChange - Function to handle document changes
+ * @param {Function} props.removeDoc - Function to remove document at index
+ * @param {Array<File>} props.localDocs - Array of local document files
+ * @param {React.RefObject} props.nameRef - Ref for name input
+ * @param {React.RefObject} props.categoryRef - Ref for category input
+ * @param {React.RefObject} props.keywordsRef - Ref for keywords input
+ * @param {React.RefObject} props.descriptionRef - Ref for description input
+ * @param {React.RefObject} props.priceRef - Ref for price input
+ * @param {React.RefObject} props.authRef - Ref for auth input
+ * @param {React.RefObject} props.accessURIRef - Ref for access URI input
+ * @param {React.RefObject} props.accessKeyRef - Ref for access key input
+ * @param {React.RefObject} props.timeSlotsRef - Ref for time slots input
+ * @param {React.RefObject} props.opensRef - Ref for opening time input
+ * @param {React.RefObject} props.closesRef - Ref for closing time input
+ * @param {Function} props.onSubmit - Form submission handler
+ * @param {Function} props.onCancel - Form cancellation handler
+ * @returns {JSX.Element} Full lab setup form component
+ */
 export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExternalURI, imageInputType,
   setImageInputType, imageUrls, imageLinkRef, imageUploadRef, handleImageChange, removeImage, localImages,
   docInputType, setDocInputType, docUrls, docLinkRef, docUploadRef, handleDocChange, removeDoc, localDocs,

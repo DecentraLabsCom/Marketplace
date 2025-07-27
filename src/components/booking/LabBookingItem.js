@@ -4,6 +4,22 @@ import Link from 'next/link'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Individual booking item component for user dashboards and booking lists
+ * Displays booking information with status, cancellation, and refund options
+ * @param {Object} props
+ * @param {Object} props.lab - Lab object containing id, name, provider info
+ * @param {Object} props.booking - Booking object with status, date, times, errors
+ * @param {string|number} props.startTime - Booking start time
+ * @param {string|number} props.endTime - Booking end time
+ * @param {Function} props.onCancel - Handler for canceling booking
+ * @param {Function} props.onRefund - Handler for requesting refund
+ * @param {Function} props.onConfirmRefund - Handler for confirming refund request
+ * @param {boolean} props.isModalOpen - Whether confirmation modal is open
+ * @param {Function} props.closeModal - Handler for closing confirmation modal
+ * @param {Function} props.onClearError - Handler for clearing booking errors
+ * @returns {JSX.Element} Booking item with status display and action buttons
+ */
 const LabBookingItem = React.memo(function LabBookingItem({ 
     lab, 
     booking, 

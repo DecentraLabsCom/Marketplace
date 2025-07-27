@@ -1,5 +1,26 @@
 import PropTypes from 'prop-types'
 
+/**
+ * Quick lab setup form for simplified lab creation with minimal required fields
+ * Provides streamlined interface for providers to quickly publish labs
+ * @param {Object} props
+ * @param {Object} props.localLab - Local lab state object with basic fields
+ * @param {Function} props.setLocalLab - Function to update local lab state
+ * @param {Object} props.errors - Validation errors object
+ * @param {boolean} props.isLocalURI - Whether using local URI (disables editing)
+ * @param {React.RefObject} props.priceRef - Ref for price input field
+ * @param {React.RefObject} props.authRef - Ref for authentication input field
+ * @param {React.RefObject} props.accessURIRef - Ref for access URI input field
+ * @param {React.RefObject} props.accessKeyRef - Ref for access key input field
+ * @param {React.RefObject} props.uriRef - Ref for URI input field
+ * @param {boolean} props.clickedToEditUri - Whether URI edit mode is active
+ * @param {Function} props.setClickedToEditUri - Function to toggle URI edit mode
+ * @param {Function} props.handleUriChange - Handler for URI changes
+ * @param {Function} props.onSubmit - Form submission handler
+ * @param {Function} props.onCancel - Form cancellation handler
+ * @param {Object} props.lab - Original lab object for reference
+ * @returns {JSX.Element} Quick setup form with essential lab fields
+ */
 export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLocalURI, priceRef, authRef,
   accessURIRef, accessKeyRef, uriRef, clickedToEditUri, setClickedToEditUri, handleUriChange,
   onSubmit, onCancel, lab }) {

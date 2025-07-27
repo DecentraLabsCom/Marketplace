@@ -3,6 +3,15 @@ import PropTypes from 'prop-types'
 import { XCircle } from 'lucide-react'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
+/**
+ * Image preview grid component with removal functionality
+ * Displays uploaded images in a grid layout with hover controls to remove them
+ * @param {Object} props - Component props
+ * @param {Array} props.imageUrls - Array of image URL strings
+ * @param {Function} props.removeImage - Callback function to remove an image by index
+ * @param {boolean} [props.isExternalURI] - Whether URLs are external URIs
+ * @returns {JSX.Element} Grid of image previews with removal controls
+ */
 const ImagePreviewList = React.memo(function ImagePreviewList({ imageUrls, removeImage, isExternalURI }) {
   return (
     <div className="mt-2 grid grid-cols-3 gap-2">

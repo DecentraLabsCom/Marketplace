@@ -1,5 +1,16 @@
+/**
+ * API endpoint for canceling existing lab bookings
+ * Handles POST requests to cancel confirmed reservations through smart contract
+ */
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Cancels an existing booking reservation
+ * @param {Request} request - HTTP request with cancellation details
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.reservationKey - Unique reservation identifier (bytes32)
+ * @returns {Response} JSON response with cancellation result or error
+ */
 export async function POST(request) {
   try {
     const body = await request.json();

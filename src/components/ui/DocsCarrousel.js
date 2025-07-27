@@ -3,6 +3,14 @@ import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
+/**
+ * Document carousel component for displaying multiple documents with navigation
+ * Shows documents with previous/next controls and thumbnail indicators
+ * @param {Object} props - Component props
+ * @param {Array} props.docs - Array of document objects to display
+ * @param {string} [props.maxHeight] - Maximum height CSS value for the carousel
+ * @returns {JSX.Element} Document carousel with navigation controls
+ */
 const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 

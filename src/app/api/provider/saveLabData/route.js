@@ -1,3 +1,7 @@
+/**
+ * API endpoint for saving lab data to local storage or cloud
+ * Handles POST requests to persist lab information and metadata
+ */
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
@@ -5,6 +9,22 @@ import { put } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 
+/**
+ * Saves lab data to file system (local) or cloud storage (Vercel)
+ * @param {Request} req - HTTP request with lab data
+ * @param {Object} req.body.labData - Lab data object to save
+ * @param {string} req.body.labData.name - Lab name
+ * @param {string} req.body.labData.description - Lab description
+ * @param {string} req.body.labData.category - Lab category
+ * @param {Array} req.body.labData.keywords - Lab keywords
+ * @param {string} req.body.labData.opens - Opening date
+ * @param {string} req.body.labData.closes - Closing date
+ * @param {Array} req.body.labData.docs - Document URLs
+ * @param {Array} req.body.labData.images - Image URLs
+ * @param {Array} req.body.labData.timeSlots - Available time slots
+ * @param {string} req.body.labData.uri - Lab URI identifier
+ * @returns {Response} JSON response indicating success or error
+ */
 export async function POST(req) {
   try {
     const { labData } = await req.json();

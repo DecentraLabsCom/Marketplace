@@ -7,6 +7,11 @@ import WalletLogin from '@/components/auth/WalletLogin'
 import InstitutionalLogin from '@/components/auth/InstitutionalLogin'
 import Account from '@/utils/auth/account'
 
+/**
+ * Main login component that provides multiple authentication methods
+ * Renders a login button that opens a modal with wallet and institutional login options
+ * @returns {JSX.Element} Login button and modal interface
+ */
 export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const toggleModal = () => setIsModalOpen(!isModalOpen);

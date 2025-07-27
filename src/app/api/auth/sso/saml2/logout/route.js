@@ -1,3 +1,7 @@
+/**
+ * API endpoint for handling SAML2 SSO logout requests
+ * Processes logout requests from identity provider and clears sessions
+ */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseStringPromise } from 'xml2js'
@@ -58,6 +62,12 @@ function isValidSamlLogoutRequest(parsedXml) {
   }
 }
 
+/**
+ * Handles SAML2 logout requests from identity provider
+ * @param {Request} request - HTTP POST request with SAML logout request
+ * @param {string} request.body - XML SAML logout request
+ * @returns {Response} JSON response confirming logout or error
+ */
 export async function POST(request) {
   const body = await request.text();
   const samlLogoutRequest = body;

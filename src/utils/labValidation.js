@@ -1,3 +1,21 @@
+/**
+ * Comprehensive validation for lab data in full setup mode
+ * Validates all required fields, formats, and constraints for lab creation/editing
+ * @param {Object} localLab - Lab data object to validate
+ * @param {string} localLab.name - Lab name (required)
+ * @param {string} localLab.category - Lab category (required)
+ * @param {string} localLab.description - Lab description (required)
+ * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
+ * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL format)
+ * @param {string} localLab.opens - Lab opening date (MM/DD/YYYY format)
+ * @param {string} localLab.closes - Lab closing date (MM/DD/YYYY format)
+ * @param {Array} localLab.images - Array of image URLs/files
+ * @param {Array} localLab.docs - Array of document URLs/files
+ * @param {Object} options - Validation options
+ * @param {string} options.imageInputType - Type of image input ('file' or 'url')
+ * @param {string} options.docInputType - Type of document input ('file' or 'url')
+ * @returns {Object} Object containing validation errors (empty if all valid)
+ */
 export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
@@ -82,6 +100,14 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     return errors;
 }
 
+/**
+ * Quick validation for lab data in simplified setup mode
+ * Validates only essential fields required for basic lab registration
+ * @param {Object} localLab - Lab data object to validate
+ * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
+ * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL or external URI format)
+ * @returns {Object} Object containing validation errors (empty if all valid)
+ */
 export function validateLabQuick(localLab) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;

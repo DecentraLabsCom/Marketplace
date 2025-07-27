@@ -10,7 +10,12 @@ import devLog from '@/utils/dev/logger'
 // === QUERIES ===
 
 /**
- * Hook to get user bookings
+ * Hook to get all bookings for a specific user
+ * @param {string} userAddress - User's wallet address or identifier
+ * @param {Date|string|null} [fromDate=null] - Start date filter for bookings
+ * @param {Date|string|null} [toDate=null] - End date filter for bookings
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with user bookings, loading state, and error handling
  */
 export const useUserBookingsQuery = (userAddress, fromDate = null, toDate = null, options = {}) => {
   return useQuery({

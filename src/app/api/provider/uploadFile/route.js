@@ -1,3 +1,7 @@
+/**
+ * API endpoint for uploading files (images/documents) for lab providers
+ * Handles POST requests to upload and store files locally or in cloud storage
+ */
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
@@ -5,6 +9,14 @@ import { put } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 
+/**
+ * Uploads files for lab providers with support for local and cloud storage
+ * @param {Request} req - HTTP request with multipart form data
+ * @param {File} req.formData.file - File to upload
+ * @param {string} req.formData.destinationFolder - Target folder for file storage
+ * @param {string} req.formData.labId - Associated lab identifier
+ * @returns {Response} JSON response with file URL or error
+ */
 export async function POST(req) {
   try {
     const formData = await req.formData();

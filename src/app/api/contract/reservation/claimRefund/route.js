@@ -1,7 +1,16 @@
+/**
+ * API endpoint for claiming refunds on canceled or denied reservations
+ * Handles GET requests to process refund claims through smart contract
+ */
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
 
+/**
+ * Claims refund for eligible canceled or denied reservations
+ * @param {Request} request - HTTP request for refund claim
+ * @returns {Response} JSON response with refund claim result or error
+ */
 export async function GET(request) {
   try {
     const contract = await getContractInstance();

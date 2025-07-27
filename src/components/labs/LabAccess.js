@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation'
 import { useSignMessage } from 'wagmi'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Lab access component that provides entry controls for booked labs
+ * Validates user booking status and provides access credentials/links
+ * @param {Object} props
+ * @param {string|number} props.id - Lab ID to provide access for
+ * @param {string} props.userWallet - User's wallet address
+ * @param {boolean} props.hasActiveBooking - Whether user has an active booking
+ * @param {string} props.auth - Authentication method required for access
+ * @returns {JSX.Element} Lab access interface with validation and entry controls
+ */
 export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);

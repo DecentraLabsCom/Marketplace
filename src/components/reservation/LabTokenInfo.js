@@ -2,6 +2,15 @@ import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useLabToken } from '@/hooks/useLabToken'
 
+/**
+ * Lab pricing and token information display component
+ * Shows cost calculations, user balance, and booking affordability status
+ * @param {Object} props
+ * @param {string|number} props.labPrice - Lab price per hour in tokens
+ * @param {number} props.durationMinutes - Booking duration in minutes
+ * @param {string} props.className - Additional CSS classes to apply
+ * @returns {JSX.Element} Pricing information panel with cost breakdown and balance status
+ */
 export default function LabTokenInfo({ labPrice, durationMinutes, className = '' }) {
   const { 
     balance, 
