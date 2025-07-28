@@ -16,10 +16,11 @@ import { useLabToken } from '@/hooks/useLabToken'
 import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
-import LabModal from '@/components/provider/LabModal'
+import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
-import ProviderLabItem from '@/components/provider/ProviderLabItem'
-import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
+import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
+import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
+import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import devLog from '@/utils/dev/logger'
 
 export default function ProviderDashboard() {
@@ -491,81 +492,37 @@ export default function ProviderDashboard() {
   return (
     <AccessControl requireWallet message="Please log in to manage your labs.">
       <div className="container mx-auto p-4">
-        <div className="relative bg-cover bg-center text-white py-5 text-center">
-          <h1 className="text-3xl font-bold mb-2">Lab Panel</h1>
-        </div>
+        {/* Dashboard header */}
+        <DashboardHeader title="Lab Panel" />
 
         <div className="flex flex-col min-[1080px]:flex-row">
+          {/* Provider labs management */}
+          <ProviderLabsList
+            ownedLabs={ownedLabs}
+            selectedLab={selectedLab}
+            selectedLabId={selectedLabId}
+            isLoading={loading}
+            onSelectChange={handleSelectChange}
+            onEdit={() => setIsModalOpen(true)}
+            onCollect={handleCollect}
+            onDelete={handleDeleteLab}
+            onList={handleList}
+            onUnlist={handleUnlist}
+            onCollectAll={handleCollectAll}
+            newLabStructure={newLabStructure}
+            setNewLab={setNewLab}
+            setIsModalOpen={setIsModalOpen}
+            setSelectedLabId={setSelectedLabId}
+          />
 
-          <div className="w-full min-[1080px]:w-2/3">
-            <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
-            {loading ? (
-              <p className="text-gray-300 text-center">Loading labs...</p>
-            ) : ownedLabs.length > 0 ? (
-              <>
-              <div className="flex justify-center mb-4">
-                <button onClick={handleCollectAll}
-                  className="bg-[#bcc4fc] text-white px-6 py-2 rounded shadow hover:bg-[#aab8e6] 
-                            font-bold"
-                >
-                  Collect All
-                </button>
-              </div>
-              <div className="flex justify-center">
-                <select className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
-                  value={selectedLabId}
-                  onChange={handleSelectChange}
-                >
-                  <option value="" disabled>
-                    Select one of your labs
-                  </option>
-                  {ownedLabs.filter(lab => !isNaN(lab.id))
-                    .map((lab) => (
-                      <option key={lab.id} value={lab.id}>
-                        {lab.name}
-                      </option>
-                    ))
-                  }
-                </select>
-              </div>
-              {selectedLab && (
-                <ProviderLabItem
-                  lab={selectedLab}
-                  onEdit={() => setIsModalOpen(true)}
-                  onCollect={handleCollect}
-                  onDelete={handleDeleteLab}
-                  onList={handleList}
-                  onUnlist={handleUnlist}
-                />
-              )}
-              </>
-            ) : (
-              <p className="text-gray-300 text-center">
-                You have no labs registered yet. Press &quot;Add New Lab&quot; to get started.
-              </p>
-            )}
-            <div className="flex justify-center mt-4">
-            <button onClick={() => { setNewLab(newLabStructure); setIsModalOpen(true); setSelectedLabId(""); }}
-              className="px-6 py-3 rounded shadow-lg bg-[#7b976e] text-white hover:bg-[#83a875]">
-              Add New Lab
-            </button>
-            </div>
-          </div>
-
-          <div className="w-full min-[1080px]:w-1/3 mt-8 min-[1080px]:mt-0">
-            <h2 className="text-xl font-semibold mb-4 text-center">Upcoming Lab Reservations</h2>
-            <div className="flex justify-center">
-                <CalendarWithBookings
-                  selectedDate={date}
-                  onDateChange={(newDate) => setDate(newDate)}
-                  bookingInfo={bookingInfo}
-                  minDate={today}
-                  filterDate={() => false}
-                  displayMode="provider-dashboard"
-                />
-            </div>
-          </div>
-          
+          {/* 🚀 Modular reservations calendar */}
+          <ReservationsCalendar
+            selectedDate={date}
+            onDateChange={(newDate) => setDate(newDate)}
+            bookingInfo={bookingInfo}
+            minDate={today}
+            filterDate={() => false}
+          />
         </div>
 
         <LabModal isOpen={shouldShowModal} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}

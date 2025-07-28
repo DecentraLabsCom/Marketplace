@@ -1,18 +1,17 @@
 "use client";
 import React, { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
 import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/booking/useBookings'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
-import Carrousel from '@/components/ui/Carrousel'
-import LabAccess from '@/components/labs/LabAccess'
 import AccessControl from '@/components/auth/AccessControl'
-import LabBookingItem from '@/components/booking/LabBookingItem'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
+import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
+import ActiveLabCard from '@/components/dashboard/user/ActiveLabCard'
+import BookingsList from '@/components/dashboard/user/BookingsList'
 import devLog from '@/utils/dev/logger'
 import isBookingActive from '@/utils/booking/isBookingActive'
 
@@ -342,10 +341,7 @@ export default function UserDashboard() {
   return (
     <AccessControl message="Please log in to view and make reservations.">
       <div className="container mx-auto p-4">
-        <div className="relative bg-cover bg-center text-white py-5 
-          text-center">
-          <h1 className="text-3xl font-bold mb-2">User Dashboard</h1>
-        </div>
+        <DashboardHeader title="User Dashboard" />
 
         <div>
           <div className="bg-white shadow-md rounded-lg p-6 mb-6 w-1/6 h-1/3 
@@ -365,6 +361,7 @@ export default function UserDashboard() {
             <div className='flex min-[1280px]:flex-row flex-col'>
               <div className="border shadow text-white rounded p-6 mb-1 min-[1280px]:mr-1 min-[1280px]:w-3/4">
                 <div className="flex flex-col">
+                  {/* Dynamic header based on available lab */}
                   {availableLab ? (
                     <h2 className="text-2xl font-semibold mb-4 text-white text-center">
                       Active now: {availableLab.name}
@@ -374,99 +371,25 @@ export default function UserDashboard() {
                       Next: {firstActiveLab.name}
                     </h2>
                   ) : null}
-                  <div className='flex min-[1280px]:flex-row flex-wrap'>
-                    {availableLab ? (
-                      <React.Fragment key={availableLab.id}>
-                        <div className='flex flex-col items-center'>
-                          <div key={availableLab.id} className={`min-[1280px]:w-[320px] w-[305px] group 
-                            justify-between items-center shadow-md bg-gray-200 
-                            transition-transform duration-300 
-                            hover:scale-105 mr-3 mb-4 p-2 h-[320px] rounded-lg flex 
-                            flex-col border-4 border-[#715c8c] animate-glow`}>
-                            <div className='rounded-lg h-[150px] w-full mb-4'>
-                              <Carrousel lab={availableLab} maxHeight={210} />
-                            </div>
-                            <span className="text-gray-700 block mt-14">
-                              Available today
-                            </span>
-                            <div className='text-gray-500 flex flex-col text-xs mr-1 
-                              mb-3'>
-                              <span>
-                                Start time: {getBookingTimes(activeBooking).start}
-                              </span>
-                              <span>
-                                End time: {getBookingTimes(activeBooking).end}
-                              </span>
-                            </div>
-                            {availableLab && (
-                              <LabAccess userWallet={user?.userid || address} 
-                                      hasActiveBooking={!!activeBooking} 
-                                      auth={availableLab.auth} />
-                            )}
-                          </div>
-                        </div>
-                        <div className={`w-full ${availableLab.docs.length > 0 ? `` : 
-                          'h-[100px]'} min-[1280px]:flex-1 mb-4 flex flex-col justify-center p-2 
-                          text-center rounded-lg shadow-md bg-gray-300`}>
-                          {availableLab.docs && availableLab.docs.length > 0 && (
-                            <div key={0} className="mt-1">
-                              <iframe src={availableLab.docs[0]} title="description" 
-                                height="260px" width="100%" className='rounded-lg' />
-                            </div>
-                          )}
-                          {availableLab.docs.length === 0 && (
-                            <span className="text-gray-700 text-center">
-                              No documents available
-                            </span>
-                          )}
-                          <Link href={`/lab/${availableLab.id}`} className='px-3 mt-3 py-1 
-                            rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'>
-                              Explore this lab
-                          </Link>
-                        </div>
-                      </React.Fragment>
-                    ) : firstActiveLab && nextBooking ? (
-                      <React.Fragment key={firstActiveLab.id}>
-                        <div className='flex flex-col items-center'>
-                          <div key={firstActiveLab.id} className={`size-[320px] group 
-                            justify-between items-center shadow-md bg-gray-200 
-                            transition-transform duration-300 hover:scale-105 mr-3 mb-4
-                            border-2 p-2 rounded-lg flex flex-col`}>
-                            <div className='rounded-lg h-[150px] w-full mb-4'>
-                              <Carrousel lab={firstActiveLab} maxHeight={210} />
-                            </div>
-                            <span className="text-gray-700 mt-14 block">
-                              Available: {nextBooking.date}
-                            </span>
-                            <div className='text-gray-500 flex flex-col text-xs mr-1 mb-3'>
-                              <span>Start time: {getBookingTimes(nextBooking).start}</span>
-                              <span>End time: {getBookingTimes(nextBooking).end}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`w-full ${firstActiveLab.docs.length > 0 ? `` : 
-                          'h-[100px]'} flex-1 mb-4 flex flex-col justify-center p-2 text-center 
-                          rounded-lg shadow-md bg-gray-300`}>
-                          {firstActiveLab.docs && firstActiveLab.docs.length > 0 && (
-                            <div key={0} className="mt-1">
-                              <iframe src={firstActiveLab.docs[0]} title="description" 
-                                height="260px" width="100%" className='rounded-lg' />
-                            </div>
-                          )}
-                          {firstActiveLab.docs.length === 0 && (
-                            <span className="text-gray-700 text-center">
-                              No documents available
-                            </span>
-                          )}
-                          <Link href={`/lab/${firstActiveLab.id}`} className='px-3 mt-3 py-1 
-                            rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'>
-                              Explore this lab
-                          </Link>
-                        </div>
-                      </React.Fragment>
-                    ) : null}
-                  </div>
-                  {!firstActiveLab && !availableLab && (
+                  
+                  {/* ActiveLabCard for available lab */}
+                  {availableLab ? (
+                    <ActiveLabCard
+                      lab={availableLab}
+                      booking={activeBooking}
+                      userAddress={user?.userid || address}
+                      isActive={true}
+                      bookingTimes={getBookingTimes(activeBooking)}
+                    />
+                  ) : firstActiveLab && nextBooking ? (
+                    <ActiveLabCard
+                      lab={firstActiveLab}
+                      booking={nextBooking}
+                      userAddress={user?.userid || address}
+                      isActive={false}
+                      bookingTimes={getBookingTimes(nextBooking)}
+                    />
+                  ) : (
                     <span className="text-gray-300 text-center">
                       No upcoming or active lab
                     </span>
@@ -487,157 +410,42 @@ export default function UserDashboard() {
                 </div>
               </div>
             </div>
-            {/* Bottom panel: upcoming and past bookings */}
+            {/* Bottom panel: bookings lists */}
             <div className="flex min-[1280px]:flex-row flex-col gap-4 mt-6">
-              {/* Upcoming booked labs */}
-              <div className="min-[1280px]:w-1/2 flex flex-col h-full min-h-[350px]">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-semibold text-center flex-1">
-                    Upcoming Bookings
-                  </h2>
-                </div>
-                <ul className='w-full flex-1'>
-                  {bookingsLoading ? (
-                    <DashboardSectionSkeleton title={false} />
-                  ) : (
-                    now && userBookings && userBookings.length > 0 ? (
-                      userBookings
-                        .filter(booking => {
-                          if (!booking.start || !booking.end) return false;
-                          const endDateTime = new Date(parseInt(booking.end) * 1000);
-                          return endDateTime.getTime() > now.getTime();
-                        })
-                        .map(booking => {
-                          const lab = labs.find(l => l.id === booking.labId);
-                          return {
-                            ...booking,
-                            lab: lab,
-                            startDateTime: new Date(parseInt(booking.start) * 1000),
-                            // Add visual feedback for failed cancellations
-                            hasCancellationError: failedCancellations.has(booking.reservationKey)
-                          };
-                        })
-                        .filter(booking => booking.lab) // Only include bookings with valid labs
-                        .sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
-                    .map((booking) => {
-                      let startTime = null;
-                      let endTime = null;
-
-                      if (booking?.start && booking?.end) {
-                        const startDateObj = new Date(parseInt(booking.start) * 1000);
-                        const endDateObj = new Date(parseInt(booking.end) * 1000);
-
-                        if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
-                          const startHours = String(startDateObj.getHours()).padStart(2, '0');
-                          const startMinutes = String(startDateObj.getMinutes()).padStart(2, '0');
-                          startTime = `${startHours}:${startMinutes}`;
-                          
-                          const endHours = String(endDateObj.getHours()).padStart(2, '0');
-                          const endMinutes = String(endDateObj.getMinutes()).padStart(2, '0');
-                          endTime = `${endHours}:${endMinutes}`;
-                        }
-                      }
-
-                      return (
-                        <LabBookingItem
-                          key={`${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`}
-                          lab={booking.lab}
-                          booking={booking}
-                          startTime={startTime}
-                          endTime={endTime}
-                          onCancel={handleCancellation}
-                          onClearError={handleClearCancellationError}
-                          isModalOpen={false}
-                          closeModal={closeModal}
-                        />
-                      );
-                    })
-                    ) : (
-                      <li className="text-center text-gray-500 py-8">
-                        No upcoming bookings found.
-                      </li>
-                    )
-                  )}
-                  {!now && !bookingsLoading && <li className="text-center text-gray-500">Loading...</li>}
-                </ul>
-              </div>
+              {/* Upcoming bookings list */}
+              <BookingsList
+                bookings={userBookings}
+                labs={labs}
+                currentTime={now}
+                isLoading={bookingsLoading}
+                type="upcoming"
+                onCancel={handleCancellation}
+                onClearError={handleClearCancellationError}
+                failedCancellations={failedCancellations}
+                closeModal={closeModal}
+              />
+              
               {/* Vertical divider */}
               <div className="min-[1280px]:mt-1 min-[1280px]:mx-3 min-[1280px]:w-px min-[1280px]:self-stretch bg-gradient-to-tr 
                 from-transparent via-neutral-800 to-transparent opacity-90 
                 dark:via-neutral-200 border-l border-neutral-800 
                 dark:border-neutral-200 border-dashed"
                 style={{ borderWidth: '4px', borderLeftStyle: 'dashed' }} />
-              {/* Past booked labs */}
-              <div className="min-[1280px]:w-1/2 flex flex-col h-full min-h-[350px]">
-                <h2 className="text-2xl font-semibold mb-4 text-center">
-                  Past bookings
-                </h2>
-                <ul className='w-full flex-1'>
-                  {bookingsLoading ? (
-                    <DashboardSectionSkeleton title={false} />
-                  ) : (
-                    now && userBookings && userBookings.length > 0 ? (
-                      userBookings
-                        .filter(booking => {
-                          if (!booking.start || !booking.end) return false;
-                          const endDateTime = new Date(parseInt(booking.end) * 1000);
-                          // Only include past bookings that were confirmed (not PENDING)
-                          const hasReservationKey = booking.reservationKey;
-                          const wasPending = booking.status === "0" || booking.status === 0;
-                          return endDateTime.getTime() <= now.getTime() && hasReservationKey && !wasPending;
-                        })
-                        .map(booking => {
-                          const lab = labs.find(l => l.id === booking.labId);
-                          return {
-                            ...booking,
-                            lab: lab,
-                            startDateTime: new Date(parseInt(booking.start) * 1000)
-                          };
-                        })
-                        .filter(booking => booking.lab) // Only include bookings with valid labs
-                        .sort((a, b) => b.startDateTime.getTime() - a.startDateTime.getTime()) // Most recent first
-                        .map((booking) => {
-                          let startTime = null;
-                          let endTime = null;
 
-                          if (booking?.start && booking?.end) {
-                            const startDateObj = new Date(parseInt(booking.start) * 1000);
-                            const endDateObj = new Date(parseInt(booking.end) * 1000);
-
-                            if (!isNaN(startDateObj.getTime()) && !isNaN(endDateObj.getTime())) {
-                              const startHours = String(startDateObj.getHours()).padStart(2, '0');
-                              const startMinutes = String(startDateObj.getMinutes()).padStart(2, '0');
-                              startTime = `${startHours}:${startMinutes}`;
-                              
-                              const endHours = String(endDateObj.getHours()).padStart(2, '0');
-                              const endMinutes = String(endDateObj.getMinutes()).padStart(2, '0');
-                              endTime = `${endHours}:${endMinutes}`;
-                            }
-                          }
-
-                          return (
-                            <LabBookingItem
-                              key={`${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`}
-                              lab={booking.lab}
-                              booking={booking}
-                              startTime={startTime}
-                              endTime={endTime}
-                              onRefund={(labId, booking) => openModal('refund', labId, booking)}
-                              onConfirmRefund={handleRefund}
-                              isModalOpen={isModalOpen === 'refund' && selectedLabId === booking.lab.id && selectedBooking?.reservationKey === booking.reservationKey}
-                              closeModal={closeModal}
-                            />
-                          );
-                        })
-                    ) : (
-                      <li className="text-center text-gray-500 py-8">
-                        No past bookings found.
-                      </li>
-                    )
-                  )}
-                  {!now && !bookingsLoading && <li className="text-center text-gray-500">Loading...</li>}
-                </ul>
-              </div>
+              {/* Past bookings list */}
+              <BookingsList
+                bookings={userBookings}
+                labs={labs}
+                currentTime={now}
+                isLoading={bookingsLoading}
+                type="past"
+                onRefund={(labId, booking) => openModal('refund', labId, booking)}
+                onConfirmRefund={handleRefund}
+                isModalOpen={isModalOpen}
+                selectedBooking={selectedBooking}
+                selectedLabId={selectedLabId}
+                closeModal={closeModal}
+              />
             </div>
           </div>
         </div>
