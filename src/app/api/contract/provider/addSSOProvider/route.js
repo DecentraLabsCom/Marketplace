@@ -1,3 +1,7 @@
+/**
+ * API endpoint for adding SSO providers to the blockchain
+ * Handles POST requests to register SSO users as providers using server wallet
+ */
 import devLog from '@/utils/dev/logger'
 
 import { getContractInstance } from '../../utils/contractInstance'
@@ -5,6 +9,17 @@ import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 import { ethers } from 'ethers'
 import { validateProviderRole } from '@/utils/auth/roleValidation'
 
+/**
+ * Registers SSO user as provider on blockchain using server-managed wallet
+ * @param {Request} request - HTTP request with provider data
+ * @param {Object} request.body - Provider registration data
+ * @param {string} request.body.name - Provider name (required)
+ * @param {string} request.body.email - Provider email (required)
+ * @param {string} request.body.affiliation - Provider affiliation/country
+ * @param {string} request.body.role - User role for validation
+ * @param {string} request.body.scopedRole - Scoped role for validation
+ * @returns {Response} JSON response with registration result or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { name, email, affiliation, role, scopedRole } = body;

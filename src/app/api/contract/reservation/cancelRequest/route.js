@@ -1,8 +1,20 @@
+/**
+ * API endpoint for cancelling reservation requests
+ * Handles POST requests to cancel pending reservation requests
+ */
 import devLog from '@/utils/dev/logger'
 
 import { ethers } from 'ethers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 
+/**
+ * Cancels a reservation request on behalf of the user
+ * @param {Request} request - HTTP request with cancellation details
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.reservationKey - Unique reservation identifier (required)
+ * @param {string} request.body.userAddress - User's wallet address (required)
+ * @returns {Response} JSON response with cancellation result or error
+ */
 export async function POST(request) {
   try {
     const body = await request.json();

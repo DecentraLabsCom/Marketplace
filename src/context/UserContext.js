@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react'
+import PropTypes from 'prop-types'
 import { useAccount } from 'wagmi'
 import { 
   useSSOSessionQuery, 
@@ -19,6 +20,13 @@ import devLog from '@/utils/dev/logger'
 // Create optimized context with automatic memoization
 const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOptimizedContext('UserContext');
 
+/**
+ * Core user data provider component with React Query integration
+ * Manages user state, SSO authentication, and provider status
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with user context
+ * @returns {JSX.Element} Provider with user data and authentication state
+ */
 function UserDataCore({ children }) {
     const { address, isConnected } = useAccount();
     const { handleError: originalHandleError } = useErrorHandler();
@@ -186,6 +194,13 @@ function UserDataCore({ children }) {
     );
 }
 
+/**
+ * User data provider with error boundary
+ * Main export for user context with error handling wrapper
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with user context
+ * @returns {JSX.Element} User context provider wrapped with error boundary
+ */
 export function UserData({ children }) {
     return (
         <ErrorBoundary 
@@ -199,10 +214,30 @@ export function UserData({ children }) {
     );
 }
 
+/**
+ * Hook to access user context data
+ * Provides user state, authentication status, and user management functions
+ * @returns {Object} User context data including address, SSO status, and helper functions
+ * @returns {string|null} returns.address - User's wallet address
+ * @returns {boolean} returns.isConnected - Whether wallet is connected
+ * @returns {boolean} returns.isSSO - Whether user is authenticated via SSO
+ * @returns {Object|null} returns.user - User data object
+ * @returns {Function} returns.refreshProviderStatus - Function to refresh provider status
+ * @throws {Error} When used outside of UserData provider
+ */
 export function useUser() {
     const context = useUserContext();
     if (!context) {
         throw new Error('useUser must be used within a UserData provider');
     }
     return context;
+}
+
+// PropTypes
+UserDataCore.propTypes = {
+    children: PropTypes.node.isRequired
+}
+
+UserData.propTypes = {
+    children: PropTypes.node.isRequired
 }

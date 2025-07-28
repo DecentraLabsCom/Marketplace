@@ -7,6 +7,19 @@ import devLog from '@/utils/dev/logger'
 const providerCache = new Map();
 const PROVIDER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours cache
 
+/**
+ * Creates and caches a fallback provider for the specified network
+ * Combines multiple provider services (Alchemy, Ankr, QuickNode, etc.) for redundancy
+ * 
+ * @param {Object} network - Network configuration object
+ * @param {string} network.name - Name of the network (e.g., 'mainnet', 'polygon')
+ * @param {number} network.id - Chain ID of the network
+ * @param {Object} network.rpcUrls - RPC URL configuration
+ * @param {Object} network.rpcUrls.default - Default RPC URLs
+ * @param {string[]} network.rpcUrls.default.http - Array of HTTP RPC URLs
+ * @returns {Promise<ethers.FallbackProvider>} Configured fallback provider with multiple services
+ * @throws {Error} If no providers can be initialized
+ */
 export default async function getProvider(network) {
     // Check cache first
     const cacheKey = `${network.name}_${network.id}`;

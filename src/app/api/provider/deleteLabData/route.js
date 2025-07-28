@@ -1,3 +1,7 @@
+/**
+ * API endpoint for deleting lab data from storage
+ * Handles POST requests to remove lab data files from local or cloud storage
+ */
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
@@ -5,6 +9,13 @@ import { del } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 
+/**
+ * Deletes lab data file from storage
+ * @param {Request} req - HTTP request with lab data to delete
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.labURI - URI/filename of lab data to delete (required)
+ * @returns {Response} JSON response with deletion result or error
+ */
 export async function POST(req) {
   try {
     const { labURI } = await req.json();

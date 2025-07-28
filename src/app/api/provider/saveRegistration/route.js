@@ -1,9 +1,23 @@
+/**
+ * API endpoint for saving provider registration data
+ * Handles POST requests to store pending provider registration information
+ */
 import fs from 'fs'
 import path from 'path'
 import { put } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 
+/**
+ * Saves provider registration to pending providers storage
+ * @param {Request} request - HTTP request with provider registration data
+ * @param {Object} request.body - Provider registration data
+ * @param {string} request.body.name - Provider name
+ * @param {string} request.body.email - Provider email
+ * @param {string} request.body.organization - Provider organization
+ * @param {string} [request.body.registrationType] - Type of registration (defaults to 'manual')
+ * @returns {Response} JSON response with success status or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const provider = body;

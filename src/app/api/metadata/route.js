@@ -7,6 +7,12 @@ import path from 'path'
 import getIsVercel from '@/utils/isVercel'
 import { NextResponse } from 'next/server'
 
+/**
+ * Retrieves metadata files from local storage or cloud blob storage
+ * @param {Request} request - HTTP request with query parameters
+ * @param {string} request.searchParams.uri - Metadata URI to retrieve (required)
+ * @returns {Response} JSON response with metadata content or error
+ */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);

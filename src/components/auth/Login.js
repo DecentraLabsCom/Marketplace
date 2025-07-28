@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from 'react'
-import PropTypes from 'prop-types'
 import { FaSignInAlt } from 'react-icons/fa'
 import { useUser } from '@/context/UserContext'
 import WalletLogin from '@/components/auth/WalletLogin'

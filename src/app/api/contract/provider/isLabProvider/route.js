@@ -5,6 +5,12 @@ import devLog from '@/utils/dev/logger'
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
+/**
+ * Checks if the specified wallet address is a registered lab provider
+ * @param {Request} request - HTTP request with query parameters
+ * @param {string} request.searchParams.wallet - Wallet address to check (required)
+ * @returns {Response} JSON response with provider status or error
+ */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -48,6 +54,13 @@ export async function GET(request) {
   }
 }
 
+/**
+ * Alternative POST endpoint for checking provider status
+ * @param {Request} request - HTTP request with wallet in body
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.wallet - Wallet address to check (required)
+ * @returns {Response} JSON response with provider status or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { wallet } = body;

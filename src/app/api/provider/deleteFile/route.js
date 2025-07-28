@@ -1,3 +1,7 @@
+/**
+ * API endpoint for deleting files uploaded by lab providers
+ * Handles POST requests to remove files from local storage or cloud storage
+ */
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
@@ -5,6 +9,13 @@ import { del } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 
+/**
+ * Deletes files for lab providers with support for local and cloud storage
+ * @param {Request} req - HTTP request with form data
+ * @param {string} req.formData.filePath - Path to file to delete (required)
+ * @param {string} req.formData.deletingLab - Whether entire lab is being deleted ("true"/"false")
+ * @returns {Response} JSON response with success status or error
+ */
 export async function POST(req) {
     try {
         const formData = await req.formData();

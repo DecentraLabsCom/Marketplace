@@ -7,6 +7,11 @@ import devLog from '@/utils/dev/logger'
 export const bookingServices = {
   /**
    * Fetch user bookings using existing API endpoints
+   * @param {string} userAddress - The user's wallet address
+   * @param {string|null} fromDate - Optional start date filter
+   * @param {string|null} toDate - Optional end date filter
+   * @returns {Promise<Array>} Array of user bookings
+   * @throws {Error} When user address is missing or API call fails
    */
   async fetchUserBookings(userAddress, fromDate = null, toDate = null) {
     if (!userAddress) {
@@ -41,6 +46,11 @@ export const bookingServices = {
 
   /**
    * Fetch bookings for a specific lab using existing API endpoints
+   * @param {string|number} labId - The lab ID to fetch bookings for
+   * @param {string|null} fromDate - Optional start date filter
+   * @param {string|null} toDate - Optional end date filter
+   * @returns {Promise<Array>} Array of lab bookings
+   * @throws {Error} When lab ID is missing or API call fails
    */
   async fetchLabBookings(labId, fromDate = null, toDate = null) {
     if (!labId) {
@@ -75,6 +85,12 @@ export const bookingServices = {
 
   /**
    * Create a new booking using existing API endpoint
+   * @param {string|number} labId - The lab ID to book
+   * @param {string} startTime - Booking start time (ISO string or timestamp)
+   * @param {string} endTime - Booking end time (ISO string or timestamp)
+   * @param {Object} config - Additional booking configuration
+   * @returns {Promise<Object>} Booking creation result
+   * @throws {Error} When required parameters are missing or API call fails
    */
   async createBooking(labId, startTime, endTime, config = {}) {
     if (!labId || !startTime || !endTime) {
@@ -110,6 +126,9 @@ export const bookingServices = {
 
   /**
    * Cancel an existing booking using existing API endpoint
+   * @param {string|number} bookingId - The booking ID to cancel
+   * @returns {Promise<Object>} Booking cancellation result
+   * @throws {Error} When booking ID is missing or API call fails
    */
   async cancelBooking(bookingId) {
     if (!bookingId) {
@@ -140,6 +159,9 @@ export const bookingServices = {
 
   /**
    * Confirm a reservation request
+   * @param {string} reservationKey - The reservation key to confirm
+   * @returns {Promise<Object>} Confirmation result from the blockchain
+   * @throws {Error} When reservation key is missing or API call fails
    */
   async confirmReservationRequest(reservationKey) {
     if (!reservationKey) {
@@ -174,6 +196,10 @@ export const bookingServices = {
 
   /**
    * Deny a reservation request
+   * @param {string} reservationKey - The reservation key to deny
+   * @param {string} reason - Reason for denial (defaults to 'Denied by provider')
+   * @returns {Promise<Object>} Denial result from the blockchain
+   * @throws {Error} When reservation key is missing or API call fails
    */
   async denyReservationRequest(reservationKey, reason = 'Denied by provider') {
     if (!reservationKey) {

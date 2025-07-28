@@ -10,6 +10,8 @@ export const labServices = {
   
   /**
    * Fetch basic lab list from contract
+   * @returns {Promise<Array>} Array of basic lab information from the blockchain
+   * @throws {Error} When API call fails
    */
   async fetchLabList() {
     try {
@@ -31,6 +33,8 @@ export const labServices = {
 
   /**
    * Fetch LAB token decimals
+   * @returns {Promise<number>} Number of decimals for the LAB token
+   * @throws {Error} When API call fails
    */
   async fetchLabDecimals() {
     try {
@@ -52,6 +56,9 @@ export const labServices = {
 
   /**
    * Fetch specific lab data from contract
+   * @param {string|number} labId - The lab ID to fetch data for
+   * @returns {Promise<Object>} Lab data from the blockchain
+   * @throws {Error} When lab ID is missing or API call fails
    */
   async fetchLabData(labId) {
     if (!labId) {

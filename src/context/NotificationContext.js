@@ -1,5 +1,6 @@
 "use client";
 import { useContext, useState, useCallback } from 'react'
+import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext'
 import { 
@@ -12,6 +13,13 @@ import {
 // Create optimized context
 const { Context: NotificationContext, Provider: OptimizedNotificationProvider } = createOptimizedContext('NotificationContext');
 
+/**
+ * Core notification provider component with state management
+ * Manages notification queue, auto-removal, and user interactions
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with notification context
+ * @returns {JSX.Element} Provider with notification management functionality
+ */
 function NotificationProviderCore({ children }) {
     const [notifications, setNotifications] = useState([]);
     const { handleError } = useErrorHandler();
@@ -327,7 +335,13 @@ function NotificationProviderCore({ children }) {
     );
 }
 
-// Wrap with Error Boundary
+/**
+ * Notification provider with error boundary
+ * Main export for notification context with error handling wrapper
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with notification context
+ * @returns {JSX.Element} Notification context provider wrapped with error boundary
+ */
 export function NotificationProvider({ children }) {
     return (
         <ErrorBoundary
@@ -347,10 +361,29 @@ export function NotificationProvider({ children }) {
     );
 }
 
+/**
+ * Hook to access notification context
+ * Provides notification management functions for displaying user messages
+ * @returns {Object} Notification context functions and state
+ * @returns {Array} returns.notifications - Current notifications array
+ * @returns {Function} returns.addNotification - Function to add new notifications
+ * @returns {Function} returns.removeNotification - Function to remove notifications
+ * @returns {Function} returns.clearAllNotifications - Function to clear all notifications
+ * @throws {Error} When used outside of NotificationProvider
+ */
 export function useNotifications() {
     const context = useContext(NotificationContext);
     if (!context) {
         throw new Error('useNotifications must be used within a NotificationProvider');
     }
     return context;
+}
+
+// PropTypes
+NotificationProviderCore.propTypes = {
+    children: PropTypes.node.isRequired
+}
+
+NotificationProvider.propTypes = {
+    children: PropTypes.node.isRequired
 }

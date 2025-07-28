@@ -1,11 +1,18 @@
+/**
+ * API route to check the current status of a reservation on the blockchain
+ * Used for detecting and resolving stuck reservations
+ */
 import { NextResponse } from 'next/server'
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 import devLog from '@/utils/dev/logger'
 
 /**
- * API route to check the current status of a reservation on the blockchain
- * Used for detecting and resolving stuck reservations
+ * Checks the current status of a reservation on the blockchain
+ * @param {Request} request - HTTP request with reservation key
+ * @param {Object} request.body - Request body
+ * @param {string} request.body.reservationKey - Unique reservation identifier (required)
+ * @returns {Response} JSON response with reservation status or error
  */
 export async function POST(request) {
     try {

@@ -1,4 +1,5 @@
 "use client";
+import PropTypes from 'prop-types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
@@ -24,6 +25,13 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * React Query provider with optimized default configuration
+ * Configures global React Query settings for caching, retries, and refetching
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with React Query context
+ * @returns {JSX.Element} QueryClient provider with development tools
+ */
 export default function ClientQueryProvider({ children }) { 
     return (
       <QueryClientProvider client={queryClient}>
@@ -31,4 +39,8 @@ export default function ClientQueryProvider({ children }) {
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     ); 
+}
+
+ClientQueryProvider.propTypes = {
+  children: PropTypes.node.isRequired
 }

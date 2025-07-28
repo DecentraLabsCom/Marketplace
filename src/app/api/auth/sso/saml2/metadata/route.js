@@ -1,7 +1,15 @@
+/**
+ * API endpoint for generating SAML2 service provider metadata
+ * Handles GET requests to provide XML metadata for SSO configuration
+ */
 import { NextResponse } from 'next/server'
 import { createServiceProvider } from '@/utils/auth/sso'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Generates and returns SAML2 metadata XML for service provider configuration
+ * @returns {Response} XML response with SAML metadata or error response
+ */
 export async function GET() {
     const sp = createServiceProvider();
     try {
