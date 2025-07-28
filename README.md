@@ -63,6 +63,8 @@ You can start editing the page by modifying `src/app/layout.js` or `src/app/page
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+[![GitBook](https://img.shields.io/static/v1?message=Documented%20on%20GitBook&logo=gitbook&logoColor=ffffff&label=%20&labelColor=5c5c5c&color=3F89A1)](https://www.gitbook.com/preview?utm_source=gitbook_readme_badge&utm_medium=organic&utm_campaign=preview_documentation&utm_content=link)
+
 ## Learn More
 
 To learn more about DecentraLabs and how we are revolutionizing online experimentation through blockchain technologies, visit our webpage: [https://decentralabs.nebsyst.com/](https://decentralabs.nebsyst.com/)
