@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext'
 import WalletLogin from '@/components/auth/WalletLogin'
 import InstitutionalLogin from '@/components/auth/InstitutionalLogin'
 import Account from '@/utils/auth/account'
+import { Button, Card, CardHeader, CardContent, Stack } from '@/components/ui'
 
 /**
  * Main login component that provides multiple authentication methods
@@ -33,26 +34,33 @@ export default function Login() {
   return (
     <div>
       {/* Login Button */}
-      <button onClick={toggleModal} className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 flex
-        items-center space-x-2 transition duration-300 ease-in-out hover:bg-[#333f63] hover:text-white">
+      <Button 
+        variant="primary" 
+        onClick={toggleModal}
+        className="flex items-center space-x-2"
+      >
         <FaSignInAlt className="size-5" />
         <span>Login</span>
-      </button>
+      </Button>
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
-        onClick={toggleModal}>
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96"
-          onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-4">Choose Login Method</h2>
-            <div className="flex flex-col space-y-4">
-              {/* Wallet Login */}
-              <WalletLogin setIsModalOpen={setIsModalOpen} />
-              {/* Institutional Login */}
-              <InstitutionalLogin setIsModalOpen={setIsModalOpen} />
-            </div>
-          </div>
+        <div 
+          className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
+          onClick={toggleModal}
+        >
+          <Card 
+            className="w-96"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CardHeader title="Choose Login Method" />
+            <CardContent>
+              <Stack spacing="md">
+                <WalletLogin setIsModalOpen={setIsModalOpen} />
+                <InstitutionalLogin setIsModalOpen={setIsModalOpen} />
+              </Stack>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
