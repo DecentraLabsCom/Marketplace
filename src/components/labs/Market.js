@@ -5,38 +5,44 @@
  * @returns {JSX.Element} Complete marketplace interface with lab grid, search, and user-specific features
  */
 "use client";
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
 import { useUserBookingsQuery } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabFilters'
 import LabFilters from '@/components/labs/LabFilters'
 import LabGrid from '@/components/labs/LabGrid'
+import devLog from '@/utils/dev/logger'
 
 export default function Market() {
+  devLog.log('🏪 Market component rendered at:', new Date().toLocaleTimeString());
+  
   const { isLoggedIn, address } = useUser()
   
-  // ðŸš€ React Query for labs
+  // React Query for labs
   const { 
     data: labs = [], 
     isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery({
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 5 * 60 * 1000, // Auto-refetch every 5 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
+    refetchOnWindowFocus: false, // Disable automatic refetch on window focus
+    refetchInterval: false, // Disable automatic periodic refetch
   })
   
-  // ðŸš€ React Query for user bookings
+  // React Query for user bookings
   const { 
-    data: userBookings = [], 
+    data: userBookingsData = [], 
     isLoading: bookingsLoading 
   } = useUserBookingsQuery(address, null, null, {
     enabled: !!address && isLoggedIn,
     staleTime: 2 * 60 * 1000, // 2 minutes - more dynamic bookings
     refetchOnWindowFocus: true,
   })
+
+  // Memoize userBookings to prevent infinite re-renders
+  const userBookings = useMemo(() => userBookingsData, [userBookingsData])
 
   // Use custom hook for filtering logic
   const {

@@ -3,9 +3,10 @@
  * Returns only the raw lab IDs and basic contract data
  * Optimized for React Query client-side caching - no server-side cache
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
+import { createSerializedJsonResponse } from '@/app/api/contract/utils/bigIntSerializer'
 
 /**
  * Retrieves basic lab list from contract
@@ -13,16 +14,16 @@ import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
  */
 export async function GET() {
   try {
-    devLog.log('🔍 Fetching basic lab list from contract');
+    console.log('🔍 Fetching basic lab list from contract');
     
     const contract = await getContractInstance();
     
     // Single contract call for lab list
     const labList = await retryBlockchainRead(() => contract.getAllLabs());
     
-    devLog.log(`✅ Successfully fetched ${labList.length} labs from contract`);
+    console.log(`✅ Successfully fetched ${labList.length} labs from contract`);
     
-    return Response.json(labList, { 
+    return createSerializedJsonResponse(labList, { 
       status: 200,
       headers: {
         'Cache-Control': 'no-cache',
@@ -30,7 +31,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    devLog.error('❌ Error fetching lab list:', error);
+    console.error('❌ Error fetching lab list:', error);
     
     return Response.json({ 
       error: 'Failed to fetch lab list',

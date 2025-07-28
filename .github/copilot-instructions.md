@@ -5,39 +5,72 @@ This is a decentralized marketplace for online laboratories built with Next.js 1
 
 ## Architecture Patterns
 
-### Data Layer - Atomic Service Pattern
-Services follow strict 1:1 relationship with API endpoints (`src/services/`):
+### Data Layer - Hybrid Service Pattern
+Services follow a dual-layer architecture for optimal performance (`src/services/`):
 ```javascript
-// ✅ Good: Atomic service
+// ✅ Atomic services (1:1 with endpoints)
 export const labServices = {
-  async fetchLabList() { /* single endpoint call */ }
+  async fetchLabList() { /* single endpoint call */ },
+  async fetchLabData(id) { /* single endpoint call */ },
+  async fetchLabOwner(id) { /* single endpoint call */ }
 }
 
-// ❌ Avoid: Business logic in services
+// ✅ Composed services (orchestrate multiple atomic calls)
 export const labServices = {
-  async getLabsWithMetadata() { /* multiple calls + logic */ }
+  async fetchAllLabsComposed() { 
+    // Orchestrates multiple atomic calls with parallel execution
+    // Returns complete, composed lab objects
+  }
+}
+
+// ❌ Avoid: Mixed business logic
+export const labServices = {
+  async getLabsWithSomeMetadata() { /* inconsistent composition */ }
 }
 ```
 
-### React Query + Hooks Pattern
-- **Atomic queries**: Direct service mappings in `src/hooks/*/use*.js`
-- **Composed queries**: Combine atomic queries for complex data
+### React Query + Hooks Pattern - Simplified Architecture
+The project eliminates complex hook compositions in favor of simple hooks using composed services:
+
+- **Simple hooks with composed services**: Single `useQuery` calls in `src/hooks/*/use*.js`
+- **Cache-extracting hooks**: Extract data from shared cache with basic operations
+- **Atomic hooks**: Available for specific individual use cases
 - Query keys centralized in `src/utils/hooks/queryKeys.js`
 - Global cache config in `src/context/ClientQueryProvider.js`
 
-Example structure:
+Example structure (new simplified pattern):
 ```javascript
-// Atomic hook
-export const useLabListQuery = () => useQuery({
-  queryKey: QUERY_KEYS.LABS.list,
-  queryFn: () => labServices.fetchLabList()
+// ✅ Simple hook using composed service (single HTTP request)
+export const useAllLabsQuery = () => useQuery({
+  queryKey: ['labs', 'all-composed'],
+  queryFn: () => labServices.fetchAllLabsComposed() // Service handles composition
 });
 
-// Composed hook 
-export const useLabsWithMetadata = () => {
-  const labsQuery = useLabListQuery();
-  const metadataQueries = useQueries(/* ... */);
-  // Composition logic here
+// ✅ Cache-extracting hook (simple data extraction)
+export const useLabDataQuery = (labId) => {
+  const allLabsQuery = useAllLabsQuery(); // Uses shared cache
+  return useMemo(() => {
+    const lab = allLabsQuery.data?.find(l => l.id === labId); // Simple find operation
+    return {
+      data: lab,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error
+    };
+  }, [allLabsQuery.data, labId]); // Stable dependencies
+};
+
+// ✅ Atomic hook (when individual data needed)
+export const useLabDataQueryAtomic = (labId) => useQuery({
+  queryKey: QUERY_KEYS.LABS.data(labId),
+  queryFn: () => labServices.fetchLabData(labId) // Individual service call
+});
+
+// ❌ AVOID: Complex hook compositions (cause render loops)
+export const useComplexComposition = () => {
+  const query1 = useQuery1();
+  const query2 = useQuery2();
+  const queries = useQueries({ queries: dynamicArray }); // Problematic
+  // Complex composition logic here
 };
 ```
 

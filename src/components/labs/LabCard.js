@@ -29,13 +29,13 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
  
   return (
     <Card 
+      padding="none"
       className={cn(
         'relative group h-[400px] transition-transform duration-300 hover:scale-105',
         {
-          'ring-4 ring-primary-500 ring-opacity-50': activeBooking
+          'border-4 border-[#715c8c] animate-glow': activeBooking
         }
       )}
-      padding="none"
     >
       {/* Lab Image */}
       <div className="h-2/3 relative">
@@ -47,11 +47,11 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
             fill 
             priority 
             sizes="80vw"
-            className="!relative object-cover rounded-t-lg" 
+            className="!relative object-cover rounded-t-md" 
           />
         ) : (
-          <div className="size-full bg-gray-100 flex items-center justify-center rounded-t-lg">
-            <span className="text-gray-400">No image</span>
+          <div className="size-full bg-gray-300 flex items-center justify-center rounded-t-md">
+            <span className="text-gray-500">No image</span>
           </div>
         )}
         
@@ -64,32 +64,22 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
       </div>
 
       {/* Lab Details */}
-      <div className="p-spacing-md h-1/3 flex flex-col justify-between">
-        <div>
-          <h2 className="text-lg xl:text-xl font-semibold text-gray-900 mb-1">
-            {name}
-          </h2>
-          <p className="text-sm text-gray-600 mb-2">
-            {provider}
-          </p>
-          <p className="text-sm font-medium text-primary-600">
-            {formatPrice(price)} $LAB / hour
-          </p>
+      <div className="p-4 h-1/3">
+        <h2 className="text-xl min-[700px]:text-2xl font-bold min-[768px]:mt-2 text-[#333f63]">{name}</h2>
+        <div className="md:flex md:justify-between md:items-center min-[700px]:block min-[768px]:mt-4">
+          <p className="text-[#3f3363] font-semibold text-m mt-2">{provider}</p>
+          <p className="text-[#335763] font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p> 
         </div>
       </div>
 
-      {/* Hover Overlay */}
       <Link href={`/lab/${id}/${provider}`}>
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center 
-          opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg">
-          <div className="text-white text-lg font-medium flex items-center">
-            <FontAwesomeIcon icon={faSearch} className="mr-2" />
-            Explore Lab
-          </div>
+        <div className="absolute inset-0 flex items-center justify-center opacity-0
+          group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
+          text-white text-lg font-bold">
+          <FontAwesomeIcon icon={faSearch} className="mr-2" />
+          Explore Lab
         </div>
       </Link>
-
-      {/* Lab Access Component */}
       {isConnected && (
         <LabAccess id={id} userWallet={address} hasActiveBooking={activeBooking} auth={auth} />
       )}

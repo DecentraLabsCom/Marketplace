@@ -3,7 +3,7 @@
  * Handles GET requests to fetch reservation status information
  * Optimized for React Query client-side caching - no server-side cache
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -32,7 +32,7 @@ export async function GET(request) {
   }
 
   try {
-    devLog.log(`🔍 Checking status for reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+    console.log(`🔍 Checking status for reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
     
     const contract = await getContractInstance();
     
@@ -67,7 +67,7 @@ export async function GET(request) {
       isCancelled: status === 4
     };
 
-    devLog.log(`✅ Retrieved reservation status: ${getStatusText(status)}`);
+    console.log(`✅ Retrieved reservation status: ${getStatusText(status)}`);
     
     return Response.json({ 
       success: true,
@@ -80,7 +80,7 @@ export async function GET(request) {
     });
     
   } catch (error) {
-    devLog.error('❌ Error getting reservation status:', error);
+    console.error('❌ Error getting reservation status:', error);
     return Response.json({ 
       error: 'Failed to get reservation status',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,

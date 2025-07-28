@@ -40,16 +40,16 @@ export async function POST(req) {
             const blobPath = `data/${labURI}`;
             const result = await del(blobPath);
             if (result) {
-              devLog.log(`Blob deleted from Vercel: ${blobPath}`);
+              console.log(`Blob deleted from Vercel: ${blobPath}`);
               return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
                 { status: 200 });
             } else {
-              devLog.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
+              console.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
               return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
                 { status: 200 });
             }
         } catch (error) {
-            devLog.error("Error deleting data:", error);
+            console.error("Error deleting data:", error);
             return NextResponse.json(
                 { error: 'Failed to delete lab data.', details: error.message },
                 { status: 500 }

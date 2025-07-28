@@ -6,15 +6,15 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Default cache time (5 minutes)
-      staleTime: 5 * 60 * 1000,
+      // Default cache time (15 minutes for blockchain data)
+      staleTime: 15 * 60 * 1000,
       // Time before garbage collection (12 hours like labs)
       gcTime: 12 * 60 * 60 * 1000,
       // Retry on error
       retry: 2,
       retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-      // Refetch on focus
-      refetchOnWindowFocus: true,
+      // Disable refetch on focus by default (blockchain data doesn't change frequently)
+      refetchOnWindowFocus: false,
       // Refetch when reconnecting
       refetchOnReconnect: true,
     },

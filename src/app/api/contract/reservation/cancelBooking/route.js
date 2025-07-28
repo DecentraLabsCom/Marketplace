@@ -5,7 +5,7 @@
  * @description Optimized for React Query with proper validation and blockchain best practices
  * @version 2.0.0 - No server-side cache, React Query friendly with transaction support
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
@@ -44,7 +44,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    devLog.log(`Processing cancellation request - reservationKey: ${reservationKey}, validateOnly: ${validateOnly}`);
+    console.log(`Processing cancellation request - reservationKey: ${reservationKey}, validateOnly: ${validateOnly}`);
 
     // If only validation requested, return early
     if (validateOnly) {
@@ -72,7 +72,7 @@ export async function POST(request) {
     try {
       contract = await getContractInstance();
     } catch (contractError) {
-      devLog.error('Failed to get contract instance:', contractError);
+      console.error('Failed to get contract instance:', contractError);
       return Response.json({ 
         error: 'Blockchain connection failed',
         code: 'CONTRACT_ERROR',
@@ -90,14 +90,14 @@ export async function POST(request) {
       );
       
       transactionHash = tx.hash;
-      devLog.log('Cancellation transaction submitted:', transactionHash);
+      console.log('Cancellation transaction submitted:', transactionHash);
       
       // Wait for confirmation
       receipt = await tx.wait();
-      devLog.log('Cancellation confirmed:', receipt.transactionHash);
+      console.log('Cancellation confirmed:', receipt.transactionHash);
       
     } catch (blockchainError) {
-      devLog.error('Blockchain cancellation failed:', blockchainError);
+      console.error('Blockchain cancellation failed:', blockchainError);
       
       // Parse blockchain error for better client handling
       let errorCode = 'BLOCKCHAIN_ERROR';
@@ -157,7 +157,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    devLog.error('Unexpected error in cancelBooking:', error);
+    console.error('Unexpected error in cancelBooking:', error);
     
     const endTime = Date.now();
     const duration = endTime - startTime;

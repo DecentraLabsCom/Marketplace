@@ -31,7 +31,9 @@ export default function LabReservation({ id }) {
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery({
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
+    refetchOnWindowFocus: false, // No automatic refetch
+    refetchInterval: false, // Disable automatic periodic refetch
   });
   const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
@@ -66,7 +68,7 @@ export default function LabReservation({ id }) {
 
   // Debug: Log selectedLab changes
   useEffect(() => {
-    console.log('🔍 LabReservation: selectedLab effect triggered:', {
+    devLog.log('🔍 LabReservation: selectedLab effect triggered:', {
       selectedLab: selectedLab,
       selectedLabId: selectedLab?.id,
       selectedLabName: selectedLab?.name,

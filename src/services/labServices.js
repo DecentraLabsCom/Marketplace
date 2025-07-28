@@ -137,12 +137,15 @@ export const labServices = {
     }
 
     try {
-      devLog.log(`Fetching metadata from ${metadataUri.slice(0, 50)}...`);
+      devLog.log(`Fetching metadata for ${labId || 'lab'}`);
+      
+      // Use the metadata API for better handling of local vs remote files
+      const apiUrl = `/api/metadata?uri=${encodeURIComponent(metadataUri)}`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch(metadataUri, { 
+      const response = await fetch(apiUrl, { 
         signal: controller.signal 
       });
       
@@ -272,6 +275,103 @@ export const labServices = {
       devLog.error('Error toggling lab status:', error);
       throw new Error(`Failed to toggle lab status: ${error.message}`);
     }
+  },
+
+  // ===== COMPOSED SERVICES (orchestrate multiple atomic calls) =====
+  
+  /**
+   * Fetch all labs with complete details in a single orchestrated call
+   * This service composes multiple atomic services with parallel execution
+   * @returns {Promise<Array>} Array of fully composed lab objects
+   * @throws {Error} When any required API call fails
+   */
+  async fetchAllLabsComposed() {
+    try {
+      devLog.log('🔄 Starting composed fetch for all labs with complete details');
+      
+      // Import helpers here to avoid circular dependencies
+      const { composeLabObject, createProviderMap, createFallbackLab } = await import('@/utils/hooks/labHelpers');
+      
+      // Step 1: Get base data in parallel
+      devLog.log('📡 Fetching base data (lab list, decimals, providers)...');
+      const [labList, decimals, providers] = await Promise.all([
+        labServices.fetchLabList(),
+        labServices.fetchLabDecimals(),
+        labServices.fetchProvidersList(),
+      ]);
+      
+      devLog.log(`✅ Base data fetched: ${labList.length} labs, ${decimals} decimals, ${providers.length} providers`);
+      
+      if (!labList || labList.length === 0) {
+        devLog.log('⚠️ No labs found in list, returning empty array');
+        return [];
+      }
+      
+      // Step 2: Get lab details in parallel
+      devLog.log('📡 Fetching lab details and owners...');
+      const labDetailsPromises = labList.map(labId => 
+        Promise.all([
+          labServices.fetchLabData(labId),
+          labServices.fetchLabOwner(labId),
+        ]).catch(error => {
+          devLog.warn(`Failed to fetch details for lab ${labId}:`, error);
+          return [null, null]; // Return nulls for failed requests
+        })
+      );
+      
+      const labDetails = await Promise.all(labDetailsPromises);
+      devLog.log(`✅ Lab details fetched for ${labDetails.length} labs`);
+      
+      // Step 3: Get metadata in parallel (only for labs with valid URIs)
+      devLog.log('📡 Fetching metadata...');
+      const metadataPromises = labDetails.map(([labData], index) => {
+        const labId = labList[index];
+        const uri = labData?.base?.uri || labData?.[1]?.[0];
+        
+        if (!uri) {
+          devLog.warn(`No metadata URI found for lab ${labId}`);
+          return Promise.resolve(null);
+        }
+        
+        return labServices.fetchLabMetadata(uri, labId).catch(error => {
+          devLog.warn(`Failed to fetch metadata for lab ${labId}:`, error);
+          return null; // Return null for failed metadata requests
+        });
+      });
+      
+      const metadataResults = await Promise.all(metadataPromises);
+      devLog.log(`✅ Metadata fetched for ${metadataResults.filter(Boolean).length}/${metadataResults.length} labs`);
+      
+      // Step 4: Compose final lab objects
+      devLog.log('🔧 Composing final lab objects...');
+      const providerMap = createProviderMap(providers);
+      
+      const composedLabs = labList.map((labId, index) => {
+        const [labData, owner] = labDetails[index];
+        const metadata = metadataResults[index];
+        
+        if (labData && owner && metadata) {
+          // Full composition with all data
+          return composeLabObject(labId, labData, owner, metadata, decimals, providerMap);
+        } else {
+          // Fallback composition for partial data
+          const uri = labData?.base?.uri || labData?.[1]?.[0] || '';
+          devLog.warn(`Creating fallback lab for ${labId} due to missing data - labData: ${!!labData}, owner: ${!!owner}, metadata: ${!!metadata}`);
+          return createFallbackLab(labId, uri);
+        }
+      });
+      
+      const successCount = composedLabs.filter(lab => lab && !lab.isFallback).length;
+      const fallbackCount = composedLabs.filter(lab => lab && lab.isFallback).length;
+      
+      devLog.log(`🎯 Composition complete: ${successCount} full labs, ${fallbackCount} fallback labs`);
+      
+      return composedLabs.filter(Boolean); // Remove any null/undefined labs
+      
+    } catch (error) {
+      devLog.error('❌ Error in fetchAllLabsComposed:', error);
+      throw new Error(`Failed to fetch composed lab data: ${error.message}`);
+    }
   }
 }
 
@@ -283,6 +383,7 @@ export const {
   fetchLabOwner,
   fetchProvidersList,
   fetchLabMetadata,
+  fetchAllLabsComposed,
   createLab,
   updateLab,
   deleteLab,

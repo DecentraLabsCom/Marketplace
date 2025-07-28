@@ -3,9 +3,10 @@
  * Returns detailed lab information for a single lab ID
  * Optimized for React Query client-side caching - no server-side cache
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
+import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
 
 /**
  * Retrieves specific lab data from contract
@@ -33,19 +34,30 @@ export async function GET(request) {
   }
 
   try {
-    devLog.log(`🔍 Fetching lab data for ID: ${labId}`);
+    console.log(`🔍 Fetching lab data for ID: ${labId}`);
     
     const contract = await getContractInstance();
     
     // Single contract call for specific lab
     const labData = await retryBlockchainRead(() => contract.getLab(numericLabId));
     
-    devLog.log(`✅ Successfully fetched lab ${labId} data`);
-    
-    return Response.json({
+    // Transform the raw contract response to expected structure
+    // Contract returns: { "0": labId, "1": [uri, price, auth, accessURI, accessKey] }
+    // Transform to: { labId, base: { uri, price, auth, accessURI, accessKey } }
+    const transformedData = {
       labId: numericLabId,
-      ...labData
-    }, { 
+      base: {
+        uri: labData[1]?.[0] || '',
+        price: labData[1]?.[1] || '0',
+        auth: labData[1]?.[2] || '',
+        accessURI: labData[1]?.[3] || '',
+        accessKey: labData[1]?.[4] || ''
+      }
+    };
+    
+    console.log(`✅ Successfully fetched lab ${labId} data`);
+    
+    return createSerializedJsonResponse(transformedData, { 
       status: 200,
       headers: {
         'Cache-Control': 'no-cache',
@@ -53,7 +65,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error(`❌ Error fetching lab ${labId} data:`, error);
+    console.error(`❌ Error fetching lab ${labId} data:`, error);
     
     return Response.json({ 
       error: `Failed to fetch lab ${labId} data`,

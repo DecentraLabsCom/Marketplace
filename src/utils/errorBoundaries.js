@@ -3,6 +3,7 @@
  * Provides robust error boundaries and hierarchical error handling
  */
 import React from 'react'
+import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -283,6 +284,18 @@ export const globalErrorHandler = new ErrorHandler();
 
 /**
  * React Error Boundary Component
+ * Catches JavaScript errors anywhere in the child component tree and displays a fallback UI
+ * @class ErrorBoundary
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with error boundary
+ * @param {Function} [props.fallback] - Function that receives (error, errorInfo) and returns JSX fallback UI
+ * @param {string} [props.name] - Name identifier for the error boundary
+ * @param {string} [props.severity] - Error severity level from ErrorSeverity enum
+ * @param {string} [props.category] - Error category from ErrorCategory enum
+ * @param {string} [props.userMessage] - User-friendly error message
+ * @param {boolean} [props.recoverable=true] - Whether the error is recoverable with "Try Again"
+ * @param {Function} [props.onError] - Custom error handler function
+ * @param {Object} [props.errorContext] - Additional context for error logging
  */
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -333,7 +346,7 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       // Custom fallback UI
-      if (this.props.fallback) {
+      if (this.props.fallback && typeof this.props.fallback === 'function') {
         return this.props.fallback(this.state.error, this.state.errorInfo);
       }
 
@@ -373,6 +386,19 @@ export class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+// PropTypes for ErrorBoundary
+ErrorBoundary.propTypes = {
+  children: PropTypes.node.isRequired,
+  fallback: PropTypes.func, // Function that receives (error, errorInfo) and returns JSX
+  name: PropTypes.string,
+  severity: PropTypes.oneOf(Object.values(ErrorSeverity)),
+  category: PropTypes.oneOf(Object.values(ErrorCategory)),
+  userMessage: PropTypes.string,
+  recoverable: PropTypes.bool,
+  onError: PropTypes.func,
+  errorContext: PropTypes.object
+};
 
 /**
  * Higher-Order Component for Error Boundaries

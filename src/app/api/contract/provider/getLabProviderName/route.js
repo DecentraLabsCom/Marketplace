@@ -1,7 +1,7 @@
 ﻿/**
  * API endpoint for retrieving lab provider name by wallet address  
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -44,7 +44,7 @@ export async function GET(request) {
     }
 
   } catch (error) {
-    devLog.error('Error in getLabProviderName:', error);
+    console.error('Error in getLabProviderName:', error);
     return Response.json({ 
       error: 'Internal server error' 
     }, { status: 500 });

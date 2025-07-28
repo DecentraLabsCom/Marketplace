@@ -3,7 +3,7 @@
  * Handles POST requests to deny pending reservation requests
  * Atomic endpoint - only calls denyReservationRequest contract method
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
@@ -24,7 +24,7 @@ export async function POST(request) {
       return Response.json({ error: 'Missing reservationKey' }, { status: 400 });
     }
 
-    devLog.log(`Denying reservation: ${reservationKey}, reason: ${reason}`);
+    console.log(`Denying reservation: ${reservationKey}, reason: ${reason}`);
     
     const contract = await getContractInstance();
     
@@ -32,7 +32,7 @@ export async function POST(request) {
     const tx = await executeBlockchainTransaction(() => contract.denyReservationRequest(reservationKey));
     await tx.wait();
     
-    devLog.log(`✅ Reservation denied: ${reservationKey}`);
+    console.log(`✅ Reservation denied: ${reservationKey}`);
 
     return Response.json({ 
       success: true,
@@ -45,7 +45,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    devLog.error('Error denying reservation:', error);
+    console.error('Error denying reservation:', error);
     
     return Response.json({ 
       error: 'Failed to deny reservation',

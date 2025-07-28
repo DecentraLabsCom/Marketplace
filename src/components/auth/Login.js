@@ -50,6 +50,7 @@ export default function Login() {
           onClick={toggleModal}
         >
           <Card 
+            variant="modal"
             className="w-96"
             onClick={(e) => e.stopPropagation()}
           >

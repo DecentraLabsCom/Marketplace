@@ -35,9 +35,52 @@ export function convertPriceToHuman(priceString, decimals) {
  */
 export function createProviderMap(providers) {
   const providerMap = {};
-  for (const provider of providers) {
-    providerMap[provider.account.toLowerCase()] = provider.base.name;
+  
+  if (!Array.isArray(providers)) {
+    devLog.warn('createProviderMap: providers is not an array', providers);
+    return providerMap;
   }
+  
+  for (const provider of providers) {
+    // Validate provider structure
+    if (!provider || typeof provider !== 'object') {
+      devLog.warn('createProviderMap: invalid provider object', provider);
+      continue;
+    }
+    
+    // Handle different possible provider structures
+    let account, name;
+    
+    if (provider.account && provider.base?.name) {
+      // Original expected structure: { account: "0x...", base: { name: "..." } }
+      account = provider.account;
+      name = provider.base.name;
+    } else if (typeof provider.account === 'string' && typeof provider.name === 'string') {
+      // Alternative structure: { account: "0x...", name: "..." }
+      account = provider.account;
+      name = provider.name;
+    } else if (Array.isArray(provider) && provider.length >= 2) {
+      // Array structure: ["0x...", ["name", "email", "country"]] or ["0x...", "name"]
+      account = provider[0];
+      
+      // Handle nested array for provider data: ["name", "email", "country"]
+      if (Array.isArray(provider[1]) && provider[1].length > 0) {
+        name = provider[1][0]; // Extract only the name, first element
+      } else {
+        name = provider[1]; // Simple string name
+      }
+    } else {
+      devLog.warn('createProviderMap: unrecognized provider structure', provider);
+      continue;
+    }
+    
+    if (typeof account === 'string' && account.length > 0) {
+      providerMap[account.toLowerCase()] = name || account;
+    } else {
+      devLog.warn('createProviderMap: invalid account in provider', provider);
+    }
+  }
+  
   return providerMap;
 }
 

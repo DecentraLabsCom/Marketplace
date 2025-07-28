@@ -123,8 +123,6 @@ export default function LabFilters({
             >
               <option value="Keyword">Keyword</option>
               <option value="Name">Name</option>
-              <option value="Provider">Provider</option>
-              <option value="Category">Category</option>
             </select>
             <div className="h-6 border-l border-slate-200 ml-1.5" />
           </div>

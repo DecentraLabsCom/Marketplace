@@ -1,7 +1,7 @@
 ﻿/**
  * API endpoint for checking if an address is a registered lab provider
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -47,7 +47,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error('Error in isLabProvider:', error);
+    console.error('Error in isLabProvider:', error);
     return Response.json({ 
       error: 'Internal server error' 
     }, { status: 500 });

@@ -20,7 +20,6 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price")
   const [selectedProvider, setSelectedProvider] = useState("All")
   const [selectedFilter, setSelectedFilter] = useState("Keyword")
-  const [searchFilteredLabs, setSearchFilteredLabs] = useState([])
   const [searchDebounce, setSearchDebounce] = useState("")
 
   // Get all lab categories and providers using memoization
@@ -44,35 +43,56 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
 
   // Debounced search effect for better performance
   useEffect(() => {
+    let timeoutId
+
     const handleSearchInput = () => {
       const value = searchInputRef.current?.value?.toLowerCase() || ""
-      const timeoutId = setTimeout(() => {
+      
+      // Clear existing timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      
+      // Set new timeout
+      timeoutId = setTimeout(() => {
         setSearchDebounce(value)
       }, 300)
-
-      return () => clearTimeout(timeoutId)
     }
 
     const searchInput = searchInputRef.current
     if (searchInput) {
       searchInput.addEventListener('input', handleSearchInput)
-      return () => searchInput.removeEventListener('input', handleSearchInput)
+      
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
+        searchInput.removeEventListener('input', handleSearchInput)
+      }
     }
   }, [])
 
-  // Optimized search/filter with useMemo
-  const search = useCallback(() => {
-    if (!labs) return
+  // Main filtering logic using useMemo for performance and stability
+  const searchFilteredLabs = useMemo(() => {
+    if (!labs || labs.length === 0) {
+      return []
+    }
     
     let filtered = labs
+    
+    // Category filter
     if (selectedCategory !== "All") {
       filtered = filtered.filter((lab) => lab.category === selectedCategory)
     }
+    
+    // Price sorting
     if (selectedPrice === "Low to High") {
       filtered = [...filtered].sort((a, b) => a.price - b.price)
     } else if (selectedPrice === "High to Low") {
       filtered = [...filtered].sort((a, b) => b.price - a.price)
     }
+    
+    // Provider filter
     if (selectedProvider !== "All") {
       filtered = filtered.filter((lab) => lab.provider === selectedProvider)
     }
@@ -87,31 +107,33 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
                    lab.description?.toLowerCase().includes(searchDebounce)
           case "Name":
             return lab.name?.toLowerCase().includes(searchDebounce)
-          case "Provider":
-            return lab.provider?.toLowerCase().includes(searchDebounce)
-          case "Category":
-            return lab.category?.toLowerCase().includes(searchDebounce)
           default:
             return true
         }
       })
     }
 
-    // Mark labs with active bookings
+    // Mark labs with active bookings (only if user is logged in and has bookings)
     const enrichedLabs = filtered.map(lab => ({
       ...lab,
-      hasActiveBooking: isLoggedIn && userBookings.some(booking => 
+      hasActiveBooking: isLoggedIn && userBookings && userBookings.length > 0 && userBookings.some(booking => 
         booking.labId === lab.id && isBookingActive(booking)
       )
     }))
 
-    setSearchFilteredLabs(enrichedLabs)
-  }, [labs, selectedCategory, selectedPrice, selectedProvider, selectedFilter, searchDebounce, userBookings, isLoggedIn])
-
-  // Effect to trigger search when dependencies change
-  useEffect(() => {
-    search()
-  }, [search])
+    return enrichedLabs
+  }, [
+    labs, 
+    selectedCategory, 
+    selectedPrice, 
+    selectedProvider, 
+    selectedFilter, 
+    searchDebounce, 
+    isLoggedIn,
+    userBookings?.length, // Only depend on length, not the entire array
+    // Create a stable string from labs to detect actual content changes  
+    labs?.map(lab => `${lab.id}-${lab.name}-${lab.price}`).join(',')
+  ])
 
   // Reset filters function
   const resetFilters = useCallback(() => {
@@ -148,7 +170,6 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
     searchInputRef,
     
     // Actions
-    search,
     resetFilters
   }
 }

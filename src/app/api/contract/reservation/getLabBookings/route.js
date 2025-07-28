@@ -2,7 +2,7 @@
  * API endpoint for retrieving all bookings for a specific lab
  * Handles GET requests to fetch lab-specific booking data
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -32,7 +32,7 @@ export async function GET(request) {
   }
 
   try {
-    devLog.log(`🔍 Fetching bookings for lab: ${labId}`);
+    console.log(`🔍 Fetching bookings for lab: ${labId}`);
     
     const contract = await getContractInstance();
     const blockchainBookings = await retryBlockchainRead(() => contract.getLabBookings(numericLabId));
@@ -55,7 +55,7 @@ export async function GET(request) {
       };
     });
 
-    devLog.log(`✅ Successfully fetched ${processedBookings.length} bookings for lab ${labId}`);
+    console.log(`✅ Successfully fetched ${processedBookings.length} bookings for lab ${labId}`);
     
     return Response.json({ 
       bookings: processedBookings,
@@ -69,7 +69,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error(`❌ Error fetching bookings for lab ${labId}:`, error);
+    console.error(`❌ Error fetching bookings for lab ${labId}:`, error);
     
     // Return structured error response
     return Response.json({ 

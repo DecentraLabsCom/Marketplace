@@ -3,7 +3,7 @@
  * Returns the number of decimals used by the LAB token contract
  * Optimized for React Query client-side caching - no server-side cache
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -13,7 +13,7 @@ import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
  */
 export async function GET() {
   try {
-    devLog.log('🔍 Fetching LAB token decimals');
+    console.log('🔍 Fetching LAB token decimals');
     
     const labTokenContract = await getContractInstance('lab');
     
@@ -23,7 +23,7 @@ export async function GET() {
     // Convert BigInt to number for compatibility
     const decimalsNumber = Number(decimals);
     
-    devLog.log(`✅ LAB token decimals: ${decimalsNumber}`);
+    console.log(`✅ LAB token decimals: ${decimalsNumber}`);
     
     return Response.json({ 
       decimals: decimalsNumber 
@@ -35,11 +35,11 @@ export async function GET() {
     });
 
   } catch (error) {
-    devLog.error('❌ Error fetching LAB token decimals:', error);
+    console.error('❌ Error fetching LAB token decimals:', error);
     
     // Fallback to default value
     const defaultDecimals = 6;
-    devLog.warn(`Using default decimals: ${defaultDecimals}`);
+    console.warn(`Using default decimals: ${defaultDecimals}`);
     
     return Response.json({ 
       decimals: defaultDecimals,

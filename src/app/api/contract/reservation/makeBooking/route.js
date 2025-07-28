@@ -5,7 +5,7 @@
  * @description Optimized for React Query with proper error handling and blockchain best practices
  * @version 2.0.0 - No server-side cache, React Query friendly
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
@@ -64,14 +64,14 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    devLog.log(`Creating reservation request - labId: ${labId}, start: ${start}, end: ${end}, timeslot: ${timeslot}`);
+    console.log(`Creating reservation request - labId: ${labId}, start: ${start}, end: ${end}, timeslot: ${timeslot}`);
 
     // Get contract instance with error handling
     let contract;
     try {
       contract = await getContractInstance();
     } catch (contractError) {
-      devLog.error('Failed to get contract instance:', contractError);
+      console.error('Failed to get contract instance:', contractError);
       return Response.json({ 
         error: 'Blockchain connection failed',
         code: 'CONTRACT_ERROR',
@@ -89,14 +89,14 @@ export async function POST(request) {
       );
       
       transactionHash = tx.hash;
-      devLog.log('Transaction submitted:', transactionHash);
+      console.log('Transaction submitted:', transactionHash);
       
       // Wait for confirmation
       receipt = await tx.wait();
-      devLog.log('Transaction confirmed:', receipt.transactionHash);
+      console.log('Transaction confirmed:', receipt.transactionHash);
       
     } catch (blockchainError) {
-      devLog.error('Blockchain transaction failed:', blockchainError);
+      console.error('Blockchain transaction failed:', blockchainError);
       
       // Parse blockchain error for better client handling
       let errorCode = 'BLOCKCHAIN_ERROR';
@@ -151,7 +151,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    devLog.error('Unexpected error in makeBooking:', error);
+    console.error('Unexpected error in makeBooking:', error);
     
     const endTime = Date.now();
     const duration = endTime - startTime;

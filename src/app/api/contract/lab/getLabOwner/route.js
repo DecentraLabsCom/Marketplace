@@ -3,7 +3,7 @@
  * Returns the wallet address that owns a specific lab
  * Optimized for React Query client-side caching - no server-side cache
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -33,14 +33,14 @@ export async function GET(request) {
   }
 
   try {
-    devLog.log(`🔍 Fetching owner for lab ID: ${labId}`);
+    console.log(`🔍 Fetching owner for lab ID: ${labId}`);
     
     const contract = await getContractInstance();
     
     // Single contract call for owner
     const owner = await retryBlockchainRead(() => contract.ownerOf(numericLabId));
     
-    devLog.log(`✅ Lab ${labId} owner: ${owner.slice(0, 6)}...${owner.slice(-4)}`);
+    console.log(`✅ Lab ${labId} owner: ${owner.slice(0, 6)}...${owner.slice(-4)}`);
     
     return Response.json({
       labId: numericLabId,
@@ -53,7 +53,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error(`❌ Error fetching owner for lab ${labId}:`, error);
+    console.error(`❌ Error fetching owner for lab ${labId}:`, error);
     
     return Response.json({ 
       error: `Failed to fetch owner for lab ${labId}`,

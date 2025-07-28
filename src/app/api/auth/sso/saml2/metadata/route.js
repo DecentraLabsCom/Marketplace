@@ -4,7 +4,6 @@
  */
 import { NextResponse } from 'next/server'
 import { createServiceProvider } from '@/utils/auth/sso'
-import devLog from '@/utils/dev/logger'
 
 /**
  * Generates and returns SAML2 metadata XML for service provider configuration
@@ -30,7 +29,7 @@ export async function GET() {
             headers: { "Content-Type": "application/xml" },
         });
     } catch (error) {
-        devLog.error("Error generating SAML metadata:", error);
+        console.error("Error generating SAML metadata:", error);
         return new NextResponse("Unexpected error generating metadata", { status: 500 });
     }
 }

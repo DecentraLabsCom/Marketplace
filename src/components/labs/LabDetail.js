@@ -23,7 +23,9 @@ export default function LabDetail({ id, provider }) {
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery({
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
+    refetchOnWindowFocus: false, // No automatic refetch
+    refetchInterval: false, // Disable automatic periodic refetch
   });
   const { formatPrice } = useLabToken();
   const [lab, setLab] = useState(null);

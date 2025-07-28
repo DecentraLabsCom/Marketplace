@@ -3,7 +3,7 @@
  * Handles GET requests to fetch provider information by index
  * Atomic endpoint - only calls getProvider contract method
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -32,7 +32,7 @@ export async function GET(request) {
       }, { status: 400 });
     }
 
-    devLog.log(`🔍 Fetching provider details for ID: ${providerIndex}`);
+    console.log(`🔍 Fetching provider details for ID: ${providerIndex}`);
     
     const contract = await getContractInstance();
     const provider = await retryBlockchainRead(() => contract.getProvider(providerIndex));
@@ -47,7 +47,7 @@ export async function GET(request) {
       isActive: provider[4]
     };
 
-    devLog.log(`✅ Provider details for ID ${providerIndex}:`, providerData);
+    console.log(`✅ Provider details for ID ${providerIndex}:`, providerData);
 
     return Response.json({ 
       success: true,
@@ -60,7 +60,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error('❌ Error fetching provider details:', error);
+    console.error('❌ Error fetching provider details:', error);
     
     // Handle case where provider doesn't exist
     if (error.message?.includes('revert') || error.message?.includes('invalid')) {

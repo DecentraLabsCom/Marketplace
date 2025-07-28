@@ -1,7 +1,6 @@
 import { ethers } from 'ethers'
 import { defaultNetworks, alchemyNetworks, ankrNetworks, 
         quicknodeNetworks, chainstackNetworks } from '@/utils/blockchain/networkConfig'
-import devLog from '@/utils/dev/logger'
 
 // Provider cache to avoid reinitializing providers unnecessarily
 const providerCache = new Map();
@@ -26,7 +25,7 @@ export default async function getProvider(network) {
     const cached = providerCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < PROVIDER_CACHE_TTL) {
-        devLog.log(`Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers, ${providerCache.size} networks cached)`);
+        console.log(`Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers, ${providerCache.size} networks cached)`);
         return cached.provider;
     }
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
@@ -48,7 +47,7 @@ export default async function getProvider(network) {
             networkInfo
         ));
     } catch (e) {
-        devLog.warn('Default WebSocket provider failed to initialize:', e.message);
+        console.warn('Default WebSocket provider failed to initialize:', e.message);
     }
 
     try {
@@ -57,7 +56,7 @@ export default async function getProvider(network) {
             networkInfo, options
         ));
     } catch (e) {
-        devLog.warn('Default HTTP provider failed to initialize:', e.message);
+        console.warn('Default HTTP provider failed to initialize:', e.message);
     }
 
     if (alchemyProjectId) {
@@ -67,13 +66,13 @@ export default async function getProvider(network) {
                 networkInfo
             ));
         } catch (e) {
-            devLog.warn('Alchemy WebSocket provider failed to initialize:', e.message);
+            console.warn('Alchemy WebSocket provider failed to initialize:', e.message);
         }
         
         try {
             providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
         } catch (e) {
-            devLog.warn('Alchemy provider failed to initialize:', e.message);
+            console.warn('Alchemy provider failed to initialize:', e.message);
         }
     }
 
@@ -84,7 +83,7 @@ export default async function getProvider(network) {
                 networkInfo, options
             ));
         } catch (e) {
-            devLog.warn('Ankr provider failed to initialize:', e.message);
+            console.warn('Ankr provider failed to initialize:', e.message);
         }
     }
 
@@ -95,7 +94,7 @@ export default async function getProvider(network) {
                 networkInfo
             ));
         } catch (e) {
-            devLog.warn('Quicknode WebSocket provider failed to initialize:', e.message);
+            console.warn('Quicknode WebSocket provider failed to initialize:', e.message);
         }
         
         try {
@@ -104,7 +103,7 @@ export default async function getProvider(network) {
                 networkInfo, options
             ));
         } catch (e) {
-            devLog.warn('Quicknode HTTP provider failed to initialize:', e.message);
+            console.warn('Quicknode HTTP provider failed to initialize:', e.message);
         }
     }
 
@@ -115,7 +114,7 @@ export default async function getProvider(network) {
                 networkInfo
             ));
         } catch (e) {
-            devLog.warn('Chainstack WebSocket provider failed to initialize:', e.message);
+            console.warn('Chainstack WebSocket provider failed to initialize:', e.message);
         }
         
         try {
@@ -124,7 +123,7 @@ export default async function getProvider(network) {
                 networkInfo, options
             ));
         } catch (e) {
-            devLog.warn('Chainstack HTTP provider failed to initialize:', e.message);
+            console.warn('Chainstack HTTP provider failed to initialize:', e.message);
         }
     }
 
@@ -139,7 +138,7 @@ export default async function getProvider(network) {
                 )
             );
         } catch (e) {
-            devLog.warn('Infura provider failed to initialize:', e.message);
+            console.warn('Infura provider failed to initialize:', e.message);
         }
     }
     
@@ -147,7 +146,7 @@ export default async function getProvider(network) {
     try {
         providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
     } catch (e) {
-        devLog.warn('Official RPC provider failed to initialize:', e.message);
+        console.warn('Official RPC provider failed to initialize:', e.message);
     }
 
     if (providers.length === 0) {
@@ -166,7 +165,7 @@ export default async function getProvider(network) {
         p.constructor.name === 'WebSocketProvider'
     );
 
-    devLog.log(`Initialized ${providers.length} providers for ${network.name}: ${specialProviders.length} special + ${httpProviders.length} HTTP + ${wsProviders.length} WebSocket`);
+    console.log(`Initialized ${providers.length} providers for ${network.name}: ${specialProviders.length} special + ${httpProviders.length} HTTP + ${wsProviders.length} WebSocket`);
     
     const fallbackProvider = new ethers.FallbackProvider(providers, networkInfo, {
         quorum: 1,
@@ -186,7 +185,7 @@ export default async function getProvider(network) {
         timestamp: Date.now()
     });
 
-    devLog.log(`Cached FallbackProvider for ${network.name} with ${providers.length} providers`);
+    console.log(`Cached FallbackProvider for ${network.name} with ${providers.length} providers`);
     
     return fallbackProvider;
 }

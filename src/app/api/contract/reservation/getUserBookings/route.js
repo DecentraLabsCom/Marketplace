@@ -2,7 +2,7 @@
  * API endpoint for retrieving user booking reservations
  * Handles GET requests to fetch user-specific booking data
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 import { isAddress } from 'viem'
@@ -30,7 +30,7 @@ export async function GET(request) {
   }
 
   try {
-    devLog.log(`🔍 Fetching bookings for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
+    console.log(`🔍 Fetching bookings for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
     
     const contract = await getContractInstance();
     const blockchainBookings = await retryBlockchainRead(() => contract.getUserBookings(userAddress));
@@ -53,7 +53,7 @@ export async function GET(request) {
       };
     });
 
-    devLog.log(`✅ Successfully fetched ${processedBookings.length} bookings`);
+    console.log(`✅ Successfully fetched ${processedBookings.length} bookings`);
     
     return Response.json({ 
       bookings: processedBookings,
@@ -67,7 +67,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error('❌ Error fetching user bookings:', error);
+    console.error('❌ Error fetching user bookings:', error);
     
     // Return structured error response
     return Response.json({ 

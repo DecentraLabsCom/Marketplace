@@ -3,7 +3,6 @@
  * Handles POST requests to deregister providers from the smart contract
  */
 import { getContractInstance } from '../../utils/contractInstance'
-import devLog from '@/utils/dev/logger'
 import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
 /**
@@ -29,7 +28,7 @@ export async function POST(request) {
     // Return data to client
     return Response.json({succsess: true}, { status: 200 });
   } catch (error) {
-    devLog.error('Error when trying to delete a provider:', error);
+    console.error('Error when trying to delete a provider:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

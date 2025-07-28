@@ -6,7 +6,6 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 import { simBookings } from '@/utils/dev/simBookings'
-import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves all bookings from the blockchain
@@ -15,7 +14,7 @@ import devLog from '@/utils/dev/logger'
  */
 export async function GET(request) {
   try {
-    devLog.log('🔍 Fetching all bookings');
+    console.log('🔍 Fetching all bookings');
     
     const contract = await getContractInstance();
     const blockchainBookings = await retryBlockchainRead(() => contract.getBookings());
@@ -39,7 +38,7 @@ export async function GET(request) {
       };
     });
 
-    devLog.log(`✅ Successfully fetched ${processedBookings.length} bookings`);
+    console.log(`✅ Successfully fetched ${processedBookings.length} bookings`);
     
     return Response.json({ 
       bookings: processedBookings,
@@ -52,13 +51,13 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error(' Error fetching all bookings:', error);
+    console.error(' Error fetching all bookings:', error);
     
     // If blockchain fails, try simulation data as fallback
     if (error.message.includes('429') || error.message.includes('rate limit')) {
       try {
         const fallbackBookings = simBookings();
-        devLog.log('Using simulation data as fallback for rate limiting');
+        console.log('Using simulation data as fallback for rate limiting');
         return Response.json({ 
           bookings: fallbackBookings,
           count: fallbackBookings.length,
@@ -71,7 +70,7 @@ export async function GET(request) {
           }
         });
       } catch (fallbackError) {
-        devLog.error('Fallback data also failed:', fallbackError);
+        console.error('Fallback data also failed:', fallbackError);
       }
     }
     

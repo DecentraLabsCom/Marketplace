@@ -7,9 +7,18 @@ This project follows a set of coding standards and best practices to ensure code
 
 2. **API endpoints**: All API endpoints should be atomic, with no business logic in the API layer. This means that each endpoint should perform a single, well-defined task. The API should return data in a consistent format, and any necessary transformations should be handled in the client-side code, particularly in the context of React Query (hooks). Most of the API endpoints in this project call smart contracts, which are the source of truth for the data.
 
-3. **Services**: Services should be used to encapsulate API calls in a 1:1 relationship. Each service should be responsible for a specific domain or feature of the application. This helps keep the code organized and makes it easier to test and maintain.
+3. **Services**: Services follow a dual-layer pattern:
+   - **Atomic services**: 1:1 relationship with API endpoints for individual operations (e.g., `fetchLabData`, `fetchLabOwner`)
+   - **Composed services**: Orchestrate multiple atomic services to provide complete data sets (e.g., `fetchAllLabsComposed`)
+   - The service layer handles data composition and coordination, while keeping endpoints atomic
+   - This pattern optimizes both network efficiency and code maintainability
 
-4. **Hooks**: Custom hooks should be used to encapsulate logic that can be reused across components. This includes data fetching, state management, and any other shared functionality. Hooks should be named using the `use` prefix (e.g., `useFetchData`, `useAuth`).
+4. **Hooks**: Custom hooks follow a simplified pattern that eliminates complex compositions:
+   - **Simple hooks with composed services**: Single `useQuery` calls that use composed services (e.g., `useAllLabsQuery` calling `fetchAllLabsComposed`)
+   - **Cache-extracting hooks**: Simple data extraction from shared cache using basic `find()` operations (e.g., `useLabDataQuery` extracting from `useAllLabsQuery` cache)
+   - **Atomic hooks**: Available for specific use cases when individual data is needed
+   - All hooks should use the `use` prefix and avoid complex React Query compositions like `useQueries` with dynamic arrays
+   - The goal is to move complexity from React hooks to service layer for better performance and stability
 
 5. **Event Context**: Use event contexts to manage blockchain-related events and invalidate cache. This allows for better separation of concerns and makes it easier to manage complex interactions between components. Each context should be responsible for a specific domain (e.g., user events, lab events, booking events).
 

@@ -10,16 +10,18 @@ import { cn } from '@/utils/cn'
  * Card Component
  * @param {Object} props - Card props
  * @param {React.ReactNode} props.children - Card content
- * @param {'sm'|'md'|'lg'|'xl'} props.padding - Card padding size
+ * @param {'default'|'modal'} props.variant - Card style variant
+ * @param {'sm'|'md'|'lg'|'xl'|'none'} props.padding - Card padding size
  * @param {boolean} props.shadow - Whether to show shadow
  * @param {boolean} props.border - Whether to show border
  * @param {string} props.className - Additional CSS classes
  */
 export function Card({
   children,
+  variant = 'default',
   padding = 'md',
   shadow = true,
-  border = true,
+  border = false,
   className = '',
   ...props
 }) {
@@ -27,14 +29,25 @@ export function Card({
     sm: 'p-4',
     md: 'p-6',
     lg: 'p-8',
-    xl: 'p-10'
+    xl: 'p-10',
+    none: ''
+  }
+
+  const variantClasses = {
+    default: 'bg-gray-200 rounded-md',
+    modal: 'bg-white rounded-lg'
+  }
+
+  const shadowClasses = {
+    default: 'shadow-md',
+    modal: 'shadow-lg'
   }
 
   const classes = cn(
-    'bg-white rounded-lg',
-    paddingClasses[padding],
+    variantClasses[variant],
+    padding !== 'none' ? paddingClasses[padding] : '',
+    shadow ? shadowClasses[variant] : '',
     {
-      'shadow-sm': shadow,
       'border border-gray-200': border
     },
     className
@@ -429,7 +442,8 @@ export function Spacer({
 // PropTypes
 Card.propTypes = {
   children: PropTypes.node.isRequired,
-  padding: PropTypes.oneOf(['sm', 'md', 'lg', 'xl']),
+  variant: PropTypes.oneOf(['default', 'modal']),
+  padding: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', 'none']),
   shadow: PropTypes.bool,
   border: PropTypes.bool,
   className: PropTypes.string

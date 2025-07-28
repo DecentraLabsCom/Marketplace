@@ -2,7 +2,6 @@
  * API endpoint for cancelling reservation requests
  * Handles POST requests to cancel pending reservation requests
  */
-import devLog from '@/utils/dev/logger'
 
 import { ethers } from 'ethers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
@@ -28,7 +27,7 @@ export async function POST(request) {
       return Response.json({ error: 'Missing userAddress' }, { status: 400 });
     }
 
-    devLog.log('Validating cancel reservation request for reservationKey:', reservationKey);
+    console.log('Validating cancel reservation request for reservationKey:', reservationKey);
 
     // Validate reservationKey format (should be bytes32)
     if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
@@ -57,7 +56,7 @@ export async function POST(request) {
     
     // Get reservation details
     const reservation = await contract.getReservation(reservationKey);
-    devLog.log('Reservation details:', reservation);
+    console.log('Reservation details:', reservation);
 
     // Check if reservation exists
     if (!reservation.exists) {
@@ -90,7 +89,7 @@ export async function POST(request) {
     }, { status: 200 });
 
   } catch (error) {
-    devLog.error('Error validating cancel reservation request:', error);
+    console.error('Error validating cancel reservation request:', error);
     
     return Response.json({ 
       error: 'Failed to validate request cancellation',

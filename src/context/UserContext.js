@@ -128,7 +128,7 @@ function UserDataCore({ children }) {
         if (providerError) {
             handleError(providerError, { context: 'Provider status fetch' });
         }
-    }, [ssoError, providerError, handleError]);
+    }, [ssoError, providerError]);
 
     // Refresh provider status function
     const refreshProviderStatus = useCallback(async () => {
@@ -204,7 +204,7 @@ function UserDataCore({ children }) {
 export function UserData({ children }) {
     return (
         <ErrorBoundary 
-            fallback={<div>Error loading user data</div>}
+            fallback={() => <div>Error loading user data</div>}
             category={ErrorCategory.COMPONENT}
         >
             <UserDataCore>

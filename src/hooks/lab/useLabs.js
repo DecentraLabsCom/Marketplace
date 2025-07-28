@@ -1,21 +1,170 @@
 /**
- * React Query Hooks for Labs - Atomic Composition Pattern
- * Uses atomic services with React Query composition for optimal caching
+ * React Query Hooks for Labs - Simplified Architecture
+ * Uses simple hooks with composed services and cache-extracting hooks
  */
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { labServices } from '@/services/labServices'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
-import { composeLabObject, createProviderMap, createFallbackLab } from '@/utils/hooks/labHelpers'
 import devLog from '@/utils/dev/logger'
 
-// === ATOMIC QUERIES ===
+// === SIMPLE HOOKS WITH COMPOSED SERVICES ===
 
 /**
- * Hook to get basic lab list (atomic)
+ * Hook to get all labs with complete details using composed service
+ * This is the primary data source that uses a single HTTP request
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab list data, loading state, and error handling
+ * @returns {Object} React Query result with all composed lab data
+ */
+export const useAllLabsQuery = (options = {}) => {
+  return useQuery({
+    queryKey: ['labs', 'all-composed'],
+    queryFn: () => labServices.fetchAllLabsComposed(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    retry: 2,
+    ...options,
+  });
+};
+
+// === CACHE-EXTRACTING HOOKS (simple data operations) ===
+
+/**
+ * Hook to get basic lab list (extracts from composed data)
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab list data
  */
 export const useLabListQuery = (options = {}) => {
+  const allLabsQuery = useAllLabsQuery();
+  
+  return useMemo(() => {
+    const labIds = allLabsQuery.data?.map(lab => lab.id) || [];
+    return {
+      data: labIds,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error,
+      isSuccess: allLabsQuery.isSuccess,
+      ...options,
+    };
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, options]);
+};
+
+/**
+ * Hook to get LAB token decimals (extracts from composed data)
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with LAB token decimals data
+ */
+export const useLabDecimalsQuery = (options = {}) => {
+  const allLabsQuery = useAllLabsQuery();
+  
+  return useMemo(() => {
+    // Extract decimals from first lab's price data (all labs use same decimals)
+    const decimals = allLabsQuery.data?.[0]?.decimals || 18;
+    return {
+      data: decimals,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error,
+      isSuccess: allLabsQuery.isSuccess,
+      ...options,
+    };
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, options]);
+};
+
+/**
+ * Hook to get specific lab data (extracts from composed data)
+ * @param {string|number} labId - Lab identifier
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab data
+ */
+export const useLabDataQuery = (labId, options = {}) => {
+  const allLabsQuery = useAllLabsQuery();
+  
+  return useMemo(() => {
+    const lab = allLabsQuery.data?.find(l => l.id?.toString() === labId?.toString());
+    return {
+      data: lab || null,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error,
+      isSuccess: allLabsQuery.isSuccess && !!lab,
+      ...options,
+    };
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, labId, options]);
+};
+
+/**
+ * Hook to get lab owner (extracts from composed data)
+ * @param {string|number} labId - Lab identifier
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab owner data
+ */
+export const useLabOwnerQuery = (labId, options = {}) => {
+  const allLabsQuery = useAllLabsQuery();
+  
+  return useMemo(() => {
+    const lab = allLabsQuery.data?.find(l => l.id?.toString() === labId?.toString());
+    const owner = lab?.owner || null;
+    return {
+      data: owner,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error,
+      isSuccess: allLabsQuery.isSuccess && !!owner,
+      ...options,
+    };
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, labId, options]);
+};
+
+/**
+ * Hook to get providers list (extracts from composed data)
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with providers list data
+ */
+export const useProvidersListQuery = (options = {}) => {
+  const allLabsQuery = useAllLabsQuery();
+  
+  return useMemo(() => {
+    const providers = [...new Set(allLabsQuery.data?.map(lab => lab.provider).filter(Boolean))] || [];
+    return {
+      data: providers,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error,
+      isSuccess: allLabsQuery.isSuccess,
+      ...options,
+    };
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, options]);
+};
+
+/**
+ * Hook to get lab metadata (extracts from composed data)
+ * @param {string} metadataUri - URI to fetch metadata from (not used in optimized version)
+ * @param {string|number} labId - Lab identifier for context
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab metadata
+ */
+export const useLabMetadataQuery = (metadataUri, labId, options = {}) => {
+  const allLabsQuery = useAllLabsQuery();
+  
+  return useMemo(() => {
+    const lab = allLabsQuery.data?.find(l => l.id?.toString() === labId?.toString());
+    // Return the complete lab object as metadata since it's already composed
+    return {
+      data: lab || null,
+      isLoading: allLabsQuery.isLoading,
+      error: allLabsQuery.error,
+      isSuccess: allLabsQuery.isSuccess && !!lab,
+      ...options,
+    };
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, labId, options]);
+};
+
+// === ATOMIC HOOKS (for specific use cases when individual data is needed) ===
+
+/**
+ * Hook to get basic lab list (atomic) - direct service call
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab list data
+ */
+export const useLabListQueryAtomic = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.list,
     queryFn: () => labServices.fetchLabList(),
@@ -27,11 +176,11 @@ export const useLabListQuery = (options = {}) => {
 };
 
 /**
- * Hook to get LAB token decimals (atomic)
+ * Hook to get LAB token decimals (atomic) - direct service call
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with LAB token decimals data, loading state, and error handling
+ * @returns {Object} React Query result with LAB token decimals data
  */
-export const useLabDecimalsQuery = (options = {}) => {
+export const useLabDecimalsQueryAtomic = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.decimals,
     queryFn: () => labServices.fetchLabDecimals(),
@@ -43,12 +192,12 @@ export const useLabDecimalsQuery = (options = {}) => {
 };
 
 /**
- * Hook to get specific lab data (atomic)
+ * Hook to get specific lab data (atomic) - direct service call
  * @param {string|number} labId - Lab identifier
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab data, loading state, and error handling
+ * @returns {Object} React Query result with lab data
  */
-export const useLabDataQuery = (labId, options = {}) => {
+export const useLabDataQueryAtomic = (labId, options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.data(labId),
     queryFn: () => labServices.fetchLabData(labId),
@@ -61,12 +210,12 @@ export const useLabDataQuery = (labId, options = {}) => {
 };
 
 /**
- * Hook to get lab owner (atomic)
+ * Hook to get lab owner (atomic) - direct service call
  * @param {string|number} labId - Lab identifier
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab owner data, loading state, and error handling
+ * @returns {Object} React Query result with lab owner data
  */
-export const useLabOwnerQuery = (labId, options = {}) => {
+export const useLabOwnerQueryAtomic = (labId, options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.owner(labId),
     queryFn: () => labServices.fetchLabOwner(labId),
@@ -79,11 +228,11 @@ export const useLabOwnerQuery = (labId, options = {}) => {
 };
 
 /**
- * Hook to get providers list (atomic)
+ * Hook to get providers list (atomic) - direct service call
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with providers list data, loading state, and error handling
+ * @returns {Object} React Query result with providers list data
  */
-export const useProvidersListQuery = (options = {}) => {
+export const useProvidersListQueryAtomic = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.PROVIDERS.list,
     queryFn: () => labServices.fetchProvidersList(),
@@ -95,13 +244,13 @@ export const useProvidersListQuery = (options = {}) => {
 };
 
 /**
- * Hook to get lab metadata (atomic)
+ * Hook to get lab metadata (atomic) - direct service call
  * @param {string} metadataUri - URI to fetch metadata from
  * @param {string|number} labId - Lab identifier for context
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab metadata, loading state, and error handling
+ * @returns {Object} React Query result with lab metadata
  */
-export const useLabMetadataQuery = (metadataUri, labId, options = {}) => {
+export const useLabMetadataQueryAtomic = (metadataUri, labId, options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.metadata(metadataUri),
     queryFn: () => labServices.fetchLabMetadata(metadataUri, labId),
@@ -111,94 +260,6 @@ export const useLabMetadataQuery = (metadataUri, labId, options = {}) => {
     retry: 2,
     ...options,
   });
-};
-
-// === COMPOSED QUERIES ===
-
-/**
- * Hook to get all labs with complete details (composed from atomic queries)
- * @param {Object} [options={}] - Additional react-query options to pass to underlying queries
- * @returns {Object} Combined result with composed lab data, loading states, and query status
- */
-export const useAllLabsQuery = (options = {}) => {
-  // Get basic data first
-  const labListQuery = useLabListQuery();
-  const decimalsQuery = useLabDecimalsQuery();
-  const providersQuery = useProvidersListQuery();
-
-  // Get detailed data for each lab
-  const labQueries = useQueries({
-    queries: labListQuery.data?.map(lab => ({
-      queryKey: QUERY_KEYS.LABS.data(lab.labId),
-      queryFn: () => labServices.fetchLabData(lab.labId.toString()),
-      enabled: !!labListQuery.data,
-      staleTime: 12 * 60 * 60 * 1000,
-    })) || []
-  });
-
-  const ownerQueries = useQueries({
-    queries: labListQuery.data?.map(lab => ({
-      queryKey: QUERY_KEYS.LABS.owner(lab.labId),
-      queryFn: () => labServices.fetchLabOwner(lab.labId.toString()),
-      enabled: !!labListQuery.data,
-      staleTime: 6 * 60 * 60 * 1000,
-    })) || []
-  });
-
-  const metadataQueries = useQueries({
-    queries: labQueries.map((labQuery, index) => ({
-      queryKey: QUERY_KEYS.LABS.metadata(labQuery.data?.base?.uri || ''),
-      queryFn: () => labServices.fetchLabMetadata(
-        labQuery.data.base.uri, 
-        labListQuery.data[index].labId.toString()
-      ),
-      enabled: !!labQuery.data?.base?.uri,
-      staleTime: 12 * 60 * 60 * 1000,
-    }))
-  });
-
-  // Compose results
-  const isLoading = labListQuery.isLoading || decimalsQuery.isLoading || 
-                   providersQuery.isLoading || labQueries.some(q => q.isLoading) ||
-                   ownerQueries.some(q => q.isLoading) || metadataQueries.some(q => q.isLoading);
-
-  const error = labListQuery.error || decimalsQuery.error || providersQuery.error;
-
-  let composedLabs = [];
-  if (labListQuery.data && decimalsQuery.data && providersQuery.data) {
-    const providerMap = createProviderMap(providersQuery.data);
-    
-    composedLabs = labListQuery.data.map((lab, index) => {
-      const labId = lab.labId.toString();
-      const labData = labQueries[index]?.data;
-      const owner = ownerQueries[index]?.data;
-      const metadata = metadataQueries[index]?.data;
-
-      if (labData && owner && metadata) {
-        return composeLabObject(labId, labData, owner, metadata, decimalsQuery.data, providerMap);
-      } else {
-        // Return fallback for partial data
-        return createFallbackLab(labId, lab.base?.uri || '');
-      }
-    });
-  }
-
-  return {
-    data: composedLabs,
-    isLoading,
-    error,
-    isSuccess: composedLabs.length > 0,
-    // Individual query states for granular control
-    queries: {
-      labList: labListQuery,
-      decimals: decimalsQuery,
-      providers: providersQuery,
-      labData: labQueries,
-      owners: ownerQueries,
-      metadata: metadataQueries
-    },
-    ...options
-  };
 };
 
 // === CACHE MANAGEMENT ===

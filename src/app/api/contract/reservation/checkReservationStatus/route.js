@@ -5,7 +5,6 @@
 import { NextResponse } from 'next/server'
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
-import devLog from '@/utils/dev/logger'
 
 /**
  * Checks the current status of a reservation on the blockchain
@@ -22,7 +21,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Missing reservationKey' }, { status: 400 });
         }
 
-        devLog.log(`🔍 Checking status for reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+        console.log(`🔍 Checking status for reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
         
         // Get contract instance
         const contract = await getContractInstance();

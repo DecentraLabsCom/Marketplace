@@ -60,7 +60,7 @@ export async function POST(request) {
           providers = [];
         }
       } catch (e) {
-        devLog.warn(`Failed to fetch existing providers blob:`, e.message);
+        console.warn(`Failed to fetch existing providers blob:`, e.message);
         // Blob may not exist yet
         providers = [];
       }
@@ -71,7 +71,7 @@ export async function POST(request) {
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
-    devLog.error('Error saving provider:', error);
+    console.error('Error saving provider:', error);
     return Response.json({ error: 'Failed to save provider' }, { status: 500 });
   }
 }

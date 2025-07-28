@@ -5,7 +5,7 @@
  * @description Optimized for React Query with proper validation and blockchain best practices
  * @version 2.0.0 - No server-side cache, React Query friendly with transaction support
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
@@ -69,7 +69,7 @@ export async function POST(request) {
     const normalizedWallet = wallet.trim();
     const normalizedCountry = country.trim();
 
-    devLog.log(`Registering provider - name: ${normalizedName}, email: ${normalizedEmail}, wallet: ${normalizedWallet}, country: ${normalizedCountry}`);
+    console.log(`Registering provider - name: ${normalizedName}, email: ${normalizedEmail}, wallet: ${normalizedWallet}, country: ${normalizedCountry}`);
 
     // If only validation requested, return early
     if (validateOnly) {
@@ -100,7 +100,7 @@ export async function POST(request) {
     try {
       contract = await getContractInstance();
     } catch (contractError) {
-      devLog.error('Failed to get contract instance:', contractError);
+      console.error('Failed to get contract instance:', contractError);
       return Response.json({ 
         error: 'Blockchain connection failed',
         code: 'CONTRACT_ERROR',
@@ -118,14 +118,14 @@ export async function POST(request) {
       );
       
       transactionHash = tx.hash;
-      devLog.log('Provider registration transaction submitted:', transactionHash);
+      console.log('Provider registration transaction submitted:', transactionHash);
       
       // Wait for confirmation
       receipt = await tx.wait();
-      devLog.log('Provider registration confirmed:', receipt.transactionHash);
+      console.log('Provider registration confirmed:', receipt.transactionHash);
       
     } catch (blockchainError) {
-      devLog.error('Blockchain transaction failed:', blockchainError);
+      console.error('Blockchain transaction failed:', blockchainError);
       
       // Parse blockchain error for better client handling
       let errorCode = 'BLOCKCHAIN_ERROR';
@@ -189,7 +189,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    devLog.error('Unexpected error in addProvider:', error);
+    console.error('Unexpected error in addProvider:', error);
     
     const endTime = Date.now();
     const duration = endTime - startTime;

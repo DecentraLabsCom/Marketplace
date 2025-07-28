@@ -3,7 +3,7 @@
  * Handles GET requests to fetch total number of providers
  * Atomic endpoint - only calls getProviderCount contract method
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
@@ -14,12 +14,12 @@ import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
  */
 export async function GET(request) {
   try {
-    devLog.log('🔍 Fetching provider count');
+    console.log('🔍 Fetching provider count');
     
     const contract = await getContractInstance();
     const providerCount = await retryBlockchainRead(() => contract.getProviderCount());
     
-    devLog.log(`✅ Provider count: ${providerCount}`);
+    console.log(`✅ Provider count: ${providerCount}`);
 
     return Response.json({ 
       success: true,
@@ -32,7 +32,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error('❌ Error fetching provider count:', error);
+    console.error('❌ Error fetching provider count:', error);
     
     return Response.json({ 
       error: 'Failed to fetch provider count',

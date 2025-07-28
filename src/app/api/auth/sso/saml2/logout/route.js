@@ -5,7 +5,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { parseStringPromise } from 'xml2js'
-import devLog from '@/utils/dev/logger'
 
 // Validate SAML logout request structure
 function isValidSamlLogoutRequest(parsedXml) {
@@ -27,14 +26,14 @@ function isValidSamlLogoutRequest(parsedXml) {
     const requiredFields = ['ID', 'Version', 'IssueInstant'];
     for (const field of requiredFields) {
       if (!attributes[field]) {
-        devLog.error(`Missing required field: ${field}`);
+        console.error(`Missing required field: ${field}`);
         return false;
       }
     }
 
     // Validate SAML version (should be 2.0)
     if (attributes.Version !== '2.0') {
-      devLog.error(`Invalid SAML version: ${attributes.Version}`);
+      console.error(`Invalid SAML version: ${attributes.Version}`);
       return false;
     }
 
@@ -44,20 +43,20 @@ function isValidSamlLogoutRequest(parsedXml) {
     const timeDiff = Math.abs(now - issueInstant) / 1000; // in seconds
     
     if (timeDiff > 300) { // 5 minutes
-      devLog.error(`Logout request too old: ${timeDiff} seconds`);
+      console.error(`Logout request too old: ${timeDiff} seconds`);
       return false;
     }
 
     // Check for Issuer element
     const issuer = logoutRequest['saml:Issuer'] || logoutRequest.Issuer;
     if (!issuer || !issuer[0]) {
-      devLog.error("Missing Issuer element");
+      console.error("Missing Issuer element");
       return false;
     }
 
     return true;
   } catch (error) {
-    devLog.error("Error validating SAML logout request:", error);
+    console.error("Error validating SAML logout request:", error);
     return false;
   }
 }
@@ -77,7 +76,7 @@ export async function POST(request) {
     
     // Validate SAML logout request structure and content
     if (!isValidSamlLogoutRequest(parsedXml)) {
-      devLog.error("Invalid SAML logout request structure");
+      console.error("Invalid SAML logout request structure");
       return NextResponse.json({ error: "Invalid logout request" }, { status: 400 });
     }
 
@@ -86,7 +85,7 @@ export async function POST(request) {
 
     return NextResponse.redirect("/");
   } catch (error) {
-    devLog.error("Error while processing SAML logout:", error);
+    console.error("Error while processing SAML logout:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

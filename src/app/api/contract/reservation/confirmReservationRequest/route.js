@@ -3,7 +3,7 @@
  * Handles POST requests to approve pending reservation requests
  * Atomic endpoint - only calls confirmReservationRequest contract method
  */
-import devLog from '@/utils/dev/logger'
+
 import { getContractInstance } from '../../utils/contractInstance'
 import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 
@@ -23,7 +23,7 @@ export async function POST(request) {
       return Response.json({ error: 'Missing reservationKey' }, { status: 400 });
     }
 
-    devLog.log(`Confirming reservation: ${reservationKey}`);
+    console.log(`Confirming reservation: ${reservationKey}`);
     
     const contract = await getContractInstance();
     
@@ -31,7 +31,7 @@ export async function POST(request) {
     const tx = await executeBlockchainTransaction(() => contract.confirmReservationRequest(reservationKey));
     await tx.wait();
     
-    devLog.log(`✅ Reservation confirmed: ${reservationKey}`);
+    console.log(`✅ Reservation confirmed: ${reservationKey}`);
 
     return Response.json({ 
       success: true,
@@ -43,7 +43,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    devLog.error('Error confirming reservation:', error);
+    console.error('Error confirming reservation:', error);
     
     return Response.json({ 
       error: 'Failed to confirm reservation',

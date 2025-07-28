@@ -3,10 +3,10 @@
  * Handles GET requests to fetch user-owned lab data
  * Optimized for React Query client-side caching - no server-side cache
  */
-import devLog from '@/utils/dev/logger'
-import { getContractInstance } from '../../utils/contractInstance'
-import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 import { isAddress } from 'viem'
+import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
+import { createSerializedJsonResponse } from '@/app/api/contract/utils/bigIntSerializer'
+import { getContractInstance } from '../../utils/contractInstance'
 
 /**
  * Retrieves labs owned by a specific wallet address
@@ -31,7 +31,7 @@ export async function GET(request) {
   }
 
   try {
-    devLog.log(`🔍 Fetching owned labs for wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
+    console.log(`🔍 Fetching owned labs for wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
     
     const contract = await getContractInstance();
     
@@ -66,7 +66,7 @@ export async function GET(request) {
               name = metadata?.name ?? name;
             }
           } catch (metadataError) {
-            devLog.warn(`Failed to fetch metadata for lab ${labId}:`, metadataError.message);
+            console.warn(`Failed to fetch metadata for lab ${labId}:`, metadataError.message);
           }
           
           return {
@@ -78,7 +78,7 @@ export async function GET(request) {
         
         return null;
       } catch (error) {
-        devLog.warn(`Failed to check ownership for lab ${labId}:`, error.message);
+        console.warn(`Failed to check ownership for lab ${labId}:`, error.message);
         return null;
       }
     });
@@ -93,9 +93,9 @@ export async function GET(request) {
       }
     });
 
-    devLog.log(`✅ Found ${ownedLabs.length} owned labs for wallet`);
+    console.log(`✅ Found ${ownedLabs.length} owned labs for wallet`);
 
-    return Response.json({ 
+    return createSerializedJsonResponse({ 
       ownedLabs,
       count: ownedLabs.length,
       wallet 
@@ -107,7 +107,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    devLog.error('❌ Error fetching owned labs:', error);
+    console.error('❌ Error fetching owned labs:', error);
     
     return Response.json({ 
       error: 'Failed to fetch owned labs',
