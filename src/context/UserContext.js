@@ -95,32 +95,52 @@ function UserDataCore({ children }) {
     const isLoggedIn = isConnected && Boolean(address);
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
 
-    // Handle SSO session data
+    // Combined effect to handle both SSO and provider data with proper name priority
     useEffect(() => {
+        let updatedUser = {};
+        let shouldUpdate = false;
+
+        // Handle SSO session data
         if (ssoData) {
             setIsSSO(Boolean(ssoData.isSSO));
             
             if (ssoData.user) {
-                setUser(prev => ({
-                    ...prev,
+                updatedUser = {
+                    ...updatedUser,
                     ...ssoData.user,
-                    address: address || prev?.address
-                }));
+                    address: address || updatedUser.address
+                };
+                shouldUpdate = true;
             }
         }
-    }, [ssoData, address]);
 
-    // Handle provider data
-    useEffect(() => {
+        // Handle provider data - providerName always takes priority over SSO name
         if (address && providerStatus) {
+            updatedUser = {
+                ...updatedUser,
+                address,
+                isProvider: providerStatus.isLabProvider
+            };
+            
+            // Provider name takes absolute priority if it exists
+            if (providerStatus.providerName) {
+                updatedUser.name = providerStatus.providerName;
+            } else if (!updatedUser.name && ssoData?.user?.name) {
+                // Only use SSO name if no provider name exists
+                updatedUser.name = ssoData.user.name;
+            }
+            
+            shouldUpdate = true;
+        }
+
+        // Update user state only if there are changes
+        if (shouldUpdate) {
             setUser(prev => ({
                 ...prev,
-                address,
-                name: providerStatus.providerName || prev?.name || null,
-                isProvider: providerStatus.isLabProvider
+                ...updatedUser
             }));
         }
-    }, [address, providerStatus]);
+    }, [ssoData, address, providerStatus]);
 
     // Handle connection changes
     useEffect(() => {

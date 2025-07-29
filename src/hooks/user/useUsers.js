@@ -5,7 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userServices } from '@/services/userServices'
 import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/hooks/queryKeys'
-import { useMemo } from 'react'
+import { devLog } from '@/utils/dev/logger'
 
 // ===============================
 // === MAIN COMPOSED HOOKS ===
@@ -37,7 +37,7 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
       // Use the composed service for complete provider data
       const result = await userServices.fetchProviderStatusComposed(identifier);
       
-      console.log('🔍 useProviderStatusQuery Final Result:', result);
+      devLog.log('🔍 useProviderStatusQuery Final Result:', result);
       
       return result;
     },

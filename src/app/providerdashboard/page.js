@@ -32,11 +32,7 @@ export default function ProviderDashboard() {
     isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery({
-    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-    refetchOnWindowFocus: false, // No automatic refetch
-    refetchInterval: false, // Disable automatic periodic refetch
-  });
+  } = useAllLabsQuery();
 
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
