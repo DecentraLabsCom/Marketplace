@@ -32,15 +32,18 @@ export default function UserDashboard() {
 
   // 🚀 React Query for user bookings
   const { 
-    data: userBookings = [], 
+    data: userBookingsData, 
     isLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useUserBookingsQuery(address, null, null, {
+  } = useUserBookingsQuery(address, true, {
     enabled: !!address && isLoggedIn,
     staleTime: 2 * 60 * 1000, // 2 minutes - more dynamic bookings
     refetchOnWindowFocus: true,
   });
+
+  // Extract bookings array from composed service response
+  const userBookings = userBookingsData?.bookings || [];
 
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();
@@ -87,7 +90,12 @@ export default function UserDashboard() {
     return {
       ...booking,
       labName: lab?.name ?? `Lab ${booking.labId}`,
-      status: booking.status
+      status: booking.status,
+      // Ensure date field exists for calendar compatibility
+      date: booking.date || new Date(parseInt(booking.start) * 1000).toISOString().split('T')[0],
+      // Add formatted times for display
+      startTime: booking.start ? new Date(parseInt(booking.start) * 1000).toLocaleTimeString() : 'N/A',
+      endTime: booking.end ? new Date(parseInt(booking.end) * 1000).toLocaleTimeString() : 'N/A'
     };
   });
   

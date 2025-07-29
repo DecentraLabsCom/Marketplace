@@ -116,26 +116,6 @@ export const useLabOwnerQuery = (labId, options = {}) => {
 };
 
 /**
- * Hook to get providers list (extracts from composed data)
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with providers list data
- */
-export const useProvidersListQuery = (options = {}) => {
-  const allLabsQuery = useAllLabsQuery();
-  
-  return useMemo(() => {
-    const providers = [...new Set(allLabsQuery.data?.map(lab => lab.provider).filter(Boolean))] || [];
-    return {
-      data: providers,
-      isLoading: allLabsQuery.isLoading,
-      error: allLabsQuery.error,
-      isSuccess: allLabsQuery.isSuccess,
-      ...options,
-    };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, options]);
-};
-
-/**
  * Hook to get lab metadata (extracts from composed data)
  * @param {string} metadataUri - URI to fetch metadata from (not used in optimized version)
  * @param {string|number} labId - Lab identifier for context

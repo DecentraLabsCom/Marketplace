@@ -15,16 +15,15 @@ import { useMemo } from 'react'
 /**
  * Hook to get all user bookings in a single composed call
  * This is the primary data source for user booking data
- * @param {string} userAddress - User's wallet address or identifier
- * @param {Date|string|null} [fromDate=null] - Start date filter for bookings
- * @param {Date|string|null} [toDate=null] - End date filter for bookings
+ * @param {string} userAddress - User's wallet address
+ * @param {boolean} includeDetails - Whether to fetch detailed reservation info
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with user bookings composed data
  */
-export const useUserBookingsQuery = (userAddress, fromDate = null, toDate = null, options = {}) => {
+export const useUserBookingsQuery = (userAddress, includeDetails = false, options = {}) => {
   return useQuery({
-    queryKey: ['bookings', 'user-composed', userAddress, fromDate, toDate],
-    queryFn: () => bookingServices.fetchUserBookingsComposed(userAddress, fromDate, toDate),
+    queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, includeDetails),
+    queryFn: () => bookingServices.fetchUserBookingsComposed(userAddress, includeDetails),
     enabled: !!userAddress,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
@@ -39,15 +38,14 @@ export const useUserBookingsQuery = (userAddress, fromDate = null, toDate = null
  * Hook to get all lab bookings in a single composed call
  * This is the primary data source for lab booking data
  * @param {string|number} labId - Lab identifier
- * @param {Date|string|null} [fromDate=null] - Start date filter for bookings
- * @param {Date|string|null} [toDate=null] - End date filter for bookings
+ * @param {boolean} includeMetrics - Whether to calculate occupancy metrics
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with lab bookings composed data
  */
-export const useLabBookingsQuery = (labId, fromDate = null, toDate = null, options = {}) => {
+export const useLabBookingsQuery = (labId, includeMetrics = true, options = {}) => {
   return useQuery({
-    queryKey: ['bookings', 'lab-composed', labId, fromDate, toDate],
-    queryFn: () => bookingServices.fetchLabBookingsComposed(labId, fromDate, toDate),
+    queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId, includeMetrics),
+    queryFn: () => bookingServices.fetchLabBookingsComposed(labId, includeMetrics),
     enabled: !!labId,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
@@ -58,99 +56,221 @@ export const useLabBookingsQuery = (labId, fromDate = null, toDate = null, optio
   });
 };
 
+/**
+ * Hook to get multi-lab bookings in a single composed call
+ * Efficiently fetches bookings for multiple labs in parallel
+ * @param {Array<string|number>} labIds - Array of lab IDs
+ * @param {boolean} includeMetrics - Whether to include metrics for each lab
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with multi-lab bookings data
+ */
+export const useMultiLabBookingsQuery = (labIds, includeMetrics = false, options = {}) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.BOOKINGS.multiLab(labIds, includeMetrics),
+    queryFn: () => bookingServices.fetchMultiLabBookingsComposed(labIds, includeMetrics),
+    enabled: Array.isArray(labIds) && labIds.length > 0,
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    retry: 2,
+    ...options,
+  });
+};
+
+// ===============================
+// === ATOMIC HOOKS (for specific use cases) ===
+// ===============================
+
+/**
+ * Hook to get atomic user bookings (when you only need basic booking data)
+ * @param {string} userAddress - User's wallet address
+ * @param {boolean} clearCache - Whether to bypass cache
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with atomic user bookings
+ */
+export const useUserBookingsAtomicQuery = (userAddress, clearCache = false, options = {}) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.BOOKINGS.userAtomic(userAddress, clearCache),
+    queryFn: () => bookingServices.fetchUserBookings(userAddress, clearCache),
+    enabled: !!userAddress,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 2,
+    ...options,
+  });
+};
+
+/**
+ * Hook to get atomic lab bookings (when you only need basic booking data)
+ * @param {string|number} labId - Lab identifier
+ * @param {boolean} clearCache - Whether to bypass cache
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with atomic lab bookings
+ */
+export const useLabBookingsAtomicQuery = (labId, clearCache = false, options = {}) => {
+  return useQuery({
+    queryKey: QUERY_KEYS.BOOKINGS.labAtomic(labId, clearCache),
+    queryFn: () => bookingServices.fetchLabBookings(labId, clearCache),
+    enabled: !!labId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 2,
+    ...options,
+  });
+};
+
+// ===============================
 // === CACHE-EXTRACTING HOOKS (simple data operations) ===
+// ===============================
 
 /**
  * Hook to get user bookings list (extracts from composed data)
  * @param {string} userAddress - User's wallet address
- * @param {Date|string|null} [fromDate=null] - Start date filter
- * @param {Date|string|null} [toDate=null] - End date filter
+ * @param {boolean} includeDetails - Whether to include detailed info
  * @returns {Object} Bookings list with loading and error states
  */
-export const useUserBookingsListQuery = (userAddress, fromDate = null, toDate = null) => {
-  const userBookingsQuery = useUserBookingsQuery(userAddress, fromDate, toDate);
+export const useUserBookingsListQuery = (userAddress, includeDetails = false) => {
+  const userBookingsQuery = useUserBookingsQuery(userAddress, includeDetails);
   
   return useMemo(() => ({
     data: userBookingsQuery.data?.bookings || [],
+    totalBookings: userBookingsQuery.data?.totalBookings || 0,
+    activeBookings: userBookingsQuery.data?.activeBookings || 0,
+    pastBookings: userBookingsQuery.data?.pastBookings || 0,
     isLoading: userBookingsQuery.isLoading,
     error: userBookingsQuery.error,
     refetch: userBookingsQuery.refetch,
-  }), [userBookingsQuery.data, userBookingsQuery.isLoading, userBookingsQuery.error]);
+  }), [userBookingsQuery.data, userBookingsQuery.isLoading, userBookingsQuery.error, userBookingsQuery.refetch]);
 };
 
 /**
  * Hook to get lab bookings list (extracts from composed data)
  * @param {string|number} labId - Lab identifier
- * @param {Date|string|null} [fromDate=null] - Start date filter
- * @param {Date|string|null} [toDate=null] - End date filter
+ * @param {boolean} includeMetrics - Whether to include metrics
  * @returns {Object} Bookings list with loading and error states
  */
-export const useLabBookingsListQuery = (labId, fromDate = null, toDate = null) => {
-  const labBookingsQuery = useLabBookingsQuery(labId, fromDate, toDate);
+export const useLabBookingsListQuery = (labId, includeMetrics = true) => {
+  const labBookingsQuery = useLabBookingsQuery(labId, includeMetrics);
   
   return useMemo(() => ({
     data: labBookingsQuery.data?.bookings || [],
+    totalBookings: labBookingsQuery.data?.totalBookings || 0,
+    metrics: labBookingsQuery.data?.metrics || null,
     isLoading: labBookingsQuery.isLoading,
     error: labBookingsQuery.error,
     refetch: labBookingsQuery.refetch,
-  }), [labBookingsQuery.data, labBookingsQuery.isLoading, labBookingsQuery.error]);
+  }), [labBookingsQuery.data, labBookingsQuery.isLoading, labBookingsQuery.error, labBookingsQuery.refetch]);
 };
 
-// === MUTATIONS ===
+/**
+ * Hook to get single booking from user cache (simple find operation)
+ * @param {string} userAddress - User's wallet address
+ * @param {string} bookingId - Booking ID to find
+ * @returns {Object} Single booking with loading and error states
+ */
+export const useUserBookingQuery = (userAddress, bookingId) => {
+  const userBookingsQuery = useUserBookingsQuery(userAddress);
+  
+  return useMemo(() => {
+    const booking = userBookingsQuery.data?.bookings?.find(b => b.id === bookingId || b.reservationKey === bookingId);
+    return {
+      data: booking || null,
+      isLoading: userBookingsQuery.isLoading,
+      error: userBookingsQuery.error,
+      refetch: userBookingsQuery.refetch,
+    };
+  }, [userBookingsQuery.data, bookingId, userBookingsQuery.isLoading, userBookingsQuery.error, userBookingsQuery.refetch]);
+};
 
 /**
- * Hook to create a booking
- * @returns {Object} React Query mutation object for creating bookings with optimistic updates
+ * Hook to get single booking from lab cache (simple find operation)
+ * @param {string|number} labId - Lab identifier
+ * @param {string} bookingId - Booking ID to find
+ * @returns {Object} Single booking with loading and error states
+ */
+export const useLabBookingQuery = (labId, bookingId) => {
+  const labBookingsQuery = useLabBookingsQuery(labId);
+  
+  return useMemo(() => {
+    const booking = labBookingsQuery.data?.bookings?.find(b => b.id === bookingId || b.reservationKey === bookingId);
+    return {
+      data: booking || null,
+      isLoading: labBookingsQuery.isLoading,
+      error: labBookingsQuery.error,
+      refetch: labBookingsQuery.refetch,
+    };
+  }, [labBookingsQuery.data, bookingId, labBookingsQuery.isLoading, labBookingsQuery.error, labBookingsQuery.refetch]);
+};
+
+// ===============================
+// === MUTATIONS ===
+// ===============================
+
+/**
+ * Hook to create a booking with optimistic updates
+ * @returns {Object} React Query mutation object for creating bookings
  */
 export const useCreateBookingMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ labId, startTime, endTime, config }) => 
-      bookingServices.createBooking(labId, startTime, endTime, config),
+    mutationFn: (bookingData) => bookingServices.createBooking(bookingData),
     
-    onMutate: async ({ labId, startTime, endTime, userAddress }) => {
+    onMutate: async (bookingData) => {
+      const { labId, userAddress, start, timeslot } = bookingData;
       devLog.log('Creating booking optimistically...');
       
       // Cancel outgoing queries to avoid overwriting optimistic update
+      if (userAddress) {
+        await queryClient.cancelQueries({ 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress) 
+        });
+      }
       await queryClient.cancelQueries({ 
-        queryKey: ['bookings', 'user-composed', userAddress] 
-      });
-      await queryClient.cancelQueries({ 
-        queryKey: ['bookings', 'lab-composed', labId] 
+        queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId) 
       });
       
       // Create optimistic booking
       const optimisticBooking = {
         id: `temp_${Date.now()}`,
-        labId,
+        labId: labId.toString(),
         userAddress,
-        startTime,
-        endTime,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
+        start: start.toString(),
+        end: (start + timeslot).toString(), // Calculate end time
+        status: '1', // Active status
+        reservationKey: `temp_key_${Date.now()}`,
+        createdAt: Math.floor(Date.now() / 1000).toString(),
       };
       
-      // Snapshot and update user bookings
-      const previousUserBookings = queryClient.getQueryData(['bookings', 'user-composed', userAddress]);
+      // Snapshot and update user bookings (only if userAddress provided)
+      const previousUserBookings = userAddress ? 
+        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress)) : null;
       if (previousUserBookings && userAddress) {
         queryClient.setQueryData(
-          ['bookings', 'user-composed', userAddress],
+          QUERY_KEYS.BOOKINGS.userComposed(userAddress),
           {
             ...previousUserBookings,
-            bookings: [...(previousUserBookings.bookings || []), optimisticBooking]
+            bookings: [...(previousUserBookings.bookings || []), optimisticBooking],
+            totalBookings: (previousUserBookings.totalBookings || 0) + 1,
+            activeBookings: (previousUserBookings.activeBookings || 0) + 1
           }
         );
       }
       
       // Snapshot and update lab bookings
-      const previousLabBookings = queryClient.getQueryData(['bookings', 'lab-composed', labId]);
+      const previousLabBookings = queryClient.getQueryData(QUERY_KEYS.BOOKINGS.labComposed(labId));
       if (previousLabBookings) {
         queryClient.setQueryData(
-          ['bookings', 'lab-composed', labId],
+          QUERY_KEYS.BOOKINGS.labComposed(labId),
           {
             ...previousLabBookings,
-            bookings: [...(previousLabBookings.bookings || []), optimisticBooking]
+            bookings: [...(previousLabBookings.bookings || []), optimisticBooking],
+            totalBookings: (previousLabBookings.totalBookings || 0) + 1,
+            metrics: {
+              ...previousLabBookings.metrics,
+              activeBookings: (previousLabBookings.metrics?.activeBookings || 0) + 1
+            }
           }
         );
       }
@@ -162,16 +282,16 @@ export const useCreateBookingMutation = () => {
       devLog.error('Error creating booking, rolling back:', err);
       
       // Rollback optimistic updates
-      if (context?.previousUserBookings) {
+      if (context?.previousUserBookings && variables.userAddress) {
         queryClient.setQueryData(
-          ['bookings', 'user-composed', variables.userAddress],
+          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress),
           context.previousUserBookings
         );
       }
       
       if (context?.previousLabBookings) {
         queryClient.setQueryData(
-          ['bookings', 'lab-composed', variables.labId],
+          QUERY_KEYS.BOOKINGS.labComposed(variables.labId),
           context.previousLabBookings
         );
       }
@@ -183,58 +303,87 @@ export const useCreateBookingMutation = () => {
       // Invalidate composed queries to refetch fresh data
       if (variables.userAddress) {
         queryClient.invalidateQueries({ 
-          queryKey: ['bookings', 'user-composed', variables.userAddress] 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress) 
         });
       }
       
       queryClient.invalidateQueries({ 
-        queryKey: ['bookings', 'lab-composed', variables.labId] 
+        queryKey: QUERY_KEYS.BOOKINGS.labComposed(variables.labId) 
+      });
+
+      // Also invalidate atomic queries if they exist
+      if (variables.userAddress) {
+        queryClient.invalidateQueries({ 
+          queryKey: QUERY_KEYS.BOOKINGS.userAtomic(variables.userAddress) 
+        });
+      }
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.BOOKINGS.labAtomic(variables.labId) 
       });
     },
   });
 };
 
 /**
- * Hook to cancel a booking
- * @returns {Object} React Query mutation object for canceling bookings with optimistic updates
+ * Hook to cancel a booking with optimistic updates
+ * @returns {Object} React Query mutation object for canceling bookings
  */
 export const useCancelBookingMutation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ bookingId }) => bookingServices.cancelBooking(bookingId),
+    mutationFn: (reservationKey) => bookingServices.cancelBooking(reservationKey),
     
-    onMutate: async ({ bookingId, userAddress, labId }) => {
-      devLog.log(`Cancelling booking ${bookingId} optimistically...`);
+    onMutate: async ({ reservationKey, userAddress, labId }) => {
+      devLog.log(`Cancelling booking ${reservationKey} optimistically...`);
       
       // Cancel outgoing queries
-      await queryClient.cancelQueries({ 
-        queryKey: ['bookings', 'user-composed', userAddress] 
-      });
-      await queryClient.cancelQueries({ 
-        queryKey: ['bookings', 'lab-composed', labId] 
-      });
+      if (userAddress) {
+        await queryClient.cancelQueries({ 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress) 
+        });
+      }
+      if (labId) {
+        await queryClient.cancelQueries({ 
+          queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId) 
+        });
+      }
       
       // Snapshot and update user bookings
-      const previousUserBookings = queryClient.getQueryData(['bookings', 'user-composed', userAddress]);
+      const previousUserBookings = userAddress ? 
+        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress)) : null;
       if (previousUserBookings && userAddress) {
+        const filteredBookings = (previousUserBookings.bookings || []).filter(
+          booking => booking.reservationKey !== reservationKey && booking.id !== reservationKey
+        );
         queryClient.setQueryData(
-          ['bookings', 'user-composed', userAddress],
+          QUERY_KEYS.BOOKINGS.userComposed(userAddress),
           {
             ...previousUserBookings,
-            bookings: (previousUserBookings.bookings || []).filter(booking => booking.id !== bookingId)
+            bookings: filteredBookings,
+            totalBookings: filteredBookings.length,
+            activeBookings: filteredBookings.filter(b => b.status === '1').length
           }
         );
       }
       
       // Snapshot and update lab bookings
-      const previousLabBookings = queryClient.getQueryData(['bookings', 'lab-composed', labId]);
+      const previousLabBookings = labId ? 
+        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.labComposed(labId)) : null;
       if (previousLabBookings) {
+        const filteredBookings = (previousLabBookings.bookings || []).filter(
+          booking => booking.reservationKey !== reservationKey && booking.id !== reservationKey
+        );
         queryClient.setQueryData(
-          ['bookings', 'lab-composed', labId],
+          QUERY_KEYS.BOOKINGS.labComposed(labId),
           {
             ...previousLabBookings,
-            bookings: (previousLabBookings.bookings || []).filter(booking => booking.id !== bookingId)
+            bookings: filteredBookings,
+            totalBookings: filteredBookings.length,
+            metrics: {
+              ...previousLabBookings.metrics,
+              activeBookings: filteredBookings.filter(b => b.status === '1').length
+            }
           }
         );
       }
@@ -246,16 +395,16 @@ export const useCancelBookingMutation = () => {
       devLog.error('Error cancelling booking, rolling back:', err);
       
       // Rollback optimistic updates
-      if (context?.previousUserBookings) {
+      if (context?.previousUserBookings && variables.userAddress) {
         queryClient.setQueryData(
-          ['bookings', 'user-composed', variables.userAddress],
+          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress),
           context.previousUserBookings
         );
       }
       
-      if (context?.previousLabBookings) {
+      if (context?.previousLabBookings && variables.labId) {
         queryClient.setQueryData(
-          ['bookings', 'lab-composed', variables.labId],
+          QUERY_KEYS.BOOKINGS.labComposed(variables.labId),
           context.previousLabBookings
         );
       }
@@ -267,13 +416,25 @@ export const useCancelBookingMutation = () => {
       // Invalidate composed queries to refetch fresh data
       if (variables.userAddress) {
         queryClient.invalidateQueries({ 
-          queryKey: ['bookings', 'user-composed', variables.userAddress] 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress) 
         });
       }
       
       if (variables.labId) {
         queryClient.invalidateQueries({ 
-          queryKey: ['bookings', 'lab-composed', variables.labId] 
+          queryKey: QUERY_KEYS.BOOKINGS.labComposed(variables.labId) 
+        });
+      }
+
+      // Also invalidate atomic queries if they exist
+      if (variables.userAddress) {
+        queryClient.invalidateQueries({ 
+          queryKey: QUERY_KEYS.BOOKINGS.userAtomic(variables.userAddress) 
+        });
+      }
+      if (variables.labId) {
+        queryClient.invalidateQueries({ 
+          queryKey: QUERY_KEYS.BOOKINGS.labAtomic(variables.labId) 
         });
       }
     },

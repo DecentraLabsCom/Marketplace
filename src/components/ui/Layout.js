@@ -80,10 +80,10 @@ export function CardHeader({
   return (
     <div className={classes}>
       {(title || subtitle || actions) && (
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-center">
           <div>
             {title && (
-              <h3 className="text-lg font-medium leading-6 text-gray-900">
+              <h3 className="text-lg leading-6 text-[#333f63] font-bold">
                 {title}
               </h3>
             )}

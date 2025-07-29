@@ -6,11 +6,7 @@
 import { useCallback } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useUserEvents } from '@/context/UserEventContext'
-import { 
-  useUserCacheInvalidation,
-  useRefreshProviderStatusMutation,
-  useRefreshSSOSessionMutation 
-} from '@/hooks/user/useUsers'
+import { useRefreshProviderStatusMutation } from '@/hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 export function useUserEventCoordinator() {

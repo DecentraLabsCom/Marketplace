@@ -35,11 +35,35 @@ export async function GET(request) {
     console.log(`🔍 Fetching bookings for lab: ${labId}`);
     
     const contract = await getContractInstance();
-    const blockchainBookings = await retryBlockchainRead(() => contract.getLabBookings(numericLabId));
+    
+    // Step 1: Get total number of reservations for this lab
+    const reservationsCount = await retryBlockchainRead(() => contract.getReservationsOfToken(numericLabId));
+    const totalReservations = Number(reservationsCount);
+    
+    console.log(`📊 Lab ${labId} has ${totalReservations} total reservations`);
+    
+    if (totalReservations === 0) {
+      return Response.json({ 
+        bookings: [],
+        count: 0,
+        labId: numericLabId 
+      }, { 
+        status: 200,
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+    }
+    
+    // Step 2: Get all reservations for this lab in parallel
+    const reservationPromises = Array.from({ length: totalReservations }, (_, index) =>
+      retryBlockchainRead(() => contract.getReservationOfTokenByIndex(numericLabId, index))
+    );
+    
+    const reservationResults = await Promise.all(reservationPromises);
+    console.log(`📝 Retrieved ${reservationResults.length} lab reservations`);
     
     // Process and format bookings
-    const processedBookings = blockchainBookings.map((booking, index) => {
-      const [reservationKey, userAddress, start, end, status] = booking;
+    const processedBookings = reservationResults.map((reservation, index) => {
+      const [reservationKey, userAddress, start, end, status] = reservation;
       
       return {
         id: index,

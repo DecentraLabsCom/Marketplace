@@ -10,9 +10,20 @@
  * @constant {Object}
  */
 export const QUERY_KEYS = {
-  // Bookings
+  // Bookings - Atomic and Composed patterns
   BOOKINGS: {
     all: ['bookings'],
+    
+    // Composed queries (primary data sources)
+    userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
+    labComposed: (labId, includeMetrics = true) => ['bookings', 'lab-composed', labId, includeMetrics],
+    multiLab: (labIds, includeMetrics = false) => ['bookings', 'multi-lab', labIds.sort(), includeMetrics],
+    
+    // Atomic queries (for specific use cases)
+    userAtomic: (address, clearCache = false) => ['bookings', 'user-atomic', address, clearCache],
+    labAtomic: (labId, clearCache = false) => ['bookings', 'lab-atomic', labId, clearCache],
+    
+    // Legacy keys (for backward compatibility)
     user: (address) => ['bookings', 'user', address],
     lab: (labId) => ['bookings', 'lab', labId],
     labWithDates: (labId, startDate, endDate) => ['bookings', 'lab', labId, startDate, endDate],
@@ -61,22 +72,39 @@ export const INVALIDATION_PATTERNS = {
   // Invalidate all bookings when there are changes
   allBookings: () => [QUERY_KEYS.BOOKINGS.all],
 
-  // Invalidate bookings for a specific user
+  // Invalidate bookings for a specific user (both composed and atomic)
   userBookings: (address) => [
-    QUERY_KEYS.BOOKINGS.user(address),
+    QUERY_KEYS.BOOKINGS.userComposed(address),
+    QUERY_KEYS.BOOKINGS.userComposed(address, true), // With details
+    QUERY_KEYS.BOOKINGS.userAtomic(address),
+    QUERY_KEYS.BOOKINGS.userAtomic(address, true), // Clear cache
+    QUERY_KEYS.BOOKINGS.user(address), // Legacy
   ],
 
-  // Invalidate bookings for a specific lab
+  // Invalidate bookings for a specific lab (both composed and atomic)
   labBookings: (labId) => [
-    QUERY_KEYS.BOOKINGS.lab(labId),
-    QUERY_KEYS.BOOKINGS.labWithDates(labId),
+    QUERY_KEYS.BOOKINGS.labComposed(labId),
+    QUERY_KEYS.BOOKINGS.labComposed(labId, false), // Without metrics
+    QUERY_KEYS.BOOKINGS.labAtomic(labId),
+    QUERY_KEYS.BOOKINGS.labAtomic(labId, true), // Clear cache
+    QUERY_KEYS.BOOKINGS.lab(labId), // Legacy
+    QUERY_KEYS.BOOKINGS.labWithDates(labId), // Legacy with dates
   ],
+
+  // Invalidate multi-lab bookings that include a specific lab
+  multiLabBookings: (labId) => {
+    // This is more complex as we need to find all multi-lab queries that include this labId
+    // For now, we'll invalidate all multi-lab queries (safer approach)
+    // In the future, we could implement a more sophisticated pattern matching
+    return [['bookings', 'multi-lab']]; // Partial key to match all multi-lab queries
+  },
 
   // Invalidate lab data when a lab changes
   labData: (labId) => [
     QUERY_KEYS.LABS.data(labId),
     QUERY_KEYS.LABS.owner(labId),
     ...INVALIDATION_PATTERNS.labBookings(labId),
+    ...INVALIDATION_PATTERNS.multiLabBookings(labId),
   ],
 
   // Invalidate user data

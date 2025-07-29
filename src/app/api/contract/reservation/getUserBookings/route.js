@@ -1,6 +1,7 @@
 ﻿/**
- * API endpoint for retrieving user booking reservations
- * Handles GET requests to fetch user-specific booking data
+ * ATOMIC API endpoint for getting all user reservation keys
+ * Orchestrates atomic calls: reservationsOf + reservationKeyOfUserByIndex for each
+ * This is a composed endpoint that uses multiple atomic contract calls
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
@@ -8,10 +9,10 @@ import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 import { isAddress } from 'viem'
 
 /**
- * Retrieves all bookings for a specific user address
+ * Get all reservation keys for a user (composed of atomic contract calls)
  * @param {Request} request - HTTP request with query parameters
  * @param {string} request.searchParams.userAddress - User's wallet address (required)
- * @returns {Response} JSON response with user's booking array or error
+ * @returns {Response} JSON response with array of reservation keys
  */
 export async function GET(request) {
   const url = new URL(request.url);
@@ -30,48 +31,49 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching bookings for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
+    console.log(`🔍 Fetching reservation keys for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
     
     const contract = await getContractInstance();
-    const blockchainBookings = await retryBlockchainRead(() => contract.getUserBookings(userAddress));
     
-    // Process and format bookings
-    const processedBookings = blockchainBookings.map((booking, index) => {
-      const [reservationKey, labId, start, end, status] = booking;
-      
-      return {
-        id: index,
-        reservationKey: reservationKey.toString(),
-        labId: labId.toString(),
-        start: start.toString(),
-        end: end.toString(),
-        status: status.toString(),
-        startDate: new Date(Number(start) * 1000),
-        endDate: new Date(Number(end) * 1000),
-        duration: Number(end) - Number(start),
-        isActive: Date.now() >= Number(start) * 1000 && Date.now() < Number(end) * 1000,
-      };
-    });
-
-    console.log(`✅ Successfully fetched ${processedBookings.length} bookings`);
+    // Step 1: Get total number of reservations (atomic call)
+    const reservationsCount = await retryBlockchainRead(() => contract.reservationsOf(userAddress));
+    const totalReservations = Number(reservationsCount);
+    
+    console.log(`📊 User has ${totalReservations} total reservations`);
+    
+    if (totalReservations === 0) {
+      return Response.json({ 
+        reservationKeys: [],
+        count: 0,
+        userAddress 
+      }, { 
+        status: 200,
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+    }
+    
+    // Step 2: Get all reservation keys (atomic calls in parallel)
+    const reservationKeyPromises = Array.from({ length: totalReservations }, (_, index) =>
+      retryBlockchainRead(() => contract.reservationKeyOfUserByIndex(userAddress, index))
+    );
+    
+    const reservationKeys = await Promise.all(reservationKeyPromises);
+    console.log(`🔑 Retrieved ${reservationKeys.length} reservation keys`);
     
     return Response.json({ 
-      bookings: processedBookings,
-      count: processedBookings.length,
+      reservationKeys: reservationKeys.map(key => key.toString()),
+      count: reservationKeys.length,
       userAddress 
     }, { 
       status: 200,
-      headers: {
-        'Cache-Control': 'no-cache', // Let React Query handle caching
-      }
+      headers: { 'Cache-Control': 'no-cache' }
     });
 
   } catch (error) {
-    console.error('❌ Error fetching user bookings:', error);
+    console.error('❌ Error fetching user reservation keys:', error);
     
-    // Return structured error response
     return Response.json({ 
-      error: 'Failed to fetch user bookings',
+      error: 'Failed to fetch user reservation keys',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       userAddress 
     }, { status: 500 });

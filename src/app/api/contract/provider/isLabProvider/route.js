@@ -15,7 +15,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const wallet = searchParams.get('wallet');
-    
+  
     if (!wallet) {
       return Response.json({ error: 'Missing wallet parameter' }, { status: 400 });
     }
@@ -35,14 +35,16 @@ export async function GET(request) {
       ]);
     });
 
-    return Response.json({
+    const result = {
       success: true,
       data: {
         wallet: wallet.toLowerCase(),
         isLabProvider: Boolean(isLabProvider),
         checked: true
       }
-    }, { 
+    };
+
+    return Response.json(result, { 
       headers: { 'Cache-Control': 'no-cache' }
     });
 

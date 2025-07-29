@@ -1,304 +1,492 @@
 /**
- * Booking API Services
- * Handles all booking-related API operations
+ * Booking Services - Atomic and Composed
+ * Follows dual-layer pattern: atomic services (1:1 with endpoints) + composed services (orchestrate multiple calls)
  */
-import devLog from '@/utils/dev/logger'
 
-export const bookingServices = {
-  /**
-   * Fetch user bookings using existing API endpoints
-   * @param {string} userAddress - The user's wallet address
-   * @param {string|null} fromDate - Optional start date filter
-   * @param {string|null} toDate - Optional end date filter
-   * @returns {Promise<Array>} Array of user bookings
-   * @throws {Error} When user address is missing or API call fails
-   */
-  async fetchUserBookings(userAddress, fromDate = null, toDate = null) {
-    if (!userAddress) {
-      throw new Error('User address is required');
-    }
+import { devLog } from '@/utils/dev/logger'
 
+// ===========================
+// ATOMIC SERVICES (1:1 with API endpoints)
+// ===========================
+
+/**
+ * Get reservation count for user (atomic service)
+ * @param {string} userAddress - User wallet address
+ * @returns {Promise<number>} Number of reservations
+ */
+export const fetchReservationCount = async (userAddress) => {
+  if (!userAddress) {
+    throw new Error('User address is required for fetching reservation count');
+  }
+
+  const params = new URLSearchParams({ userAddress });
+
+  const response = await fetch(`/api/contract/reservation/reservationsOf?${params}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.count || 0;
+};
+
+/**
+ * Get reservation key by user index (atomic service)
+ * @param {string} userAddress - User wallet address
+ * @param {number} index - Index of the reservation
+ * @returns {Promise<string>} Reservation key
+ */
+export const fetchReservationKeyByIndex = async (userAddress, index) => {
+  if (!userAddress) {
+    throw new Error('User address is required');
+  }
+
+  const params = new URLSearchParams({ userAddress, index: index.toString() });
+
+  const response = await fetch(`/api/contract/reservation/reservationKeyOfUserByIndex?${params}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.reservationKey;
+};
+
+/**
+ * Get all user reservation keys (composed atomic calls)
+ * @param {string} userAddress - User wallet address
+ * @returns {Promise<Array<string>>} Array of reservation keys
+ */
+export const fetchUserReservationKeys = async (userAddress) => {
+  if (!userAddress) {
+    throw new Error('User address is required for fetching reservation keys');
+  }
+
+  const params = new URLSearchParams({ userAddress });
+
+  const response = await fetch(`/api/contract/reservation/getUserBookings?${params}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.reservationKeys || [];
+};
+
+/**
+ * Fetch user bookings from API (atomic service)
+ * Uses efficient reservationsOf + reservationKeyOfUserByIndex pattern
+ * @param {string} userAddress - User wallet address
+ * @param {boolean} clearCache - Whether to bypass cache
+ * @returns {Promise<Array>} Array of user bookings
+ */
+export const fetchUserBookings = async (userAddress, clearCache = false) => {
+  if (!userAddress) {
+    throw new Error('User address is required for fetching bookings');
+  }
+
+  // Get reservation keys first
+  const reservationKeys = await fetchUserReservationKeys(userAddress);
+  
+  if (reservationKeys.length === 0) {
+    return [];
+  }
+
+  // Get details for each reservation key
+  const bookingPromises = reservationKeys.map(async (key, index) => {
     try {
-      const params = new URLSearchParams({
-        userAddress,
-        ...(fromDate && { fromDate }),
-        ...(toDate && { toDate }),
-      });
-
-      devLog.log(`Fetching user bookings for ${userAddress}`);
+      const reservationResponse = await fetchReservationDetails(key);
       
-      const response = await fetch(`/api/contract/reservation/getUserBookings?${params}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!reservationResponse || !reservationResponse.reservation) {
+        devLog.warn(`⚠️ No reservation data returned for key: ${key}`);
+        return null;
       }
       
-      const result = await response.json();
-      // The endpoint may return { bookings: [...] } or directly the array
-      const bookings = result.bookings || result || [];
+      // Extract the actual reservation data from the response
+      const reservationData = reservationResponse.reservation;
       
-      devLog.log(`Fetched ${Array.isArray(bookings) ? bookings.length : 0} user bookings`);
-      return Array.isArray(bookings) ? bookings : [];
-    } catch (error) {
-      devLog.error('Error fetching user bookings:', error);
-      throw new Error(`Failed to fetch user bookings: ${error.message}`);
-    }
-  },
-
-  /**
-   * Fetch bookings for a specific lab using existing API endpoints
-   * @param {string|number} labId - The lab ID to fetch bookings for
-   * @param {string|null} fromDate - Optional start date filter
-   * @param {string|null} toDate - Optional end date filter
-   * @returns {Promise<Array>} Array of lab bookings
-   * @throws {Error} When lab ID is missing or API call fails
-   */
-  async fetchLabBookings(labId, fromDate = null, toDate = null) {
-    if (!labId) {
-      throw new Error('Lab ID is required');
-    }
-
-    try {
-      const params = new URLSearchParams({
-        labId: labId.toString(),
-        ...(fromDate && { fromDate }),
-        ...(toDate && { toDate }),
-      });
-
-      devLog.log(`Fetching lab bookings for lab ${labId}`);
+      // Extract fields from the reservation struct with safe fallbacks
+      const labId = reservationData.labId;
+      const renter = reservationData.renter; 
+      const price = reservationData.price;
+      const start = reservationData.start;
+      const end = reservationData.end;
+      const status = reservationData.status;
       
-      const response = await fetch(`/api/contract/reservation/getLabBookings?${params}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Validate required fields
+      if (labId === undefined || labId === null) {
+        devLog.warn(`⚠️ Missing labId for reservation key: ${key}`, reservationData);
+        return null;
       }
       
-      const result = await response.json();
-      // The endpoint may return { bookings: [...] } or directly the array
-      const bookings = result.bookings || result || [];
-      
-      devLog.log(`Fetched ${Array.isArray(bookings) ? bookings.length : 0} lab bookings`);
-      return Array.isArray(bookings) ? bookings : [];
-    } catch (error) {
-      devLog.error('Error fetching lab bookings:', error);
-      throw new Error(`Failed to fetch lab bookings: ${error.message}`);
-    }
-  },
-
-  /**
-   * Create a new booking using existing API endpoint
-   * @param {string|number} labId - The lab ID to book
-   * @param {string} startTime - Booking start time (ISO string or timestamp)
-   * @param {string} endTime - Booking end time (ISO string or timestamp)
-   * @param {Object} config - Additional booking configuration
-   * @returns {Promise<Object>} Booking creation result
-   * @throws {Error} When required parameters are missing or API call fails
-   */
-  async createBooking(labId, startTime, endTime, config = {}) {
-    if (!labId || !startTime || !endTime) {
-      throw new Error('Lab ID, start time, and end time are required');
-    }
-
-    try {
-      devLog.log(`Creating booking for lab ${labId} from ${startTime} to ${endTime}`);
-      
-      const response = await fetch('/api/contract/reservation/makeBooking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          labId: labId.toString(),
-          startTime,
-          endTime,
-          ...config
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (start === undefined || start === null) {
+        devLog.warn(`⚠️ Missing start time for reservation key: ${key}`);
+        return null;
       }
       
-      const result = await response.json();
-      devLog.log('Booking created successfully:', result);
-      return result;
-    } catch (error) {
-      devLog.error('Error creating booking:', error);
-      throw new Error(`Failed to create booking: ${error.message}`);
-    }
-  },
-
-  /**
-   * Cancel an existing booking using existing API endpoint
-   * @param {string|number} bookingId - The booking ID to cancel
-   * @returns {Promise<Object>} Booking cancellation result
-   * @throws {Error} When booking ID is missing or API call fails
-   */
-  async cancelBooking(bookingId) {
-    if (!bookingId) {
-      throw new Error('Booking ID is required');
-    }
-
-    try {
-      devLog.log(`Cancelling booking ${bookingId}`);
-      
-      const response = await fetch('/api/contract/reservation/cancelBooking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: bookingId.toString() })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (end === undefined || end === null) {
+        devLog.warn(`⚠️ Missing end time for reservation key: ${key}`);
+        return null;
       }
       
-      const result = await response.json();
-      devLog.log('Booking cancelled successfully:', result);
-      return result;
-    } catch (error) {
-      devLog.error('Error cancelling booking:', error);
-      throw new Error(`Failed to cancel booking: ${error.message}`);
-    }
-  },
-
-  /**
-   * Confirm a reservation request
-   * @param {string} reservationKey - The reservation key to confirm
-   * @returns {Promise<Object>} Confirmation result from the blockchain
-   * @throws {Error} When reservation key is missing or API call fails
-   */
-  async confirmReservationRequest(reservationKey) {
-    if (!reservationKey) {
-      throw new Error('Reservation key is required');
-    }
-
-    try {
-      devLog.log(`Confirming reservation request: ${reservationKey}`);
+      // Convert to numbers safely
+      const startNum = Number(start);
+      const endNum = Number(end);
+      const statusNum = Number(status || 0);
       
-      const response = await fetch('/api/contract/reservation/confirmReservationRequest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reservationKey }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      // Validate converted numbers
+      if (isNaN(startNum) || isNaN(endNum)) {
+        devLog.warn(`⚠️ Invalid timestamps for reservation key: ${key}`, { start, end });
+        return null;
       }
-
-      const result = await response.json();
-      devLog.log('✅ Reservation confirmed:', result);
       
-      return result;
-    } catch (error) {
-      devLog.error('Error confirming reservation request:', error);
-      throw new Error(`Failed to confirm reservation: ${error.message}`);
-    }
-  },
-
-  /**
-   * Deny a reservation request
-   * @param {string} reservationKey - The reservation key to deny
-   * @param {string} reason - Reason for denial (defaults to 'Denied by provider')
-   * @returns {Promise<Object>} Denial result from the blockchain
-   * @throws {Error} When reservation key is missing or API call fails
-   */
-  async denyReservationRequest(reservationKey, reason = 'Denied by provider') {
-    if (!reservationKey) {
-      throw new Error('Reservation key is required');
-    }
-
-    try {
-      devLog.log(`Denying reservation request: ${reservationKey}`);
+      const now = Date.now() / 1000; // Current time in seconds
       
-      const response = await fetch('/api/contract/reservation/denyReservationRequest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reservationKey, reason }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-      devLog.log('✅ Reservation denied:', result);
-      
-      return result;
-    } catch (error) {
-      devLog.error('Error denying reservation request:', error);
-      throw new Error(`Failed to deny reservation: ${error.message}`);
-    }
-  },
-
-  // === COMPOSED SERVICES (orchestrate multiple atomic calls) ===
-
-  /**
-   * Fetch all booking data for a user in a single composed call
-   * Orchestrates user bookings with related lab and reservation data
-   * @param {string} userAddress - User's wallet address
-   * @param {string|null} fromDate - Optional start date filter
-   * @param {string|null} toDate - Optional end date filter
-   * @returns {Promise<Object>} Complete user booking ecosystem data
-   */
-  async fetchUserBookingsComposed(userAddress, fromDate = null, toDate = null) {
-    if (!userAddress) {
-      throw new Error('User address is required');
-    }
-
-    try {
-      devLog.log(`🔄 Starting composed fetch for user bookings: ${userAddress}...`);
-
-      // For now, just fetch user bookings
-      // In the future, we could also fetch related lab data, payment status, etc.
-      const userBookings = await this.fetchUserBookings(userAddress, fromDate, toDate);
-
-      devLog.log('✅ All user booking data fetched successfully');
-
       return {
-        bookings: userBookings,
-        userAddress,
-        dateRange: { fromDate, toDate },
-        lastUpdated: Date.now(),
+        id: index,
+        reservationKey: key,
+        labId: labId.toString(),
+        start: startNum.toString(), // Unix timestamp in seconds
+        end: endNum.toString(), // Unix timestamp in seconds  
+        status: statusNum.toString(),
+        price: (price?.toString() || '0'),
+        renter: (renter?.toString() || userAddress),
+        date: new Date(startNum * 1000).toISOString().split('T')[0], // Add date field in YYYY-MM-DD format
+        startDate: new Date(startNum * 1000),
+        endDate: new Date(endNum * 1000),
+        duration: endNum - startNum, // Duration in seconds
+        isActive: now >= startNum && now < endNum,
+        // Add additional fields from the API response
+        reservationState: reservationData.reservationState,
+        isPending: reservationData.isPending,
+        isBooked: reservationData.isBooked,
+        isUsed: reservationData.isUsed,
+        isCollected: reservationData.isCollected,
+        isCanceled: reservationData.isCanceled,
+        isCompleted: reservationData.isCompleted,
+        isConfirmed: reservationData.isConfirmed
       };
     } catch (error) {
-      devLog.error('Error in composed user bookings fetch:', error);
-      throw new Error(`Failed to fetch user booking data: ${error.message}`);
+      devLog.error(`❌ Error processing reservation key ${key}:`, error);
+      return null;
     }
-  },
+  });
 
-  /**
-   * Fetch all booking data for a lab in a single composed call
-   * Orchestrates lab bookings with related user and reservation data
-   * @param {string|number} labId - Lab identifier
-   * @param {string|null} fromDate - Optional start date filter
-   * @param {string|null} toDate - Optional end date filter
-   * @returns {Promise<Object>} Complete lab booking ecosystem data
-   */
-  async fetchLabBookingsComposed(labId, fromDate = null, toDate = null) {
-    if (!labId) {
-      throw new Error('Lab ID is required');
-    }
+  const allBookings = await Promise.all(bookingPromises);
+  const validBookings = allBookings.filter(booking => booking !== null);
+  
+  devLog.log(`🔧 [SERVICE] ✅ Successfully processed ${validBookings.length}/${allBookings.length} bookings`);
+  return validBookings;
+};
 
-    try {
-      devLog.log(`🔄 Starting composed fetch for lab bookings: ${labId}...`);
+/**
+ * Fetch lab bookings from API (atomic service) 
+ * Uses efficient getReservationsOfToken + getReservationOfTokenByIndex pattern
+ * @param {string|number} labId - Lab ID
+ * @param {boolean} clearCache - Whether to bypass cache
+ * @returns {Promise<Array>} Array of lab bookings
+ */
+export const fetchLabBookings = async (labId, clearCache = false) => {
+  if (!labId) {
+    throw new Error('Lab ID is required for fetching bookings');
+  }
 
-      // For now, just fetch lab bookings
-      // In the future, we could also fetch user details, payment status, etc.
-      const labBookings = await this.fetchLabBookings(labId, fromDate, toDate);
+  const params = new URLSearchParams({ 
+    labId: labId.toString(),
+    ...(clearCache && { t: Date.now().toString() })
+  });
 
-      devLog.log('✅ All lab booking data fetched successfully');
+  const response = await fetch(`/api/contract/reservation/getLabBookings?${params}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
 
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.bookings || data || [];
+};
+
+/**
+ * Fetch single reservation details (atomic service)
+ * @param {string} reservationKey - Reservation key
+ * @returns {Promise<Object>} Reservation details
+ */
+export const fetchReservationDetails = async (reservationKey) => {
+  if (!reservationKey) {
+    throw new Error('Reservation key is required');
+  }
+
+  const params = new URLSearchParams({ reservationKey });
+
+  const response = await fetch(`/api/contract/reservation/getReservation?${params}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * Create a new booking (atomic service)
+ * @param {Object} bookingData - Booking data
+ * @param {string|number} bookingData.labId - Lab ID
+ * @param {string} bookingData.userAddress - User wallet address (for context, not sent to API)
+ * @param {number} bookingData.start - Start time (Unix timestamp)
+ * @param {number} bookingData.timeslot - Duration in seconds
+ * @returns {Promise<Object>} Created booking details
+ */
+export const createBooking = async (bookingData) => {
+  const { labId, start, timeslot } = bookingData;
+  
+  if (!labId && labId !== 0) {
+    throw new Error('Lab ID is required');
+  }
+  if (!start) {
+    throw new Error('Start time is required');
+  }
+  if (!timeslot) {
+    throw new Error('Timeslot duration is required');
+  }
+
+  const response = await fetch('/api/contract/reservation/makeBooking', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ labId, start, timeslot })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * Cancel a booking (atomic service)
+ * @param {string} reservationKey - Reservation key to cancel
+ * @returns {Promise<Object>} Cancellation result
+ */
+export const cancelBooking = async (reservationKey) => {
+  if (!reservationKey) {
+    throw new Error('Reservation key is required for cancellation');
+  }
+
+  const response = await fetch('/api/contract/reservation/cancelBooking', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reservationKey })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
+};
+
+// ===========================
+// COMPOSED SERVICES (orchestrate multiple atomic calls)
+// ===========================
+
+/**
+ * Fetch comprehensive user booking data (composed service)
+ * Orchestrates user bookings with additional context
+ * @param {string} userAddress - User wallet address
+ * @param {boolean} includeDetails - Whether to fetch detailed reservation info
+ * @returns {Promise<Object>} Comprehensive user booking data
+ */
+export const fetchUserBookingsComposed = async (userAddress, includeDetails = false) => {
+  if (!userAddress) {
+    throw new Error('User address is required for composed booking fetch');
+  }
+
+  devLog.log('🔧 [SERVICE] 📊 Fetching composed user bookings for:', userAddress);
+
+  try {
+    // Use atomic service - fetchUserBookings already orchestrates the contract calls
+    const userBookings = await fetchUserBookings(userAddress);
+
+    devLog.log(`🔧 [SERVICE] ✅ Fetched ${userBookings.length} user bookings`);
+
+    // Simple composition: add summary statistics
+    const now = Date.now() / 1000;
+    const activeBookings = userBookings.filter(booking => {
+      const start = parseInt(booking.start);
+      const end = parseInt(booking.end);
+      return now >= start && now < end;
+    });
+    
+    const pastBookings = userBookings.filter(booking => {
+      const end = parseInt(booking.end);
+      return end < now;
+    });
+
+    const result = {
+      userAddress,
+      bookings: userBookings,
+      totalBookings: userBookings.length,
+      activeBookings: activeBookings.length,
+      pastBookings: pastBookings.length
+    };
+
+    devLog.log(`🔧 [SERVICE] ✅ Composed booking stats - Total: ${result.totalBookings}, Active: ${result.activeBookings}, Past: ${result.pastBookings}`);
+    return result;
+
+  } catch (error) {
+    devLog.error('❌ Error in fetchUserBookingsComposed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch comprehensive lab booking data (composed service)
+ * Orchestrates lab bookings with occupancy metrics
+ * @param {string|number} labId - Lab ID
+ * @param {boolean} includeMetrics - Whether to calculate occupancy metrics
+ * @returns {Promise<Object>} Comprehensive lab booking data
+ */
+export const fetchLabBookingsComposed = async (labId, includeMetrics = true) => {
+  if (!labId) {
+    throw new Error('Lab ID is required for composed lab booking fetch');
+  }
+
+  try {
+    // Get lab bookings (efficient: uses getReservationsOfToken + getReservationOfTokenByIndex)
+    const labBookings = await fetchLabBookings(labId);
+
+    if (!includeMetrics || labBookings.length === 0) {
       return {
+        labId,
         bookings: labBookings,
-        labId: labId.toString(),
-        dateRange: { fromDate, toDate },
-        lastUpdated: Date.now(),
+        totalBookings: labBookings.length
       };
-    } catch (error) {
-      devLog.error('Error in composed lab bookings fetch:', error);
-      throw new Error(`Failed to fetch lab booking data: ${error.message}`);
     }
-  },
+
+    // Calculate metrics
+    const now = Date.now() / 1000; // Unix timestamp
+    const dayInSeconds = 24 * 60 * 60;
+    const weekAgo = now - (7 * dayInSeconds);
+    const monthAgo = now - (30 * dayInSeconds);
+
+    const activeBookings = labBookings.filter(booking => booking.status === '1');
+    const completedBookings = labBookings.filter(booking => booking.status === '2' || booking.status === '3');
+    const weeklyBookings = labBookings.filter(booking => parseInt(booking.start) >= weekAgo);
+    const monthlyBookings = labBookings.filter(booking => parseInt(booking.start) >= monthAgo);
+
+    // Calculate total booked hours
+    const totalBookedHours = labBookings.reduce((total, booking) => {
+      const duration = (parseInt(booking.end) - parseInt(booking.start)) / 3600; // Convert to hours
+      return total + duration;
+    }, 0);
+
+    return {
+      labId,
+      bookings: labBookings,
+      totalBookings: labBookings.length,
+      metrics: {
+        activeBookings: activeBookings.length,
+        completedBookings: completedBookings.length,
+        weeklyBookings: weeklyBookings.length,
+        monthlyBookings: monthlyBookings.length,
+        totalBookedHours: Math.round(totalBookedHours * 100) / 100, // Round to 2 decimals
+        averageBookingDuration: labBookings.length > 0 
+          ? Math.round((totalBookedHours / labBookings.length) * 100) / 100 
+          : 0
+      }
+    };
+
+  } catch (error) {
+    console.error('Error in fetchLabBookingsComposed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch multi-lab booking data (composed service)
+ * Efficiently fetches bookings for multiple labs in parallel
+ * @param {Array<string|number>} labIds - Array of lab IDs
+ * @param {boolean} includeMetrics - Whether to include metrics for each lab
+ * @returns {Promise<Object>} Multi-lab booking data
+ */
+export const fetchMultiLabBookingsComposed = async (labIds, includeMetrics = false) => {
+  if (!Array.isArray(labIds) || labIds.length === 0) {
+    throw new Error('Array of lab IDs is required');
+  }
+
+  try {
+    // Fetch all lab bookings in parallel (each uses efficient pattern)
+    const bookingPromises = labIds.map(labId => 
+      fetchLabBookingsComposed(labId, includeMetrics).catch(error => ({
+        labId,
+        error: error.message,
+        bookings: [],
+        totalBookings: 0
+      }))
+    );
+
+    const results = await Promise.all(bookingPromises);
+    
+    // Aggregate results
+    const totalBookings = results.reduce((sum, result) => sum + (result.totalBookings || 0), 0);
+    const successfulLabs = results.filter(result => !result.error);
+    const failedLabs = results.filter(result => result.error);
+
+    return {
+      labIds,
+      results,
+      summary: {
+        totalBookings,
+        successfulLabs: successfulLabs.length,
+        failedLabs: failedLabs.length,
+        averageBookingsPerLab: successfulLabs.length > 0 
+          ? Math.round((totalBookings / successfulLabs.length) * 100) / 100 
+          : 0
+      }
+    };
+
+  } catch (error) {
+    console.error('Error in fetchMultiLabBookingsComposed:', error);
+    throw error;
+  }
+};
+
+// Export all services
+export const bookingServices = {
+  // Atomic services
+  fetchUserBookings,
+  fetchLabBookings,
+  fetchReservationDetails,
+  createBooking,
+  cancelBooking,
+  
+  // Composed services
+  fetchUserBookingsComposed,
+  fetchLabBookingsComposed,
+  fetchMultiLabBookingsComposed
 };

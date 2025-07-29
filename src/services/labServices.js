@@ -1,7 +1,6 @@
 /**
- * Lab API Services - Atomic Operations Only
- * Handles individual API endpoint calls with consistent error handling
- * Optimized for React Query composition patterns
+ * Lab API Services - Atomic and Composed
+ * Follows dual-layer pattern: atomic services (1:1 with endpoints) + composed services (orchestrate multiple calls)
  */
 import devLog from '@/utils/dev/logger'
 

@@ -144,7 +144,6 @@ export default function BookingsList({
               const bookingKey = `${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`;
               
               const itemProps = {
-                key: bookingKey,
                 lab: booking.lab,
                 booking: booking,
                 startTime,

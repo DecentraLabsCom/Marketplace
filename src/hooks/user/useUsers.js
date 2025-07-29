@@ -5,99 +5,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userServices } from '@/services/userServices'
 import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/hooks/queryKeys'
-import devLog from '@/utils/dev/logger'
 import { useMemo } from 'react'
 
 // ===============================
 // === MAIN COMPOSED HOOKS ===
 // ===============================
 
-/**
- * Hook to get all provider data in a single composed call
- * This is the primary data source that uses a single HTTP request orchestration
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with all composed provider data
- */
-export const useAllProvidersQuery = (options = {}) => {
-  return useQuery({
-    queryKey: ['providers', 'all-composed'],
-    queryFn: () => userServices.fetchAllProvidersComposed(),
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-    retry: 2,
-    ...options,
-  });
-};
-
-/**
- * Hook to get complete user data in a single composed call
- * @param {string} userAddress - User's wallet address
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with all composed user data
- */
-export const useUserDataQuery = (userAddress, options = {}) => {
-  return useQuery({
-    queryKey: ['users', 'data-composed', userAddress],
-    queryFn: () => userServices.fetchUserDataComposed(userAddress),
-    enabled: !!userAddress,
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-    retry: 2,
-    ...options,
-  });
-};
-
 // === CACHE-EXTRACTING HOOKS (simple data operations) ===
-
-/**
- * Hook to get providers list (extracts from composed data)
- * @returns {Object} Provider list with loading and error states
- */
-export const useProvidersListQuery = () => {
-  const allProvidersQuery = useAllProvidersQuery();
-  
-  return useMemo(() => ({
-    data: allProvidersQuery.data?.providers || [],
-    isLoading: allProvidersQuery.isLoading,
-    error: allProvidersQuery.error,
-    refetch: allProvidersQuery.refetch,
-  }), [allProvidersQuery.data, allProvidersQuery.isLoading, allProvidersQuery.error]);
-};
-
-/**
- * Hook to get provider count (extracts from composed data)
- * @returns {Object} Provider count with loading and error states
- */
-export const useProviderCountQuery = () => {
-  const allProvidersQuery = useAllProvidersQuery();
-  
-  return useMemo(() => ({
-    data: allProvidersQuery.data?.count || 0,
-    isLoading: allProvidersQuery.isLoading,
-    error: allProvidersQuery.error,
-    refetch: allProvidersQuery.refetch,
-  }), [allProvidersQuery.data, allProvidersQuery.isLoading, allProvidersQuery.error]);
-};
-
-/**
- * Hook to check if a user is a provider (extracts from user data)
- * @param {string} userAddress - User's wallet address
- * @returns {Object} Provider status with loading and error states
- */
-export const useIsProviderQuery = (userAddress) => {
-  const userDataQuery = useUserDataQuery(userAddress);
-  
-  return useMemo(() => ({
-    data: userDataQuery.data?.isProvider || false,
-    isLoading: userDataQuery.isLoading,
-    error: userDataQuery.error,
-    refetch: userDataQuery.refetch,
-  }), [userDataQuery.data, userDataQuery.isLoading, userDataQuery.error]);
-};
 
 /**
  * Hook to get provider status for a wallet address or email (legacy compatibility)
@@ -114,42 +28,20 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
         throw new Error('Identifier is required for provider status');
       }
 
-      const endpoint = isEmail 
-        ? `/api/contract/provider/isLabProvider`
-        : `/api/contract/provider/isLabProvider`;
-
-      devLog.log(`🚨 [useProviderStatusQuery] Making API CALL to ${endpoint} for ${identifier}`);
-
-      const requestBody = isEmail 
-        ? { email: identifier }
-        : { wallet: identifier };
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (response.status === 404) {
-        devLog.log(`ℹ️ [useProviderStatusQuery] Not a provider (404), returning false for ${identifier}`);
-        return { isLabProvider: false, providerName: null };
+      // For now, only support wallet addresses with the composed service
+      // Email support can be added later if needed
+      if (isEmail) {
+        throw new Error('Email-based provider lookup not yet supported in composed service');
       }
 
-      if (!response.ok) {
-        throw new Error(`Provider status fetch failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      devLog.log(`✅ [useProviderStatusQuery] Provider status for ${identifier}:`, result);
+      // Use the composed service for complete provider data
+      const result = await userServices.fetchProviderStatusComposed(identifier);
       
-      return {
-        isLabProvider: Boolean(result.isLabProvider),
-        providerName: result.providerName || null
-      };
+      console.log('🔍 useProviderStatusQuery Final Result:', result);
+      
+      return result;
     },
-    staleTime: 2 * 60 * 60 * 1000, // 6 hours (provider status changes very rarely)
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours (provider status changes very rarely)
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
     enabled: Boolean(identifier), // Only run if identifier exists
@@ -171,8 +63,6 @@ export const useProviderNameQuery = (wallet, options = {}) => {
         throw new Error('Wallet address is required for provider name');
       }
 
-      devLog.log(`🚨 [useProviderNameQuery] Making API CALL for provider name: ${wallet}`);
-
       const response = await fetch('/api/contract/provider/getLabProviderName', {
         method: 'POST',
         headers: {
@@ -182,7 +72,6 @@ export const useProviderNameQuery = (wallet, options = {}) => {
       });
 
       if (response.status === 404) {
-        devLog.log(`ℹ️ [useProviderNameQuery] No provider name found (404) for ${wallet}`);
         return null;
       }
 
@@ -191,7 +80,6 @@ export const useProviderNameQuery = (wallet, options = {}) => {
       }
 
       const result = await response.json();
-      devLog.log(`✅ [useProviderNameQuery] Provider name for ${wallet}:`, result.providerName);
       
       return result.providerName || null;
     },
@@ -229,7 +117,7 @@ export const useRefreshProviderStatusMutation = () => {
       return { refreshed: true };
     },
     onSuccess: () => {
-      devLog.log('✅ Provider status cache refreshed');
+      // Provider status cache refreshed
     },
   });
 };
@@ -267,8 +155,6 @@ export const useSSOSessionQuery = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.AUTH.ssoSession,
     queryFn: async () => {
-      devLog.log('🚨 [useSSOSessionQuery] Making API CALL to /api/auth/session');
-      
       const response = await fetch('/api/auth/session', {
         method: 'GET',
         credentials: 'include',
@@ -278,7 +164,6 @@ export const useSSOSessionQuery = (options = {}) => {
       });
 
       if (response.status === 401) {
-        devLog.log('ℹ️ [useSSOSessionQuery] No SSO session (401)');
         return null;
       }
 
@@ -287,7 +172,6 @@ export const useSSOSessionQuery = (options = {}) => {
       }
 
       const data = await response.json();
-      devLog.log('✅ [useSSOSessionQuery] SSO session data received:', data);
       
       return data;
     },
@@ -312,27 +196,6 @@ export const useCacheInvalidation = () => {
   const queryClient = useQueryClient();
 
   return {
-    /**
-     * Invalidate all user-related caches
-     * @param {string} userAddress - User address to invalidate
-     */
-    invalidateUserCache: (userAddress) => {
-      if (userAddress) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['users', 'data-composed', userAddress] 
-        });
-      }
-    },
-
-    /**
-     * Invalidate all provider-related caches
-     */
-    invalidateProviderCache: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['providers', 'all-composed'] 
-      });
-    },
-
     /**
      * Invalidate booking caches for a user
      * @param {string} userAddress - User address

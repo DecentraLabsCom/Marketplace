@@ -142,26 +142,50 @@ class ErrorHandler {
     let userMessage = 'An unexpected error occurred';
     let recoverable = true;
 
+    // Handle empty/meaningless error objects (React Query sometimes sends these)
+    if (!error || (typeof error === 'object' && Object.keys(error).length === 0)) {
+      devLog.warn('Skipping empty/meaningless error object in enhanceError');
+      return new EnhancedError('Empty error object', {
+        severity: ErrorSeverity.LOW,
+        category: ErrorCategory.UI,
+        context: { ...context, originalError: error, skipped: true },
+        userMessage: 'A minor error occurred but has been handled',
+        recoverable: true
+      });
+    }
+
+    // Extract error message, handling various error types
+    let errorMessage = 'Unknown error';
+    if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    } else if (error?.error) {
+      errorMessage = error.error;
+    } else if (error?.toString && typeof error.toString === 'function') {
+      errorMessage = error.toString();
+    }
+
     // Auto-categorize based on error message/type
-    if (error.message.includes('fetch') || error.message.includes('network')) {
+    if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
       category = ErrorCategory.NETWORK;
       userMessage = 'Network connection error. Please check your internet connection.';
-    } else if (error.message.includes('blockchain') || error.message.includes('transaction')) {
+    } else if (errorMessage.includes('blockchain') || errorMessage.includes('transaction')) {
       category = ErrorCategory.BLOCKCHAIN;
       severity = ErrorSeverity.HIGH;
       userMessage = 'Blockchain transaction error. Please try again.';
-    } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+    } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
       category = ErrorCategory.VALIDATION;
       severity = ErrorSeverity.LOW;
       userMessage = 'Please check your input and try again.';
-    } else if (error.message.includes('auth') || error.message.includes('unauthorized')) {
+    } else if (errorMessage.includes('auth') || errorMessage.includes('unauthorized')) {
       category = ErrorCategory.AUTHENTICATION;
       severity = ErrorSeverity.HIGH;
       userMessage = 'Authentication required. Please log in again.';
       recoverable = false;
     }
 
-    return new EnhancedError(error.message, {
+    return new EnhancedError(errorMessage, {
       severity,
       category,
       context: { ...context, originalError: error },

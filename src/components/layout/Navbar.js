@@ -25,8 +25,8 @@ export default function Navbar() {
 
   // Check if user can see and access the "Register as Provider" option
   const showRegisterButton = () => {
-    // Don't show if not logged in or already a provider
-    if (!isLoggedIn || isProvider) return false;
+    // Don't show if not logged in, already a provider, or currently loading provider status
+    if (!isLoggedIn || isProvider || isProviderLoading) return false;
     
     // For wallet users, always show (they can register manually via form)
     if (!isSSO) return true;

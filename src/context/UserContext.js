@@ -2,12 +2,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
   useProviderStatusQuery, 
-  useProviderNameQuery,
   useRefreshProviderStatusMutation 
 } from '@/hooks/user/useUsers'
+import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
@@ -15,7 +16,6 @@ import {
   ErrorCategory 
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
-import devLog from '@/utils/dev/logger'
 
 // Create optimized context with automatic memoization
 const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOptimizedContext('UserContext');
@@ -29,6 +29,7 @@ const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOp
  */
 function UserDataCore({ children }) {
     const { address, isConnected } = useAccount();
+    const queryClient = useQueryClient();
     const { handleError: originalHandleError } = useErrorHandler();
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
@@ -50,33 +51,42 @@ function UserDataCore({ children }) {
         enabled: Boolean(address)
     });
 
-    const { 
-        data: providerName,
-        isLoading: providerNameLoading 
-    } = useProviderNameQuery(address, {
-        enabled: Boolean(address) && Boolean(providerStatus?.isLabProvider)
-    });
+    // We don't need a separate provider name query since providerStatus already contains the name
 
+    // Debug logging for provider status
     const refreshProviderStatusMutation = useRefreshProviderStatusMutation();
 
     // Safe error handler wrapper
     const handleError = useCallback((error, context = {}) => {
+        // Skip null/undefined errors
         if (!error) {
-            const validError = new Error('Null or undefined error in UserContext');
-            validError.severity = ErrorSeverity.LOW;
-            validError.category = ErrorCategory.VALIDATION;
-            originalHandleError(validError, context);
             return;
         }
 
+        // Skip empty error objects (common with React Query in certain scenarios)
         if (typeof error === 'object' && Object.keys(error).length === 0) {
-            const validError = new Error('Empty error object in UserContext');
-            validError.severity = ErrorSeverity.LOW;
-            validError.category = ErrorCategory.VALIDATION;
-            originalHandleError(validError, context);
             return;
         }
 
+        // Skip errors that are just empty strings or meaningless
+        if (typeof error === 'string' && error.trim() === '') {
+            return;
+        }
+
+        // For React Query errors, check if there's meaningful content
+        if (error && typeof error === 'object') {
+            const hasMessage = error.message && error.message.trim().length > 0;
+            const hasName = error.name && error.name.trim().length > 0;
+            const hasCode = error.code !== undefined;
+            const hasResponse = error.response !== undefined;
+            
+            // If it's an object but has no meaningful error information, skip it
+            if (!hasMessage && !hasName && !hasCode && !hasResponse) {
+                return;
+            }
+        }
+
+        // If we get here, it's a legitimate error worth reporting
         originalHandleError(error, context);
     }, [originalHandleError]);
 
@@ -106,19 +116,26 @@ function UserDataCore({ children }) {
             setUser(prev => ({
                 ...prev,
                 address,
-                name: providerName || prev?.name || null,
+                name: providerStatus.providerName || prev?.name || null,
                 isProvider: providerStatus.isLabProvider
             }));
         }
-    }, [address, providerStatus, providerName]);
+    }, [address, providerStatus]);
 
     // Handle connection changes
     useEffect(() => {
         if (!isConnected) {
             setIsSSO(false);
             setUser(null);
+            // Clear provider-related cache when disconnecting
+            queryClient.removeQueries({ queryKey: ['provider'] });
+        } else if (isConnected && address) {
+            // Invalidate provider status cache when wallet connects
+            queryClient.invalidateQueries({ 
+                queryKey: QUERY_KEYS.PROVIDER.status(address) 
+            });
         }
-    }, [isConnected]);
+    }, [isConnected, address, queryClient]);
 
     // Handle errors
     useEffect(() => {
@@ -139,48 +156,23 @@ function UserDataCore({ children }) {
                 identifier: address, 
                 isEmail: false 
             });
-            devLog.log(`✅ UserContext: Provider status refreshed for ${address}`);
         } catch (error) {
             handleError(error, { context: 'Refresh provider status' });
         }
     }, [address, refreshProviderStatusMutation, handleError]);
-
-    // Legacy fetchSSOSession function (now uses React Query internally)
-    const fetchSSOSession = useCallback(async () => {
-        devLog.log('🔄 UserContext: fetchSSOSession - Using React Query');
-        // The actual fetching is handled by useSSOSessionQuery
-        return ssoData;
-    }, [ssoData]);
-
-    // Legacy fetchProviderStatus function (now uses React Query internally)
-    const fetchProviderStatus = useCallback(async (identifier, isEmail = false) => {
-        devLog.log(`🔄 UserContext: fetchProviderStatus(${identifier}) - Using React Query`);
-        // The actual fetching is handled by useProviderStatusQuery
-        return providerStatus;
-    }, [providerStatus]);
-
-    // Legacy fetchProviderName function (now uses React Query internally)
-    const fetchProviderName = useCallback(async (wallet) => {
-        devLog.log(`🔄 UserContext: fetchProviderName(${wallet}) - Using React Query`);
-        // The actual fetching is handled by useProviderNameQuery
-        return providerName;
-    }, [providerName]);
 
     const value = {
         // User state
         user,
         isSSO,
         isProvider,
-        isProviderLoading: isProviderLoading || providerNameLoading || ssoLoading,
+        isProviderLoading: isProviderLoading || ssoLoading,
         isLoggedIn,
         isConnected,
         address,
         hasIncompleteData,
         
-        // Legacy functions (now powered by React Query)
-        fetchSSOSession,
-        fetchProviderStatus,
-        fetchProviderName,
+        // Refresh function
         refreshProviderStatus,
         
         // Error handling

@@ -34,7 +34,7 @@ const devLog = {
 };
 
 // Legacy support - export individual functions
-export const { log, warn, error, info } = devLog;
+export const { log, warn, error, info, service } = devLog;
 
 // Named export
 export { devLog };
