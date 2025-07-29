@@ -9,3 +9,7 @@ A[📋 Check lab requirements] --> B[🌐 Enable online access for your lab]
 [D] --> E[🔗 Define metadata and access conditions to tokenize and list the lab]
 [E] --> G[✅ Lab published in DecentraLabs marketplace]
 ```
+
+The image below shows the architecture of the infrastructure you must have at your institution:
+
+<figure><img src="../.gitbook/assets/provider-infrastructure.png" alt=""><figcaption></figcaption></figure>
