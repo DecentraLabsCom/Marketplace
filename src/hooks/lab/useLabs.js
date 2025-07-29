@@ -1,5 +1,5 @@
 /**
- * React Query Hooks for Labs - Simplified Architecture
+ * React Query Hooks for Labs
  * Uses simple hooks with composed services and cache-extracting hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'

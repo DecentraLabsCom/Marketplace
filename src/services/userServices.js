@@ -1,10 +1,12 @@
 /**
  * User API Services
- * Handles all user-related API operations
+ * Follows dual-layer pattern: atomic services + composed services
  */
 import devLog from '@/utils/dev/logger'
 
 export const userServices = {
+  // === ATOMIC SERVICES (1:1 with API endpoints) ===
+
   /**
    * Fetch user profile - placeholder for now
    * @param {string} userAddress - User's wallet address
@@ -64,12 +66,36 @@ export const userServices = {
     }
   },
 
-  // === PROVIDER SERVICES ===
+  /**
+   * Get providers list from contract
+   */
+  async fetchProvidersList() {
+    try {
+      devLog.log('🔍 Fetching providers list');
+      
+      const response = await fetch('/api/contract/provider/getProvidersList', {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      devLog.log(`✅ Successfully fetched ${result.providers?.length || 0} providers`);
+      
+      return result.providers || [];
+    } catch (error) {
+      devLog.error('Error fetching providers list:', error);
+      throw new Error(`Failed to fetch providers list: ${error.message}`);
+    }
+  },
 
   /**
    * Get total provider count
    */
-  async getProviderCount() {
+  async fetchProviderCount() {
     try {
       devLog.log('Fetching provider count');
       
@@ -95,7 +121,7 @@ export const userServices = {
   /**
    * Get provider details by ID
    */
-  async getProviderById(providerId) {
+  async fetchProviderById(providerId) {
     if (!providerId) {
       throw new Error('Provider ID is required');
     }
@@ -122,6 +148,100 @@ export const userServices = {
     } catch (error) {
       devLog.error('Error fetching provider details:', error);
       throw new Error(`Failed to fetch provider details: ${error.message}`);
+    }
+  },
+
+  /**
+   * Check if address is a provider
+   */
+  async checkIsProvider(address) {
+    if (!address) {
+      throw new Error('Address is required');
+    }
+
+    try {
+      devLog.log(`Checking if ${address} is a provider`);
+      
+      const response = await fetch(`/api/contract/provider/isLabProvider?address=${address}`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      devLog.log(`✅ Is provider check: ${result.isProvider}`);
+      
+      return result.isProvider;
+    } catch (error) {
+      devLog.error('Error checking provider status:', error);
+      throw new Error(`Failed to check provider status: ${error.message}`);
+    }
+  },
+
+  // === COMPOSED SERVICES (orchestrate multiple atomic calls) ===
+
+  /**
+   * Fetch all provider-related data in a single composed call
+   * Orchestrates multiple atomic services with parallel execution
+   * @returns {Promise<Object>} Complete provider ecosystem data
+   */
+  async fetchAllProvidersComposed() {
+    try {
+      devLog.log('🔄 Starting composed fetch for all provider data...');
+
+      // Execute all provider-related fetches in parallel
+      const [providersList, providerCount] = await Promise.all([
+        this.fetchProvidersList(),
+        this.fetchProviderCount(),
+      ]);
+
+      devLog.log('✅ All provider data fetched successfully');
+
+      return {
+        providers: providersList,
+        count: providerCount,
+        lastUpdated: Date.now(),
+      };
+    } catch (error) {
+      devLog.error('Error in composed provider fetch:', error);
+      throw new Error(`Failed to fetch provider data: ${error.message}`);
+    }
+  },
+
+  /**
+   * Fetch complete user data including profile, status, and provider info
+   * @param {string} userAddress - User's wallet address
+   * @returns {Promise<Object>} Complete user data
+   */
+  async fetchUserDataComposed(userAddress) {
+    if (!userAddress) {
+      throw new Error('User address is required');
+    }
+
+    try {
+      devLog.log(`🔄 Starting composed fetch for user data: ${userAddress}...`);
+
+      // Execute all user-related fetches in parallel
+      const [profile, status, isProvider] = await Promise.all([
+        this.fetchUserProfile(userAddress),
+        this.fetchUserStatus(userAddress),
+        this.checkIsProvider(userAddress),
+      ]);
+
+      devLog.log('✅ All user data fetched successfully');
+
+      return {
+        ...profile,
+        ...status,
+        isProvider,
+        lastUpdated: Date.now(),
+      };
+    } catch (error) {
+      devLog.error('Error in composed user fetch:', error);
+      throw new Error(`Failed to fetch user data: ${error.message}`);
     }
   },
 };

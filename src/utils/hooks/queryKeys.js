@@ -33,8 +33,11 @@ export const QUERY_KEYS = {
     status: (address) => ['user', 'status', address],
   },
   
-  // SSO
+  // SSO & Authentication
   SSO_SESSION: ['sso', 'session'],
+  AUTH: {
+    ssoSession: ['auth', 'sso', 'session'],
+  },
   
   // Provider
   PROVIDER: {

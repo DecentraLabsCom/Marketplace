@@ -231,4 +231,74 @@ export const bookingServices = {
       throw new Error(`Failed to deny reservation: ${error.message}`);
     }
   },
+
+  // === COMPOSED SERVICES (orchestrate multiple atomic calls) ===
+
+  /**
+   * Fetch all booking data for a user in a single composed call
+   * Orchestrates user bookings with related lab and reservation data
+   * @param {string} userAddress - User's wallet address
+   * @param {string|null} fromDate - Optional start date filter
+   * @param {string|null} toDate - Optional end date filter
+   * @returns {Promise<Object>} Complete user booking ecosystem data
+   */
+  async fetchUserBookingsComposed(userAddress, fromDate = null, toDate = null) {
+    if (!userAddress) {
+      throw new Error('User address is required');
+    }
+
+    try {
+      devLog.log(`🔄 Starting composed fetch for user bookings: ${userAddress}...`);
+
+      // For now, just fetch user bookings
+      // In the future, we could also fetch related lab data, payment status, etc.
+      const userBookings = await this.fetchUserBookings(userAddress, fromDate, toDate);
+
+      devLog.log('✅ All user booking data fetched successfully');
+
+      return {
+        bookings: userBookings,
+        userAddress,
+        dateRange: { fromDate, toDate },
+        lastUpdated: Date.now(),
+      };
+    } catch (error) {
+      devLog.error('Error in composed user bookings fetch:', error);
+      throw new Error(`Failed to fetch user booking data: ${error.message}`);
+    }
+  },
+
+  /**
+   * Fetch all booking data for a lab in a single composed call
+   * Orchestrates lab bookings with related user and reservation data
+   * @param {string|number} labId - Lab identifier
+   * @param {string|null} fromDate - Optional start date filter
+   * @param {string|null} toDate - Optional end date filter
+   * @returns {Promise<Object>} Complete lab booking ecosystem data
+   */
+  async fetchLabBookingsComposed(labId, fromDate = null, toDate = null) {
+    if (!labId) {
+      throw new Error('Lab ID is required');
+    }
+
+    try {
+      devLog.log(`🔄 Starting composed fetch for lab bookings: ${labId}...`);
+
+      // For now, just fetch lab bookings
+      // In the future, we could also fetch user details, payment status, etc.
+      const labBookings = await this.fetchLabBookings(labId, fromDate, toDate);
+
+      devLog.log('✅ All lab booking data fetched successfully');
+
+      return {
+        bookings: labBookings,
+        labId: labId.toString(),
+        dateRange: { fromDate, toDate },
+        lastUpdated: Date.now(),
+      };
+    } catch (error) {
+      devLog.error('Error in composed lab bookings fetch:', error);
+      throw new Error(`Failed to fetch lab booking data: ${error.message}`);
+    }
+  },
 };
