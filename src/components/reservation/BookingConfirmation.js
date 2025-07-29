@@ -113,7 +113,7 @@ export default function BookingConfirmation({ booking, lab, onClose }) {
 
       {/* Next Steps */}
       <div className="space-y-3">
-        <h4 className="font-medium text-gray-900">What's Next?</h4>
+        <h4 className="font-medium text-gray-900">What&apos;s Next?</h4>
         <ul className="space-y-2 text-sm text-gray-600">
           <li className="flex items-start">
             <span className="text-blue-600 mr-2">•</span>
