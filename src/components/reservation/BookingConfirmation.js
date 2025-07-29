@@ -117,11 +117,7 @@ export default function BookingConfirmation({ booking, lab, onClose }) {
         <ul className="space-y-2 text-sm text-gray-600">
           <li className="flex items-start">
             <span className="text-blue-600 mr-2">•</span>
-            You'll receive a confirmation email with all booking details
-          </li>
-          <li className="flex items-start">
-            <span className="text-blue-600 mr-2">•</span>
-            Access will be available 5 minutes before your session starts
+            Access will be available when your session starts
           </li>
           <li className="flex items-start">
             <span className="text-blue-600 mr-2">•</span>
@@ -129,7 +125,7 @@ export default function BookingConfirmation({ booking, lab, onClose }) {
           </li>
           <li className="flex items-start">
             <span className="text-blue-600 mr-2">•</span>
-            Contact support if you need to modify or cancel your booking
+            Contact support if you have any issues
           </li>
         </ul>
       </div>
