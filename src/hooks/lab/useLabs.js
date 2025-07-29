@@ -1,5 +1,5 @@
 /**
- * React Query Hooks for Labs
+ * React Query Hooks for Lab-related data
  * Uses simple hooks with composed services and cache-extracting hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -20,7 +20,8 @@ export const useAllLabsQuery = (options = {}) => {
   return useQuery({
     queryKey: ['labs', 'all-composed'],
     queryFn: () => labServices.fetchAllLabsComposed(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 60 * 60 * 1000, // 60 minutes
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
     refetchOnWindowFocus: false,
     refetchInterval: false,
     retry: 2,
@@ -168,8 +169,8 @@ export const useLabListQueryAtomic = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.list,
     queryFn: () => labServices.fetchLabList(),
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 3 * 60 * 60 * 1000, // 3 hours (longer than composed)
+    gcTime: 48 * 60 * 60 * 1000, // 48 hours
     retry: 2,
     ...options,
   });
@@ -184,8 +185,8 @@ export const useLabDecimalsQueryAtomic = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.LABS.decimals,
     queryFn: () => labServices.fetchLabDecimals(),
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours (very stable)
-    gcTime: 48 * 60 * 60 * 1000, // 48 hours
+    staleTime: Infinity, // Never stale - permanent cache (immutable data)
+    gcTime: Infinity, // Never garbage collected - permanent storage
     retry: 2,
     ...options,
   });
@@ -202,8 +203,8 @@ export const useLabDataQueryAtomic = (labId, options = {}) => {
     queryKey: QUERY_KEYS.LABS.data(labId),
     queryFn: () => labServices.fetchLabData(labId),
     enabled: !!labId,
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 3 * 60 * 60 * 1000, // 3 hours (individual data changes less)
+    gcTime: 48 * 60 * 60 * 1000, // 48 hours
     retry: 2,
     ...options,
   });
@@ -220,8 +221,8 @@ export const useLabOwnerQueryAtomic = (labId, options = {}) => {
     queryKey: QUERY_KEYS.LABS.owner(labId),
     queryFn: () => labServices.fetchLabOwner(labId),
     enabled: !!labId,
-    staleTime: 6 * 60 * 60 * 1000, // 6 hours (can change)
-    gcTime: 12 * 60 * 60 * 1000, // 12 hours
+    staleTime: 6 * 60 * 60 * 1000, // 24 hours (ownership rarely changes)
+    gcTime: 48 * 60 * 60 * 1000, // 72 hours
     retry: 2,
     ...options,
   });
@@ -236,8 +237,8 @@ export const useProvidersListQueryAtomic = (options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.PROVIDERS.list,
     queryFn: () => labServices.fetchProvidersList(),
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
     retry: 2,
     ...options,
   });
@@ -255,8 +256,8 @@ export const useLabMetadataQueryAtomic = (metadataUri, labId, options = {}) => {
     queryKey: QUERY_KEYS.LABS.metadata(metadataUri),
     queryFn: () => labServices.fetchLabMetadata(metadataUri, labId),
     enabled: !!metadataUri,
-    staleTime: 12 * 60 * 60 * 1000, // 12 hours
-    gcTime: 24 * 60 * 60 * 1000, // 24 hours
+    staleTime: 4 * 60 * 60 * 1000, // 4 hours (metadata changes less frequently)
+    gcTime: 48 * 60 * 60 * 1000, // 48 hours
     retry: 2,
     ...options,
   });

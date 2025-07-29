@@ -1,5 +1,5 @@
 /**
- * React Query Hooks for Bookings
+ * React Query Hooks for Booking-related data
  * Uses simple hooks with composed services and cache-extracting hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,7 +26,8 @@ export const useUserBookingsQuery = (userAddress, fromDate = null, toDate = null
     queryKey: ['bookings', 'user-composed', userAddress, fromDate, toDate],
     queryFn: () => bookingServices.fetchUserBookingsComposed(userAddress, fromDate, toDate),
     enabled: !!userAddress,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
     refetchOnWindowFocus: false,
     refetchInterval: false,
     retry: 2,
@@ -48,7 +49,8 @@ export const useLabBookingsQuery = (labId, fromDate = null, toDate = null, optio
     queryKey: ['bookings', 'lab-composed', labId, fromDate, toDate],
     queryFn: () => bookingServices.fetchLabBookingsComposed(labId, fromDate, toDate),
     enabled: !!labId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
     refetchOnWindowFocus: false,
     refetchInterval: false,
     retry: 2,

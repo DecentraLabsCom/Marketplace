@@ -22,7 +22,8 @@ export const useAllProvidersQuery = (options = {}) => {
   return useQuery({
     queryKey: ['providers', 'all-composed'],
     queryFn: () => userServices.fetchAllProvidersComposed(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
     refetchOnWindowFocus: false,
     refetchInterval: false,
     retry: 2,
@@ -41,7 +42,8 @@ export const useUserDataQuery = (userAddress, options = {}) => {
     queryKey: ['users', 'data-composed', userAddress],
     queryFn: () => userServices.fetchUserDataComposed(userAddress),
     enabled: !!userAddress,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
     refetchOnWindowFocus: false,
     refetchInterval: false,
     retry: 2,
@@ -147,8 +149,8 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
         providerName: result.providerName || null
       };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 2 * 60 * 60 * 1000, // 6 hours (provider status changes very rarely)
+    gcTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
     enabled: Boolean(identifier), // Only run if identifier exists
     ...options,
@@ -193,8 +195,8 @@ export const useProviderNameQuery = (wallet, options = {}) => {
       
       return result.providerName || null;
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes (provider names change rarely)
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours (provider names change very rarely)
+    gcTime: 48 * 60 * 60 * 1000, // 48 hours
     retry: 1,
     enabled: Boolean(wallet),
     ...options,
@@ -245,7 +247,8 @@ export const useProviderByIdQuery = (providerId, options = {}) => {
     queryKey: QUERY_KEYS.PROVIDER.byId(providerId),
     queryFn: () => userServices.fetchProviderById(providerId),
     enabled: !!providerId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 48 * 60 * 60 * 1000, // 48 hours (individual provider data very stable)
+    gcTime: 2 * 7 * 24 * 60 * 60 * 1000, // 2 weeks
     retry: 2,
     ...options,
   });
@@ -288,8 +291,8 @@ export const useSSOSessionQuery = (options = {}) => {
       
       return data;
     },
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes (session data should be fairly fresh)
+    gcTime: 15 * 60 * 1000, // 15 minutes
     retry: false, // Don't retry auth requests
     enabled: true, // Always enabled since SSO is important
     ...options,

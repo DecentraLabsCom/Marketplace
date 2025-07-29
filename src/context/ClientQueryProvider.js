@@ -2,13 +2,15 @@
 import PropTypes from 'prop-types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Default cache time (15 minutes for blockchain data)
+      // Default cache time (15 minutes for general blockchain data)
       staleTime: 15 * 60 * 1000,
-      // Time before garbage collection (12 hours like labs)
+      // Time before garbage collection (12 hours general)
       gcTime: 12 * 60 * 60 * 1000,
       // Retry on error
       retry: 2,
@@ -25,19 +27,29 @@ const queryClient = new QueryClient({
   },
 });
 
+// Create persister for localStorage
+const persister = createAsyncStoragePersister({
+  storage: typeof window !== 'undefined' ? window.localStorage : null,
+  key: 'decentralabs-query-cache',
+  throttleTime: 1000, // Save to storage every 1 second
+});
+
 /**
- * React Query provider with optimized default configuration
- * Configures global React Query settings for caching, retries, and refetching
+ * React Query provider with optimized default configuration and persistence
+ * Configures global React Query settings for caching, retries, refetching, and localStorage persistence
  * @param {Object} props
  * @param {React.ReactNode} props.children - Child components to wrap with React Query context
- * @returns {JSX.Element} QueryClient provider with development tools
+ * @returns {JSX.Element} PersistQueryClient provider with development tools
  */
 export default function ClientQueryProvider({ children }) { 
     return (
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider 
+        client={queryClient} 
+        persistOptions={{ persister }}
+      >
         {children}
         <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     ); 
 }
 
