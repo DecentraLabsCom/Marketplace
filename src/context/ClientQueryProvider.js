@@ -1,6 +1,6 @@
 "use client";
 import PropTypes from 'prop-types'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
@@ -32,6 +32,12 @@ const persister = createAsyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : null,
   key: 'decentralabs-query-cache',
   throttleTime: 1000, // Save to storage every 1 second
+  serialize: JSON.stringify,
+  deserialize: JSON.parse,
+  // Only persist specific query types to avoid storing too much
+  retry: removeOldestQuery => {
+    removeOldestQuery()
+  },
 });
 
 /**
@@ -45,7 +51,20 @@ export default function ClientQueryProvider({ children }) {
     return (
       <PersistQueryClientProvider 
         client={queryClient} 
-        persistOptions={{ persister }}
+        persistOptions={{ 
+          persister,
+          maxAge: 72 * 60 * 60 * 1000, // 72 hours max age in localStorage
+          buster: '', // Add version string if you want to bust cache on app updates
+          dehydrateOptions: {
+            // Only persist these query types
+            shouldDehydrateQuery: (query) => {
+              // Persist lab, provider, and user queries
+              return query.queryKey[0] === 'labs' || 
+                     query.queryKey[0] === 'provider' || 
+                     query.queryKey[0] === 'sso';
+            },
+          },
+        }}
       >
         {children}
         <ReactQueryDevtools initialIsOpen={false} />
