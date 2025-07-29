@@ -13,4 +13,4 @@ To be eligible for listing on DecentraLabs, a laboratory must meet the following
 5. **Proxy Server**\
    A Linux OS is recommended, but is not required. The most critical requirement for this system is that it must have two ethernet cards: one with a public/valid IP and one connected to your private institutional network with a private IP.
 6. **Lab Computer(s)**\
-   A Windows 10 or Windows 11 OS is required.
+   A Windows 10 or Windows 11 OS is required. Each lab computer must control just one lab setup.
