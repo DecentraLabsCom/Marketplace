@@ -6,7 +6,7 @@
 import { useCallback } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useUserEvents } from '@/context/UserEventContext'
-import { useRefreshProviderStatusMutation } from '@/hooks/user/useUsers'
+import { useRefreshProviderStatusMutation, useCacheInvalidation } from '@/hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 export function useUserEventCoordinator() {
@@ -21,12 +21,10 @@ export function useUserEventCoordinator() {
   // React Query hooks for better cache management
   const { 
     invalidateProviderStatus,
-    invalidateProviderName,
     invalidateAllUserData 
-  } = useUserCacheInvalidation();
+  } = useCacheInvalidation();
   
   const refreshProviderStatusMutation = useRefreshProviderStatusMutation();
-  const refreshSSOSessionMutation = useRefreshSSOSessionMutation();
 
   /**
    * Coordinated user update - use this instead of direct API calls
@@ -100,7 +98,6 @@ export function useUserEventCoordinator() {
       // Invalidate relevant React Query caches
       if (userAccount) {
         invalidateProviderStatus(userAccount, false);
-        invalidateProviderName(userAccount);
         invalidateAllUserData(userAccount);
       }
       
@@ -120,7 +117,7 @@ export function useUserEventCoordinator() {
       
       return result;
     }, userAccount);
-  }, [coordinatedUserUpdate, invalidateProviderStatus, invalidateProviderName, invalidateAllUserData, refreshProviderStatusMutation]);
+  }, [coordinatedUserUpdate, invalidateProviderStatus, invalidateAllUserData, refreshProviderStatusMutation]);
 
   /**
    * Coordinated provider update - handles provider information updates
@@ -134,7 +131,6 @@ export function useUserEventCoordinator() {
       // Invalidate relevant React Query caches
       if (userAccount) {
         invalidateProviderStatus(userAccount, false);
-        invalidateProviderName(userAccount);
         invalidateAllUserData(userAccount);
       }
       
@@ -154,23 +150,7 @@ export function useUserEventCoordinator() {
       
       return result;
     }, userAccount);
-  }, [coordinatedUserUpdate, invalidateProviderStatus, invalidateProviderName, invalidateAllUserData, refreshProviderStatusMutation]);
-
-  /**
-   * Coordinated SSO session refresh - use when SSO state changes
-   */
-  const coordinatedSSORefresh = useCallback(async () => {
-    if (!isManualUpdateInProgress) {
-      try {
-        await refreshSSOSessionMutation.mutateAsync();
-        devLog.log('✅ [UserEventCoordinator] SSO session refreshed');
-      } catch (error) {
-        devLog.error('❌ [UserEventCoordinator] SSO refresh failed:', error);
-      }
-    } else {
-      devLog.log('Manual user update in progress, skipping SSO refresh');
-    }
-  }, [refreshSSOSessionMutation, isManualUpdateInProgress]);
+  }, [coordinatedUserUpdate, invalidateProviderStatus, invalidateAllUserData, refreshProviderStatusMutation]);
 
   /**
    * Check if manual user update is in progress
@@ -184,7 +164,6 @@ export function useUserEventCoordinator() {
     coordinatedProviderRefresh,
     coordinatedProviderRegistration,
     coordinatedProviderUpdate,
-    coordinatedSSORefresh,
     isManualUserInProgress
   };
 }
