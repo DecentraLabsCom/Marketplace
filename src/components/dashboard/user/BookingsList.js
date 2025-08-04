@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import PropTypes from 'prop-types';
-import LabBookingItem from '@/components/booking/LabBookingItem';
+import LabBookingItem from '@/components/dashboard/user/LabBookingItem';
 import { DashboardSectionSkeleton } from '@/components/skeletons';
 
 /**
