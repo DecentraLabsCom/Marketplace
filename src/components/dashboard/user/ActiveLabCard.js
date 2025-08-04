@@ -6,7 +6,7 @@ import React from 'react';
 import Link from 'next/link';
 import PropTypes from 'prop-types';
 import Carrousel from '@/components/ui/Carrousel';
-import LabAccess from '@/components/labs/LabAccess';
+import LabAccess from '@/components/home/LabAccess';
 
 /**
  * Renders an active or upcoming lab card with details and access

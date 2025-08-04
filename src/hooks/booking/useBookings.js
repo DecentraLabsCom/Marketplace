@@ -139,9 +139,14 @@ export const useUserBookingsListQuery = (userAddress, includeDetails = false) =>
     activeBookings: userBookingsQuery.data?.activeBookings || 0,
     pastBookings: userBookingsQuery.data?.pastBookings || 0,
     isLoading: userBookingsQuery.isLoading,
+    isPending: userBookingsQuery.isPending,
+    isInitialLoading: userBookingsQuery.isInitialLoading,
+    isFetching: userBookingsQuery.isFetching,
+    isSuccess: userBookingsQuery.isSuccess,
+    isError: userBookingsQuery.isError,
     error: userBookingsQuery.error,
     refetch: userBookingsQuery.refetch,
-  }), [userBookingsQuery.data, userBookingsQuery.isLoading, userBookingsQuery.error, userBookingsQuery.refetch]);
+  }), [userBookingsQuery]);
 };
 
 /**
@@ -158,9 +163,14 @@ export const useLabBookingsListQuery = (labId, includeMetrics = true) => {
     totalBookings: labBookingsQuery.data?.totalBookings || 0,
     metrics: labBookingsQuery.data?.metrics || null,
     isLoading: labBookingsQuery.isLoading,
+    isPending: labBookingsQuery.isPending,
+    isInitialLoading: labBookingsQuery.isInitialLoading,
+    isFetching: labBookingsQuery.isFetching,
+    isSuccess: labBookingsQuery.isSuccess,
+    isError: labBookingsQuery.isError,
     error: labBookingsQuery.error,
     refetch: labBookingsQuery.refetch,
-  }), [labBookingsQuery.data, labBookingsQuery.isLoading, labBookingsQuery.error, labBookingsQuery.refetch]);
+  }), [labBookingsQuery]);
 };
 
 /**
@@ -177,10 +187,15 @@ export const useUserBookingQuery = (userAddress, bookingId) => {
     return {
       data: booking || null,
       isLoading: userBookingsQuery.isLoading,
+      isPending: userBookingsQuery.isPending,
+      isInitialLoading: userBookingsQuery.isInitialLoading,
+      isFetching: userBookingsQuery.isFetching,
+      isSuccess: userBookingsQuery.isSuccess,
+      isError: userBookingsQuery.isError,
       error: userBookingsQuery.error,
       refetch: userBookingsQuery.refetch,
     };
-  }, [userBookingsQuery.data, bookingId, userBookingsQuery.isLoading, userBookingsQuery.error, userBookingsQuery.refetch]);
+  }, [userBookingsQuery, bookingId]);
 };
 
 /**
@@ -197,10 +212,15 @@ export const useLabBookingQuery = (labId, bookingId) => {
     return {
       data: booking || null,
       isLoading: labBookingsQuery.isLoading,
+      isPending: labBookingsQuery.isPending,
+      isInitialLoading: labBookingsQuery.isInitialLoading,
+      isFetching: labBookingsQuery.isFetching,
+      isSuccess: labBookingsQuery.isSuccess,
+      isError: labBookingsQuery.isError,
       error: labBookingsQuery.error,
       refetch: labBookingsQuery.refetch,
     };
-  }, [labBookingsQuery.data, bookingId, labBookingsQuery.isLoading, labBookingsQuery.error, labBookingsQuery.refetch]);
+  }, [labBookingsQuery, bookingId]);
 };
 
 // ===============================

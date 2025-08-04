@@ -27,7 +27,7 @@ import devLog from '@/utils/dev/logger'
 export default function LabReservation({ id }) {
   const { 
     data: labs = [], 
-    isLoading: labsLoading, 
+    isInitialLoading: labsLoading, 
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery({
@@ -57,14 +57,15 @@ export default function LabReservation({ id }) {
   
   // 🚀 React Query for lab bookings
   const {
-    data: labBookings = [],
-    isLoading: bookingsLoading,
+    data: labBookingsData,
+    isInitialLoading: bookingsLoading,
     refetch: refetchLabBookings
   } = useLabBookingsQuery(selectedLab?.id, null, null, {
     enabled: !!selectedLab?.id,
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchOnWindowFocus: false,
   });
+  const labBookings = labBookingsData?.bookings || [];
 
   // Debug: Log selectedLab changes
   useEffect(() => {
@@ -327,9 +328,9 @@ export default function LabReservation({ id }) {
   // Min and max dates for the calendar
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const opensDate = selectedLab ? parseDate(selectedLab.opens) : today;
+  const opensDate = selectedLab ? new Date(selectedLab.opens) : today;
   const minDate = opensDate > today ? opensDate : today;
-  const maxDate = selectedLab ? parseDate(selectedLab.closes) : undefined;
+  const maxDate = selectedLab ? new Date(selectedLab.closes) : undefined;
 
   // Available times for the selected day and lab
   const availableTimes = selectedLab

@@ -19,7 +19,7 @@ import { LabHeroSkeleton } from '@/components/skeletons'
 export default function LabDetail({ id, provider }) {
   const { 
     data: labs = [], 
-    isLoading: loading, 
+    isInitialLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery({

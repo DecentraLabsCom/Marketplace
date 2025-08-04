@@ -4,7 +4,7 @@
  */
 import React from 'react'
 import PropTypes from 'prop-types'
-import LabCard from '@/components/labs/LabCard'
+import LabCard from '@/components/home/LabCard'
 import { LabCardGridSkeleton } from '@/components/skeletons'
 
 /**

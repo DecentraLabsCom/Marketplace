@@ -1,4 +1,4 @@
-import Market from '@/components/labs/Market'
+import Market from '@/components/home/Market'
 
 export default function HomePage() {
 

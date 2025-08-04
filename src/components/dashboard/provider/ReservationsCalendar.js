@@ -24,7 +24,7 @@ export default function ReservationsCalendar({
   filterDate = () => false
 }) {
   return (
-    <div className="w-full min-[1080px]:w-1/3 mt-8 min-[1080px]:mt-0">
+    <div className="mt-8 min-[1080px]:mt-0">
       <h2 className="text-xl font-semibold mb-4 text-center">
         Upcoming Lab Reservations
       </h2>

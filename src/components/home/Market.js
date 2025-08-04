@@ -10,39 +10,51 @@ import { useUser } from '@/context/UserContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
 import { useUserBookingsQuery } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabFilters'
-import LabFilters from '@/components/labs/LabFilters'
-import LabGrid from '@/components/labs/LabGrid'
+import LabFilters from '@/components/home/LabFilters'
+import LabGrid from '@/components/home/LabGrid'
 import devLog from '@/utils/dev/logger'
 
 export default function Market() {
   devLog.log('🏪 Market component rendered at:', new Date().toLocaleTimeString());
   
-  const { isLoggedIn, address } = useUser()
+  const { isLoggedIn, address } = useUser();
   
   // React Query for labs
-  const { 
-    data: labs = [], 
-    isLoading: loading, 
-    isError: labsError,
-    error: labsErrorDetails 
-  } = useAllLabsQuery({
+  const labsQuery = useAllLabsQuery({
     staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
     refetchOnWindowFocus: false, // Disable automatic refetch on window focus
     refetchInterval: false, // Disable automatic periodic refetch
-  })
+  });
   
-  // React Query for user bookings
   const { 
-    data: userBookingsData = [], 
-    isLoading: bookingsLoading 
-  } = useUserBookingsQuery(address, null, null, {
+    data: labsData = [], 
+    isInitialLoading: labsInitialLoading,
+    isFetching: labsFetching,
+    isError: labsError,
+    error: labsErrorDetails 
+  } = labsQuery;
+  // Determine labs loading state
+  const labsLoading = labsInitialLoading || labsFetching || labsData.length === 0;
+
+  // Memoize labs to prevent infinite re-renders
+  const labs = useMemo(() => labsData, [labsData]);
+
+  // React Query for user bookings
+  const userBookingsQuery = useUserBookingsQuery(address, null, null, {
     enabled: !!address && isLoggedIn,
-    staleTime: 2 * 60 * 1000, // 2 minutes - more dynamic bookings
     refetchOnWindowFocus: true,
-  })
+  });
+
+  const {
+    data: userBookingsData,
+    isInitialLoading: bookingsInitialLoading,
+    isFetching: bookingsFetching,
+  } = userBookingsQuery;
+  // Determine bookings loading state
+  const bookingsLoading = bookingsInitialLoading || (bookingsFetching && !userBookingsData)
 
   // Memoize userBookings to prevent infinite re-renders
-  const userBookings = useMemo(() => userBookingsData, [userBookingsData])
+  const userBookings = useMemo(() => userBookingsData?.bookings || [], [userBookingsData]);
 
   // Use custom hook for filtering logic
   const {
@@ -76,16 +88,15 @@ export default function Market() {
         onFilterChange={setSelectedFilter}
         onReset={resetFilters}
         searchInputRef={searchInputRef}
-        loading={loading || bookingsLoading}
+        loading={labsLoading || bookingsLoading}
       />
 
       <LabGrid
         labs={searchFilteredLabs}
-        loading={loading}
+        loading={labsLoading}
         error={labsError}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."
       />
     </main>
   )
 }
-

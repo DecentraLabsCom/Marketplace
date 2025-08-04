@@ -102,7 +102,9 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
       filtered = filtered.filter((lab) => {
         switch (selectedFilter) {
           case "Keyword":
-            return lab.keywords?.toLowerCase().includes(searchDebounce) ||
+            return (Array.isArray(lab.keywords) 
+                     ? lab.keywords.some(keyword => keyword?.toLowerCase().includes(searchDebounce))
+                     : lab.keywords?.toLowerCase().includes(searchDebounce)) ||
                    lab.name?.toLowerCase().includes(searchDebounce) ||
                    lab.description?.toLowerCase().includes(searchDebounce)
           case "Name":

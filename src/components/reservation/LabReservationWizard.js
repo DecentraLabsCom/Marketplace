@@ -5,8 +5,7 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useBookingCreation } from '@/hooks/booking/useBookingCreation'
-import { useFetchUserBookings } from '@/hooks/user/useUsers'
-import { useFetchLabBookings } from '@/hooks/lab/useLabsQueries'
+import { useUserBookingsQuery, useLabBookingsQuery } from '@/hooks/booking/useBookings'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import BookingForm from '@/components/reservation/BookingForm'
 import BookingConfirmation from '@/components/reservation/BookingConfirmation'
@@ -46,14 +45,20 @@ export default function LabReservationWizard({
 
   // Data fetching
   const { 
-    data: userBookings = [], 
-    isLoading: userBookingsLoading 
-  } = useFetchUserBookings(userAccount)
+    data: userBookingsData, 
+    isInitialLoading: userBookingsLoading 
+  } = useUserBookingsQuery(userAccount, true, {
+    enabled: !!userAccount
+  });
+  const userBookings = userBookingsData?.bookings || [];
   
   const { 
-    data: labBookings = [], 
-    isLoading: labBookingsLoading 
-  } = useFetchLabBookings(lab?.id)
+    data: labBookingsData, 
+    isInitialLoading: labBookingsLoading 
+  } = useLabBookingsQuery(lab?.id, null, null, {
+    enabled: !!lab?.id
+  });
+  const labBookings = labBookingsData?.bookings || [];
 
   // Booking creation
   const {

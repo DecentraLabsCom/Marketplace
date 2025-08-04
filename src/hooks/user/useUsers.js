@@ -41,10 +41,13 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
       
       return result;
     },
-    staleTime: 6 * 60 * 60 * 1000, // 6 hours (provider status changes very rarely)
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,
-    enabled: Boolean(identifier), // Only run if identifier exists
+    enabled: Boolean(identifier),
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     ...options,
   });
 };

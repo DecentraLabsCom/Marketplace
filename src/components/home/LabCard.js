@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/hooks/useLabToken'
-import LabAccess from '@/components/labs/LabAccess'
+import LabAccess from '@/components/home/LabAccess'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 import { Card, Badge, cn } from '@/components/ui'
 

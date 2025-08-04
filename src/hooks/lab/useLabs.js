@@ -44,11 +44,15 @@ export const useLabListQuery = (options = {}) => {
     return {
       data: labIds,
       isLoading: allLabsQuery.isLoading,
-      error: allLabsQuery.error,
+      isPending: allLabsQuery.isPending,
+      isInitialLoading: allLabsQuery.isInitialLoading,
+      isFetching: allLabsQuery.isFetching,
       isSuccess: allLabsQuery.isSuccess,
+      isError: allLabsQuery.isError,
+      error: allLabsQuery.error,
       ...options,
     };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, options]);
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, options]);
 };
 
 /**
@@ -65,11 +69,15 @@ export const useLabDecimalsQuery = (options = {}) => {
     return {
       data: decimals,
       isLoading: allLabsQuery.isLoading,
-      error: allLabsQuery.error,
+      isPending: allLabsQuery.isPending,
+      isInitialLoading: allLabsQuery.isInitialLoading,
+      isFetching: allLabsQuery.isFetching,
       isSuccess: allLabsQuery.isSuccess,
+      isError: allLabsQuery.isError,
+      error: allLabsQuery.error,
       ...options,
     };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, options]);
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, options]);
 };
 
 /**
@@ -86,11 +94,15 @@ export const useLabDataQuery = (labId, options = {}) => {
     return {
       data: lab || null,
       isLoading: allLabsQuery.isLoading,
-      error: allLabsQuery.error,
+      isPending: allLabsQuery.isPending,
+      isInitialLoading: allLabsQuery.isInitialLoading,
+      isFetching: allLabsQuery.isFetching,
       isSuccess: allLabsQuery.isSuccess && !!lab,
+      isError: allLabsQuery.isError,
+      error: allLabsQuery.error,
       ...options,
     };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, labId, options]);
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, labId, options]);
 };
 
 /**
@@ -108,11 +120,15 @@ export const useLabOwnerQuery = (labId, options = {}) => {
     return {
       data: owner,
       isLoading: allLabsQuery.isLoading,
-      error: allLabsQuery.error,
+      isPending: allLabsQuery.isPending,
+      isInitialLoading: allLabsQuery.isInitialLoading,
+      isFetching: allLabsQuery.isFetching,
       isSuccess: allLabsQuery.isSuccess && !!owner,
+      isError: allLabsQuery.isError,
+      error: allLabsQuery.error,
       ...options,
     };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, labId, options]);
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, labId, options]);
 };
 
 /**
@@ -131,11 +147,15 @@ export const useLabMetadataQuery = (metadataUri, labId, options = {}) => {
     return {
       data: lab || null,
       isLoading: allLabsQuery.isLoading,
-      error: allLabsQuery.error,
+      isPending: allLabsQuery.isPending,
+      isInitialLoading: allLabsQuery.isInitialLoading,
+      isFetching: allLabsQuery.isFetching,
       isSuccess: allLabsQuery.isSuccess && !!lab,
+      isError: allLabsQuery.isError,
+      error: allLabsQuery.error,
       ...options,
     };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.error, allLabsQuery.isSuccess, labId, options]);
+  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, labId, options]);
 };
 
 // === ATOMIC HOOKS (for specific use cases when individual data is needed) ===

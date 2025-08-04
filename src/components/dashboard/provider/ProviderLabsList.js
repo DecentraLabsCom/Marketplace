@@ -5,7 +5,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import ProviderLabItem from '@/components/dashboard/provider/ProviderLabItem';
-import LabManagementActions from '@/components/dashboard/provider/LabManagementActions';
 
 /**
  * Renders the provider's labs list with selection and management options
@@ -20,11 +19,6 @@ import LabManagementActions from '@/components/dashboard/provider/LabManagementA
  * @param {Function} props.onDelete - Callback to delete a lab
  * @param {Function} props.onList - Callback to list a lab
  * @param {Function} props.onUnlist - Callback to unlist a lab
- * @param {Function} props.onCollectAll - Callback to collect all tokens
- * @param {Object} props.newLabStructure - Empty lab structure for new labs
- * @param {Function} props.setNewLab - Setter for new lab state
- * @param {Function} props.setIsModalOpen - Setter for modal open state
- * @param {Function} props.setSelectedLabId - Setter for selected lab ID
  * @returns {JSX.Element} Provider labs management component
  */
 export default function ProviderLabsList({ 
@@ -37,16 +31,11 @@ export default function ProviderLabsList({
   onCollect,
   onDelete,
   onList,
-  onUnlist,
-  onCollectAll,
-  newLabStructure,
-  setNewLab,
-  setIsModalOpen,
-  setSelectedLabId
+  onUnlist
 }) {
   if (isLoading) {
     return (
-      <div className="w-full min-[1080px]:w-2/3">
+      <div className="w-full min-[1080px]:flex-1">
         <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
         <p className="text-gray-300 text-center">Loading labs...</p>
       </div>
@@ -55,7 +44,7 @@ export default function ProviderLabsList({
 
   if (ownedLabs.length === 0) {
     return (
-      <div className="w-full min-[1080px]:w-2/3">
+      <div className="w-full min-[1080px]:flex-1">
         <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
         <p className="text-gray-300 text-center">
           You have no labs registered yet. Press &quot;Add New Lab&quot; to get started.
@@ -65,25 +54,8 @@ export default function ProviderLabsList({
   }
 
   return (
-    <div className="w-full min-[1080px]:w-2/3">
+    <div className="w-full min-[1080px]:flex-1">
       <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
-      
-      {/* Collect All Button */}
-      <div className="flex justify-center mb-4">
-        <button 
-          onClick={onCollectAll}
-          className="bg-[#bcc4fc] text-white px-6 py-2 rounded shadow hover:bg-[#aab8e6] font-bold"
-        >
-          Collect All
-        </button>
-      </div>
-      
-      <LabManagementActions
-        newLabStructure={newLabStructure}
-        setNewLab={setNewLab}
-        setIsModalOpen={setIsModalOpen}
-        setSelectedLabId={setSelectedLabId}
-      />
       
       {/* Lab Selector */}
       <div className="flex justify-center">
@@ -137,10 +109,5 @@ ProviderLabsList.propTypes = {
   onCollect: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onList: PropTypes.func.isRequired,
-  onUnlist: PropTypes.func.isRequired,
-  onCollectAll: PropTypes.func.isRequired,
-  newLabStructure: PropTypes.object.isRequired,
-  setNewLab: PropTypes.func.isRequired,
-  setIsModalOpen: PropTypes.func.isRequired,
-  setSelectedLabId: PropTypes.func.isRequired
+  onUnlist: PropTypes.func.isRequired
 };
