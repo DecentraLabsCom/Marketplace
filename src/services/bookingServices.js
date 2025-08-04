@@ -317,6 +317,7 @@ export const cancelBooking = async (reservationKey) => {
 /**
  * Fetch comprehensive user booking data (composed service)
  * Orchestrates user bookings with additional context
+ * Tolerant to partial failures - returns available data with fallbacks
  * @param {string} userAddress - User wallet address
  * @param {boolean} includeDetails - Whether to fetch detailed reservation info
  * @returns {Promise<Object>} Comprehensive user booking data
@@ -329,30 +330,165 @@ export const fetchUserBookingsComposed = async (userAddress, includeDetails = fa
   devLog.log('🔧 [SERVICE] 📊 Fetching composed user bookings for:', userAddress);
 
   try {
-    // Use atomic service - fetchUserBookings already orchestrates the contract calls
-    const userBookings = await fetchUserBookings(userAddress);
+    // Step 1: Get reservation keys (fundamental step)
+    let reservationKeys = [];
+    try {
+      reservationKeys = await fetchUserReservationKeys(userAddress);
+      devLog.log(`🔧 [SERVICE] ✅ Fetched ${reservationKeys.length} reservation keys`);
+    } catch (error) {
+      devLog.error('❌ Failed to fetch reservation keys:', error);
+      // Return empty result if we can't even get the keys
+      return {
+        userAddress,
+        bookings: [],
+        totalBookings: 0,
+        activeBookings: 0,
+        pastBookings: 0,
+        errorInfo: {
+          hasErrors: true,
+          failedKeys: [],
+          message: 'Failed to fetch reservation keys'
+        }
+      };
+    }
 
-    devLog.log(`🔧 [SERVICE] ✅ Fetched ${userBookings.length} user bookings`);
+    if (reservationKeys.length === 0) {
+      devLog.log('🔧 [SERVICE] ℹ️ No reservation keys found for user');
+      return {
+        userAddress,
+        bookings: [],
+        totalBookings: 0,
+        activeBookings: 0,
+        pastBookings: 0,
+        errorInfo: {
+          hasErrors: false,
+          failedKeys: [],
+          message: 'No bookings found'
+        }
+      };
+    }
 
-    // Simple composition: add summary statistics
+    // Step 2: Get details for each reservation (with fault tolerance)
+    devLog.log('🔧 [SERVICE] 📡 Fetching reservation details...');
+    const bookingPromises = reservationKeys.map(async (key, index) => {
+      try {
+        const reservationResponse = await fetchReservationDetails(key);
+        
+        if (!reservationResponse || !reservationResponse.reservation) {
+          devLog.warn(`⚠️ No reservation data returned for key: ${key}`);
+          return { success: false, key, error: 'No reservation data' };
+        }
+        
+        // Extract the actual reservation data from the response
+        const reservationData = reservationResponse.reservation;
+        
+        // Extract fields from the reservation struct with safe fallbacks
+        const labId = reservationData.labId;
+        const renter = reservationData.renter; 
+        const price = reservationData.price;
+        const start = reservationData.start;
+        const end = reservationData.end;
+        const status = reservationData.status;
+        
+        // Validate required fields
+        if (labId === undefined || labId === null) {
+          devLog.warn(`⚠️ Missing labId for reservation key: ${key}`, reservationData);
+          return { success: false, key, error: 'Missing labId' };
+        }
+        
+        if (start === undefined || start === null || end === undefined || end === null) {
+          devLog.warn(`⚠️ Missing timestamps for reservation key: ${key}`);
+          return { success: false, key, error: 'Missing timestamps' };
+        }
+        
+        // Convert to numbers safely
+        const startNum = Number(start);
+        const endNum = Number(end);
+        const statusNum = Number(status || 0);
+        
+        // Validate converted numbers
+        if (isNaN(startNum) || isNaN(endNum)) {
+          devLog.warn(`⚠️ Invalid timestamps for reservation key: ${key}`, { start, end });
+          return { success: false, key, error: 'Invalid timestamps' };
+        }
+        
+        const now = Date.now() / 1000; // Current time in seconds
+        
+        const booking = {
+          id: index,
+          reservationKey: key,
+          labId: labId.toString(),
+          start: startNum.toString(), // Unix timestamp in seconds
+          end: endNum.toString(), // Unix timestamp in seconds  
+          status: statusNum.toString(),
+          price: (price?.toString() || '0'),
+          renter: (renter?.toString() || userAddress),
+          date: new Date(startNum * 1000).toISOString().split('T')[0], // Add date field in YYYY-MM-DD format
+          startDate: new Date(startNum * 1000),
+          endDate: new Date(endNum * 1000),
+          duration: endNum - startNum, // Duration in seconds
+          isActive: now >= startNum && now < endNum,
+          // Add additional fields from the API response
+          reservationState: reservationData.reservationState,
+          isPending: reservationData.isPending,
+          isBooked: reservationData.isBooked,
+          isUsed: reservationData.isUsed,
+          isCollected: reservationData.isCollected,
+          isCanceled: reservationData.isCanceled,
+          isCompleted: reservationData.isCompleted,
+          isConfirmed: reservationData.isConfirmed
+        };
+        
+        return { success: true, key, booking };
+        
+      } catch (error) {
+        devLog.error(`❌ Error processing reservation key ${key}:`, error);
+        return { success: false, key, error: error.message };
+      }
+    });
+
+    const bookingResults = await Promise.all(bookingPromises);
+    
+    // Separate successful and failed results
+    const successfulBookings = bookingResults
+      .filter(result => result.success)
+      .map(result => result.booking);
+    
+    const failedKeys = bookingResults
+      .filter(result => !result.success)
+      .map(result => ({ key: result.key, error: result.error }));
+
+    devLog.log(`🔧 [SERVICE] ✅ Successfully processed ${successfulBookings.length}/${bookingResults.length} bookings`);
+    if (failedKeys.length > 0) {
+      devLog.warn(`🔧 [SERVICE] ⚠️ Failed to process ${failedKeys.length} bookings:`, failedKeys);
+    }
+
+    // Step 3: Calculate statistics from successful bookings
     const now = Date.now() / 1000;
-    const activeBookings = userBookings.filter(booking => {
+    const activeBookings = successfulBookings.filter(booking => {
       const start = parseInt(booking.start);
       const end = parseInt(booking.end);
       return now >= start && now < end;
     });
     
-    const pastBookings = userBookings.filter(booking => {
+    const pastBookings = successfulBookings.filter(booking => {
       const end = parseInt(booking.end);
       return end < now;
     });
 
     const result = {
       userAddress,
-      bookings: userBookings,
-      totalBookings: userBookings.length,
+      bookings: successfulBookings,
+      totalBookings: successfulBookings.length,
       activeBookings: activeBookings.length,
-      pastBookings: pastBookings.length
+      pastBookings: pastBookings.length,
+      errorInfo: {
+        hasErrors: failedKeys.length > 0,
+        failedKeys,
+        message: failedKeys.length > 0 
+          ? `Successfully loaded ${successfulBookings.length} bookings, ${failedKeys.length} failed`
+          : 'All bookings loaded successfully'
+      }
     };
 
     devLog.log(`🔧 [SERVICE] ✅ Composed booking stats - Total: ${result.totalBookings}, Active: ${result.activeBookings}, Past: ${result.pastBookings}`);
@@ -360,13 +496,26 @@ export const fetchUserBookingsComposed = async (userAddress, includeDetails = fa
 
   } catch (error) {
     devLog.error('❌ Error in fetchUserBookingsComposed:', error);
-    throw error;
+    // Return partial data structure even on complete failure
+    return {
+      userAddress,
+      bookings: [],
+      totalBookings: 0,
+      activeBookings: 0,
+      pastBookings: 0,
+      errorInfo: {
+        hasErrors: true,
+        failedKeys: [],
+        message: `Service error: ${error.message}`
+      }
+    };
   }
 };
 
 /**
  * Fetch comprehensive lab booking data (composed service)
  * Orchestrates lab bookings with occupancy metrics
+ * Tolerant to partial failures - returns available data with fallbacks
  * @param {string|number} labId - Lab ID
  * @param {boolean} includeMetrics - Whether to calculate occupancy metrics
  * @returns {Promise<Object>} Comprehensive lab booking data
@@ -376,54 +525,180 @@ export const fetchLabBookingsComposed = async (labId, includeMetrics = true) => 
     throw new Error('Lab ID is required for composed lab booking fetch');
   }
 
-  try {
-    // Get lab bookings (efficient: uses getReservationsOfToken + getReservationOfTokenByIndex)
-    const labBookings = await fetchLabBookings(labId);
+  devLog.log(`🔧 [SERVICE] 📊 Fetching composed lab bookings for lab ${labId}`);
 
-    if (!includeMetrics || labBookings.length === 0) {
+  try {
+    // Step 1: Get lab bookings (fundamental step)
+    let labBookings = [];
+    try {
+      labBookings = await fetchLabBookings(labId);
+      devLog.log(`🔧 [SERVICE] ✅ Fetched ${labBookings.length} lab bookings`);
+    } catch (error) {
+      devLog.error(`❌ Failed to fetch lab bookings for lab ${labId}:`, error);
+      // Return empty result if we can't get bookings
       return {
-        labId,
-        bookings: labBookings,
-        totalBookings: labBookings.length
+        labId: labId.toString(),
+        bookings: [],
+        totalBookings: 0,
+        metrics: includeMetrics ? {
+          activeBookings: 0,
+          completedBookings: 0,
+          weeklyBookings: 0,
+          monthlyBookings: 0,
+          totalBookedHours: 0,
+          averageBookingDuration: 0
+        } : undefined,
+        errorInfo: {
+          hasErrors: true,
+          message: `Failed to fetch lab bookings: ${error.message}`
+        }
       };
     }
 
-    // Calculate metrics
-    const now = Date.now() / 1000; // Unix timestamp
-    const dayInSeconds = 24 * 60 * 60;
-    const weekAgo = now - (7 * dayInSeconds);
-    const monthAgo = now - (30 * dayInSeconds);
+    // Early return for empty bookings or no metrics needed
+    if (!includeMetrics || labBookings.length === 0) {
+      return {
+        labId: labId.toString(),
+        bookings: labBookings,
+        totalBookings: labBookings.length,
+        errorInfo: {
+          hasErrors: false,
+          message: labBookings.length === 0 ? 'No bookings found for lab' : 'All bookings loaded successfully'
+        }
+      };
+    }
 
-    const activeBookings = labBookings.filter(booking => booking.status === '1');
-    const completedBookings = labBookings.filter(booking => booking.status === '2' || booking.status === '3');
-    const weeklyBookings = labBookings.filter(booking => parseInt(booking.start) >= weekAgo);
-    const monthlyBookings = labBookings.filter(booking => parseInt(booking.start) >= monthAgo);
+    // Step 2: Calculate metrics with fault tolerance
+    devLog.log(`🔧 [SERVICE] 📊 Calculating metrics for ${labBookings.length} bookings...`);
+    
+    try {
+      const now = Date.now() / 1000; // Unix timestamp
+      const dayInSeconds = 24 * 60 * 60;
+      const weekAgo = now - (7 * dayInSeconds);
+      const monthAgo = now - (30 * dayInSeconds);
 
-    // Calculate total booked hours
-    const totalBookedHours = labBookings.reduce((total, booking) => {
-      const duration = (parseInt(booking.end) - parseInt(booking.start)) / 3600; // Convert to hours
-      return total + duration;
-    }, 0);
+      // Process each booking safely
+      const processedBookings = labBookings.map((booking, index) => {
+        try {
+          const start = parseInt(booking.start);
+          const end = parseInt(booking.end);
+          const status = booking.status?.toString() || '0';
 
-    return {
-      labId,
-      bookings: labBookings,
-      totalBookings: labBookings.length,
-      metrics: {
+          // Validate timestamps
+          if (isNaN(start) || isNaN(end)) {
+            devLog.warn(`⚠️ Invalid timestamps for booking ${index} in lab ${labId}:`, { start: booking.start, end: booking.end });
+            return { ...booking, hasValidTimestamps: false };
+          }
+
+          return {
+            ...booking,
+            hasValidTimestamps: true,
+            startNum: start,
+            endNum: end,
+            status,
+            duration: end - start
+          };
+        } catch (error) {
+          devLog.warn(`⚠️ Error processing booking ${index} in lab ${labId}:`, error);
+          return { ...booking, hasValidTimestamps: false };
+        }
+      });
+
+      // Filter valid bookings for metrics
+      const validBookings = processedBookings.filter(booking => booking.hasValidTimestamps);
+      const invalidCount = processedBookings.length - validBookings.length;
+
+      if (invalidCount > 0) {
+        devLog.warn(`🔧 [SERVICE] ⚠️ ${invalidCount} bookings have invalid data and were excluded from metrics`);
+      }
+
+      // Calculate metrics from valid bookings
+      const activeBookings = validBookings.filter(booking => booking.status === '1');
+      const completedBookings = validBookings.filter(booking => booking.status === '2' || booking.status === '3');
+      const weeklyBookings = validBookings.filter(booking => booking.startNum >= weekAgo);
+      const monthlyBookings = validBookings.filter(booking => booking.startNum >= monthAgo);
+
+      // Calculate total booked hours
+      const totalBookedHours = validBookings.reduce((total, booking) => {
+        try {
+          const duration = booking.duration / 3600; // Convert to hours
+          return total + (isNaN(duration) ? 0 : duration);
+        } catch (error) {
+          devLog.warn(`⚠️ Error calculating duration for booking in lab ${labId}:`, error);
+          return total;
+        }
+      }, 0);
+
+      const metrics = {
         activeBookings: activeBookings.length,
         completedBookings: completedBookings.length,
         weeklyBookings: weeklyBookings.length,
         monthlyBookings: monthlyBookings.length,
         totalBookedHours: Math.round(totalBookedHours * 100) / 100, // Round to 2 decimals
-        averageBookingDuration: labBookings.length > 0 
-          ? Math.round((totalBookedHours / labBookings.length) * 100) / 100 
+        averageBookingDuration: validBookings.length > 0 
+          ? Math.round((totalBookedHours / validBookings.length) * 100) / 100 
           : 0
-      }
-    };
+      };
+
+      devLog.log(`🔧 [SERVICE] ✅ Metrics calculated - Active: ${metrics.activeBookings}, Completed: ${metrics.completedBookings}`);
+
+      return {
+        labId: labId.toString(),
+        bookings: labBookings, // Return original bookings (including invalid ones for debugging)
+        totalBookings: labBookings.length,
+        metrics,
+        errorInfo: {
+          hasErrors: invalidCount > 0,
+          message: invalidCount > 0 
+            ? `Metrics calculated from ${validBookings.length}/${labBookings.length} valid bookings`
+            : 'All bookings processed successfully'
+        }
+      };
+
+    } catch (error) {
+      devLog.error(`❌ Error calculating metrics for lab ${labId}:`, error);
+      
+      // Return bookings without metrics if metrics calculation fails
+      return {
+        labId: labId.toString(),
+        bookings: labBookings,
+        totalBookings: labBookings.length,
+        metrics: {
+          activeBookings: 0,
+          completedBookings: 0,
+          weeklyBookings: 0,
+          monthlyBookings: 0,
+          totalBookedHours: 0,
+          averageBookingDuration: 0
+        },
+        errorInfo: {
+          hasErrors: true,
+          message: `Metrics calculation failed: ${error.message}. Bookings data available.`
+        }
+      };
+    }
 
   } catch (error) {
-    console.error('Error in fetchLabBookingsComposed:', error);
-    throw error;
+    devLog.error(`❌ Error in fetchLabBookingsComposed for lab ${labId}:`, error);
+    
+    // Return minimal structure on complete failure
+    return {
+      labId: labId.toString(),
+      bookings: [],
+      totalBookings: 0,
+      metrics: includeMetrics ? {
+        activeBookings: 0,
+        completedBookings: 0,
+        weeklyBookings: 0,
+        monthlyBookings: 0,
+        totalBookedHours: 0,
+        averageBookingDuration: 0
+      } : undefined,
+      errorInfo: {
+        hasErrors: true,
+        message: `Service error: ${error.message}`
+      }
+    };
   }
 };
 

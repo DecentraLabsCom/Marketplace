@@ -16,14 +16,13 @@ import { useMemo } from 'react'
  * Hook to get all user bookings in a single composed call
  * This is the primary data source for user booking data
  * @param {string} userAddress - User's wallet address
- * @param {boolean} includeDetails - Whether to fetch detailed reservation info
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with user bookings composed data
  */
-export const useUserBookingsQuery = (userAddress, includeDetails = false, options = {}) => {
+export const useUserBookingsQuery = (userAddress, options = {}) => {
   return useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, includeDetails),
-    queryFn: () => bookingServices.fetchUserBookingsComposed(userAddress, includeDetails),
+    queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true), // Always use true for consistent cache
+    queryFn: () => bookingServices.fetchUserBookingsComposed(userAddress, true),
     enabled: !!userAddress,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
@@ -127,17 +126,17 @@ export const useLabBookingsAtomicQuery = (labId, clearCache = false, options = {
 /**
  * Hook to get user bookings list (extracts from composed data)
  * @param {string} userAddress - User's wallet address
- * @param {boolean} includeDetails - Whether to include detailed info
  * @returns {Object} Bookings list with loading and error states
  */
-export const useUserBookingsListQuery = (userAddress, includeDetails = false) => {
-  const userBookingsQuery = useUserBookingsQuery(userAddress, includeDetails);
+export const useUserBookingsListQuery = (userAddress) => {
+  const userBookingsQuery = useUserBookingsQuery(userAddress);
   
   return useMemo(() => ({
     data: userBookingsQuery.data?.bookings || [],
     totalBookings: userBookingsQuery.data?.totalBookings || 0,
     activeBookings: userBookingsQuery.data?.activeBookings || 0,
     pastBookings: userBookingsQuery.data?.pastBookings || 0,
+    errorInfo: userBookingsQuery.data?.errorInfo || { hasErrors: false, message: '' },
     isLoading: userBookingsQuery.isLoading,
     isPending: userBookingsQuery.isPending,
     isInitialLoading: userBookingsQuery.isInitialLoading,
@@ -162,6 +161,7 @@ export const useLabBookingsListQuery = (labId, includeMetrics = true) => {
     data: labBookingsQuery.data?.bookings || [],
     totalBookings: labBookingsQuery.data?.totalBookings || 0,
     metrics: labBookingsQuery.data?.metrics || null,
+    errorInfo: labBookingsQuery.data?.errorInfo || { hasErrors: false, message: '' },
     isLoading: labBookingsQuery.isLoading,
     isPending: labBookingsQuery.isPending,
     isInitialLoading: labBookingsQuery.isInitialLoading,
@@ -244,7 +244,7 @@ export const useCreateBookingMutation = () => {
       // Cancel outgoing queries to avoid overwriting optimistic update
       if (userAddress) {
         await queryClient.cancelQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress) 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true) 
         });
       }
       await queryClient.cancelQueries({ 
@@ -265,10 +265,10 @@ export const useCreateBookingMutation = () => {
       
       // Snapshot and update user bookings (only if userAddress provided)
       const previousUserBookings = userAddress ? 
-        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress)) : null;
+        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress, true)) : null;
       if (previousUserBookings && userAddress) {
         queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(userAddress),
+          QUERY_KEYS.BOOKINGS.userComposed(userAddress, true),
           {
             ...previousUserBookings,
             bookings: [...(previousUserBookings.bookings || []), optimisticBooking],
@@ -304,7 +304,7 @@ export const useCreateBookingMutation = () => {
       // Rollback optimistic updates
       if (context?.previousUserBookings && variables.userAddress) {
         queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress),
+          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true),
           context.previousUserBookings
         );
       }
@@ -323,7 +323,7 @@ export const useCreateBookingMutation = () => {
       // Invalidate composed queries to refetch fresh data
       if (variables.userAddress) {
         queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress) 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true) 
         });
       }
       
@@ -360,7 +360,7 @@ export const useCancelBookingMutation = () => {
       // Cancel outgoing queries
       if (userAddress) {
         await queryClient.cancelQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress) 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true) 
         });
       }
       if (labId) {
@@ -371,13 +371,13 @@ export const useCancelBookingMutation = () => {
       
       // Snapshot and update user bookings
       const previousUserBookings = userAddress ? 
-        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress)) : null;
+        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress, true)) : null;
       if (previousUserBookings && userAddress) {
         const filteredBookings = (previousUserBookings.bookings || []).filter(
           booking => booking.reservationKey !== reservationKey && booking.id !== reservationKey
         );
         queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(userAddress),
+          QUERY_KEYS.BOOKINGS.userComposed(userAddress, true),
           {
             ...previousUserBookings,
             bookings: filteredBookings,
@@ -417,7 +417,7 @@ export const useCancelBookingMutation = () => {
       // Rollback optimistic updates
       if (context?.previousUserBookings && variables.userAddress) {
         queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress),
+          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true),
           context.previousUserBookings
         );
       }
@@ -436,7 +436,7 @@ export const useCancelBookingMutation = () => {
       // Invalidate composed queries to refetch fresh data
       if (variables.userAddress) {
         queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress) 
+          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true) 
         });
       }
       

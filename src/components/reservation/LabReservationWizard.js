@@ -47,7 +47,7 @@ export default function LabReservationWizard({
   const { 
     data: userBookingsData, 
     isInitialLoading: userBookingsLoading 
-  } = useUserBookingsQuery(userAccount, true, {
+  } = useUserBookingsQuery(userAccount, {
     enabled: !!userAccount
   });
   const userBookings = userBookingsData?.bookings || [];
@@ -55,7 +55,7 @@ export default function LabReservationWizard({
   const { 
     data: labBookingsData, 
     isInitialLoading: labBookingsLoading 
-  } = useLabBookingsQuery(lab?.id, null, null, {
+  } = useLabBookingsQuery(lab?.id, true, {
     enabled: !!lab?.id
   });
   const labBookings = labBookingsData?.bookings || [];

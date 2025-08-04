@@ -56,9 +56,8 @@ export default function ProviderDashboard() {
     isInitialLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useLabBookingsQuery(selectedLabId, null, null, {
-    enabled: !!selectedLabId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+  } = useLabBookingsQuery(selectedLabId, true, {
+    enabled: !!selectedLabId
   });
   const labBookings = labBookingsData?.bookings || [];
 

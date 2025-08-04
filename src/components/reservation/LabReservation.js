@@ -60,10 +60,8 @@ export default function LabReservation({ id }) {
     data: labBookingsData,
     isInitialLoading: bookingsLoading,
     refetch: refetchLabBookings
-  } = useLabBookingsQuery(selectedLab?.id, null, null, {
-    enabled: !!selectedLab?.id,
-    staleTime: 2 * 60 * 1000, // 2 minutes
-    refetchOnWindowFocus: false,
+  } = useLabBookingsQuery(selectedLab?.id, true, {
+    enabled: !!selectedLab?.id
   });
   const labBookings = labBookingsData?.bookings || [];
 

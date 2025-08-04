@@ -7,6 +7,7 @@ import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/booking/
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
+import { PartialDataWarning } from '@/components/ui'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ActiveLabCard from '@/components/dashboard/user/ActiveLabCard'
@@ -23,11 +24,7 @@ export default function UserDashboard() {
     isInitialLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery({
-    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-    refetchOnWindowFocus: false, // No automatic refetch
-    refetchInterval: false, // Disable automatic periodic refetch
-  });
+  } = useAllLabsQuery();
 
   // 🚀 React Query for user bookings
   const { 
@@ -35,10 +32,9 @@ export default function UserDashboard() {
     isInitialLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useUserBookingsQuery(address, true, {
+  } = useUserBookingsQuery(address, {
     enabled: !!address && isLoggedIn,
-    staleTime: 2 * 60 * 1000, // 2 minutes - more dynamic bookings
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
   });
 
   // Extract bookings array from composed service response
@@ -366,6 +362,13 @@ export default function UserDashboard() {
           </div>
 
           <div className='flex-1'>
+            {/* Partial Data Warning */}
+            <PartialDataWarning 
+              errorInfo={userBookingsData?.errorInfo || { hasErrors: false, message: '' }}
+              dataType="bookings"
+              showDetails={true}
+            />
+            
             <div className='flex min-[1280px]:flex-row flex-col'>
               <div className="border shadow text-white rounded p-6 mb-1 min-[1280px]:mr-1 min-[1280px]:w-3/4">
                 <div className="flex flex-col">

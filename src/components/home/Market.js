@@ -20,11 +20,7 @@ export default function Market() {
   const { isLoggedIn, address } = useUser();
   
   // React Query for labs
-  const labsQuery = useAllLabsQuery({
-    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-    refetchOnWindowFocus: false, // Disable automatic refetch on window focus
-    refetchInterval: false, // Disable automatic periodic refetch
-  });
+  const labsQuery = useAllLabsQuery();
   
   const { 
     data: labsData = [], 
@@ -40,9 +36,8 @@ export default function Market() {
   const labs = useMemo(() => labsData, [labsData]);
 
   // React Query for user bookings
-  const userBookingsQuery = useUserBookingsQuery(address, null, null, {
+  const userBookingsQuery = useUserBookingsQuery(address, {
     enabled: !!address && isLoggedIn,
-    refetchOnWindowFocus: true,
   });
 
   const {

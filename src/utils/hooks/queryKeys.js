@@ -22,11 +22,6 @@ export const QUERY_KEYS = {
     // Atomic queries (for specific use cases)
     userAtomic: (address, clearCache = false) => ['bookings', 'user-atomic', address, clearCache],
     labAtomic: (labId, clearCache = false) => ['bookings', 'lab-atomic', labId, clearCache],
-    
-    // Legacy keys (for backward compatibility)
-    user: (address) => ['bookings', 'user', address],
-    lab: (labId) => ['bookings', 'lab', labId],
-    labWithDates: (labId, startDate, endDate) => ['bookings', 'lab', labId, startDate, endDate],
   },
   
   // Labs - Atomic endpoints only
@@ -78,17 +73,13 @@ export const INVALIDATION_PATTERNS = {
     QUERY_KEYS.BOOKINGS.userComposed(address, true), // With details
     QUERY_KEYS.BOOKINGS.userAtomic(address),
     QUERY_KEYS.BOOKINGS.userAtomic(address, true), // Clear cache
-    QUERY_KEYS.BOOKINGS.user(address), // Legacy
   ],
 
   // Invalidate bookings for a specific lab (both composed and atomic)
   labBookings: (labId) => [
-    QUERY_KEYS.BOOKINGS.labComposed(labId),
-    QUERY_KEYS.BOOKINGS.labComposed(labId, false), // Without metrics
+    QUERY_KEYS.BOOKINGS.labComposed(labId, true), // With metrics (standard)
     QUERY_KEYS.BOOKINGS.labAtomic(labId),
     QUERY_KEYS.BOOKINGS.labAtomic(labId, true), // Clear cache
-    QUERY_KEYS.BOOKINGS.lab(labId), // Legacy
-    QUERY_KEYS.BOOKINGS.labWithDates(labId), // Legacy with dates
   ],
 
   // Invalidate multi-lab bookings that include a specific lab
