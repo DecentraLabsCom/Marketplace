@@ -4,8 +4,7 @@
  */
 import React, { useState, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useBookingCreation } from '@/hooks/booking/useBookingCreation'
-import { useUserBookingsQuery, useLabBookingsQuery } from '@/hooks/booking/useBookings'
+import { useCompleteBookingCreation, useUserBookingsQuery, useLabBookingsQuery } from '@/hooks/booking/useBookings'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import BookingForm from '@/components/reservation/BookingForm'
 import BookingConfirmation from '@/components/reservation/BookingConfirmation'
@@ -63,12 +62,12 @@ export default function LabReservationWizard({
   // Booking creation
   const {
     createBooking,
-    isCreating,
-    error: bookingError
-  } = useBookingCreation({
-    onSuccess: handleBookingSuccess,
-    onError: handleBookingError
-  })
+    isBooking,
+    isWaitingForReceipt,
+    calculateBookingCost,
+    formatBalance,
+    formatPrice
+  } = useCompleteBookingCreation(lab, handleBookingSuccess)
 
   // Combined bookings for calendar
   const allBookings = useMemo(() => {
@@ -85,13 +84,6 @@ export default function LabReservationWizard({
     if (onBookingComplete) {
       onBookingComplete(booking)
     }
-  }
-
-  /**
-   * Handle booking error
-   */
-  function handleBookingError(error) {
-    devLog.error('❌ Booking creation failed:', error)
   }
 
   /**
@@ -254,8 +246,8 @@ export default function LabReservationWizard({
               lab={lab}
               selectedSlot={selectedSlot}
               onSubmit={handleBookingSubmit}
-              isSubmitting={isCreating}
-              error={bookingError}
+              isSubmitting={isBooking || isWaitingForReceipt}
+              error={null} // Errors are now handled by notifications
             />
           </div>
         )}
@@ -279,7 +271,7 @@ export default function LabReservationWizard({
         <button
           onClick={currentStep === STEPS.SELECT_SLOT ? handleClose : handleStepBack}
           className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
-          disabled={isCreating}
+          disabled={isBooking || isWaitingForReceipt}
         >
           {currentStep === STEPS.SELECT_SLOT ? 'Close' : 'Back'}
         </button>

@@ -7,7 +7,7 @@ import { useNotifications } from '@/context/NotificationContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
 import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/hooks/useLabToken'
-import { useCacheInvalidation } from '@/hooks/user/useUsers'
+import { useBookingCacheUpdates } from '@/hooks/booking/useBookings'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import AccessControl from '@/components/auth/AccessControl'
 import Carrousel from '@/components/ui/Carrousel'
@@ -39,8 +39,8 @@ export default function LabReservation({ id }) {
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected, address } = useAccount();
   
-  // Cache invalidation hooks
-  const cacheInvalidation = useCacheInvalidation();
+  // Cache update hooks
+  const bookingCacheUpdates = useBookingCacheUpdates();
   
   const [date, setDate] = useState(new Date());
   const [time, setTime] = useState(15);
@@ -271,12 +271,28 @@ export default function LabReservation({ id }) {
             })
           });
           
-          // Invalidate cache for real-time updates across components
-          cacheInvalidation.invalidateUserBookings(address || userAddress);
-          
-          // Invalidate lab bookings cache for this specific lab (for provider dashboards)
-          if (labId) {
-            cacheInvalidation.invalidateLabBookings(labId);
+          // Use granular cache updates for booking creation
+          try {
+            const newBookingData = {
+              id: pendingData?.reservationKey,
+              labId: labId,
+              userAddress: address || userAddress,
+              startTime: pendingData?.startTime,
+              endTime: pendingData?.endTime,
+              status: 'active',
+              timestamp: new Date().toISOString()
+            };
+            
+            // Add to user's bookings cache
+            bookingCacheUpdates.addBookingToUserCache(newBookingData, address || userAddress);
+            
+            // Add to lab's bookings cache
+            if (labId) {
+              bookingCacheUpdates.addBookingToLabCache(newBookingData, labId);
+            }
+          } catch (error) {
+            devLog.warn('Granular cache update failed, using smart invalidation:', error);
+            bookingCacheUpdates.smartBookingInvalidation(labId);
           }
           
           // Force refresh the lab bookings data
@@ -350,12 +366,11 @@ export default function LabReservation({ id }) {
 
   // Common notification and state management
   const handleBookingSuccess = async () => {
-    // Invalidate user bookings for real-time updates
-    cacheInvalidation.invalidateUserBookings(address || userAddress);
-    
-    // Invalidate lab bookings for real-time updates across provider dashboards
-    if (selectedLab?.id) {
-      cacheInvalidation.invalidateLabBookings(selectedLab.id);
+    // Use smart booking cache invalidation for real-time updates
+    try {
+      bookingCacheUpdates.smartBookingInvalidation(selectedLab?.id);
+    } catch (error) {
+      devLog.warn('Smart invalidation failed, forcing refetch:', error);
     }
     
     // Update lab bookings
@@ -371,22 +386,36 @@ export default function LabReservation({ id }) {
     const { labId, start, timeslot, cost, optimisticBookingId } = bookingData;
     const userAddr = address || userAddress || 'current_user';
 
-    // Use the cache invalidation hook for optimistic updates
-    const optimisticBooking = cacheInvalidation.addOptimisticBooking({
-      labId,
-      start,
-      timeslot,
-      cost,
-      optimisticBookingId,
-      userAddress: userAddr
-    });
+    // Use the granular cache updates for optimistic updates
+    try {
+      const optimisticBookingData = {
+        id: optimisticBookingId,
+        labId,
+        userAddress: userAddr,
+        startTime: start.toISOString(),
+        endTime: new Date(start.getTime() + (timeslot * 60 * 1000)).toISOString(),
+        cost,
+        status: 'pending',
+        timestamp: new Date().toISOString(),
+        isOptimistic: true
+      };
 
-    if (optimisticBooking) {
+      // Add to user's bookings cache
+      bookingCacheUpdates.addBookingToUserCache(optimisticBookingData, userAddr);
+      
+      // Add to lab's bookings cache
+      if (labId) {
+        bookingCacheUpdates.addBookingToLabCache(optimisticBookingData, labId);
+      }
+
       // Force UI refresh for immediate calendar update
       setForceRefresh(prev => prev + 1);
+      
+      return optimisticBookingData;
+    } catch (error) {
+      devLog.warn('Optimistic cache update failed:', error);
+      return null;
     }
-
-    return optimisticBooking;
   };
 
   // Common validation and calculation logic

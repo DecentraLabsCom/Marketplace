@@ -8,7 +8,8 @@ import devLog from '@/utils/dev/logger'
 
 export function useLabEventCoordinator() {
   const { 
-    invalidateAllLabCaches, 
+    updateLabCaches,
+    smartLabInvalidation,
     setManualUpdateInProgress,
     isManualUpdateInProgress 
   } = useLabEvents();
@@ -17,7 +18,7 @@ export function useLabEventCoordinator() {
    * Coordinated lab update - use this instead of direct API calls
    * when manually updating labs from the UI
    */
-  const coordinatedLabUpdate = useCallback(async (updateFunction, labId = null) => {
+  const coordinatedLabUpdate = useCallback(async (updateFunction, labId = null, labData = null, action = null) => {
     // Check if an update is already in progress
     if (isManualUpdateInProgress) {
       devLog.warn('[LabEventCoordinator] Manual update already in progress, skipping...');
@@ -30,17 +31,18 @@ export function useLabEventCoordinator() {
     try {
       devLog.log('🚀 [LabEventCoordinator] Starting coordinated lab update:', { 
         labId,
+        action,
         timestamp: new Date().toISOString()
       });
 
       // Execute the update function (API call, etc.)
       const result = await updateFunction();
 
-      // Invalidate relevant React Query caches
-      devLog.log('♻️ [LabEventCoordinator] Invalidating caches...');
-      await invalidateAllLabCaches(labId, 'coordinated_manual_update');
+      // Smart cache update using granular updates when possible
+      devLog.log('♻️ [LabEventCoordinator] Updating caches...');
+      await updateLabCaches(labId, labData, action, 'coordinated_manual_update');
 
-      devLog.log('✅ [LabEventCoordinator] Cache invalidation completed');
+      devLog.log('✅ [LabEventCoordinator] Cache update completed');
 
       return result;
     } catch (error) {
@@ -52,7 +54,7 @@ export function useLabEventCoordinator() {
         setManualUpdateInProgress(false);
       }, 1000);
     }
-  }, [isManualUpdateInProgress, setManualUpdateInProgress, invalidateAllLabCaches]);
+  }, [isManualUpdateInProgress, setManualUpdateInProgress, updateLabCaches]);
 
   /**
    * Coordinated cache refresh - use when immediate UI update is needed
@@ -60,11 +62,23 @@ export function useLabEventCoordinator() {
   const coordinatedRefresh = useCallback(async (labId = null) => {
     if (!isManualUpdateInProgress) {
       devLog.log('🔄 [LabEventCoordinator] Refreshing labs');
-      await invalidateAllLabCaches(labId, 'manual_refresh');
+      await updateLabCaches(labId, null, null, 'manual_refresh');
     } else {
       devLog.log('Manual update in progress, skipping automatic refresh');
     }
-  }, [invalidateAllLabCaches, isManualUpdateInProgress]);
+  }, [updateLabCaches, isManualUpdateInProgress]);
+
+  /**
+   * Granular cache update for specific lab actions
+   */
+  const coordinatedGranularUpdate = useCallback((labId, labData, action) => {
+    if (!isManualUpdateInProgress) {
+      devLog.log('🎯 [LabEventCoordinator] Performing granular update:', { labId, action });
+      smartLabInvalidation(labId, labData, action);
+    } else {
+      devLog.log('Manual update in progress, skipping granular update');
+    }
+  }, [smartLabInvalidation, isManualUpdateInProgress]);
 
   /**
    * Check if manual update is in progress
@@ -76,6 +90,7 @@ export function useLabEventCoordinator() {
   return {
     coordinatedLabUpdate,
     coordinatedRefresh,
+    coordinatedGranularUpdate,
     isManualInProgress
   };
 }

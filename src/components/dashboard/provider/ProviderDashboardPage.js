@@ -307,7 +307,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
       throw error; // Re-throw for coordinatedLabUpdate to handle
     }
-    }, labData.id); // End of coordinatedLabUpdate - pass labId for targeted cache invalidation
+    }, labData.id, labData, 'update'); // End of coordinatedLabUpdate - pass labId, labData, and action for targeted cache update
   }
 
   // Handle adding a new lab using React Query mutation

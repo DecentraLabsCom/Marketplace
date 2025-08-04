@@ -6,7 +6,7 @@
 import { useCallback } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useUserEvents } from '@/context/UserEventContext'
-import { useRefreshProviderStatusMutation, useCacheInvalidation } from '@/hooks/user/useUsers'
+import { useRefreshProviderStatusMutation, useCacheInvalidation, useUserCacheUpdates } from '@/hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 export function useUserEventCoordinator() {
@@ -15,14 +15,13 @@ export function useUserEventCoordinator() {
     invalidateUserCache, 
     scheduleUserUpdate,
     setManualUpdateInProgress,
-    isManualUpdateInProgress 
+    isManualUpdateInProgress,
+    updateUserCaches
   } = useUserEvents();
 
   // React Query hooks for better cache management
-  const { 
-    invalidateProviderStatus,
-    invalidateAllUserData 
-  } = useCacheInvalidation();
+  const cacheInvalidation = useCacheInvalidation();
+  const userCacheUpdates = useUserCacheUpdates();
   
   const refreshProviderStatusMutation = useRefreshProviderStatusMutation();
 
@@ -95,10 +94,24 @@ export function useUserEventCoordinator() {
       // Execute the registration function (API/contract call)
       const result = await registrationFunction();
       
-      // Invalidate relevant React Query caches
+      // Use granular cache update for provider registration
       if (userAccount) {
-        invalidateProviderStatus(userAccount, false);
-        invalidateAllUserData(userAccount);
+        try {
+          await updateUserCaches(
+            userAccount,
+            { 
+              isProvider: true, 
+              timestamp: new Date().toISOString() 
+            },
+            'update',
+            'both',
+            'manual_provider_registration'
+          );
+        } catch (error) {
+          devLog.warn('Granular cache update failed, falling back to invalidation:', error);
+          cacheInvalidation.invalidateProviderData(userAccount);
+          cacheInvalidation.invalidateUserProfile(userAccount);
+        }
       }
       
       // Also refresh via mutation for immediate feedback
@@ -117,7 +130,7 @@ export function useUserEventCoordinator() {
       
       return result;
     }, userAccount);
-  }, [coordinatedUserUpdate, invalidateProviderStatus, invalidateAllUserData, refreshProviderStatusMutation]);
+  }, [coordinatedUserUpdate, cacheInvalidation, refreshProviderStatusMutation]);
 
   /**
    * Coordinated provider update - handles provider information updates
@@ -128,10 +141,24 @@ export function useUserEventCoordinator() {
       // Execute the update function (API/contract call)
       const result = await updateFunction();
       
-      // Invalidate relevant React Query caches
+      // Use granular cache update for provider update
       if (userAccount) {
-        invalidateProviderStatus(userAccount, false);
-        invalidateAllUserData(userAccount);
+        try {
+          await updateUserCaches(
+            userAccount,
+            { 
+              timestamp: new Date().toISOString(),
+              ...result // Include any updated data from the result
+            },
+            'update',
+            'both',
+            'manual_provider_update'
+          );
+        } catch (error) {
+          devLog.warn('Granular cache update failed, falling back to invalidation:', error);
+          cacheInvalidation.invalidateProviderData(userAccount);
+          cacheInvalidation.invalidateUserProfile(userAccount);
+        }
       }
       
       // Also refresh via mutation for immediate feedback
@@ -150,7 +177,7 @@ export function useUserEventCoordinator() {
       
       return result;
     }, userAccount);
-  }, [coordinatedUserUpdate, invalidateProviderStatus, invalidateAllUserData, refreshProviderStatusMutation]);
+  }, [coordinatedUserUpdate, cacheInvalidation, refreshProviderStatusMutation]);
 
   /**
    * Check if manual user update is in progress

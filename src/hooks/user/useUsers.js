@@ -191,37 +191,249 @@ export const useSSOSessionQuery = (options = {}) => {
 // ===============================
 
 /**
- * Hook for cache invalidation utilities
- * Used by event contexts to invalidate related caches
- * @returns {Object} Cache invalidation functions
+ * Hook for user/provider-specific cache invalidation utilities
+ * Used by event contexts to invalidate user-related caches efficiently
+ * @returns {Object} User cache invalidation functions
  */
 export const useCacheInvalidation = () => {
   const queryClient = useQueryClient();
 
-  return {
-    /**
-     * Invalidate booking caches for a user
-     * @param {string} userAddress - User address
-     */
-    invalidateUserBookings: (userAddress) => {
-      if (userAddress) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['bookings', 'user-composed', userAddress] 
-        });
-      }
-    },
+  /**
+   * Invalidate user profile and provider status
+   * @param {string} userAddress - User address
+   */
+  const invalidateUserProfile = (userAddress) => {
+    if (userAddress) {
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.USER.profile(userAddress)
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.USER.status(userAddress)
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.PROVIDER.status(userAddress)
+      });
+      devLog.log('🔄 Invalidated user profile cache:', userAddress);
+    }
+  };
 
-    /**
-     * Invalidate booking caches for a lab
-     * @param {string|number} labId - Lab ID
-     */
-    invalidateLabBookings: (labId) => {
-      if (labId) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['bookings', 'lab-composed', labId] 
-        });
+  /**
+   * Invalidate provider data (alias for user profile for provider-specific contexts)
+   * @param {string} providerId - Provider ID (user address)
+   */
+  const invalidateProviderData = (providerId) => {
+    if (providerId) {
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.USER.profile(providerId)
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.USER.status(providerId)
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.PROVIDER.status(providerId)
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.PROVIDER.data(providerId)
+      });
+      devLog.log('🔄 Invalidated provider data cache:', providerId);
+    }
+  };
+
+  return {
+    invalidateUserProfile,
+    invalidateProviderData
+  };
+};
+
+/**
+ * Hook for user/provider granular cache update utilities
+ * Provides granular cache manipulation functions for users and providers
+ * @returns {Object} User cache update functions
+ */
+export const useUserCacheUpdates = () => {
+  const queryClient = useQueryClient();
+
+  /**
+   * Add user to providers list cache (if it exists)
+   * @param {Object} userData - User data to add
+   */
+  const addUserToProvidersCache = (userData) => {
+    if (!userData?.address) return;
+
+    try {
+      queryClient.setQueryData(QUERY_KEYS.PROVIDER.all, (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Check if user already exists to avoid duplicates
+        const existingIndex = oldData.findIndex(p => p.address === userData.address);
+        if (existingIndex !== -1) {
+          return oldData; // Already exists, no need to add
+        }
+
+        return [...oldData, userData];
+      });
+      devLog.log('✅ Added user to providers cache:', userData.address);
+    } catch (error) {
+      devLog.warn('⚠️ Failed to add user to providers cache:', error);
+    }
+  };
+
+  /**
+   * Update user in providers list cache
+   * @param {Object} userData - Updated user data
+   */
+  const updateUserInProvidersCache = (userData) => {
+    if (!userData?.address) return;
+
+    try {
+      queryClient.setQueryData(QUERY_KEYS.PROVIDER.all, (oldData) => {
+        if (!oldData) return oldData;
+
+        return oldData.map(provider => 
+          provider.address === userData.address 
+            ? { ...provider, ...userData }
+            : provider
+        );
+      });
+      devLog.log('✅ Updated user in providers cache:', userData.address);
+    } catch (error) {
+      devLog.warn('⚠️ Failed to update user in providers cache:', error);
+    }
+  };
+
+  /**
+   * Remove user from providers list cache
+   * @param {string} userAddress - User address to remove
+   */
+  const removeUserFromProvidersCache = (userAddress) => {
+    if (!userAddress) return;
+
+    try {
+      queryClient.setQueryData(QUERY_KEYS.PROVIDER.all, (oldData) => {
+        if (!oldData) return oldData;
+        return oldData.filter(provider => provider.address !== userAddress);
+      });
+      devLog.log('✅ Removed user from providers cache:', userAddress);
+    } catch (error) {
+      devLog.warn('⚠️ Failed to remove user from providers cache:', error);
+    }
+  };
+
+  /**
+   * Update user profile in cache
+   * @param {string} userAddress - User address
+   * @param {Object} profileData - Updated profile data
+   */
+  const updateUserProfileCache = (userAddress, profileData) => {
+    if (!userAddress || !profileData) return;
+
+    try {
+      queryClient.setQueryData(QUERY_KEYS.USER.profile(userAddress), (oldData) => {
+        if (!oldData) return profileData;
+        return { ...oldData, ...profileData };
+      });
+      devLog.log('✅ Updated user profile cache:', userAddress);
+    } catch (error) {
+      devLog.warn('⚠️ Failed to update user profile cache:', error);
+    }
+  };
+
+  /**
+   * Update user status in cache
+   * @param {string} userAddress - User address
+   * @param {Object} statusData - Updated status data
+   */
+  const updateUserStatusCache = (userAddress, statusData) => {
+    if (!userAddress || !statusData) return;
+
+    try {
+      queryClient.setQueryData(QUERY_KEYS.USER.status(userAddress), (oldData) => {
+        if (!oldData) return statusData;
+        return { ...oldData, ...statusData };
+      });
+      devLog.log('✅ Updated user status cache:', userAddress);
+    } catch (error) {
+      devLog.warn('⚠️ Failed to update user status cache:', error);
+    }
+  };
+
+  /**
+   * Update provider data in cache
+   * @param {string} providerId - Provider ID (user address)
+   * @param {Object} providerData - Updated provider data
+   */
+  const updateProviderDataCache = (providerId, providerData) => {
+    if (!providerId || !providerData) return;
+
+    try {
+      queryClient.setQueryData(QUERY_KEYS.PROVIDER.data(providerId), (oldData) => {
+        if (!oldData) return providerData;
+        return { ...oldData, ...providerData };
+      });
+      devLog.log('✅ Updated provider data cache:', providerId);
+    } catch (error) {
+      devLog.warn('⚠️ Failed to update provider data cache:', error);
+    }
+  };
+
+  /**
+   * Smart user cache update - tries granular first, falls back to invalidation
+   * @param {string} userAddress - User address
+   * @param {Object} userData - User data for granular updates
+   * @param {string} action - Action type: 'add', 'remove', 'update'
+   * @param {string} [context] - Context: 'user', 'provider', or 'both'
+   */
+  const smartUserInvalidation = (userAddress, userData = null, action = 'update', context = 'both') => {
+    if (!userAddress) return;
+
+    try {
+      switch (action) {
+        case 'add':
+          if (context === 'provider' || context === 'both') {
+            addUserToProvidersCache(userData);
+          }
+          if (userData) {
+            updateUserProfileCache(userAddress, userData);
+            updateUserStatusCache(userAddress, { isProvider: true });
+          }
+          break;
+
+        case 'remove':
+          if (context === 'provider' || context === 'both') {
+            removeUserFromProvidersCache(userAddress);
+          }
+          break;
+
+        case 'update':
+          if (context === 'provider' || context === 'both') {
+            updateUserInProvidersCache(userData);
+            updateProviderDataCache(userAddress, userData);
+          }
+          if (context === 'user' || context === 'both') {
+            updateUserProfileCache(userAddress, userData);
+            updateUserStatusCache(userAddress, userData);
+          }
+          break;
+
+        default:
+          devLog.warn('⚠️ Unknown action for smartUserInvalidation:', action);
       }
-    },
+
+      devLog.log(`✅ Smart user cache update completed: ${action} for ${userAddress}`);
+    } catch (error) {
+      devLog.warn('⚠️ Smart user cache update failed, consider invalidation:', error);
+      throw error; // Re-throw so caller can handle fallback
+    }
+  };
+
+  return {
+    addUserToProvidersCache,
+    updateUserInProvidersCache,
+    removeUserFromProvidersCache,
+    updateUserProfileCache,
+    updateUserStatusCache,
+    updateProviderDataCache,
+    smartUserInvalidation
   };
 };
 

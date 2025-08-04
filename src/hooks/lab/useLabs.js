@@ -272,12 +272,35 @@ export const useLabCacheInvalidation = () => {
   const queryClient = useQueryClient();
   
   return {
+    /**
+     * Invalidate all lab queries (list, individual labs, etc.)
+     */
     invalidateAllLabs: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
       queryClient.invalidateQueries({ queryKey: ['labs'] }); // Invalidate all lab-related queries
     },
     
+    /**
+     * Alias for invalidateAllLabs (for consistency with event contexts)
+     */
+    invalidateLabList: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
+    },
+    
+    /**
+     * Invalidate specific lab data
+     * @param {string|number} labId - Lab ID
+     */
     invalidateLabDetail: (labId) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.owner(labId) });
+    },
+    
+    /**
+     * Alias for invalidateLabDetail (for consistency with event contexts)
+     * @param {string|number} labId - Lab ID
+     */
+    invalidateLabData: (labId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.owner(labId) });
     },
@@ -304,13 +327,26 @@ export const useLabCacheInvalidation = () => {
  */
 export const useCreateLabMutation = () => {
   const queryClient = useQueryClient();
+  const labCacheUpdates = useLabCacheUpdates();
   
   return useMutation({
     mutationFn: (labData) => labServices.createLab(labData),
-    onSuccess: () => {
-      // Invalidate relevant queries after successful creation
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
-      queryClient.invalidateQueries({ queryKey: ['labs'] });
+    onSuccess: (createdLab, labData) => {
+      // Try granular cache update first
+      try {
+        const labToAdd = {
+          ...createdLab,
+          ...labData,
+          timestamp: new Date().toISOString()
+        };
+        labCacheUpdates.addLabToAllLabsCache(labToAdd);
+        devLog.log('✅ Lab creation: granular cache update completed');
+      } catch (error) {
+        devLog.warn('⚠️ Granular lab creation update failed, falling back to invalidation:', error);
+        // Fallback to traditional invalidation
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
+        queryClient.invalidateQueries({ queryKey: ['labs'] });
+      }
     },
     onError: (error) => {
       devLog.error('Failed to create lab:', error);
@@ -323,14 +359,27 @@ export const useCreateLabMutation = () => {
  */
 export const useUpdateLabMutation = () => {
   const queryClient = useQueryClient();
+  const labCacheUpdates = useLabCacheUpdates();
   
   return useMutation({
     mutationFn: ({ labId, labData }) => labServices.updateLab(labId, labData),
-    onSuccess: (data, variables) => {
-      // Invalidate specific lab and list
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(variables.labId) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
-      queryClient.invalidateQueries({ queryKey: ['labs'] });
+    onSuccess: (updatedLab, variables) => {
+      // Try granular cache update first
+      try {
+        const labUpdates = {
+          ...updatedLab,
+          ...variables.labData,
+          timestamp: new Date().toISOString()
+        };
+        labCacheUpdates.updateLabInAllLabsCache(variables.labId, labUpdates);
+        devLog.log('✅ Lab update: granular cache update completed');
+      } catch (error) {
+        devLog.warn('⚠️ Granular lab update failed, falling back to invalidation:', error);
+        // Fallback to traditional invalidation
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(variables.labId) });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
+        queryClient.invalidateQueries({ queryKey: ['labs'] });
+      }
     },
     onError: (error) => {
       devLog.error('Failed to update lab:', error);
@@ -343,14 +392,22 @@ export const useUpdateLabMutation = () => {
  */
 export const useDeleteLabMutation = () => {
   const queryClient = useQueryClient();
+  const labCacheUpdates = useLabCacheUpdates();
   
   return useMutation({
     mutationFn: (labId) => labServices.deleteLab(labId),
     onSuccess: (data, labId) => {
-      // Remove specific lab from cache and invalidate list
-      queryClient.removeQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
-      queryClient.invalidateQueries({ queryKey: ['labs'] });
+      // Try granular cache update first
+      try {
+        labCacheUpdates.removeLabFromAllLabsCache(labId);
+        devLog.log('✅ Lab deletion: granular cache update completed');
+      } catch (error) {
+        devLog.warn('⚠️ Granular lab deletion update failed, falling back to invalidation:', error);
+        // Fallback to traditional invalidation
+        queryClient.removeQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
+        queryClient.invalidateQueries({ queryKey: ['labs'] });
+      }
     },
     onError: (error) => {
       devLog.error('Failed to delete lab:', error);
@@ -363,17 +420,159 @@ export const useDeleteLabMutation = () => {
  */
 export const useToggleLabStatusMutation = () => {
   const queryClient = useQueryClient();
+  const labCacheUpdates = useLabCacheUpdates();
   
   return useMutation({
     mutationFn: ({ labId, status }) => labServices.toggleLabStatus(labId, status),
     onSuccess: (data, variables) => {
-      // Invalidate specific lab and list
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(variables.labId) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
-      queryClient.invalidateQueries({ queryKey: ['labs'] });
+      // Try granular cache update first
+      try {
+        const statusUpdate = {
+          isActive: variables.status,
+          timestamp: new Date().toISOString()
+        };
+        labCacheUpdates.updateLabInAllLabsCache(variables.labId, statusUpdate);
+        devLog.log('✅ Lab status toggle: granular cache update completed');
+      } catch (error) {
+        devLog.warn('⚠️ Granular lab status update failed, falling back to invalidation:', error);
+        // Fallback to traditional invalidation
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(variables.labId) });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
+        queryClient.invalidateQueries({ queryKey: ['labs'] });
+      }
     },
     onError: (error) => {
       devLog.error('Failed to toggle lab status:', error);
     },
   });
+};
+
+// ===============================
+// === GRANULAR CACHE UPDATES FOR LABS ===
+// ===============================
+
+/**
+ * Hook for lab-specific granular cache updates
+ * @returns {Object} Lab cache update functions
+ */
+export const useLabCacheUpdates = () => {
+  const queryClient = useQueryClient();
+
+  /**
+   * Update lab data in all labs cache without refetching everything
+   * @param {string|number} labId - Lab ID
+   * @param {Object} updates - Partial lab data updates
+   */
+  const updateLabInAllLabsCache = (labId, updates) => {
+    if (!labId || !updates) return;
+
+    // Update in composed labs cache (if it exists)
+    const allLabsKey = ['labs', 'all-composed'];
+    const currentLabsData = queryClient.getQueryData(allLabsKey);
+    
+    if (currentLabsData && Array.isArray(currentLabsData)) {
+      const updatedLabs = currentLabsData.map(lab => 
+        lab.id === labId ? { ...lab, ...updates } : lab
+      );
+      queryClient.setQueryData(allLabsKey, updatedLabs);
+      devLog.log('🎯 Updated lab in all labs cache:', { labId, updates });
+    }
+
+    // Also update individual lab cache
+    const labDataKey = QUERY_KEYS.LABS.data(labId);
+    const currentLabData = queryClient.getQueryData(labDataKey);
+    
+    if (currentLabData) {
+      queryClient.setQueryData(labDataKey, { ...currentLabData, ...updates });
+      devLog.log('🎯 Updated individual lab cache:', { labId, updates });
+    }
+  };
+
+  /**
+   * Add a new lab to all labs cache without refetching everything
+   * @param {Object} newLab - New lab data
+   */
+  const addLabToAllLabsCache = (newLab) => {
+    if (!newLab || !newLab.id) return;
+
+    const allLabsKey = ['labs', 'all-composed'];
+    const currentLabsData = queryClient.getQueryData(allLabsKey);
+    
+    if (currentLabsData && Array.isArray(currentLabsData)) {
+      queryClient.setQueryData(allLabsKey, [...currentLabsData, newLab]);
+      devLog.log('🎯 Added lab to all labs cache:', { labId: newLab.id });
+    }
+  };
+
+  /**
+   * Remove a lab from all labs cache without refetching everything
+   * @param {string|number} labId - Lab ID to remove
+   */
+  const removeLabFromAllLabsCache = (labId) => {
+    if (!labId) return;
+
+    const allLabsKey = ['labs', 'all-composed'];
+    const currentLabsData = queryClient.getQueryData(allLabsKey);
+    
+    if (currentLabsData && Array.isArray(currentLabsData)) {
+      const updatedLabs = currentLabsData.filter(lab => lab.id !== labId);
+      queryClient.setQueryData(allLabsKey, updatedLabs);
+      devLog.log('🎯 Removed lab from all labs cache:', { labId });
+    }
+
+    // Also remove individual lab cache
+    queryClient.removeQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
+  };
+
+  /**
+   * Smart lab invalidation - tries granular first, falls back to invalidation
+   * @param {string|number} labId - Lab ID
+   * @param {Object} [labData] - Lab data for granular updates
+   * @param {string} [action] - Action type: 'add', 'remove', 'update'
+   */
+  const smartLabInvalidation = (labId, labData = null, action = null) => {
+    // Try granular updates first if we have the data and action
+    if (labData && action) {
+      try {
+        switch (action) {
+          case 'add':
+            addLabToAllLabsCache(labData);
+            return; // Success, no need for invalidation
+          case 'remove':
+            removeLabFromAllLabsCache(labId);
+            return; // Success, no need for invalidation
+          case 'update':
+            updateLabInAllLabsCache(labId, labData);
+            return; // Success, no need for invalidation
+        }
+      } catch (error) {
+        devLog.warn('⚠️ Granular lab update failed, falling back to invalidation:', error);
+      }
+    }
+
+    // Fallback to traditional invalidation
+    if (labId) {
+      // Lab data
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.LABS.data(labId)
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.LABS.owner(labId)
+      });
+      
+      // Lab list (for new/deleted labs)
+      queryClient.invalidateQueries({ 
+        queryKey: QUERY_KEYS.LABS.list
+      });
+      
+      devLog.log('🔄 Used fallback invalidation for lab data:', labId);
+    }
+  };
+
+  return {
+    updateLabInAllLabsCache,
+    addLabToAllLabsCache,
+    removeLabFromAllLabsCache,
+    smartLabInvalidation
+  };
 };

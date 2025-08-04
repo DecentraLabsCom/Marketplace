@@ -48,7 +48,7 @@ export function useReservationEventCoordinator() {
         await queryClient.invalidateQueries({ 
           predicate: (query) => 
             query.queryKey[0] === 'bookings' && 
-            query.queryKey[1] === 'lab' && 
+            query.queryKey[1] === 'lab-composed' && 
             query.queryKey[2] === labId.toString()
         });
       } else {
@@ -56,7 +56,7 @@ export function useReservationEventCoordinator() {
         await queryClient.invalidateQueries({ 
           predicate: (query) => 
             query.queryKey[0] === 'bookings' && 
-            query.queryKey[1] === 'lab'
+            query.queryKey[1] === 'lab-composed'
         });
       }
 

@@ -3,7 +3,7 @@ import { createContext, useContext, useRef, useCallback, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useUser } from './UserContext'
 import { useNotifications } from './NotificationContext'
-import { useCacheInvalidation } from '@/hooks/user/useUsers'
+import { useCacheInvalidation, useUserCacheUpdates } from '@/hooks/user/useUsers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -21,6 +21,7 @@ export function UserEventProvider({ children }) {
     const { user, isSSO } = useUser();
     const { addPersistentNotification } = useNotifications();
     const cacheInvalidation = useCacheInvalidation();
+    const userCacheUpdates = useUserCacheUpdates();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
 
@@ -60,11 +61,44 @@ export function UserEventProvider({ children }) {
         }
     }, []);
 
-    // Smart cache invalidation for user/provider related updates
+    /**
+     * Smart user cache update - tries granular first, falls back to invalidation
+     * @param {string} userAddress - User address
+     * @param {Object} [userData] - User data for granular updates
+     * @param {string} [action] - Action type: 'add', 'remove', 'update'
+     * @param {string} [context] - Context: 'user', 'provider', or 'both'
+     * @param {string} [reason] - Reason for cache update
+     */
+    const updateUserCaches = async (userAddress = null, userData = null, action = null, context = 'both', reason = 'event') => {
+        devLog.log(`🎯 [UserEventContext] Smart cache update (reason: ${reason}):`, { userAddress, action, context });
+        
+        // Try granular update first if we have user data and action
+        if (userData && action && userAddress) {
+            try {
+                userCacheUpdates.smartUserInvalidation(userAddress, userData, action, context);
+                devLog.log(`✅ [UserEventContext] Granular cache update completed`);
+                return;
+            } catch (error) {
+                devLog.warn('⚠️ Granular user update failed, falling back to invalidation:', error);
+            }
+        }
+        
+        // Fallback to traditional invalidation
+        if (userAddress) {
+            cacheInvalidation.invalidateUserProfile(userAddress);
+            if (context === 'provider' || context === 'both') {
+                cacheInvalidation.invalidateProviderData(userAddress);
+            }
+        }
+
+        devLog.log(`✅ [UserEventContext] Cache update completed`);
+    };
+
+    // Legacy cache invalidation for compatibility
     const invalidateUserCache = useCallback((userId = null) => {
         if (userId) {
-            // Selective invalidation - mark specific user for update
-            pendingUpdates.current.add(userId);
+            // Use new granular system with fallback behavior
+            updateUserCaches(userId, null, 'update', 'both', 'legacy_invalidation');
         } else {
             // Full invalidation - clear user/provider cache
             sessionStorage.removeItem('user_provider_status');
@@ -82,20 +116,18 @@ export function UserEventProvider({ children }) {
             if (pendingUpdates.current.size > 0) {
                 devLog.log('Processing batch user updates for IDs:', Array.from(pendingUpdates.current));
                 
-                // Invalidate provider-related data using hooks
-                // Note: These were hardcoded keys that no longer exist
-                // This might need specific provider IDs to invalidate properly
+                // Use new granular cache update system
                 for (const providerId of pendingUpdates.current) {
-                    cacheInvalidation.invalidateProviderData(providerId);
+                    await updateUserCaches(providerId, null, 'update', 'provider', 'batch_update');
                 }
                 
                 pendingUpdates.current.clear();
             }
         }, delay);
-    }, [cacheInvalidation]);
+    }, [userCacheUpdates, cacheInvalidation]);
 
     // Enhanced event handlers with collision prevention
-    function handleProviderAdded(args) {
+    async function handleProviderAdded(args) {
         const eventKey = `ProviderAdded_${args._account}`;
         const now = Date.now();
         
@@ -124,16 +156,43 @@ export function UserEventProvider({ children }) {
         if (affectsCurrentUser) {
             // Current user became a provider
             addPersistentNotification('success', `🎉 Welcome as a new provider, ${_name}!`);
-            // Mark for update and schedule refresh
-            invalidateUserCache(_account);
-            scheduleUserUpdate(200);
+            // Use granular cache update for provider addition
+            await updateUserCaches(
+                _account,
+                {
+                    address: _account,
+                    name: _name,
+                    email: _email,
+                    country: _country,
+                    isProvider: true,
+                    timestamp: new Date().toISOString()
+                },
+                'add',
+                'provider',
+                'provider_added_self'
+            );
         } else {
             // Another user became a provider
             addPersistentNotification('info', `🏢 New provider joined: ${_name} from ${_country}`);
+            // Use granular cache update for new provider in list
+            await updateUserCaches(
+                _account,
+                {
+                    address: _account,
+                    name: _name,
+                    email: _email,
+                    country: _country,
+                    isProvider: true,
+                    timestamp: new Date().toISOString()
+                },
+                'add',
+                'provider',
+                'provider_added_other'
+            );
         }
     }
 
-    function handleProviderRemoved(args) {
+    async function handleProviderRemoved(args) {
         const eventKey = `ProviderRemoved_${args._account}`;
         const now = Date.now();
         
@@ -162,16 +221,29 @@ export function UserEventProvider({ children }) {
         if (affectsCurrentUser) {
             // Current user is no longer a provider
             addPersistentNotification('warning', '📢 Your provider status has been removed');
-            // Mark for update and schedule refresh
-            invalidateUserCache(_account);
-            scheduleUserUpdate(200);
+            // Use granular cache update for provider removal
+            await updateUserCaches(
+                _account,
+                { isProvider: false, timestamp: new Date().toISOString() },
+                'update',
+                'both',
+                'provider_removed_self'
+            );
         } else {
             // Another provider was removed
             addPersistentNotification('info', '🏢 A provider has left the platform');
+            // Remove from providers list
+            await updateUserCaches(
+                _account,
+                null,
+                'remove',
+                'provider',
+                'provider_removed_other'
+            );
         }
     }
 
-    function handleProviderUpdated(args) {
+    async function handleProviderUpdated(args) {
         const eventKey = `ProviderUpdated_${args._account}`;
         const now = Date.now();
         
@@ -200,12 +272,37 @@ export function UserEventProvider({ children }) {
         if (affectsCurrentUser) {
             // Current user's provider info was updated
             addPersistentNotification('info', `✅ Your provider information has been updated`);
-            // Mark for update and schedule refresh
-            invalidateUserCache(_account);
-            scheduleUserUpdate(500); // Slightly longer delay for updates to batch them
+            // Use granular cache update for provider update
+            await updateUserCaches(
+                _account,
+                {
+                    address: _account,
+                    name: _name,
+                    email: _email,
+                    country: _country,
+                    timestamp: new Date().toISOString()
+                },
+                'update',
+                'both',
+                'provider_updated_self'
+            );
         } else {
             // Another provider was updated
             devLog.log('📝 Provider updated:', _name, 'from', _country);
+            // Update provider in list
+            await updateUserCaches(
+                _account,
+                {
+                    address: _account,
+                    name: _name,
+                    email: _email,
+                    country: _country,
+                    timestamp: new Date().toISOString()
+                },
+                'update',
+                'provider',
+                'provider_updated_other'
+            );
         }
     }
 
@@ -247,10 +344,17 @@ export function UserEventProvider({ children }) {
 
     return (
         <UserEventContext.Provider value={{
+            // Legacy functions for compatibility
             invalidateUserCache,
             scheduleUserUpdate,
+            // Manual update coordination
             isManualUpdateInProgress,
             setManualUpdateInProgress,
+            // Granular cache update functions
+            updateUserCaches,
+            // Granular cache utilities (exposed for manual UI usage)
+            ...userCacheUpdates,
+            // State
             pendingUpdates: pendingUpdates.current
         }}>
             {children}

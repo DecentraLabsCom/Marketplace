@@ -2,7 +2,9 @@
 import { createContext, useContext, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
-import { useCacheInvalidation } from '@/hooks/user/useUsers'
+import { useBookingCacheUpdates } from '@/hooks/booking/useBookings'
+import { useQueryClient } from '@tanstack/react-query'
+import { QUERY_KEYS } from '@/hooks/booking/useBookings'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -19,7 +21,8 @@ export function BookingEventProvider({ children }) {
     const { chain, address } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const cacheInvalidation = useCacheInvalidation();
+    const queryClient = useQueryClient();
+    const bookingCacheUpdates = useBookingCacheUpdates();
     const { addPersistentNotification } = useNotifications();
     const [processingBookings, setProcessingBookings] = useState(new Set());
 
@@ -30,18 +33,38 @@ export function BookingEventProvider({ children }) {
     const isManualUpdateInProgress = manualUpdateInProgress;
 
     // Helper function to invalidate all booking-related caches
-    const invalidateAllBookingCaches = async (labId = null, reason = 'event') => {
-        devLog.log(`♻️ [BookingEventContext] Invalidating caches (reason: ${reason}):`, { labId });
+    /**
+     * Smart booking cache update - tries granular first, falls back to invalidation
+     * @param {string|number} labId - Lab ID
+     * @param {string} userAddress - User address
+     * @param {Object} [bookingData] - Booking data for granular updates
+     * @param {string} [action] - Action type: 'add', 'remove', 'update'
+     * @param {string} [reason] - Reason for cache update
+     */
+    const updateBookingCaches = async (labId = null, userAddress = null, bookingData = null, action = null, reason = 'event') => {
+        devLog.log(`🎯 [BookingEventContext] Smart cache update (reason: ${reason}):`, { labId, userAddress, action });
         
-        if (labId) {
-            // Invalidate specific lab and user bookings
-            cacheInvalidation.invalidateBookingRelatedData(address, labId);
+        // Try granular update first if we have booking data and action
+        if (bookingData && action && (userAddress || labId)) {
+            try {
+                bookingCacheUpdates.smartBookingInvalidation(userAddress, labId, bookingData, action);
+                devLog.log(`✅ [BookingEventContext] Granular cache update completed`);
+                return;
+            } catch (error) {
+                devLog.warn('⚠️ Granular update failed, falling back to invalidation:', error);
+            }
+        }
+        
+        // Fallback to traditional invalidation
+        if (labId || userAddress) {
+            // Use smart invalidation (it tries granular first internally)
+            bookingCacheUpdates.smartBookingInvalidation(userAddress, labId);
         } else {
-            // Invalidate all bookings
-            cacheInvalidation.invalidateAllBookings();
+            // Full invalidation (rare case)
+            devLog.log('🔄 [BookingEventContext] Using full cache invalidation');
         }
 
-        devLog.log(`✅ [BookingEventContext] Cache invalidation completed`);
+        devLog.log(`✅ [BookingEventContext] Cache update completed`);
     };
 
     // ReservationConfirmed event listener
@@ -66,8 +89,20 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Invalidate relevant caches
-                    await invalidateAllBookingCaches(labId?.toString(), 'reservation_confirmed');
+                    // Smart cache update with granular update for confirmed reservation
+                    await updateBookingCaches(
+                        labId?.toString(), 
+                        renter, 
+                        { 
+                            id: reservationKey, 
+                            labId: labId?.toString(), 
+                            renter, 
+                            status: 'confirmed',
+                            timestamp: new Date().toISOString()
+                        }, 
+                        'add', 
+                        'reservation_confirmed'
+                    );
 
                     // Show notification
                     addPersistentNotification(
@@ -106,10 +141,19 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Invalidate relevant caches
-                    await invalidateAllBookingCaches(labId?.toString(), 'reservation_denied');
-
-                    // Show notification
+                    // Smart cache update for denied reservation
+                    await updateBookingCaches(
+                        labId?.toString(), 
+                        renter, 
+                        { 
+                            id: reservationKey, 
+                            labId: labId?.toString(), 
+                            renter,
+                            status: 'denied'
+                        }, 
+                        'remove', 
+                        'reservation_denied'
+                    );                    // Show notification
                     addPersistentNotification(
                         `Reservation request denied for Lab ${labId?.toString()}`,
                         'error',
@@ -148,8 +192,20 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Invalidate relevant caches
-                    await invalidateAllBookingCaches(labId?.toString(), 'reservation_requested');
+                    // Smart cache update for new reservation request
+                    await updateBookingCaches(
+                        labId?.toString(), 
+                        renter, 
+                        { 
+                            id: reservationKey, 
+                            labId: labId?.toString(), 
+                            renter,
+                            status: 'requested',
+                            timestamp: new Date().toISOString()
+                        }, 
+                        'add', 
+                        'reservation_requested'
+                    );
 
                     // Show notification
                     addPersistentNotification(
@@ -188,8 +244,18 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Invalidate relevant caches
-                    await invalidateAllBookingCaches(labId?.toString(), 'booking_canceled');
+                    // Smart cache update for canceled booking
+                    await updateBookingCaches(
+                        labId?.toString(), 
+                        renter, 
+                        { 
+                            id: reservationKey, 
+                            labId: labId?.toString(), 
+                            renter
+                        }, 
+                        'remove', 
+                        'booking_canceled'
+                    );
 
                     // Show notification
                     addPersistentNotification(
@@ -228,8 +294,18 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Invalidate relevant caches
-                    await invalidateAllBookingCaches(labId?.toString(), 'reservation_request_canceled');
+                    // Smart cache update for canceled reservation request
+                    await updateBookingCaches(
+                        labId?.toString(), 
+                        renter, 
+                        { 
+                            id: reservationKey, 
+                            labId: labId?.toString(), 
+                            renter
+                        }, 
+                        'remove', 
+                        'reservation_request_canceled'
+                    );
 
                     // Show notification
                     addPersistentNotification(
@@ -251,7 +327,7 @@ export function BookingEventProvider({ children }) {
         setProcessingBookings,
         isManualUpdateInProgress,
         setManualUpdateInProgress,
-        invalidateAllBookingCaches
+        updateBookingCaches
     };
 
     return (
