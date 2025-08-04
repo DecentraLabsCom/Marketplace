@@ -700,6 +700,15 @@ export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
   }, [selectedLab, calculateReservationCost])
 
   /**
+   * Check user balance and allowance for a given cost
+   * @param {bigint} cost - Cost in wei
+   * @returns {Object} Balance and allowance status
+   */
+  const checkUserBalance = useCallback((cost) => {
+    return checkBalanceAndAllowance(cost)
+  }, [checkBalanceAndAllowance])
+
+  /**
    * Approve LAB tokens for spending - delegate to useLabToken
    * @param {bigint} amount - Amount to approve in wei
    * @returns {Promise<boolean>} Success status
@@ -791,7 +800,7 @@ export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
       const { hasSufficientBalance, hasSufficientAllowance } = checkBalanceAndAllowance(cost)
       
       if (!hasSufficientBalance) {
-        addErrorNotification(`Insufficient LAB token balance. Required: ${formatTokenAmount(cost)} LAB`)
+        addErrorNotification(`Insufficient LAB token balance. Required: ${formatBalance(cost)} LAB`)
         return false
       }
 
