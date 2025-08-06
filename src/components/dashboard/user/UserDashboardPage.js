@@ -7,7 +7,6 @@ import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/booking/
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
-import { PartialDataWarning } from '@/components/ui'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ActiveLabCard from '@/components/dashboard/user/ActiveLabCard'
@@ -365,12 +364,14 @@ export default function UserDashboard() {
           </div>
 
           <div className='flex-1'>
-            {/* Partial Data Warning */}
-            <PartialDataWarning 
-              errorInfo={userBookingsData?.errorInfo || { hasErrors: false, message: '' }}
-              dataType="bookings"
-              showDetails={true}
-            />
+            {/* Dev logging for partial data issues - no user warning */}
+            {userBookingsData?.errorInfo?.hasErrors && (
+              devLog.warn('Partial bookings data loaded:', {
+                message: userBookingsData.errorInfo.message,
+                failedKeys: userBookingsData.errorInfo.failedKeys,
+                userAddress: address
+              })
+            )}
             
             <div className='flex min-[1280px]:flex-row flex-col'>
               <div className="border shadow text-white rounded p-6 mb-1 min-[1280px]:mr-1 min-[1280px]:w-3/4">

@@ -83,7 +83,7 @@ export default function Market() {
         onFilterChange={setSelectedFilter}
         onReset={resetFilters}
         searchInputRef={searchInputRef}
-        loading={labsLoading || bookingsLoading}
+        loading={labsLoading}
       />
 
       <LabGrid

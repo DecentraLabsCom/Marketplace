@@ -41,8 +41,5 @@ export {
   EmptyState
 } from './Feedback'
 
-// Data quality components
-export { default as PartialDataWarning } from './PartialDataWarning'
-
 // Utility
 export { cn } from '@/utils/cn'
