@@ -6,7 +6,7 @@
  */
 import devLog from '@/utils/dev/logger'
 
-export const userServices = {
+export const serverUserServices = {
   // === ATOMIC SERVICES (1:1 with API endpoints) ===
 
   /**

@@ -984,7 +984,7 @@ export const claimLabBalance = async (labId) => {
 };
 
 // Export all services
-export const bookingServices = {
+export const serverBookingServices = {
   // Atomic services
   fetchUserBookings,
   fetchLabBookings,

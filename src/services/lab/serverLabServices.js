@@ -6,7 +6,7 @@
  */
 import devLog from '@/utils/dev/logger'
 
-export const labServices = {
+export const serverLabServices = {
   // ===== ATOMIC ENDPOINT SERVICES (1:1 with API endpoints) =====
   
   /**
@@ -399,4 +399,4 @@ export const {
   updateLab,
   deleteLab,
   toggleLabStatus
-} = labServices;
+} = serverLabServices;
