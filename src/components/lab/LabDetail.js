@@ -77,7 +77,7 @@ export default function LabDetail({ id, provider }) {
         <article className="w-full md:w-1/2 flex flex-col p-4">
           <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} />
-            <button className="bg-[#715c8c] hover:bg-[#333f63] text-white px-4 py-2 rounded mt-6 
+            <button className="bg-brand hover:bg-[#333f63] text-white px-4 py-2 rounded mt-6 
               max-h-[45px] w-2/3 mx-auto" onClick={() => 
               router.push(`/reservation/${lab?.id}`)} aria-label={`Rent ${lab?.name}`}>
               Book Lab

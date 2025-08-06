@@ -86,7 +86,7 @@ export function Button({
       {...props}
     >
       {loading && (
-        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin -ml-1 mr-2 size-4" fill="none" viewBox="0 0 24 24">
           <circle 
             className="opacity-25" 
             cx="12" 
@@ -132,11 +132,11 @@ export function IconButton({
   }
 
   const iconSizes = {
-    xs: 'h-3 w-3',
-    sm: 'h-4 w-4',
-    md: 'h-5 w-5',
-    lg: 'h-6 w-6',
-    xl: 'h-8 w-8'
+    xs: 'size-3',
+    sm: 'size-4',
+    md: 'size-5',
+    lg: 'size-6',
+    xl: 'size-8'
   }
 
   const classes = cn(

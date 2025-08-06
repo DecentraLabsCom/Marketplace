@@ -36,7 +36,7 @@ export default function ActiveLabCard({
   }
 
   const statusText = isActive ? "Available today" : `Available: ${booking?.date || ''}`;
-  const borderClass = isActive ? "border-4 border-[#715c8c] animate-glow" : "border-2";
+  const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
 
   return (
     <div className='flex min-[1280px]:flex-row flex-wrap'>

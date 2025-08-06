@@ -3,6 +3,7 @@
  * Supports both URL links and file uploads with preview functionality
  */
 import React, { useRef, useCallback } from 'react'
+import Image from 'next/image'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 
@@ -152,10 +153,13 @@ export default function FileUploadManager({
             <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
               <div className="flex items-center flex-1">
                 {isImage && file.type.startsWith('image/') && (
-                  <img
+                  <Image
                     src={URL.createObjectURL(file)}
                     alt={file.name}
-                    className="w-8 h-8 object-cover rounded mr-2"
+                    width={32}
+                    height={32}
+                    className="size-8 object-cover rounded mr-2"
+                    unoptimized={true}
                   />
                 )}
                 <span className="text-sm text-gray-600 truncate">

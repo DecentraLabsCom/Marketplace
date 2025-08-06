@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
@@ -29,7 +29,6 @@ export default function LabReservation({ id }) {
   
   const { 
     data: labs = [], 
-    isInitialLoading: labsLoading, 
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery({
@@ -59,12 +58,14 @@ export default function LabReservation({ id }) {
   
   // 🚀 React Query for lab bookings
   const {
-    data: labBookingsData,
-    isInitialLoading: bookingsLoading
+    data: labBookingsData
   } = useLabBookingsQuery(selectedLab?.id, true, {
     enabled: !!selectedLab?.id
   });
-  const labBookings = labBookingsData?.bookings || [];
+  const labBookings = useMemo(() => 
+    labBookingsData?.bookings || [], 
+    [labBookingsData?.bookings]
+  );
 
   // Debug: Log selectedLab changes
   useEffect(() => {
@@ -719,7 +720,7 @@ export default function LabReservation({ id }) {
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
                   isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime
                     ? 'bg-gray-500 cursor-not-allowed' 
-                    : 'bg-[#715c8c] hover:bg-[#333f63]'
+                    : 'bg-brand hover:bg-[#333f63]'
                 }`}
               >
                 {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 

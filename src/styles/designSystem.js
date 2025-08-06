@@ -253,7 +253,8 @@ export const screens = {
   '2xl': '1536px'
 }
 
-export default {
+// Design system object
+const designSystem = {
   colors,
   typography,
   spacing,
@@ -264,3 +265,5 @@ export default {
   animations,
   screens
 }
+
+export default designSystem

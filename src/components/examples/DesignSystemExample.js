@@ -43,12 +43,12 @@ export default function DesignSystemExample() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-spacing-xl">
-      <div className="max-w-6xl mx-auto px-spacing-lg">
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-6xl mx-auto px-8">
         
         {/* Header */}
-        <div className="mb-spacing-xl">
-          <h1 className="text-3xl font-bold text-gray-900 mb-spacing-sm">
+        <div className="mb-12">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
             Design System Example
           </h1>
           <p className="text-lg text-gray-600">
@@ -58,7 +58,7 @@ export default function DesignSystemExample() {
 
         {/* Alert Example */}
         {showAlert && (
-          <div className="mb-spacing-lg">
+          <div className="mb-8">
             <Alert 
               variant="info" 
               title="Design System Active"
@@ -139,7 +139,7 @@ export default function DesignSystemExample() {
                 
                 {/* Buttons */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-spacing-sm">Buttons</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Buttons</h3>
                   <Inline spacing="sm" wrap>
                     <Button variant="primary" size="sm">Primary</Button>
                     <Button variant="secondary" size="sm">Secondary</Button>
@@ -150,7 +150,7 @@ export default function DesignSystemExample() {
 
                 {/* Badges */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-spacing-sm">Badges</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Badges</h3>
                   <Inline spacing="sm" wrap>
                     <Badge variant="success">Active</Badge>
                     <Badge variant="warning">Pending</Badge>
@@ -162,7 +162,7 @@ export default function DesignSystemExample() {
 
                 {/* Progress */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-spacing-sm">Progress</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Progress</h3>
                   <Stack spacing="sm">
                     <Progress value={30} showLabel label="Lab Usage" />
                     <Progress value={75} color="success" showLabel label="Completion" />
@@ -172,7 +172,7 @@ export default function DesignSystemExample() {
 
                 {/* Loading States */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-spacing-sm">Loading</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Loading</h3>
                   <Inline spacing="md" align="center">
                     <Spinner size="sm" />
                     <Spinner size="md" />
@@ -182,7 +182,7 @@ export default function DesignSystemExample() {
 
                 {/* Color Tokens */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-spacing-sm">Design Tokens</h3>
+                  <h3 className="text-sm font-medium text-gray-900 mb-4">Design Tokens</h3>
                   <Grid cols={4} gap="sm">
                     <div className="bg-primary-500 h-8 rounded flex items-center justify-center text-white text-xs">
                       Primary
@@ -206,7 +206,7 @@ export default function DesignSystemExample() {
         </Grid>
 
         {/* Footer */}
-        <div className="mt-spacing-xl text-center">
+        <div className="mt-12 text-center">
           <p className="text-sm text-gray-500">
             All components use the centralized design system tokens for consistent styling.
           </p>

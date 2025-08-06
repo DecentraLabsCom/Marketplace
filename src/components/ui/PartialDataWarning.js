@@ -38,7 +38,7 @@ export default function PartialDataWarning({
       dismissible={false}
     >
       <div className="flex items-start gap-2">
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           ⚠️
         </div>
         <div className="flex-1">

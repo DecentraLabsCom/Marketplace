@@ -24,7 +24,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCol
             </div>
             <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
                 <button onClick={onEdit}
-                className="relative bg-[#715c8c] h-1/4 overflow-hidden group hover:font-bold"
+                className="relative bg-brand h-1/4 overflow-hidden group hover:font-bold"
                 >
                     Edit
                     <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 

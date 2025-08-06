@@ -28,13 +28,13 @@ export default function Footer() {
 
           {/* Center: Links */}
           <div className="flex space-x-4 justify-center items-center">
-            <Link href="/about" className="hover:text-[#715c8c] transition font-semibold">
+            <Link href="/about" className="hover:text-brand transition font-semibold">
               About
             </Link>
-            <Link href="/faq" className="hover:text-[#715c8c] transition font-semibold">
+            <Link href="/faq" className="hover:text-brand transition font-semibold">
               FAQ
             </Link>
-            <Link href="/contact" className="hover:text-[#715c8c] transition font-semibold">
+            <Link href="/contact" className="hover:text-brand transition font-semibold">
               Contact
             </Link>
           </div>
@@ -42,13 +42,13 @@ export default function Footer() {
           {/* Right: Social Media */}
           <div className="flex space-x-4 justify-center items-center">
             <a href="https://decentralabs.nebsyst.com" target="_blank" rel="noopener noreferrer">
-              <FaGlobe className="size-6 hover:text-[#715c8c]" />
+              <FaGlobe className="size-6 hover:text-brand" />
             </a>
             <a href="https://github.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
-              <FaGithub className="size-6 hover:text-[#715c8c]" />
+              <FaGithub className="size-6 hover:text-brand" />
             </a>
             <a href="https://x.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
-              <FaXTwitter className="size-6 hover:text-[#715c8c]" />
+              <FaXTwitter className="size-6 hover:text-brand" />
             </a>
           </div>
         </div>

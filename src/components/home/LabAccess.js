@@ -93,11 +93,11 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
       {/* Show the error message */}
       {errorMessage && ( 
         <div className={`fixed z-20 top-1/2 left-1/2 p-4 w-3/4 -translate-x-1/2 
-          -translate-y-1/2 bg-[#715c8c] text-white rounded-lg shadow-lg opacity-85`}>
+          -translate-y-1/2 bg-brand text-white rounded-lg shadow-lg opacity-85`}>
             {errorMessage}
         </div>
       )}
-      <div className="absolute bottom-0 inset-x-0 h-1/3 bg-[#715c8c]/75 
+      <div className="absolute bottom-0 inset-x-0 h-1/3 bg-brand/75 
         opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-lg 
         font-bold cursor-pointer z-10">
           <div className="absolute inset-0 flex items-center justify-center transition-transform 

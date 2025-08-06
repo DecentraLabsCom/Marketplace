@@ -24,13 +24,13 @@ export default function Contact() {
         </p>
         <form className="flex flex-col gap-4" onSubmit={sendEmail}>
         <input type="email" id="email" name="email" placeholder="Your Email" required
-          className="p-2 border-2 border-[#715c8c] focus:border-[#333f63] rounded 
+          className="p-2 border-2 border-brand focus:border-[#333f63] rounded 
           outline-none transition text-black" />
         <textarea id="message" name="message" placeholder="Your Message" required
-          className="p-2 border-2 border-[#715c8c] focus:border-[#333f63] rounded 
+          className="p-2 border-2 border-brand focus:border-[#333f63] rounded 
           outline-none transition text-black min-h-[120px]" />
         <button type="submit" 
-          className="bg-[#715c8c] hover:bg-[#333f63] text-white font-bold rounded-lg 
+          className="bg-brand hover:bg-[#333f63] text-white font-bold rounded-lg 
           px-4 py-2 transition duration-300 ease-in-out shadow-md">
           Send Message
         </button>

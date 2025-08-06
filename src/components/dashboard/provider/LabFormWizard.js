@@ -4,7 +4,6 @@
  */
 import React, { useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { useLabToken } from '@/hooks/useLabToken'
 import { useLabValidation } from '@/hooks/lab/useLabValidation'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
@@ -21,7 +20,6 @@ import devLog from '@/utils/dev/logger'
  * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  */
 export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, maxId = 0 }) {
-  const { decimals, formatPrice } = useLabToken()
   
   // Form state
   const [activeTab, setActiveTab] = useState('full')
@@ -200,7 +198,7 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4">
@@ -213,7 +211,7 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
               className="text-gray-400 hover:text-gray-600"
               disabled={isSubmitting}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="size-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

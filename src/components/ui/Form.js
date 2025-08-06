@@ -254,7 +254,7 @@ export const Checkbox = forwardRef(({
           id={checkboxId}
           type="checkbox"
           className={cn(
-            'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600',
+            'size-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600',
             className
           )}
           {...props}
@@ -314,7 +314,7 @@ export function RadioGroup({
                 value={option.value}
                 checked={value === option.value}
                 onChange={onChange}
-                className="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-600"
+                className="size-4 border-gray-300 text-primary-600 focus:ring-primary-600"
               />
               <label htmlFor={radioId} className="ml-3 block text-sm font-medium leading-6 text-gray-900">
                 {option.label}

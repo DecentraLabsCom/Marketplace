@@ -36,19 +36,6 @@ export const useAllLabsQuery = (options = {}) => {
   });
 };
 
-// === CACHE-EXTRACTING HOOKS (simple data operations) ===
-
-
-
-
-
-// === ATOMIC HOOKS (for specific use cases when individual data is needed) ===
-
-
-
-// === CACHE MANAGEMENT ===
-
-
 
 // === MUTATIONS ===
 

@@ -21,7 +21,7 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
 
   return (
     <div onClick={handleInstitutionalLogin}
-        className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 transition duration-300 
+        className="bg-brand text-white font-bold rounded-lg px-4 py-2 transition duration-300 
         cursor-pointer ease-in-out hover:bg-[#333f63] hover:text-white  flex items-center 
         justify-center"
         >

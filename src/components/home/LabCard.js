@@ -33,7 +33,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
       className={cn(
         'relative group h-[400px] transition-transform duration-300 hover:scale-105',
         {
-          'border-4 border-[#715c8c] animate-glow': activeBooking
+          'border-4 border-brand animate-glow': activeBooking
         }
       )}
     >
@@ -67,7 +67,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
       <div className="p-4 h-1/3">
         <h2 className="text-xl min-[700px]:text-2xl font-bold min-[768px]:mt-2 text-[#333f63]">{name}</h2>
         <div className="md:flex md:justify-between md:items-center min-[700px]:block min-[768px]:mt-4">
-          <p className="text-[#3f3363] font-semibold text-m mt-2">{provider}</p>
+          <p className="text-[#3f3363] font-semibold text-base mt-2">{provider}</p>
           <p className="text-[#335763] font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p> 
         </div>
       </div>

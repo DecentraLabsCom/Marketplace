@@ -132,9 +132,7 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
     selectedFilter, 
     searchDebounce, 
     isLoggedIn,
-    userBookings?.length, // Only depend on length, not the entire array
-    // Create a stable string from labs to detect actual content changes  
-    labs?.map(lab => `${lab.id}-${lab.name}-${lab.price}`).join(',')
+    userBookings
   ])
 
   // Reset filters function

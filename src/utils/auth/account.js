@@ -36,7 +36,7 @@ export default function Account() {
         </div>
       )}
       <button onClick={handleLogout}>
-        <FontAwesomeIcon icon={faSignOutAlt} className="text-[#715c8c] font-semibold text-4xl
+        <FontAwesomeIcon icon={faSignOutAlt} className="text-brand font-semibold text-4xl
                 hover:text-[#333f63]" title={isConnected ? "Disconnect Wallet" : "Logout"}/>
       </button>
     </div>

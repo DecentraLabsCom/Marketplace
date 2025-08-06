@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
@@ -38,7 +38,10 @@ export default function UserDashboard() {
   });
 
   // Extract bookings array from composed service response
-  const userBookings = userBookingsData?.bookings || [];
+  const userBookings = useMemo(() => 
+    userBookingsData?.bookings || [], 
+    [userBookingsData?.bookings]
+  );
 
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();

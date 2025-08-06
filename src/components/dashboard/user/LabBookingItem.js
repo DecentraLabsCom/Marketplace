@@ -105,7 +105,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 <div className="flex-1">
                 <Link
                     href={`/lab/${lab.id}`}
-                    className="text-lg font-semibold text-[#715c8c] hover:underline"
+                    className="text-lg font-semibold text-brand hover:underline"
                 >
                     {lab.name}
                 </Link>

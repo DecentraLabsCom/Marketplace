@@ -145,7 +145,7 @@ export default function BookingForm({
               id="acceptTerms"
               checked={formData.acceptTerms}
               onChange={(e) => handleChange('acceptTerms', e.target.checked)}
-              className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="mt-1 size-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               disabled={isSubmitting}
             />
             <label htmlFor="acceptTerms" className="ml-2 text-sm text-gray-700">
@@ -179,7 +179,7 @@ export default function BookingForm({
         >
           {isSubmitting ? (
             <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              <div className="animate-spin rounded-full size-4 border-b-2 border-white mr-2"></div>
               Creating Booking...
             </div>
           ) : (

@@ -8,7 +8,7 @@ import {
   useCreateLabMutation, 
   useUpdateLabMutation, 
   useDeleteLabMutation, 
-  useToggleLabMutation 
+  useToggleLabStatusMutation 
 } from '@/hooks/lab/useLabs'
 import { 
   useLabBookingsQuery,
@@ -60,9 +60,7 @@ export default function ProviderDashboard() {
   // 🚀 React Query for lab bookings
   const { 
     data: labBookingsData, 
-    isInitialLoading: bookingsLoading, 
-    isError: bookingsError,
-    error: bookingsErrorDetails 
+    isError: bookingsError
   } = useLabBookingsQuery(selectedLabId, true, {
     enabled: !!selectedLabId
   });

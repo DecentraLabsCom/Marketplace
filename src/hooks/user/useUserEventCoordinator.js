@@ -128,7 +128,7 @@ export function useUserEventCoordinator() {
       
       return result;
     }, userAccount);
-  }, [coordinatedUserUpdate, cacheInvalidation, refreshProviderStatusMutation]);
+  }, [coordinatedUserUpdate, updateUserCaches, userCacheUpdates, refreshProviderStatusMutation]);
 
   /**
    * Coordinated provider update - handles provider information updates
@@ -174,7 +174,7 @@ export function useUserEventCoordinator() {
       
       return result;
     }, userAccount);
-  }, [coordinatedUserUpdate, cacheInvalidation, refreshProviderStatusMutation]);
+  }, [coordinatedUserUpdate, updateUserCaches, userCacheUpdates, refreshProviderStatusMutation]);
 
   /**
    * Check if manual user update is in progress

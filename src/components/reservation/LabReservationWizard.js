@@ -49,7 +49,10 @@ export default function LabReservationWizard({
   } = useUserBookingsQuery(userAccount, {
     enabled: !!userAccount
   });
-  const userBookings = userBookingsData?.bookings || [];
+  const userBookings = useMemo(() => 
+    userBookingsData?.bookings || [], 
+    [userBookingsData?.bookings]
+  );
   
   const { 
     data: labBookingsData, 
@@ -57,7 +60,10 @@ export default function LabReservationWizard({
   } = useLabBookingsQuery(lab?.id, true, {
     enabled: !!lab?.id
   });
-  const labBookings = labBookingsData?.bookings || [];
+  const labBookings = useMemo(() => 
+    labBookingsData?.bookings || [], 
+    [labBookingsData?.bookings]
+  );
 
   // Booking creation
   const {
@@ -160,7 +166,7 @@ export default function LabReservationWizard({
   if (userBookingsLoading || labBookingsLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full size-8 border-b-2 border-blue-600"></div>
         <span className="ml-2">Loading calendar...</span>
       </div>
     )
@@ -182,7 +188,7 @@ export default function LabReservationWizard({
           <div className={`flex items-center ${
             currentStep === STEPS.SELECT_SLOT ? 'text-blue-600' : 'text-gray-400'
           }`}>
-            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
+            <div className={`size-6 rounded-full border-2 flex items-center justify-center text-xs ${
               currentStep === STEPS.SELECT_SLOT ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300'
             }`}>
               1
@@ -193,7 +199,7 @@ export default function LabReservationWizard({
           <div className={`flex items-center ${
             currentStep === STEPS.BOOK_SLOT ? 'text-blue-600' : 'text-gray-400'
           }`}>
-            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
+            <div className={`size-6 rounded-full border-2 flex items-center justify-center text-xs ${
               currentStep === STEPS.BOOK_SLOT ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300'
             }`}>
               2
@@ -204,7 +210,7 @@ export default function LabReservationWizard({
           <div className={`flex items-center ${
             currentStep === STEPS.CONFIRM ? 'text-blue-600' : 'text-gray-400'
           }`}>
-            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs ${
+            <div className={`size-6 rounded-full border-2 flex items-center justify-center text-xs ${
               currentStep === STEPS.CONFIRM ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-300'
             }`}>
               3

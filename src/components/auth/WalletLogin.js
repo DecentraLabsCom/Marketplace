@@ -36,7 +36,7 @@ export default function WalletLogin({ setIsModalOpen }) {
     <div>
       {/* Wallet Login Button */}
       <div onClick={handleWalletLogin}
-        className="bg-[#715c8c] text-white font-bold rounded-lg px-4 py-2 transition duration-300 
+        className="bg-brand text-white font-bold rounded-lg px-4 py-2 transition duration-300 
         cursor-pointer ease-in-out hover:bg-[#333f63] hover:text-white flex items-center justify-center">
         <FontAwesomeIcon icon={faWallet} className="font-semibold text-4xl mr-3" title="Connect Wallet" />
         Wallet Login
@@ -82,7 +82,7 @@ function WalletOption({ connector, onClick }) {
       className={`w-full px-4 py-2 text-left rounded-lg border transition duration-300 
           ${
             ready 
-            ? 'bg-[#715c8c] text-center text-white hover:bg-[#333f63] hover:shadow-lg' 
+            ? 'bg-brand text-center text-white hover:bg-[#333f63] hover:shadow-lg' 
             : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
     >

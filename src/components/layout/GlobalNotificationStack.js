@@ -21,7 +21,7 @@ export default function GlobalNotificationStack() {
             notification.type === 'success' ? 'bg-[#7b976e]' : 
             notification.type === 'error' ? 'bg-[#a87583]' : 
             notification.type === 'warning' ? 'bg-[#bcc4fc]' : 
-            notification.type === 'pending' ? 'bg-[#715c8c]' : 
+            notification.type === 'pending' ? 'bg-brand' : 
             'bg-[#335763]'
           }`}
           style={{
