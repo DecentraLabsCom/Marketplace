@@ -1,5 +1,7 @@
 /**
- * User Services - Atomic and Composed
+ * Server User Services - Atomic and Composed
+ * Handles API calls to server endpoints for user data
+ * Used for both SSO and wallet authenticated users (read operations)
  * Follows dual-layer pattern: atomic services (1:1 with endpoints) + composed services (orchestrate multiple calls)
  */
 import devLog from '@/utils/dev/logger'

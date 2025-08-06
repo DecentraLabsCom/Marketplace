@@ -6,7 +6,7 @@
 import { useCallback } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useUserEvents } from '@/context/UserEventContext'
-import { useRefreshProviderStatusMutation, useCacheInvalidation, useUserCacheUpdates } from '@/hooks/user/useUsers'
+import { useRefreshProviderStatusMutation, useUserCacheUpdates } from '@/hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 export function useUserEventCoordinator() {
@@ -20,7 +20,6 @@ export function useUserEventCoordinator() {
   } = useUserEvents();
 
   // React Query hooks for better cache management
-  const cacheInvalidation = useCacheInvalidation();
   const userCacheUpdates = useUserCacheUpdates();
   
   const refreshProviderStatusMutation = useRefreshProviderStatusMutation();
@@ -108,9 +107,8 @@ export function useUserEventCoordinator() {
             'manual_provider_registration'
           );
         } catch (error) {
-          devLog.warn('Granular cache update failed, falling back to invalidation:', error);
-          cacheInvalidation.invalidateProviderData(userAccount);
-          cacheInvalidation.invalidateUserProfile(userAccount);
+          devLog.warn('Granular cache update failed, falling back to smart invalidation:', error);
+          userCacheUpdates.smartUserInvalidation(userAccount, { isProvider: true }, 'update', 'both');
         }
       }
       
@@ -155,9 +153,8 @@ export function useUserEventCoordinator() {
             'manual_provider_update'
           );
         } catch (error) {
-          devLog.warn('Granular cache update failed, falling back to invalidation:', error);
-          cacheInvalidation.invalidateProviderData(userAccount);
-          cacheInvalidation.invalidateUserProfile(userAccount);
+          devLog.warn('Granular cache update failed, falling back to smart invalidation:', error);
+          userCacheUpdates.smartUserInvalidation(userAccount, result, 'update', 'both');
         }
       }
       

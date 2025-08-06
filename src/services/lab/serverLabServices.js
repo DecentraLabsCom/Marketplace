@@ -1,5 +1,7 @@
 /**
- * Lab API Services - Atomic and Composed
+ * Server Lab Services - Atomic and Composed
+ * Handles API calls to server endpoints (server wallet transactions)
+ * Used for SSO authenticated users
  * Follows dual-layer pattern: atomic services (1:1 with endpoints) + composed services (orchestrate multiple calls)
  */
 import devLog from '@/utils/dev/logger'

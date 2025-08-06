@@ -8,9 +8,13 @@ import {
   useCreateLabMutation, 
   useUpdateLabMutation, 
   useDeleteLabMutation, 
-  useToggleLabStatusMutation 
+  useToggleLabMutation 
 } from '@/hooks/lab/useLabs'
-import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
+import { 
+  useLabBookingsQuery,
+  useClaimAllBalanceMutation,
+  useClaimLabBalanceMutation
+} from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/hooks/useLabToken'
 import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
@@ -43,6 +47,10 @@ export default function ProviderDashboard() {
   const updateLabMutation = useUpdateLabMutation();
   const deleteLabMutation = useDeleteLabMutation();
   const toggleLabStatusMutation = useToggleLabStatusMutation();
+  
+  // 🚀 React Query mutations for balance claims
+  const claimAllBalanceMutation = useClaimAllBalanceMutation();
+  const claimLabBalanceMutation = useClaimLabBalanceMutation();
   
   // State declarations
   const [ownedLabs, setOwnedLabs] = useState([]);
@@ -353,12 +361,7 @@ export default function ProviderDashboard() {
     try {
       addTemporaryNotification('pending', '⏳ Collecting all balances...');
       
-      const res = await fetch('/api/contract/reservation/claimAllBalance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
-      });
-      if (!res.ok) throw new Error('Failed to collect balance');
+      await claimAllBalanceMutation.mutateAsync();
       
       addTemporaryNotification('success', '✅ All balances collected successfully!');
     } catch (err) {
@@ -372,12 +375,7 @@ export default function ProviderDashboard() {
     try {
       addTemporaryNotification('pending', '⏳ Collecting lab balance...');
       
-      const res = await fetch('/api/contract/reservation/claimLabBalance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, labId }),
-      });
-      if (!res.ok) throw new Error('Failed to collect balance');
+      await claimLabBalanceMutation.mutateAsync(labId);
       
       addTemporaryNotification('success', '✅ Balance collected successfully!');
     } catch (err) {

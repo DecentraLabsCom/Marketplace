@@ -1,6 +1,7 @@
 /**
  * Client-side lab contract services
  * Handles direct blockchain interactions using user's connected wallet
+ * Used for wallet authenticated users
  * These services execute transactions from the frontend, not through API
  */
 import { devLog } from '@/utils/dev/logger'

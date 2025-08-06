@@ -89,11 +89,27 @@ Dual-mode authentication handled in `UserContext`:
 - Components use `AccessControl` wrapper with `requireWallet`/`requireSSO` props
 
 ### Mutation Architecture - Authentication-Aware Contract Interactions
-All contract mutations must route based on user authentication type:
+All contract mutations must route through router services that automatically detect user authentication and use appropriate implementation:
 
-**For Wallet Users (Direct transactions):**
+**Router Services Pattern:**
 ```javascript
-// Client services use user's connected wallet
+// Main service file (e.g., bookingServices.js) acts as router
+export const createReservation = async (bookingData) => {
+  const { isSSO } = getUserContext() // Get current user auth state
+  
+  if (isSSO) {
+    // SSO users → Server service → API endpoint → Server wallet → Blockchain RPC → Smart contract
+    return await serverBookingServices.createReservation(bookingData)
+  } else {
+    // Wallet users → Client service → User's wallet → Blockchain RPC → Smart contract
+    return await clientBookingServices.createReservation(bookingData)
+  }
+}
+```
+
+**Client Services (Wallet Users):**
+```javascript
+// clientBookingServices.js - Direct wallet transactions
 export const createReservation = async (bookingData, contractWriteFunction, userAddress) => {
   // Validate user wallet
   if (!userAddress) throw new Error('User address required')
@@ -101,31 +117,13 @@ export const createReservation = async (bookingData, contractWriteFunction, user
   // Use contractWriteFunction (from useContractWriteFunction)
   return await contractWriteFunction([bookingData.labId, bookingData.start, bookingData.end])
 }
-
-// Hook routes based on authentication
-export const useCreateBookingMutation = () => {
-  const { isSSO, address } = useUser()
-  const { contractWriteFunction } = useContractWriteFunction('reservationRequest')
-
-  return useMutation({
-    mutationFn: async (bookingData) => {
-      if (isSSO) {
-        // SSO users → API endpoint → Server wallet
-        return await bookingServices.createReservation(bookingData)
-      } else {
-        // Wallet users → Client service → User's wallet
-        return await clientBookingServices.createReservation(bookingData, contractWriteFunction, address)
-      }
-    }
-  })
-}
 ```
 
-**For SSO Users (Server-side transactions):**
+**Server Services (SSO Users):**
 ```javascript
-// Regular services call API endpoints (server wallet)
+// serverBookingServices.js - API-based transactions
 export const createReservation = async (bookingData) => {
-  const response = await fetch('/api/contract/reservation/makeBooking', {
+  const response = await fetch('/api/contract/reservation/makeBookingSSO', {
     method: 'POST',
     body: JSON.stringify(bookingData)
   })
@@ -133,12 +131,26 @@ export const createReservation = async (bookingData) => {
 }
 ```
 
-**Key Rules:**
-- **NEVER** use `useContractWriteFunction` directly in components
-- **ALWAYS** route through appropriate service based on `isSSO` flag
-- **Client services** (`clientXXXServices`) handle wallet transactions
-- **Regular services** (`XXXServices`) handle SSO transactions via API
-- **Mutations** coordinate both flows in a single hook
+**Hook Implementation (Simplified):**
+```javascript
+// Hooks only call router services, never client/server services directly
+export const useCreateBookingMutation = () => {
+  return useMutation({
+    mutationFn: async (bookingData) => {
+      // Router service handles authentication detection automatically
+      return await bookingServices.createReservation(bookingData)
+    }
+  })
+}
+```
+
+**Key Architecture Rules:**
+- **Router services**: Main service files (e.g., `bookingServices.js`) detect authentication and route appropriately
+- **Client services**: (`clientXXXServices`) handle wallet transactions using `useContractWriteFunction`
+- **Server services**: (`serverXXXServices`) handle SSO transactions via API endpoints
+- **Hooks**: ALWAYS call router services, NEVER client/server services directly
+- **Components**: NEVER use `useContractWriteFunction` directly, NEVER call API endpoints directly
+- **Single entry point**: Router services provide unified interface while maintaining authentication-aware execution
 
 ## API Layer Guidelines
 
@@ -247,9 +259,11 @@ queryClient.invalidateQueries({ queryKey: ['bookings'] });
 ### State Management Flow
 1. User action → Component
 2. Component → Custom hook (React Query)  
-3. Hook → Service (API call)
-4. API → Smart contract
-5. Blockchain event → Event context → Granular cache update
+3. Hook → Router service (authentication-aware routing)
+4. Router service → Client/Server service (based on user authentication)
+5a. Client service → User's wallet → Blockchain RPC → Smart contract
+5b. Server service → API endpoint → Server's wallet → Blockchain RPC → Smart contract
+6. Blockchain event → Event context → Granular cache update
 
 ## Data Storage Architecture
 

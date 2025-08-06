@@ -1,5 +1,7 @@
 /**
- * Booking Services - Atomic and Composed
+ * Server Booking Services - Atomic and Composed
+ * Handles API calls to server endpoints (server wallet transactions)
+ * Used for SSO authenticated users
  * Follows dual-layer pattern: atomic services (1:1 with endpoints) + composed services (orchestrate multiple calls)
  */
 
@@ -272,7 +274,7 @@ export const createBooking = async (bookingData) => {
     throw new Error('Timeslot duration is required');
   }
 
-  const response = await fetch('/api/contract/reservation/makeBooking', {
+  const response = await fetch('/api/contract/reservation/makeBookingSSO', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ labId, start, timeslot })
@@ -300,7 +302,7 @@ export const cancelBooking = async (reservationKey) => {
   }
 
   try {
-    const response = await fetch('/api/contract/reservation/cancelBooking', {
+    const response = await fetch('/api/contract/reservation/cancelBookingSSO', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reservationKey })
@@ -356,7 +358,7 @@ export const cancelReservationRequest = async (reservationKey) => {
   }
 
   try {
-    const response = await fetch('/api/contract/reservation/cancelRequest', {
+    const response = await fetch('/api/contract/reservation/cancelRequestSSO', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reservationKey })
@@ -931,6 +933,56 @@ export const fetchMultiLabBookingsComposed = async (labIds, includeMetrics = fal
   }
 };
 
+/**
+ * Claim all available balance (atomic service)
+ * @returns {Promise<Object>} Transaction result
+ */
+export const claimAllBalance = async () => {
+  devLog.log('📤 [serverBookingServices] Claiming all balance');
+
+  const response = await fetch('/api/contract/reservation/claimAllBalanceSSO', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  devLog.log('✅ [serverBookingServices] Successfully claimed all balance:', data);
+  return data;
+};
+
+/**
+ * Claim balance for specific lab (atomic service)
+ * @param {string|number} labId - Lab identifier
+ * @returns {Promise<Object>} Transaction result
+ */
+export const claimLabBalance = async (labId) => {
+  if (!labId && labId !== 0) {
+    throw new Error('Lab ID is required for claiming lab balance');
+  }
+
+  devLog.log('📤 [serverBookingServices] Claiming lab balance for lab:', labId);
+
+  const response = await fetch('/api/contract/reservation/claimLabBalanceSSO', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ labId })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  devLog.log('✅ [serverBookingServices] Successfully claimed lab balance:', data);
+  return data;
+};
+
 // Export all services
 export const bookingServices = {
   // Atomic services
@@ -940,6 +992,8 @@ export const bookingServices = {
   createBooking,
   cancelBooking,
   cancelReservationRequest,
+  claimAllBalance,
+  claimLabBalance,
   
   // Composed services
   fetchUserBookingsComposed,

@@ -3,7 +3,7 @@
  * Uses simple hooks with composed services and cache-extracting hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { userServices } from '@/services/userServices'
+import { userServices } from '@/services/user/userServices'
 import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/hooks/queryKeys'
 import { devLog } from '@/utils/dev/logger'
 
@@ -58,47 +58,7 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
   });
 };
 
-/**
- * Hook to get provider name for a wallet address (legacy compatibility)
- * @param {string} wallet - Wallet address to get the provider name for
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with provider name data
- */
-export const useProviderNameQuery = (wallet, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.PROVIDER.name(wallet),
-    queryFn: async () => {
-      if (!wallet) {
-        throw new Error('Wallet address is required for provider name');
-      }
 
-      const response = await fetch('/api/contract/provider/getLabProviderName', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ wallet }),
-      });
-
-      if (response.status === 404) {
-        return null;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Provider name fetch failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      return result.providerName || null;
-    },
-    staleTime: 6 * 60 * 60 * 1000, // 6 hours (provider names change very rarely)
-    gcTime: 48 * 60 * 60 * 1000, // 48 hours
-    retry: 1,
-    enabled: Boolean(wallet),
-    ...options,
-  });
-};
 
 /**
  * Hook to refresh provider status (legacy compatibility)
@@ -133,23 +93,7 @@ export const useRefreshProviderStatusMutation = () => {
 
 // === ATOMIC HOOKS (for special use cases) ===
 
-/**
- * Hook to get specific provider by ID (atomic call when needed)
- * @param {string|number} providerId - Provider ID to fetch
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with provider details
- */
-export const useProviderByIdQuery = (providerId, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.PROVIDER.byId(providerId),
-    queryFn: () => userServices.fetchProviderById(providerId),
-    enabled: !!providerId,
-    staleTime: 48 * 60 * 60 * 1000, // 48 hours (individual provider data very stable)
-    gcTime: 2 * 7 * 24 * 60 * 60 * 1000, // 2 weeks
-    retry: 2,
-    ...options,
-  });
-};
+
 
 // ===============================
 // === SSO & AUTHENTICATION ===
@@ -193,63 +137,8 @@ export const useSSOSessionQuery = (options = {}) => {
 };
 
 // ===============================
-// === CACHE INVALIDATION UTILITIES ===
+// === GRANULAR CACHE UPDATES ===
 // ===============================
-
-/**
- * Hook for user/provider-specific cache invalidation utilities
- * Used by event contexts to invalidate user-related caches efficiently
- * @returns {Object} User cache invalidation functions
- */
-export const useCacheInvalidation = () => {
-  const queryClient = useQueryClient();
-
-  /**
-   * Invalidate user profile and provider status
-   * @param {string} userAddress - User address
-   */
-  const invalidateUserProfile = (userAddress) => {
-    if (userAddress) {
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.USER.profile(userAddress)
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.USER.status(userAddress)
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.PROVIDER.status(userAddress)
-      });
-      devLog.log('🔄 Invalidated user profile cache:', userAddress);
-    }
-  };
-
-  /**
-   * Invalidate provider data (alias for user profile for provider-specific contexts)
-   * @param {string} providerId - Provider ID (user address)
-   */
-  const invalidateProviderData = (providerId) => {
-    if (providerId) {
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.USER.profile(providerId)
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.USER.status(providerId)
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.PROVIDER.status(providerId)
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.PROVIDER.data(providerId)
-      });
-      devLog.log('🔄 Invalidated provider data cache:', providerId);
-    }
-  };
-
-  return {
-    invalidateUserProfile,
-    invalidateProviderData
-  };
-};
 
 /**
  * Hook for user/provider granular cache update utilities
@@ -441,51 +330,4 @@ export const useUserCacheUpdates = () => {
     updateProviderDataCache,
     smartUserInvalidation
   };
-};
-
-// ===============================
-// === UTILITY HOOKS ===
-// ===============================
-
-/**
- * Utility function to add booking to user cache optimistically
- * @param {Object} queryClient - React Query client
- * @param {string} userAddress - User address
- * @param {Object} booking - Booking object to add
- */
-export const addOptimisticBooking = (queryClient, userAddress, booking) => {
-  if (!userAddress) return;
-  
-  const userBookingsKey = ['bookings', 'user-composed', userAddress];
-  const currentBookings = queryClient.getQueryData(userBookingsKey);
-  
-  if (currentBookings) {
-    queryClient.setQueryData(userBookingsKey, {
-      ...currentBookings,
-      bookings: [...(currentBookings.bookings || []), booking]
-    });
-  }
-};
-
-/**
- * Utility function to remove booking from user cache optimistically
- * @param {Object} queryClient - React Query client
- * @param {string} userAddress - User address
- * @param {string} bookingId - Booking ID to remove
- */
-export const removeOptimisticBooking = (queryClient, userAddress, bookingId) => {
-  if (!userAddress) return;
-  
-  const userBookingsKey = ['bookings', 'user-composed', userAddress];
-  const currentBookings = queryClient.getQueryData(userBookingsKey);
-  
-  if (currentBookings) {
-    queryClient.setQueryData(
-      userBookingsKey, 
-      {
-        ...currentBookings,
-        bookings: (currentBookings.bookings || []).filter(booking => booking.id !== bookingId)
-      }
-    );
-  }
 };

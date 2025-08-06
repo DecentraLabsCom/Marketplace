@@ -11,9 +11,18 @@ This project follows a set of coding standards and best practices to ensure code
    - **Atomic services**: 1:1 relationship with API endpoints for individual operations (e.g., `fetchLabData`, `fetchLabOwner`)
    - **Composed services**: Orchestrate multiple atomic services to provide complete data sets (e.g., `fetchAllLabsComposed`)
    - **Client services**: Direct blockchain interactions for wallet-connected users (e.g., `clientBookingServices`, `clientLabServices`)
-   - **Authentication-based routing**: Mutations must route based on user authentication type:
-     - **Wallet users**: Use `clientXXXServices` → `useContractWriteFunction` → User's wallet → Blockchain
-     - **SSO users**: Use `XXXServices` → API endpoints → Server wallet → Blockchain
+   - **Server services**: API-based interactions for SSO users (e.g., `serverBookingServices`, `serverLabServices`)
+   - **Router services**: Unified entry points that route to client or server services based on authentication type:
+     - Main service files (e.g., `bookingServices.js`, `labServices.js`, `userServices.js`) act as routers
+     - They check user authentication type (`isSSO`) and route to appropriate implementation
+     - **Wallet users**: Router → `clientXXXServices` → User's wallet → Blockchain RPC → Smart contract
+     - **SSO users**: Router → `serverXXXServices` → API endpoints → Server wallet → Blockchain RPC → Smart contract
+     - This ensures single entry point for business logic while maintaining authentication-aware execution
+   - **Authentication-based routing**: All mutations must use this pattern:
+     - Hooks call router services, never client/server services directly
+     - Router services handle authentication detection and appropriate service selection
+     - Client services use `useContractWriteFunction` for direct wallet transactions
+     - Server services use API endpoints for server-side wallet transactions
    - The service layer handles data composition, coordination, and authentication-aware transaction routing
    - This pattern optimizes both network efficiency, code maintainability, and ensures correct wallet usage
 
@@ -21,10 +30,12 @@ This project follows a set of coding standards and best practices to ensure code
    - **Simple hooks with composed services**: Single `useQuery` calls that use composed services (e.g., `useAllLabsQuery` calling `fetchAllLabsComposed`)
    - **Cache-extracting hooks**: Simple data extraction from shared cache using basic `find()` operations (e.g., `useLabDataQuery` extracting from `useAllLabsQuery` cache)
    - **Atomic hooks**: Available for specific use cases when individual data is needed
-   - **Mutation hooks**: Must use authentication-aware service routing:
-     - Check user authentication type (`isSSO` from `useUser()`)
-     - Route to appropriate service layer (`clientXXXServices` for wallet users, `XXXServices` for SSO users)
-     - Never use `useContractWriteFunction` directly in components
+   - **Mutation hooks**: Must use router services for authentication-aware routing:
+     - Always call router services (e.g., `bookingServices.createReservation()`) instead of client/server services directly
+     - Router services automatically detect user authentication type (`isSSO`) and route appropriately
+     - Never use `useContractWriteFunction` directly in components - let client services handle this
+     - Never call API endpoints directly in components - let server services handle this
+     - This ensures consistent authentication-aware execution across all contract operations
    - All hooks should use the `use` prefix and avoid complex React Query compositions like `useQueries` with dynamic arrays
    - The goal is to move complexity from React hooks to service layer for better performance and stability
 

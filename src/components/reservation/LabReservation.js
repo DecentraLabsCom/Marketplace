@@ -297,70 +297,17 @@ export default function LabReservation({ id }) {
         refreshTokenData();
       }
       
-      // Invalidate cache and refresh bookings to show the new reservation immediately
-      const invalidateAndRefresh = async () => {
-        try {
-          // Get labId from pendingData for invalidation
-          const labId = pendingData?.labId || selectedLab?.id;
-          
-          // Invalidate the bookings cache (server-side cache invalidation)
-          await fetch('/api/contract/reservation/invalidateCache', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              reason: 'new_reservation',
-              reservationKey: pendingData?.reservationKey
-            })
-          });
-          
-          // Use granular cache updates for booking creation
-          try {
-            const newBookingData = {
-              id: pendingData?.reservationKey,
-              labId: labId,
-              userAddress: address || userAddress,
-              startTime: pendingData?.startTime,
-              endTime: pendingData?.endTime,
-              status: 'active',
-              timestamp: new Date().toISOString()
-            };
-            
-            // Add to user's bookings cache
-            bookingCacheUpdates.addBookingToUserCache(newBookingData, address || userAddress);
-            
-            // Add to lab's bookings cache
-            if (labId) {
-              bookingCacheUpdates.addBookingToLabCache(newBookingData, labId);
-            }
-          } catch (error) {
-            devLog.warn('Granular cache update failed, using smart invalidation:', error);
-            bookingCacheUpdates.smartBookingInvalidation(labId);
-          }
-          
-          // Event-driven granular cache update will handle the data refresh automatically
-          // No need for manual refetch since BookingEventContext listens to blockchain events
-          
-          // Force UI refresh immediately
-          setForceRefresh(prev => prev + 1);
-          
-          devLog.log('✅ Cache updated - BookingEventContext will handle granular updates via blockchain events');
-        } catch (error) {
-          devLog.error('Error updating cache after reservation:', error);
-          // Force UI refresh even on cache error
-          setForceRefresh(prev => prev + 1);
-        }
-      };
-      
-      invalidateAndRefresh();
+      // Force UI refresh for immediate visual feedback
+      setForceRefresh(prev => prev + 1);
       
       // Reset transaction state
       setLastTxHash(null);
       setTxType(null);
       setPendingData(null);
 
-      // The BookingEventContext will handle updating bookings when confirmed/denied
+      // The BookingEventContext will handle updating bookings automatically via blockchain events
+      // No manual cache invalidation needed - our granular cache strategy handles this
+      devLog.log('✅ Transaction completed - BookingEventContext will handle granular cache updates via blockchain events');
     }
   }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refreshTokenData]);
 
@@ -409,19 +356,12 @@ export default function LabReservation({ id }) {
 
   // Common notification and state management
   const handleBookingSuccess = async () => {
-    // Use smart booking cache invalidation for real-time updates
-    try {
-      bookingCacheUpdates.smartBookingInvalidation(selectedLab?.id);
-    } catch (error) {
-      devLog.warn('Smart invalidation failed:', error);
-    }
-    
-    // Event-driven granular cache update will handle the data refresh automatically
-    // No need for manual refetch since BookingEventContext listens to blockchain events
-    
-    // Force UI refresh for calendar update
+    // Force UI refresh for immediate calendar update
     setForceRefresh(prev => prev + 1);
     setIsBooking(false);
+    
+    // BookingEventContext will handle the granular cache updates automatically
+    devLog.log('✅ Booking success - relying on BookingEventContext for cache updates');
   };
 
   // Optimistic cache update for immediate UI feedback

@@ -1,6 +1,7 @@
 /**
  * Client-side booking contract services
  * Handles direct blockchain interactions using user's connected wallet
+ * Used for wallet authenticated users
  * These services execute transactions from the frontend, not through API
  */
 import { devLog } from '@/utils/dev/logger'
@@ -248,9 +249,100 @@ export const createReservation = async (bookingData, contractWriteFunction, user
   }
 };
 
+/**
+ * Claim all available balance using user's wallet
+ * @param {Function} contractWriteFunction - Contract write function from useContractWriteFunction
+ * @param {string} userAddress - User's wallet address
+ * @returns {Promise<string>} Transaction hash
+ */
+export const claimAllBalance = async (contractWriteFunction, userAddress) => {
+  if (!contractWriteFunction) {
+    throw new Error('Contract write function is required');
+  }
+
+  if (!userAddress) {
+    throw new Error('User address is required');
+  }
+
+  try {
+    devLog.log('📤 [CLIENT] Claiming all balance with wallet:', { userAddress });
+
+    // Call the contract function through the provided contractWriteFunction
+    const txHash = await contractWriteFunction([]);
+
+    devLog.log('✅ [CLIENT] Claim all balance transaction sent:', { txHash, userAddress });
+
+    return txHash;
+    
+  } catch (error) {
+    devLog.error(`❌ [CLIENT] Claim all balance failed:`, error);
+    
+    // Enhance error messages for common issues
+    if (error.message?.includes('user rejected')) {
+      throw new Error('Transaction was cancelled by user');
+    } else if (error.message?.includes('insufficient funds')) {
+      throw new Error('Insufficient funds for gas fees');
+    } else if (error.message?.includes('No balance')) {
+      throw new Error('No balance available to claim');
+    } else {
+      throw new Error(`Failed to claim all balance: ${error.message}`);
+    }
+  }
+};
+
+/**
+ * Claim balance for specific lab using user's wallet
+ * @param {string|number} labId - Lab identifier
+ * @param {Function} contractWriteFunction - Contract write function from useContractWriteFunction
+ * @param {string} userAddress - User's wallet address
+ * @returns {Promise<string>} Transaction hash
+ */
+export const claimLabBalance = async (labId, contractWriteFunction, userAddress) => {
+  if (!labId && labId !== 0) {
+    throw new Error('Lab ID is required for claiming lab balance');
+  }
+
+  if (!contractWriteFunction) {
+    throw new Error('Contract write function is required');
+  }
+
+  if (!userAddress) {
+    throw new Error('User address is required');
+  }
+
+  try {
+    devLog.log('📤 [CLIENT] Claiming lab balance with wallet:', { labId, userAddress });
+
+    // Call the contract function through the provided contractWriteFunction
+    const txHash = await contractWriteFunction([labId]);
+
+    devLog.log('✅ [CLIENT] Claim lab balance transaction sent:', { txHash, labId, userAddress });
+
+    return txHash;
+    
+  } catch (error) {
+    devLog.error(`❌ [CLIENT] Claim lab balance failed:`, error);
+    
+    // Enhance error messages for common issues
+    if (error.message?.includes('user rejected')) {
+      throw new Error('Transaction was cancelled by user');
+    } else if (error.message?.includes('insufficient funds')) {
+      throw new Error('Insufficient funds for gas fees');
+    } else if (error.message?.includes('No balance')) {
+      throw new Error('No balance available for this lab');
+    } else if (error.message?.includes('Not authorized')) {
+      throw new Error('Not authorized to claim balance for this lab');
+    } else {
+      throw new Error(`Failed to claim lab balance: ${error.message}`);
+    }
+  }
+};
+
 export const clientBookingServices = {
   cancelReservationRequest,
   cancelBooking,
   cancelReservation,
-  createReservation
+  createReservation,
+  claimAllBalance,
+  claimLabBalance
 };

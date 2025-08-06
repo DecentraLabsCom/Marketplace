@@ -3,7 +3,7 @@ import { createContext, useContext, useRef, useCallback, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useUser } from './UserContext'
 import { useNotifications } from './NotificationContext'
-import { useCacheInvalidation, useUserCacheUpdates } from '@/hooks/user/useUsers'
+import { useUserCacheUpdates } from '@/hooks/user/useUsers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -20,7 +20,6 @@ export function UserEventProvider({ children }) {
     const { chain, address: userAddress } = useAccount();
     const { user, isSSO } = useUser();
     const { addPersistentNotification } = useNotifications();
-    const cacheInvalidation = useCacheInvalidation();
     const userCacheUpdates = useUserCacheUpdates();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
@@ -83,12 +82,9 @@ export function UserEventProvider({ children }) {
             }
         }
         
-        // Fallback to traditional invalidation
+        // Fallback to traditional invalidation using smart invalidation
         if (userAddress) {
-            cacheInvalidation.invalidateUserProfile(userAddress);
-            if (context === 'provider' || context === 'both') {
-                cacheInvalidation.invalidateProviderData(userAddress);
-            }
+            userCacheUpdates.smartUserInvalidation(userAddress, null, 'update', context);
         }
 
         devLog.log(`✅ [UserEventContext] Cache update completed`);
@@ -124,7 +120,7 @@ export function UserEventProvider({ children }) {
                 pendingUpdates.current.clear();
             }
         }, delay);
-    }, [userCacheUpdates, cacheInvalidation]);
+    }, [userCacheUpdates]);
 
     // Enhanced event handlers with collision prevention
     async function handleProviderAdded(args) {

@@ -5,8 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useWalletClient } from 'wagmi'
-import { labServices } from '@/services/labServices'
-import { clientLabServices } from '@/services/clientLabServices'
+import { labServices } from '@/services/lab/labServices'
 import { useUser } from '@/context/UserContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
@@ -35,294 +34,17 @@ export const useAllLabsQuery = (options = {}) => {
 
 // === CACHE-EXTRACTING HOOKS (simple data operations) ===
 
-/**
- * Hook to get basic lab list (extracts from composed data)
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab list data
- */
-export const useLabListQuery = (options = {}) => {
-  const allLabsQuery = useAllLabsQuery();
-  
-  return useMemo(() => {
-    const labIds = allLabsQuery.data?.map(lab => lab.id) || [];
-    return {
-      data: labIds,
-      isLoading: allLabsQuery.isLoading,
-      isPending: allLabsQuery.isPending,
-      isInitialLoading: allLabsQuery.isInitialLoading,
-      isFetching: allLabsQuery.isFetching,
-      isSuccess: allLabsQuery.isSuccess,
-      isError: allLabsQuery.isError,
-      error: allLabsQuery.error,
-      ...options,
-    };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, options]);
-};
 
-/**
- * Hook to get LAB token decimals (extracts from composed data)
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with LAB token decimals data
- */
-export const useLabDecimalsQuery = (options = {}) => {
-  const allLabsQuery = useAllLabsQuery();
-  
-  return useMemo(() => {
-    // Extract decimals from first lab's price data (all labs use same decimals)
-    const decimals = allLabsQuery.data?.[0]?.decimals || 18;
-    return {
-      data: decimals,
-      isLoading: allLabsQuery.isLoading,
-      isPending: allLabsQuery.isPending,
-      isInitialLoading: allLabsQuery.isInitialLoading,
-      isFetching: allLabsQuery.isFetching,
-      isSuccess: allLabsQuery.isSuccess,
-      isError: allLabsQuery.isError,
-      error: allLabsQuery.error,
-      ...options,
-    };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, options]);
-};
 
-/**
- * Hook to get specific lab data (extracts from composed data)
- * @param {string|number} labId - Lab identifier
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab data
- */
-export const useLabDataQuery = (labId, options = {}) => {
-  const allLabsQuery = useAllLabsQuery();
-  
-  return useMemo(() => {
-    const lab = allLabsQuery.data?.find(l => l.id?.toString() === labId?.toString());
-    return {
-      data: lab || null,
-      isLoading: allLabsQuery.isLoading,
-      isPending: allLabsQuery.isPending,
-      isInitialLoading: allLabsQuery.isInitialLoading,
-      isFetching: allLabsQuery.isFetching,
-      isSuccess: allLabsQuery.isSuccess && !!lab,
-      isError: allLabsQuery.isError,
-      error: allLabsQuery.error,
-      ...options,
-    };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, labId, options]);
-};
 
-/**
- * Hook to get lab owner (extracts from composed data)
- * @param {string|number} labId - Lab identifier
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab owner data
- */
-export const useLabOwnerQuery = (labId, options = {}) => {
-  const allLabsQuery = useAllLabsQuery();
-  
-  return useMemo(() => {
-    const lab = allLabsQuery.data?.find(l => l.id?.toString() === labId?.toString());
-    const owner = lab?.owner || null;
-    return {
-      data: owner,
-      isLoading: allLabsQuery.isLoading,
-      isPending: allLabsQuery.isPending,
-      isInitialLoading: allLabsQuery.isInitialLoading,
-      isFetching: allLabsQuery.isFetching,
-      isSuccess: allLabsQuery.isSuccess && !!owner,
-      isError: allLabsQuery.isError,
-      error: allLabsQuery.error,
-      ...options,
-    };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, labId, options]);
-};
-
-/**
- * Hook to get lab metadata (extracts from composed data)
- * @param {string} metadataUri - URI to fetch metadata from (not used in optimized version)
- * @param {string|number} labId - Lab identifier for context
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab metadata
- */
-export const useLabMetadataQuery = (metadataUri, labId, options = {}) => {
-  const allLabsQuery = useAllLabsQuery();
-  
-  return useMemo(() => {
-    const lab = allLabsQuery.data?.find(l => l.id?.toString() === labId?.toString());
-    // Return the complete lab object as metadata since it's already composed
-    return {
-      data: lab || null,
-      isLoading: allLabsQuery.isLoading,
-      isPending: allLabsQuery.isPending,
-      isInitialLoading: allLabsQuery.isInitialLoading,
-      isFetching: allLabsQuery.isFetching,
-      isSuccess: allLabsQuery.isSuccess && !!lab,
-      isError: allLabsQuery.isError,
-      error: allLabsQuery.error,
-      ...options,
-    };
-  }, [allLabsQuery.data, allLabsQuery.isLoading, allLabsQuery.isPending, allLabsQuery.isInitialLoading, allLabsQuery.isFetching, allLabsQuery.isSuccess, allLabsQuery.isError, allLabsQuery.error, labId, options]);
-};
 
 // === ATOMIC HOOKS (for specific use cases when individual data is needed) ===
 
-/**
- * Hook to get basic lab list (atomic) - direct service call
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab list data
- */
-export const useLabListQueryAtomic = (options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.LABS.list,
-    queryFn: () => labServices.fetchLabList(),
-    staleTime: 3 * 60 * 60 * 1000, // 3 hours (longer than composed)
-    gcTime: 48 * 60 * 60 * 1000, // 48 hours
-    retry: 2,
-    ...options,
-  });
-};
 
-/**
- * Hook to get LAB token decimals (atomic) - direct service call
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with LAB token decimals data
- */
-export const useLabDecimalsQueryAtomic = (options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.LABS.decimals,
-    queryFn: () => labServices.fetchLabDecimals(),
-    staleTime: Infinity, // Never stale - permanent cache (immutable data)
-    gcTime: Infinity, // Never garbage collected - permanent storage
-    retry: 2,
-    ...options,
-  });
-};
-
-/**
- * Hook to get specific lab data (atomic) - direct service call
- * @param {string|number} labId - Lab identifier
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab data
- */
-export const useLabDataQueryAtomic = (labId, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.LABS.data(labId),
-    queryFn: () => labServices.fetchLabData(labId),
-    enabled: !!labId,
-    staleTime: 3 * 60 * 60 * 1000, // 3 hours (individual data changes less)
-    gcTime: 48 * 60 * 60 * 1000, // 48 hours
-    retry: 2,
-    ...options,
-  });
-};
-
-/**
- * Hook to get lab owner (atomic) - direct service call
- * @param {string|number} labId - Lab identifier
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab owner data
- */
-export const useLabOwnerQueryAtomic = (labId, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.LABS.owner(labId),
-    queryFn: () => labServices.fetchLabOwner(labId),
-    enabled: !!labId,
-    staleTime: 6 * 60 * 60 * 1000, // 24 hours (ownership rarely changes)
-    gcTime: 48 * 60 * 60 * 1000, // 72 hours
-    retry: 2,
-    ...options,
-  });
-};
-
-/**
- * Hook to get providers list (atomic) - direct service call
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with providers list data
- */
-export const useProvidersListQueryAtomic = (options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.PROVIDERS.list,
-    queryFn: () => labServices.fetchProvidersList(),
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-    gcTime: 7 * 24 * 60 * 60 * 1000, // 1 week
-    retry: 2,
-    ...options,
-  });
-};
-
-/**
- * Hook to get lab metadata (atomic) - direct service call
- * @param {string} metadataUri - URI to fetch metadata from
- * @param {string|number} labId - Lab identifier for context
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab metadata
- */
-export const useLabMetadataQueryAtomic = (metadataUri, labId, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.LABS.metadata(metadataUri),
-    queryFn: () => labServices.fetchLabMetadata(metadataUri, labId),
-    enabled: !!metadataUri,
-    staleTime: 4 * 60 * 60 * 1000, // 4 hours (metadata changes less frequently)
-    gcTime: 48 * 60 * 60 * 1000, // 48 hours
-    retry: 2,
-    ...options,
-  });
-};
 
 // === CACHE MANAGEMENT ===
 
-/**
- * Hook to manually invalidate lab cache and force refetch
- */
-export const useLabCacheInvalidation = () => {
-  const queryClient = useQueryClient();
-  
-  return {
-    /**
-     * Invalidate all lab queries (list, individual labs, etc.)
-     */
-    invalidateAllLabs: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
-      queryClient.invalidateQueries({ queryKey: ['labs'] }); // Invalidate all lab-related queries
-    },
-    
-    /**
-     * Alias for invalidateAllLabs (for consistency with event contexts)
-     */
-    invalidateLabList: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.list });
-    },
-    
-    /**
-     * Invalidate specific lab data
-     * @param {string|number} labId - Lab ID
-     */
-    invalidateLabDetail: (labId) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.owner(labId) });
-    },
-    
-    /**
-     * Alias for invalidateLabDetail (for consistency with event contexts)
-     * @param {string|number} labId - Lab ID
-     */
-    invalidateLabData: (labId) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.LABS.owner(labId) });
-    },
-    
-    invalidateProviders: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PROVIDERS.list });
-    },
-    
-    // Force refetch without invalidation
-    refetchAllLabs: () => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.LABS.list });
-    },
-    
-    refetchLabDetail: (labId) => {
-      queryClient.refetchQueries({ queryKey: QUERY_KEYS.LABS.data(labId) });
-    },
-  };
-};
+
 
 // === MUTATIONS ===
 
@@ -333,29 +55,21 @@ export const useCreateLabMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
   const { data: walletClient } = useWalletClient();
-  const { address: userAddress, isSSO } = useUser();
+  const { address: userAddress, isSSO, user } = useUser();
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');
   
   return useMutation({
     mutationFn: async (labData) => {
-      if (isSSO) {
-        // SSO users → API endpoint → Server wallet
-        return await labServices.createLab(labData);
-      } else {
-        // Wallet users → Client service → User's wallet
-        if (!walletClient) {
-          throw new Error('Wallet not connected');
-        }
-        if (!userAddress) {
-          throw new Error('User address not available');
-        }
-        
-        return await clientLabServices.createLab(
-          labData,
-          addLab,
-          userAddress
-        );
-      }
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: addLab,
+        userAddress,
+        userEmail: user?.email
+      };
+
+      // Use unified service with authentication-aware routing
+      return await labServices.createLab(labData, authContext);
     },
     onSuccess: (createdLab, labData) => {
       // Try granular cache update first
@@ -387,35 +101,27 @@ export const useUpdateLabMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
   const { data: walletClient } = useWalletClient();
-  const { address: userAddress, isSSO } = useUser();
+  const { address: userAddress, isSSO, user } = useUser();
   const { contractWriteFunction: updateLab } = useContractWriteFunction('updateLab');
   
   return useMutation({
     mutationFn: async ({ labId, labData }) => {
-      if (isSSO) {
-        // SSO users → API endpoint → Server wallet
-        return await labServices.updateLab(labId, labData);
-      } else {
-        // Wallet users → Client service → User's wallet
-        if (!walletClient) {
-          throw new Error('Wallet not connected');
-        }
-        if (!userAddress) {
-          throw new Error('User address not available');
-        }
-        
-        // Prepare update data for client service
-        const updateData = {
-          labId,
-          ...labData
-        };
-        
-        return await clientLabServices.updateLab(
-          updateData,
-          updateLab,
-          userAddress
-        );
-      }
+      // Prepare update data
+      const updateData = {
+        labId,
+        ...labData
+      };
+      
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: updateLab,
+        userAddress,
+        userEmail: user?.email
+      };
+
+      // Use unified service with authentication-aware routing
+      return await labServices.updateLab(updateData, authContext);
     },
     onSuccess: (updatedLab, variables) => {
       // Try granular cache update first
@@ -448,29 +154,21 @@ export const useDeleteLabMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
   const { data: walletClient } = useWalletClient();
-  const { address: userAddress, isSSO } = useUser();
+  const { address: userAddress, isSSO, user } = useUser();
   const { contractWriteFunction: deleteLab } = useContractWriteFunction('deleteLab');
   
   return useMutation({
     mutationFn: async (labId) => {
-      if (isSSO) {
-        // SSO users → API endpoint → Server wallet
-        return await labServices.deleteLab(labId);
-      } else {
-        // Wallet users → Client service → User's wallet
-        if (!walletClient) {
-          throw new Error('Wallet not connected');
-        }
-        if (!userAddress) {
-          throw new Error('User address not available');
-        }
-        
-        return await clientLabServices.deleteLab(
-          labId,
-          deleteLab,
-          userAddress
-        );
-      }
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: deleteLab,
+        userAddress,
+        userEmail: user?.email
+      };
+
+      // Use unified service with authentication-aware routing
+      return await labServices.deleteLab(labId, authContext);
     },
     onSuccess: (data, labId) => {
       // Try granular cache update first
@@ -498,34 +196,26 @@ export const useToggleLabStatusMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
   const { data: walletClient } = useWalletClient();
-  const { address: userAddress, isSSO } = useUser();
+  const { address: userAddress, isSSO, user } = useUser();
   // Get appropriate contract function based on operation
   const { contractWriteFunction: listLab } = useContractWriteFunction('listLab');
   const { contractWriteFunction: unlistLab } = useContractWriteFunction('unlistLab');
   
   return useMutation({
     mutationFn: async ({ labId, isListed }) => {
-      if (isSSO) {
-        // SSO users → API endpoint → Server wallet
-        return await labServices.toggleLabStatus(labId, { isListed });
-      } else {
-        // Wallet users → Client service → User's wallet
-        if (!walletClient) {
-          throw new Error('Wallet not connected');
-        }
-        if (!userAddress) {
-          throw new Error('User address not available');
-        }
-        
-        // Choose correct contract function based on operation
-        const contractFunction = isListed ? listLab : unlistLab;
-        
-        return await clientLabServices.toggleLabStatus(
-          { labId, isListed },
-          contractFunction,
-          userAddress
-        );
-      }
+      // Choose correct contract function based on operation
+      const contractFunction = isListed ? listLab : unlistLab;
+      
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: contractFunction,
+        userAddress,
+        userEmail: user?.email
+      };
+
+      // Use unified service with authentication-aware routing
+      return await labServices.toggleLabStatus({ labId, isListed }, authContext);
     },
     onSuccess: (data, variables) => {
       // Try granular cache update first

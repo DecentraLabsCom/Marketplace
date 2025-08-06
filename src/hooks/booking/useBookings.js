@@ -5,8 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback, useEffect } from 'react'
 import { useWaitForTransactionReceipt, useWalletClient } from 'wagmi'
-import { bookingServices } from '@/services/bookingServices'
-import { clientBookingServices } from '@/services/clientBookingServices'
+import { bookingServices } from '@/services/booking/bookingServices'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import { useLabToken } from '@/hooks/useLabToken'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
@@ -62,173 +61,21 @@ export const useLabBookingsQuery = (labId, includeMetrics = true, options = {}) 
   });
 };
 
-/**
- * Hook to get multi-lab bookings in a single composed call
- * Efficiently fetches bookings for multiple labs in parallel
- * @param {Array<string|number>} labIds - Array of lab IDs
- * @param {boolean} includeMetrics - Whether to include metrics for each lab
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with multi-lab bookings data
- */
-export const useMultiLabBookingsQuery = (labIds, includeMetrics = false, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS.multiLab(labIds, includeMetrics),
-    queryFn: () => bookingServices.fetchMultiLabBookingsComposed(labIds, includeMetrics),
-    enabled: Array.isArray(labIds) && labIds.length > 0,
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-    retry: 2,
-    ...options,
-  });
-};
+
 
 // ===============================
 // === ATOMIC HOOKS (for specific use cases) ===
 // ===============================
 
-/**
- * Hook to get atomic user bookings (when you only need basic booking data)
- * @param {string} userAddress - User's wallet address
- * @param {boolean} clearCache - Whether to bypass cache
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with atomic user bookings
- */
-export const useUserBookingsAtomicQuery = (userAddress, clearCache = false, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS.userAtomic(userAddress, clearCache),
-    queryFn: () => bookingServices.fetchUserBookings(userAddress, clearCache),
-    enabled: !!userAddress,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    retry: 2,
-    ...options,
-  });
-};
 
-/**
- * Hook to get atomic lab bookings (when you only need basic booking data)
- * @param {string|number} labId - Lab identifier
- * @param {boolean} clearCache - Whether to bypass cache
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with atomic lab bookings
- */
-export const useLabBookingsAtomicQuery = (labId, clearCache = false, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS.labAtomic(labId, clearCache),
-    queryFn: () => bookingServices.fetchLabBookings(labId, clearCache),
-    enabled: !!labId,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    retry: 2,
-    ...options,
-  });
-};
 
 // ===============================
 // === CACHE-EXTRACTING HOOKS (simple data operations) ===
 // ===============================
 
-/**
- * Hook to get user bookings list (extracts from composed data)
- * @param {string} userAddress - User's wallet address
- * @returns {Object} Bookings list with loading and error states
- */
-export const useUserBookingsListQuery = (userAddress) => {
-  const userBookingsQuery = useUserBookingsQuery(userAddress);
-  
-  return useMemo(() => ({
-    data: userBookingsQuery.data?.bookings || [],
-    totalBookings: userBookingsQuery.data?.totalBookings || 0,
-    activeBookings: userBookingsQuery.data?.activeBookings || 0,
-    pastBookings: userBookingsQuery.data?.pastBookings || 0,
-    errorInfo: userBookingsQuery.data?.errorInfo || { hasErrors: false, message: '' },
-    isLoading: userBookingsQuery.isLoading,
-    isPending: userBookingsQuery.isPending,
-    isInitialLoading: userBookingsQuery.isInitialLoading,
-    isFetching: userBookingsQuery.isFetching,
-    isSuccess: userBookingsQuery.isSuccess,
-    isError: userBookingsQuery.isError,
-    error: userBookingsQuery.error,
-    refetch: userBookingsQuery.refetch,
-  }), [userBookingsQuery]);
-};
 
-/**
- * Hook to get lab bookings list (extracts from composed data)
- * @param {string|number} labId - Lab identifier
- * @param {boolean} includeMetrics - Whether to include metrics
- * @returns {Object} Bookings list with loading and error states
- */
-export const useLabBookingsListQuery = (labId, includeMetrics = true) => {
-  const labBookingsQuery = useLabBookingsQuery(labId, includeMetrics);
-  
-  return useMemo(() => ({
-    data: labBookingsQuery.data?.bookings || [],
-    totalBookings: labBookingsQuery.data?.totalBookings || 0,
-    metrics: labBookingsQuery.data?.metrics || null,
-    errorInfo: labBookingsQuery.data?.errorInfo || { hasErrors: false, message: '' },
-    isLoading: labBookingsQuery.isLoading,
-    isPending: labBookingsQuery.isPending,
-    isInitialLoading: labBookingsQuery.isInitialLoading,
-    isFetching: labBookingsQuery.isFetching,
-    isSuccess: labBookingsQuery.isSuccess,
-    isError: labBookingsQuery.isError,
-    error: labBookingsQuery.error,
-    refetch: labBookingsQuery.refetch,
-  }), [labBookingsQuery]);
-};
 
-/**
- * Hook to get single booking from user cache (simple find operation)
- * @param {string} userAddress - User's wallet address
- * @param {string} bookingId - Booking ID to find
- * @returns {Object} Single booking with loading and error states
- */
-export const useUserBookingQuery = (userAddress, bookingId) => {
-  const userBookingsQuery = useUserBookingsQuery(userAddress);
-  
-  return useMemo(() => {
-    const booking = userBookingsQuery.data?.bookings?.find(b => b.id === bookingId || b.reservationKey === bookingId);
-    return {
-      data: booking || null,
-      isLoading: userBookingsQuery.isLoading,
-      isPending: userBookingsQuery.isPending,
-      isInitialLoading: userBookingsQuery.isInitialLoading,
-      isFetching: userBookingsQuery.isFetching,
-      isSuccess: userBookingsQuery.isSuccess,
-      isError: userBookingsQuery.isError,
-      error: userBookingsQuery.error,
-      refetch: userBookingsQuery.refetch,
-    };
-  }, [userBookingsQuery, bookingId]);
-};
 
-/**
- * Hook to get single booking from lab cache (simple find operation)
- * @param {string|number} labId - Lab identifier
- * @param {string} bookingId - Booking ID to find
- * @returns {Object} Single booking with loading and error states
- */
-export const useLabBookingQuery = (labId, bookingId) => {
-  const labBookingsQuery = useLabBookingsQuery(labId);
-  
-  return useMemo(() => {
-    const booking = labBookingsQuery.data?.bookings?.find(b => b.id === bookingId || b.reservationKey === bookingId);
-    return {
-      data: booking || null,
-      isLoading: labBookingsQuery.isLoading,
-      isPending: labBookingsQuery.isPending,
-      isInitialLoading: labBookingsQuery.isInitialLoading,
-      isFetching: labBookingsQuery.isFetching,
-      isSuccess: labBookingsQuery.isSuccess,
-      isError: labBookingsQuery.isError,
-      error: labBookingsQuery.error,
-      refetch: labBookingsQuery.refetch,
-    };
-  }, [labBookingsQuery, bookingId]);
-};
 
 // ===============================
 // === MUTATIONS ===
@@ -246,31 +93,15 @@ export const useCreateBookingMutation = () => {
 
   return useMutation({
     mutationFn: async (bookingData) => {
-      if (isSSO) {
-        // SSO users → API endpoint → Server wallet
-        return await bookingServices.createBooking(bookingData);
-      } else {
-        // Wallet users → Client service → User's wallet
-        if (!walletClient) {
-          throw new Error('Wallet not connected');
-        }
-        if (!userAddress) {
-          throw new Error('User address not available');
-        }
-        
-        // Convert bookingData format for client service
-        const clientBookingData = {
-          labId: bookingData.labId,
-          startTime: bookingData.start,
-          endTime: bookingData.start + bookingData.timeslot
-        };
-        
-        return await clientBookingServices.createReservation(
-          clientBookingData,
-          reservationRequest,
-          userAddress
-        );
-      }
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: reservationRequest,
+        userAddress
+      };
+
+      // Use unified service with authentication-aware routing
+      return await bookingServices.createBooking(bookingData, authContext);
     },
     
     onMutate: async (bookingData) => {
@@ -387,23 +218,22 @@ export const useCreateBookingMutation = () => {
 export const useCancelBookingMutation = () => {
   const queryClient = useQueryClient();
   const { data: walletClient } = useWalletClient();
-  const { address: userAddress } = useUser();
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: cancelReservationRequestFn } = useContractWriteFunction('cancelReservationRequest');
+  const { contractWriteFunction: cancelBookingFn } = useContractWriteFunction('cancelBooking');
 
   return useMutation({
     mutationFn: async ({ reservationKey }) => {
-      if (!walletClient) {
-        throw new Error('Wallet not connected');
-      }
-      if (!userAddress) {
-        throw new Error('User address not available');
-      }
-      
-      // Use client-side transaction instead of API call
-      return await clientBookingServices.cancelReservation(
-        reservationKey, 
-        walletClient, 
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        cancelReservationRequestFn,
+        cancelBookingFn,
         userAddress
-      );
+      };
+
+      // Use unified service with authentication-aware routing
+      return await bookingServices.cancelBooking(reservationKey, authContext);
     },
     
     onMutate: async ({ reservationKey, userAddress, labId }) => {
@@ -759,54 +589,22 @@ export const useBookingCacheUpdates = () => {
 };
 
 // ===============================
-// === COMPLETE BOOKING CREATION WORKFLOW ===
+// === SIMPLE BOOKING CREATION ===
 // ===============================
 
 /**
- * Comprehensive booking creation hook with full wallet workflow
- * Migrated from useBookingCreation.js to maintain consistency with useLabs.js pattern
- * Handles: balance checking, token approval, reservation creation, and transaction monitoring
- * @param {Object} selectedLab - Currently selected lab object
+ * Simple booking creation hook following the atomic pattern
+ * @param {Object} selectedLab - The lab for which bookings are being created
  * @param {Function} onBookingSuccess - Callback for successful booking completion
- * @returns {Object} Complete booking creation state and handlers
+ * @returns {Object} Simple booking creation state and handlers
  */
-export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
-  const { addTemporaryNotification, addErrorNotification } = useNotifications()
-  const bookingCacheUpdates = useBookingCacheUpdates()
-
-  // Booking state
+export const useSimpleBookingCreation = (selectedLab, onBookingSuccess) => {
   const [isBooking, setIsBooking] = useState(false)
-  const [lastTxHash, setLastTxHash] = useState(null)
-  const [txType, setTxType] = useState(null) // 'reservation', 'approval'
-  const [pendingData, setPendingData] = useState(null)
-
-  // Lab token utilities
-  const { 
-    calculateReservationCost, 
-    checkBalanceAndAllowance, 
-    approveLabTokens, 
-    formatTokenAmount: formatBalance,
-    formatPrice,
-    refreshTokenData
-  } = useLabToken()
-
-  // Contract write function
-  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest')
-
-  // Wait for transaction receipt
-  const { 
-    data: receipt, 
-    isLoading: isWaitingForReceipt, 
-    isSuccess: isReceiptSuccess,
-    isError: isReceiptError,
-    error: receiptError
-  } = useWaitForTransactionReceipt({
-    hash: lastTxHash,
-    enabled: !!lastTxHash
-  })
+  const createBookingMutation = useCreateBookingMutation()
+  const { formatTokenAmount: formatBalance } = useLabToken()
 
   /**
-   * Calculate booking cost - delegate to useLabToken
+   * Calculate booking cost using lab token utilities
    * @param {Date} date - Selected date
    * @param {number} timeMinutes - Duration in minutes
    * @returns {bigint} Cost in wei
@@ -814,218 +612,128 @@ export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
   const calculateBookingCost = useCallback((date, timeMinutes) => {
     if (!selectedLab || !date || !timeMinutes) return 0n
     
-    return calculateReservationCost(selectedLab.price, timeMinutes)
-  }, [selectedLab, calculateReservationCost])
+    // Convert lab price (string) to bigint and calculate
+    const pricePerMinute = BigInt(selectedLab.price || '0')
+    return pricePerMinute * BigInt(timeMinutes)
+  }, [selectedLab])
 
   /**
-   * Check user balance and allowance for a given cost
-   * @param {bigint} cost - Cost in wei
-   * @returns {Object} Balance and allowance status
+   * Format price for display
+   * @param {bigint} amount - Amount in wei
+   * @returns {string} Formatted price
    */
-  const checkUserBalance = useCallback((cost) => {
-    return checkBalanceAndAllowance(cost)
-  }, [checkBalanceAndAllowance])
+  const formatPrice = useCallback((amount) => {
+    return formatBalance(amount)
+  }, [formatBalance])
 
   /**
-   * Approve LAB tokens for spending - delegate to useLabToken
-   * @param {bigint} amount - Amount to approve in wei
-   * @returns {Promise<boolean>} Success status
-   */
-  const approveTokens = useCallback(async (amount) => {
-    if (!amount) return false
-
-    try {
-      setIsBooking(true)
-      setTxType('approval')
-      
-      addTemporaryNotification('info', 'Requesting token approval...', null, { duration: 5000 })
-      
-      const txHash = await approveLabTokens(amount)
-      setLastTxHash(txHash)
-      
-      devLog.log('✅ Approval transaction sent:', txHash)
-      return true
-    } catch (error) {
-      devLog.error('❌ Token approval failed:', error)
-      addErrorNotification('Token approval failed. Please try again.')
-      setIsBooking(false)
-      setTxType(null)
-      return false
-    }
-  }, [approveLabTokens, addTemporaryNotification, addErrorNotification])
-
-  /**
-   * Create a reservation
-   * @param {Object} bookingData - Booking parameters
-   * @param {string} bookingData.labId - Lab ID
-   * @param {number} bookingData.startTime - Start timestamp
-   * @param {number} bookingData.endTime - End timestamp
-   * @param {string} bookingData.userAddress - User wallet address
-   * @returns {Promise<boolean>} Success status
-   */
-  const createReservation = useCallback(async (bookingData) => {
-    if (!bookingData || !selectedLab) return false
-
-    try {
-      setIsBooking(true)
-      setTxType('reservation')
-      setPendingData(bookingData)
-      
-      addTemporaryNotification('info', 'Creating reservation...', null, { duration: 5000 })
-      
-      const txHash = await reservationRequest([
-        bookingData.labId,
-        bookingData.startTime,
-        bookingData.endTime
-      ])
-      
-      setLastTxHash(txHash)
-      
-      devLog.log('✅ Reservation transaction sent:', txHash)
-      return true
-    } catch (error) {
-      devLog.error('❌ Reservation creation failed:', error)
-      addErrorNotification('Reservation creation failed. Please try again.')
-      setIsBooking(false)
-      setTxType(null)
-      setPendingData(null)
-      return false
-    }
-  }, [selectedLab, reservationRequest, addTemporaryNotification, addErrorNotification])
-
-  /**
-   * Complete booking workflow
-   * @param {Object} bookingParams - Complete booking parameters
+   * Create a booking using the mutation
+   * @param {Object} bookingParams - Booking parameters
    * @returns {Promise<boolean>} Success status
    */
   const createBooking = useCallback(async (bookingParams) => {
-    const { date, timeMinutes, userAddress, selectedTime } = bookingParams
+    if (isBooking) return false
     
-    if (!selectedLab || !date || !timeMinutes || !userAddress) {
-      addErrorNotification('Missing required booking information.')
-      return false
-    }
-
+    setIsBooking(true)
+    
     try {
-      // Calculate cost
-      const cost = calculateBookingCost(date, timeMinutes)
-      if (!cost || cost === 0n) {
-        addErrorNotification('Unable to calculate booking cost.')
-        return false
-      }
-
-      // Check balance and allowance using useLabToken function directly
-      const { hasSufficientBalance, hasSufficientAllowance } = checkBalanceAndAllowance(cost)
+      const result = await createBookingMutation.mutateAsync(bookingParams)
       
-      if (!hasSufficientBalance) {
-        addErrorNotification(`Insufficient LAB token balance. Required: ${formatBalance(cost)} LAB`)
-        return false
+      if (onBookingSuccess) {
+        onBookingSuccess(result)
       }
-
-      // Approve tokens if needed
-      if (!hasSufficientAllowance) {
-        const approvalSuccess = await approveTokens(cost)
-        if (!approvalSuccess) return false
-        // Transaction will be handled by receipt watcher
-        return true
-      }
-
-      // Create reservation directly if already approved
-      const startTime = Math.floor(new Date(`${date.toDateString()} ${selectedTime}`).getTime() / 1000)
-      const endTime = startTime + (timeMinutes * 60)
-
-      const bookingData = {
-        labId: selectedLab.id,
-        startTime,
-        endTime,
-        userAddress
-      }
-
-      return await createReservation(bookingData)
+      
+      return true
     } catch (error) {
-      devLog.error('❌ Booking creation workflow failed:', error)
-      addErrorNotification('Booking creation failed. Please try again.')
+      devLog.error('❌ Booking creation failed:', error)
       return false
+    } finally {
+      setIsBooking(false)
     }
-    }, [selectedLab, calculateBookingCost, checkBalanceAndAllowance, approveTokens, createReservation, addErrorNotification])  /**
-   * Reset booking state
-   */
-  const resetBookingState = useCallback(() => {
-    setIsBooking(false)
-    setLastTxHash(null)
-    setTxType(null)
-    setPendingData(null)
-  }, [])
-
-  // Handle transaction completion
-  useEffect(() => {
-    if (isReceiptSuccess && receipt && txType) {
-      devLog.log('✅ Transaction completed:', { txType, receipt })
-      
-      if (txType === 'approval' && pendingData) {
-        // After approval, create the reservation
-        const { labId, startTime, endTime, userAddress } = pendingData
-        createReservation({ labId, startTime, endTime, userAddress })
-      } else if (txType === 'reservation') {
-        // Booking completed successfully
-        addTemporaryNotification('success', 'Reservation created successfully!', null, { duration: 5000 })
-        
-        // Use granular cache updates for booking creation
-        try {
-          const newBookingData = {
-            id: receipt?.logs?.[0]?.topics?.[1], // Assuming booking ID from receipt
-            labId: selectedLab?.id,
-            startTime: pendingData?.startTime,
-            endTime: pendingData?.endTime,
-            userAddress: pendingData?.userAddress,
-            status: 'active',
-            timestamp: new Date().toISOString()
-          };
-          
-          // Add to user's bookings
-          bookingCacheUpdates.addBookingToUserCache(newBookingData, pendingData?.userAddress);
-          
-          // Add to lab's bookings
-          if (selectedLab?.id) {
-            bookingCacheUpdates.addBookingToLabCache(newBookingData, selectedLab.id);
-          }
-        } catch (error) {
-          devLog.warn('Granular cache update failed, using smart invalidation:', error);
-          bookingCacheUpdates.smartBookingInvalidation(selectedLab?.id);
-        }
-        
-        // Refresh token data
-        refreshTokenData()
-        
-        // Call success callback
-        if (onBookingSuccess) {
-          onBookingSuccess(receipt)
-        }
-        
-        resetBookingState()
-      }
-    } else if (isReceiptError && receiptError) {
-      devLog.error('❌ Transaction failed:', receiptError)
-      addErrorNotification('Transaction failed. Please try again.')
-      resetBookingState()
-    }
-  }, [isReceiptSuccess, isReceiptError, receipt, receiptError, txType, pendingData, createReservation, addTemporaryNotification, addErrorNotification, bookingCacheUpdates, selectedLab, refreshTokenData, onBookingSuccess, resetBookingState])
+  }, [isBooking, createBookingMutation, onBookingSuccess])
 
   return {
     // State
-    isBooking,
-    isWaitingForReceipt,
-    txType,
-    lastTxHash,
+    isBooking: isBooking || createBookingMutation.isPending,
+    isWaitingForReceipt: false, // Not needed in simplified version
     
     // Actions
     createBooking,
     calculateBookingCost,
-    checkUserBalance,
-    resetBookingState,
     
     // Utilities
     formatBalance,
     formatPrice
   }
+}
+
+// Temporary alias for backwards compatibility
+export const useCompleteBookingCreation = useSimpleBookingCreation;
+
+// ===============================
+// === CLAIM MUTATIONS ===
+// ===============================
+
+/**
+ * Hook to claim all available balance (using authentication-aware routing)
+ * @returns {Object} React Query mutation object for claiming all balance
+ */
+export const useClaimAllBalanceMutation = () => {
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: claimAllBalanceFn } = useContractWriteFunction('claimAllBalance');
+
+  return useMutation({
+    mutationFn: async () => {
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: claimAllBalanceFn,
+        userAddress
+      };
+
+      // Use unified service with authentication-aware routing
+      return await bookingServices.claimAllBalance(authContext);
+    },
+    
+    onSuccess: (data) => {
+      devLog.log('All balance claimed successfully:', data);
+    },
+    
+    onError: (error) => {
+      devLog.error('Error claiming all balance:', error);
+    }
+  });
 };
+
+/**
+ * Hook to claim balance for specific lab (using authentication-aware routing)
+ * @returns {Object} React Query mutation object for claiming lab balance
+ */
+export const useClaimLabBalanceMutation = () => {
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: claimLabBalanceFn } = useContractWriteFunction('claimLabBalance');
+
+  return useMutation({
+    mutationFn: async (labId) => {
+      // Create authentication context
+      const authContext = {
+        isSSO,
+        contractWriteFunction: claimLabBalanceFn,
+        userAddress
+      };
+
+      // Use unified service with authentication-aware routing
+      return await bookingServices.claimLabBalance(labId, authContext);
+    },
+    
+    onSuccess: (data, labId) => {
+      devLog.log('Lab balance claimed successfully for lab:', labId, data);
+    },
+    
+    onError: (error) => {
+      devLog.error('Error claiming lab balance:', error);
+    }
+  });
+};
+
+
