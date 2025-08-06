@@ -61,23 +61,52 @@ export async function GET(request) {
     const reservationResults = await Promise.all(reservationPromises);
     console.log(`📝 Retrieved ${reservationResults.length} lab reservations`);
     
-    // Process and format bookings
+    // Process and format bookings with validation
     const processedBookings = reservationResults.map((reservation, index) => {
-      const [reservationKey, userAddress, start, end, status] = reservation;
-      
-      return {
-        id: index,
-        reservationKey: reservationKey.toString(),
-        userAddress: userAddress.toString(),
-        start: start.toString(),
-        end: end.toString(),
-        status: status.toString(),
-        startDate: new Date(Number(start) * 1000),
-        endDate: new Date(Number(end) * 1000),
-        duration: Number(end) - Number(start),
-        isActive: Date.now() >= Number(start) * 1000 && Date.now() < Number(end) * 1000,
-      };
-    });
+      try {
+        const [reservationKey, userAddress, start, end, status] = reservation;
+        
+        // Validate and convert start/end timestamps
+        const startNum = Number(start);
+        const endNum = Number(end);
+        
+        // Check for valid timestamps (must be positive numbers)
+        if (isNaN(startNum) || isNaN(endNum) || startNum <= 0 || endNum <= 0) {
+          console.warn(`⚠️ Invalid timestamps for booking ${index} in lab ${labId}:`, { start, end });
+          return null; // Return null for invalid bookings
+        }
+        
+        const startMillis = startNum * 1000;
+        const endMillis = endNum * 1000;
+        const startDate = new Date(startMillis);
+        const endDate = new Date(endMillis);
+        
+        // Validate the dates are actually valid
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          console.warn(`⚠️ Invalid date conversion for booking ${index} in lab ${labId}:`, { startNum, endNum });
+          return null;
+        }
+        
+        return {
+          id: index,
+          reservationKey: reservationKey.toString(),
+          userAddress: userAddress.toString(),
+          labId: numericLabId, // Include labId for proper filtering
+          start: startNum.toString(),
+          end: endNum.toString(),
+          status: status.toString(),
+          startDate: startDate,
+          endDate: endDate,
+          date: startDate.toLocaleDateString('en-CA'), // Add date field for filtering (YYYY-MM-DD format)
+          duration: endNum - startNum,
+          isActive: Date.now() >= startMillis && Date.now() < endMillis,
+          renter: userAddress.toString() // Alias for consistency
+        };
+      } catch (error) {
+        console.warn(`⚠️ Error processing booking ${index} in lab ${labId}:`, error);
+        return null;
+      }
+    }).filter(booking => booking !== null); // Remove null bookings
 
     console.log(`✅ Successfully fetched ${processedBookings.length} bookings for lab ${labId}`);
     

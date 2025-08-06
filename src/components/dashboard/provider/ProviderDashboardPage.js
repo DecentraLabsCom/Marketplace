@@ -13,7 +13,6 @@ import {
 import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/hooks/useLabToken'
 import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
-import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
@@ -61,14 +60,7 @@ export default function ProviderDashboard() {
   });
   const labBookings = labBookingsData?.bookings || [];
 
-  // Contract write functions
-  const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');  
-  const { contractWriteFunction: deleteLab } = useContractWriteFunction('deleteLab');
-  const { contractWriteFunction: updateLab } = useContractWriteFunction('updateLab');
-  const { contractWriteFunction: listLab } = useContractWriteFunction('listLab');
-  const { contractWriteFunction: unlistLab } = useContractWriteFunction('unlistLab');
-
-  // Transaction state management
+  // Transaction state management for receipt handling
   const [lastTxHash, setLastTxHash] = useState(null);
   const [txType, setTxType] = useState(null); // 'add', 'update', 'delete', 'list', 'unlist'
   const [pendingData, setPendingData] = useState(null);
@@ -214,61 +206,23 @@ export default function ProviderDashboard() {
     await coordinatedLabUpdate(async () => {
 
     try {
-      // 1. Update lab data
+      // 1. Update lab data using React Query mutation
       if (hasChangedOnChainData) {
-        // 1a. If there is any change in the on-chain data, update blockchain
+        // 1a. If there is any change in the on-chain data, update blockchain via mutation
         addTemporaryNotification('pending', '⏳ Updating lab onchain...');
 
-        let txHash;
-        
-        if (isSSO) {
-          // For SSO users, use server-side transaction with unique provider wallet
-          const response = await fetch('/api/contract/lab/updateLabSSO', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              email: user.email,
-              labId: labData.id,
-              labData: {
-                uri: labData.uri,
-                price: labData.price,
-                auth: labData.auth,
-                accessURI: labData.accessURI,
-                accessKey: labData.accessKey
-              }
-            }),
-          });
-          
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to update lab');
+        // Use React Query mutation - it will route to correct service based on isSSO
+        updateLabMutation.mutate({
+          labId: labData.id,
+          labData: {
+            uri: labData.uri,
+            price: labData.price, // Already in token units
+            auth: labData.auth,
+            accessURI: labData.accessURI,
+            accessKey: labData.accessKey
           }
-          
-          const result = await response.json();
-          txHash = result.txHash;
-        } else {
-          // For wallet users, use client-side transaction
-          txHash = await updateLab([
-            labData.id,
-            labData.uri,
-            labData.price,
-            labData.auth,
-            labData.accessURI,
-            labData.accessKey
-          ]);
-        }
-        
-        if (txHash) {
-          setLastTxHash(txHash);
-          setTxType('update');
-          // Store pending data with per-second price
-          const pricePerHour = parseFloat(originalPrice);
-          const pricePerSecond = pricePerHour / 3600;
-          setPendingData({ ...labData, price: pricePerSecond });
-        } else {
-          throw new Error('No transaction hash received');
-        }
-        } else {
+        });
+      } else {
         // 1b. If there is no change in the on-chain data, just update via React Query
         // Keep price in human-readable format for consistency
         updateLabMutation.mutate({
@@ -278,7 +232,9 @@ export default function ProviderDashboard() {
         // DON'T close modal - let user close it manually
         addTemporaryNotification('success', '✅ Lab updated successfully (offchain changes only)!');
         devLog.log('ProviderDashboard: Lab updated via React Query (offchain), modal remains open');
-      }      // 2. Save the JSON if necessary
+      }
+      
+      // 2. Save the JSON if necessary
       if (labData.uri.startsWith('Lab-')) {
         try {
           const response = await fetch('/api/provider/saveLabData', {
@@ -307,7 +263,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
       throw error; // Re-throw for coordinatedLabUpdate to handle
     }
-    }, labData.id, labData, 'update'); // End of coordinatedLabUpdate - pass labId, labData, and action for targeted cache update
+    }); // End of coordinatedLabUpdate
   }
 
   // Handle adding a new lab using React Query mutation

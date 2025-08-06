@@ -191,7 +191,7 @@ export const labServices = {
       
       const result = await response.json();
       devLog.log('Lab created successfully:', result);
-      return result;
+      return result.data || result;
     } catch (error) {
       devLog.error('Error creating lab:', error);
       throw new Error(`Failed to create lab: ${error.message}`);
@@ -217,7 +217,7 @@ export const labServices = {
       
       const result = await response.json();
       devLog.log('Lab updated successfully:', result);
-      return result;
+      return result.data || result;
     } catch (error) {
       devLog.error('Error updating lab:', error);
       throw new Error(`Failed to update lab: ${error.message}`);
@@ -243,7 +243,7 @@ export const labServices = {
       
       const result = await response.json();
       devLog.log('Lab deleted successfully:', result);
-      return result;
+      return result.data || result;
     } catch (error) {
       devLog.error('Error deleting lab:', error);
       throw new Error(`Failed to delete lab: ${error.message}`);
@@ -269,7 +269,7 @@ export const labServices = {
       
       const result = await response.json();
       devLog.log('Lab status toggled successfully:', result);
-      return result;
+      return result.data || result;
     } catch (error) {
       devLog.error('Error toggling lab status:', error);
       throw new Error(`Failed to toggle lab status: ${error.message}`);
@@ -294,9 +294,18 @@ export const labServices = {
       // Step 1: Get base data in parallel
       devLog.log('📡 Fetching base data (lab list, decimals, providers)...');
       const [labList, decimals, providers] = await Promise.all([
-        labServices.fetchLabList(),
-        labServices.fetchLabDecimals(),
-        labServices.fetchProvidersList(),
+        labServices.fetchLabList().catch(error => {
+          devLog.warn('Failed to fetch lab list, using empty array:', error);
+          return [];
+        }),
+        labServices.fetchLabDecimals().catch(error => {
+          devLog.warn('Failed to fetch decimals, using default 18:', error);
+          return 18;
+        }),
+        labServices.fetchProvidersList().catch(error => {
+          devLog.warn('Failed to fetch providers, using empty array:', error);
+          return [];
+        })
       ]);
       
       devLog.log(`✅ Base data fetched: ${labList.length} labs, ${decimals} decimals, ${providers.length} providers`);
@@ -368,8 +377,9 @@ export const labServices = {
       return composedLabs.filter(Boolean); // Remove any null/undefined labs
       
     } catch (error) {
-      devLog.error('❌ Error in fetchAllLabsComposed:', error);
-      throw new Error(`Failed to fetch composed lab data: ${error.message}`);
+      devLog.warn('❌ Error in fetchAllLabsComposed, returning empty array:', error);
+      // Return empty array instead of throwing - this prevents React Query from marking as error
+      return [];
     }
   }
 }

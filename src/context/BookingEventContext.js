@@ -4,7 +4,6 @@ import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
 import { useBookingCacheUpdates } from '@/hooks/booking/useBookings'
 import { useQueryClient } from '@tanstack/react-query'
-import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -80,37 +79,28 @@ export function BookingEventProvider({ children }) {
 
             for (const log of logs) {
                 try {
-                    const { labId, reservationKey, renter } = log.args;
+                    // ReservationConfirmed only emits reservationKey
+                    const { reservationKey } = log.args;
                     
                     devLog.log('📝 [BookingEventContext] ReservationConfirmed event received:', {
-                        labId: labId?.toString(),
                         reservationKey,
-                        renter,
                         timestamp: new Date().toISOString()
                     });
 
-                    // Smart cache update with granular update for confirmed reservation
+                    // For confirmed reservations, we need to get labId and renter from cache or additional lookup
+                    // Since the event only provides reservationKey, we'll use it to identify the reservation
+                    // Smart cache update with available data
                     await updateBookingCaches(
-                        labId?.toString(), 
-                        renter, 
+                        null, // labId not available in this event
+                        null, // renter not available in this event
                         { 
-                            id: reservationKey, 
-                            labId: labId?.toString(), 
-                            renter, 
+                            id: reservationKey,
                             status: 'confirmed',
                             timestamp: new Date().toISOString()
                         }, 
-                        'add', 
+                        'update', 
                         'reservation_confirmed'
                     );
-
-                    // Show notification
-                    addPersistentNotification(
-                        `Reservation confirmed for Lab ${labId?.toString()}`,
-                        'success',
-                        5000
-                    );
-
                 } catch (error) {
                     devLog.error('❌ [BookingEventContext] Error processing ReservationConfirmed event:', error);
                 }
@@ -132,32 +122,30 @@ export function BookingEventProvider({ children }) {
 
             for (const log of logs) {
                 try {
-                    const { labId, reservationKey, renter } = log.args;
+                    // ReservationRequestDenied only emits reservationKey
+                    const { reservationKey } = log.args;
                     
                     devLog.log('❌ [BookingEventContext] ReservationRequestDenied event received:', {
-                        labId: labId?.toString(),
                         reservationKey,
-                        renter,
                         timestamp: new Date().toISOString()
                     });
 
                     // Smart cache update for denied reservation
                     await updateBookingCaches(
-                        labId?.toString(), 
-                        renter, 
+                        null, // labId not available in this event
+                        null, // renter not available in this event
                         { 
-                            id: reservationKey, 
-                            labId: labId?.toString(), 
-                            renter,
+                            id: reservationKey,
                             status: 'denied'
                         }, 
                         'remove', 
                         'reservation_denied'
-                    );                    // Show notification
+                    );                    
+                    // Show notification
                     addPersistentNotification(
-                        `Reservation request denied for Lab ${labId?.toString()}`,
                         'error',
-                        5000
+                        `Reservation request denied (${reservationKey})`,
+                        { duration: 5000 }
                     );
 
                 } catch (error) {
@@ -181,10 +169,25 @@ export function BookingEventProvider({ children }) {
 
             for (const log of logs) {
                 try {
-                    const { labId, reservationKey, renter, start, end } = log.args;
+                    // Enhanced debugging for event arguments
+                    devLog.log('🔍 [BookingEventContext] Raw ReservationRequested log:', {
+                        rawLog: log,
+                        args: log.args,
+                        argsType: typeof log.args,
+                        argsKeys: log.args ? Object.keys(log.args) : 'no args',
+                        eventName: log.eventName,
+                        address: log.address
+                    });
+
+                    // Correct destructuring based on ABI order: renter, tokenId (labId), start, end, reservationKey
+                    const { renter, tokenId: labId, start, end, reservationKey } = log.args || {};
                     
                     devLog.log('📅 [BookingEventContext] ReservationRequested event received:', {
+                        rawTokenId: log.args?.tokenId,
+                        tokenIdType: typeof log.args?.tokenId,
+                        tokenIdString: log.args?.tokenId?.toString(),
                         labId: labId?.toString(),
+                        labIdType: typeof labId,
                         reservationKey,
                         renter,
                         start: start?.toString(),
@@ -192,27 +195,175 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Smart cache update for new reservation request
-                    await updateBookingCaches(
-                        labId?.toString(), 
-                        renter, 
-                        { 
-                            id: reservationKey, 
-                            labId: labId?.toString(), 
-                            renter,
-                            status: 'requested',
-                            timestamp: new Date().toISOString()
-                        }, 
-                        'add', 
-                        'reservation_requested'
-                    );
+                    // Validate that all required arguments exist
+                    if (!reservationKey || !labId || !renter || !start || !end) {
+                        devLog.error('❌ ReservationRequested event missing required arguments:', {
+                            provided: log.args,
+                            extracted: { labId, reservationKey, renter, start, end },
+                            missing: {
+                                reservationKey: !reservationKey,
+                                labId: !labId,
+                                renter: !renter,
+                                start: !start,
+                                end: !end
+                            }
+                        });
+                        continue;
+                    }
 
-                    // Show notification
-                    addPersistentNotification(
-                        `New reservation request for Lab ${labId?.toString()}`,
-                        'info',
-                        5000
-                    );
+                    // Add to processing set ONLY if it's the current user's reservation
+                    if (address && renter.toString().toLowerCase() === address.toLowerCase()) {
+                        setProcessingBookings(prev => {
+                            const newSet = new Set(prev).add(reservationKey);
+                            devLog.log('➕ Adding reservation to processing (current user):', { 
+                                reservationKey, 
+                                total: newSet.size, 
+                                currentUser: address 
+                            });
+                            return newSet;
+                        });
+                    }
+
+                    // **CRITICAL FIX**: Process the reservation request via API (missing in react-query branch)
+                    try {
+                        devLog.log('🔄 Processing reservation request via API...', {
+                            reservationKey,
+                            labId: labId.toString(),
+                            labIdType: typeof labId,
+                            rawLabId: labId,
+                            start: start.toString(),
+                            end: end.toString()
+                        });
+
+                        // Prepare the request body with extensive logging
+                        const requestBody = {
+                            reservationKey: reservationKey,
+                            labId: labId.toString(),
+                            start: start.toString(),
+                            end: end.toString(),
+                            metadataUri: null // Will be resolved by the API if needed
+                        };
+
+                        devLog.log('🔄 Request body being sent to processReservationRequest:', requestBody);
+
+                        // Get lab metadata URI from context or fetch it
+                        // For now, we'll use the labId as a fallback since URI might not be immediately available
+                        const response = await fetch('/api/contract/reservation/processReservationRequest', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(requestBody),
+                        });
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            devLog.error('❌ Process reservation API failed:', {
+                                status: response.status,
+                                statusText: response.statusText,
+                                error: errorText
+                            });
+                            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                        }
+
+                        const result = await response.json();
+                        devLog.log('✅ Process reservation API result:', result);
+
+                        // Use granular cache update based on API result with enhanced information
+                        try {
+                            const reservationStatus = result.action === 'confirmed' ? 'confirmed' : 
+                                                    result.action === 'denied' ? 'denied' : 'pending';
+                            
+                            const cacheAction = result.cacheUpdate?.operation || 'add';
+                            
+                            await updateBookingCaches(
+                                labId?.toString(), 
+                                renter, 
+                                { 
+                                    id: reservationKey, 
+                                    labId: labId?.toString(), 
+                                    renter,
+                                    status: reservationStatus,
+                                    timestamp: result.timestamp || new Date().toISOString(),
+                                    reason: result.reason || 'API processing completed',
+                                    processedAt: new Date().toISOString()
+                                }, 
+                                cacheAction, 
+                                'api_processing_result'
+                            );
+                            devLog.log('📅 Enhanced granular cache update for processed reservation:', { 
+                                reservationKey, 
+                                status: reservationStatus, 
+                                action: cacheAction,
+                                apiResponse: result.action 
+                            });
+
+                            // Show notification based on API result
+                            if (result.action === 'confirmed') {
+                                addPersistentNotification(
+                                    'success',
+                                    `Reservation confirmed`,
+                                    { duration: 5000 }
+                                );
+                            } else if (result.action === 'denied') {
+                                addPersistentNotification(
+                                    'warning',
+                                    `Reservation denied: ${result.reason}`,
+                                    { duration: 7000 }
+                                );
+                            } else {
+                                addPersistentNotification(
+                                    'info',
+                                    `Reservation processed - Status: ${reservationStatus}`,
+                                    { duration: 5000 }
+                                );
+                            }
+
+                        } catch (cacheError) {
+                            devLog.warn('Granular cache update failed for processed reservation:', cacheError);
+                        }
+
+                    } catch (error) {
+                        devLog.error('Error processing reservation request:', error);
+
+                        // Remove from processing set on error
+                        setProcessingBookings(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(reservationKey);
+                            devLog.log('Removing reservation key (error):', { reservationKey, error: error.message });
+                            return newSet;
+                        });
+
+                        // On API error, still add the reservation as 'requested' for manual processing
+                        try {
+                            await updateBookingCaches(
+                                labId?.toString(), 
+                                renter, 
+                                { 
+                                    id: reservationKey, 
+                                    labId: labId?.toString(), 
+                                    renter,
+                                    status: 'requested',
+                                    timestamp: new Date().toISOString(),
+                                    error: error.message,
+                                    requiresManualProcessing: true
+                                }, 
+                                'add', 
+                                'api_error_fallback'
+                            );
+                            devLog.log('📅 Fallback cache update after API error:', reservationKey);
+
+                            // Show error notification
+                            addPersistentNotification(
+                                'error',
+                                `Error processing reservation for Lab ${labId?.toString()}: ${error.message}`,
+                                { duration: 7000 }
+                            );
+
+                        } catch (fallbackError) {
+                            devLog.error('Fallback cache update also failed:', fallbackError);
+                        }
+                    }
 
                 } catch (error) {
                     devLog.error('❌ [BookingEventContext] Error processing ReservationRequested event:', error);
@@ -235,23 +386,20 @@ export function BookingEventProvider({ children }) {
 
             for (const log of logs) {
                 try {
-                    const { labId, reservationKey, renter } = log.args;
+                    // BookingCanceled only emits reservationKey
+                    const { reservationKey } = log.args;
                     
                     devLog.log('🗑️ [BookingEventContext] BookingCanceled event received:', {
-                        labId: labId?.toString(),
                         reservationKey,
-                        renter,
                         timestamp: new Date().toISOString()
                     });
 
                     // Smart cache update for canceled booking
                     await updateBookingCaches(
-                        labId?.toString(), 
-                        renter, 
+                        null, // labId not available in this event
+                        null, // renter not available in this event
                         { 
-                            id: reservationKey, 
-                            labId: labId?.toString(), 
-                            renter
+                            id: reservationKey
                         }, 
                         'remove', 
                         'booking_canceled'
@@ -259,9 +407,9 @@ export function BookingEventProvider({ children }) {
 
                     // Show notification
                     addPersistentNotification(
-                        `Booking cancelled for Lab ${labId?.toString()}`,
                         'warning',
-                        5000
+                        `Booking cancelled (${reservationKey})`,
+                        { duration: 5000 }
                     );
 
                 } catch (error) {
@@ -285,23 +433,20 @@ export function BookingEventProvider({ children }) {
 
             for (const log of logs) {
                 try {
-                    const { labId, reservationKey, renter } = log.args;
+                    // ReservationRequestCanceled only emits reservationKey
+                    const { reservationKey } = log.args;
                     
                     devLog.log('❌ [BookingEventContext] ReservationRequestCanceled event received:', {
-                        labId: labId?.toString(),
                         reservationKey,
-                        renter,
                         timestamp: new Date().toISOString()
                     });
 
                     // Smart cache update for canceled reservation request
                     await updateBookingCaches(
-                        labId?.toString(), 
-                        renter, 
+                        null, // labId not available in this event
+                        null, // renter not available in this event
                         { 
-                            id: reservationKey, 
-                            labId: labId?.toString(), 
-                            renter
+                            id: reservationKey
                         }, 
                         'remove', 
                         'reservation_request_canceled'
@@ -309,9 +454,9 @@ export function BookingEventProvider({ children }) {
 
                     // Show notification
                     addPersistentNotification(
-                        `Reservation request cancelled for Lab ${labId?.toString()}`,
                         'info',
-                        5000
+                        `Reservation request cancelled`,
+                        { duration: 5000 }
                     );
 
                 } catch (error) {

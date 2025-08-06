@@ -34,24 +34,28 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    // Ensure reservationKey is a string
+    const reservationKeyStr = String(reservationKey);
+
     // Validate reservationKey format (should be bytes32)
-    if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
+    if (!reservationKeyStr.startsWith('0x') || reservationKeyStr.length !== 66) {
       return Response.json({ 
         error: 'Invalid reservationKey format: must be a 32-byte hex string starting with 0x',
         field: 'reservationKey',
         code: 'VALIDATION_ERROR',
-        expected: '0x followed by 64 hex characters'
+        expected: '0x followed by 64 hex characters',
+        received: reservationKeyStr
       }, { status: 400 });
     }
 
-    console.log(`Processing cancellation request - reservationKey: ${reservationKey}, validateOnly: ${validateOnly}`);
+    console.log(`Processing cancellation request - reservationKey: ${reservationKeyStr}, validateOnly: ${validateOnly}`);
 
     // If only validation requested, return early
     if (validateOnly) {
       return Response.json({
         success: true,
         data: {
-          reservationKey,
+          reservationKey: reservationKeyStr,
           validated: true
         },
         meta: {
@@ -86,7 +90,7 @@ export async function POST(request) {
     
     try {
       const tx = await executeBlockchainTransaction(() => 
-        contract.cancelBooking(reservationKey)
+        contract.cancelBooking(reservationKeyStr)
       );
       
       transactionHash = tx.hash;
@@ -102,31 +106,53 @@ export async function POST(request) {
       // Parse blockchain error for better client handling
       let errorCode = 'BLOCKCHAIN_ERROR';
       let retryable = true;
+      let errorMessage = 'Cancellation transaction failed';
+      let httpStatus = 500;
       
       if (blockchainError.message?.includes('user rejected')) {
         errorCode = 'USER_REJECTED';
+        errorMessage = 'Transaction was rejected by user';
         retryable = false;
+        httpStatus = 400;
       } else if (blockchainError.message?.includes('insufficient funds')) {
         errorCode = 'INSUFFICIENT_FUNDS';
+        errorMessage = 'Insufficient funds for gas fees';
         retryable = false;
+        httpStatus = 400;
+      } else if (blockchainError.message?.includes('Only the renter') || blockchainError.reason?.includes('Only the renter')) {
+        errorCode = 'NOT_AUTHORIZED';
+        errorMessage = 'Only the person who made the reservation can cancel it';
+        retryable = false;
+        httpStatus = 403;
+      } else if (blockchainError.message?.includes('Invalid') || blockchainError.reason?.includes('Invalid')) {
+        errorCode = 'INVALID_STATE';
+        errorMessage = 'Cannot cancel booking in current state. Reservation may be pending or already processed.';
+        retryable = false;
+        httpStatus = 400;
       } else if (blockchainError.message?.includes('reservation not found')) {
         errorCode = 'RESERVATION_NOT_FOUND';
+        errorMessage = 'Reservation not found';
         retryable = false;
+        httpStatus = 404;
       } else if (blockchainError.message?.includes('not authorized')) {
         errorCode = 'NOT_AUTHORIZED';
+        errorMessage = 'Not authorized to cancel this reservation';
         retryable = false;
+        httpStatus = 403;
       } else if (blockchainError.message?.includes('nonce')) {
         errorCode = 'NONCE_ERROR';
+        errorMessage = 'Transaction nonce error, please try again';
         retryable = true;
+        httpStatus = 500;
       }
       
       return Response.json({ 
-        error: 'Cancellation transaction failed',
+        error: errorMessage,
         code: errorCode,
         retryable,
-        details: blockchainError.message,
-        reservationKey
-      }, { status: 500 });
+        details: process.env.NODE_ENV === 'development' ? blockchainError.message : undefined,
+        reservationKey: reservationKeyStr
+      }, { status: httpStatus });
     }
 
     const endTime = Date.now();
@@ -140,7 +166,7 @@ export async function POST(request) {
         blockHash: receipt.blockHash,
         blockNumber: receipt.blockNumber,
         gasUsed: receipt.gasUsed?.toString(),
-        reservationKey,
+        reservationKey: reservationKeyStr,
         cancelled: true
       },
       meta: {

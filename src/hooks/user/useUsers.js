@@ -25,7 +25,13 @@ export const useProviderStatusQuery = (identifier, isEmail = false, options = {}
     queryKey: QUERY_KEYS.PROVIDER.status(identifier, isEmail),
     queryFn: async () => {
       if (!identifier) {
-        throw new Error('Identifier is required for provider status');
+        // Return safe default for empty identifier
+        return {
+          isLabProvider: false,
+          providerName: null,
+          checked: true,
+          wallet: null
+        };
       }
 
       // For now, only support wallet addresses with the composed service

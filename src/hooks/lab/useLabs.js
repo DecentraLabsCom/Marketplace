@@ -4,7 +4,11 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
+import { useWalletClient } from 'wagmi'
 import { labServices } from '@/services/labServices'
+import { clientLabServices } from '@/services/clientLabServices'
+import { useUser } from '@/context/UserContext'
+import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
@@ -323,14 +327,36 @@ export const useLabCacheInvalidation = () => {
 // === MUTATIONS ===
 
 /**
- * Hook to create a new lab
+ * Hook to create a new lab (using authentication-aware routing)
  */
 export const useCreateLabMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
+  const { data: walletClient } = useWalletClient();
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');
   
   return useMutation({
-    mutationFn: (labData) => labServices.createLab(labData),
+    mutationFn: async (labData) => {
+      if (isSSO) {
+        // SSO users → API endpoint → Server wallet
+        return await labServices.createLab(labData);
+      } else {
+        // Wallet users → Client service → User's wallet
+        if (!walletClient) {
+          throw new Error('Wallet not connected');
+        }
+        if (!userAddress) {
+          throw new Error('User address not available');
+        }
+        
+        return await clientLabServices.createLab(
+          labData,
+          addLab,
+          userAddress
+        );
+      }
+    },
     onSuccess: (createdLab, labData) => {
       // Try granular cache update first
       try {
@@ -355,14 +381,42 @@ export const useCreateLabMutation = () => {
 };
 
 /**
- * Hook to update a lab
+ * Hook to update a lab (using authentication-aware routing)
  */
 export const useUpdateLabMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
+  const { data: walletClient } = useWalletClient();
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: updateLab } = useContractWriteFunction('updateLab');
   
   return useMutation({
-    mutationFn: ({ labId, labData }) => labServices.updateLab(labId, labData),
+    mutationFn: async ({ labId, labData }) => {
+      if (isSSO) {
+        // SSO users → API endpoint → Server wallet
+        return await labServices.updateLab(labId, labData);
+      } else {
+        // Wallet users → Client service → User's wallet
+        if (!walletClient) {
+          throw new Error('Wallet not connected');
+        }
+        if (!userAddress) {
+          throw new Error('User address not available');
+        }
+        
+        // Prepare update data for client service
+        const updateData = {
+          labId,
+          ...labData
+        };
+        
+        return await clientLabServices.updateLab(
+          updateData,
+          updateLab,
+          userAddress
+        );
+      }
+    },
     onSuccess: (updatedLab, variables) => {
       // Try granular cache update first
       try {
@@ -388,14 +442,36 @@ export const useUpdateLabMutation = () => {
 };
 
 /**
- * Hook to delete a lab
+ * Hook to delete a lab (using authentication-aware routing)
  */
 export const useDeleteLabMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
+  const { data: walletClient } = useWalletClient();
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: deleteLab } = useContractWriteFunction('deleteLab');
   
   return useMutation({
-    mutationFn: (labId) => labServices.deleteLab(labId),
+    mutationFn: async (labId) => {
+      if (isSSO) {
+        // SSO users → API endpoint → Server wallet
+        return await labServices.deleteLab(labId);
+      } else {
+        // Wallet users → Client service → User's wallet
+        if (!walletClient) {
+          throw new Error('Wallet not connected');
+        }
+        if (!userAddress) {
+          throw new Error('User address not available');
+        }
+        
+        return await clientLabServices.deleteLab(
+          labId,
+          deleteLab,
+          userAddress
+        );
+      }
+    },
     onSuccess: (data, labId) => {
       // Try granular cache update first
       try {
@@ -416,19 +492,46 @@ export const useDeleteLabMutation = () => {
 };
 
 /**
- * Hook to toggle lab status (enable/disable)
+ * Hook to toggle lab status (enable/disable) (using authentication-aware routing)
  */
 export const useToggleLabStatusMutation = () => {
   const queryClient = useQueryClient();
   const labCacheUpdates = useLabCacheUpdates();
+  const { data: walletClient } = useWalletClient();
+  const { address: userAddress, isSSO } = useUser();
+  // Get appropriate contract function based on operation
+  const { contractWriteFunction: listLab } = useContractWriteFunction('listLab');
+  const { contractWriteFunction: unlistLab } = useContractWriteFunction('unlistLab');
   
   return useMutation({
-    mutationFn: ({ labId, status }) => labServices.toggleLabStatus(labId, status),
+    mutationFn: async ({ labId, isListed }) => {
+      if (isSSO) {
+        // SSO users → API endpoint → Server wallet
+        return await labServices.toggleLabStatus(labId, { isListed });
+      } else {
+        // Wallet users → Client service → User's wallet
+        if (!walletClient) {
+          throw new Error('Wallet not connected');
+        }
+        if (!userAddress) {
+          throw new Error('User address not available');
+        }
+        
+        // Choose correct contract function based on operation
+        const contractFunction = isListed ? listLab : unlistLab;
+        
+        return await clientLabServices.toggleLabStatus(
+          { labId, isListed },
+          contractFunction,
+          userAddress
+        );
+      }
+    },
     onSuccess: (data, variables) => {
       // Try granular cache update first
       try {
         const statusUpdate = {
-          isActive: variables.status,
+          isListed: variables.isListed,
           timestamp: new Date().toISOString()
         };
         labCacheUpdates.updateLabInAllLabsCache(variables.labId, statusUpdate);

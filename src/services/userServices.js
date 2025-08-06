@@ -83,9 +83,10 @@ export const userServices = {
       }
 
       const result = await response.json();
-      devLog.log(`✅ Successfully fetched ${result.providers?.length || 0} providers`);
+      devLog.log(`✅ Successfully fetched ${Array.isArray(result) ? result.length : 0} providers`);
       
-      return result.providers || [];
+      // The endpoint returns the array directly, not wrapped in an object
+      return Array.isArray(result) ? result : [];
     } catch (error) {
       devLog.error('Error fetching providers list:', error);
       throw new Error(`Failed to fetch providers list: ${error.message}`);
@@ -176,8 +177,11 @@ export const userServices = {
       }
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Provider status fetch failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        devLog.warn(`Provider status API error for ${wallet}:`, errorData.error || response.status);
+        
+        // Return safe default instead of throwing
+        return { isLabProvider: false };
       }
 
       const result = await response.json();
@@ -189,8 +193,10 @@ export const userServices = {
         isLabProvider: data.isLabProvider === true || data.isLabProvider === 'true' || data.isLabProvider === 1
       };
     } catch (error) {
-      devLog.error('Error fetching provider status:', error);
-      throw new Error(`Failed to fetch provider status: ${error.message}`);
+      devLog.warn('Provider status fetch failed, using safe default:', error.message);
+      
+      // Return safe default instead of throwing
+      return { isLabProvider: false };
     }
   },
 
@@ -244,7 +250,10 @@ export const userServices = {
    */
   async fetchProviderStatusComposed(wallet) {
     if (!wallet) {
-      throw new Error('Wallet address is required');
+      return {
+        isLabProvider: false,
+        providerName: null
+      };
     }
 
     try {
@@ -274,8 +283,13 @@ export const userServices = {
       
       return result;
     } catch (error) {
-      devLog.error('Error in composed provider status fetch:', error);
-      throw new Error(`Failed to fetch provider status: ${error.message}`);
+      devLog.warn('Error in composed provider status fetch, using safe default:', error.message);
+      
+      // Return safe default instead of throwing
+      return {
+        isLabProvider: false,
+        providerName: null
+      };
     }
   },
 };

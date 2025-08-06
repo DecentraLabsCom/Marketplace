@@ -5,10 +5,9 @@ import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAllLabsQuery } from '@/hooks/lab/useLabs'
-import { useLabBookingsQuery } from '@/hooks/booking/useBookings'
+import { useLabBookingsQuery, useCreateBookingMutation } from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/hooks/useLabToken'
 import { useBookingCacheUpdates } from '@/hooks/booking/useBookings'
-import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import AccessControl from '@/components/auth/AccessControl'
 import Carrousel from '@/components/ui/Carrousel'
 import LabTokenInfo from '@/components/reservation/LabTokenInfo'
@@ -21,10 +20,13 @@ import devLog from '@/utils/dev/logger'
  * Main lab reservation component that handles booking creation and management
  * Integrates with calendar, pricing, blockchain transactions, and booking state
  * @param {Object} props
- * @param {string|number} props.id - Lab ID to display reservation interface for
+ * @param {string|number} [props.id] - Lab ID to display reservation interface for (optional)
  * @returns {JSX.Element} Complete lab reservation interface with calendar and booking controls
  */
 export default function LabReservation({ id }) {
+  // Validate and normalize the ID
+  const labId = id ? String(id) : null;
+  
   const { 
     data: labs = [], 
     isInitialLoading: labsLoading, 
@@ -58,8 +60,7 @@ export default function LabReservation({ id }) {
   // 🚀 React Query for lab bookings
   const {
     data: labBookingsData,
-    isInitialLoading: bookingsLoading,
-    refetch: refetchLabBookings
+    isInitialLoading: bookingsLoading
   } = useLabBookingsQuery(selectedLab?.id, true, {
     enabled: !!selectedLab?.id
   });
@@ -86,7 +87,8 @@ export default function LabReservation({ id }) {
     refreshTokenData
   } = useLabToken();
   
-  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
+  // 🚀 React Query mutation for booking creation
+  const createBookingMutation = useCreateBookingMutation();
   
   // Wait for transaction receipt
   const { 
@@ -100,6 +102,44 @@ export default function LabReservation({ id }) {
     enabled: !!lastTxHash
   });
 
+  /**
+   * Safely parse a timestamp to a Date object
+   * @param {any} timestamp - The timestamp to parse (can be string, number, null, undefined)
+   * @param {Date} fallback - Fallback date if parsing fails
+   * @returns {Date} Valid Date object
+   */
+  const safeParseDate = (timestamp, fallback = new Date()) => {
+    if (!timestamp) return fallback;
+    
+    try {
+      let parsedDate;
+      
+      // If it's already a number (timestamp in seconds), convert to milliseconds
+      if (typeof timestamp === 'number') {
+        parsedDate = new Date(timestamp * 1000);
+      }
+      // If it's a string that looks like a unix timestamp
+      else if (typeof timestamp === 'string' && /^\d+$/.test(timestamp)) {
+        parsedDate = new Date(parseInt(timestamp) * 1000);
+      }
+      // Otherwise try to parse directly
+      else {
+        parsedDate = new Date(timestamp);
+      }
+      
+      // Check if the date is valid
+      if (isNaN(parsedDate.getTime())) {
+        devLog.warn('Invalid date parsed:', timestamp, 'using fallback:', fallback);
+        return fallback;
+      }
+      
+      return parsedDate;
+    } catch (error) {
+      devLog.warn('Error parsing date:', timestamp, error, 'using fallback:', fallback);
+      return fallback;
+    }
+  };
+
   const parseDate = (str) => {
     if (!str) return new Date();
     const [month, day, year] = str.split("/");
@@ -110,26 +150,30 @@ export default function LabReservation({ id }) {
   useEffect(() => {
     devLog.log('🔍 LabReservation: Lab selection effect triggered:', {
       labsLength: labs.length,
-      id: id,
+      id: labId,
       labsAvailable: labs.map(l => ({ id: l.id, name: l.name }))
     });
     
-    if (labs.length && id) {
-      const currentLab = labs.find((lab) => lab.id == id);
+    if (labs.length && labId) {
+      const currentLab = labs.find((lab) => lab.id == labId);
       devLog.log('🔍 LabReservation: Found lab for id:', {
-        searchId: id,
+        searchId: labId,
         foundLab: currentLab ? { id: currentLab.id, name: currentLab.name } : null
       });
       setSelectedLab(currentLab);
     } else {
       devLog.log('❌ LabReservation: Cannot select lab:', {
         hasLabs: labs.length > 0,
-        hasId: !!id,
+        hasId: !!labId,
         labsLength: labs.length,
-        id: id
+        id: labId
       });
+      // If no lab ID is provided, don't auto-select any lab
+      if (!labId) {
+        setSelectedLab(null);
+      }
     }
-  }, [id, labs]);
+  }, [labId, labs]);
 
   // Update the time interval when the selected lab changes
   useEffect(() => {
@@ -207,7 +251,7 @@ export default function LabReservation({ id }) {
       const now = new Date();
       const futureBookings = labBookings.filter(booking => {
         if (!booking.start) return false;
-        const startDate = new Date(parseInt(booking.start) * 1000);
+        const startDate = safeParseDate(booking.start);
         return startDate > now;
       });
       
@@ -218,7 +262,7 @@ export default function LabReservation({ id }) {
         futureBookings: futureBookings.length,
         futureBookingsDetails: futureBookings.map(b => ({
           reservationKey: b.reservationKey,
-          startDate: new Date(parseInt(b.start) * 1000).toISOString(),
+          startDate: safeParseDate(b.start).toISOString(),
           status: b.status,
           renter: b.renter
         }))
@@ -295,17 +339,16 @@ export default function LabReservation({ id }) {
             bookingCacheUpdates.smartBookingInvalidation(labId);
           }
           
-          // Force refresh the lab bookings data
-          await refetchLabBookings();
+          // Event-driven granular cache update will handle the data refresh automatically
+          // No need for manual refetch since BookingEventContext listens to blockchain events
           
           // Force UI refresh immediately
           setForceRefresh(prev => prev + 1);
           
-          devLog.log('✅ Cache invalidated and bookings synced after new reservation');
+          devLog.log('✅ Cache updated - BookingEventContext will handle granular updates via blockchain events');
         } catch (error) {
-          devLog.error('Error invalidating cache after reservation:', error);
-          // Fallback: still try to refresh current component
-          await refetchLabBookings();
+          devLog.error('Error updating cache after reservation:', error);
+          // Force UI refresh even on cache error
           setForceRefresh(prev => prev + 1);
         }
       };
@@ -319,7 +362,7 @@ export default function LabReservation({ id }) {
 
       // The BookingEventContext will handle updating bookings when confirmed/denied
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refetchLabBookings, refreshTokenData]);
+  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -342,9 +385,9 @@ export default function LabReservation({ id }) {
   // Min and max dates for the calendar
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const opensDate = selectedLab ? new Date(selectedLab.opens) : today;
+  const opensDate = selectedLab ? safeParseDate(selectedLab.opens, today) : today;
   const minDate = opensDate > today ? opensDate : today;
-  const maxDate = selectedLab ? new Date(selectedLab.closes) : undefined;
+  const maxDate = selectedLab ? safeParseDate(selectedLab.closes) : undefined;
 
   // Available times for the selected day and lab
   const availableTimes = selectedLab
@@ -370,11 +413,11 @@ export default function LabReservation({ id }) {
     try {
       bookingCacheUpdates.smartBookingInvalidation(selectedLab?.id);
     } catch (error) {
-      devLog.warn('Smart invalidation failed, forcing refetch:', error);
+      devLog.warn('Smart invalidation failed:', error);
     }
     
-    // Update lab bookings
-    await refetchLabBookings();
+    // Event-driven granular cache update will handle the data refresh automatically
+    // No need for manual refetch since BookingEventContext listens to blockchain events
     
     // Force UI refresh for calendar update
     setForceRefresh(prev => prev + 1);
@@ -472,24 +515,16 @@ export default function LabReservation({ id }) {
     addTemporaryNotification('pending', '⏳ Processing your reservation...');
 
     try {
-      const response = await fetch('/api/contract/reservation/makeBooking', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ labId, start, timeslot })
+      // 🚀 Use React Query mutation for SSO booking creation
+      await createBookingMutation.mutateAsync({
+        labId,
+        start,
+        timeslot,
+        cost: totalCost
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Server booking failed');
-      }
-
-      // Add optimistic booking to cache for immediate UI update
-      const optimisticBookingId = `temp_sso_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      addOptimisticBooking({ labId, start, timeslot, cost: totalCost, optimisticBookingId });
-
       // Show success notification
+      addTemporaryNotification('success', '✅ Reservation created successfully!');
       await handleBookingSuccess();
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ');
@@ -557,7 +592,7 @@ export default function LabReservation({ id }) {
         }
       }
 
-      // Step 2: Make the reservation with payment
+      // Step 2: Make the reservation with payment using React Query mutation
       addTemporaryNotification('pending', '⏳ Sending reservation request with payment...');
       
       // Final validation: check if the time slot is still available right before transaction
@@ -577,27 +612,19 @@ export default function LabReservation({ id }) {
         return;
       }
       
-      // Call contract - pass arguments as array
-      const txHash = await reservationRequest([labId, start, end]);
+      // 🚀 Use React Query mutation for booking creation
+      await createBookingMutation.mutateAsync({
+        labId,
+        start,
+        timeslot,
+        cost
+      });
       
-      if (txHash) {
-        // Generate unique booking ID for tracking optimistic booking
-        const optimisticBookingId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      addTemporaryNotification('success', 
+        `✅ Reservation created successfully! Payment of ${formatBalance(cost)} LAB processed.`);
         
-        setLastTxHash(txHash);
-        setTxType('reservation');
-        setPendingData({ labId, start, end, timeslot, cost, optimisticBookingId });
-        
-        // Add optimistic booking to cache for immediate UI update
-        addOptimisticBooking({ labId, start, timeslot, cost, optimisticBookingId });
-        
-        addTemporaryNotification('success', 
-          `✅ Payment of ${formatBalance(cost)} LAB sent! Confirming transaction...`);
-      } else {
-        addTemporaryNotification('warning', 
-          '⚠️ Transaction may have been sent but no hash received. Please check your wallet.');
-        setIsBooking(false);
-      }
+      // Handle successful booking
+      await handleBookingSuccess();
     } catch (error) {
       devLog.error('Error making booking request:', error);
       
@@ -675,33 +702,7 @@ export default function LabReservation({ id }) {
                 <div className="w-full lg:w-72 flex flex-col items-center lg:items-start">
                   <label className="block text-lg font-semibold mb-2">Select the date:</label>
                   <div className="w-fit">
-                    {/* Enhanced debugging for calendar data */}
-                    {(() => {
-                      const calendarBookingInfo = (labBookings || []).map(booking => ({
-                        ...booking,
-                        labName: selectedLab?.name,
-                        status: booking.status
-                      }));
-                      
-                      devLog.log('📊 LabReservation: Calendar booking info prepared', {
-                        selectedLabId: selectedLab?.id,
-                        selectedLabName: selectedLab?.name,
-                        originalLabBookings: labBookings?.length || 0,
-                        calendarBookingInfo: calendarBookingInfo.length,
-                        calendarData: calendarBookingInfo.map(b => ({
-                          reservationKey: b.reservationKey,
-                          labId: b.labId,
-                          start: b.start,
-                          end: b.end,
-                          status: b.status,
-                          startDate: b.start ? new Date(parseInt(b.start) * 1000).toISOString() : 'invalid',
-                          endDate: b.end ? new Date(parseInt(b.end) * 1000).toISOString() : 'invalid',
-                          renter: b.renter
-                        }))
-                      });
-                      
-                      return null;
-                    })()}
+                    {/* Calendar booking info preparation (no debug logs to reduce spam) */}
                     <CalendarWithBookings
                       key={`calendar-${selectedLab?.id}-${labBookings?.length || 0}-${forceRefresh}-${date.getTime()}-${JSON.stringify(labBookings?.map(b => b.reservationKey) || [])}`}
                       selectedDate={date}
@@ -795,5 +796,5 @@ export default function LabReservation({ id }) {
 }
 
 LabReservation.propTypes = {
-  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }

@@ -110,8 +110,8 @@ export function LabEventProvider({ children }) {
 
                     // Show notification
                     addPersistentNotification(
-                        `New lab added: Lab ${_labId?.toString()}`,
                         'success',
+                        `New lab added: Lab ${_labId?.toString()}`,
                         5000
                     );
 
@@ -163,8 +163,8 @@ export function LabEventProvider({ children }) {
 
                     // Show notification
                     addPersistentNotification(
-                        `Lab ${_labId?.toString()} has been updated`,
                         'info',
+                        `Lab ${_labId?.toString()} has been updated`,
                         5000
                     );
 
@@ -211,8 +211,8 @@ export function LabEventProvider({ children }) {
 
                     // Show notification
                     addPersistentNotification(
-                        `Lab ${_labId?.toString()} metadata URI has been updated`,
                         'info',
+                        `Lab ${_labId?.toString()} metadata URI has been updated`,
                         5000
                     );
 
@@ -257,8 +257,8 @@ export function LabEventProvider({ children }) {
 
                     // Show notification
                     addPersistentNotification(
-                        `Lab ${_labId?.toString()} has been deleted`,
                         'warning',
+                        `Lab ${_labId?.toString()} has been deleted`,
                         5000
                     );
 

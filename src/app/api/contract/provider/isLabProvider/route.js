@@ -27,12 +27,19 @@ export async function GET(request) {
     const contract = await getContractInstance();
     
     const isLabProvider = await retryBlockchainRead(async () => {
-      return await Promise.race([
-        contract.isLabProvider(wallet),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('timeout')), 10000)
-        )
-      ]);
+      try {
+        return await Promise.race([
+          contract.isLabProvider(wallet),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('timeout')), 10000)
+          )
+        ]);
+      } catch (error) {
+        // If the contract call fails, assume the user is not a provider
+        // This is a safe default for blockchain read operations
+        console.warn(`isLabProvider call failed for ${wallet}:`, error.message);
+        return false;
+      }
     });
 
     const result = {

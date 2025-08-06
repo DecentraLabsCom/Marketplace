@@ -4,12 +4,14 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback, useEffect } from 'react'
-import { useWaitForTransactionReceipt } from 'wagmi'
+import { useWaitForTransactionReceipt, useWalletClient } from 'wagmi'
 import { bookingServices } from '@/services/bookingServices'
+import { clientBookingServices } from '@/services/clientBookingServices'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import { useLabToken } from '@/hooks/useLabToken'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useNotifications } from '@/context/NotificationContext'
+import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
 import { useMemo } from 'react'
 
@@ -233,14 +235,43 @@ export const useLabBookingQuery = (labId, bookingId) => {
 // ===============================
 
 /**
- * Hook to create a booking with optimistic updates
+ * Hook to create a booking with optimistic updates (using authentication-aware routing)
  * @returns {Object} React Query mutation object for creating bookings
  */
 export const useCreateBookingMutation = () => {
   const queryClient = useQueryClient();
+  const { data: walletClient } = useWalletClient();
+  const { address: userAddress, isSSO } = useUser();
+  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
 
   return useMutation({
-    mutationFn: (bookingData) => bookingServices.createBooking(bookingData),
+    mutationFn: async (bookingData) => {
+      if (isSSO) {
+        // SSO users → API endpoint → Server wallet
+        return await bookingServices.createBooking(bookingData);
+      } else {
+        // Wallet users → Client service → User's wallet
+        if (!walletClient) {
+          throw new Error('Wallet not connected');
+        }
+        if (!userAddress) {
+          throw new Error('User address not available');
+        }
+        
+        // Convert bookingData format for client service
+        const clientBookingData = {
+          labId: bookingData.labId,
+          startTime: bookingData.start,
+          endTime: bookingData.start + bookingData.timeslot
+        };
+        
+        return await clientBookingServices.createReservation(
+          clientBookingData,
+          reservationRequest,
+          userAddress
+        );
+      }
+    },
     
     onMutate: async (bookingData) => {
       const { labId, userAddress, start, timeslot } = bookingData;
@@ -350,14 +381,30 @@ export const useCreateBookingMutation = () => {
 };
 
 /**
- * Hook to cancel a booking with optimistic updates
+ * Hook to cancel a booking with optimistic updates (using client-side transactions)
  * @returns {Object} React Query mutation object for canceling bookings
  */
 export const useCancelBookingMutation = () => {
   const queryClient = useQueryClient();
+  const { data: walletClient } = useWalletClient();
+  const { address: userAddress } = useUser();
 
   return useMutation({
-    mutationFn: (reservationKey) => bookingServices.cancelBooking(reservationKey),
+    mutationFn: async ({ reservationKey }) => {
+      if (!walletClient) {
+        throw new Error('Wallet not connected');
+      }
+      if (!userAddress) {
+        throw new Error('User address not available');
+      }
+      
+      // Use client-side transaction instead of API call
+      return await clientBookingServices.cancelReservation(
+        reservationKey, 
+        walletClient, 
+        userAddress
+      );
+    },
     
     onMutate: async ({ reservationKey, userAddress, labId }) => {
       devLog.log(`Cancelling booking ${reservationKey} optimistically...`);
@@ -595,8 +642,70 @@ export const useBookingCacheUpdates = () => {
    * @param {string} [action] - Action type: 'add', 'remove', 'update'
    */
   const smartBookingInvalidation = (userAddress, labId, bookingData = null, action = null) => {
+    // Special handling for reservationKey-only events (when labId and userAddress are null)
+    if (!userAddress && !labId && bookingData?.id && (action === 'remove' || action === 'update')) {
+      devLog.log('🔍 Attempting to find reservation in cache by reservationKey:', bookingData.id);
+      
+      // Try to find the reservation in existing cache to get missing labId/userAddress
+      const allQueries = queryClient.getQueryCache().getAll();
+      let found = false;
+      
+      for (const query of allQueries) {
+        if (query.queryKey?.[0] === 'bookings' && query.state.data) {
+          const data = query.state.data;
+          // Check if this is user bookings data
+          if (data.bookings && Array.isArray(data.bookings)) {
+            const booking = data.bookings.find(b => b.id === bookingData.id || b.reservationKey === bookingData.id);
+            if (booking) {
+              devLog.log('✅ Found reservation in user cache:', { booking, queryKey: query.queryKey });
+              try {
+                if (action === 'remove') {
+                  removeBookingFromUserCache(query.queryKey[1], bookingData.id);
+                } else if (action === 'update') {
+                  updateBookingInUserCache(query.queryKey[1], bookingData.id, { ...booking, ...bookingData });
+                }
+                found = true;
+              } catch (error) {
+                devLog.warn('Error updating user cache:', error);
+              }
+            }
+          }
+          // Check if this is lab bookings data
+          if (data.labBookings && Array.isArray(data.labBookings)) {
+            const booking = data.labBookings.find(b => b.id === bookingData.id || b.reservationKey === bookingData.id);
+            if (booking) {
+              devLog.log('✅ Found reservation in lab cache:', { booking, queryKey: query.queryKey });
+              try {
+                if (action === 'remove') {
+                  removeBookingFromLabCache(query.queryKey[1], bookingData.id);
+                } else if (action === 'update') {
+                  // For lab cache updates, we only update status
+                  const labBookings = data.labBookings.map(b => 
+                    (b.id === bookingData.id || b.reservationKey === bookingData.id) 
+                      ? { ...b, ...bookingData } 
+                      : b
+                  );
+                  queryClient.setQueryData(query.queryKey, { ...data, labBookings });
+                }
+                found = true;
+              } catch (error) {
+                devLog.warn('Error updating lab cache:', error);
+              }
+            }
+          }
+        }
+      }
+      
+      if (found) {
+        devLog.log('✅ Successfully updated cache using reservationKey lookup');
+        return;
+      } else {
+        devLog.warn('⚠️ Could not find reservation in cache, falling back to full invalidation');
+      }
+    }
+
     // Try granular updates first if we have the data and action
-    if (bookingData && action) {
+    if (bookingData && action && (userAddress || labId)) {
       try {
         switch (action) {
           case 'add':
@@ -627,6 +736,15 @@ export const useBookingCacheUpdates = () => {
         queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId, true)
       });
     }
+    
+    // If no specific user or lab, invalidate all booking queries
+    if (!userAddress && !labId) {
+      devLog.log('🔄 Invalidating all booking queries (no specific user/lab)');
+      queryClient.invalidateQueries({ 
+        queryKey: ['bookings']
+      });
+    }
+    
     devLog.log('🔄 Used fallback invalidation for booking data');
   };
 
@@ -720,7 +838,7 @@ export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
       setIsBooking(true)
       setTxType('approval')
       
-      addTemporaryNotification('Requesting token approval...', 'info', 5000)
+      addTemporaryNotification('info', 'Requesting token approval...', null, { duration: 5000 })
       
       const txHash = await approveLabTokens(amount)
       setLastTxHash(txHash)
@@ -753,7 +871,7 @@ export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
       setTxType('reservation')
       setPendingData(bookingData)
       
-      addTemporaryNotification('Creating reservation...', 'info', 5000)
+      addTemporaryNotification('info', 'Creating reservation...', null, { duration: 5000 })
       
       const txHash = await reservationRequest([
         bookingData.labId,
@@ -850,7 +968,7 @@ export const useCompleteBookingCreation = (selectedLab, onBookingSuccess) => {
         createReservation({ labId, startTime, endTime, userAddress })
       } else if (txType === 'reservation') {
         // Booking completed successfully
-        addTemporaryNotification('Reservation created successfully!', 'success', 5000)
+        addTemporaryNotification('success', 'Reservation created successfully!', null, { duration: 5000 })
         
         // Use granular cache updates for booking creation
         try {

@@ -17,8 +17,20 @@ export default function AccessControl({
   requireWallet = false,
   requireSSO = false,
 }) {
-  const { isLoggedIn, isSSO, isConnected } = useUser();
+  const { isLoggedIn, isSSO, isConnected, isLoading, isWalletLoading } = useUser();
   const router = useRouter();
+
+  // Show loading state while wallet connection is being determined
+  if (isWalletLoading || isLoading) {
+    return (
+      <div className="container mx-auto p-4 text-white text-center">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+          <span>Connecting...</span>
+        </div>
+      </div>
+    );
+  }
 
   let hasAccess = false;
   if (requireWallet) {
@@ -30,10 +42,11 @@ export default function AccessControl({
   }
 
   useEffect(() => {
-    if (!hasAccess) {
+    // Only redirect after loading is complete and we know the real connection state
+    if (!isLoading && !isWalletLoading && !hasAccess) {
       router.push('/');
     }
-  }, [hasAccess, router]);
+  }, [hasAccess, router, isLoading, isWalletLoading]);
 
   if (!hasAccess) {
     return (

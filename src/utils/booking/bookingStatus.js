@@ -75,18 +75,43 @@ export const isPastBooking = (booking) => {
  * @returns {boolean} True if booking has valid date
  */
 export const hasValidDate = (booking) => {
-  if (!booking.date) {
-    devLog.warn('❌ Booking missing date field:', booking)
-    return false
+  // Check for date field first
+  if (booking.date) {
+    const bookingDate = new Date(booking.date)
+    if (!isNaN(bookingDate.getTime())) {
+      return true
+    }
   }
   
-  const bookingDate = new Date(booking.date)
-  if (isNaN(bookingDate.getTime())) {
-    devLog.warn('❌ Invalid booking date:', booking)
-    return false
+  // Fallback: try to extract date from startDate or start timestamp
+  if (booking.startDate) {
+    const startDate = new Date(booking.startDate)
+    if (!isNaN(startDate.getTime())) {
+      // Add the missing date field for future use
+      booking.date = startDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
+      return true
+    }
   }
   
-  return true
+  // Fallback: try to extract from start timestamp
+  if (booking.start) {
+    try {
+      const startNum = parseInt(booking.start)
+      if (!isNaN(startNum) && startNum > 0) {
+        const startDate = new Date(startNum * 1000)
+        if (!isNaN(startDate.getTime())) {
+          // Add the missing date field for future use
+          booking.date = startDate.toLocaleDateString('en-CA') // YYYY-MM-DD format
+          return true
+        }
+      }
+    } catch (error) {
+      // Continue to warning below
+    }
+  }
+  
+  devLog.warn('❌ Booking missing date field:', booking)
+  return false
 }
 
 /**

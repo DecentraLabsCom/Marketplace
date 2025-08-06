@@ -88,6 +88,58 @@ Dual-mode authentication handled in `UserContext`:
 - **SSO mode**: SAML-based institutional login
 - Components use `AccessControl` wrapper with `requireWallet`/`requireSSO` props
 
+### Mutation Architecture - Authentication-Aware Contract Interactions
+All contract mutations must route based on user authentication type:
+
+**For Wallet Users (Direct transactions):**
+```javascript
+// Client services use user's connected wallet
+export const createReservation = async (bookingData, contractWriteFunction, userAddress) => {
+  // Validate user wallet
+  if (!userAddress) throw new Error('User address required')
+  
+  // Use contractWriteFunction (from useContractWriteFunction)
+  return await contractWriteFunction([bookingData.labId, bookingData.start, bookingData.end])
+}
+
+// Hook routes based on authentication
+export const useCreateBookingMutation = () => {
+  const { isSSO, address } = useUser()
+  const { contractWriteFunction } = useContractWriteFunction('reservationRequest')
+
+  return useMutation({
+    mutationFn: async (bookingData) => {
+      if (isSSO) {
+        // SSO users → API endpoint → Server wallet
+        return await bookingServices.createReservation(bookingData)
+      } else {
+        // Wallet users → Client service → User's wallet
+        return await clientBookingServices.createReservation(bookingData, contractWriteFunction, address)
+      }
+    }
+  })
+}
+```
+
+**For SSO Users (Server-side transactions):**
+```javascript
+// Regular services call API endpoints (server wallet)
+export const createReservation = async (bookingData) => {
+  const response = await fetch('/api/contract/reservation/makeBooking', {
+    method: 'POST',
+    body: JSON.stringify(bookingData)
+  })
+  return response.json()
+}
+```
+
+**Key Rules:**
+- **NEVER** use `useContractWriteFunction` directly in components
+- **ALWAYS** route through appropriate service based on `isSSO` flag
+- **Client services** (`clientXXXServices`) handle wallet transactions
+- **Regular services** (`XXXServices`) handle SSO transactions via API
+- **Mutations** coordinate both flows in a single hook
+
 ## API Layer Guidelines
 
 ### Route Structure
@@ -141,7 +193,7 @@ npm run lint              # ESLint check
 ```
 
 ### Event Handling
-Blockchain events automatically trigger cache invalidation via event contexts. Manual cache invalidation should coordinate with `manualUpdateInProgress` state to prevent conflicts.
+Blockchain events automatically trigger granular cache updates via event contexts. Manual cache updates should coordinate with `manualUpdateInProgress` state to prevent conflicts.
 
 ### Optimistic Updates
 The project implements optimistic UI updates primarily for booking operations to provide immediate user feedback:
@@ -170,12 +222,34 @@ onError: (err, variables, context) => {
 }
 ```
 
+### Cache Management Strategy
+The project uses **granular cache updates** instead of full cache invalidation for optimal performance:
+
+**Granular Cache Updates:**
+- **Domain-specific utilities**: `useBookingCacheUpdates`, `useLabCacheUpdates`, `useUserCacheUpdates`
+- **Smart update functions**: Add, update, or remove specific records without clearing entire caches
+- **Event-driven updates**: Blockchain events trigger targeted cache updates
+- **Fallback invalidation**: Only use full invalidation when granular updates fail
+
+**Usage Pattern:**
+```javascript
+// ✅ Granular update (preferred)
+const { addBookingToUserCache, removeBookingFromUserCache } = useBookingCacheUpdates();
+addBookingToUserCache(userAddress, newBooking);
+
+// ✅ Smart update with fallback
+bookingCacheUpdates.smartBookingInvalidation(userAddress, labId, bookingData, 'add');
+
+// ❌ AVOID: Full cache invalidation (only as last resort)
+queryClient.invalidateQueries({ queryKey: ['bookings'] });
+```
+
 ### State Management Flow
 1. User action → Component
 2. Component → Custom hook (React Query)  
 3. Hook → Service (API call)
 4. API → Smart contract
-5. Blockchain event → Event context → Cache invalidation
+5. Blockchain event → Event context → Granular cache update
 
 ## Data Storage Architecture
 
@@ -254,9 +328,9 @@ const isVercel = getIsVercel() // returns !!process.env.VERCEL
 
 ### React Query Integration
 - No server-side caching (use `Cache-Control: no-cache`)
-- Client-side caching via React Query with environment-aware invalidation
+- Client-side caching via React Query with environment-aware granular updates
 - Optimistic updates for immediate UI feedback
-- Event-driven cache invalidation from blockchain events
+- Event-driven granular cache updates from blockchain events
 
 ## Styling Guidelines
 

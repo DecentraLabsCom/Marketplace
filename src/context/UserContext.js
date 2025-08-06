@@ -28,11 +28,14 @@ const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOp
  * @returns {JSX.Element} Provider with user data and authentication state
  */
 function UserDataCore({ children }) {
-    const { address, isConnected } = useAccount();
+    const { address, isConnected, isReconnecting, isConnecting } = useAccount();
     const queryClient = useQueryClient();
     const { handleError: originalHandleError } = useErrorHandler();
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
+
+    // Track initial connection state to prevent flash of authenticated content
+    const isWalletLoading = isReconnecting || isConnecting;
 
     // React Query hooks for data fetching
     const { 
@@ -40,7 +43,7 @@ function UserDataCore({ children }) {
         isLoading: ssoLoading,
         error: ssoError 
     } = useSSOSessionQuery({
-        enabled: isConnected
+        enabled: isConnected && !isWalletLoading // Only fetch when wallet connection is stable
     });
 
     const { 
@@ -48,7 +51,8 @@ function UserDataCore({ children }) {
         isLoading: isProviderLoading,
         error: providerError 
     } = useProviderStatusQuery(address, false, {
-        enabled: Boolean(address)
+        enabled: Boolean(address) && !isWalletLoading, // Only fetch when wallet connection is stable
+        retry: false, // Don't retry failed provider status queries
     });
 
     // We don't need a separate provider name query since providerStatus already contains the name
@@ -92,8 +96,11 @@ function UserDataCore({ children }) {
 
     // Computed values
     const isProvider = Boolean(providerStatus?.isLabProvider);
-    const isLoggedIn = isConnected && Boolean(address);
+    const isLoggedIn = isConnected && Boolean(address) && !isWalletLoading;
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
+    
+    // Combined loading state that includes wallet connection status
+    const isLoading = isWalletLoading || (isConnected && (isProviderLoading || ssoLoading));
 
     // Combined effect to handle both SSO and provider data with proper name priority
     useEffect(() => {
@@ -191,6 +198,8 @@ function UserDataCore({ children }) {
         isConnected,
         address,
         hasIncompleteData,
+        isLoading,
+        isWalletLoading,
         
         // Refresh function
         refreshProviderStatus,
@@ -234,6 +243,8 @@ export function UserData({ children }) {
  * @returns {boolean} returns.isConnected - Whether wallet is connected
  * @returns {boolean} returns.isSSO - Whether user is authenticated via SSO
  * @returns {Object|null} returns.user - User data object
+ * @returns {boolean} returns.isLoading - General loading state for user data
+ * @returns {boolean} returns.isWalletLoading - Specific loading state for wallet connection/reconnection
  * @returns {Function} returns.refreshProviderStatus - Function to refresh provider status
  * @throws {Error} When used outside of UserData provider
  */

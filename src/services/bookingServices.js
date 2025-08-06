@@ -283,7 +283,10 @@ export const createBooking = async (bookingData) => {
     throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  // The endpoint returns { success: true, data: {...}, meta: {...} }
+  // Return only the relevant data for the service consumer
+  return result.data || result;
 };
 
 /**
@@ -296,18 +299,169 @@ export const cancelBooking = async (reservationKey) => {
     throw new Error('Reservation key is required for cancellation');
   }
 
-  const response = await fetch('/api/contract/reservation/cancelBooking', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reservationKey })
-  });
+  try {
+    const response = await fetch('/api/contract/reservation/cancelBooking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reservationKey })
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      // Create a more informative error message based on the error code
+      let userMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+      
+      if (errorData.code === 'NOT_AUTHORIZED') {
+        userMessage = 'Only the person who made the reservation can cancel it';
+      } else if (errorData.code === 'INVALID_STATE') {
+        userMessage = 'Cannot cancel booking in current state. Reservation may be pending or already processed.';
+      } else if (errorData.code === 'RESERVATION_NOT_FOUND') {
+        userMessage = 'Reservation not found or already processed';
+      } else if (errorData.code === 'INSUFFICIENT_FUNDS') {
+        userMessage = 'Insufficient funds for gas fees';
+      } else if (errorData.code === 'USER_REJECTED') {
+        userMessage = 'Transaction was cancelled by user';
+      }
+      
+      const error = new Error(userMessage);
+      error.code = errorData.code;
+      error.retryable = errorData.retryable;
+      throw error;
+    }
+
+    const result = await response.json();
+    // The endpoint returns { success: true, data: {...}, meta: {...} }
+    // Return only the relevant data for the service consumer
+    return result.data || result;
+  } catch (error) {
+    // If it's already our custom error, just re-throw it
+    if (error.code) {
+      throw error;
+    }
+    
+    // Otherwise wrap it in a generic error
+    throw new Error(`Failed to cancel booking: ${error.message}`);
+  }
+};
+
+/**
+ * Cancel a reservation request (atomic service)
+ * @param {string} reservationKey - Reservation key to cancel
+ * @returns {Promise<Object>} Cancellation result
+ */
+export const cancelReservationRequest = async (reservationKey) => {
+  if (!reservationKey) {
+    throw new Error('Reservation key is required for cancellation');
   }
 
-  return response.json();
+  try {
+    const response = await fetch('/api/contract/reservation/cancelRequest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reservationKey })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      // Create a more informative error message based on the error code
+      let userMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
+      
+      if (errorData.code === 'NOT_AUTHORIZED') {
+        userMessage = 'Only the person who made the reservation can cancel it';
+      } else if (errorData.code === 'RESERVATION_NOT_FOUND') {
+        userMessage = 'Reservation not found or already processed';
+      } else if (errorData.code === 'INSUFFICIENT_FUNDS') {
+        userMessage = 'Insufficient funds for gas fees';
+      } else if (errorData.code === 'USER_REJECTED') {
+        userMessage = 'Transaction was cancelled by user';
+      }
+      
+      const error = new Error(userMessage);
+      error.code = errorData.code;
+      error.retryable = errorData.retryable;
+      throw error;
+    }
+
+    const result = await response.json();
+    // The endpoint returns { success: true, data: {...}, meta: {...} }
+    // Return only the relevant data for the service consumer
+    return result.data || result;
+  } catch (error) {
+    // If it's already our custom error, just re-throw it
+    if (error.code) {
+      throw error;
+    }
+    
+    // Otherwise wrap it in a generic error
+    throw new Error(`Failed to cancel reservation request: ${error.message}`);
+  }
+};
+
+/**
+ * Cancel a reservation (composed service)
+ * Automatically detects reservation status and calls the appropriate cancellation method
+ * @param {string} reservationKey - Reservation key to cancel
+ * @returns {Promise<Object>} Cancellation result
+ */
+export const cancelReservation = async (reservationKey) => {
+  if (!reservationKey) {
+    throw new Error('Reservation key is required for cancellation');
+  }
+
+  try {
+    // First, get the reservation status to determine which cancellation method to use
+    const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get reservation status');
+    }
+
+    const reservationData = await response.json();
+    devLog.log('📋 [SERVICE] Reservation data from API:', reservationData);
+    
+    const status = Number(reservationData.reservation?.status ?? 1); // Default to confirmed if unknown
+    devLog.log('📋 [SERVICE] Detected reservation status:', status);
+
+    // Status: 0 = pending (use cancelReservationRequest), 1 = confirmed (use cancelBooking)
+    if (status === 0) {
+      devLog.log('📋 [SERVICE] Reservation is pending, using cancelReservationRequest');
+      try {
+        return await cancelReservationRequest(reservationKey);
+      } catch (cancelRequestError) {
+        devLog.error('📋 [SERVICE] cancelReservationRequest failed for pending reservation:', cancelRequestError);
+        throw cancelRequestError; // Propagate the specific error
+      }
+    } else {
+      devLog.log('📋 [SERVICE] Reservation is confirmed or unknown status, using cancelBooking');
+      try {
+        return await cancelBooking(reservationKey);
+      } catch (cancelBookingError) {
+        devLog.error('📋 [SERVICE] cancelBooking failed for confirmed reservation:', cancelBookingError);
+        throw cancelBookingError; // Propagate the specific error
+      }
+    }
+  } catch (statusError) {
+    // Only fallback to cancelBooking if we truly can't determine the status
+    // This should be rare and only for network/API issues
+    if (statusError.message?.includes('Failed to get reservation status')) {
+      devLog.warn('Could not determine reservation status due to API error, trying cancelBooking as fallback:', statusError);
+      try {
+        return await cancelBooking(reservationKey);
+      } catch (fallbackError) {
+        // If both status check and fallback fail, throw the original status error
+        devLog.error('📋 [SERVICE] Both status check and cancelBooking fallback failed');
+        throw new Error(`Unable to cancel reservation: ${statusError.message}. Fallback also failed: ${fallbackError.message}`);
+      }
+    } else {
+      // If it's any other error (like authorization errors), just re-throw it
+      throw statusError;
+    }
+  }
 };
 
 // ===========================
@@ -577,18 +731,39 @@ export const fetchLabBookingsComposed = async (labId, includeMetrics = true) => 
       const weekAgo = now - (7 * dayInSeconds);
       const monthAgo = now - (30 * dayInSeconds);
 
-      // Process each booking safely
+      // Process each booking safely with enhanced validation
       const processedBookings = labBookings.map((booking, index) => {
         try {
-          const start = parseInt(booking.start);
-          const end = parseInt(booking.end);
-          const status = booking.status?.toString() || '0';
-
-          // Validate timestamps
-          if (isNaN(start) || isNaN(end)) {
-            devLog.warn(`⚠️ Invalid timestamps for booking ${index} in lab ${labId}:`, { start: booking.start, end: booking.end });
-            return { ...booking, hasValidTimestamps: false };
+          // More robust timestamp validation
+          let start, end;
+          
+          // Try to parse start timestamp
+          if (typeof booking.start === 'string' && booking.start.match(/^\d+$/)) {
+            start = parseInt(booking.start);
+          } else if (typeof booking.start === 'number') {
+            start = booking.start;
+          } else {
+            devLog.warn(`⚠️ Invalid start timestamp for booking ${index} in lab ${labId}:`, { start: booking.start, type: typeof booking.start });
+            return { ...booking, hasValidTimestamps: false, invalidReason: 'invalid_start' };
           }
+          
+          // Try to parse end timestamp
+          if (typeof booking.end === 'string' && booking.end.match(/^\d+$/)) {
+            end = parseInt(booking.end);
+          } else if (typeof booking.end === 'number') {
+            end = booking.end;
+          } else {
+            devLog.warn(`⚠️ Invalid end timestamp for booking ${index} in lab ${labId}:`, { end: booking.end, type: typeof booking.end });
+            return { ...booking, hasValidTimestamps: false, invalidReason: 'invalid_end' };
+          }
+          
+          // Validate the parsed numbers are reasonable timestamps
+          if (isNaN(start) || isNaN(end) || start <= 0 || end <= 0 || start >= end) {
+            devLog.warn(`⚠️ Invalid timestamps for booking ${index} in lab ${labId}:`, { start: booking.start, end: booking.end, parsedStart: start, parsedEnd: end });
+            return { ...booking, hasValidTimestamps: false, invalidReason: 'invalid_values' };
+          }
+          
+          const status = booking.status?.toString() || '0';
 
           return {
             ...booking,
@@ -596,11 +771,16 @@ export const fetchLabBookingsComposed = async (labId, includeMetrics = true) => 
             startNum: start,
             endNum: end,
             status,
-            duration: end - start
+            duration: end - start,
+            // Add date field for filtering compatibility
+            date: new Date(start * 1000).toLocaleDateString('en-CA'), // YYYY-MM-DD format
+            // Ensure required fields are present
+            labId: booking.labId || labId,
+            renter: booking.renter || booking.userAddress
           };
         } catch (error) {
           devLog.warn(`⚠️ Error processing booking ${index} in lab ${labId}:`, error);
-          return { ...booking, hasValidTimestamps: false };
+          return { ...booking, hasValidTimestamps: false, invalidReason: 'processing_error' };
         }
       });
 
@@ -746,7 +926,7 @@ export const fetchMultiLabBookingsComposed = async (labIds, includeMetrics = fal
     };
 
   } catch (error) {
-    console.error('Error in fetchMultiLabBookingsComposed:', error);
+    devLog.error('Error in fetchMultiLabBookingsComposed:', error);
     throw error;
   }
 };
@@ -759,9 +939,11 @@ export const bookingServices = {
   fetchReservationDetails,
   createBooking,
   cancelBooking,
+  cancelReservationRequest,
   
   // Composed services
   fetchUserBookingsComposed,
   fetchLabBookingsComposed,
-  fetchMultiLabBookingsComposed
+  fetchMultiLabBookingsComposed,
+  cancelReservation
 };
