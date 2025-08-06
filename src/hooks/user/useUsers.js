@@ -4,7 +4,8 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { userServices } from '@/services/user/userServices'
-import { QUERY_KEYS, INVALIDATION_PATTERNS } from '@/utils/hooks/queryKeys'
+import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import { createSSRSafeQuery } from '@/utils/ssrSafe'
 import { devLog } from '@/utils/dev/logger'
 
 // ===============================
@@ -23,30 +24,33 @@ import { devLog } from '@/utils/dev/logger'
 export const useProviderStatusQuery = (identifier, isEmail = false, options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.PROVIDER.status(identifier, isEmail),
-    queryFn: async () => {
-      if (!identifier) {
-        // Return safe default for empty identifier
-        return {
-          isLabProvider: false,
-          providerName: null,
-          checked: true,
-          wallet: null
-        };
-      }
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!identifier) {
+          // Return safe default for empty identifier
+          return {
+            isLabProvider: false,
+            providerName: null,
+            checked: true,
+            wallet: null
+          };
+        }
 
-      // For now, only support wallet addresses with the composed service
-      // Email support can be added later if needed
-      if (isEmail) {
-        throw new Error('Email-based provider lookup not yet supported in composed service');
-      }
+        // For now, only support wallet addresses with the composed service
+        // Email support can be added later if needed
+        if (isEmail) {
+          throw new Error('Email-based provider lookup not yet supported in composed service');
+        }
 
-      // Use the composed service for complete provider data
-      const result = await userServices.fetchProviderStatusComposed(identifier);
-      
-      devLog.log('🔍 useProviderStatusQuery Final Result:', result);
-      
-      return result;
-    },
+        // Use the composed service for complete provider data
+        const result = await userServices.fetchProviderStatusComposed(identifier);
+        
+        devLog.log('🔍 useProviderStatusQuery Final Result:', result);
+        
+        return result;
+      },
+      { isLabProvider: false, providerName: null, checked: true, wallet: null } // SSR fallback
+    ),
     staleTime: 6 * 60 * 60 * 1000, // 6 hours
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
     retry: 1,

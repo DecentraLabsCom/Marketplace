@@ -4,15 +4,14 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useCallback, useEffect } from 'react'
-import { useWaitForTransactionReceipt, useWalletClient } from 'wagmi'
+import { useWalletClient } from 'wagmi'
 import { bookingServices } from '@/services/booking/bookingServices'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
 import { useLabToken } from '@/hooks/useLabToken'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
-import { useNotifications } from '@/context/NotificationContext'
 import { useUser } from '@/context/UserContext'
+import { createSSRSafeQuery } from '@/utils/ssrSafe'
 import devLog from '@/utils/dev/logger'
-import { useMemo } from 'react'
 
 // ===============================
 // === MAIN COMPOSED HOOKS ===
@@ -28,7 +27,10 @@ import { useMemo } from 'react'
 export const useUserBookingsQuery = (userAddress, options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true), // Always use true for consistent cache
-    queryFn: () => bookingServices.fetchUserBookingsComposed(userAddress, true),
+    queryFn: createSSRSafeQuery(
+      () => bookingServices.fetchUserBookingsComposed(userAddress, true),
+      { bookings: [], totalBookings: 0, activeBookings: 0, pastBookings: 0 } // Return empty booking structure during SSR
+    ),
     enabled: !!userAddress,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 60 * 60 * 1000, // 1 hour
@@ -50,7 +52,10 @@ export const useUserBookingsQuery = (userAddress, options = {}) => {
 export const useLabBookingsQuery = (labId, includeMetrics = true, options = {}) => {
   return useQuery({
     queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId, includeMetrics),
-    queryFn: () => bookingServices.fetchLabBookingsComposed(labId, includeMetrics),
+    queryFn: createSSRSafeQuery(
+      () => bookingServices.fetchLabBookingsComposed(labId, includeMetrics),
+      { bookings: [], metrics: null } // Return empty booking structure during SSR
+    ),
     enabled: !!labId,
     staleTime: 15 * 60 * 1000, // 15 minutes
     gcTime: 60 * 60 * 1000, // 1 hour

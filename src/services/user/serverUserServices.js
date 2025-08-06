@@ -262,14 +262,14 @@ export const serverUserServices = {
       devLog.log(`🔄 Starting composed fetch for provider status: ${wallet}...`);
 
       // First check if they're a provider
-      const statusResult = await this.fetchProviderStatus(wallet);
+      const statusResult = await serverUserServices.fetchProviderStatus(wallet);
       
       let providerName = null;
       
       // Only fetch name if they are a provider
       if (statusResult.isLabProvider) {
         try {
-          providerName = await this.fetchProviderName(wallet);
+          providerName = await serverUserServices.fetchProviderName(wallet);
         } catch (nameError) {
           devLog.warn('Could not fetch provider name:', nameError);
           // Continue without name - it's not critical

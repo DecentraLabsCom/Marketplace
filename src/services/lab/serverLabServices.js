@@ -296,21 +296,22 @@ export const serverLabServices = {
       // Step 1: Get base data in parallel
       devLog.log('📡 Fetching base data (lab list, decimals, providers)...');
       const [labList, decimals, providers] = await Promise.all([
-        labServices.fetchLabList().catch(error => {
+        serverLabServices.fetchLabList().catch(error => {
           devLog.warn('Failed to fetch lab list, using empty array:', error);
           return [];
         }),
-        labServices.fetchLabDecimals().catch(error => {
+        serverLabServices.fetchLabDecimals().catch(error => {
           devLog.warn('Failed to fetch decimals, using default 18:', error);
           return 18;
         }),
-        labServices.fetchProvidersList().catch(error => {
+        serverLabServices.fetchProvidersList().catch(error => {
           devLog.warn('Failed to fetch providers, using empty array:', error);
           return [];
         })
       ]);
       
       devLog.log(`✅ Base data fetched: ${labList.length} labs, ${decimals} decimals, ${providers.length} providers`);
+      devLog.log('🔍 Lab list from blockchain:', labList);
       
       if (!labList || labList.length === 0) {
         devLog.log('⚠️ No labs found in list, returning empty array');
@@ -321,8 +322,8 @@ export const serverLabServices = {
       devLog.log('📡 Fetching lab details and owners...');
       const labDetailsPromises = labList.map(labId => 
         Promise.all([
-          labServices.fetchLabData(labId),
-          labServices.fetchLabOwner(labId),
+          serverLabServices.fetchLabData(labId),
+          serverLabServices.fetchLabOwner(labId),
         ]).catch(error => {
           devLog.warn(`Failed to fetch details for lab ${labId}:`, error);
           return [null, null]; // Return nulls for failed requests
@@ -343,7 +344,7 @@ export const serverLabServices = {
           return Promise.resolve(null);
         }
         
-        return labServices.fetchLabMetadata(uri, labId).catch(error => {
+        return serverLabServices.fetchLabMetadata(uri, labId).catch(error => {
           devLog.warn(`Failed to fetch metadata for lab ${labId}:`, error);
           return null; // Return null for failed metadata requests
         });
@@ -375,8 +376,12 @@ export const serverLabServices = {
       const fallbackCount = composedLabs.filter(lab => lab && lab.isFallback).length;
       
       devLog.log(`🎯 Composition complete: ${successCount} full labs, ${fallbackCount} fallback labs`);
+      devLog.log('🔍 Final composed labs sample:', composedLabs.slice(0, 2));
       
-      return composedLabs.filter(Boolean); // Remove any null/undefined labs
+      const finalLabs = composedLabs.filter(Boolean); // Remove any null/undefined labs
+      devLog.log(`📦 Returning ${finalLabs.length} labs to client`);
+      
+      return finalLabs;
       
     } catch (error) {
       devLog.warn('❌ Error in fetchAllLabsComposed, returning empty array:', error);

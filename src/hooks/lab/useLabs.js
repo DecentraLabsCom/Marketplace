@@ -9,6 +9,7 @@ import { labServices } from '@/services/lab/labServices'
 import { useUser } from '@/context/UserContext'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import { createSSRSafeQuery } from '@/utils/ssrSafe'
 import devLog from '@/utils/dev/logger'
 
 // === SIMPLE HOOKS WITH COMPOSED SERVICES ===
@@ -22,7 +23,10 @@ import devLog from '@/utils/dev/logger'
 export const useAllLabsQuery = (options = {}) => {
   return useQuery({
     queryKey: ['labs', 'all-composed'],
-    queryFn: () => labServices.fetchAllLabsComposed(),
+    queryFn: createSSRSafeQuery(
+      () => labServices.fetchAllLabsComposed(),
+      [] // Return empty array during SSR
+    ),
     staleTime: 60 * 60 * 1000, // 60 minutes
     gcTime: 24 * 60 * 60 * 1000, // 24 hours
     refetchOnWindowFocus: false,
