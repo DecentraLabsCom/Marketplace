@@ -314,8 +314,8 @@ export default function LabReservation({ id }) {
   // Handle transaction errors
   useEffect(() => {
     if (isReceiptError && receiptError && lastTxHash) {    
-      // Show error notification
-      addErrorNotification(receiptError, 'Transaction error: ');
+      // Show concise error notification
+      addErrorNotification(receiptError, 'Transaction');
       
       // Reset booking state
       setIsBooking(false);
@@ -464,7 +464,7 @@ export default function LabReservation({ id }) {
       });
 
       // Show success notification
-      addTemporaryNotification('success', '✅ Reservation created successfully!');
+      addTemporaryNotification('success', '✅ Reservation created!');
       await handleBookingSuccess();
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ');
@@ -519,7 +519,7 @@ export default function LabReservation({ id }) {
         
         try {
           await approveLabTokens(cost);
-          addTemporaryNotification('success', '✅ LAB tokens approved successfully!');
+          addTemporaryNotification('success', '✅ Tokens approved!');
         } catch (approvalError) {
           devLog.error('Token approval failed:', approvalError);
           if (approvalError.code === 4001 || approvalError.code === 'ACTION_REJECTED') {

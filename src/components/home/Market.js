@@ -45,8 +45,8 @@ export default function Market() {
     isInitialLoading: bookingsInitialLoading,
     isFetching: bookingsFetching,
   } = userBookingsQuery;
-  // Determine bookings loading state - only show loading during initial load
-  const bookingsLoading = bookingsInitialLoading;
+  // Determine bookings loading state
+  const bookingsLoading = bookingsInitialLoading || (bookingsFetching && !userBookingsData)
 
   // Memoize userBookings to prevent infinite re-renders
   const userBookings = useMemo(() => userBookingsData?.bookings || [], [userBookingsData]);

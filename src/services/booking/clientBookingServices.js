@@ -1,7 +1,6 @@
 /**
  * Client-side booking contract services
  * Handles direct blockchain interactions using user's connected wallet
- * Used for wallet authenticated users
  * These services execute transactions from the frontend, not through API
  */
 import { devLog } from '@/utils/dev/logger'
@@ -27,7 +26,7 @@ export const cancelReservationRequest = async (reservationKey, contractWriteFunc
   }
 
   try {
-    devLog.log('� [CLIENT] Cancelling reservation request with wallet:', {
+    devLog.log('📋 [CLIENT] Cancelling reservation request with wallet:', {
       reservationKey,
       userAddress
     });
@@ -47,26 +46,19 @@ export const cancelReservationRequest = async (reservationKey, contractWriteFunc
     
     // Enhance error messages for common issues
     if (error.message?.includes('user rejected')) {
-      throw new Error('Transaction was cancelled by user');
+      throw new Error('Transaction cancelled');
     } else if (error.message?.includes('insufficient funds')) {
-      throw new Error('Insufficient funds for gas fees');
+      throw new Error('Insufficient funds');
     } else if (error.message?.includes('Only the renter')) {
-      throw new Error('Only the person who made the reservation can cancel it');
+      throw new Error('Not authorized to cancel');
     } else if (error.message?.includes('Reservation not found')) {
       throw new Error('Reservation not found');
     } else {
-      throw new Error(`Failed to cancel reservation request: ${error.message}`);
+      throw new Error(`Cancellation failed or cancelled`);
     }
   }
 };
 
-/**
- * Cancel a confirmed booking using user's wallet
- * @param {string} reservationKey - Reservation key to cancel
- * @param {Object} walletClient - Wagmi wallet client from useWalletClient
- * @param {string} userAddress - User's wallet address
- * @returns {Promise<Object>} Transaction result
- */
 /**
  * Cancel a confirmed booking using user's wallet
  * @param {string} reservationKey - Reservation key to cancel
@@ -88,7 +80,7 @@ export const cancelBooking = async (reservationKey, contractWriteFunction, userA
   }
 
   try {
-    devLog.log('� [CLIENT] Cancelling booking with wallet:', {
+    devLog.log('📅 [CLIENT] Cancelling booking with wallet:', {
       reservationKey,
       userAddress
     });
@@ -108,30 +100,31 @@ export const cancelBooking = async (reservationKey, contractWriteFunction, userA
     
     // Enhance error messages for common issues
     if (error.message?.includes('user rejected')) {
-      throw new Error('Transaction was cancelled by user');
+      throw new Error('Transaction cancelled');
     } else if (error.message?.includes('insufficient funds')) {
-      throw new Error('Insufficient funds for gas fees');
+      throw new Error('Insufficient funds');
     } else if (error.message?.includes('Only the renter')) {
-      throw new Error('Only the person who made the reservation can cancel it');
+      throw new Error('Not authorized to cancel');
     } else if (error.message?.includes('Reservation not found')) {
       throw new Error('Reservation not found');
     } else if (error.message?.includes('Too late to cancel')) {
-      throw new Error('Cannot cancel booking: too close to start time');
+      throw new Error('Too late to cancel');
     } else {
-      throw new Error(`Failed to cancel booking: ${error.message}`);
+      throw new Error(`Cancel failed or cancelled`);
     }
   }
 };
 
 /**
- * Smart cancellation - tries to cancel reservation request first, then booking
+ * Smart cancellation - uses booking status to determine correct cancellation method
  * @param {string} reservationKey - Reservation key to cancel
  * @param {Function} contractWriteFunctionRequest - Contract write function for cancelReservationRequest
  * @param {Function} contractWriteFunctionBooking - Contract write function for cancelBooking
  * @param {string} userAddress - User's wallet address
+ * @param {string} [bookingStatus] - Status of the booking ('0'=pending, '1'=confirmed)
  * @returns {Promise<string>} Transaction hash
  */
-export const cancelReservation = async (reservationKey, contractWriteFunctionRequest, contractWriteFunctionBooking, userAddress) => {
+export const cancelReservation = async (reservationKey, contractWriteFunctionRequest, contractWriteFunctionBooking, userAddress, bookingStatus) => {
   if (!reservationKey) {
     throw new Error('Reservation key is required for cancellation');
   }
@@ -145,13 +138,26 @@ export const cancelReservation = async (reservationKey, contractWriteFunctionReq
   }
 
   try {
-    devLog.log('� [CLIENT] Attempting smart cancellation:', {
+    devLog.log('🎯 [CLIENT] Smart cancellation based on status:', {
       reservationKey,
+      bookingStatus,
       userAddress
     });
 
-    // Try reservation request cancellation first
+    // If we know the status, use the appropriate function directly
+    if (bookingStatus === '0') {
+      // Pending reservation - use cancelReservationRequest
+      devLog.log('📋 [CLIENT] Cancelling pending reservation request...');
+      return await cancelReservationRequest(reservationKey, contractWriteFunctionRequest, userAddress);
+    } else if (bookingStatus === '1') {
+      // Confirmed booking - use cancelBooking
+      devLog.log('📅 [CLIENT] Cancelling confirmed booking...');
+      return await cancelBooking(reservationKey, contractWriteFunctionBooking, userAddress);
+    }
+
+    // Fallback: Try reservation request cancellation first (lower gas for pending reservations)
     try {
+      devLog.log('🔄 [CLIENT] Attempting reservation request cancellation first...');
       return await cancelReservationRequest(reservationKey, contractWriteFunctionRequest, userAddress);
     } catch (requestError) {
       devLog.log('⚠️ [CLIENT] Reservation request cancellation failed, trying booking cancellation...');
@@ -236,15 +242,15 @@ export const createReservation = async (bookingData, contractWriteFunction, user
     
     // Enhance error messages for common issues
     if (error.message?.includes('user rejected')) {
-      throw new Error('Transaction was cancelled by user');
+      throw new Error('Transaction cancelled');
     } else if (error.message?.includes('insufficient funds')) {
-      throw new Error('Insufficient funds for gas fees');
+      throw new Error('Insufficient funds');
     } else if (error.message?.includes('Lab not available')) {
-      throw new Error('Lab is not available for the selected time');
+      throw new Error('Lab not available');
     } else if (error.message?.includes('Time slot not available')) {
-      throw new Error('Time slot is already booked');
+      throw new Error('Time slot unavailable');
     } else {
-      throw new Error(`Failed to create reservation: ${error.message}`);
+      throw new Error(`Reservation failed or cancelled`);
     }
   }
 };
@@ -279,13 +285,13 @@ export const claimAllBalance = async (contractWriteFunction, userAddress) => {
     
     // Enhance error messages for common issues
     if (error.message?.includes('user rejected')) {
-      throw new Error('Transaction was cancelled by user');
+      throw new Error('Transaction cancelled');
     } else if (error.message?.includes('insufficient funds')) {
-      throw new Error('Insufficient funds for gas fees');
+      throw new Error('Insufficient funds');
     } else if (error.message?.includes('No balance')) {
-      throw new Error('No balance available to claim');
+      throw new Error('No balance available');
     } else {
-      throw new Error(`Failed to claim all balance: ${error.message}`);
+      throw new Error(`Claim failed or cancelled`);
     }
   }
 };
@@ -325,15 +331,15 @@ export const claimLabBalance = async (labId, contractWriteFunction, userAddress)
     
     // Enhance error messages for common issues
     if (error.message?.includes('user rejected')) {
-      throw new Error('Transaction was cancelled by user');
+      throw new Error('Transaction cancelled');
     } else if (error.message?.includes('insufficient funds')) {
-      throw new Error('Insufficient funds for gas fees');
+      throw new Error('Insufficient funds');
     } else if (error.message?.includes('No balance')) {
-      throw new Error('No balance available for this lab');
+      throw new Error('No balance available');
     } else if (error.message?.includes('Not authorized')) {
-      throw new Error('Not authorized to claim balance for this lab');
+      throw new Error('Not authorized');
     } else {
-      throw new Error(`Failed to claim lab balance: ${error.message}`);
+      throw new Error(`Claim failed or cancelled`);
     }
   }
 };

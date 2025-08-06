@@ -18,7 +18,7 @@ import { devLog } from '@/utils/dev/logger'
  * @param {string} [authContext.userAddress] - User wallet address (wallet users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const createBooking = async (bookingData, authContext) => {
+const createBooking = async (bookingData, authContext) => {
   const { isSSO, contractWriteFunction, userAddress } = authContext;
 
   devLog.log('🔀 [ROUTER] Creating booking via', isSSO ? 'server (SSO)' : 'client (wallet)');
@@ -55,18 +55,19 @@ export const createBooking = async (bookingData, authContext) => {
  * @param {Function} [authContext.cancelReservationRequestFn] - Cancel reservation request function (wallet users)
  * @param {Function} [authContext.cancelBookingFn] - Cancel booking function (wallet users)
  * @param {string} [authContext.userAddress] - User wallet address (wallet users)
+ * @param {string} [authContext.bookingStatus] - Status of the booking ('0'=pending, '1'=confirmed)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const cancelBooking = async (reservationKey, authContext) => {
-  const { isSSO, cancelReservationRequestFn, cancelBookingFn, userAddress } = authContext;
+const cancelBooking = async (reservationKey, authContext) => {
+  const { isSSO, cancelReservationRequestFn, cancelBookingFn, userAddress, bookingStatus } = authContext;
 
   devLog.log('🔀 [ROUTER] Cancelling booking via', isSSO ? 'server (SSO)' : 'client (wallet)');
 
   if (isSSO) {
-    // SSO users → Server-side transaction via API
-    return await serverBookingServices.cancelBooking(reservationKey);
+    // SSO users → Server-side transaction via API (smart cancellation with optional status optimization)
+    return await serverBookingServices.cancelReservation(reservationKey, bookingStatus);
   } else {
-    // Wallet users → Client-side transaction via user's wallet
+    // Wallet users → Client-side transaction via user's wallet (smart cancellation with status parameter)
     if (!cancelReservationRequestFn || !cancelBookingFn || !userAddress) {
       throw new Error('Contract write functions and user address required for wallet users');
     }
@@ -75,7 +76,8 @@ export const cancelBooking = async (reservationKey, authContext) => {
       reservationKey,
       cancelReservationRequestFn,
       cancelBookingFn,
-      userAddress
+      userAddress,
+      bookingStatus
     );
   }
 };
@@ -88,7 +90,7 @@ export const cancelBooking = async (reservationKey, authContext) => {
  * @param {string} [authContext.userAddress] - User wallet address (wallet users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const claimAllBalance = async (authContext) => {
+const claimAllBalance = async (authContext) => {
   const { isSSO, contractWriteFunction, userAddress } = authContext;
 
   devLog.log('🔀 [ROUTER] Claiming all balance via', isSSO ? 'server (SSO)' : 'client (wallet)');
@@ -115,7 +117,7 @@ export const claimAllBalance = async (authContext) => {
  * @param {string} [authContext.userAddress] - User wallet address (wallet users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const claimLabBalance = async (labId, authContext) => {
+const claimLabBalance = async (labId, authContext) => {
   const { isSSO, contractWriteFunction, userAddress } = authContext;
 
   devLog.log('🔀 [ROUTER] Claiming lab balance via', isSSO ? 'server (SSO)' : 'client (wallet)', 'for lab:', labId);
@@ -133,25 +135,16 @@ export const claimLabBalance = async (labId, authContext) => {
   }
 };
 
-// Re-export all read operations from server services (same for both auth types)
-export const {
-  fetchReservationCount,
-  fetchReservationKeyByIndex,
-  fetchReservationDetails,
-  fetchUserBookingsComposed,
-  fetchLabBookingsComposed,
-  fetchAllBookingsComposed
-} = serverBookingServices;
-
+// Unified booking services object with both write operations (routed) and read operations (server-based)
 export const bookingServices = {
   createBooking,
   cancelBooking,
   claimAllBalance,
   claimLabBalance,
-  fetchReservationCount,
-  fetchReservationKeyByIndex,
-  fetchReservationDetails,
-  fetchUserBookingsComposed,
-  fetchLabBookingsComposed,
-  fetchAllBookingsComposed
+  fetchReservationCount: serverBookingServices.fetchReservationCount,
+  fetchReservationKeyByIndex: serverBookingServices.fetchReservationKeyByIndex,
+  fetchReservationDetails: serverBookingServices.fetchReservationDetails,
+  fetchUserBookingsComposed: serverBookingServices.fetchUserBookingsComposed,
+  fetchLabBookingsComposed: serverBookingServices.fetchLabBookingsComposed,
+  fetchAllBookingsComposed: serverBookingServices.fetchAllBookingsComposed
 };

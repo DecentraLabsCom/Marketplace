@@ -311,19 +311,19 @@ export const cancelBooking = async (reservationKey) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       
-      // Create a more informative error message based on the error code
+      // Create concise error messages based on the error code
       let userMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
       
       if (errorData.code === 'NOT_AUTHORIZED') {
-        userMessage = 'Only the person who made the reservation can cancel it';
+        userMessage = 'Not authorized to cancel';
       } else if (errorData.code === 'INVALID_STATE') {
-        userMessage = 'Cannot cancel booking in current state. Reservation may be pending or already processed.';
+        userMessage = 'Cannot cancel in current state';
       } else if (errorData.code === 'RESERVATION_NOT_FOUND') {
-        userMessage = 'Reservation not found or already processed';
+        userMessage = 'Reservation not found';
       } else if (errorData.code === 'INSUFFICIENT_FUNDS') {
-        userMessage = 'Insufficient funds for gas fees';
+        userMessage = 'Insufficient funds';
       } else if (errorData.code === 'USER_REJECTED') {
-        userMessage = 'Transaction was cancelled by user';
+        userMessage = 'Transaction cancelled';
       }
       
       const error = new Error(userMessage);
@@ -343,7 +343,7 @@ export const cancelBooking = async (reservationKey) => {
     }
     
     // Otherwise wrap it in a generic error
-    throw new Error(`Failed to cancel booking: ${error.message}`);
+    throw new Error(`Cancellation failed or cancelled`);
   }
 };
 
@@ -367,17 +367,17 @@ export const cancelReservationRequest = async (reservationKey) => {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       
-      // Create a more informative error message based on the error code
+      // Create concise error messages based on the error code
       let userMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
       
       if (errorData.code === 'NOT_AUTHORIZED') {
-        userMessage = 'Only the person who made the reservation can cancel it';
+        userMessage = 'Not authorized to cancel';
       } else if (errorData.code === 'RESERVATION_NOT_FOUND') {
-        userMessage = 'Reservation not found or already processed';
+        userMessage = 'Reservation not found';
       } else if (errorData.code === 'INSUFFICIENT_FUNDS') {
-        userMessage = 'Insufficient funds for gas fees';
+        userMessage = 'Insufficient funds';
       } else if (errorData.code === 'USER_REJECTED') {
-        userMessage = 'Transaction was cancelled by user';
+        userMessage = 'Transaction cancelled';
       }
       
       const error = new Error(userMessage);
@@ -397,7 +397,7 @@ export const cancelReservationRequest = async (reservationKey) => {
     }
     
     // Otherwise wrap it in a generic error
-    throw new Error(`Failed to cancel reservation request: ${error.message}`);
+    throw new Error(`Cancellation failed or cancelled`);
   }
 };
 
@@ -405,14 +405,42 @@ export const cancelReservationRequest = async (reservationKey) => {
  * Cancel a reservation (composed service)
  * Automatically detects reservation status and calls the appropriate cancellation method
  * @param {string} reservationKey - Reservation key to cancel
+ * @param {string} [bookingStatus] - Status of the booking ('0'=pending, '1'=confirmed) - optimizes by skipping status detection
  * @returns {Promise<Object>} Cancellation result
  */
-export const cancelReservation = async (reservationKey) => {
+export const cancelReservation = async (reservationKey, bookingStatus) => {
   if (!reservationKey) {
     throw new Error('Reservation key is required for cancellation');
   }
 
   try {
+    // If we already know the status, use it directly (optimization)
+    if (bookingStatus !== undefined && bookingStatus !== null) {
+      const status = Number(bookingStatus);
+      devLog.log('🎯 [SERVICE] Using provided booking status:', status);
+
+      if (status === 0) {
+        devLog.log('📋 [SERVICE] Reservation is pending (provided status), using cancelReservationRequest');
+        try {
+          return await cancelReservationRequest(reservationKey);
+        } catch (cancelRequestError) {
+          devLog.error('📋 [SERVICE] cancelReservationRequest failed for pending reservation:', cancelRequestError);
+          throw cancelRequestError; // Propagate the specific error
+        }
+      } else {
+        devLog.log('📅 [SERVICE] Reservation is confirmed (provided status), using cancelBooking');
+        try {
+          return await cancelBooking(reservationKey);
+        } catch (cancelBookingError) {
+          devLog.error('📋 [SERVICE] cancelBooking failed for confirmed reservation:', cancelBookingError);
+          throw cancelBookingError; // Propagate the specific error
+        }
+      }
+    }
+
+    // If no status provided, fetch it from API (original behavior)
+    devLog.log('🔄 [SERVICE] No status provided, fetching from API...');
+    
     // First, get the reservation status to determine which cancellation method to use
     const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
       method: 'GET',

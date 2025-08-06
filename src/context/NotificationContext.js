@@ -162,53 +162,53 @@ function NotificationProviderCore({ children }) {
         });
     }, [addNotification]);
 
-    // Smart error notification with enhanced error categorization
+    // Smart error notification with enhanced error categorization and concise messages
     const addErrorNotification = useCallback((error, context = '', options = {}) => {
         try {
             devLog.error(`Error in ${context}:`, error);
             
             let errorMessage = '❌ An error occurred';
             let priority = 'high';
-            let duration = 8000;
+            let duration = 6000; // Reduced from 8000
             
             if (typeof error === 'string') {
                 errorMessage = `❌ ${error}`;
             } else if (error?.message) {
                 // Handle AbortController errors specifically
                 if (error.name === 'AbortError' || error.message.includes('aborted')) {
-                    errorMessage = '⚠️ Request was cancelled due to timeout';
+                    errorMessage = '⚠️ Request cancelled';
                     priority = 'normal';
-                    duration = 5000;
+                    duration = 4000; // Reduced from 5000
                     return addTemporaryNotification('warning', errorMessage, null, { priority, duration });
                 }
                 // Handle user rejection specifically
                 else if (error.message.includes('User rejected') || 
                     error.message.includes('User denied') ||
                     error.message.includes('user rejected')) {
-                    errorMessage = '❌ Transaction cancelled by user';
+                    errorMessage = '❌ Transaction cancelled';
                     priority = 'normal';
-                    duration = 6000;
+                    duration = 4000; // Reduced from 6000
                 } else if (error.message.includes('insufficient funds')) {
-                    errorMessage = '❌ Insufficient funds for transaction';
+                    errorMessage = '❌ Insufficient funds';
                     priority = 'high';
-                    duration = 10000;
+                    duration = 6000; // Reduced from 10000
                 } else if (error.message.includes('network') || error.message.includes('fetch')) {
-                    errorMessage = '❌ Network error. Please check your connection';
+                    errorMessage = '❌ Network error';
                     priority = 'high';
-                    duration = 8000;
+                    duration = 6000; // Reduced from 8000
                 } else if (error.message.includes('validation')) {
                     errorMessage = '❌ Validation failed';
                     priority = 'normal';
-                    duration = 6000;
+                    duration = 4000; // Reduced from 6000
                 } else if (error.message.includes('timeout')) {
-                    errorMessage = '⚠️ Request timed out. Please try again';
+                    errorMessage = '⚠️ Request timeout';
                     priority = 'normal';
-                    duration = 7000;
+                    duration = 5000; // Reduced from 7000
                 } else {
-                    // For other errors, show a generic message but preserve context if provided
-                    errorMessage = context ? `❌ ${context} failed` : '❌ Operation failed';
+                    // For other errors, show a concise generic message
+                    errorMessage = '❌ Operation failed';
                     priority = 'high';
-                    duration = 8000;
+                    duration = 5000; // Reduced from 8000
                 }
             }
             

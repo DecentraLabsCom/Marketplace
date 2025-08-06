@@ -217,7 +217,12 @@ export const useCreateBookingMutation = () => {
 };
 
 /**
- * Hook to cancel a booking with optimistic updates (using client-side transactions)
+ * Hook to cancel a booking with optimistic updates (using authentication-aware routing)
+ * Expects mutation parameters: { reservationKey, userAddress?, labId?, bookingStatus? }
+ * - reservationKey: (required) The reservation key to cancel
+ * - userAddress: (optional) User address for optimistic updates
+ * - labId: (optional) Lab ID for optimistic updates  
+ * - bookingStatus: (optional) '0' for pending, '1' for confirmed - optimizes gas usage
  * @returns {Object} React Query mutation object for canceling bookings
  */
 export const useCancelBookingMutation = () => {
@@ -228,13 +233,14 @@ export const useCancelBookingMutation = () => {
   const { contractWriteFunction: cancelBookingFn } = useContractWriteFunction('cancelBooking');
 
   return useMutation({
-    mutationFn: async ({ reservationKey }) => {
+    mutationFn: async ({ reservationKey, bookingStatus }) => {
       // Create authentication context
       const authContext = {
         isSSO,
         cancelReservationRequestFn,
         cancelBookingFn,
-        userAddress
+        userAddress,
+        bookingStatus // Pass booking status to help determine which function to use
       };
 
       // Use unified service with authentication-aware routing

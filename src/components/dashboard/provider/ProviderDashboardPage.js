@@ -238,7 +238,7 @@ export default function ProviderDashboard() {
           labData: { ...labData, price: originalPrice }
         });
         // DON'T close modal - let user close it manually
-        addTemporaryNotification('success', '✅ Lab updated successfully (offchain changes only)!');
+        addTemporaryNotification('success', '✅ Lab updated!');
         devLog.log('ProviderDashboard: Lab updated via React Query (offchain), modal remains open');
       }
       
@@ -290,7 +290,7 @@ export default function ProviderDashboard() {
         userEmail: user.email
       });
       
-      addTemporaryNotification('success', '✅ Lab added successfully!');
+      addTemporaryNotification('success', '✅ Lab added!');
       setIsModalOpen(false);
       
     } catch (error) {
@@ -307,7 +307,7 @@ export default function ProviderDashboard() {
       // 🚀 Use React Query mutation for lab deletion
       await deleteLabMutation.mutateAsync(labId);
       
-      addTemporaryNotification('success', '✅ Lab deleted successfully!');
+      addTemporaryNotification('success', '✅ Lab deleted!');
 
       // Clean up all bookings for this deleted lab using React Query
       devLog.log('🗑️ Cleaning up all bookings for deleted lab:', labId);
@@ -349,7 +349,7 @@ export default function ProviderDashboard() {
       // 🚀 Use React Query mutation for lab status toggle
       await toggleLabStatusMutation.mutateAsync({ labId, isListed: false });
       
-      addTemporaryNotification('success', '✅ Lab unlisted successfully!');
+      addTemporaryNotification('success', '✅ Lab unlisted!');
     } catch (error) {
       devLog.error('Error unlisting lab:', error);
       addTemporaryNotification('error', `❌ Failed to unlist lab: ${error.message}`);
@@ -363,7 +363,7 @@ export default function ProviderDashboard() {
       
       await claimAllBalanceMutation.mutateAsync();
       
-      addTemporaryNotification('success', '✅ All balances collected successfully!');
+      addTemporaryNotification('success', '✅ Balance collected!');
     } catch (err) {
       devLog.error(err);
       addTemporaryNotification('error', `❌ Failed to collect balances: ${formatErrorMessage(err)}`);
@@ -377,7 +377,7 @@ export default function ProviderDashboard() {
       
       await claimLabBalanceMutation.mutateAsync(labId);
       
-      addTemporaryNotification('success', '✅ Balance collected successfully!');
+      addTemporaryNotification('success', '✅ Balance collected!');
     } catch (err) {
       devLog.error(err);
       addTemporaryNotification('error', `❌ Failed to collect balance: ${formatErrorMessage(err)}`);

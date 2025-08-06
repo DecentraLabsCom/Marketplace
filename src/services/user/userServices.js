@@ -6,20 +6,13 @@
  */
 
 import { serverUserServices } from './serverUserServices'
-import { devLog } from '@/utils/dev/logger'
 
-// Re-export all operations from server services
+// Re-export all operations from server services as unified userServices object
 // User operations are mainly read-only and go through server
-export const {
-  fetchUserData,
-  fetchAllUsersComposed,
-  fetchProviderBalance,
-  fetchProviderStatus
-} = serverUserServices;
-
 export const userServices = {
-  fetchUserData,
-  fetchAllUsersComposed,
-  fetchProviderBalance,
-  fetchProviderStatus
+  fetchUserData: serverUserServices.fetchUserData,
+  fetchAllUsersComposed: serverUserServices.fetchAllUsersComposed,
+  fetchProviderBalance: serverUserServices.fetchProviderBalance,
+  fetchProviderStatus: serverUserServices.fetchProviderStatus,
+  fetchProviderStatusComposed: serverUserServices.fetchProviderStatusComposed
 };

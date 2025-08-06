@@ -21,8 +21,8 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,
     },
     mutations: {
-      // Retry on error for mutations
-      retry: 1,
+      // Disable retry for mutations to avoid UX issues with repeated prompts
+      retry: false,
     },
   },
 });

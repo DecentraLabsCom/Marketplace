@@ -178,10 +178,10 @@ export default function UserDashboard() {
         reservationKey: booking.reservationKey,
         userAddress: address,
         labId: booking.labId,
-        status: booking.status
+        bookingStatus: booking.status // Pass booking status to optimize gas usage
       });
       
-      addPersistentNotification('success', '✅ Booking canceled successfully!');
+      addPersistentNotification('success', '✅ Booking canceled!');
       
     } catch (error) {
       devLog.error('Cancellation failed:', error);

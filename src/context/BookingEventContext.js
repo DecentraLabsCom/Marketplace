@@ -144,7 +144,7 @@ export function BookingEventProvider({ children }) {
                     // Show notification
                     addPersistentNotification(
                         'error',
-                        `Reservation request denied (${reservationKey})`,
+                        `Reservation request denied`,
                         { duration: 5000 }
                     );
 
@@ -408,7 +408,7 @@ export function BookingEventProvider({ children }) {
                     // Show notification
                     addPersistentNotification(
                         'warning',
-                        `Booking cancelled (${reservationKey})`,
+                        `Booking cancelled`,
                         { duration: 5000 }
                     );
 

@@ -19,7 +19,7 @@ import { devLog } from '@/utils/dev/logger'
  * @param {string} [authContext.userEmail] - User email (SSO users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const createLab = async (labData, authContext) => {
+const createLab = async (labData, authContext) => {
   const { isSSO, contractWriteFunction, userAddress, userEmail } = authContext;
 
   devLog.log('🔀 [ROUTER] Creating lab via', isSSO ? 'server (SSO)' : 'client (wallet)');
@@ -52,7 +52,7 @@ export const createLab = async (labData, authContext) => {
  * @param {string} [authContext.userEmail] - User email (SSO users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const updateLab = async (updateData, authContext) => {
+const updateLab = async (updateData, authContext) => {
   const { isSSO, contractWriteFunction, userAddress, userEmail } = authContext;
 
   devLog.log('🔀 [ROUTER] Updating lab via', isSSO ? 'server (SSO)' : 'client (wallet)');
@@ -85,7 +85,7 @@ export const updateLab = async (updateData, authContext) => {
  * @param {string} [authContext.userEmail] - User email (SSO users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const deleteLab = async (labId, authContext) => {
+const deleteLab = async (labId, authContext) => {
   const { isSSO, contractWriteFunction, userAddress, userEmail } = authContext;
 
   devLog.log('🔀 [ROUTER] Deleting lab via', isSSO ? 'server (SSO)' : 'client (wallet)');
@@ -117,7 +117,7 @@ export const deleteLab = async (labId, authContext) => {
  * @param {string} [authContext.userEmail] - User email (SSO users)
  * @returns {Promise<string|Object>} Transaction hash (wallet) or result object (SSO)
  */
-export const toggleLabStatus = async (toggleData, authContext) => {
+const toggleLabStatus = async (toggleData, authContext) => {
   const { isSSO, contractWriteFunction, userAddress, userEmail } = authContext;
 
   devLog.log('🔀 [ROUTER] Toggling lab status via', isSSO ? 'server (SSO)' : 'client (wallet)');
@@ -140,21 +140,14 @@ export const toggleLabStatus = async (toggleData, authContext) => {
   }
 };
 
-// Re-export all read operations from server services (same for both auth types)
-export const {
-  fetchLabList,
-  fetchLabData,
-  fetchLabOwner,
-  fetchAllLabsComposed
-} = serverLabServices;
-
+// Unified lab services object with both write operations (routed) and read operations (server-based)
 export const labServices = {
   createLab,
   updateLab,
   deleteLab,
   toggleLabStatus,
-  fetchLabList,
-  fetchLabData,
-  fetchLabOwner,
-  fetchAllLabsComposed
+  fetchLabList: serverLabServices.fetchLabList,
+  fetchLabData: serverLabServices.fetchLabData,
+  fetchLabOwner: serverLabServices.fetchLabOwner,
+  fetchAllLabsComposed: serverLabServices.fetchAllLabsComposed
 };
