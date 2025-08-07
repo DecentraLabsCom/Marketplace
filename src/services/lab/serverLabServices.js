@@ -130,6 +130,67 @@ export const serverLabServices = {
   },
 
   /**
+   * Get owned lab count for wallet (atomic service)
+   * @param {string} wallet - Wallet address
+   * @returns {Promise<number>} Number of owned labs
+   */
+  async fetchOwnedLabCount(wallet) {
+    if (!wallet) {
+      throw new Error('Wallet address is required for fetching owned lab count');
+    }
+
+    try {
+      devLog.log(`Fetching owned lab count for wallet ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
+      
+      const response = await fetch(`/api/contract/lab/getOwnedLabCount?wallet=${encodeURIComponent(wallet)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const count = result.count || 0;
+      devLog.log(`Wallet owns ${count} labs`);
+      return count;
+    } catch (error) {
+      devLog.error(`Error fetching owned lab count for wallet:`, error);
+      throw new Error(`Failed to fetch owned lab count: ${error.message}`);
+    }
+  },
+
+  /**
+   * Get owned lab ID by index (atomic service)
+   * @param {string} wallet - Wallet address
+   * @param {number} index - Index of the owned lab
+   * @returns {Promise<string>} Lab ID
+   */
+  async fetchOwnedLabByIndex(wallet, index) {
+    if (!wallet) {
+      throw new Error('Wallet address is required');
+    }
+    if (index === undefined || index === null) {
+      throw new Error('Index is required');
+    }
+
+    try {
+      const params = new URLSearchParams({ 
+        wallet: wallet, 
+        index: index.toString() 
+      });
+
+      const response = await fetch(`/api/contract/lab/getOwnedLabByIndex?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result.labId;
+    } catch (error) {
+      devLog.error(`Error fetching owned lab at index ${index}:`, error);
+      throw new Error(`Failed to fetch owned lab at index ${index}: ${error.message}`);
+    }
+  },
+
+  /**
    * Fetch lab metadata from URI with optimized fallbacks
    */
   async fetchLabMetadata(metadataUri, labId = null) {
@@ -388,6 +449,43 @@ export const serverLabServices = {
       // Return empty array instead of throwing - this prevents React Query from marking as error
       return [];
     }
+  },
+
+  /**
+   * Get owned labs list (composed service - orchestrates atomic calls)
+   * @param {string} wallet - Wallet address
+   * @returns {Promise<Array>} Array of owned lab IDs
+   */
+  async fetchOwnedLabsComposed(wallet) {
+    if (!wallet) {
+      throw new Error('Wallet address is required for fetching owned labs');
+    }
+
+    try {
+      devLog.log(`Fetching owned labs for wallet ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
+      
+      // First get the count of owned labs (atomic call)
+      const count = await this.fetchOwnedLabCount(wallet);
+      
+      if (count === 0) {
+        devLog.log('Wallet owns no labs');
+        return [];
+      }
+
+      // Generate array of indices and fetch all lab IDs in parallel (atomic calls)
+      const indices = Array.from({ length: count }, (_, i) => i);
+      const labIdPromises = indices.map(index => 
+        this.fetchOwnedLabByIndex(wallet, index)
+      );
+
+      const labIds = await Promise.all(labIdPromises);
+      devLog.log(`Fetched ${labIds.length} owned lab IDs: [${labIds.join(', ')}]`);
+      
+      return labIds;
+    } catch (error) {
+      devLog.error('Error fetching owned labs (composed):', error);
+      throw new Error(`Failed to fetch owned labs: ${error.message}`);
+    }
   }
 }
 
@@ -398,8 +496,11 @@ export const {
   fetchLabData,
   fetchLabOwner,
   fetchProvidersList,
+  fetchOwnedLabCount,
+  fetchOwnedLabByIndex,
   fetchLabMetadata,
   fetchAllLabsComposed,
+  fetchOwnedLabsComposed,
   createLab,
   updateLab,
   deleteLab,

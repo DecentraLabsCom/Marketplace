@@ -1,9 +1,12 @@
 "use client";
+import { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
+import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import devLog from '@/utils/dev/logger'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,8 +50,43 @@ const persister = createAsyncStoragePersister({
  * @param {React.ReactNode} props.children - Child components to wrap with React Query context
  * @returns {JSX.Element} PersistQueryClient provider with development tools
  */
-export default function ClientQueryProvider({ children }) { 
-    return (
+export default function ClientQueryProvider({ children }) {
+  
+  // Initialize essential empty caches on app startup (no API calls)
+  useEffect(() => {
+    const initializeEssentialCaches = () => {
+      try {
+        devLog.log('🏗️ Initializing essential empty caches on app startup...');
+        
+        // Only initialize global caches that don't require API calls
+        // Lab-specific caches will be created lazily when labs are first fetched
+        
+        // All labs composed cache
+        const allLabsKey = QUERY_KEYS.LABS.allComposed;
+        if (!queryClient.getQueryData(allLabsKey)) {
+          queryClient.setQueryData(allLabsKey, []);
+          devLog.log('📦 Created empty all-labs composed cache');
+        }
+        
+        // Provider data cache (generic - will be replaced with real data when provider loads)
+        const providerDataKey = QUERY_KEYS.PROVIDER.profile('placeholder');
+        if (!queryClient.getQueryData(providerDataKey)) {
+          queryClient.setQueryData(providerDataKey, null);
+          devLog.log('📦 Created empty provider data cache');
+        }
+        
+        devLog.log('✅ Successfully initialized essential empty caches (no API calls)');
+      } catch (error) {
+        devLog.warn('⚠️ Failed to initialize essential empty caches:', error.message);
+        // Don't throw - app should continue working even if this fails
+      }
+    };
+    
+    // Run synchronously - no API calls, so no delay needed
+    initializeEssentialCaches();
+  }, []);
+
+  return (
       <PersistQueryClientProvider 
         client={queryClient} 
         persistOptions={{ 
@@ -58,10 +96,23 @@ export default function ClientQueryProvider({ children }) {
           dehydrateOptions: {
             // Only persist these query types
             shouldDehydrateQuery: (query) => {
+              // Safety check - ensure query and queryKey exist
+              if (!query || !query.queryKey || !Array.isArray(query.queryKey) || query.queryKey.length === 0) {
+                devLog.warn('🚫 shouldDehydrateQuery: Invalid query structure:', query);
+                return false;
+              }
+              
               // Persist lab, provider, and user queries
-              return query.queryKey[0] === 'labs' || 
-                     query.queryKey[0] === 'provider' || 
-                     query.queryKey[0] === 'sso';
+              const queryType = query.queryKey[0];
+              const shouldPersist = queryType === 'labs' || 
+                                   queryType === 'provider' || 
+                                   queryType === 'sso';
+              
+              if (shouldPersist) {
+                devLog.log(`💾 Persisting query: ${queryType}`);
+              }
+              
+              return shouldPersist;
             },
           },
         }}

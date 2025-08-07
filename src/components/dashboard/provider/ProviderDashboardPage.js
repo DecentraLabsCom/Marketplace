@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { parseUnits } from 'viem'
 import { useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
   useAllLabsQuery, 
+  useOwnedLabsQuery,
   useCreateLabMutation, 
   useUpdateLabMutation, 
   useDeleteLabMutation, 
@@ -29,13 +30,24 @@ import devLog from '@/utils/dev/logger'
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
   
-  // 🚀 React Query for labs
+  // 🚀 React Query for owned labs (optimized - only fetches owned labs)
+  const { 
+    data: ownedLabIds = [], 
+    isInitialLoading: ownedLabsLoading, 
+    isError: ownedLabsError,
+    error: ownedLabsErrorDetails 
+  } = useOwnedLabsQuery(address);
+
+  // 🚀 React Query for all labs (fallback for lab details)
   const { 
     data: labs = [], 
-    isInitialLoading: loading, 
+    isInitialLoading: allLabsLoading, 
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsQuery();
+
+  // Combine loading states
+  const loading = ownedLabsLoading || allLabsLoading;
 
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
@@ -53,9 +65,17 @@ export default function ProviderDashboard() {
   const claimLabBalanceMutation = useClaimLabBalanceMutation();
   
   // State declarations
-  const [ownedLabs, setOwnedLabs] = useState([]);
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Derive owned labs with full details from IDs and all labs data
+  const ownedLabs = useMemo(() => {
+    if (!ownedLabIds.length || !labs.length) return [];
+    
+    return ownedLabIds
+      .map(labId => labs.find(lab => lab.id === labId))
+      .filter(Boolean); // Remove undefined values
+  }, [ownedLabIds, labs]);
   
   // 🚀 React Query for lab bookings
   const { 
@@ -138,21 +158,6 @@ export default function ProviderDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
-
-  // Filter labs owned by the user (with memoization-like effect)
-  useEffect(() => {
-    if (address && labs && labs.length > 0) {
-      const userLabs = labs.filter((lab) => lab.providerAddress === String(address));
-      
-      // Only update if there's actually a change to prevent loops
-      setOwnedLabs(prevLabs => {
-        if (prevLabs.length !== userLabs.length) return userLabs;
-        
-        const hasChanged = userLabs.some((lab, index) => lab.id !== prevLabs[index]?.id);
-        return hasChanged ? userLabs : prevLabs;
-      });
-    }
-  }, [address, labs]);
 
   // Automatically set the first lab as the selected lab (only once)
   const hasOwnedLabs = ownedLabs.length > 0;

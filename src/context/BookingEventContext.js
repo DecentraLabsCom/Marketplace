@@ -41,13 +41,19 @@ export function BookingEventProvider({ children }) {
      * @param {string} [reason] - Reason for cache update
      */
     const updateBookingCaches = async (labId = null, userAddress = null, bookingData = null, action = null, reason = 'event') => {
-        devLog.log(`🎯 [BookingEventContext] Smart cache update (reason: ${reason}):`, { labId, userAddress, action });
+        devLog.log(`🎯 [BookingEventContext] Smart cache update (reason: ${reason}):`, { 
+            labId, 
+            userAddress, 
+            action, 
+            bookingDataId: bookingData?.id,
+            bookingStatus: bookingData?.status 
+        });
         
         // Try granular update first if we have booking data and action
         if (bookingData && action && (userAddress || labId)) {
             try {
                 bookingCacheUpdates.smartBookingInvalidation(userAddress, labId, bookingData, action);
-                devLog.log(`✅ [BookingEventContext] Granular cache update completed`);
+                devLog.log(`✅ [BookingEventContext] Granular cache update completed for ${reason}`);
                 return;
             } catch (error) {
                 devLog.warn('⚠️ Granular update failed, falling back to invalidation:', error);
@@ -63,7 +69,7 @@ export function BookingEventProvider({ children }) {
             devLog.log('🔄 [BookingEventContext] Using full cache invalidation');
         }
 
-        devLog.log(`✅ [BookingEventContext] Cache update completed`);
+        devLog.log(`✅ [BookingEventContext] Cache update completed for ${reason}`);
     };
 
     // ReservationConfirmed event listener
@@ -211,17 +217,69 @@ export function BookingEventProvider({ children }) {
                         continue;
                     }
 
-                    // Add to processing set ONLY if it's the current user's reservation
-                    if (address && renter.toString().toLowerCase() === address.toLowerCase()) {
-                        setProcessingBookings(prev => {
-                            const newSet = new Set(prev).add(reservationKey);
-                            devLog.log('➕ Adding reservation to processing (current user):', { 
-                                reservationKey, 
-                                total: newSet.size, 
-                                currentUser: address 
-                            });
-                            return newSet;
+                    // **CRITICAL**: Only process the reservation request if it's the current user's reservation
+                    if (!address || renter.toString().toLowerCase() !== address.toLowerCase()) {
+                        devLog.log('⏭️ Skipping API processing - not current user reservation:', {
+                            reservationKey,
+                            renter: renter.toString(),
+                            currentUser: address,
+                            isCurrentUser: false
                         });
+                        continue;
+                    }
+
+                    // Check if already processing this reservation
+                    if (processingBookings.has(reservationKey)) {
+                        devLog.log('⏭️ Skipping API processing - already in progress:', {
+                            reservationKey,
+                            processingCount: processingBookings.size
+                        });
+                        continue;
+                    }
+
+                    // Add to processing set for the current user's reservation
+                    setProcessingBookings(prev => {
+                        const newSet = new Set(prev).add(reservationKey);
+                        devLog.log('➕ Adding reservation to processing (current user):', { 
+                            reservationKey, 
+                            total: newSet.size, 
+                            currentUser: address 
+                        });
+                        return newSet;
+                    });
+
+                    // **IMMEDIATE CACHE UPDATE**: Add reservation as "pending" to both user and lab caches
+                    // This ensures it appears immediately in the calendar while being processed
+                    try {
+                        const pendingBooking = {
+                            id: reservationKey,
+                            reservationKey: reservationKey,
+                            labId: labId.toString(),
+                            renter: renter.toString(),
+                            start: start.toString(),
+                            end: end.toString(),
+                            status: 'pending',
+                            timestamp: new Date().toISOString(),
+                            isPending: true,
+                            isProcessing: true
+                        };
+
+                        await updateBookingCaches(
+                            labId?.toString(), 
+                            renter.toString(), 
+                            pendingBooking, 
+                            'add', 
+                            'reservation_requested_immediate'
+                        );
+
+                        devLog.log('📅 Immediate cache update - added pending reservation:', { 
+                            reservationKey, 
+                            labId: labId.toString(),
+                            status: 'pending'
+                        });
+
+                    } catch (immediateCacheError) {
+                        devLog.warn('⚠️ Immediate cache update failed, continuing with API processing:', immediateCacheError);
                     }
 
                     // **CRITICAL FIX**: Process the reservation request via API (missing in react-query branch)
@@ -274,20 +332,30 @@ export function BookingEventProvider({ children }) {
                             const reservationStatus = result.action === 'confirmed' ? 'confirmed' : 
                                                     result.action === 'denied' ? 'denied' : 'pending';
                             
-                            const cacheAction = result.cacheUpdate?.operation || 'add';
+                            // Use 'update' action since we already added the booking as pending
+                            const cacheAction = result.action === 'denied' ? 'remove' : 'update';
+                            
+                            const bookingUpdate = {
+                                id: reservationKey,
+                                reservationKey: reservationKey,
+                                labId: labId?.toString(), 
+                                renter: renter.toString(),
+                                start: start.toString(),
+                                end: end.toString(),
+                                status: reservationStatus,
+                                timestamp: result.timestamp || new Date().toISOString(),
+                                reason: result.reason || 'API processing completed',
+                                processedAt: new Date().toISOString(),
+                                isPending: false,
+                                isProcessing: false,
+                                isConfirmed: result.action === 'confirmed',
+                                isDenied: result.action === 'denied'
+                            };
                             
                             await updateBookingCaches(
                                 labId?.toString(), 
-                                renter, 
-                                { 
-                                    id: reservationKey, 
-                                    labId: labId?.toString(), 
-                                    renter,
-                                    status: reservationStatus,
-                                    timestamp: result.timestamp || new Date().toISOString(),
-                                    reason: result.reason || 'API processing completed',
-                                    processedAt: new Date().toISOString()
-                                }, 
+                                renter.toString(), 
+                                bookingUpdate, 
                                 cacheAction, 
                                 'api_processing_result'
                             );
@@ -322,6 +390,14 @@ export function BookingEventProvider({ children }) {
                         } catch (cacheError) {
                             devLog.warn('Granular cache update failed for processed reservation:', cacheError);
                         }
+
+                        // Remove from processing set on success
+                        setProcessingBookings(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(reservationKey);
+                            devLog.log('✅ Removing reservation key (success):', { reservationKey, result: result.action });
+                            return newSet;
+                        });
 
                     } catch (error) {
                         devLog.error('Error processing reservation request:', error);

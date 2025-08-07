@@ -1,12 +1,26 @@
 import devLog from '@/utils/dev/logger';
 import { getContractInstance } from '../../utils/contractInstance'; 
-import { retryBlockchainRead } from '@/app/api/contract/utils/retry';
+import { retryBlockchainRead, executeBlockchainTransaction } from '@/app/api/contract/utils/retry';
 import fs from 'fs/promises';
 import path from 'path';
 import getIsVercel from '@/utils/isVercel';
 
 export async function POST(request) {
-  const body = await request.json();
+  let body;
+  try {
+    // Check if request has a body and can be parsed as JSON
+    const text = await request.text();
+    if (!text || text.trim() === '') {
+      return Response.json({ error: 'Empty request body' }, { status: 400 });
+    }
+    body = JSON.parse(text);
+  } catch (error) {
+    return Response.json({ 
+      error: 'Invalid JSON in request body',
+      details: error.message 
+    }, { status: 400 });
+  }
+
   const { reservationKey, labId, start, end, metadataUri } = body;  
 
   // Only collect debug messages in development
@@ -312,7 +326,7 @@ export async function POST(request) {
 
 async function confirmReservation(contract, reservationKey) {       
   try {
-    const tx = await retryBlockchainRead(() => contract.confirmReservationRequest(reservationKey));
+    const tx = await executeBlockchainTransaction(() => contract.confirmReservationRequest(reservationKey));
     await tx.wait();
     return tx.hash;
   } catch (error) {
@@ -325,7 +339,7 @@ async function denyReservation(contract, reservationKey, reason) {
   try {
     devLog.log(`Denying reservation ${reservationKey}: ${reason}`); 
     // The contract function only accepts reservationKey, not reason
-    const tx = await retryBlockchainRead(() => contract.denyReservationRequest(reservationKey));
+    const tx = await executeBlockchainTransaction(() => contract.denyReservationRequest(reservationKey));
     await tx.wait();
     return tx.hash;
   } catch (error) {

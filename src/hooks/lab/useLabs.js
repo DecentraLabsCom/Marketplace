@@ -3,7 +3,6 @@
  * Uses simple hooks with composed services and cache-extracting hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMemo } from 'react'
 import { useWalletClient } from 'wagmi'
 import { labServices } from '@/services/lab/labServices'
 import { useUser } from '@/context/UserContext'
@@ -13,6 +12,30 @@ import { createSSRSafeQuery } from '@/utils/ssrSafe'
 import devLog from '@/utils/dev/logger'
 
 // === SIMPLE HOOKS WITH COMPOSED SERVICES ===
+
+/**
+ * Hook to get owned labs for a wallet using composed service
+ * This hook efficiently fetches only the labs owned by the specified wallet
+ * @param {string} wallet - Wallet address to get owned labs for
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with owned lab IDs
+ */
+export const useOwnedLabsQuery = (wallet, options = {}) => {
+  return useQuery({
+    queryKey: ['labs', 'owned', wallet],
+    queryFn: createSSRSafeQuery(
+      () => labServices.fetchOwnedLabsComposed(wallet),
+      [] // Return empty array during SSR
+    ),
+    enabled: !!wallet, // Only run if wallet is provided
+    staleTime: 30 * 60 * 1000, // 30 minutes (owned labs don't change frequently)
+    gcTime: 60 * 60 * 1000, // 60 minutes
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    retry: 2,
+    ...options,
+  });
+};
 
 /**
  * Hook to get all labs with complete details using composed service

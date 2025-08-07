@@ -62,6 +62,9 @@ export async function retryBlockchainRead(fn, options = {}) {
     'nonce too low', 'replacement transaction underpriced', // Nonce issues
     'server is overloaded', 'too many requests', // Rate limiting
     'execution reverted', // Temporary contract state issues
+    'missing revert data', // Contract call issues (often temporary)
+    'call exception', // Generic call failures that might be retryable
+    'CALL_EXCEPTION', // Ethers specific call exception
   ];
   
   return retry(fn, {

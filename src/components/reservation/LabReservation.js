@@ -31,11 +31,7 @@ export default function LabReservation({ id }) {
     data: labs = [], 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery({
-    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-    refetchOnWindowFocus: false, // No automatic refetch
-    refetchInterval: false, // Disable automatic periodic refetch
-  });
+  } = useAllLabsQuery();
   const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected, address } = useAccount();
@@ -58,7 +54,9 @@ export default function LabReservation({ id }) {
   
   // 🚀 React Query for lab bookings
   const {
-    data: labBookingsData
+    data: labBookingsData,
+    isLoading: labBookingsLoading,
+    error: labBookingsError
   } = useLabBookingsQuery(selectedLab?.id, true, {
     enabled: !!selectedLab?.id
   });
@@ -67,17 +65,6 @@ export default function LabReservation({ id }) {
     [labBookingsData?.bookings]
   );
 
-  // Debug: Log selectedLab changes
-  useEffect(() => {
-    devLog.log('🔍 LabReservation: selectedLab effect triggered:', {
-      selectedLab: selectedLab,
-      selectedLabId: selectedLab?.id,
-      selectedLabName: selectedLab?.name,
-      labs: labs?.length,
-      labsAvailable: labs?.map(l => ({ id: l.id, name: l.name }))
-    });
-  }, [selectedLab, labs]);
-  
   // Lab token hook for payment handling
   const { 
     calculateReservationCost, 
@@ -148,27 +135,11 @@ export default function LabReservation({ id }) {
   };
 
   // Select the lab by id
-  useEffect(() => {
-    devLog.log('🔍 LabReservation: Lab selection effect triggered:', {
-      labsLength: labs.length,
-      id: labId,
-      labsAvailable: labs.map(l => ({ id: l.id, name: l.name }))
-    });
-    
+  useEffect(() => {    
     if (labs.length && labId) {
       const currentLab = labs.find((lab) => lab.id == labId);
-      devLog.log('🔍 LabReservation: Found lab for id:', {
-        searchId: labId,
-        foundLab: currentLab ? { id: currentLab.id, name: currentLab.name } : null
-      });
       setSelectedLab(currentLab);
     } else {
-      devLog.log('❌ LabReservation: Cannot select lab:', {
-        hasLabs: labs.length > 0,
-        hasId: !!labId,
-        labsLength: labs.length,
-        id: labId
-      });
       // If no lab ID is provided, don't auto-select any lab
       if (!labId) {
         setSelectedLab(null);
@@ -223,59 +194,6 @@ export default function LabReservation({ id }) {
       setSelectedAvailableTime(firstAvailable ? firstAvailable.value : '');
     }
   }, [forceRefresh, selectedLab, date, time, labBookings, selectedAvailableTime]);
-
-  // Debug: Log when labBookings change to verify calendar updates
-  useEffect(() => {
-    devLog.log('🔍 LabReservation: labBookings effect triggered:', {
-      selectedLab: selectedLab,
-      labBookings: labBookings,
-      labBookingsLength: labBookings?.length || 0,
-    });
-    
-    if (selectedLab && labBookings) {
-      devLog.log('✅ LabReservation: Lab bookings updated', {
-        labId: selectedLab.id,
-        labName: selectedLab.name,
-        bookingsCount: labBookings.length,
-        bookings: labBookings.map(b => ({
-          reservationKey: b.reservationKey,
-          start: b.start,
-          end: b.end,
-          status: b.status,
-          date: b.date,
-          labId: b.labId,
-          renter: b.renter
-        }))
-      });
-      
-      // Additional debug: Check which bookings are future
-      const now = new Date();
-      const futureBookings = labBookings.filter(booking => {
-        if (!booking.start) return false;
-        const startDate = safeParseDate(booking.start);
-        return startDate > now;
-      });
-      
-      devLog.log('📅 LabReservation: Future bookings analysis', {
-        labId: selectedLab.id,
-        labName: selectedLab.name,
-        totalBookings: labBookings.length,
-        futureBookings: futureBookings.length,
-        futureBookingsDetails: futureBookings.map(b => ({
-          reservationKey: b.reservationKey,
-          startDate: safeParseDate(b.start).toISOString(),
-          status: b.status,
-          renter: b.renter
-        }))
-      });
-    } else {
-      devLog.log('❌ LabReservation: Missing selectedLab or labBookings', {
-        hasSelectedLab: !!selectedLab,
-        hasLabBookings: !!labBookings,
-        selectedLabId: selectedLab?.id
-      });
-    }
-  }, [selectedLab, labBookings]);
 
   // To avoid hydration warning in SSR
   useEffect(() => {

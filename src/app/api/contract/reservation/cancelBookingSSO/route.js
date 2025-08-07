@@ -7,7 +7,7 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
+import { executeBlockchainTransaction, retryBlockchainRead } from '@/app/api/contract/utils/retry'
 
 /**
  * Cancels an existing booking reservation using server wallet (for SSO users)
@@ -63,7 +63,7 @@ export async function POST(request) {
     if (validateOnly) {
       try {
         console.log(`[API] cancelBookingSSO: Validating reservation exists: ${reservationKeyStr}`);
-        const exists = await contract.getReservation(reservationKeyStr);
+        const exists = await retryBlockchainRead(() => contract.getReservation(reservationKeyStr));
         
         return Response.json({
           valid: !!exists,

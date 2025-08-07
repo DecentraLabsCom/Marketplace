@@ -50,6 +50,8 @@ export const useUserBookingsQuery = (userAddress, options = {}) => {
  * @returns {Object} React Query result with lab bookings composed data
  */
 export const useLabBookingsQuery = (labId, includeMetrics = true, options = {}) => {
+  const queryClient = useQueryClient();
+  
   return useQuery({
     queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId, includeMetrics),
     queryFn: createSSRSafeQuery(
@@ -63,6 +65,33 @@ export const useLabBookingsQuery = (labId, includeMetrics = true, options = {}) 
     refetchInterval: false,
     retry: 2,
     ...options,
+    onError: (error) => {
+      devLog.warn(`⚠️ Lab bookings query failed for lab ${labId}, creating empty cache:`, error.message);
+      
+      // Create empty cache as fallback when query fails
+      const emptyBookingCache = {
+        labId: labId?.toString(),
+        bookings: [],
+        totalBookings: 0,
+        metrics: {
+          activeBookings: 0,
+          completedBookings: 0,
+          weeklyBookings: 0,
+          monthlyBookings: 0,
+          totalBookedHours: 0,
+          averageBookingDuration: 0
+        },
+        errorInfo: {
+          hasErrors: true,
+          message: `Fallback cache created - ${error.message}`,
+          canAcceptNewBookings: true
+        }
+      };
+      
+      // Set empty cache to prevent future granular update errors
+      queryClient.setQueryData(QUERY_KEYS.BOOKINGS.labComposed(labId, includeMetrics), emptyBookingCache);
+      devLog.log(`📦 Created fallback empty cache for lab ${labId} after query error`);
+    }
   });
 };
 
@@ -438,18 +467,42 @@ export const useBookingCacheUpdates = () => {
    * @param {Object} newBooking - New booking to add
    */
   const addBookingToLabCache = (labId, newBooking) => {
-    if (!labId || !newBooking) return;
+    if (!labId || !newBooking) {
+      devLog.warn('🚫 addBookingToLabCache called with missing data:', { labId, newBooking });
+      return;
+    }
 
     const labBookingsKey = QUERY_KEYS.BOOKINGS.labComposed(labId, true);
     const currentData = queryClient.getQueryData(labBookingsKey);
     
     if (currentData) {
-      queryClient.setQueryData(labBookingsKey, {
+      const updatedData = {
         ...currentData,
         bookings: [...(currentData.bookings || []), newBooking],
         totalBookings: (currentData.totalBookings || 0) + 1
+      };
+      
+      queryClient.setQueryData(labBookingsKey, updatedData);
+      
+      devLog.log('🎯 Added booking to lab cache:', { 
+        labId, 
+        bookingId: newBooking.id,
+        newBookingsCount: updatedData.bookings.length
       });
-      devLog.log('🎯 Added booking to lab cache:', { labId, bookingId: newBooking.id });
+    } else {
+      // If no cache exists, create it with the new booking
+      const newCacheData = {
+        bookings: [newBooking],
+        totalBookings: 1,
+        metrics: null // Will be populated when the full query runs
+      };
+      
+      queryClient.setQueryData(labBookingsKey, newCacheData);
+      
+      devLog.log('🎯 Created lab cache with new booking:', { 
+        labId, 
+        bookingId: newBooking.id
+      });
     }
   };
 
@@ -472,6 +525,75 @@ export const useBookingCacheUpdates = () => {
         totalBookings: Math.max(0, (currentData.totalBookings || 0) - 1)
       });
       devLog.log('🎯 Removed booking from lab cache:', { labId, bookingId });
+    }
+  };
+
+  /**
+   * Update a specific booking in lab cache
+   * @param {string|number} labId - Lab ID
+   * @param {string} bookingId - Booking ID to update
+   * @param {Object} updates - Partial booking updates
+   */
+  const updateBookingInLabCache = (labId, bookingId, updates) => {
+    if (!labId || !bookingId || !updates) {
+      devLog.warn('🚫 updateBookingInLabCache called with missing data:', { labId, bookingId, updates });
+      return;
+    }
+
+    const labBookingsKey = QUERY_KEYS.BOOKINGS.labComposed(labId, true);
+    const currentData = queryClient.getQueryData(labBookingsKey);
+    
+    devLog.log('🔍 updateBookingInLabCache - Current cache state:', { 
+      labId, 
+      bookingId,
+      labBookingsKey, 
+      hasCurrentData: !!currentData,
+      currentBookingsCount: currentData?.bookings?.length || 0,
+      updates 
+    });
+    
+    if (currentData) {
+      const updatedBookings = (currentData.bookings || []).map(booking => 
+        booking.id === bookingId || booking.reservationKey === bookingId ? { ...booking, ...updates } : booking
+      );
+      
+      const updatedData = {
+        ...currentData,
+        bookings: updatedBookings
+      };
+      
+      queryClient.setQueryData(labBookingsKey, updatedData);
+      
+      devLog.log('🎯 Updated booking in lab cache:', { 
+        labId, 
+        bookingId, 
+        updates,
+        updatedBookingsCount: updatedData.bookings.length,
+        labBookingsKey 
+      });
+    } else {
+      // If no cache exists and we're updating, create it with the updated booking
+      const newBooking = {
+        id: bookingId,
+        reservationKey: bookingId,
+        labId: labId.toString(),
+        ...updates
+      };
+      
+      const newCacheData = {
+        bookings: [newBooking],
+        totalBookings: 1,
+        metrics: null
+      };
+      
+      queryClient.setQueryData(labBookingsKey, newCacheData);
+      
+      devLog.log('🎯 Created lab cache with updated booking:', { 
+        labId, 
+        bookingId, 
+        updates,
+        labBookingsKey 
+      });
     }
   };
 
@@ -559,6 +681,7 @@ export const useBookingCacheUpdates = () => {
             return; // Success, no need for invalidation
           case 'update':
             if (userAddress) updateBookingInUserCache(userAddress, bookingData.id, bookingData);
+            if (labId) updateBookingInLabCache(labId, bookingData.id, bookingData);
             return; // Success, no need for invalidation
         }
       } catch (error) {
@@ -595,6 +718,7 @@ export const useBookingCacheUpdates = () => {
     updateBookingInUserCache,
     addBookingToLabCache,
     removeBookingFromLabCache,
+    updateBookingInLabCache,
     smartBookingInvalidation
   };
 };

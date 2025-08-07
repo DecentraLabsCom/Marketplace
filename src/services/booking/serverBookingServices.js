@@ -65,7 +65,8 @@ export const fetchReservationKeyByIndex = async (userAddress, index) => {
 };
 
 /**
- * Get all user reservation keys (composed atomic calls)
+ * Fetch user reservation keys (composed service)
+ * Uses atomic endpoints with parallel execution for React Query compatibility
  * @param {string} userAddress - User wallet address
  * @returns {Promise<Array<string>>} Array of reservation keys
  */
@@ -74,25 +75,42 @@ export const fetchUserReservationKeys = async (userAddress) => {
     throw new Error('User address is required for fetching reservation keys');
   }
 
-  const params = new URLSearchParams({ userAddress });
+  devLog.log(`🔧 [SERVICE] 🔑 Fetching reservation keys for user ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
 
-  const response = await fetch(`/api/contract/reservation/getUserBookings?${params}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
+  // Step 1: Get total reservation count (atomic API call)
+  const totalReservations = await fetchReservationCount(userAddress);
+  devLog.log(`📊 User has ${totalReservations} total reservations`);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  if (totalReservations === 0) {
+    return [];
   }
 
-  const data = await response.json();
-  return data.reservationKeys || [];
+  // Step 2: Get each reservation key using atomic API calls (parallel execution)
+  const keyPromises = Array.from({ length: totalReservations }, (_, index) => {
+    return fetchReservationKeyByIndex(userAddress, index).catch(error => {
+      devLog.warn(`⚠️ Failed to get reservation key at index ${index}:`, error.message);
+      return null; // Return null for failed requests
+    });
+  });
+
+  // Execute all requests in parallel
+  const reservationKeys = await Promise.all(keyPromises);
+  
+  // Filter out null values (failed keys)
+  const validKeys = reservationKeys.filter(key => key !== null);
+  const failedCount = totalReservations - validKeys.length;
+  
+  if (failedCount > 0) {
+    devLog.warn(`⚠️ Failed to fetch ${failedCount} out of ${totalReservations} reservation keys`);
+  }
+  
+  devLog.log(`🔑 Successfully fetched ${validKeys.length}/${totalReservations} reservation keys`);
+  return validKeys;
 };
 
 /**
- * Fetch user bookings from API (atomic service)
- * Uses efficient reservationsOf + reservationKeyOfUserByIndex pattern
+ * Fetch user bookings from API (composed service)
+ * Orchestrates atomic calls: gets reservation keys then fetches details for each
  * @param {string} userAddress - User wallet address
  * @param {boolean} clearCache - Whether to bypass cache
  * @returns {Promise<Array>} Array of user bookings
@@ -102,14 +120,14 @@ export const fetchUserBookings = async (userAddress, clearCache = false) => {
     throw new Error('User address is required for fetching bookings');
   }
 
-  // Get reservation keys first
+  // Get reservation keys first (uses atomic endpoints with parallel execution)
   const reservationKeys = await fetchUserReservationKeys(userAddress);
   
   if (reservationKeys.length === 0) {
     return [];
   }
 
-  // Get details for each reservation key
+  // Get details for each reservation key (parallel execution)
   const bookingPromises = reservationKeys.map(async (key, index) => {
     try {
       const reservationResponse = await fetchReservationDetails(key);
@@ -197,23 +215,18 @@ export const fetchUserBookings = async (userAddress, clearCache = false) => {
 };
 
 /**
- * Fetch lab bookings from API (atomic service) 
- * Uses efficient getReservationsOfToken + getReservationOfTokenByIndex pattern
+ * Get reservation count for lab (atomic service)
  * @param {string|number} labId - Lab ID
- * @param {boolean} clearCache - Whether to bypass cache
- * @returns {Promise<Array>} Array of lab bookings
+ * @returns {Promise<number>} Number of reservations
  */
-export const fetchLabBookings = async (labId, clearCache = false) => {
-  if (!labId) {
-    throw new Error('Lab ID is required for fetching bookings');
+export const fetchLabReservationCount = async (labId) => {
+  if (!labId && labId !== 0) {
+    throw new Error('Lab ID is required for fetching lab reservation count');
   }
 
-  const params = new URLSearchParams({ 
-    labId: labId.toString(),
-    ...(clearCache && { t: Date.now().toString() })
-  });
+  const params = new URLSearchParams({ labId: labId.toString() });
 
-  const response = await fetch(`/api/contract/reservation/getLabBookings?${params}`, {
+  const response = await fetch(`/api/contract/reservation/labReservationCount?${params}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
@@ -224,7 +237,117 @@ export const fetchLabBookings = async (labId, clearCache = false) => {
   }
 
   const data = await response.json();
-  return data.bookings || data || [];
+  return data.count || 0;
+};
+
+/**
+ * Get lab reservation key by index (atomic service)
+ * @param {string|number} labId - Lab ID
+ * @param {number} index - Index of the reservation
+ * @returns {Promise<string>} Reservation key
+ */
+export const fetchLabReservationByIndex = async (labId, index) => {
+  if (!labId && labId !== 0) {
+    throw new Error('Lab ID is required');
+  }
+
+  const params = new URLSearchParams({ 
+    labId: labId.toString(), 
+    index: index.toString() 
+  });
+
+  const response = await fetch(`/api/contract/reservation/labReservationByIndex?${params}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.reservationKey; // Return only the reservation key (atomic)
+};
+
+/**
+ * Fetch lab bookings from API (composed service) 
+ * Orchestrates atomic calls: gets reservation count then fetches each reservation
+ * @param {string|number} labId - Lab ID
+ * @param {boolean} clearCache - Whether to bypass cache
+ * @returns {Promise<Array>} Array of lab bookings
+ */
+export const fetchLabBookings = async (labId, clearCache = false) => {
+  if (!labId && labId !== 0) {
+    throw new Error('Lab ID is required for fetching lab bookings');
+  }
+
+  try {
+    devLog.info(`📊 ServerBookingServices - Fetching lab bookings for lab ${labId}`);
+
+    // Step 1: Get reservation count for this lab (atomic call)
+    const reservationCount = await fetchLabReservationCount(labId);
+
+    if (reservationCount === 0) {
+      devLog.info(`📊 Lab ${labId} has no reservations`);
+      return [];
+    }
+
+    devLog.info(`📊 Lab ${labId} has ${reservationCount} reservations, fetching in parallel`);
+
+    // Step 2: Fetch all reservation keys in parallel (atomic calls)
+    const reservationKeyPromises = Array.from({ length: reservationCount }, (_, index) =>
+      fetchLabReservationByIndex(labId, index) // Returns reservation key only
+        .catch(error => {
+          devLog.error(`Failed to fetch lab reservation key ${index} for lab ${labId}:`, error);
+          return null; // Return null for failed requests to maintain array integrity
+        })
+    );
+
+    const reservationKeys = await Promise.all(reservationKeyPromises);
+    const validReservationKeys = reservationKeys.filter(key => key !== null);
+
+    if (validReservationKeys.length === 0) {
+      devLog.warn(`No valid reservation keys found for lab ${labId}`);
+      return [];
+    }
+
+    devLog.info(`📊 Got ${validReservationKeys.length} reservation keys for lab ${labId}, fetching details`);
+
+    // Step 3: Fetch full details for each reservation key in parallel (atomic calls)
+    const reservationDetailPromises = validReservationKeys.map(async (reservationKey, index) => {
+      try {
+        const reservationResponse = await fetchReservationDetails(reservationKey);
+        
+        if (!reservationResponse || !reservationResponse.reservation) {
+          devLog.warn(`⚠️ No reservation data returned for key: ${reservationKey}`);
+          return null;
+        }
+        
+        return {
+          ...reservationResponse.reservation,
+          labId: labId.toString(),
+          reservationKey
+        };
+      } catch (error) {
+        devLog.error(`Failed to fetch reservation details for key ${reservationKey}:`, error);
+        return null;
+      }
+    });
+
+    const reservations = await Promise.all(reservationDetailPromises);
+
+    // Filter out failed requests
+    const validReservations = reservations.filter(reservation => reservation !== null);
+
+    devLog.info(`📊 Successfully fetched ${validReservations.length}/${reservationCount} lab reservations for lab ${labId}`);
+    
+    return validReservations;
+
+  } catch (error) {
+    devLog.error('🔥 Error in fetchLabBookings:', error);
+    throw error;
+  }
 };
 
 /**
@@ -239,7 +362,7 @@ export const fetchReservationDetails = async (reservationKey) => {
 
   const params = new URLSearchParams({ reservationKey });
 
-  const response = await fetch(`/api/contract/reservation/getReservation?${params}`, {
+  const response = await fetch(`/api/contract/reservation/reservation?${params}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
@@ -442,7 +565,7 @@ export const cancelReservation = async (reservationKey, bookingStatus) => {
     devLog.log('🔄 [SERVICE] No status provided, fetching from API...');
     
     // First, get the reservation status to determine which cancellation method to use
-    const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+    const response = await fetch(`/api/contract/reservation/reservation?reservationKey=${reservationKey}`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -1014,6 +1137,9 @@ export const claimLabBalance = async (labId) => {
 // Export all services
 export const serverBookingServices = {
   // Atomic services
+  fetchReservationCount,
+  fetchReservationKeyByIndex,
+  fetchUserReservationKeys,
   fetchUserBookings,
   fetchLabBookings,
   fetchReservationDetails,
