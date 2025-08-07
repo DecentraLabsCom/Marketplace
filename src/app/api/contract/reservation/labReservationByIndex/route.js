@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getContractInstance } from '@/contracts/diamond'
-import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
+import { getContractInstance } from '../../utils/contractInstance'
+import { retryBlockchainRead } from '../../utils/retry'
 import { devLog } from '@/utils/dev/logger'
 
 /**
@@ -9,10 +9,12 @@ import { devLog } from '@/utils/dev/logger'
  * Returns only the reservation key - use getReservation endpoint for full details
  */
 export async function GET(request) {
+  let labId, index;
+  
   try {
     const { searchParams } = new URL(request.url)
-    const labId = searchParams.get('labId')
-    const index = searchParams.get('index')
+    labId = searchParams.get('labId')
+    index = searchParams.get('index')
 
     // Validation
     if (!labId) {
@@ -60,7 +62,7 @@ export async function GET(request) {
     devLog.log(`🔧 [API] 🔑 Getting reservation key for lab ${labId} at index ${indexNum}`)
 
     // Get contract instance
-    const contract = getContractInstance()
+    const contract = await getContractInstance()
     
     // ATOMIC: Single contract call to get reservation key by index
     const reservationKey = await retryBlockchainRead(
@@ -79,7 +81,7 @@ export async function GET(request) {
     })
 
   } catch (error) {
-    devLog.error(`❌ [API] Error getting reservation key for lab ${labId} at index ${index}:`, error)
+    devLog.error(`❌ [API] Error getting reservation key for lab ${labId || 'unknown'} at index ${index || 'unknown'}:`, error)
     
     return NextResponse.json(
       { 

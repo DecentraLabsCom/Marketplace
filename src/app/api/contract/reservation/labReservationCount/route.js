@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getContractInstance } from '@/contracts/diamond'
-import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
+import { getContractInstance } from '../../utils/contractInstance'
+import { retryBlockchainRead } from '../../utils/retry'
 import { devLog } from '@/utils/dev/logger'
 
 /**
@@ -37,7 +37,7 @@ export async function GET(request) {
     devLog.log(`🔧 [API] 📊 Getting reservation count for lab: ${labId}`)
 
     // Get contract instance
-    const contract = getContractInstance()
+    const contract = await getContractInstance()
     
     // Get reservation count with retry logic
     const count = await retryBlockchainRead(
