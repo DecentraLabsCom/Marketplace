@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
@@ -15,19 +15,48 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);
 
+  // Memoize the images processing to prevent re-calculation on every render
+  const images = useMemo(() => {
+    if (!Array.isArray(lab?.images)) return [];
+    return lab.images.filter(image => !!image);
+  }, [lab?.images]);
+
+  const hasImages = images.length > 0;
+
+  // If no images, show placeholder
+  if (!hasImages) {
+    return (
+      <div className="relative w-full overflow-hidden flex items-center justify-center bg-gray-200" 
+        style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
+        <p className="text-gray-500">No images available</p>
+      </div>
+    );
+  }
+
   // Make image automatically slide in time to the next one
   useEffect(() => {
+    if (images.length <= 1) return; // No need for auto-slide if only one image
+    
     intervalRef.current = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.images.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
     }, 3000);
     return () => clearInterval(intervalRef.current);
-  }, [lab?.images?.length]);
+  }, [images.length]); // Now images.length is stable thanks to useMemo
+
+  // Reset currentIndex when images change to prevent out-of-bounds index
+  useEffect(() => {
+    if (currentIndex >= images.length) {
+      setCurrentIndex(0);
+    }
+  }, [images.length, currentIndex]);
 
   // Reset interval when using the handles to move between images
   const resetInterval = () => {
+    if (images.length <= 1) return; // No need for interval if only one image
+    
     clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.images.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
     }, 3000);
   };
 
@@ -37,20 +66,19 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + lab.images.length) % lab.images.length);
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
     resetInterval();
   };
 
   const handleNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % lab.images.length);
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
     resetInterval();
   };
 
   return (
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
-        {lab?.images.filter((image) => !!image).map((image, index) => {
-
+        {images.map((image, index) => {
           return (
             <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                       index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
@@ -61,11 +89,11 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
           );
         })}
 
-      {lab?.images.length > 1 && (
+      {images.length > 1 && (
       <>
         {/* Slide handles */}
         <div className="absolute inset-x-0 bottom-0 z-20 mx-[15%] mb-4 flex list-none justify-center p-0 pointer-events-auto">
-        {lab.images.map((_, index) => (
+        {images.map((_, index) => (
           <button key={index} type="button" data-twe-slide-to={index}
             className={`mx-[3px] box-content h-[3px] w-[30px] flex-initial cursor-pointer border-0 border-y-[10px] 
             border-solid border-transparent bg-white hover:bg-blue-500 bg-clip-padding p-0 indent-[999px] opacity-50 

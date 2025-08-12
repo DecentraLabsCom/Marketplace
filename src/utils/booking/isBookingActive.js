@@ -17,8 +17,8 @@ export default function isBookingActive(bookingInfo) {
       if (!b.start || !b.end) return false;
       
       // Only confirmed bookings can be active (not pending, cancelled, etc.)
-      devLog.log("Booking status:", b.status);
-      if (b.status !== "1") {
+      // Support both string and number status formats
+      if (b.status !== "1" && b.status !== 1) {
         return false;
       }
       

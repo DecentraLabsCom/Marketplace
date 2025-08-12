@@ -35,15 +35,10 @@ export function useReservationEventCoordinator() {
       // Execute the update function (API call, transaction, etc.)
       const result = await updateFunction();
 
-      // Invalidate all relevant React Query caches
-      devLog.log('♻️ [ReservationEventCoordinator] Invalidating caches...');
+      // Targeted invalidations only (avoid broad list resets)
+      devLog.log('♻️ [ReservationEventCoordinator] Targeted cache invalidations...');
       
-      // Invalidate all user bookings (broad invalidation for events)
-      await queryClient.invalidateQueries({ 
-        queryKey: bookingQueryKeys.all()
-      });
-
-      // If labId specified, invalidate lab-specific bookings
+      // If labId specified, invalidate lab-specific bookings only
       if (labId) {
         await queryClient.invalidateQueries({ 
           predicate: (query) => 
@@ -52,12 +47,7 @@ export function useReservationEventCoordinator() {
             query.queryKey[2] === labId.toString()
         });
       } else {
-        // Invalidate all lab bookings to ensure cross-user propagation
-        await queryClient.invalidateQueries({ 
-          predicate: (query) => 
-            query.queryKey[0] === 'bookings' && 
-            query.queryKey[1] === 'lab-composed'
-        });
+        // No global invalidation by default; events will update granularly
       }
 
       devLog.log('✅ [ReservationEventCoordinator] Cache invalidation completed');

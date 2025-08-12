@@ -29,6 +29,18 @@ function reducer(state, action) {
       return { ...state, [action.field]: action.value };
     case 'MERGE_LOCAL_LAB':
       return { ...state, localLab: { ...state.localLab, ...action.value } };
+    case 'BATCH_UPDATE':
+      // Handle multiple updates in a single render cycle
+      return action.updates.reduce((currentState, update) => {
+        switch (update.type) {
+          case 'SET_FIELD':
+            return { ...currentState, [update.field]: update.value };
+          case 'MERGE_LOCAL_LAB':
+            return { ...currentState, localLab: { ...currentState.localLab, ...update.value } };
+          default:
+            return currentState;
+        }
+      }, state);
     case 'RESET':
       return initialState(action.lab);
     default:
@@ -84,6 +96,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const uploadedTempFiles = useRef([]);
   const imageUploadRef = useRef(null);
   const docUploadRef = useRef(null);
+  const lastInitializedLabId = useRef(null);
 
   const currentLabId = lab.id || maxId + 1;
   const jsonFileRegex = useMemo(() => new RegExp(/^[\w\-._/]+\.json$/i), []);
@@ -103,9 +116,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   };
 
   const handleClose = useCallback(() => {
-    dispatch({ type: 'RESET', lab });
+    dispatch({ type: 'RESET', lab: {} }); // Use empty object to avoid lab dependency
     onClose();
-  }, [lab, onClose]);
+  }, [onClose]); // Keep minimal dependencies
 
   const deleteFile = useCallback(async (filePath) => {
     await deleteFileMutation.mutateAsync({
@@ -128,33 +141,43 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
           uploadedTempFiles.current = [];
         });
 
-      dispatch({ type: 'SET_FIELD', field: 'localImages', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: false });
-      dispatch({ type: 'SET_FIELD', field: 'isLocalURI', value: false });
-      dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
-      dispatch({ type: 'SET_FIELD', field: 'errors', value: {} });
+      // Batch all cleanup updates in a single dispatch
+      const cleanupUpdates = [
+        { type: 'SET_FIELD', field: 'localImages', value: [] },
+        { type: 'SET_FIELD', field: 'localDocs', value: [] },
+        { type: 'SET_FIELD', field: 'imageUrls', value: [] },
+        { type: 'SET_FIELD', field: 'docUrls', value: [] },
+        { type: 'SET_FIELD', field: 'isExternalURI', value: false },
+        { type: 'SET_FIELD', field: 'isLocalURI', value: false },
+        { type: 'SET_FIELD', field: 'clickedToEditUri', value: false },
+        { type: 'SET_FIELD', field: 'errors', value: {} }
+      ];
+      dispatch({ type: 'BATCH_UPDATE', updates: cleanupUpdates });
       return;
     }
 
     uploadedTempFiles.current = [];
 
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') handleClose();
+      if (e.key === 'Escape') {
+        dispatch({ type: 'RESET', lab: {} });
+        onClose();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, handleClose, deleteFile]);
+  }, [isOpen, onClose]); // Use onClose directly instead of handleClose
 
   // Load existing images and docs for preview when the modal opens
   useEffect(() => {
-    // Only run when modal is open
-    if (!isOpen) return;
+    // Only run when modal is open and lab changes
+    if (!isOpen) {
+      lastInitializedLabId.current = null;
+      return;
+    }
     
     // Only run if we have a valid lab object
     if (!lab || typeof lab !== 'object') {
@@ -162,8 +185,17 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       return;
     }
 
-    devLog.log('LabModal: Initializing with lab:', { labId: lab.id, labName: lab.name });
+    // Skip if we already initialized this lab
+    if (lastInitializedLabId.current === lab.id) {
+      return;
+    }
 
+    devLog.log('LabModal: Initializing with lab:', { labId: lab.id, labName: lab.name });
+    lastInitializedLabId.current = lab.id;
+
+    // Batch all state updates to prevent multiple re-renders
+    const updates = [];
+    
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
     
@@ -179,16 +211,16 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       }
     }
     
-    dispatch({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
+    updates.push({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
     
     // Handle URI flags
     const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
-    dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
+    updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
     
     const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
-    dispatch({ type: 'SET_FIELD', field: 'isLocalURI', value: hasLocalUri });
+    updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: hasLocalUri });
     
-    dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
+    updates.push({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
 
     // Handle images
     if (lab?.images?.length > 0) {
@@ -198,22 +230,25 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
         }
         return imageUrl;
       });
-      dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: initialImageUrls });
-      dispatch({ type: 'SET_FIELD', field: 'imageInputType', value: 'upload' });
+      updates.push({ type: 'SET_FIELD', field: 'imageUrls', value: initialImageUrls });
+      updates.push({ type: 'SET_FIELD', field: 'imageInputType', value: 'upload' });
     } else {
-      dispatch({ type: 'SET_FIELD', field: 'imageInputType', value: 'link' });
-      dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'imageInputType', value: 'link' });
+      updates.push({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
     }
 
     // Handle docs
     if (lab?.docs?.length > 0) {
-      dispatch({ type: 'SET_FIELD', field: 'docUrls', value: lab.docs });
-      dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'upload' });
+      updates.push({ type: 'SET_FIELD', field: 'docUrls', value: lab.docs });
+      updates.push({ type: 'SET_FIELD', field: 'docInputType', value: 'upload' });
     } else {
-      dispatch({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
-      dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
+      updates.push({ type: 'SET_FIELD', field: 'docUrls', value: [] });
     }
-  }, [isOpen, lab?.id, lab?.name, lab?.price, lab?.uri, lab?.images?.length, lab?.docs?.length, jsonFileRegex, decimals, formatPrice]);
+
+    // Execute all updates in a single batch to prevent multiple re-renders
+    dispatch({ type: 'BATCH_UPDATE', updates });
+  }, [isOpen, lab?.id, decimals, formatPrice, jsonFileRegex]); // Include all dependencies
 
   const handleImageChange = useCallback((e) => {
         if (e.target.files) {
@@ -409,41 +444,43 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     const newIsLocal = !!(newUri && !newIsExternal && jsonFileRegex.test(newUri));
 
     let newErrors = { ...errors };
+    const updates = [];
 
     // --- Case 1: Was a local URI, attempting to change its path/name ---
     if ((isLocalURI || (originalLabUri && jsonFileRegex.test(originalLabUri))) && newIsLocal && 
     newUri !== originalLabUri) {
       // Revert the URI to its original value and grey out.
-      dispatch({ type: 'MERGE_LOCAL_LAB', value: { uri: originalLabUri } });
-      dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
-      dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: false });
-      dispatch({ type: 'SET_FIELD', field: 'isLocalURI', value: true });
+      updates.push({ type: 'MERGE_LOCAL_LAB', value: { uri: originalLabUri } });
+      updates.push({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
+      updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: false });
+      updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: true });
       if (!newUri.endsWith('.json')) {
-        dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
-      } else{
-        dispatch({ type: 'SET_FIELD', field: 'errors', value: { uri: '' } });
+        updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+      } else {
+        updates.push({ type: 'SET_FIELD', field: 'errors', value: { uri: '' } });
       }
+      dispatch({ type: 'BATCH_UPDATE', updates });
       return;
     } else if (!newIsExternal && !newIsLocal && clickedToEditUri && newUri !== '') {
       newErrors.uri = 'It must be an external URL';
-      dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     } else if (newIsExternal && clickedToEditUri && newErrors.uri === 'It must be an external URL') {
       delete newErrors.uri;
-      dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     } else if (newUri == '' && clickedToEditUri) {
       newErrors.uri = 'Lab Data URL is required';
-      dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     }
 
     // --- Update 'localLab.uri' and states ---
     // If we reached here, the change is either allowed or it's an external link
-    dispatch({ type: 'MERGE_LOCAL_LAB', value: { uri: newUri } });
-    dispatch({ type: 'SET_FIELD', field: 'isExternalURI', value: newIsExternal });
-    dispatch({ type: 'SET_FIELD', field: 'isLocalURI', value: newIsLocal });
+    updates.push({ type: 'MERGE_LOCAL_LAB', value: { uri: newUri } });
+    updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: newIsExternal });
+    updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: newIsLocal });
 
     // --- Case 2: Introducing an external link (and clearing Full Setup fields) ---
     if (newIsExternal && !isExternalURI) {
-      dispatch({
+      updates.push({
         type: 'MERGE_LOCAL_LAB',
         value: {
           name: '',
@@ -459,10 +496,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       });
 
       // Clear image and document previews and associated local states
-      dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'localImages', value: [] });
-      dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'docUrls', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'localImages', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'localDocs', value: [] });
 
       // Delete any temporarily uploaded files from the server
       if (uploadedTempFiles.current.length > 0) {
@@ -478,8 +515,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       }
       newErrors.uri = 'Introducing a link to a JSON file will replace the data in Full Setup with the ' +
                       'information contained in the linked JSON';
-      dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     }
+
+    // Execute all updates in a single batch
+    dispatch({ type: 'BATCH_UPDATE', updates });
   };
 
   useEffect(() => {

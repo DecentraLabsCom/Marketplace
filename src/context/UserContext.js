@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
   useIsLabProvider, 
+  useLabProviders, 
   useRefreshProviderStatusMutation 
 } from '@/hooks/user/useUsers'
 import { userQueryKeys } from '@/utils/hooks/queryKeys'
@@ -55,7 +56,14 @@ function UserDataCore({ children }) {
         retry: false, // Don't retry failed provider status queries
     });
 
-    // We don't need a separate provider name query since providerStatus already contains the name
+    // Get provider details only if user is a provider
+    const { 
+        data: providersData,
+        isLoading: isProvidersLoading 
+    } = useLabProviders({
+        enabled: Boolean(providerStatus?.isLabProvider), // Only fetch if user is confirmed provider
+        staleTime: 10 * 60 * 1000, // 10 minutes for provider list
+    });
 
     // Debug logging for provider status
     const refreshProviderStatusMutation = useRefreshProviderStatusMutation();
@@ -99,7 +107,7 @@ function UserDataCore({ children }) {
     const isLoggedIn = isConnected && Boolean(address) && !isWalletLoading;
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
-    // Combined loading state that includes wallet connection status
+    // Combined loading state - don't wait for providers list for basic functionality
     const isLoading = isWalletLoading || (isConnected && (isProviderLoading || ssoLoading));
 
     // Combined effect to handle both SSO and provider data with proper name priority
@@ -121,7 +129,7 @@ function UserDataCore({ children }) {
             }
         }
 
-        // Handle provider data - providerName always takes priority over SSO name
+        // Handle provider data
         if (address && providerStatus) {
             updatedUser = {
                 ...updatedUser,
@@ -129,9 +137,17 @@ function UserDataCore({ children }) {
                 isProvider: providerStatus.isLabProvider
             };
             
-            // Note: useIsLabProvider only returns status, not provider name
-            // If provider name is needed, we'd need to use useLabProviders to get full provider data
-            // For now, fall back to SSO name
+            // Get provider name from providers list if available
+            if (providerStatus.isLabProvider && providersData?.providers) {
+                const providerInfo = providersData.providers.find(p => 
+                    p.account?.toLowerCase() === address.toLowerCase()
+                );
+                if (providerInfo?.name) {
+                    updatedUser.name = providerInfo.name;
+                }
+            }
+            
+            // If no provider name and SSO name available, use SSO name as fallback
             if (!updatedUser.name && ssoData?.user?.name) {
                 updatedUser.name = ssoData.user.name;
             }
@@ -146,7 +162,7 @@ function UserDataCore({ children }) {
                 ...updatedUser
             }));
         }
-    }, [ssoData, address, providerStatus]);
+    }, [ssoData, address, providerStatus, providersData]);
 
     // Handle connection changes
     useEffect(() => {
@@ -193,7 +209,7 @@ function UserDataCore({ children }) {
         user,
         isSSO,
         isProvider,
-        isProviderLoading: isProviderLoading || ssoLoading,
+        isProviderLoading, // Only provider loading, not combined with SSO
         isLoggedIn,
         isConnected,
         address,

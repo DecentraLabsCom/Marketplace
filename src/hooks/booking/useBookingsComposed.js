@@ -32,40 +32,117 @@ export const useUserBookingsComposed = (userAddress, {
   queryOptions = {} 
 } = {}) => {
   
-  // Step 1: Get user reservation keys using atomic hook
-  const reservationKeysResult = useReservationsOf(userAddress, {
+  // Step 1: Get user reservation count using atomic hook
+  const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: queryOptions.enabled,
     meta: queryOptions.meta,
   });
   
-  // Extract reservation keys
-  const reservationKeys = reservationKeysResult.data || [];
-  const hasKeys = reservationKeys.length > 0;
+  // Extract reservation count
+  const reservationCount = reservationCountResult.data?.count || 0;
+  const hasReservations = reservationCount > 0;
 
-  // Step 2: Get booking details for each reservation key
-  const bookingDetailsResults = useQueries({
-    queries: hasKeys 
-      ? reservationKeys.map(key => ({
-          queryKey: ['reservations', 'getReservation', key],
+  // Step 2: Get reservation keys for each index
+  const reservationKeyResults = useQueries({
+    queries: hasReservations 
+      ? Array.from({ length: reservationCount }, (_, index) => ({
+          queryKey: ['reservations', 'reservationKeyOfUserByIndex', userAddress, index],
           queryFn: async () => {
-            const data = await useReservation.queryFn(key); // ✅ Using atomic hook queryFn
-            return { ...data, reservationKey: key }; // Add reservationKey for enrichment
+            const response = await fetch(`/api/contract/reservation/reservationKeyOfUserByIndex?userAddress=${userAddress}&index=${index}`, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Failed to fetch reservation key for user ${userAddress} at index ${index}: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return data.reservationKey;
           },
-          enabled: !!key,
-          ...BOOKING_QUERY_CONFIG, // ✅ Booking-specific configuration
-          // Note: queryOptions not spread here as BOOKING_QUERY_CONFIG is optimized for booking data
+          enabled: !!userAddress && hasReservations,
+          ...BOOKING_QUERY_CONFIG,
         }))
       : [],
     combine: (results) => results
   });
 
-  // Extract bookings with lab IDs for lab details fetching
-  const bookings = bookingDetailsResults
+  // Extract reservation keys from successful results
+  const reservationKeys = reservationKeyResults
     .filter(result => result.isSuccess && result.data)
     .map(result => result.data);
-  
+
+  // Step 3: Get booking details for each reservation key
+  const bookingDetailsResults = useQueries({
+    queries: reservationKeys.length > 0 
+      ? reservationKeys.map(key => ({
+          queryKey: ['reservations', 'getReservation', key],
+          queryFn: async () => {
+            const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${key}`, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Failed to fetch reservation details for key ${key}: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return { ...data, reservationKey: key };
+          },
+          enabled: !!key,
+          ...BOOKING_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Extract raw booking API payloads
+  const rawBookingPayloads = bookingDetailsResults
+    .filter(result => result.isSuccess && result.data)
+    .map(result => result.data);
+
+  // Normalize bookings to flat shape expected by UI (calendar, lists)
+  const now = Math.floor(Date.now() / 1000);
+
+  const bookings = rawBookingPayloads.map(payload => {
+    // API returns { reservation: {...}, reservationKey }
+    const r = payload?.reservation || {};
+    // Keep labId as string to match labs.id shape
+    const labId = r.labId != null ? r.labId.toString() : undefined;
+    const startTime = r.start != null ? parseInt(r.start) : undefined;
+    const endTime = r.end != null ? parseInt(r.end) : undefined;
+    const statusNumeric = r.status;
+
+    // Derive status category for analytics/filters (keep numeric status for business rules)
+    let statusCategory = 'unknown';
+    if (statusNumeric === 4 || statusNumeric === '4') {
+      statusCategory = 'cancelled';
+    } else if (startTime && endTime) {
+      if (now < startTime) statusCategory = 'upcoming';
+      else if (now >= startTime && now <= endTime) statusCategory = 'active';
+      else statusCategory = 'completed';
+    }
+
+    // Calendar/list friendly flat object
+  const flat = {
+      id: payload.reservationKey || undefined,
+      reservationKey: payload.reservationKey,
+      labId,
+      status: statusNumeric, // keep numeric/string code (0,1,2,3,4)
+      statusCategory,
+      start: startTime,
+      end: endTime,
+      // date as ISO string (yyyy-mm-dd or full ISO ok; consumers parse via new Date())
+      date: startTime ? new Date(startTime * 1000).toISOString() : null,
+    };
+
+    return flat;
+  });
+
+  // For lab details fetching we need labIds
   const bookingsWithLabIds = bookings.filter(booking => 
     booking.labId !== undefined && booking.labId !== null
   );
@@ -85,39 +162,34 @@ export const useUserBookingsComposed = (userAddress, {
   });
 
   // Process and combine all results
-  const isLoading = reservationKeysResult.isLoading || 
+  const isLoading = reservationCountResult.isLoading || 
+                   reservationKeyResults.some(result => result.isLoading) ||
                    bookingDetailsResults.some(result => result.isLoading) ||
                    (includeLabDetails && labDetailsResults.some(result => result.isLoading));
 
-  const baseErrors = reservationKeysResult.error ? [reservationKeysResult.error] : [];
+  const baseErrors = reservationCountResult.error ? [reservationCountResult.error] : [];
+  const keyErrors = reservationKeyResults.filter(result => result.error)
+                                         .map(result => result.error);
   const bookingErrors = bookingDetailsResults.filter(result => result.error)
                                             .map(result => result.error);
   const labErrors = labDetailsResults.filter(result => result.error)
                                     .map(result => result.error);
   
   const hasErrors = baseErrors.length > 0;
-  const hasPartialErrors = bookingErrors.length > 0 || labErrors.length > 0;
+  const hasPartialErrors = keyErrors.length > 0 || bookingErrors.length > 0 || labErrors.length > 0;
 
-  // Create enriched bookings with lab details if available
-  const enrichedBookings = bookings.map((booking, index) => {
-    const enrichedBooking = { ...booking };
-
-    // Add lab details if requested and available
+  // Enrich with optional lab details (keep flat shape)
+  const enrichedBookings = bookings.map((booking) => {
     if (includeLabDetails && booking.labId) {
       const matchingLabIndex = bookingsWithLabIds.findIndex(b => 
         b.labId === booking.labId && b.reservationKey === booking.reservationKey
       );
       
       if (matchingLabIndex >= 0 && labDetailsResults[matchingLabIndex]?.data) {
-        enrichedBooking.labDetails = labDetailsResults[matchingLabIndex].data;
+        return { ...booking, labDetails: labDetailsResults[matchingLabIndex].data };
       }
     }
-
-    // Determine booking status for aggregation
-    const status = booking.status?.toLowerCase();
-    enrichedBooking.statusCategory = status;
-
-    return enrichedBooking;
+    return booking;
   });
 
   // Calculate aggregates
@@ -138,7 +210,7 @@ export const useUserBookingsComposed = (userAddress, {
     
     // Status
     isLoading,
-    isSuccess: !hasErrors && reservationKeysResult.isSuccess,
+    isSuccess: !hasErrors && reservationCountResult.isSuccess,
     isError: hasErrors,
     error: baseErrors[0] || null,
     
@@ -146,22 +218,25 @@ export const useUserBookingsComposed = (userAddress, {
     meta: {
       userAddress,
       includeLabDetails,
+      reservationCount,
       totalRequested: reservationKeys.length,
       successCount: bookingDetailsResults.filter(r => r.isSuccess).length,
       failedCount: bookingDetailsResults.filter(r => r.error).length,
       hasPartialFailures: hasPartialErrors,
-      errors: [...baseErrors, ...bookingErrors, ...labErrors],
+      errors: [...baseErrors, ...keyErrors, ...bookingErrors, ...labErrors],
       timestamp: new Date().toISOString()
     },
 
     // Individual result access
-    baseResult: reservationKeysResult,
+    baseResult: reservationCountResult,
+    reservationKeyResults,
     bookingDetailsResults,
     labDetailsResults,
 
     // Utility functions
     refetch: () => {
-      reservationKeysResult.refetch();
+      reservationCountResult.refetch();
+      reservationKeyResults.forEach(result => result.refetch && result.refetch());
       bookingDetailsResults.forEach(result => result.refetch && result.refetch());
       labDetailsResults.forEach(result => result.refetch && result.refetch());
     }

@@ -551,21 +551,30 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Smart cache update for canceled booking
+                    // Check if we already have the booking marked as cancelled (optimistic update)
+                    const existingData = queryClient.getQueryData(['reservations', 'getReservation', reservationKey]);
+                    if (existingData?.reservation?.status === '4' || existingData?.reservation?.status === 4) {
+                        devLog.log('🔄 [BookingEventContext] Booking already marked as cancelled (optimistic update), confirming...');
+                        // Just confirm the optimistic update was correct, don't change cache
+                        return;
+                    }
+
+                    // Smart cache update for canceled booking (only if not already cancelled)
                     await updateBookingCaches(
                         null, // labId not available in this event
                         null, // renter not available in this event
                         { 
-                            id: reservationKey
+                            id: reservationKey,
+                            status: '4' // Cancelled status
                         }, 
-                        'remove', 
+                        'update', 
                         'booking_canceled'
                     );
 
-                    // Show notification
+                    // Single success notification for booking cancel
                     addPersistentNotification(
-                        'warning',
-                        `Booking cancelled`,
+                        'success',
+                        `Booking canceled`,
                         { duration: 5000 }
                     );
 
@@ -598,21 +607,30 @@ export function BookingEventProvider({ children }) {
                         timestamp: new Date().toISOString()
                     });
 
-                    // Smart cache update for canceled reservation request
+                    // Check if we already have the reservation marked as cancelled (optimistic update)
+                    const existingData = queryClient.getQueryData(['reservations', 'getReservation', reservationKey]);
+                    if (existingData?.reservation?.status === '4' || existingData?.reservation?.status === 4) {
+                        devLog.log('🔄 [BookingEventContext] Reservation already marked as cancelled (optimistic update), confirming...');
+                        // Just confirm the optimistic update was correct, don't change cache
+                        return;
+                    }
+
+                    // Smart cache update for canceled reservation request (only if not already cancelled)
                     await updateBookingCaches(
                         null, // labId not available in this event
                         null, // renter not available in this event
                         { 
-                            id: reservationKey
+                            id: reservationKey,
+                            status: '4' // Cancelled status
                         }, 
-                        'remove', 
+                        'update', 
                         'reservation_request_canceled'
                     );
 
-                    // Show notification
+                    // Show single green success notification for request cancellation
                     addPersistentNotification(
-                        'info',
-                        `Reservation request cancelled`,
+                        'success',
+                        `Reservation request cancelled!`,
                         { duration: 5000 }
                     );
 

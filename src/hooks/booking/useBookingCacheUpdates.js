@@ -47,33 +47,39 @@ export function useBookingCacheUpdates() {
 
   // Update existing booking in cache
   const updateBooking = useCallback((reservationKey, updatedBooking) => {
+    const key = reservationKey || updatedBooking?.reservationKey || updatedBooking?.id;
     // Update all bookings list
     queryClient.setQueryData(bookingQueryKeys.all(), (oldData) => {
       if (!oldData) return []
       return oldData.map(booking => 
-        booking.reservationKey === reservationKey ? { ...booking, ...updatedBooking } : booking
+        (booking.reservationKey === key || booking.id === key) ? { ...booking, ...updatedBooking } : booking
       )
     })
 
     // Update specific booking query
-    queryClient.setQueryData(
-      bookingQueryKeys.byReservationKey(reservationKey), 
-      updatedBooking
-    )
+    if (key) {
+      queryClient.setQueryData(
+        bookingQueryKeys.byReservationKey(key), 
+        updatedBooking
+      )
+    }
   }, [queryClient])
 
   // Remove booking from cache
   const removeBooking = useCallback((reservationKey) => {
+    const key = reservationKey
     // Update all bookings list
     queryClient.setQueryData(bookingQueryKeys.all(), (oldData) => {
       if (!oldData) return []
-      return oldData.filter(booking => booking.reservationKey !== reservationKey)
+      return oldData.filter(booking => booking.reservationKey !== key && booking.id !== key)
     })
 
     // Invalidate specific booking query
-    queryClient.invalidateQueries({
-      queryKey: bookingQueryKeys.byReservationKey(reservationKey)
-    })
+    if (key) {
+      queryClient.invalidateQueries({
+        queryKey: bookingQueryKeys.byReservationKey(key)
+      })
+    }
   }, [queryClient])
 
   // Invalidate all booking caches (fallback)
@@ -83,10 +89,40 @@ export function useBookingCacheUpdates() {
     })
   }, [queryClient])
 
+  // Granular invalidation helper used by BookingEventContext
+  const smartBookingInvalidation = useCallback((userAddress = null, labId = null, bookingData = null, action = null) => {
+    try {
+      // If we have enough data, try targeted cache updates first
+      if (bookingData && action) {
+        const key = bookingData.reservationKey || bookingData.id
+        if (action === 'add') addBooking(bookingData)
+        else if (action === 'update' && key) updateBooking(key, bookingData)
+        else if (action === 'remove' && key) removeBooking(key)
+      }
+
+      // Invalidate user and lab specific caches if keys are provided
+      if (userAddress) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byUser(userAddress) })
+      }
+      if (labId) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byLab(labId) })
+      }
+    } catch (e) {
+      // Fallback to targeted invalidation on error
+      if (userAddress) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byUser(userAddress) })
+      }
+      if (labId) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byLab(labId) })
+      }
+    }
+  }, [addBooking, updateBooking, removeBooking, invalidateAllBookings, queryClient])
+
   return {
     addBooking,
     updateBooking,
     removeBooking,
-    invalidateAllBookings
+    invalidateAllBookings,
+    smartBookingInvalidation,
   }
 }

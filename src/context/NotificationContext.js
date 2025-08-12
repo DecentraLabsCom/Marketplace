@@ -173,21 +173,26 @@ function NotificationProviderCore({ children }) {
             
             if (typeof error === 'string') {
                 errorMessage = `❌ ${error}`;
-            } else if (error?.message) {
+            } else if (error?.message || error?.shortMessage) {
                 // Handle AbortController errors specifically
-                if (error.name === 'AbortError' || error.message.includes('aborted')) {
+                const message = error.message || '';
+                const shortMessage = error.shortMessage || '';
+                if (error.name === 'AbortError' || message.includes('aborted')) {
                     errorMessage = '⚠️ Request cancelled';
                     priority = 'normal';
                     duration = 4000; // Reduced from 5000
                     return addTemporaryNotification('warning', errorMessage, null, { priority, duration });
                 }
                 // Handle user rejection specifically
-                else if (error.message.includes('User rejected') || 
-                    error.message.includes('User denied') ||
-                    error.message.includes('user rejected')) {
-                    errorMessage = '❌ Transaction cancelled';
+                else if (
+                    shortMessage.toLowerCase().includes('user rejected') ||
+                    shortMessage.toLowerCase().includes('user denied') ||
+                    message.toLowerCase().includes('user rejected') ||
+                    message.toLowerCase().includes('user denied')
+                ) {
+                    errorMessage = '🚫 Transaction rejected by user';
                     priority = 'normal';
-                    duration = 4000; // Reduced from 6000
+                    duration = 3500; // Slightly shorter
                 } else if (error.message.includes('insufficient funds')) {
                     errorMessage = '❌ Insufficient funds';
                     priority = 'high';

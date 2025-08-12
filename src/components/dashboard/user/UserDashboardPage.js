@@ -4,7 +4,7 @@ import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
 import { useUserBookingsComposed } from '@/hooks/booking/useBookingsComposed'
-import { useCancelBooking, useCancelBookingMutation } from '@/hooks/booking/useBookings'
+import { useCancelBooking, useCancelReservationRequest } from '@/hooks/booking/useBookings'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
@@ -16,7 +16,7 @@ import devLog from '@/utils/dev/logger'
 import isBookingActive from '@/utils/booking/isBookingActive'
 
 export default function UserDashboard() {
-  const { isLoggedIn, address, user } = useUser();
+  const { isLoggedIn, address, user, isSSO } = useUser();
   
   // 🚀 React Query for labs with enriched metadata
   const { 
@@ -53,36 +53,33 @@ export default function UserDashboard() {
   const { addPersistentNotification, addErrorNotification } = useNotifications();
   const { coordinatedBookingCancellation } = useReservationEventCoordinator();
 
-  // 🚀 React Query mutation for booking cancellation
-  const cancelBookingMutation = useCancelBookingMutation();
+  // 🚀 Unified React Query mutations for cancellation
+  const cancelBookingUnified = useCancelBooking();
+  const cancelReservationUnified = useCancelReservationRequest();
 
   // Debug: Log booking data from React Query
   useEffect(() => {
-    if (labs && labs.length > 0) {
-      devLog.log('UserDashboard: Received labs data:', {
-        labsCount: labs.length,
-        address,
-        labs: labs.map(lab => ({
-          id: lab.id,
-          name: lab.name
-        }))
-      });
-    }
-  }, [labs, address]);
+    console.log('UserDashboard: Received labs data:', {
+      labsCount: labs.length,
+      address,
+      labs: labs.slice(0, 3).map(lab => ({
+        id: lab.id,
+        name: lab.name
+      }))
+    });
+  }, [labs.length, address]);
 
   useEffect(() => {
-    if (userBookings && userBookings.length > 0) {
-      devLog.log('UserDashboard: Received user bookings data:', {
-        userBookingsCount: userBookings.length,
-        address,
-        userBookings: userBookings.map(booking => ({
-          reservationKey: booking.reservationKey,
-          labId: booking.labId,
-          status: booking.status
-        }))
-      });
-    }
-  }, [userBookings, address]);
+    console.log('UserDashboard: Received user bookings data:', {
+      userBookingsCount: userBookings.length,
+      address,
+      userBookings: userBookings.slice(0, 3).map(booking => ({
+        reservationKey: booking.reservationKey,
+        labId: booking.labId,
+        status: booking.status
+      }))
+    });
+  }, [userBookings.length, address]);
 
   const { isConnected } = useAccount();
   
@@ -90,24 +87,40 @@ export default function UserDashboard() {
   const [failedCancellations, setFailedCancellations] = useState(new Set());
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  const bookingInfo = userBookings.map(booking => {
-    const lab = labs.find(l => l.id === booking.labId);
-    return {
-      ...booking,
-      labName: lab?.name ?? `Lab ${booking.labId}`,
-      status: booking.status,
-      // Ensure date field exists for calendar compatibility
-      date: booking.date || new Date(parseInt(booking.start) * 1000).toISOString().split('T')[0],
-      // Add formatted times for display
-      startTime: booking.start ? new Date(parseInt(booking.start) * 1000).toLocaleTimeString() : 'N/A',
-      endTime: booking.end ? new Date(parseInt(booking.end) * 1000).toLocaleTimeString() : 'N/A'
-    };
-  });
+  const bookingInfo = useMemo(() => {
+    if (!userBookings || !labs) return [];
+    
+    return userBookings.map(booking => {
+      const lab = labs.find(l => String(l.id) === String(booking.labId));
+      
+      // Safe date parsing function
+      const parseTimestamp = (timestamp) => {
+        if (!timestamp) return null;
+        const parsed = parseInt(timestamp);
+        if (isNaN(parsed) || parsed <= 0) return null;
+        const date = new Date(parsed * 1000);
+        return date.getTime() && !isNaN(date.getTime()) ? date : null;
+      };
+      
+      const startDate = parseTimestamp(booking.start);
+      const endDate = parseTimestamp(booking.end);
+      
+      return {
+        ...booking,
+        labName: lab?.name ?? `Lab ${booking.labId}`,
+        status: booking.status,
+        // Ensure date field exists for calendar compatibility
+        date: booking.date || (startDate ? startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        // Add formatted times for display
+        startTime: startDate ? startDate.toLocaleTimeString() : 'N/A',
+        endTime: endDate ? endDate.toLocaleTimeString() : 'N/A'
+      };
+    });
+  }, [userBookings, labs]);
   
   // Additional state variables
   const [userData, setUserData] = useState(null);
   const [now, setNow] = useState(null);
-  const [availableLab, setAvailableLab] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
   
@@ -117,21 +130,15 @@ export default function UserDashboard() {
   }, []);
 
   // Update availableLab when labs or now changes
-  useEffect(() => {
-    if (labs && now) {
-      const getAvailableLab = () => {
-        if (!labs?.length) return null;
-        // Find a lab with active bookings using userBookings from BookingContext
-        const labsWithActiveBookings = labs.filter(lab => {
-          const labUserBookings = userBookings?.filter(booking => booking.labId === lab.id) || [];
-          return isBookingActive(labUserBookings);
-        });
-        return labsWithActiveBookings[0] || null;
-      };
-      
-      const availableLab = getAvailableLab();
-      setAvailableLab(availableLab);
-    }
+  const availableLab = useMemo(() => {
+    if (!labs?.length || !now || !userBookings?.length) return null;
+    
+    // Find a lab with active bookings using userBookings from BookingContext
+    const labsWithActiveBookings = labs.filter(lab => {
+  const labUserBookings = userBookings?.filter(booking => String(booking.labId) === String(lab.id)) || [];
+      return isBookingActive(labUserBookings);
+    });
+    return labsWithActiveBookings[0] || null;
   }, [labs, now, userBookings]);
       
   const openModal = (type, labId, booking = null) => {
@@ -168,7 +175,8 @@ export default function UserDashboard() {
       return;
     }
 
-    if (!isConnected) {
+    // Require wallet only for wallet path; allow SSO without wallet
+    if (!isSSO && !isConnected) {
       addErrorNotification('Please connect your wallet first', '');
       return;
     }
@@ -183,16 +191,19 @@ export default function UserDashboard() {
     setSelectedBooking(booking);
     
     try {
-      // 🚀 Use React Query mutation with automatic optimistic updates and rollbacks
-      await cancelBookingMutation.mutateAsync({
-        reservationKey: booking.reservationKey,
-        userAddress: address,
-        labId: booking.labId,
-        bookingStatus: booking.status // Pass booking status to optimize gas usage
-      });
-      
-      addPersistentNotification('success', '✅ Booking canceled!');
-      
+      // 🚀 Route by status: pending -> cancel reservation request; booked -> cancel booking
+      const isPending = booking.status === 0 || booking.status === '0';
+      if (isPending) {
+        // Fire transaction but do NOT remove from UI yet; wait for chain event
+        await cancelReservationUnified.mutateAsync(booking.reservationKey);
+      } else {
+        // Fire transaction but do NOT remove from UI yet; wait for chain event
+        await cancelBookingUnified.mutateAsync(booking.reservationKey);
+      }
+
+      // UI removal is handled by BookingEventContext upon on-chain confirmation
+      // This prevents premature list updates and avoids full list refreshes
+
     } catch (error) {
       devLog.error('Cancellation failed:', error);
       
@@ -208,10 +219,11 @@ export default function UserDashboard() {
         });
       }, 5000);
       
-      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+  if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         addPersistentNotification('warning', '🚫 Transaction rejected by user.');
       } else {
-        addErrorNotification(error.message || 'Cancellation failed', '');
+        // Pass the full error to let NotificationContext derive a concise message
+        addErrorNotification(error, 'Cancellation failed');
       }
     }
   };
@@ -232,34 +244,58 @@ export default function UserDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
 
-  useEffect(() => {
-    if (labs && now) {
-      // This useEffect was used to calculate calendar highlights,
-      // but now that's handled by CalendarWithBookings component
-    }
-  }, [labs, now]);
-
   // If there is no active booking, search for the first one in the future
-  const firstActiveLab = !availableLab && now && labs.length > 0
-    ? labs
-        .map(lab => {
-          // Get user bookings for this lab from React Query data
-          const labUserBookings = userBookings?.filter(booking => booking.labId === lab.id) || [];
-          if (!Array.isArray(labUserBookings)) return null;
-          const futureBooking = labUserBookings
-            .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
-            .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
-          return futureBooking ? { lab, booking: futureBooking } : null;
-        })
-        .filter(Boolean)
-        .sort((a, b) => parseInt(a.booking.start) - parseInt(b.booking.start))[0]?.lab
-    : null;
+  const firstActiveLab = useMemo(() => {
+    if (availableLab || !now || !labs.length) return null;
+    
+    return labs
+      .map(lab => {
+        // Get user bookings for this lab from React Query data
+  const labUserBookings = userBookings?.filter(booking => String(booking.labId) === String(lab.id)) || [];
+        if (!Array.isArray(labUserBookings)) return null;
+        const futureBooking = labUserBookings
+          .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
+          .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
+        return futureBooking ? { lab, booking: futureBooking } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => parseInt(a.booking.start) - parseInt(b.booking.start))[0]?.lab;
+  }, [availableLab, now, labs, userBookings]);
+
+  // Find active booking or the next one in the future (must be defined before any early returns)
+  const activeBooking = useMemo(() => {
+    if (!availableLab || !userBookings) return null;
+    return userBookings
+  .filter(booking => String(booking.labId) === String(availableLab.id))
+      .find(b => isBookingActive([b]));
+  }, [availableLab, userBookings]);
+
+  const nextBooking = useMemo(() => {
+    if (availableLab || !firstActiveLab || !userBookings || !now) return null;
+    return userBookings
+  .filter(booking => String(booking.labId) === String(firstActiveLab.id))
+      .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
+      .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
+  }, [availableLab, firstActiveLab, userBookings, now]);
 
   // To show starting and ending times of bookings
   const getBookingTimes = booking => {
     if (!booking?.start || !booking?.end) return { start: null, end: null };
-    const startDate = new Date(parseInt(booking.start) * 1000);
-    const endDate = new Date(parseInt(booking.end) * 1000);
+    
+    // Safe date parsing
+    const parseTimestamp = (timestamp) => {
+      if (!timestamp) return null;
+      const parsed = parseInt(timestamp);
+      if (isNaN(parsed) || parsed <= 0) return null;
+      const date = new Date(parsed * 1000);
+      return date.getTime() && !isNaN(date.getTime()) ? date : null;
+    };
+    
+    const startDate = parseTimestamp(booking.start);
+    const endDate = parseTimestamp(booking.end);
+    
+    if (!startDate || !endDate) return { start: null, end: null };
+    
     return {
       start: `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`,
       end: `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
@@ -268,7 +304,7 @@ export default function UserDashboard() {
 
   // Simulate user data fetching
   useEffect(() => {
-    if (isLoggedIn && labs) {
+    if (isLoggedIn && labs.length > 0) {
       const userid = address || user?.id;
       const affiliation = user?.affiliation || 'Unknown';
       setUserData({
@@ -277,7 +313,7 @@ export default function UserDashboard() {
         labs: labs,
       });
     }
-  }, [isLoggedIn, labs, address, user?.id, user?.affiliation]);
+  }, [isLoggedIn, labs.length, address, user?.id, user?.affiliation]);
 
   if (!now || (!userData && loading)) {
     return (
@@ -315,19 +351,7 @@ export default function UserDashboard() {
     )
   }
 
-  // Find active booking or the next one in the future
-  const activeBooking = availableLab && userBookings
-    ? userBookings
-        .filter(booking => booking.labId === availableLab.id)
-        .find(b => isBookingActive([b]))
-    : null;
-
-  const nextBooking = !availableLab && firstActiveLab && userBookings && now
-    ? userBookings
-        .filter(booking => booking.labId === firstActiveLab.id)
-        .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
-        .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0]
-    : null;
+  
 
   // ❌ Error handling for React Query
   if (labsError || bookingsError) {

@@ -425,11 +425,19 @@ export const extractLabFromComposed = (composedResult, labId) => {
  * @returns {Array} Array of labs owned by the address
  */
 export const extractLabsByOwner = (composedResult, ownerAddress) => {
-  if (!composedResult?.data?.labs || !ownerAddress) return [];
+  // Safety checks: ensure we have valid data structure and owner address
+  if (!composedResult || !composedResult.data || !Array.isArray(composedResult.data.labs) || !ownerAddress) {
+    return [];
+  }
   
-  return composedResult.data.labs.filter(lab => 
-    lab.owner && lab.owner.toLowerCase() === ownerAddress.toLowerCase()
-  );
+  try {
+    return composedResult.data.labs.filter(lab => 
+      lab.owner && lab.owner.toLowerCase() === ownerAddress.toLowerCase()
+    );
+  } catch (error) {
+    console.error('Error filtering labs by owner:', error);
+    return [];
+  }
 };
 
 // Module loaded confirmation (only logs once even in StrictMode)

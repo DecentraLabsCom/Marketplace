@@ -52,22 +52,33 @@ export default function BookingsList({
    * @returns {Array} Filtered bookings
    */
   const filterBookings = (bookings) => {
-    if (!currentTime || !bookings.length) return [];
+    if (!currentTime || !bookings.length) {
+      return [];
+    }
 
-    return bookings.filter(booking => {
-      if (!booking.start || !booking.end) return false;
+    const filtered = bookings.filter(booking => {
+      if (!booking.start || !booking.end) {
+        return false;
+      }
+  // Exclude cancelled bookings from all lists
+  const isCancelled = booking.status === '4' || booking.status === 4;
+  if (isCancelled) return false;
       
       const endDateTime = new Date(parseInt(booking.end) * 1000);
       
       if (isUpcoming) {
-        return endDateTime.getTime() > currentTime.getTime();
+        const isUpcomingBooking = endDateTime.getTime() > currentTime.getTime();
+        return isUpcomingBooking;
       } else {
         // For past bookings, only include confirmed ones (not PENDING)
         const hasReservationKey = booking.reservationKey;
         const wasPending = booking.status === "0" || booking.status === 0;
-        return endDateTime.getTime() <= currentTime.getTime() && hasReservationKey && !wasPending;
+        const isPastBooking = endDateTime.getTime() <= currentTime.getTime() && hasReservationKey && !wasPending;
+        return isPastBooking;
       }
     });
+
+    return filtered;
   };
 
   /**
@@ -76,7 +87,7 @@ export default function BookingsList({
    * @returns {Object} Enhanced booking object
    */
   const enhanceBooking = (booking) => {
-    const lab = labs.find(l => l.id === booking.labId);
+    const lab = labs.find(l => String(l.id) === String(booking.labId));
     const startDateTime = new Date(parseInt(booking.start) * 1000);
     
     return {
@@ -141,7 +152,7 @@ export default function BookingsList({
           currentTime && enhancedBookings.length > 0 ? (
             enhancedBookings.map((booking) => {
               const { startTime, endTime } = formatBookingTimes(booking);
-              const bookingKey = `${booking.lab.id}-${booking.reservationKey || booking.id}-${booking.start}`;
+              const bookingKey = `${String(booking.lab.id)}-${booking.reservationKey || booking.id}-${booking.start}`;
               
               const itemProps = {
                 lab: booking.lab,

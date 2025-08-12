@@ -778,14 +778,24 @@ export const useCancelReservationRequestSSO = (options = {}) => {
       return data;
     },
     onSuccess: (data, reservationKey) => {
-      // Remove specific reservation and invalidate related queries
-      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
-      queryClient.removeQueries(['reservations', 'userOfReservation', reservationKey]);
-      queryClient.invalidateQueries(['reservations']);
-      devLog.log('✅ Reservation request cancelled successfully via SSO, cache updated');
+      // Optimistic update: mark reservation as cancelled in cache to remove from UI immediately
+      queryClient.setQueryData(['reservations', 'getReservation', reservationKey], (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4', // Cancelled status
+            isCancelled: true
+          }
+        };
+      });
+      devLog.log('✅ Reservation request marked as cancelled in cache (optimistic update)');
     },
-    onError: (error) => {
-      devLog.error('❌ Failed to cancel reservation request via SSO:', error);
+    onError: (error, reservationKey) => {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+      devLog.error('❌ Failed to cancel reservation request via SSO - reverting optimistic update:', error);
     },
     ...options,
   });
@@ -809,14 +819,24 @@ export const useCancelReservationRequestWallet = (options = {}) => {
       return { hash: txHash };
     },
     onSuccess: (result, reservationKey) => {
-      // Remove specific reservation and invalidate related queries
-      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
-      queryClient.removeQueries(['reservations', 'userOfReservation', reservationKey]);
-      queryClient.invalidateQueries(['reservations']);
-      devLog.log('✅ Reservation request cancelled successfully via wallet, cache updated');
+      // Optimistic update: mark reservation as cancelled in cache to remove from UI immediately
+      queryClient.setQueryData(['reservations', 'getReservation', reservationKey], (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4', // Cancelled status
+            isCancelled: true
+          }
+        };
+      });
+      devLog.log('✅ Reservation request marked as cancelled in cache via wallet (optimistic update)');
     },
-    onError: (error) => {
-      devLog.error('❌ Failed to cancel reservation request via wallet:', error);
+    onError: (error, reservationKey) => {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+      devLog.error('❌ Failed to cancel reservation request via wallet - reverting optimistic update:', error);
     },
     ...options,
   });
@@ -1068,13 +1088,24 @@ export const useCancelBookingSSO = (options = {}) => {
       return data;
     },
     onSuccess: (data, reservationKey) => {
-      // Remove cancelled booking and invalidate related queries
-      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
-      queryClient.invalidateQueries(['reservations']);
-      devLog.log('✅ Booking cancelled successfully, cache updated');
+      // Optimistic update: mark booking as cancelled in cache to remove from UI immediately
+      queryClient.setQueryData(['reservations', 'getReservation', reservationKey], (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4', // Cancelled status
+            isCancelled: true
+          }
+        };
+      });
+      devLog.log('✅ Booking marked as cancelled in cache (optimistic update)');
     },
-    onError: (error) => {
-      devLog.error('❌ Failed to cancel booking:', error);
+    onError: (error, reservationKey) => {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+      devLog.error('❌ Failed to cancel booking via SSO - reverting optimistic update:', error);
     },
     ...options,
   });
@@ -1098,13 +1129,24 @@ export const useCancelBookingWallet = (options = {}) => {
       return { hash: txHash };
     },
     onSuccess: (result, reservationKey) => {
-      // Remove cancelled booking and invalidate related queries
-      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
-      queryClient.invalidateQueries(['reservations']);
-      devLog.log('✅ Booking cancelled successfully via wallet, cache updated');
+      // Optimistic update: mark booking as cancelled in cache to remove from UI immediately
+      queryClient.setQueryData(['reservations', 'getReservation', reservationKey], (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4', // Cancelled status
+            isCancelled: true
+          }
+        };
+      });
+      devLog.log('✅ Booking marked as cancelled via wallet (optimistic update)');
     },
-    onError: (error) => {
-      devLog.error('❌ Failed to cancel booking via wallet:', error);
+    onError: (error, reservationKey) => {
+      // Revert optimistic update on error
+      queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+      devLog.error('❌ Failed to cancel booking via wallet - reverting optimistic update:', error);
     },
     ...options,
   });

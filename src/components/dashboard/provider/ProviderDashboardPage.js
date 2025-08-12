@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { parseUnits } from 'viem'
 import { useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
@@ -41,9 +41,22 @@ import devLog from '@/utils/dev/logger'
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
   
+  // Early return if no address - prevents unnecessary queries
+  if (!address) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <div className="container mx-auto p-6">
+          <div className="text-center">
+            <p className="text-gray-600">Please connect your wallet to access the provider dashboard.</p>
+          </div>
+        </div>
+      </AccessControl>
+    );
+  }
+  
   // 🚀 React Query for all labs with owner information
   const allLabsResult = useAllLabsComposed({ 
-    includeMetadata: false, 
+    includeMetadata: true, 
     includeOwners: true,
     queryOptions: {
       enabled: !!address
@@ -55,15 +68,26 @@ export default function ProviderDashboard() {
     isLoading: loading,
     isError: labsError,
     error: labsErrorDetails 
-  } = allLabsResult;
+  } = allLabsResult || {}; // Safety check for allLabsResult
   
-  const labs = allLabsData?.labs || [];
+  const labs = Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
   
   // Extract owned labs using the helper function
   const ownedLabs = useMemo(() => {
-    if (!address || !labs.length) return [];
-    return extractLabsByOwner(allLabsResult, address);
-  }, [allLabsResult, address, labs.length]);
+    if (!address || !Array.isArray(labs)) {
+      return [];
+    }
+    
+    try {
+      // Filter labs directly instead of using extractLabsByOwner
+      return labs.filter(lab => 
+        lab.owner && lab.owner.toLowerCase() === address.toLowerCase()
+      );
+    } catch (error) {
+      console.error('Error extracting owned labs:', error);
+      return [];
+    }
+  }, [labs, address]); // Use labs directly instead of allLabsResult
 
   // Legacy compatibility - derive ownedLabIds from owned labs
   const ownedLabIds = useMemo(() => 
@@ -94,6 +118,7 @@ export default function ProviderDashboard() {
   // State declarations
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const hasInitialized = useRef(false);
   
   // 🚀 React Query for lab bookings with user details
   const { 
@@ -127,7 +152,13 @@ export default function ProviderDashboard() {
     opens: '', closes: '', docs: [], images: [], uri: ''
   };
   const [newLab, setNewLab] = useState(newLabStructure);
-  const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
+  
+  const maxId = useMemo(() => 
+    Array.isArray(labs) && labs.length > 0 
+      ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
+      : 0,
+    [labs]
+  );
 
   // Handle transaction confirmation
   useEffect(() => {
@@ -162,31 +193,42 @@ export default function ProviderDashboard() {
     }
   }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]); // Removed 'labs' dependency
 
-  const selectedLab = ownedLabs.find(lab => String(lab.id) === String(selectedLabId));
+  const selectedLab = useMemo(() => 
+    ownedLabs.find(lab => String(lab.id) === String(selectedLabId)),
+    [ownedLabs, selectedLabId]
+  );
   
   // Ensure we have a valid lab object to pass to the modal
-  const modalLab = selectedLab ? selectedLab : (selectedLabId ? null : newLab);
+  const modalLab = useMemo(() => 
+    selectedLab ? selectedLab : (selectedLabId ? null : newLab),
+    [selectedLab, selectedLabId, newLab]
+  );
+  
   const shouldShowModal = isModalOpen && modalLab;
   
-  const bookingInfo = (selectedLab && labBookings && !bookingsError) 
-    ? labBookings.map(booking => ({
-        ...booking,
-        labName: selectedLab.name,
-        status: booking.status
-      }))
-    : [];
+  const bookingInfo = useMemo(() => {
+    if (!selectedLab || !labBookings || bookingsError) return [];
+    return labBookings.map(booking => ({
+      ...booking,
+      labName: selectedLab.name,
+      status: booking.status
+    }));
+  }, [selectedLab, labBookings, bookingsError]);
 
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
 
   // Automatically set the first lab as the selected lab (only once)
-  const hasOwnedLabs = ownedLabs.length > 0;
   useEffect(() => {
-    if (hasOwnedLabs && !selectedLabId && !isModalOpen) {
-      setSelectedLabId(ownedLabs[0].id);
+    if (ownedLabs.length > 0 && !selectedLabId && !isModalOpen && !hasInitialized.current) {
+      const firstLabId = ownedLabs[0]?.id;
+      if (firstLabId) {
+        setSelectedLabId(String(firstLabId));
+        hasInitialized.current = true;
+      }
     }
-  }, [hasOwnedLabs, selectedLabId, isModalOpen]); // Removed 'ownedLabs' to prevent loops
+  }, [ownedLabs.length, selectedLabId, isModalOpen]);
 
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
@@ -293,8 +335,10 @@ export default function ProviderDashboard() {
 
   // Handle adding a new lab using React Query mutation
   async function handleAddLab({ labData }) {
-    const maxId = labs.length > 0 ? Math.max(...labs.map(lab => lab.id || 0)) : 0;
-    labData.uri = labData.uri || `Lab-${user.name}-${maxId + 1}.json`;
+    const maxId = Array.isArray(labs) && labs.length > 0 
+      ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
+      : 0;
+    labData.uri = labData.uri || `Lab-${user?.name || 'Provider'}-${maxId + 1}.json`;
 
     try {
       addTemporaryNotification('pending', '⏳ Adding lab...');

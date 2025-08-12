@@ -63,22 +63,22 @@ export default function ClientQueryProvider({ children }) {
     
     const initializeEssentialCaches = () => {
       try {
-        devLog.log('🏗️ Initializing essential empty caches on app startup...');
+        devLog.log('🏗️ Checking existing cache state on app startup...');
         
-        // Only initialize global caches that don't require API calls
-        // Lab-specific caches will be created lazily when labs are first fetched
+        // Check if we have existing labs data in cache
+        const allLabsKey = ['labs', 'getAllLabs']; // Use the actual query key from useAllLabs
+        const existingLabsData = queryClient.getQueryData(allLabsKey);
         
-        // All labs composed cache
-        const allLabsKey = labQueryKeys.all();
-        if (!queryClient.getQueryData(allLabsKey)) {
-          queryClient.setQueryData(allLabsKey, []);
-          devLog.log('📦 Created empty all-labs composed cache');
+        if (existingLabsData && existingLabsData.length > 0) {
+          devLog.log('📦 Found existing all-labs cache with', existingLabsData.length, 'entries');
+        } else {
+          devLog.log('📦 Memory cache empty on startup - React Query will restore from localStorage or API');
         }
         
         isInitialized = true;
-        devLog.log('✅ Successfully initialized essential empty caches (no API calls)');
+        devLog.log('✅ Cache state check completed');
       } catch (error) {
-        devLog.warn('⚠️ Failed to initialize essential empty caches:', error.message);
+        devLog.warn('⚠️ Failed to check cache state:', error.message);
         // Don't throw - app should continue working even if this fails
       }
     };
@@ -105,9 +105,37 @@ export default function ClientQueryProvider({ children }) {
               
               // Persist lab, provider, and user queries
               const queryType = query.queryKey[0];
-              const shouldPersist = queryType === 'labs' || 
-                                   queryType === 'provider' || 
-                                   queryType === 'sso';
+              // Persist key families we want across reloads
+              // - labs: catalog and metadata
+              // - provider: single-provider details
+              // - providers: provider lists
+              // - reservations: on-chain reservation data per user/lab
+              // - bookings: client-side composed booking aggregates
+              // - auth: sso session
+              const shouldPersist = (
+                queryType === 'labs' ||
+                queryType === 'provider' ||
+                queryType === 'providers' ||
+                queryType === 'reservations' ||
+                queryType === 'bookings' ||
+                queryType === 'auth'
+              );
+              
+              // Only persist successful queries with data
+              if (shouldPersist) {
+                // Exclude highly volatile reservation sub-queries from persistence
+                if (queryType === 'reservations') {
+                  const subKey = query.queryKey[1];
+                  if (subKey === 'checkAvailable') {
+                    return false;
+                  }
+                }
+                
+                const state = query.state;
+                if (!state || state.status !== 'success' || typeof state.data === 'undefined') {
+                  return false;
+                }
+              }
               
               // Only log once per query type per session to avoid spam
               if (shouldPersist && !loggedQueryTypes.has(queryType)) {
