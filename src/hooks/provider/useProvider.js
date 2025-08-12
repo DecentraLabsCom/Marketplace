@@ -71,9 +71,6 @@ export const labProvidersQueryFn = async () => {
 // Attach queryFn to hook for backward compatibility
 useLabProviders.queryFn = labProvidersQueryFn;
 
-// Export configuration for use in composed hooks
-export { PROVIDER_QUERY_CONFIG };
-
 /**
  * Hook for saving lab data
  * POST /api/provider/saveLabData

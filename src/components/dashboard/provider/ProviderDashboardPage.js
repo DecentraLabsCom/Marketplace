@@ -39,20 +39,7 @@ import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import devLog from '@/utils/dev/logger'
 
 export default function ProviderDashboard() {
-  const { address, user, isSSO } = useUser();
-  
-  // Early return if no address - prevents unnecessary queries
-  if (!address) {
-    return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
-        <div className="container mx-auto p-6">
-          <div className="text-center">
-            <p className="text-gray-600">Please connect your wallet to access the provider dashboard.</p>
-          </div>
-        </div>
-      </AccessControl>
-    );
-  }
+  const { address, user, isSSO } = useUser();  
   
   // 🚀 React Query for all labs with owner information
   const allLabsResult = useAllLabsComposed({ 

@@ -23,6 +23,24 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
 
   const hasImages = images.length > 0;
 
+  // Make image automatically slide in time to the next one
+  useEffect(() => {
+    if (!hasImages || images.length <= 1) return; // No need for auto-slide if no images or only one image
+    
+    intervalRef.current = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+    }, 3000);
+    return () => clearInterval(intervalRef.current);
+  }, [hasImages, images.length]); // Now images.length is stable thanks to useMemo
+
+  // Reset currentIndex when images change to prevent out-of-bounds index
+  useEffect(() => {
+    if (!hasImages) return;
+    if (currentIndex >= images.length) {
+      setCurrentIndex(0);
+    }
+  }, [hasImages, images.length, currentIndex]);
+
   // If no images, show placeholder
   if (!hasImages) {
     return (
@@ -33,26 +51,9 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
     );
   }
 
-  // Make image automatically slide in time to the next one
-  useEffect(() => {
-    if (images.length <= 1) return; // No need for auto-slide if only one image
-    
-    intervalRef.current = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
-    }, 3000);
-    return () => clearInterval(intervalRef.current);
-  }, [images.length]); // Now images.length is stable thanks to useMemo
-
-  // Reset currentIndex when images change to prevent out-of-bounds index
-  useEffect(() => {
-    if (currentIndex >= images.length) {
-      setCurrentIndex(0);
-    }
-  }, [images.length, currentIndex]);
-
   // Reset interval when using the handles to move between images
   const resetInterval = () => {
-    if (images.length <= 1) return; // No need for interval if only one image
+    if (!hasImages || images.length <= 1) return; // No need for interval if no images or only one image
     
     clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
