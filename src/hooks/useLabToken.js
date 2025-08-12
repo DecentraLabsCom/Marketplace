@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
-import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
+import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
+import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
+import { contractAddressesLAB } from '@/contracts/lab'
 import { contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -56,36 +58,36 @@ export function useLabToken() {
   const labTokenAddress = contractAddressesLAB[chainName];
   const diamondContractAddress = contractAddresses[chainName];
   
-  const { writeContractAsync } = useWriteContract();
   const [lastTxHash, setLastTxHash] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [cachedDecimals, setCachedDecimalsState] = useState(() => getCachedDecimals(chainName));
 
-  // Read user balance
-  const { data: balance, refetch: refetchBalance } = useReadContract({
-    address: labTokenAddress,
-    abi: labTokenABI,
-    functionName: 'balanceOf',
-    args: [address],
-    enabled: !!address && !!labTokenAddress
-  });
+  // Read user balance using the updated hook
+  const { data: balance, refetch: refetchBalance } = useDefaultReadContract(
+    'balanceOf', 
+    [address], 
+    false, 
+    'lab'
+  );
 
-  // Read allowance for diamond contract
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: labTokenAddress,
-    abi: labTokenABI,
-    functionName: 'allowance',
-    args: [address, diamondContractAddress],
-    enabled: !!address && !!labTokenAddress && !!diamondContractAddress
-  });
+  // Read allowance for diamond contract using the updated hook
+  const { data: allowance, refetch: refetchAllowance } = useDefaultReadContract(
+    'allowance', 
+    [address, diamondContractAddress], 
+    false, 
+    'lab'
+  );
 
-  // Read token decimals only if not cached
-  const { data: contractDecimals } = useReadContract({
-    address: labTokenAddress,
-    abi: labTokenABI,
-    functionName: 'decimals',
-    enabled: !!labTokenAddress && cachedDecimals === null
-  });
+  // Read token decimals only if not cached using the updated hook
+  const { data: contractDecimals } = useDefaultReadContract(
+    'decimals', 
+    [], 
+    cachedDecimals !== null, 
+    'lab'
+  );
+
+  // Get the write function for LAB token contract
+  const { contractWriteFunction: labTokenWrite } = useContractWriteFunction('approve', 'lab');
 
   // Update cached decimals when we get them from contract
   useEffect(() => {
@@ -162,11 +164,7 @@ export function useLabToken() {
 
     setIsLoading(true);
     try {
-      const txHash = await writeContractAsync({
-        address: labTokenAddress,
-        abi: labTokenABI,
-        functionName: 'approve',
-        args: [diamondContractAddress, amount],
+      const txHash = await labTokenWrite([diamondContractAddress, amount], {
         chainId: safeChain.id
       });
 
@@ -227,21 +225,30 @@ export function useLabToken() {
   };
 
   /**
-   * Format price from per-second format to per-hour format for UI display
-   * @param {string|number|bigint} price - Price per second in decimal format (always from cache/backend)
+   * Format price from contract units to per-hour format for UI display
+   * @param {string|number|bigint} price - Price per second in contract units (smallest denomination)
    * @returns {string} - Human-readable price per hour rounded to 2 decimals
    */
   const formatPrice = (price) => {
     if (!price || price === '0') return '0.00';
     
+    // If decimals not loaded yet, return placeholder
+    if (decimals === undefined || decimals === null) {
+      devLog.warn('formatPrice: decimals not loaded yet, using fallback');
+      return '0.00';
+    }
+    
     try {
-      // Backend always provides price in decimal format per second
-      const pricePerSecond = parseFloat(price.toString());
+      // Contract provides price in smallest units per second
+      const pricePerSecondUnits = parseFloat(price.toString());
       
-      if (isNaN(pricePerSecond)) return '0.00';
+      if (isNaN(pricePerSecondUnits)) return '0.00';
+      
+      // Convert from contract units to decimal tokens (divide by 10^decimals)
+      const pricePerSecondTokens = pricePerSecondUnits / Math.pow(10, decimals);
       
       // Convert from per second to per hour
-      const pricePerHour = pricePerSecond * 3600;
+      const pricePerHour = pricePerSecondTokens * 3600;
       
       // Round to 2 decimal places
       const roundedPrice = Math.round(pricePerHour * 100) / 100;
@@ -249,7 +256,7 @@ export function useLabToken() {
       return roundedPrice.toFixed(2);
       
     } catch (error) {
-      devLog.error('Error formatting price:', error, 'Price:', price);
+      devLog.error('Error formatting price:', error, 'Price:', price, 'Decimals:', decimals);
       return '0.00';
     }
   };

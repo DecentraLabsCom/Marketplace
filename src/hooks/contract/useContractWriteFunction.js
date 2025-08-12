@@ -1,6 +1,7 @@
 import { useWriteContract, useAccount } from 'wagmi'
 import PropTypes from 'prop-types'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
+import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
 
@@ -8,6 +9,7 @@ import devLog from '@/utils/dev/logger'
  * Hook for writing to smart contract functions
  * Provides a unified interface for writing to blockchain contract methods with error handling
  * @param {string} functionName - Name of the contract function to call
+ * @param {string} [contractType='diamond'] - Type of contract ('diamond' or 'lab')
  * @returns {Object} Object containing contractWriteFunction and wagmi utilities
  * @returns {Function} returns.contractWriteFunction - Async function to execute contract writes
  * @returns {Object} returns.writeContractAsync - Original wagmi write function
@@ -15,17 +17,29 @@ import devLog from '@/utils/dev/logger'
  * @returns {Error|null} returns.error - Last error from write operation
  * @throws {Error} When wallet is not connected or contract address not found
  */
-export default function useContractWriteFunction(functionName) {
+export default function useContractWriteFunction(functionName, contractType = 'diamond') {
   const { chain, address: userAddress, isConnected } = useAccount()
   const safeChain = selectChain(chain)
-  const contractAddress = contractAddresses[safeChain.name.toLowerCase()]
+  const chainKey = safeChain.name.toLowerCase()
   const { writeContractAsync, ...rest } = useWriteContract()
+
+  // Choose contract configuration based on type
+  let contractAddress, abi;
+  if (contractType === 'lab') {
+    contractAddress = contractAddressesLAB[chainKey];
+    abi = labTokenABI;
+  } else {
+    // Default: diamond contract
+    contractAddress = contractAddresses[chainKey];
+    abi = contractABI;
+  }
 
   async function contractWriteFunction(args, options = {}) {
     devLog.log('Contract write function called with:', {
       functionName,
       args,
       contractAddress,
+      contractType,
       safeChain: safeChain.name,
       chainId: safeChain.id,
       userAddress,
@@ -43,7 +57,7 @@ export default function useContractWriteFunction(functionName) {
 
     const contractCall = {
       address: contractAddress,
-      abi: contractABI,
+      abi,
       functionName: functionName,
       chainId: safeChain.id,
       args,
@@ -60,5 +74,10 @@ export default function useContractWriteFunction(functionName) {
 }
 
 useContractWriteFunction.propTypes = {
-  functionName: PropTypes.string.isRequired
+  functionName: PropTypes.string.isRequired,
+  contractType: PropTypes.oneOf(['diamond', 'lab']),
+}
+
+useContractWriteFunction.defaultProps = {
+  contractType: 'diamond',
 }

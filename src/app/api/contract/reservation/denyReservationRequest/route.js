@@ -5,8 +5,6 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
-
 /**
  * Denies a reservation request
  * @param {Request} request - HTTP request with reservation details
@@ -21,7 +19,7 @@ export async function POST(request) {
     const { reservationKey, reason = 'Denied by provider' } = body;
     
     if (!reservationKey) {
-      return Response.json({ error: 'Missing reservationKey' }, { status: 400 });
+      return Response.json({ error: 'Missing reservationKey' }, {status: 400 });
     }
 
     console.log(`Denying reservation: ${reservationKey}, reason: ${reason}`);
@@ -29,20 +27,16 @@ export async function POST(request) {
     const contract = await getContractInstance();
     
     // Execute blockchain transaction
-    const tx = await executeBlockchainTransaction(() => contract.denyReservationRequest(reservationKey));
+    const tx = await contract.denyReservationRequest(reservationKey);
     await tx.wait();
     
     console.log(`✅ Reservation denied: ${reservationKey}`);
 
     return Response.json({ 
-      success: true,
       transactionHash: tx.hash,
       reservationKey,
       reason
-    }, { 
-      status: 200,
-      headers: { 'Cache-Control': 'no-cache' }
-    });
+    }, {status: 200});
 
   } catch (error) {
     console.error('Error denying reservation:', error);
@@ -50,9 +44,8 @@ export async function POST(request) {
     return Response.json({ 
       error: 'Failed to deny reservation',
       details: error.message
-    }, { 
-      status: 500,
-      headers: { 'Cache-Control': 'no-cache' }
+    }, {status: 500,
+      
     });
   }
 }

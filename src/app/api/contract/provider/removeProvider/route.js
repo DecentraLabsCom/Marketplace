@@ -3,8 +3,6 @@
  * Handles POST requests to deregister providers from the smart contract
  */
 import { getContractInstance } from '../../utils/contractInstance'
-import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
-
 /**
  * Removes a lab provider from the blockchain registry
  * @param {Request} request - HTTP request with provider details
@@ -22,11 +20,14 @@ export async function POST(request) {
   try {
     const contract = await getContractInstance();
 
-    const tx = await executeBlockchainTransaction(() => contract.removeProvider(wallet));
+    const tx = await contract.removeProvider(wallet);
     await tx.wait();
 
     // Return data to client
-    return Response.json({succsess: true}, { status: 200 });
+    return Response.json({
+      message: 'Provider removed successfully',
+      walletAddress: wallet
+    }, { status: 200 });
   } catch (error) {
     console.error('Error when trying to delete a provider:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });

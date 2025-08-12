@@ -36,7 +36,7 @@ export default async function getProvider(network) {
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     const rpcUrl = network.rpcUrls.default.http[0];
     const networkInfo = { name: network.name, chainId: network.id };
-    const options = {batchMaxCount: 2};
+    const options = {batchMaxCount: 10}; // Optimized for free tier compatibility
 
     const providers = [];
 
@@ -142,11 +142,11 @@ export default async function getProvider(network) {
         }
     }
     
-    // Fallback to the official RPC if others fail
+    // Public RPC
     try {
         providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
     } catch (e) {
-        console.warn('Official RPC provider failed to initialize:', e.message);
+        console.warn('Public RPC provider failed to initialize:', e.message);
     }
 
     if (providers.length === 0) {
@@ -169,7 +169,7 @@ export default async function getProvider(network) {
     
     const fallbackProvider = new ethers.FallbackProvider(providers, networkInfo, {
         quorum: 1,
-        stallTimeout: 4000,  // 4 seconds before trying next provider
+        stallTimeout: 2000,  // 2 seconds before trying next provider
         priority: 1,         // Lower priority = higher preference
     });
 

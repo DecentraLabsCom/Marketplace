@@ -5,103 +5,51 @@
  * INTERNAL USE ONLY - Components should use hooks, not direct query keys
  */
 
-/**
- * Centralized query keys for React Query
- * @constant {Object}
- */
-export const QUERY_KEYS = {
-  // Bookings - Atomic and Composed patterns
-  BOOKINGS: {
-    all: ['bookings'],
-    
-    // Composed queries (primary data sources)
-    userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
-    labComposed: (labId, includeMetrics = true) => ['bookings', 'lab-composed', labId, includeMetrics],
-    multiLab: (labIds, includeMetrics = false) => ['bookings', 'multi-lab', labIds.sort(), includeMetrics],
-    
-    // Atomic queries (for specific use cases)
-    userAtomic: (address, clearCache = false) => ['bookings', 'user-atomic', address, clearCache],
-    labAtomic: (labId, clearCache = false) => ['bookings', 'lab-atomic', labId, clearCache],
-  },
-  
-  // Labs - Atomic endpoints only
-  LABS: {
-    list: ['labs', 'list'],
-    decimals: ['labs', 'decimals'],
-    data: (labId) => ['labs', 'data', labId],
-    owner: (labId) => ['labs', 'owner', labId],
-    metadata: (uri) => ['labs', 'metadata', uri],
-  },
-  
-  // User
-  USER: {
-    profile: (address) => ['user', 'profile', address],
-    status: (address) => ['user', 'status', address],
-  },
-  
-  // SSO & Authentication
-  SSO_SESSION: ['sso', 'session'],
-  AUTH: {
-    ssoSession: ['auth', 'sso', 'session'],
-  },
-  
-  // Provider
-  PROVIDER: {
-    profile: (id) => ['provider', 'profile', id],
-    status: (identifier, isEmail = false) => ['provider', 'status', identifier, isEmail],
-    name: (wallet) => ['provider', 'name', wallet],
-  },
-  
-  // Providers (atomic)
-  PROVIDERS: {
-    list: ['providers', 'list'],
-  },
+// Booking query keys
+export const bookingQueryKeys = {
+  all: () => ['bookings'],
+  byUser: (address) => ['bookings', 'user', address],
+  byLab: (labId) => ['bookings', 'lab', labId],
+  byReservationKey: (key) => ['bookings', 'reservation', key],
+  userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
+  labComposed: (labId, includeMetrics = true) => ['bookings', 'lab-composed', labId, includeMetrics],
+  multiLab: (labIds, includeMetrics = false) => ['bookings', 'multi-lab', labIds.sort(), includeMetrics],
 };
 
-// Helper to invalidate related query keys
-/**
- * Patterns for cache invalidation that cascade related data
- * @constant {Object}
- */
-export const INVALIDATION_PATTERNS = {
-  // Invalidate all bookings when there are changes
-  allBookings: () => [QUERY_KEYS.BOOKINGS.all],
+// Lab query keys
+export const labQueryKeys = {
+  all: () => ['labs'],
+  list: () => ['labs', 'list'],
+  byId: (labId) => ['labs', 'data', labId],
+  owner: (labId) => ['labs', 'owner', labId],
+  metadata: (uri) => ['labs', 'metadata', uri],
+  decimals: () => ['labs', 'decimals'],
+};
 
-  // Invalidate bookings for a specific user (both composed and atomic)
-  userBookings: (address) => [
-    QUERY_KEYS.BOOKINGS.userComposed(address),
-    QUERY_KEYS.BOOKINGS.userComposed(address, true), // With details
-    QUERY_KEYS.BOOKINGS.userAtomic(address),
-    QUERY_KEYS.BOOKINGS.userAtomic(address, true), // Clear cache
-  ],
+// User query keys
+export const userQueryKeys = {
+  all: () => ['users'],
+  byAddress: (address) => ['user', 'profile', address],
+  providerStatus: (address) => ['provider', 'status', address],
+  ssoSession: () => ['auth', 'sso', 'session'],
+};
 
-  // Invalidate bookings for a specific lab (both composed and atomic)
-  labBookings: (labId) => [
-    QUERY_KEYS.BOOKINGS.labComposed(labId, true), // With metrics (standard)
-    QUERY_KEYS.BOOKINGS.labAtomic(labId),
-    QUERY_KEYS.BOOKINGS.labAtomic(labId, true), // Clear cache
-  ],
+// Provider query keys
+export const providerQueryKeys = {
+  all: () => ['providers'],
+  list: () => ['providers', 'list'],
+  byAddress: (address) => ['provider', 'profile', address],
+  status: (identifier, isEmail = false) => ['provider', 'status', identifier, isEmail],
+  name: (wallet) => ['provider', 'name', wallet],
+};
 
-  // Invalidate multi-lab bookings that include a specific lab
-  multiLabBookings: (labId) => {
-    // This is more complex as we need to find all multi-lab queries that include this labId
-    // For now, we'll invalidate all multi-lab queries (safer approach)
-    // In the future, we could implement a more sophisticated pattern matching
-    return [['bookings', 'multi-lab']]; // Partial key to match all multi-lab queries
-  },
-
-  // Invalidate lab data when a lab changes
-  labData: (labId) => [
-    QUERY_KEYS.LABS.data(labId),
-    QUERY_KEYS.LABS.owner(labId),
-    ...INVALIDATION_PATTERNS.labBookings(labId),
-    ...INVALIDATION_PATTERNS.multiLabBookings(labId),
-  ],
-
-  // Invalidate user data
-  userData: (address) => [
-    QUERY_KEYS.USER.profile(address),
-    QUERY_KEYS.USER.status(address),
-    ...INVALIDATION_PATTERNS.userBookings(address),
-  ],
+// Reservation/Contract query keys
+export const reservationQueryKeys = {
+  safeBalance: () => ['reservations', 'getSafeBalance'],
+  totalReservations: () => ['reservations', 'totalReservations'],
+  labTokenAddress: () => ['reservations', 'getLabTokenAddress'],
+  isTokenListed: (labId) => ['reservations', 'isTokenListed', labId],
+  hasActiveBooking: (reservationKey, userAddress) => ['reservations', 'hasActiveBooking', reservationKey, userAddress],
+  hasActiveBookingByToken: (tokenId, user) => ['reservations', 'hasActiveBookingByToken', tokenId, user],
+  checkAvailable: (labId, start, end) => ['reservations', 'checkAvailable', labId, start, end],
 };

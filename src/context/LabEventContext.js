@@ -4,7 +4,7 @@ import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabCacheUpdates } from '@/hooks/lab/useLabs'
 import { useQueryClient } from '@tanstack/react-query'
-import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -55,13 +55,13 @@ export function LabEventProvider({ children }) {
         
         // Fallback to traditional invalidation using React Query directly
         queryClient.invalidateQueries({ 
-            queryKey: QUERY_KEYS.LAB.all 
+            queryKey: labQueryKeys.all() 
         });
 
         // Also invalidate lab data if specific labId
         if (labId) {
             queryClient.invalidateQueries({ 
-                queryKey: QUERY_KEYS.LAB.byId(labId) 
+                queryKey: labQueryKeys.byId(labId) 
             });
         }
 

@@ -19,31 +19,91 @@ import getIsVercel from '@/utils/isVercel'
  * @returns {Response} JSON response with success status or error
  */
 export async function POST(request) {
-  const body = await request.json();
-  const provider = body;
-
   try {
+    const body = await request.json();
+
+    // Validate required fields
+    if (!body) {
+      return Response.json(
+        { 
+          error: 'Missing request body',
+          code: 'MISSING_BODY'
+        }, 
+        { status: 400 }
+      );
+    }
+
+    const { name, email, organization, registrationType, ...otherFields } = body;
+
+    // Validate required fields
+    if (!name || !email) {
+      return Response.json(
+        { 
+          error: 'Missing required fields: name and email are required',
+          code: 'MISSING_REQUIRED_FIELDS',
+          required: ['name', 'email']
+        }, 
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return Response.json(
+        { 
+          error: 'Invalid email format',
+          code: 'INVALID_EMAIL'
+        }, 
+        { status: 400 }
+      );
+    }
+
+    // Validate name length
+    if (name.trim().length < 2) {
+      return Response.json(
+        { 
+          error: 'Provider name must be at least 2 characters long',
+          code: 'INVALID_NAME_LENGTH'
+        }, 
+        { status: 400 }
+      );
+    }
+
+    const timestamp = new Date().toISOString();
     let providers = [];
     const isVercel = getIsVercel();
 
-    // Add metadata for tracking
+    // Prepare provider data with metadata
     const providerWithMetadata = {
-      ...provider,
-      createdAt: new Date().toISOString(),
+      ...body,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      organization: organization?.trim() || null,
+      createdAt: timestamp,
       status: 'pending',
-      registrationType: provider.registrationType || 'manual'
+      registrationType: registrationType || 'manual'
     };
 
+    // Load existing providers
     if (!isVercel) {
       // LOCAL: Use filesystem
       const DATA_FILE = path.resolve(process.cwd(), 'data', 'pendingProviders.json');
-      if (fs.existsSync(DATA_FILE)) {
-        const file = fs.readFileSync(DATA_FILE, 'utf-8');
-        providers = JSON.parse(file);
+      try {
+        if (fs.existsSync(DATA_FILE)) {
+          const file = fs.readFileSync(DATA_FILE, 'utf-8');
+          providers = JSON.parse(file);
+        }
+      } catch (parseError) {
+        console.error('Error parsing existing providers file:', parseError);
+        return Response.json(
+          { 
+            error: 'Failed to read existing provider data',
+            code: 'READ_ERROR'
+          }, 
+          { status: 500 }
+        );
       }
-      providers.push(providerWithMetadata);
-      fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-      fs.writeFileSync(DATA_FILE, JSON.stringify(providers, null, 2));
     } else {
       // PRODUCTION: Use Vercel Blob API
       const blobName = 'pendingProviders.json';
@@ -53,25 +113,98 @@ export async function POST(request) {
         if (response.ok) {
           try {
             providers = await response.json();
-          } catch {
+          } catch (parseError) {
+            console.warn('Failed to parse existing providers blob, starting with empty array');
             providers = [];
           }
-        } else {
-          providers = [];
         }
-      } catch (e) {
-        console.warn(`Failed to fetch existing providers blob:`, e.message);
-        // Blob may not exist yet
-        providers = [];
+      } catch (error) {
+        console.warn('Failed to fetch existing providers blob:', error.message);
+        // Continue with empty array
       }
-      providers.push(providerWithMetadata);
-      await put(`data/${blobName}`, JSON.stringify(providers, null, 2), 
-                { contentType: 'application/json', allowOverwrite: true, access: 'public' });
     }
 
-    return Response.json({ success: true }, { status: 200 });
+    // Check for duplicate email
+    const existingProvider = providers.find(p => 
+      p.email && p.email.toLowerCase() === providerWithMetadata.email.toLowerCase()
+    );
+    
+    if (existingProvider) {
+      return Response.json(
+        { 
+          error: 'Provider with this email already exists',
+          code: 'DUPLICATE_EMAIL',
+          existingProvider: {
+            name: existingProvider.name,
+            email: existingProvider.email,
+            status: existingProvider.status,
+            createdAt: existingProvider.createdAt
+          }
+        }, 
+        { status: 409 } // Conflict
+      );
+    }
+
+    // Add new provider
+    providers.push(providerWithMetadata);
+
+    // Save updated providers list
+    try {
+      if (!isVercel) {
+        const DATA_FILE = path.resolve(process.cwd(), 'data', 'pendingProviders.json');
+        fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+        fs.writeFileSync(DATA_FILE, JSON.stringify(providers, null, 2));
+      } else {
+        const blobName = 'pendingProviders.json';
+        await put(`data/${blobName}`, JSON.stringify(providers, null, 2), 
+                  { contentType: 'application/json', allowOverwrite: true, access: 'public' });
+      }
+    } catch (writeError) {
+      console.error('Error saving provider registration:', writeError);
+      return Response.json(
+        { 
+          error: 'Failed to save provider registration',
+          code: 'WRITE_ERROR'
+        }, 
+        { status: 500 }
+      );
+    }
+
+    return Response.json(
+      { 
+        message: 'Provider registration saved successfully',
+        provider: {
+          name: providerWithMetadata.name,
+          email: providerWithMetadata.email,
+          status: providerWithMetadata.status,
+          registrationType: providerWithMetadata.registrationType
+        },
+        timestamp: timestamp
+      }, 
+      { status: 201 } // Created
+    );
+
   } catch (error) {
-    console.error('Error saving provider:', error);
-    return Response.json({ error: 'Failed to save provider' }, { status: 500 });
+    console.error('Error in saveRegistration endpoint:', error);
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      return Response.json(
+        { 
+          error: 'Invalid JSON in request body',
+          code: 'INVALID_JSON'
+        }, 
+        { status: 400 }
+      );
+    }
+    
+    return Response.json(
+      { 
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, 
+      { status: 500 }
+    );
   }
 }

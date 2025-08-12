@@ -3,6 +3,7 @@ import { mainnet, polygon, sepolia } from 'wagmi/chains'
 import { walletConnect, metaMask} from 'wagmi/connectors'
 import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
         quicknodeNetworks, chainstackNetworks, infuraNetworks } from '@/utils/blockchain/networkConfig'
+import { getWalletConnectMetadata } from '@/utils/env/baseUrl'
 
 let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
 let moralisProjectId = process.env.NEXT_PUBLIC_MORALIS_ID;
@@ -103,7 +104,7 @@ const createTransports = () => {
   return _cachedTransports;
 };
 
-// Función para crear config solo una vez
+// Create config just once
 const createWagmiConfig = () => {
   if (_cachedConfig) {
     return _cachedConfig;
@@ -111,13 +112,8 @@ const createWagmiConfig = () => {
 
   const transports = createTransports();
 
-  const metadata = {
-    name: 'DecentraLabs Marketplace', 
-    url: process.env.NEXT_PUBLIC_BASE_URL, 
-    description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities, ' +
-                 'allowing users to book and access a wide range of lab services and resources.', 
-    iconUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/favicon.svg`, 
-  }
+  // Use environment-aware metadata
+  const metadata = getWalletConnectMetadata();
 
   _cachedConfig = createConfig({
     autoConnect: true,

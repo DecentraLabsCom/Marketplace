@@ -4,7 +4,8 @@
  */
 import React, { useState, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useCompleteBookingCreation, useUserBookingsQuery, useLabBookingsQuery } from '@/hooks/booking/useBookings'
+import { useCompleteBookingCreation } from '@/hooks/booking/useBookings'
+import { useUserBookingsComposed, useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import BookingForm from '@/components/reservation/BookingForm'
 import BookingConfirmation from '@/components/reservation/BookingConfirmation'
@@ -45,8 +46,8 @@ export default function LabReservationWizard({
   // Data fetching
   const { 
     data: userBookingsData, 
-    isInitialLoading: userBookingsLoading 
-  } = useUserBookingsQuery(userAccount, {
+    isLoading: userBookingsLoading 
+  } = useUserBookingsComposed(userAccount, {
     enabled: !!userAccount
   });
   const userBookings = useMemo(() => 
@@ -56,8 +57,8 @@ export default function LabReservationWizard({
   
   const { 
     data: labBookingsData, 
-    isInitialLoading: labBookingsLoading 
-  } = useLabBookingsQuery(lab?.id, true, {
+    isLoading: labBookingsLoading 
+  } = useLabBookingsComposed(lab?.id, true, {
     enabled: !!lab?.id
   });
   const labBookings = useMemo(() => 

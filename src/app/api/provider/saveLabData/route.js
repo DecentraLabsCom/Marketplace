@@ -27,27 +27,69 @@ import getIsVercel from '@/utils/isVercel'
  */
 export async function POST(req) {
   try {
-    const { labData } = await req.json();
+    const body = await req.json();
+    const { labData } = body;
+
+    // Validate required body structure
+    if (!labData) {
+      return NextResponse.json(
+        { 
+          error: 'Missing required field: labData',
+          code: 'MISSING_LAB_DATA'
+        },
+        { status: 400 }
+      );
+    }
+
     const { name, description, category, keywords, opens, closes, docs, images, timeSlots, uri } = 
       labData || {};
+
+    // Validate required fields
+    if (!uri) {
+      return NextResponse.json(
+        { 
+          error: 'Missing required field: uri',
+          code: 'MISSING_URI'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate URI format for local files
+    if (uri.startsWith('Lab-') && !/^Lab-\w+-\d+\.json$/.test(uri)) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid lab URI format. Expected: Lab-{provider}-{id}.json',
+          code: 'INVALID_URI_FORMAT'
+        },
+        { status: 400 }
+      );
+    }
 
     const isVercel = getIsVercel();
     const filePath = path.join(process.cwd(), 'data', uri);
     const blobName = uri;
     let existingData = null;
+    const timestamp = new Date().toISOString();
 
+    // Try to read existing data
     if (!isVercel) {
       try {
-        // Read existing data if it exists
         const fileContent = await fs.readFile(filePath, 'utf-8');
         existingData = JSON.parse(fileContent);
       } catch (error) {
         if (error.code !== 'ENOENT') {
+          console.error(`Error reading existing lab data for ${uri}:`, error);
           return NextResponse.json(
-            { error: 'Failed to read existing lab data.', details: error.message }, 
+            { 
+              error: 'Failed to read existing lab data',
+              code: 'READ_ERROR',
+              details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            }, 
             { status: 500 }
           );
         }
+        // ENOENT is fine - file doesn't exist yet
       }
     } else {
       try {
@@ -56,19 +98,19 @@ export async function POST(req) {
         if (response.ok) {
           try {
             existingData = await response.json();
-          } catch {
-            existingData = [];
+          } catch (parseError) {
+            console.warn(`Failed to parse existing blob data for ${blobName}:`, parseError);
+            existingData = null; // Treat as new file
           }
-        } else {
-          existingData = [];
         }
-      } catch (e) {
-        console.warn(`Failed to fetch existing blob data for ${blobName}:`, e.message);
-        // Blob may not exist yet
-        existingData = [];
+        // Non-200 responses are fine - blob might not exist yet
+      } catch (error) {
+        console.warn(`Failed to fetch existing blob data for ${blobName}:`, error.message);
+        // Continue with null existingData
       }
     }
 
+    // Prepare new data structure
     const newData = {
       name: name || "",
       description: description || "",
@@ -86,11 +128,16 @@ export async function POST(req) {
         { trait_type: "docs", value: Array.isArray(docs) ? 
           docs : (docs ? docs.split(',').map(d => d.trim()) : []) },
       ],
+      _meta: {
+        lastUpdated: timestamp,
+        uri: uri,
+        version: existingData?._meta?.version ? existingData._meta.version + 1 : 1
+      }
     };
 
+    // Merge with existing data if present
     let finalData;
     if (existingData) {
-      // Combine existing data with new updated data
       finalData = {
         ...existingData,
         ...newData,
@@ -98,23 +145,70 @@ export async function POST(req) {
           const existingAttr = existingData.attributes?.find(attr => attr.trait_type === newAttr.trait_type);
           return existingAttr ? { ...existingAttr, ...newAttr } : newAttr;
         }),
+        _meta: newData._meta // Always use new metadata
       };
     } else {
       finalData = newData;
     }
 
+    // Save the data
     const labJSON = JSON.stringify(finalData, null, 2);
-    if (!isVercel) {
-      await fs.writeFile(filePath, labJSON, 'utf-8');
-    } else {
-      await put(`data/${blobName}`, labJSON, 
-                { contentType: 'application/json', allowOverwrite: true, access: 'public' });
+    
+    try {
+      if (!isVercel) {
+        // Ensure directory exists
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, labJSON, 'utf-8');
+      } else {
+        await put(`data/${blobName}`, labJSON, 
+                  { contentType: 'application/json', allowOverwrite: true, access: 'public' });
+      }
+    } catch (writeError) {
+      console.error(`Error writing lab data for ${uri}:`, writeError);
+      return NextResponse.json(
+        { 
+          error: 'Failed to save lab data',
+          code: 'WRITE_ERROR',
+          details: process.env.NODE_ENV === 'development' ? writeError.message : undefined
+        },
+        { status: 500 }
+      );
     }
-    return NextResponse.json({ message: 'Lab data saved/updated successfully.' }, { status: 200 });
+
+    // Return success response optimized for React Query
+    return NextResponse.json(
+      { 
+        message: 'Lab data saved/updated successfully',
+        uri: uri,
+        version: finalData._meta.version,
+        timestamp: timestamp,
+        isUpdate: !!existingData
+      }, 
+      { status: 200 }
+    );
+
   } catch (error) {
-    return NextResponse.json({ 
-      error: 'Failed to save/update lab data.', 
-      details: error.message }, { status: 500 
-    });
+    console.error('Error in saveLabData endpoint:', error);
+    
+    // Handle JSON parsing errors
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid JSON in request body',
+          code: 'INVALID_JSON',
+          details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        },
+        { status: 400 }
+      );
+    }
+    
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      }, 
+      { status: 500 }
+    );
   }
 }

@@ -19,12 +19,14 @@ export function useBookingFilter(bookingInfo = [], displayMode = 'default', high
   const filteredBookings = useMemo(() => {
     const filtered = filterBookingsByDisplayMode(bookingInfo, displayMode)
     
-    devLog.log('🔍 CalendarWithBookings: Filtering results:', {
-      originalCount: bookingInfo?.length || 0,
-      filteredCount: filtered.length,
-      displayMode: displayMode,
-      filteredBookings: filtered
-    })
+    // Only log if there are actual changes or issues
+    if (filtered.length !== bookingInfo?.length) {
+      devLog.log('🔍 CalendarWithBookings: Filtering results:', {
+        originalCount: bookingInfo?.length || 0,
+        filteredCount: filtered.length,
+        displayMode: displayMode
+      })
+    }
     
     return filtered
   }, [bookingInfo, displayMode])
@@ -34,25 +36,17 @@ export function useBookingFilter(bookingInfo = [], displayMode = 'default', high
     return (day) => {
       const dayBookings = filteredBookings.filter(booking => {
         const bookingDate = new Date(booking.date)
-        const matches = !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString()
-        
-        if (matches) {
-          devLog.log('📅 Day matches booking:', {
-            day: day.toDateString(),
-            bookingDate: bookingDate.toDateString(),
-            bookingId: booking.id,
-            status: booking.status
-          })
-        }
-        
-        return matches
+        return !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString()
       })
       
-      devLog.log('📅 DayClassName check:', {
-        day: day.toDateString(),
-        matchingBookings: dayBookings.length,
-        bookings: dayBookings.map(b => ({ id: b.id, status: b.status }))
-      })
+      // Only log for debugging if there are bookings for this day
+      if (process.env.NODE_ENV === 'development' && dayBookings.length > 0) {
+        devLog.log('📅 Day has bookings:', {
+          day: day.toDateString(),
+          bookingCount: dayBookings.length,
+          statuses: dayBookings.map(b => b.status).join(',')
+        })
+      }
       
       if (dayBookings.length === 0) return undefined
       

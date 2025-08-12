@@ -3,6 +3,9 @@
  * Logs are only shown in localhost/development environment
  */
 
+// Track module load logs to prevent duplicates in StrictMode
+const moduleLoadLogs = new Set();
+
 const isDevelopment = () => {
   return process.env.NODE_ENV === 'development';
 };
@@ -11,6 +14,14 @@ const devLog = {
   log: (...args) => {
     if (isDevelopment()) {
       console.log(...args);
+    }
+  },
+  
+  // Special method for module load logs that should only appear once
+  moduleLoaded: (message) => {
+    if (isDevelopment() && !moduleLoadLogs.has(message)) {
+      moduleLoadLogs.add(message);
+      console.log(message);
     }
   },
   

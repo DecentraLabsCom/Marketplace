@@ -1,0 +1,436 @@
+/**
+ * Composed React Query Hooks for Lab-related operations
+ * These hooks use useQueries to orchestrate multiple related atomic hooks while maintaining
+ * React Query's caching, error handling, and retry capabilities
+ * 
+ * Uses atomic hook queryFn exports instead of direct fetch calls for consistency and shared caching
+ */
+import { useQueries } from '@tanstack/react-query'
+import { 
+  useAllLabs, 
+  useLab,
+  useOwnerOf,
+  LAB_QUERY_CONFIG, // ✅ Import shared configuration
+} from './useLabs'
+import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
+import { useLabProviders, PROVIDER_QUERY_CONFIG } from '@/hooks/provider/useProvider'
+import { useLabToken } from '@/hooks/useLabToken'
+import devLog from '@/utils/dev/logger'
+
+/**
+ * Helper function to format wallet address for display
+ * Shows first 3 and last 3 characters separated by ellipsis
+ * @param {string} address - The wallet address to format
+ * @returns {string} Formatted address (e.g., "0x1...abc")
+ */
+const formatWalletAddress = (address) => {
+  if (!address || address.length < 7) return address;
+  return `${address.substring(0, 3)}...${address.substring(address.length - 3)}`;
+};
+
+// Get LAB token decimals using the useLabToken hook
+const useLabTokenDecimals = () => {
+  const { decimals } = useLabToken();
+  return {
+    data: decimals,
+    isLoading: decimals === undefined,
+    isSuccess: decimals !== undefined,
+    isError: false,
+    error: null
+  };
+};
+
+/**
+ * Composed hook for getting all labs with enriched data
+ * Orchestrates multiple atomic hooks: labs list (IDs), individual lab details, decimals, and optional metadata/owners
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
+ * @param {boolean} options.includeOwners - Whether to fetch owner info for each lab
+ * @param {Object} options.queryOptions - Override options for base queries (labIds & providers only)
+ *                                        Internal queries use optimized configurations and cannot be overridden
+ * @returns {Object} React Query result with enriched lab data and comprehensive status
+ */
+export const useAllLabsComposed = ({ 
+  includeMetadata = true, 
+  includeOwners = false, 
+  queryOptions = {} 
+} = {}) => {
+  
+  // Step 1: Get all lab IDs using the atomic hook
+  const labIdsResult = useAllLabs({
+    ...LAB_QUERY_CONFIG,
+    // Only allow override of non-critical options like enabled, meta, etc.
+    enabled: queryOptions.enabled,
+    meta: queryOptions.meta,
+  });
+  const decimalsResult = useLabTokenDecimals();
+
+  // Get providers data for owner matching (always fetch for provider resolution)
+  const providersResult = useLabProviders({
+    ...PROVIDER_QUERY_CONFIG,
+    // Only allow override of non-critical options like enabled, meta, etc.
+    enabled: queryOptions.enabled,
+    meta: queryOptions.meta,
+  });
+
+  // Get lab IDs from the atomic hook result (getAllLabs returns array of ID strings)
+  const labIds = labIdsResult.data || [];
+  
+  // Step 2: Get detailed lab data for each ID using atomic hooks
+  const labDetailResults = useQueries({
+    queries: labIds.length > 0 
+      ? labIds.map(labId => ({
+          queryKey: ['labs', 'getLab', labId],
+          queryFn: () => useLab.queryFn(labId), // ✅ Using atomic hook queryFn
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
+          // Note: queryOptions not spread here as LAB_QUERY_CONFIG is optimized for lab data
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Get lab data with IDs
+  const labsWithDetails = labDetailResults
+    .filter(result => result.isSuccess && result.data)
+    .map(result => result.data);
+
+  // Step 3: Get owner data (always needed for provider matching, even if not requested for output)
+  const ownerResults = useQueries({
+    queries: labsWithDetails.length > 0
+      ? labsWithDetails.map(lab => ({
+          queryKey: ['labs', 'ownerOf', lab.labId],
+          queryFn: () => useOwnerOf.queryFn(lab.labId), // ✅ Using atomic hook queryFn
+          enabled: !!lab.labId,
+          ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
+          // Note: queryOptions not spread here as LAB_QUERY_CONFIG is optimized for lab data
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Step 4: Create metadata queries if requested 
+  const metadataResults = useQueries({
+    queries: (includeMetadata && labsWithDetails.length > 0) 
+      ? labsWithDetails.map(lab => {
+          // Use the URI from lab.base.uri for metadata
+          const metadataUri = lab.base?.uri;
+          return {
+            queryKey: ['metadata', metadataUri],
+            queryFn: () => useMetadata.queryFn({ metadataUri }), // ✅ Already using atomic hook queryFn
+            enabled: !!metadataUri,
+            ...METADATA_QUERY_CONFIG, // ✅ Metadata-specific configuration
+            // Note: queryOptions not spread here as METADATA_QUERY_CONFIG is optimized for metadata
+          };
+        })
+      : [],
+    combine: (results) => results
+  });
+
+  // Process and combine all results
+  const isBaseLoading = labIdsResult.isLoading || decimalsResult.isLoading;
+  // Note: providersResult.isLoading is not included since we have fallback logic
+  const isLabDetailsLoading = labDetailResults.some(result => result.isLoading);
+  const isEnrichmentLoading = ownerResults.some(result => result.isLoading) || 
+                             metadataResults.some(result => result.isLoading) ||
+                             providersResult.isLoading; // Moved here since providers are for enrichment
+  const isLoading = isBaseLoading || isLabDetailsLoading || isEnrichmentLoading;
+
+  const baseErrors = [];
+  if (labIdsResult.error) baseErrors.push(labIdsResult.error);
+  if (decimalsResult.error) baseErrors.push(decimalsResult.error);
+  // Note: providersResult.error is moved to enrichmentErrors since we have fallbacks
+  
+  const labDetailErrors = labDetailResults.filter(result => result.error).map(result => result.error);
+  const enrichmentErrors = [
+    ...ownerResults.filter(result => result.error).map(result => result.error),
+    ...metadataResults.filter(result => result.error).map(result => result.error)
+  ];
+  
+  // Add providers error to enrichment errors since we have fallback logic
+  if (providersResult.error) enrichmentErrors.push(providersResult.error);
+  
+  const hasErrors = baseErrors.length > 0 || labDetailErrors.length > 0;
+  const hasPartialErrors = enrichmentErrors.length > 0;
+
+  // Enrich labs with metadata and owner data
+  const enrichedLabs = labsWithDetails.map((lab, labIndex) => {
+    const enrichedLab = { 
+      // Start with basic lab data and ensure we have an id
+      id: lab.labId,
+      labId: lab.labId,
+      tokenId: lab.labId,
+      ...lab.base,
+    };
+
+    // Get owner data (always needed for provider matching)
+    const ownerData = ownerResults[labIndex]?.data;
+    const ownerAddress = ownerData?.owner || ownerData;
+    
+    // Add owner data to output only if requested
+    if (includeOwners && ownerAddress) {
+      enrichedLab.owner = ownerAddress;
+    }
+
+    // Get provider info by matching lab owner with provider accounts
+    if (providersResult.data?.providers && ownerAddress) {
+      const matchingProvider = providersResult.data.providers.find(
+        provider => provider.account.toLowerCase() === ownerAddress.toLowerCase()
+      );
+      if (matchingProvider) {
+        enrichedLab.providerInfo = {
+          name: matchingProvider.name,
+          email: matchingProvider.email,
+          country: matchingProvider.country,
+          account: matchingProvider.account
+        };
+        enrichedLab.provider = matchingProvider.name; // Use provider name as display name
+      }
+    }
+
+    // Add metadata if requested and available
+    if (includeMetadata && metadataResults[labIndex]?.data) {
+      const metadata = metadataResults[labIndex].data;
+      // Merge metadata properties into the lab object for easier access
+      enrichedLab.metadata = metadata;
+      if (metadata.name) enrichedLab.name = metadata.name;
+      if (metadata.description) enrichedLab.description = metadata.description;
+      if (metadata.image) enrichedLab.image = metadata.image;
+      if (metadata.images) enrichedLab.images = metadata.images;
+      if (metadata.category) enrichedLab.category = metadata.category;
+      if (metadata.provider) enrichedLab.provider = metadata.provider;
+      if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
+      
+      // Extract provider from metadata URI if not found from contract (fallback)
+      if (!enrichedLab.provider && lab.base?.uri) {
+        const uriMatch = lab.base.uri.match(/Lab-([A-Z]+)-\d+/);
+        if (uriMatch) {
+          enrichedLab.provider = uriMatch[1]; // Extract UNED, UHU, UBC, etc.
+        }
+      }
+      
+      // Extract category from attributes if not directly available
+      if (!enrichedLab.category && metadata.attributes) {
+        const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
+        if (categoryAttr) enrichedLab.category = categoryAttr.value;
+      }
+      
+      // Extract keywords from attributes if not directly available
+      if (!enrichedLab.keywords && metadata.attributes) {
+        const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
+        if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
+      }
+      
+      // Extract timeSlots from attributes if not directly available
+      if (!enrichedLab.timeSlots && metadata.attributes) {
+        const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
+        if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
+      }
+      
+      // Extract opens and closes dates from attributes if not directly available
+      if (!enrichedLab.opens && metadata.attributes) {
+        const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
+        if (opensAttr) enrichedLab.opens = opensAttr.value;
+      }
+      
+      if (!enrichedLab.closes && metadata.attributes) {
+        const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
+        if (closesAttr) enrichedLab.closes = closesAttr.value;
+      }
+      
+      // Extract docs from attributes if not directly available
+      if (!enrichedLab.docs && metadata.attributes) {
+        const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
+        if (docsAttr) enrichedLab.docs = docsAttr.value;
+      }
+      
+      // Extract additional images from attributes
+      if (metadata.attributes) {
+        const additionalImagesAttr = metadata.attributes.find(attr => attr.trait_type === 'additionalImages');
+        if (additionalImagesAttr && additionalImagesAttr.value) {
+          enrichedLab.images = [metadata.image, ...additionalImagesAttr.value].filter(Boolean);
+        }
+      }
+      
+      // If no images array exists, create one with the main image
+      if (!enrichedLab.images && enrichedLab.image) {
+        enrichedLab.images = [enrichedLab.image];
+      }
+    }
+
+    // Ensure we have fallback values for required props
+    if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
+    
+    // Provider fallback logic with formatted wallet address
+    if (!enrichedLab.provider) {
+      if (ownerAddress) {
+        // Use formatted wallet address as fallback
+        enrichedLab.provider = formatWalletAddress(ownerAddress);
+      } else {
+        enrichedLab.provider = 'Unknown Provider';
+      }
+    }
+    
+    if (!enrichedLab.price) enrichedLab.price = '0';
+    
+    // Ensure we have fallback values for timeSlots if not available in metadata
+    if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
+      enrichedLab.timeSlots = [15, 30, 60]; // Default time slots
+    }
+
+    return enrichedLab;
+  });
+
+  // Comprehensive status information
+  const allResults = [labIdsResult, decimalsResult, providersResult, ...labDetailResults, ...ownerResults, ...metadataResults];
+  const totalQueries = allResults.length;
+  const successfulQueries = allResults.filter(r => r.isSuccess && !r.error).length;
+  const failedQueries = allResults.filter(r => r.error).length;
+
+  return {
+    // Data
+    data: {
+      labs: enrichedLabs,
+      totalLabs: enrichedLabs.length,
+      decimals: decimalsResult.data,
+    },
+    
+    // Status
+    isLoading,
+    isSuccess: !hasErrors && successfulQueries > 0,
+    isError: hasErrors,
+    error: baseErrors[0] || labDetailErrors[0] || null,
+    
+    // Comprehensive meta information
+    meta: {
+      includeMetadata,
+      includeOwners,
+      totalQueries,
+      successfulQueries,
+      failedQueries,
+      hasPartialFailures: hasPartialErrors,
+      baseQueries: {
+        labIds: {
+          isLoading: labIdsResult.isLoading,
+          isSuccess: labIdsResult.isSuccess,
+          isError: labIdsResult.isError,
+          error: labIdsResult.error
+        },
+        labDetails: {
+          totalQueries: labDetailResults.length,
+          successfulQueries: labDetailResults.filter(r => r.isSuccess).length,
+          failedQueries: labDetailResults.filter(r => r.error).length,
+        },
+        decimals: {
+          isLoading: decimalsResult.isLoading,
+          isSuccess: decimalsResult.isSuccess,
+          isError: decimalsResult.isError,
+          error: decimalsResult.error
+        },
+        providers: {
+          isLoading: providersResult.isLoading,
+          isSuccess: providersResult.isSuccess,
+          isError: providersResult.isError,
+          error: providersResult.error,
+          count: providersResult.data?.count || 0
+        }
+      },
+      enrichmentStatus: {
+        totalOwnerQueries: ownerResults.length,
+        successfulOwners: ownerResults.filter(r => r.isSuccess).length,
+        failedOwners: ownerResults.filter(r => r.error).length,
+        totalMetadataQueries: metadataResults.length,
+        successfulMetadata: metadataResults.filter(r => r.isSuccess).length,
+        failedMetadata: metadataResults.filter(r => r.error).length,
+      },
+      errors: [...baseErrors, ...labDetailErrors, ...enrichmentErrors],
+      timestamp: new Date().toISOString()
+    },
+
+    // Individual result access for advanced use cases
+    baseResults: {
+      labIds: labIdsResult,
+      labDetails: labDetailResults,
+      decimals: decimalsResult,
+      providers: providersResult,
+    },
+    ownerResults,
+    metadataResults,
+
+    // Utility functions
+    refetch: () => {
+      labIdsResult.refetch();
+      providersResult.refetch();
+      labDetailResults.forEach(result => result.refetch && result.refetch());
+      // Note: decimalsResult.refetch not available as it uses useLabToken
+      ownerResults.forEach(result => result.refetch && result.refetch());
+      metadataResults.forEach(result => result.refetch && result.refetch());
+    },
+    
+    // React Query status aggregation
+    isFetching: allResults.some(r => r.isFetching),
+    isPaused: allResults.some(r => r.isPaused),
+    isStale: allResults.some(r => r.isStale),
+  };
+};
+
+/**
+ * Lightweight composed hook for basic lab list with decimals only
+ * Optimized for cases where enrichment is not needed
+ * @param {Object} queryOptions - Additional react-query options
+ * @returns {Object} React Query result with basic lab data
+ */
+export const useAllLabsBasic = (queryOptions = {}) => {
+  return useAllLabsComposed({ 
+    includeMetadata: false, 
+    includeOwners: false, 
+    queryOptions 
+  });
+};
+
+/**
+ * Full composed hook with all enrichments
+ * Optimized for dashboard and detailed views
+ * @param {Object} queryOptions - Additional react-query options
+ * @returns {Object} React Query result with fully enriched lab data
+ */
+export const useAllLabsFull = (queryOptions = {}) => {
+  return useAllLabsComposed({ 
+    includeMetadata: true, 
+    includeOwners: true, 
+    queryOptions 
+  });
+};
+
+/**
+ * Cache extraction helper for finding a specific lab from the composed data
+ * @param {Object} composedResult - Result from useAllLabsComposed
+ * @param {string|number} labId - Lab ID to find
+ * @returns {Object|null} Lab data if found, null otherwise
+ */
+export const extractLabFromComposed = (composedResult, labId) => {
+  if (!composedResult?.data?.labs || !labId) return null;
+  
+  return composedResult.data.labs.find(lab => 
+    (lab.labId && lab.labId.toString() === labId.toString()) ||
+    (lab.tokenId && lab.tokenId.toString() === labId.toString()) ||
+    (lab.id && lab.id.toString() === labId.toString())
+  ) || null;
+};
+
+/**
+ * Cache extraction helper for filtering labs by owner from composed data
+ * @param {Object} composedResult - Result from useAllLabsComposed (must include owners)
+ * @param {string} ownerAddress - Owner address to filter by
+ * @returns {Array} Array of labs owned by the address
+ */
+export const extractLabsByOwner = (composedResult, ownerAddress) => {
+  if (!composedResult?.data?.labs || !ownerAddress) return [];
+  
+  return composedResult.data.labs.filter(lab => 
+    lab.owner && lab.owner.toLowerCase() === ownerAddress.toLowerCase()
+  );
+};
+
+// Module loaded confirmation (only logs once even in StrictMode)
+devLog.moduleLoaded('✅ Lab composed hooks loaded');

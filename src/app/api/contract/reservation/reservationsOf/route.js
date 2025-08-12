@@ -4,7 +4,6 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { retryBlockchainRead } from '@/app/api/contract/utils/retry'
 import { isAddress } from 'viem'
 
 /**
@@ -20,13 +19,13 @@ export async function GET(request) {
   if (!userAddress) {
     return Response.json({ 
       error: 'Missing userAddress parameter' 
-    }, { status: 400 });
+    }, {status: 400 });
   }
 
   if (!isAddress(userAddress)) {
     return Response.json({ 
       error: 'Invalid wallet address format' 
-    }, { status: 400 });
+    }, {status: 400 });
   }
 
   try {
@@ -35,7 +34,7 @@ export async function GET(request) {
     const contract = await getContractInstance();
     
     // ATOMIC: Single contract call to reservationsOf
-    const reservationsCount = await retryBlockchainRead(() => contract.reservationsOf(userAddress));
+    const reservationsCount = await contract.reservationsOf(userAddress);
     const totalReservations = Number(reservationsCount);
     
     console.log(`📊 User has ${totalReservations} total reservations`);
@@ -43,10 +42,7 @@ export async function GET(request) {
     return Response.json({ 
       count: totalReservations,
       userAddress 
-    }, { 
-      status: 200,
-      headers: { 'Cache-Control': 'no-cache' }
-    });
+    }, {status: 200});
 
   } catch (error) {
     console.error('❌ Error getting reservation count:', error);
@@ -55,6 +51,6 @@ export async function GET(request) {
       error: 'Failed to get reservation count',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       userAddress 
-    }, { status: 500 });
+    }, {status: 500 });
   }
 }

@@ -4,7 +4,7 @@
  */
 import { useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import { bookingQueryKeys, labQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 export function useReservationEventCoordinator() {
@@ -40,7 +40,7 @@ export function useReservationEventCoordinator() {
       
       // Invalidate all user bookings (broad invalidation for events)
       await queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.all
+        queryKey: bookingQueryKeys.all()
       });
 
       // If labId specified, invalidate lab-specific bookings
@@ -81,7 +81,7 @@ export function useReservationEventCoordinator() {
     if (!isManualUpdateInProgress) {
       devLog.log('🔄 [ReservationEventCoordinator] Refreshing all bookings');
       queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.all
+        queryKey: bookingQueryKeys.all()
       });
     } else {
       devLog.log('Manual booking update in progress, skipping automatic refresh');
@@ -120,7 +120,7 @@ export function useReservationEventCoordinator() {
       } else {
         // Refresh all bookings
         await queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.all
+          queryKey: bookingQueryKeys.all()
         });
       }
       
@@ -161,7 +161,7 @@ export function useReservationEventCoordinator() {
     await coordinatedReservationUpdate(async () => {
       // Force a complete refresh of all user bookings
       await queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.all
+        queryKey: bookingQueryKeys.all()
       });
       return { success: true, action: 'lab_deletion_cleanup' };
     }, null, labId);
@@ -177,3 +177,4 @@ export function useReservationEventCoordinator() {
     invalidateUserBookingsByLab
   };
 }
+

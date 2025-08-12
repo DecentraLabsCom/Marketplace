@@ -4,7 +4,6 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
 import { ethers } from 'ethers'
 import { validateProviderRole } from '@/utils/auth/roleValidation'
 
@@ -51,14 +50,13 @@ export async function POST(request) {
     console.log(`Registering SSO provider: ${name} with server wallet: ${providerWallet}`);
 
     // Call contract with server-managed wallet address
-    const tx = await executeBlockchainTransaction(() => contract.addProvider(name, providerWallet, email, country));
+    const tx = await contract.addProvider(name, providerWallet, email, country);
     await tx.wait();
 
     console.log(`SSO provider registered successfully: ${name}`);
 
     // Return success with the wallet address used
     return Response.json({ 
-      success: true, 
       walletAddress: providerWallet,
       transactionHash: tx.hash 
     }, { status: 200 });

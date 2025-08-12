@@ -1,874 +1,1542 @@
 /**
- * React Query Hooks for Booking-related data
- * Uses simple hooks with composed services and cache-extracting hooks
+ * Atomic React Query Hooks for Reservation/Booking-related API endpoints
+ * Each hook maps 1:1 to a specific API endpoint in /api/contract/reservation/
+ * 
+ * Configuration:
+ * - staleTime: 15 minutes (900,000ms)
+ * - gcTime: 60 minutes (3,600,000ms)
+ * - refetchOnWindowFocus: false
+ * - refetchInterval: false
+ * - refetchOnReconnect: true
+ * - retry: 1
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, useCallback, useEffect } from 'react'
-import { useWalletClient } from 'wagmi'
-import { bookingServices } from '@/services/booking/bookingServices'
-import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
-import { useLabToken } from '@/hooks/useLabToken'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
+import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { useUser } from '@/context/UserContext'
-import { createSSRSafeQuery } from '@/utils/ssrSafe'
+import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
-// ===============================
-// === MAIN COMPOSED HOOKS ===
-// ===============================
+// Export composed hooks
+export * from './useBookingsComposed'
 
-/**
- * Hook to get all user bookings in a single composed call
- * This is the primary data source for user booking data
- * @param {string} userAddress - User's wallet address
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with user bookings composed data
- */
-export const useUserBookingsQuery = (userAddress, options = {}) => {
-  return useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true), // Always use true for consistent cache
-    queryFn: createSSRSafeQuery(
-      () => bookingServices.fetchUserBookingsComposed(userAddress, true),
-      { bookings: [], totalBookings: 0, activeBookings: 0, pastBookings: 0 } // Return empty booking structure during SSR
-    ),
-    enabled: !!userAddress,
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-    retry: 2,
-    ...options,
-  });
-};
-
-/**
- * Hook to get all lab bookings in a single composed call
- * This is the primary data source for lab booking data
- * @param {string|number} labId - Lab identifier
- * @param {boolean} includeMetrics - Whether to calculate occupancy metrics
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with lab bookings composed data
- */
-export const useLabBookingsQuery = (labId, includeMetrics = true, options = {}) => {
-  const queryClient = useQueryClient();
-  
-  return useQuery({
-    queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId, includeMetrics),
-    queryFn: createSSRSafeQuery(
-      () => bookingServices.fetchLabBookingsComposed(labId, includeMetrics),
-      { bookings: [], metrics: null } // Return empty booking structure during SSR
-    ),
-    enabled: !!labId,
-    staleTime: 15 * 60 * 1000, // 15 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-    retry: 2,
-    ...options,
-    onError: (error) => {
-      devLog.warn(`⚠️ Lab bookings query failed for lab ${labId}, creating empty cache:`, error.message);
-      
-      // Create empty cache as fallback when query fails
-      const emptyBookingCache = {
-        labId: labId?.toString(),
-        bookings: [],
-        totalBookings: 0,
-        metrics: {
-          activeBookings: 0,
-          completedBookings: 0,
-          weeklyBookings: 0,
-          monthlyBookings: 0,
-          totalBookedHours: 0,
-          averageBookingDuration: 0
-        },
-        errorInfo: {
-          hasErrors: true,
-          message: `Fallback cache created - ${error.message}`,
-          canAcceptNewBookings: true
-        }
-      };
-      
-      // Set empty cache to prevent future granular update errors
-      queryClient.setQueryData(QUERY_KEYS.BOOKINGS.labComposed(labId, includeMetrics), emptyBookingCache);
-      devLog.log(`📦 Created fallback empty cache for lab ${labId} after query error`);
-    }
-  });
-};
-
-
-
-// ===============================
-// === ATOMIC HOOKS (for specific use cases) ===
-// ===============================
-
-
-
-// ===============================
-// === CACHE-EXTRACTING HOOKS (simple data operations) ===
-// ===============================
-
-
-
-
-
-// ===============================
-// === MUTATIONS ===
-// ===============================
-
-/**
- * Hook to create a booking with optimistic updates (using authentication-aware routing)
- * @returns {Object} React Query mutation object for creating bookings
- */
-export const useCreateBookingMutation = () => {
-  const queryClient = useQueryClient();
-  const { data: walletClient } = useWalletClient();
-  const { address: userAddress, isSSO } = useUser();
-  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
-
-  return useMutation({
-    mutationFn: async (bookingData) => {
-      // Create authentication context
-      const authContext = {
-        isSSO,
-        contractWriteFunction: reservationRequest,
-        userAddress
-      };
-
-      // Use unified service with authentication-aware routing
-      return await bookingServices.createBooking(bookingData, authContext);
-    },
-    
-    onMutate: async (bookingData) => {
-      const { labId, userAddress, start, timeslot } = bookingData;
-      devLog.log('Creating booking optimistically...');
-      
-      // Cancel outgoing queries to avoid overwriting optimistic update
-      if (userAddress) {
-        await queryClient.cancelQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true) 
-        });
-      }
-      await queryClient.cancelQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId) 
-      });
-      
-      // Create optimistic booking
-      const optimisticBooking = {
-        id: `temp_${Date.now()}`,
-        labId: labId.toString(),
-        userAddress,
-        start: start.toString(),
-        end: (start + timeslot).toString(), // Calculate end time
-        status: '1', // Active status
-        reservationKey: `temp_key_${Date.now()}`,
-        createdAt: Math.floor(Date.now() / 1000).toString(),
-      };
-      
-      // Snapshot and update user bookings (only if userAddress provided)
-      const previousUserBookings = userAddress ? 
-        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress, true)) : null;
-      if (previousUserBookings && userAddress) {
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(userAddress, true),
-          {
-            ...previousUserBookings,
-            bookings: [...(previousUserBookings.bookings || []), optimisticBooking],
-            totalBookings: (previousUserBookings.totalBookings || 0) + 1,
-            activeBookings: (previousUserBookings.activeBookings || 0) + 1
-          }
-        );
-      }
-      
-      // Snapshot and update lab bookings
-      const previousLabBookings = queryClient.getQueryData(QUERY_KEYS.BOOKINGS.labComposed(labId));
-      if (previousLabBookings) {
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.labComposed(labId),
-          {
-            ...previousLabBookings,
-            bookings: [...(previousLabBookings.bookings || []), optimisticBooking],
-            totalBookings: (previousLabBookings.totalBookings || 0) + 1,
-            metrics: {
-              ...previousLabBookings.metrics,
-              activeBookings: (previousLabBookings.metrics?.activeBookings || 0) + 1
-            }
-          }
-        );
-      }
-      
-      return { previousUserBookings, previousLabBookings };
-    },
-    
-    onError: (err, variables, context) => {
-      devLog.error('Error creating booking, rolling back:', err);
-      
-      // Rollback optimistic updates
-      if (context?.previousUserBookings && variables.userAddress) {
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true),
-          context.previousUserBookings
-        );
-      }
-      
-      if (context?.previousLabBookings) {
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.labComposed(variables.labId),
-          context.previousLabBookings
-        );
-      }
-    },
-    
-    onSuccess: (data, variables) => {
-      devLog.log('Booking created successfully:', data);
-      
-      // Invalidate composed queries to refetch fresh data
-      if (variables.userAddress) {
-        queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true) 
-        });
-      }
-      
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.labComposed(variables.labId) 
-      });
-
-      // Also invalidate atomic queries if they exist
-      if (variables.userAddress) {
-        queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userAtomic(variables.userAddress) 
-        });
-      }
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.labAtomic(variables.labId) 
-      });
-    },
-  });
-};
-
-/**
- * Hook to cancel a booking with optimistic updates (using authentication-aware routing)
- * Expects mutation parameters: { reservationKey, userAddress?, labId?, bookingStatus? }
- * - reservationKey: (required) The reservation key to cancel
- * - userAddress: (optional) User address for optimistic updates
- * - labId: (optional) Lab ID for optimistic updates  
- * - bookingStatus: (optional) '0' for pending, '1' for confirmed - optimizes gas usage
- * @returns {Object} React Query mutation object for canceling bookings
- */
-export const useCancelBookingMutation = () => {
-  const queryClient = useQueryClient();
-  const { data: walletClient } = useWalletClient();
-  const { address: userAddress, isSSO } = useUser();
-  const { contractWriteFunction: cancelReservationRequestFn } = useContractWriteFunction('cancelReservationRequest');
-  const { contractWriteFunction: cancelBookingFn } = useContractWriteFunction('cancelBooking');
-
-  return useMutation({
-    mutationFn: async ({ reservationKey, bookingStatus }) => {
-      // Create authentication context
-      const authContext = {
-        isSSO,
-        cancelReservationRequestFn,
-        cancelBookingFn,
-        userAddress,
-        bookingStatus // Pass booking status to help determine which function to use
-      };
-
-      // Use unified service with authentication-aware routing
-      return await bookingServices.cancelBooking(reservationKey, authContext);
-    },
-    
-    onMutate: async ({ reservationKey, userAddress, labId }) => {
-      devLog.log(`Cancelling booking ${reservationKey} optimistically...`);
-      
-      // Cancel outgoing queries
-      if (userAddress) {
-        await queryClient.cancelQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true) 
-        });
-      }
-      if (labId) {
-        await queryClient.cancelQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId) 
-        });
-      }
-      
-      // Snapshot and update user bookings
-      const previousUserBookings = userAddress ? 
-        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.userComposed(userAddress, true)) : null;
-      if (previousUserBookings && userAddress) {
-        const filteredBookings = (previousUserBookings.bookings || []).filter(
-          booking => booking.reservationKey !== reservationKey && booking.id !== reservationKey
-        );
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(userAddress, true),
-          {
-            ...previousUserBookings,
-            bookings: filteredBookings,
-            totalBookings: filteredBookings.length,
-            activeBookings: filteredBookings.filter(b => b.status === '1').length
-          }
-        );
-      }
-      
-      // Snapshot and update lab bookings
-      const previousLabBookings = labId ? 
-        queryClient.getQueryData(QUERY_KEYS.BOOKINGS.labComposed(labId)) : null;
-      if (previousLabBookings) {
-        const filteredBookings = (previousLabBookings.bookings || []).filter(
-          booking => booking.reservationKey !== reservationKey && booking.id !== reservationKey
-        );
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.labComposed(labId),
-          {
-            ...previousLabBookings,
-            bookings: filteredBookings,
-            totalBookings: filteredBookings.length,
-            metrics: {
-              ...previousLabBookings.metrics,
-              activeBookings: filteredBookings.filter(b => b.status === '1').length
-            }
-          }
-        );
-      }
-      
-      return { previousUserBookings, previousLabBookings };
-    },
-    
-    onError: (err, variables, context) => {
-      devLog.error('Error cancelling booking, rolling back:', err);
-      
-      // Rollback optimistic updates
-      if (context?.previousUserBookings && variables.userAddress) {
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true),
-          context.previousUserBookings
-        );
-      }
-      
-      if (context?.previousLabBookings && variables.labId) {
-        queryClient.setQueryData(
-          QUERY_KEYS.BOOKINGS.labComposed(variables.labId),
-          context.previousLabBookings
-        );
-      }
-    },
-    
-    onSuccess: (data, variables) => {
-      devLog.log('Booking cancelled successfully:', data);
-      
-      // Invalidate composed queries to refetch fresh data
-      if (variables.userAddress) {
-        queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userComposed(variables.userAddress, true) 
-        });
-      }
-      
-      if (variables.labId) {
-        queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.labComposed(variables.labId) 
-        });
-      }
-
-      // Also invalidate atomic queries if they exist
-      if (variables.userAddress) {
-        queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.userAtomic(variables.userAddress) 
-        });
-      }
-      if (variables.labId) {
-        queryClient.invalidateQueries({ 
-          queryKey: QUERY_KEYS.BOOKINGS.labAtomic(variables.labId) 
-        });
-      }
-    },
-  });
-};
-
-// ===============================
-// === GRANULAR CACHE UPDATES FOR BOOKINGS ===
-// ===============================
-
-/**
- * Hook for booking-specific granular cache updates
- * @returns {Object} Booking cache update functions
- */
-export const useBookingCacheUpdates = () => {
-  const queryClient = useQueryClient();
-
-  /**
-   * Add a booking to user cache without invalidating everything
-   * @param {string} userAddress - User address
-   * @param {Object} newBooking - New booking to add
-   */
-  const addBookingToUserCache = (userAddress, newBooking) => {
-    if (!userAddress || !newBooking) return;
-
-    const userBookingsKey = QUERY_KEYS.BOOKINGS.userComposed(userAddress, true);
-    const currentData = queryClient.getQueryData(userBookingsKey);
-    
-    if (currentData) {
-      queryClient.setQueryData(userBookingsKey, {
-        ...currentData,
-        bookings: [...(currentData.bookings || []), newBooking],
-        totalBookings: (currentData.totalBookings || 0) + 1
-      });
-      devLog.log('🎯 Added booking to user cache:', { userAddress, bookingId: newBooking.id });
-    }
-  };
-
-  /**
-   * Remove a booking from user cache without invalidating everything
-   * @param {string} userAddress - User address
-   * @param {string} bookingId - Booking ID to remove
-   */
-  const removeBookingFromUserCache = (userAddress, bookingId) => {
-    if (!userAddress || !bookingId) return;
-
-    const userBookingsKey = QUERY_KEYS.BOOKINGS.userComposed(userAddress, true);
-    const currentData = queryClient.getQueryData(userBookingsKey);
-    
-    if (currentData) {
-      const updatedBookings = (currentData.bookings || []).filter(b => b.id !== bookingId);
-      queryClient.setQueryData(userBookingsKey, {
-        ...currentData,
-        bookings: updatedBookings,
-        totalBookings: Math.max(0, (currentData.totalBookings || 0) - 1)
-      });
-      devLog.log('🎯 Removed booking from user cache:', { userAddress, bookingId });
-    }
-  };
-
-  /**
-   * Update a specific booking in user cache
-   * @param {string} userAddress - User address
-   * @param {string} bookingId - Booking ID to update
-   * @param {Object} updates - Partial booking updates
-   */
-  const updateBookingInUserCache = (userAddress, bookingId, updates) => {
-    if (!userAddress || !bookingId || !updates) return;
-
-    const userBookingsKey = QUERY_KEYS.BOOKINGS.userComposed(userAddress, true);
-    const currentData = queryClient.getQueryData(userBookingsKey);
-    
-    if (currentData) {
-      const updatedBookings = (currentData.bookings || []).map(booking => 
-        booking.id === bookingId ? { ...booking, ...updates } : booking
-      );
-      queryClient.setQueryData(userBookingsKey, {
-        ...currentData,
-        bookings: updatedBookings
-      });
-      devLog.log('🎯 Updated booking in user cache:', { userAddress, bookingId, updates });
-    }
-  };
-
-  /**
-   * Add a booking to lab cache without invalidating everything  
-   * @param {string|number} labId - Lab ID
-   * @param {Object} newBooking - New booking to add
-   */
-  const addBookingToLabCache = (labId, newBooking) => {
-    if (!labId || !newBooking) {
-      devLog.warn('🚫 addBookingToLabCache called with missing data:', { labId, newBooking });
-      return;
-    }
-
-    const labBookingsKey = QUERY_KEYS.BOOKINGS.labComposed(labId, true);
-    const currentData = queryClient.getQueryData(labBookingsKey);
-    
-    if (currentData) {
-      const updatedData = {
-        ...currentData,
-        bookings: [...(currentData.bookings || []), newBooking],
-        totalBookings: (currentData.totalBookings || 0) + 1
-      };
-      
-      queryClient.setQueryData(labBookingsKey, updatedData);
-      
-      devLog.log('🎯 Added booking to lab cache:', { 
-        labId, 
-        bookingId: newBooking.id,
-        newBookingsCount: updatedData.bookings.length
-      });
-    } else {
-      // If no cache exists, create it with the new booking
-      const newCacheData = {
-        bookings: [newBooking],
-        totalBookings: 1,
-        metrics: null // Will be populated when the full query runs
-      };
-      
-      queryClient.setQueryData(labBookingsKey, newCacheData);
-      
-      devLog.log('🎯 Created lab cache with new booking:', { 
-        labId, 
-        bookingId: newBooking.id
-      });
-    }
-  };
-
-  /**
-   * Remove a booking from lab cache without invalidating everything
-   * @param {string|number} labId - Lab ID  
-   * @param {string} bookingId - Booking ID to remove
-   */
-  const removeBookingFromLabCache = (labId, bookingId) => {
-    if (!labId || !bookingId) return;
-
-    const labBookingsKey = QUERY_KEYS.BOOKINGS.labComposed(labId, true);
-    const currentData = queryClient.getQueryData(labBookingsKey);
-    
-    if (currentData) {
-      const updatedBookings = (currentData.bookings || []).filter(b => b.id !== bookingId);
-      queryClient.setQueryData(labBookingsKey, {
-        ...currentData,
-        bookings: updatedBookings,
-        totalBookings: Math.max(0, (currentData.totalBookings || 0) - 1)
-      });
-      devLog.log('🎯 Removed booking from lab cache:', { labId, bookingId });
-    }
-  };
-
-  /**
-   * Update a specific booking in lab cache
-   * @param {string|number} labId - Lab ID
-   * @param {string} bookingId - Booking ID to update
-   * @param {Object} updates - Partial booking updates
-   */
-  const updateBookingInLabCache = (labId, bookingId, updates) => {
-    if (!labId || !bookingId || !updates) {
-      devLog.warn('🚫 updateBookingInLabCache called with missing data:', { labId, bookingId, updates });
-      return;
-    }
-
-    const labBookingsKey = QUERY_KEYS.BOOKINGS.labComposed(labId, true);
-    const currentData = queryClient.getQueryData(labBookingsKey);
-    
-    devLog.log('🔍 updateBookingInLabCache - Current cache state:', { 
-      labId, 
-      bookingId,
-      labBookingsKey, 
-      hasCurrentData: !!currentData,
-      currentBookingsCount: currentData?.bookings?.length || 0,
-      updates 
-    });
-    
-    if (currentData) {
-      const updatedBookings = (currentData.bookings || []).map(booking => 
-        booking.id === bookingId || booking.reservationKey === bookingId ? { ...booking, ...updates } : booking
-      );
-      
-      const updatedData = {
-        ...currentData,
-        bookings: updatedBookings
-      };
-      
-      queryClient.setQueryData(labBookingsKey, updatedData);
-      
-      devLog.log('🎯 Updated booking in lab cache:', { 
-        labId, 
-        bookingId, 
-        updates,
-        updatedBookingsCount: updatedData.bookings.length,
-        labBookingsKey 
-      });
-    } else {
-      // If no cache exists and we're updating, create it with the updated booking
-      const newBooking = {
-        id: bookingId,
-        reservationKey: bookingId,
-        labId: labId.toString(),
-        ...updates
-      };
-      
-      const newCacheData = {
-        bookings: [newBooking],
-        totalBookings: 1,
-        metrics: null
-      };
-      
-      queryClient.setQueryData(labBookingsKey, newCacheData);
-      
-      devLog.log('🎯 Created lab cache with updated booking:', { 
-        labId, 
-        bookingId, 
-        updates,
-        labBookingsKey 
-      });
-    }
-  };
-
-  /**
-   * Smart booking invalidation - tries granular first, falls back to invalidation
-   * @param {string} userAddress - User address  
-   * @param {string|number} labId - Lab ID
-   * @param {Object} [bookingData] - Booking data for granular updates
-   * @param {string} [action] - Action type: 'add', 'remove', 'update'
-   */
-  const smartBookingInvalidation = (userAddress, labId, bookingData = null, action = null) => {
-    // Special handling for reservationKey-only events (when labId and userAddress are null)
-    if (!userAddress && !labId && bookingData?.id && (action === 'remove' || action === 'update')) {
-      devLog.log('🔍 Attempting to find reservation in cache by reservationKey:', bookingData.id);
-      
-      // Try to find the reservation in existing cache to get missing labId/userAddress
-      const allQueries = queryClient.getQueryCache().getAll();
-      let found = false;
-      
-      for (const query of allQueries) {
-        if (query.queryKey?.[0] === 'bookings' && query.state.data) {
-          const data = query.state.data;
-          // Check if this is user bookings data
-          if (data.bookings && Array.isArray(data.bookings)) {
-            const booking = data.bookings.find(b => b.id === bookingData.id || b.reservationKey === bookingData.id);
-            if (booking) {
-              devLog.log('✅ Found reservation in user cache:', { booking, queryKey: query.queryKey });
-              try {
-                if (action === 'remove') {
-                  removeBookingFromUserCache(query.queryKey[1], bookingData.id);
-                } else if (action === 'update') {
-                  updateBookingInUserCache(query.queryKey[1], bookingData.id, { ...booking, ...bookingData });
-                }
-                found = true;
-              } catch (error) {
-                devLog.warn('Error updating user cache:', error);
-              }
-            }
-          }
-          // Check if this is lab bookings data
-          if (data.labBookings && Array.isArray(data.labBookings)) {
-            const booking = data.labBookings.find(b => b.id === bookingData.id || b.reservationKey === bookingData.id);
-            if (booking) {
-              devLog.log('✅ Found reservation in lab cache:', { booking, queryKey: query.queryKey });
-              try {
-                if (action === 'remove') {
-                  removeBookingFromLabCache(query.queryKey[1], bookingData.id);
-                } else if (action === 'update') {
-                  // For lab cache updates, we only update status
-                  const labBookings = data.labBookings.map(b => 
-                    (b.id === bookingData.id || b.reservationKey === bookingData.id) 
-                      ? { ...b, ...bookingData } 
-                      : b
-                  );
-                  queryClient.setQueryData(query.queryKey, { ...data, labBookings });
-                }
-                found = true;
-              } catch (error) {
-                devLog.warn('Error updating lab cache:', error);
-              }
-            }
-          }
-        }
-      }
-      
-      if (found) {
-        devLog.log('✅ Successfully updated cache using reservationKey lookup');
-        return;
-      } else {
-        devLog.warn('⚠️ Could not find reservation in cache, falling back to full invalidation');
-      }
-    }
-
-    // Try granular updates first if we have the data and action
-    if (bookingData && action && (userAddress || labId)) {
-      try {
-        switch (action) {
-          case 'add':
-            if (userAddress) addBookingToUserCache(userAddress, bookingData);
-            if (labId) addBookingToLabCache(labId, bookingData);
-            return; // Success, no need for invalidation
-          case 'remove':
-            if (userAddress) removeBookingFromUserCache(userAddress, bookingData.id);
-            if (labId) removeBookingFromLabCache(labId, bookingData.id);
-            return; // Success, no need for invalidation
-          case 'update':
-            if (userAddress) updateBookingInUserCache(userAddress, bookingData.id, bookingData);
-            if (labId) updateBookingInLabCache(labId, bookingData.id, bookingData);
-            return; // Success, no need for invalidation
-        }
-      } catch (error) {
-        devLog.warn('⚠️ Granular booking update failed, falling back to invalidation:', error);
-      }
-    }
-
-    // Fallback to traditional invalidation
-    if (userAddress) {
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.userComposed(userAddress, true)
-      });
-    }
-    if (labId) {
-      queryClient.invalidateQueries({ 
-        queryKey: QUERY_KEYS.BOOKINGS.labComposed(labId, true)
-      });
-    }
-    
-    // If no specific user or lab, invalidate all booking queries
-    if (!userAddress && !labId) {
-      devLog.log('🔄 Invalidating all booking queries (no specific user/lab)');
-      queryClient.invalidateQueries({ 
-        queryKey: ['bookings']
-      });
-    }
-    
-    devLog.log('🔄 Used fallback invalidation for booking data');
-  };
-
-  return {
-    addBookingToUserCache,
-    removeBookingFromUserCache,
-    updateBookingInUserCache,
-    addBookingToLabCache,
-    removeBookingFromLabCache,
-    updateBookingInLabCache,
-    smartBookingInvalidation
-  };
-};
-
-// ===============================
-// === SIMPLE BOOKING CREATION ===
-// ===============================
-
-/**
- * Simple booking creation hook following the atomic pattern
- * @param {Object} selectedLab - The lab for which bookings are being created
- * @param {Function} onBookingSuccess - Callback for successful booking completion
- * @returns {Object} Simple booking creation state and handlers
- */
-export const useSimpleBookingCreation = (selectedLab, onBookingSuccess) => {
-  const [isBooking, setIsBooking] = useState(false)
-  const createBookingMutation = useCreateBookingMutation()
-  const { formatTokenAmount: formatBalance } = useLabToken()
-
-  /**
-   * Calculate booking cost using lab token utilities
-   * @param {Date} date - Selected date
-   * @param {number} timeMinutes - Duration in minutes
-   * @returns {bigint} Cost in wei
-   */
-  const calculateBookingCost = useCallback((date, timeMinutes) => {
-    if (!selectedLab || !date || !timeMinutes) return 0n
-    
-    // Convert lab price (string) to bigint and calculate
-    const pricePerMinute = BigInt(selectedLab.price || '0')
-    return pricePerMinute * BigInt(timeMinutes)
-  }, [selectedLab])
-
-  /**
-   * Format price for display
-   * @param {bigint} amount - Amount in wei
-   * @returns {string} Formatted price
-   */
-  const formatPrice = useCallback((amount) => {
-    return formatBalance(amount)
-  }, [formatBalance])
-
-  /**
-   * Create a booking using the mutation
-   * @param {Object} bookingParams - Booking parameters
-   * @returns {Promise<boolean>} Success status
-   */
-  const createBooking = useCallback(async (bookingParams) => {
-    if (isBooking) return false
-    
-    setIsBooking(true)
-    
-    try {
-      const result = await createBookingMutation.mutateAsync(bookingParams)
-      
-      if (onBookingSuccess) {
-        onBookingSuccess(result)
-      }
-      
-      return true
-    } catch (error) {
-      devLog.error('❌ Booking creation failed:', error)
-      return false
-    } finally {
-      setIsBooking(false)
-    }
-  }, [isBooking, createBookingMutation, onBookingSuccess])
-
-  return {
-    // State
-    isBooking: isBooking || createBookingMutation.isPending,
-    isWaitingForReceipt: false, // Not needed in simplified version
-    
-    // Actions
-    createBooking,
-    calculateBookingCost,
-    
-    // Utilities
-    formatBalance,
-    formatPrice
-  }
+// Common configuration for all booking/reservation hooks
+export const BOOKING_QUERY_CONFIG = {
+  staleTime: 15 * 60 * 1000,       // 15 minutes
+  gcTime: 60 * 60 * 1000,          // 60 minutes
+  refetchOnWindowFocus: false,
+  refetchInterval: false,
+  refetchOnReconnect: true,
+  retry: 1,
 }
 
-// Temporary alias for backwards compatibility
-export const useCompleteBookingCreation = useSimpleBookingCreation;
-
-// ===============================
-// === CLAIM MUTATIONS ===
-// ===============================
+/**
+ * Hook for /api/contract/reservation/getAllReservations endpoint
+ * Gets all reservations from the smart contract
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with all reservations data
+ */
+export const useAllReservations = (options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'getAllReservations'],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        const response = await fetch('/api/contract/reservation/getAllReservations', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch all reservations: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useAllReservations:', data);
+        return data;
+      },
+      [] // Return empty array during SSR
+    ),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
 
 /**
- * Hook to claim all available balance (using authentication-aware routing)
- * @returns {Object} React Query mutation object for claiming all balance
+ * Hook for /api/contract/reservation/getReservation endpoint
+ * Gets specific reservation data by reservation key
+ * @param {string} reservationKey - Reservation key to fetch
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with reservation data
  */
-export const useClaimAllBalanceMutation = () => {
-  const { address: userAddress, isSSO } = useUser();
-  const { contractWriteFunction: claimAllBalanceFn } = useContractWriteFunction('claimAllBalance');
+export const useReservation = (reservationKey, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'getReservation', reservationKey],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!reservationKey) throw new Error('Reservation key is required');
+        
+        const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useReservation:', reservationKey, data);
+        return data;
+      },
+      null // Return null during SSR
+    ),
+    enabled: !!reservationKey,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks
+useReservation.queryFn = async (reservationKey) => {
+  if (!reservationKey) throw new Error('Reservation key is required');
+  
+  const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useReservation.queryFn:', reservationKey, data);
+  return data;
+};
+
+/**
+ * Hook for /api/contract/reservation/getReservationsOfToken endpoint
+ * Gets all reservations for a specific lab token
+ * @param {string|number} labId - Lab ID to get reservations for
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with lab reservations
+ */
+export const useReservationsOfToken = (labId, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'getReservationsOfToken', labId],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!labId) throw new Error('Lab ID is required');
+        
+        const response = await fetch(`/api/contract/reservation/getReservationsOfToken?labId=${labId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservations for lab ${labId}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        // Only log if there are reservations or if there's an error
+        if (data.count > 0) {
+          devLog.log('🔍 useReservationsOfToken:', labId, `Found ${data.count} reservations`);
+        }
+        return data;
+      },
+      [] // Return empty array during SSR
+    ),
+    enabled: !!labId,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks
+useReservationsOfToken.queryFn = async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+  
+  const response = await fetch(`/api/contract/reservation/getReservationsOfToken?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch reservations for lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useReservationsOfToken.queryFn:', labId, data);
+  return data;
+};
+
+/**
+ * Hook for /api/contract/reservation/getReservationOfTokenByIndex endpoint
+ * Gets reservation at specific index for a lab token
+ * @param {string|number} labId - Lab ID
+ * @param {number} index - Index of the reservation
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with reservation data
+ */
+export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'getReservationOfTokenByIndex', labId, index],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!labId || index === undefined || index === null) {
+          throw new Error('Lab ID and index are required');
+        }
+        
+        const response = await fetch(`/api/contract/reservation/getReservationOfTokenByIndex?labId=${labId}&index=${index}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservation at index ${index} for lab ${labId}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useReservationOfTokenByIndex:', labId, index, data);
+        return data;
+      },
+      null // Return null during SSR
+    ),
+    enabled: !!labId && (index !== undefined && index !== null),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks
+useReservationOfTokenByIndex.queryFn = async (labId, index) => {
+  if (!labId || index === undefined || index === null) {
+    throw new Error('Lab ID and index are required');
+  }
+  
+  const response = await fetch(`/api/contract/reservation/getReservationOfTokenByIndex?labId=${labId}&index=${index}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch reservation at index ${index} for lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useReservationOfTokenByIndex.queryFn:', labId, index, data);
+  return data;
+};
+
+/**
+ * Hook for /api/contract/reservation/reservationsOf endpoint
+ * Gets all reservations made by a specific user
+ * @param {string} userAddress - User address to get reservations for
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with user reservations
+ */
+export const useReservationsOf = (userAddress, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'reservationsOf', userAddress],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!userAddress) throw new Error('User address is required');
+        
+        const response = await fetch(`/api/contract/reservation/reservationsOf?userAddress=${userAddress}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservations for user ${userAddress}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useReservationsOf:', userAddress, data);
+        return data;
+      },
+      [] // Return empty array during SSR
+    ),
+    enabled: !!userAddress,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks
+useReservationsOf.queryFn = async (userAddress) => {
+  if (!userAddress) throw new Error('User address is required');
+  
+  const response = await fetch('/api/contract/reservation/getReservationsOf', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userAddress })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch reservations for user ${userAddress}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useReservationsOf.queryFn:', userAddress, data);
+  return data;
+};
+
+/**
+ * Hook for /api/contract/reservation/reservationKeyByIndex endpoint
+ * Gets reservation key at specific global index
+ * @param {number} index - Global index of the reservation
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with reservation key
+ */
+export const useReservationKeyByIndex = (index, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'reservationKeyByIndex', index],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (index === undefined || index === null) {
+          throw new Error('Index is required');
+        }
+        
+        const response = await fetch('/api/contract/reservation/reservationKeyByIndex', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index: index.toString() })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservation key at index ${index}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useReservationKeyByIndex:', index, data);
+        return data;
+      },
+      { reservationKey: null } // Return null during SSR
+    ),
+    enabled: (index !== undefined && index !== null),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/reservationKeyOfUserByIndex endpoint
+ * Gets reservation key at specific index for a user
+ * @param {string} userAddress - User address
+ * @param {number} index - User's reservation index
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with reservation key
+ */
+export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'reservationKeyOfUserByIndex', userAddress, index],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!userAddress || index === undefined || index === null) {
+          throw new Error('User address and index are required');
+        }
+        
+        const response = await fetch('/api/contract/reservation/reservationKeyOfUserByIndex', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            user: userAddress,
+            index: index.toString()
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservation key at index ${index} for user ${userAddress}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useReservationKeyOfUserByIndex:', userAddress, index, data);
+        return data;
+      },
+      { reservationKey: null } // Return null during SSR
+    ),
+    enabled: !!userAddress && (index !== undefined && index !== null),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/totalReservations endpoint
+ * Gets the total count of all reservations
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with total count
+ */
+export const useTotalReservations = (options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'totalReservations'],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        const response = await fetch('/api/contract/reservation/totalReservations', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch total reservations: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useTotalReservations:', data);
+        return data;
+      },
+      { total: '0' } // Return zero during SSR
+    ),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/userOfReservation endpoint
+ * Gets the user address that made a specific reservation
+ * @param {string} reservationKey - Reservation key
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with user address
+ */
+export const useUserOfReservation = (reservationKey, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'userOfReservation', reservationKey],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!reservationKey) throw new Error('Reservation key is required');
+        
+        const response = await fetch('/api/contract/reservation/userOfReservation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reservationKey })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user for reservation ${reservationKey}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useUserOfReservation:', reservationKey, data);
+        return data;
+      },
+      { user: null } // Return null during SSR
+    ),
+    enabled: !!reservationKey,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/checkAvailable endpoint
+ * Checks if a lab is available for booking at specified time
+ * @param {string|number} labId - Lab ID
+ * @param {number} start - Start timestamp
+ * @param {number} duration - Duration in seconds
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with availability status
+ */
+export const useCheckAvailable = (labId, start, duration, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'checkAvailable', labId, start, duration],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!labId || !start || !duration) {
+          throw new Error('Lab ID, start time, and duration are required');
+        }
+        
+        const response = await fetch('/api/contract/reservation/checkAvailable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            labId: labId.toString(),
+            start: start.toString(),
+            duration: duration.toString()
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to check availability for lab ${labId}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useCheckAvailable:', labId, start, duration, data);
+        return data;
+      },
+      { available: false } // Return false during SSR
+    ),
+    enabled: !!(labId && start && duration),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/hasActiveBooking endpoint
+ * Checks if a user has any active booking
+ * @param {string} userAddress - User address to check
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with active booking status
+ */
+export const useHasActiveBooking = (userAddress, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'hasActiveBooking', userAddress],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!userAddress) throw new Error('User address is required');
+        
+        const response = await fetch('/api/contract/reservation/hasActiveBooking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: userAddress })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to check active booking for user ${userAddress}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useHasActiveBooking:', userAddress, data);
+        return data;
+      },
+      { hasActiveBooking: false } // Return false during SSR
+    ),
+    enabled: !!userAddress,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/hasActiveBookingByToken endpoint
+ * Checks if a specific lab token has any active booking
+ * @param {string|number} labId - Lab ID to check
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with active booking status for the lab
+ */
+export const useHasActiveBookingByToken = (labId, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'hasActiveBookingByToken', labId],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!labId) throw new Error('Lab ID is required');
+        
+        const response = await fetch('/api/contract/reservation/hasActiveBookingByToken', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenId: labId.toString() })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to check active booking for lab ${labId}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useHasActiveBookingByToken:', labId, data);
+        return data;
+      },
+      { hasActiveBooking: false } // Return false during SSR
+    ),
+    enabled: !!labId,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/isTokenListed endpoint
+ * Checks if a lab token is currently listed for booking
+ * @param {string|number} labId - Lab ID to check
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with listing status
+ */
+export const useIsTokenListed = (labId, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'isTokenListed', labId],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!labId) throw new Error('Lab ID is required');
+        
+        const response = await fetch('/api/contract/reservation/isTokenListed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenId: labId.toString() })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to check listing status for lab ${labId}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useIsTokenListed:', labId, data);
+        return data;
+      },
+      { isListed: false } // Return false during SSR
+    ),
+    enabled: !!labId,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/getLabTokenAddress endpoint
+ * Gets the token contract address for lab tokens
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with token contract address
+ */
+export const useLabTokenAddress = (options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'getLabTokenAddress'],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        const response = await fetch('/api/contract/reservation/getLabTokenAddress', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch lab token address: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useLabTokenAddress:', data);
+        return data;
+      },
+      { tokenAddress: null } // Return null during SSR
+    ),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/getSafeBalance endpoint
+ * Gets the safe balance for a specific user
+ * @param {string} userAddress - User address to get balance for
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with safe balance
+ */
+export const useSafeBalance = (userAddress, options = {}) => {
+  return useQuery({
+    queryKey: ['reservations', 'getSafeBalance', userAddress],
+    queryFn: createSSRSafeQuery(
+      async () => {
+        if (!userAddress) throw new Error('User address is required');
+        
+        const response = await fetch('/api/contract/reservation/getSafeBalance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: userAddress })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch safe balance for user ${userAddress}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 useSafeBalance:', userAddress, data);
+        return data;
+      },
+      { balance: '0' } // Return zero balance during SSR
+    ),
+    enabled: !!userAddress,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// ===== MUTATIONS =====
+
+/**
+ * Hook for /api/contract/reservation/reservationRequest endpoint using wallet (non-SSO users)  
+ * Creates a new reservation request using user's wallet
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useReservationRequestWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const reservationRequest = useContractWriteFunction('reservationRequest');
+
+  return useMutation({
+    mutationFn: async (requestData) => {
+      const tx = await reservationRequest({
+        args: [requestData.tokenId, requestData.start, requestData.end]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useReservationRequestWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, variables) => {
+      // Invalidate reservation queries
+      queryClient.invalidateQueries(['reservations']);
+      if (variables.tokenId) {
+        queryClient.invalidateQueries(['reservations', 'getReservationsOfToken', variables.tokenId]);
+        queryClient.invalidateQueries(['reservations', 'hasActiveBookingByToken', variables.tokenId]);
+      }
+      devLog.log('✅ Reservation request created successfully via wallet, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to create reservation request via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/reservationRequestSSO endpoint using server wallet (SSO users)
+ * Creates a new reservation request using server wallet for SSO users
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useReservationRequestSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestData) => {
+      const response = await fetch('/api/contract/reservation/reservationRequestSSO', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create SSO reservation request: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useReservationRequestSSO:', data);
+      return data;
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate reservation queries
+      queryClient.invalidateQueries(['reservations']);
+      if (variables.tokenId) {
+        queryClient.invalidateQueries(['reservations', 'getReservationsOfToken', variables.tokenId]);
+        queryClient.invalidateQueries(['reservations', 'hasActiveBookingByToken', variables.tokenId]);
+      }
+      devLog.log('✅ SSO Reservation request created successfully, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to create SSO reservation request:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for creating reservation requests (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useReservationRequest = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useReservationRequestSSO(options);
+  const walletMutation = useReservationRequestWallet(options);
+
+  return useMutation({
+    mutationFn: async (requestData) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(requestData);
+      } else {
+        return walletMutation.mutateAsync(requestData);
+      }
+    },
+    onSuccess: (data, variables) => {
+      devLog.log('✅ Reservation request created successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to create reservation request via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/cancelReservationRequest endpoint using server wallet (SSO users)
+ * Cancels a reservation request using server wallet for SSO users
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useCancelReservationRequestSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const response = await fetch('/api/contract/reservation/cancelReservationRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationKey })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to cancel reservation request: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useCancelReservationRequestSSO:', data);
+      return data;
+    },
+    onSuccess: (data, reservationKey) => {
+      // Remove specific reservation and invalidate related queries
+      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.removeQueries(['reservations', 'userOfReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Reservation request cancelled successfully via SSO, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel reservation request via SSO:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for wallet-based cancelReservationRequest using useContractWriteFunction
+ * Cancels a reservation request using user's wallet
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useCancelReservationRequestWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const cancelReservationRequest = useContractWriteFunction('cancelReservationRequest');
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const tx = await cancelReservationRequest({
+        args: [reservationKey]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useCancelReservationRequestWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, reservationKey) => {
+      // Remove specific reservation and invalidate related queries
+      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.removeQueries(['reservations', 'userOfReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Reservation request cancelled successfully via wallet, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel reservation request via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for cancelling reservation requests (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useCancelReservationRequest = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useCancelReservationRequestSSO(options);
+  const walletMutation = useCancelReservationRequestWallet(options);
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(reservationKey);
+      } else {
+        return walletMutation.mutateAsync(reservationKey);
+      }
+    },
+    onSuccess: (data, reservationKey) => {
+      devLog.log('✅ Reservation request cancelled successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel reservation request via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/confirmReservationRequest endpoint using server wallet (SSO users)
+ * Confirms a reservation request using server wallet for SSO users (provider action)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useConfirmReservationRequestSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const response = await fetch('/api/contract/reservation/confirmReservationRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationKey })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to confirm reservation request: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useConfirmReservationRequestSSO:', data);
+      return data;
+    },
+    onSuccess: (data, reservationKey) => {
+      // Update reservation status in cache
+      queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Reservation request confirmed successfully via SSO, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to confirm reservation request via SSO:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for wallet-based confirmReservationRequest using useContractWriteFunction
+ * Confirms a reservation request using user's wallet (provider action)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useConfirmReservationRequestWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const confirmReservationRequest = useContractWriteFunction('confirmReservationRequest');
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const tx = await confirmReservationRequest({
+        args: [reservationKey]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useConfirmReservationRequestWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, reservationKey) => {
+      // Update reservation status in cache
+      queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Reservation request confirmed successfully via wallet, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to confirm reservation request via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for confirming reservation requests (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useConfirmReservationRequest = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useConfirmReservationRequestSSO(options);
+  const walletMutation = useConfirmReservationRequestWallet(options);
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(reservationKey);
+      } else {
+        return walletMutation.mutateAsync(reservationKey);
+      }
+    },
+    onSuccess: (data, reservationKey) => {
+      devLog.log('✅ Reservation request confirmed successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to confirm reservation request via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/denyReservationRequest endpoint using server wallet (SSO users)
+ * Denies a reservation request using server wallet for SSO users (provider action)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useDenyReservationRequestSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const response = await fetch('/api/contract/reservation/denyReservationRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationKey })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to deny reservation request: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useDenyReservationRequestSSO:', data);
+      return data;
+    },
+    onSuccess: (data, reservationKey) => {
+      // Remove denied reservation and invalidate queries
+      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Reservation request denied successfully via SSO, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to deny reservation request via SSO:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for wallet-based denyReservationRequest using useContractWriteFunction
+ * Denies a reservation request using user's wallet (provider action)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useDenyReservationRequestWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const denyReservationRequest = useContractWriteFunction('denyReservationRequest');
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const tx = await denyReservationRequest({
+        args: [reservationKey]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useDenyReservationRequestWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, reservationKey) => {
+      // Remove denied reservation and invalidate queries
+      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Reservation request denied successfully via wallet, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to deny reservation request via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for denying reservation requests (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useDenyReservationRequest = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useDenyReservationRequestSSO(options);
+  const walletMutation = useDenyReservationRequestWallet(options);
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(reservationKey);
+      } else {
+        return walletMutation.mutateAsync(reservationKey);
+      }
+    },
+    onSuccess: (data, reservationKey) => {
+      devLog.log('✅ Reservation request denied successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to deny reservation request via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/cancelBookingSSO endpoint
+ * Cancels an existing booking (SSO users)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useCancelBookingSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const response = await fetch('/api/contract/reservation/cancelBookingSSO', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationKey })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to cancel booking: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useCancelBookingSSO:', data);
+      return data;
+    },
+    onSuccess: (data, reservationKey) => {
+      // Remove cancelled booking and invalidate related queries
+      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Booking cancelled successfully, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel booking:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for wallet-based cancelBooking using useContractWriteFunction
+ * Cancels an existing booking using user's wallet
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useCancelBookingWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const cancelBooking = useContractWriteFunction('cancelBooking');
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const tx = await cancelBooking({
+        args: [reservationKey]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useCancelBookingWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, reservationKey) => {
+      // Remove cancelled booking and invalidate related queries
+      queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Booking cancelled successfully via wallet, cache updated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel booking via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for cancelling bookings (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useCancelBooking = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useCancelBookingSSO(options);
+  const walletMutation = useCancelBookingWallet(options);
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(reservationKey);
+      } else {
+        return walletMutation.mutateAsync(reservationKey);
+      }
+    },
+    onSuccess: (data, reservationKey) => {
+      devLog.log('✅ Booking cancelled successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel booking via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/listToken endpoint using server wallet (SSO users)
+ * Lists a lab token for booking using server wallet for SSO users
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useListTokenSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tokenId) => {
+      const response = await fetch('/api/contract/reservation/listToken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to list token: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useListTokenSSO:', data);
+      return data;
+    },
+    onSuccess: (data, tokenId) => {
+      // Invalidate listing-related queries
+      queryClient.invalidateQueries(['reservations', 'isTokenListed', tokenId]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Token listed successfully via SSO, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to list token via SSO:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for wallet-based listToken using useContractWriteFunction
+ * Lists a lab token for booking using user's wallet
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useListTokenWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const listToken = useContractWriteFunction('listToken');
+
+  return useMutation({
+    mutationFn: async (tokenId) => {
+      const tx = await listToken({
+        args: [tokenId]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useListTokenWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, tokenId) => {
+      // Invalidate listing-related queries
+      queryClient.invalidateQueries(['reservations', 'isTokenListed', tokenId]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Token listed successfully via wallet, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to list token via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for listing tokens (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useListToken = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useListTokenSSO(options);
+  const walletMutation = useListTokenWallet(options);
+
+  return useMutation({
+    mutationFn: async (tokenId) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(tokenId);
+      } else {
+        return walletMutation.mutateAsync(tokenId);
+      }
+    },
+    onSuccess: (data, tokenId) => {
+      devLog.log('✅ Token listed successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to list token via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/unlistToken endpoint using server wallet (SSO users)
+ * Unlists a lab token from booking using server wallet for SSO users
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useUnlistTokenSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tokenId) => {
+      const response = await fetch('/api/contract/reservation/unlistToken', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to unlist token: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useUnlistTokenSSO:', data);
+      return data;
+    },
+    onSuccess: (data, tokenId) => {
+      // Invalidate listing-related queries
+      queryClient.invalidateQueries(['reservations', 'isTokenListed', tokenId]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Token unlisted successfully via SSO, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to unlist token via SSO:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for wallet-based unlistToken using useContractWriteFunction
+ * Unlists a lab token from booking using user's wallet
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useUnlistTokenWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const unlistToken = useContractWriteFunction('unlistToken');
+
+  return useMutation({
+    mutationFn: async (tokenId) => {
+      const tx = await unlistToken({
+        args: [tokenId]
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useUnlistTokenWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt, tokenId) => {
+      // Invalidate listing-related queries
+      queryClient.invalidateQueries(['reservations', 'isTokenListed', tokenId]);
+      queryClient.invalidateQueries(['reservations']);
+      devLog.log('✅ Token unlisted successfully via wallet, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to unlist token via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for unlisting tokens (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useUnlistToken = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useUnlistTokenSSO(options);
+  const walletMutation = useUnlistTokenWallet(options);
+
+  return useMutation({
+    mutationFn: async (tokenId) => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync(tokenId);
+      } else {
+        return walletMutation.mutateAsync(tokenId);
+      }
+    },
+    onSuccess: (data, tokenId) => {
+      devLog.log('✅ Token unlisted successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to unlist token via unified hook:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Hook for /api/contract/reservation/requestFundsSSO endpoint
+ * Requests funds for SSO users
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useRequestFundsSSO = (options = {}) => {
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
-      // Create authentication context
-      const authContext = {
-        isSSO,
-        contractWriteFunction: claimAllBalanceFn,
-        userAddress
-      };
+      const response = await fetch('/api/contract/reservation/requestFundsSSO', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
 
-      // Use unified service with authentication-aware routing
-      return await bookingServices.claimAllBalance(authContext);
+      if (!response.ok) {
+        throw new Error(`Failed to request funds: ${response.status}`);
+      }
+
+      const data = await response.json();
+      devLog.log('🔍 useRequestFundsSSO:', data);
+      return data;
     },
-    
     onSuccess: (data) => {
-      devLog.log('All balance claimed successfully:', data);
+      // Invalidate safe balance and related queries
+      queryClient.invalidateQueries(['reservations', 'getSafeBalance']);
+      devLog.log('✅ Funds requested successfully, cache invalidated');
     },
-    
     onError: (error) => {
-      devLog.error('Error claiming all balance:', error);
-    }
+      devLog.error('❌ Failed to request funds:', error);
+    },
+    ...options,
   });
 };
 
 /**
- * Hook to claim balance for specific lab (using authentication-aware routing)
- * @returns {Object} React Query mutation object for claiming lab balance
+ * Unified Hook for requesting funds (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
  */
-export const useClaimLabBalanceMutation = () => {
-  const { address: userAddress, isSSO } = useUser();
-  const { contractWriteFunction: claimLabBalanceFn } = useContractWriteFunction('claimLabBalance');
+export const useRequestFunds = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useRequestFundsSSO(options);
+  const walletMutation = useRequestFundsWallet(options);
 
   return useMutation({
-    mutationFn: async (labId) => {
-      // Create authentication context
-      const authContext = {
-        isSSO,
-        contractWriteFunction: claimLabBalanceFn,
-        userAddress
-      };
-
-      // Use unified service with authentication-aware routing
-      return await bookingServices.claimLabBalance(labId, authContext);
+    mutationFn: async () => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync();
+      } else {
+        return walletMutation.mutateAsync();
+      }
     },
-    
-    onSuccess: (data, labId) => {
-      devLog.log('Lab balance claimed successfully for lab:', labId, data);
+    onSuccess: (data) => {
+      devLog.log('✅ Funds requested successfully via unified hook');
     },
-    
     onError: (error) => {
-      devLog.error('Error claiming lab balance:', error);
-    }
+      devLog.error('❌ Failed to request funds via unified hook:', error);
+    },
+    ...options,
   });
 };
 
+/**
+ * Hook for wallet-based requestFunds using useContractWriteFunction
+ * Requests funds using user's wallet
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useRequestFundsWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const requestFunds = useContractWriteFunction('requestFunds');
 
+  return useMutation({
+    mutationFn: async () => {
+      const tx = await requestFunds({
+        args: []
+      });
+      
+      const receipt = await tx.wait();
+      devLog.log('🔍 useRequestFundsWallet:', receipt);
+      return receipt;
+    },
+    onSuccess: (receipt) => {
+      // Invalidate safe balance and related queries
+      queryClient.invalidateQueries(['reservations', 'getSafeBalance']);
+      devLog.log('✅ Funds requested successfully via wallet, cache invalidated');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to request funds via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Create Booking Mutation Hook (Unified)
+ * @param {Object} options - Mutation options
+ * @returns {Object} React Query mutation for creating bookings
+ */
+export const useCreateBookingMutation = (options = {}) => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (bookingData) => {
+      const { labId, start, timeslot, userAddress } = bookingData;
+      
+      // Use SSO endpoint if no userAddress provided (server wallet)
+      const endpoint = userAddress ? 
+        '/api/contract/reservation/reservationRequest' : 
+        '/api/contract/reservation/reservationRequestSSO';
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labId, start, timeslot, userAddress }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create booking');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate relevant booking queries
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
+      if (variables.userAddress) {
+        queryClient.invalidateQueries({ 
+          queryKey: bookingQueryKeys.byUser(variables.userAddress) 
+        });
+      }
+      if (variables.labId) {
+        queryClient.invalidateQueries({ 
+          queryKey: bookingQueryKeys.byLab(variables.labId) 
+        });
+      }
+      devLog.log('✅ Booking created successfully');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to create booking:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Cancel Booking Mutation Hook
+ * @param {Object} options - Mutation options
+ * @returns {Object} React Query mutation for canceling bookings
+ */
+export const useCancelBookingMutation = (options = {}) => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const response = await fetch('/api/contract/reservation/cancelBooking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservationKey }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel booking');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data, reservationKey) => {
+      // Invalidate relevant booking queries
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
+      queryClient.invalidateQueries({ 
+        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+      });
+      devLog.log('✅ Booking canceled successfully');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to cancel booking:', error);
+    },
+    ...options,
+  });
+};
+
+// Re-export cache updates utility
+export { useBookingCacheUpdates } from './useBookingCacheUpdates';

@@ -2,8 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsQuery } from '@/hooks/lab/useLabs'
-import { useUserBookingsQuery, useCancelBookingMutation } from '@/hooks/booking/useBookings'
+import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
+import { useUserBookingsComposed } from '@/hooks/booking/useBookingsComposed'
+import { useCancelBooking, useCancelBookingMutation } from '@/hooks/booking/useBookings'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
@@ -17,23 +18,30 @@ import isBookingActive from '@/utils/booking/isBookingActive'
 export default function UserDashboard() {
   const { isLoggedIn, address, user } = useUser();
   
-  // 🚀 React Query for labs
+  // 🚀 React Query for labs with enriched metadata
   const { 
-    data: labs = [], 
-    isInitialLoading: loading, 
+    data: labsData,
+    isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery();
+  } = useAllLabsComposed({
+    includeMetadata: true, // Include metadata to get lab names
+    includeOwners: false
+  });
+  const labs = labsData?.labs || [];
 
-  // 🚀 React Query for user bookings
+  // 🚀 React Query for user bookings with lab details
   const { 
     data: userBookingsData, 
-    isInitialLoading: bookingsLoading, 
+    isLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useUserBookingsQuery(address, {
-    enabled: !!address && isLoggedIn,
-    staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
+  } = useUserBookingsComposed(address, {
+    includeLabDetails: true,
+    queryOptions: {
+      enabled: !!address && isLoggedIn,
+      staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
+    }
   });
 
   // Extract bookings array from composed service response

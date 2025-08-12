@@ -19,46 +19,93 @@ import getIsVercel from '@/utils/isVercel'
 export async function POST(req) {
   try {
     const { labURI } = await req.json();
-    if (!labURI) {
-      return NextResponse.json({ error: 'Missing labURI' }, { status: 400 });
+    
+    // Validate required parameters
+    if (!labURI || typeof labURI !== 'string' || labURI.trim() === '') {
+      return NextResponse.json({ 
+        error: 'Missing or invalid labURI parameter',
+        message: 'labURI is required and must be a non-empty string' 
+      }, { status: 400 });
     }
+
+    const sanitizedLabURI = labURI.trim();
     const isVercel = getIsVercel();
-    const filePath = path.join(process.cwd(), 'data', labURI);
+
+    devLog('DELETE_LAB_DATA', `Attempting to delete lab data: ${sanitizedLabURI} on ${isVercel ? 'Vercel' : 'local'}`);
 
     if (!isVercel) {
+        // Local filesystem deletion
+        const filePath = path.join(process.cwd(), 'data', sanitizedLabURI);
+        
         try {
           await fs.unlink(filePath);
-          return NextResponse.json({ message: 'Lab data deleted successfully.' }, { status: 200 });
-        } catch (error) {
+          devLog('DELETE_LAB_DATA', `Successfully deleted local file: ${filePath}`);
+          
+          return NextResponse.json({ 
+            message: 'Lab data deleted successfully',
+            deleted: sanitizedLabURI,
+            timestamp: new Date().toISOString()
+          }, { status: 200 });
+          
+        } catch (fsError) {
+          console.error('Local file deletion error:', fsError);
+          
+          if (fsError.code === 'ENOENT') {
+            return NextResponse.json(
+              { 
+                error: 'Lab data not found', 
+                message: `File ${sanitizedLabURI} does not exist`,
+                details: fsError.message 
+              },
+              { status: 404 }
+            );
+          }
+          
           return NextResponse.json(
-              { error: 'Failed to delete lab data.', details: error.message },
-              { status: 500 }
-        );
+            { 
+              error: 'Failed to delete lab data from local storage',
+              message: 'Internal server error during file deletion', 
+              details: fsError.message 
+            },
+            { status: 500 }
+          );
         }
     } else {
+        // Vercel blob deletion
         try {
-            const blobPath = `data/${labURI}`;
+            const blobPath = `data/${sanitizedLabURI}`;
             const result = await del(blobPath);
-            if (result) {
-              console.log(`Blob deleted from Vercel: ${blobPath}`);
-              return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
-                { status: 200 });
-            } else {
-              console.warn(`Blob deletion from Vercel may have failed: ${blobPath}`);
-              return NextResponse.json({ message: 'Lab data deleted successfully.' }, 
-                { status: 200 });
-            }
-        } catch (error) {
-            console.error("Error deleting data:", error);
+            
+            devLog('DELETE_LAB_DATA', `Blob deletion result for ${blobPath}:`, result);
+            
+            return NextResponse.json({ 
+              message: 'Lab data deleted successfully',
+              deleted: sanitizedLabURI,
+              blobPath,
+              timestamp: new Date().toISOString()
+            }, { status: 200 });
+            
+        } catch (blobError) {
+            console.error('Vercel blob deletion error:', blobError);
+            
             return NextResponse.json(
-                { error: 'Failed to delete lab data.', details: error.message },
-                { status: 500 }
+              { 
+                error: 'Failed to delete lab data from cloud storage',
+                message: 'Internal server error during blob deletion',
+                details: blobError.message 
+              },
+              { status: 500 }
             );
         }
     }
 
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to parse request body.', details: error.message }, 
-      { status: 400 });
+  } catch (parseError) {
+    console.error('Request parsing error:', parseError);
+    
+    return NextResponse.json({ 
+      error: 'Invalid request format',
+      message: 'Failed to parse request body. Expected valid JSON with labURI field.',
+      details: parseError.message 
+    }, { status: 400 });
   }
 }

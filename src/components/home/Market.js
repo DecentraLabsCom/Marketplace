@@ -7,51 +7,65 @@
 "use client";
 import React, { useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
-import { useAllLabsQuery } from '@/hooks/lab/useLabs'
-import { useUserBookingsQuery } from '@/hooks/booking/useBookings'
+import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
+import { useUserBookingsComposed } from '@/hooks/booking/useBookingsComposed'
 import { useLabFilters } from '@/hooks/lab/useLabFilters'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import devLog from '@/utils/dev/logger'
 
 export default function Market() {
-  devLog.log('🏪 Market component rendered at:', new Date().toLocaleTimeString());
-  
   const { isLoggedIn, address } = useUser();
   
-  // React Query for labs
-  const labsQuery = useAllLabsQuery();
+  // React Query for labs with metadata (memoized options)
+  const labsQueryOptions = useMemo(() => ({
+    includeMetadata: true, 
+    includeOwners: false 
+  }), []);
+  
+  const labsQuery = useAllLabsComposed(labsQueryOptions);
   
   const { 
-    data: labsData = [], 
-    isInitialLoading: labsInitialLoading,
+    data: labsData, 
+    isLoading: labsInitialLoading,
     isFetching: labsFetching,
     isError: labsError,
     error: labsErrorDetails 
   } = labsQuery;
-  // Determine labs loading state
-  const labsLoading = labsInitialLoading || labsFetching || labsData.length === 0;
+  
+  // Extract labs array from composed result and memoize
+  const labsArray = useMemo(() => labsData?.labs || [], [labsData?.labs]);
+  
+  // Determine labs loading state (stable)
+  const labsLoading = useMemo(() => {
+    return labsInitialLoading || (labsFetching && labsArray.length === 0);
+  }, [labsInitialLoading, labsFetching, labsArray.length]);
 
   // Memoize labs to prevent infinite re-renders
-  const labs = useMemo(() => labsData, [labsData]);
+  const labs = useMemo(() => labsArray, [labsArray]);
 
-  // React Query for user bookings
-  const userBookingsQuery = useUserBookingsQuery(address, {
+  // React Query for user bookings (memoized options)
+  const userBookingsOptions = useMemo(() => ({
     enabled: !!address && isLoggedIn,
-  });
+  }), [address, isLoggedIn]);
+  
+  const userBookingsQuery = useUserBookingsComposed(address, userBookingsOptions);
 
   const {
     data: userBookingsData,
-    isInitialLoading: bookingsInitialLoading,
+    isLoading: bookingsInitialLoading,
     isFetching: bookingsFetching,
   } = userBookingsQuery;
-  // Determine bookings loading state
-  const bookingsLoading = bookingsInitialLoading || (bookingsFetching && !userBookingsData)
+  
+  // Determine bookings loading state (stable)
+  const bookingsLoading = useMemo(() => {
+    return bookingsInitialLoading || (bookingsFetching && !userBookingsData);
+  }, [bookingsInitialLoading, bookingsFetching, userBookingsData]);
 
   // Memoize userBookings to prevent infinite re-renders
-  const userBookings = useMemo(() => userBookingsData?.bookings || [], [userBookingsData]);
+  const userBookings = useMemo(() => userBookingsData?.bookings || [], [userBookingsData?.bookings]);
 
-  // Use custom hook for filtering logic
+  // Use custom hook for filtering logic (with stable dependencies)
   const {
     selectedCategory,
     selectedPrice,
@@ -66,7 +80,7 @@ export default function Market() {
     providers,
     searchInputRef,
     resetFilters
-  } = useLabFilters(labs, userBookings, isLoggedIn)
+  } = useLabFilters(labs, userBookings, isLoggedIn);
 
   return (
     <main className="container mx-auto p-6">

@@ -4,10 +4,10 @@ import PropTypes from 'prop-types'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsQuery } from '@/hooks/lab/useLabs'
-import { useLabBookingsQuery, useCreateBookingMutation } from '@/hooks/booking/useBookings'
+import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
+import { useReservationRequest, useBookingCacheUpdates, useCreateBookingMutation } from '@/hooks/booking/useBookings'
+import { useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
 import { useLabToken } from '@/hooks/useLabToken'
-import { useBookingCacheUpdates } from '@/hooks/booking/useBookings'
 import AccessControl from '@/components/auth/AccessControl'
 import Carrousel from '@/components/ui/Carrousel'
 import LabTokenInfo from '@/components/reservation/LabTokenInfo'
@@ -28,10 +28,14 @@ export default function LabReservation({ id }) {
   const labId = id ? String(id) : null;
   
   const { 
-    data: labs = [], 
+    data: labsData,
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery();
+  } = useAllLabsComposed({
+    includeMetadata: true, // Include metadata to get lab names
+    includeOwners: false
+  });
+  const labs = labsData?.labs || [];
   const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();
   const { chain, isConnected, address } = useAccount();
@@ -57,8 +61,11 @@ export default function LabReservation({ id }) {
     data: labBookingsData,
     isLoading: labBookingsLoading,
     error: labBookingsError
-  } = useLabBookingsQuery(selectedLab?.id, true, {
-    enabled: !!selectedLab?.id
+  } = useLabBookingsComposed(selectedLab?.id, {
+    includeUserDetails: false,
+    queryOptions: {
+      enabled: !!selectedLab?.id
+    }
   });
   const labBookings = useMemo(() => 
     labBookingsData?.bookings || [], 
@@ -134,17 +141,13 @@ export default function LabReservation({ id }) {
     return new Date(`${year}-${month}-${day}`);
   };
 
-  // Select the lab by id
+  // Select the lab by id (only when there's a prop labId, don't interfere with manual selection)
   useEffect(() => {    
     if (labs.length && labId) {
       const currentLab = labs.find((lab) => lab.id == labId);
       setSelectedLab(currentLab);
-    } else {
-      // If no lab ID is provided, don't auto-select any lab
-      if (!labId) {
-        setSelectedLab(null);
-      }
     }
+    // Note: Don't reset selectedLab to null when no labId - allow manual selection via dropdown
   }, [labId, labs]);
 
   // Update the time interval when the selected lab changes
@@ -585,7 +588,7 @@ export default function LabReservation({ id }) {
                       value={time}
                       onChange={(e) => setTime(Number(e.target.value))}
                     >
-                      {selectedLab.timeSlots.map((slot) => (
+                      {(selectedLab?.timeSlots || [15, 30, 60]).map((slot) => (
                         <option key={slot} value={slot}>{slot} minutes</option>
                       ))}
                     </select>
@@ -602,7 +605,7 @@ export default function LabReservation({ id }) {
                     >
                       {availableTimes.map((timeOption, i) => (
                         <option
-                          key={i}
+                          key={`${timeOption.value}-${i}`}
                           value={timeOption.value}
                           disabled={timeOption.disabled}
                           style={{ color: timeOption.isReserved ? 'gray' : 'white' }}

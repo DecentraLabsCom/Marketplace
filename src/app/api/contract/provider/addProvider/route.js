@@ -7,8 +7,6 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { executeBlockchainTransaction } from '@/app/api/contract/utils/retry'
-
 /**
  * Registers a new lab provider on the blockchain
  * @param {Request} request - HTTP request with provider details
@@ -60,7 +58,7 @@ export async function POST(request) {
         error: 'Validation failed',
         code: 'VALIDATION_ERROR',
         details: validationErrors
-      }, { status: 400 });
+      }, {status: 400 });
     }
 
     // Normalize inputs
@@ -74,7 +72,6 @@ export async function POST(request) {
     // If only validation requested, return early
     if (validateOnly) {
       return Response.json({
-        success: true,
         data: {
           name: normalizedName,
           email: normalizedEmail,
@@ -86,10 +83,8 @@ export async function POST(request) {
           timestamp: new Date().toISOString(),
           validationOnly: true
         }
-      }, { 
-        status: 200,
+      }, {status: 200,
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Content-Type': 'application/json'
         }
       });
@@ -105,7 +100,7 @@ export async function POST(request) {
         error: 'Blockchain connection failed',
         code: 'CONTRACT_ERROR',
         retryable: true
-      }, { status: 503 });
+      }, {status: 503 });
     }
 
     // Execute blockchain transaction WITHOUT retry (prevents duplicates)
@@ -113,9 +108,7 @@ export async function POST(request) {
     let receipt;
     
     try {
-      const tx = await executeBlockchainTransaction(() => 
-        contract.addProvider(normalizedName, normalizedWallet, normalizedEmail, normalizedCountry)
-      );
+      const tx = await contract.addProvider(normalizedName, normalizedWallet, normalizedEmail, normalizedCountry);
       
       transactionHash = tx.hash;
       console.log('Provider registration transaction submitted:', transactionHash);
@@ -154,7 +147,7 @@ export async function POST(request) {
         retryable,
         details: blockchainError.message,
         wallet: normalizedWallet
-      }, { status: 500 });
+      }, {status: 500 });
     }
 
     const endTime = Date.now();
@@ -162,7 +155,6 @@ export async function POST(request) {
 
     // Return success response optimized for React Query
     return Response.json({
-      success: true,
       data: {
         transactionHash,
         blockHash: receipt.blockHash,
@@ -180,10 +172,8 @@ export async function POST(request) {
         duration,
         confirmed: true
       }
-    }, { 
-      status: 201,
+    }, {status: 201,
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Content-Type': 'application/json'
       }
     });
@@ -202,10 +192,8 @@ export async function POST(request) {
         timestamp: new Date().toISOString(),
         duration
       }
-    }, { 
-      status: 500,
+    }, {status: 500,
       headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Content-Type': 'application/json'
       }
     });

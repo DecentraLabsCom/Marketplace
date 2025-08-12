@@ -4,18 +4,29 @@ import { useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
-  useAllLabsQuery, 
-  useOwnedLabsQuery,
-  useCreateLabMutation, 
-  useUpdateLabMutation, 
-  useDeleteLabMutation, 
-  useToggleLabStatusMutation 
-} from '@/hooks/lab/useLabs'
-import { 
-  useLabBookingsQuery,
+  useAddLab, 
+  useUpdateLab, 
+  useDeleteLab,
+  useCreateLabMutation,
+  useToggleLabStatusMutation,
   useClaimAllBalanceMutation,
   useClaimLabBalanceMutation
-} from '@/hooks/booking/useBookings'
+} from '@/hooks/lab/useLabs'
+import { 
+  useAllLabsComposed,
+  extractLabsByOwner
+} from '@/hooks/lab/useLabsComposed'
+import { 
+  useLabBookingsComposed
+} from '@/hooks/booking/useBookingsComposed'
+// import { 
+//   useClaimAllBalanceMutation,
+//   useClaimLabBalanceMutation
+// } from '@/hooks/booking/useBookings'
+import { 
+  useSaveLabData, 
+  useDeleteLabData 
+} from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/hooks/useLabToken'
 import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
@@ -30,24 +41,35 @@ import devLog from '@/utils/dev/logger'
 export default function ProviderDashboard() {
   const { address, user, isSSO } = useUser();
   
-  // 🚀 React Query for owned labs (optimized - only fetches owned labs)
+  // 🚀 React Query for all labs with owner information
+  const allLabsResult = useAllLabsComposed({ 
+    includeMetadata: false, 
+    includeOwners: true,
+    queryOptions: {
+      enabled: !!address
+    }
+  });
+  
   const { 
-    data: ownedLabIds = [], 
-    isInitialLoading: ownedLabsLoading, 
-    isError: ownedLabsError,
-    error: ownedLabsErrorDetails 
-  } = useOwnedLabsQuery(address);
-
-  // 🚀 React Query for all labs (fallback for lab details)
-  const { 
-    data: labs = [], 
-    isInitialLoading: allLabsLoading, 
+    data: allLabsData,
+    isLoading: loading,
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery();
+  } = allLabsResult;
+  
+  const labs = allLabsData?.labs || [];
+  
+  // Extract owned labs using the helper function
+  const ownedLabs = useMemo(() => {
+    if (!address || !labs.length) return [];
+    return extractLabsByOwner(allLabsResult, address);
+  }, [allLabsResult, address, labs.length]);
 
-  // Combine loading states
-  const loading = ownedLabsLoading || allLabsLoading;
+  // Legacy compatibility - derive ownedLabIds from owned labs
+  const ownedLabIds = useMemo(() => 
+    ownedLabs.map(lab => lab.id || lab.tokenId).filter(Boolean), 
+    [ownedLabs]
+  );
 
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
   const { coordinatedLabUpdate } = useLabEventCoordinator();
@@ -55,34 +77,33 @@ export default function ProviderDashboard() {
   const { decimals } = useLabToken();
 
   // 🚀 React Query mutations for lab management
+  const addLabMutation = useAddLab();
+  const updateLabMutation = useUpdateLab();
+  const deleteLabMutation = useDeleteLab();
   const createLabMutation = useCreateLabMutation();
-  const updateLabMutation = useUpdateLabMutation();
-  const deleteLabMutation = useDeleteLabMutation();
   const toggleLabStatusMutation = useToggleLabStatusMutation();
   
   // 🚀 React Query mutations for balance claims
   const claimAllBalanceMutation = useClaimAllBalanceMutation();
   const claimLabBalanceMutation = useClaimLabBalanceMutation();
   
+  // 🚀 React Query mutations for provider data management
+  const saveLabDataMutation = useSaveLabData();
+  const deleteLabDataMutation = useDeleteLabData();
+  
   // State declarations
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Derive owned labs with full details from IDs and all labs data
-  const ownedLabs = useMemo(() => {
-    if (!ownedLabIds.length || !labs.length) return [];
-    
-    return ownedLabIds
-      .map(labId => labs.find(lab => lab.id === labId))
-      .filter(Boolean); // Remove undefined values
-  }, [ownedLabIds, labs]);
   
-  // 🚀 React Query for lab bookings
+  // 🚀 React Query for lab bookings with user details
   const { 
     data: labBookingsData, 
     isError: bookingsError
-  } = useLabBookingsQuery(selectedLabId, true, {
-    enabled: !!selectedLabId
+  } = useLabBookingsComposed(selectedLabId, {
+    includeUserDetails: true,
+    queryOptions: {
+      enabled: !!selectedLabId
+    }
   });
   const labBookings = labBookingsData?.bookings || [];
 
@@ -248,13 +269,10 @@ export default function ProviderDashboard() {
       // 2. Save the JSON if necessary
       if (labData.uri.startsWith('Lab-')) {
         try {
-          const response = await fetch('/api/provider/saveLabData', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            // Save with human-readable price for JSON consistency
-            body: JSON.stringify({ labData: { ...labData, price: originalPrice } }),
+          await saveLabDataMutation.mutateAsync({
+            ...labData,
+            price: originalPrice // Save with human-readable price for JSON consistency
           });
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         } catch (error) {
           addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
           return;
@@ -263,11 +281,7 @@ export default function ProviderDashboard() {
 
       // 3. Delete the old JSON if necessary
       if (mustDeleteOldJson) {
-        await fetch('/api/provider/deleteLabData', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labURI: originalLab.uri }),
-        });
+        await deleteLabDataMutation.mutateAsync(originalLab.uri);
       }
     } catch (error) {
       devLog.error('Error updating lab:', error);

@@ -5,10 +5,10 @@ import { useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
-  useProviderStatusQuery, 
+  useIsLabProvider, 
   useRefreshProviderStatusMutation 
 } from '@/hooks/user/useUsers'
-import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import { userQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
@@ -50,7 +50,7 @@ function UserDataCore({ children }) {
         data: providerStatus, 
         isLoading: isProviderLoading,
         error: providerError 
-    } = useProviderStatusQuery(address, false, {
+    } = useIsLabProvider(address, {
         enabled: Boolean(address) && !isWalletLoading, // Only fetch when wallet connection is stable
         retry: false, // Don't retry failed provider status queries
     });
@@ -129,11 +129,10 @@ function UserDataCore({ children }) {
                 isProvider: providerStatus.isLabProvider
             };
             
-            // Provider name takes absolute priority if it exists
-            if (providerStatus.providerName) {
-                updatedUser.name = providerStatus.providerName;
-            } else if (!updatedUser.name && ssoData?.user?.name) {
-                // Only use SSO name if no provider name exists
+            // Note: useIsLabProvider only returns status, not provider name
+            // If provider name is needed, we'd need to use useLabProviders to get full provider data
+            // For now, fall back to SSO name
+            if (!updatedUser.name && ssoData?.user?.name) {
                 updatedUser.name = ssoData.user.name;
             }
             
@@ -158,8 +157,9 @@ function UserDataCore({ children }) {
             queryClient.removeQueries({ queryKey: ['provider'] });
         } else if (isConnected && address) {
             // Invalidate provider status cache when wallet connects
+            // Invalidate provider status cache using the correct query key for useIsLabProvider
             queryClient.invalidateQueries({ 
-                queryKey: QUERY_KEYS.PROVIDER.status(address) 
+                queryKey: ['providers', 'isLabProvider', address] 
             });
         }
     }, [isConnected, address, queryClient]);

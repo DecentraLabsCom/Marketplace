@@ -1,6 +1,7 @@
 import { useReadContract, useAccount } from 'wagmi'
 import PropTypes from 'prop-types'
 import { contractAddresses, contractABI } from '@/contracts/diamond'
+import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
 
 /**
@@ -9,6 +10,7 @@ import { selectChain } from '@/utils/blockchain/selectChain'
  * @param {string} contractFunctionName - Name of the contract function to call
  * @param {Array} args - Arguments to pass to the contract function
  * @param {boolean} hasFetched - Whether the data has already been fetched (disables auto-fetch)
+ * @param {string} [contractType='diamond'] - Type of contract ('diamond' or 'lab')
  * @returns {Object} React Query result with contract read data
  * @returns {any} returns.data - Data returned from the contract function
  * @returns {boolean} returns.isLoading - Whether the query is currently loading
@@ -16,18 +18,30 @@ import { selectChain } from '@/utils/blockchain/selectChain'
  * @returns {Error|null} returns.error - Error object if query failed
  * @returns {Function} returns.refetch - Function to manually refetch the data
  */
-export default function useDefaultReadContract(contractFunctionName, args = [], hasFetched = false) {
+export default function useDefaultReadContract(contractFunctionName, args = [], hasFetched = false, contractType = 'diamond') {
   const { chain: currentChain } = useAccount();
   const safeChain = selectChain(currentChain);
+  const chainKey = safeChain.name.toLowerCase();
+
+  // Choose contract configuration based on type
+  let address, abi;
+  if (contractType === 'lab') {
+    address = contractAddressesLAB[chainKey];
+    abi = labTokenABI;
+  } else {
+    // Default: diamond contract
+    address = contractAddresses[chainKey];
+    abi = contractABI;
+  }
 
   return useReadContract({
-    abi: contractABI,
-    address: contractAddresses[safeChain.name.toLowerCase()],
+    abi,
+    address,
     functionName: contractFunctionName,
     args: args || [],
     chainId: safeChain.id,
     query: {
-      enabled: !hasFetched,
+      enabled: !hasFetched && !!address,
       retry: 2,
       retryOnMount: true,
       refetchOnReconnect: true,
@@ -38,10 +52,12 @@ export default function useDefaultReadContract(contractFunctionName, args = [], 
 useDefaultReadContract.propTypes = {
   contractFunctionName: PropTypes.string.isRequired,
   args: PropTypes.array,
-  hasFetched: PropTypes.bool
+  hasFetched: PropTypes.bool,
+  contractType: PropTypes.oneOf(['diamond', 'lab']),
 }
 
 useDefaultReadContract.defaultProps = {
   args: [],
-  hasFetched: false
+  hasFetched: false,
+  contractType: 'diamond',
 }

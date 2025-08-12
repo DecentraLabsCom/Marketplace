@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
-import { useAllLabsQuery } from '@/hooks/lab/useLabs'
+import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
 import { useLabToken } from '@/hooks/useLabToken'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
@@ -18,15 +18,20 @@ import { LabHeroSkeleton } from '@/components/skeletons'
  */
 export default function LabDetail({ id, provider }) {
   const { 
-    data: labs = [], 
-    isInitialLoading: loading, 
+    data: labsData,
+    isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsQuery({
-    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-    refetchOnWindowFocus: false, // No automatic refetch
-    refetchInterval: false, // Disable automatic periodic refetch
+  } = useAllLabsComposed({
+    includeMetadata: true, // Include metadata to get lab names, descriptions, etc.
+    includeOwners: false,
+    queryOptions: {
+      staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
+      refetchOnWindowFocus: false, // No automatic refetch
+      refetchInterval: false, // Disable automatic periodic refetch
+    }
   });
+  const labs = labsData?.labs || [];
   const { formatPrice } = useLabToken();
   const [lab, setLab] = useState(null);
   const router = useRouter();

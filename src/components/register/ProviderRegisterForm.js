@@ -4,6 +4,7 @@ import { IoPerson } from 'react-icons/io5'
 import ReactFlagsSelect from 'react-flags-select'
 import { useUser } from '@/context/UserContext'
 import { useUserEventCoordinator } from '@/hooks/user/useUserEventCoordinator'
+import { useSaveProviderRegistration } from '@/hooks/provider/useProvider'
 import AccessControl from '@/components/auth/AccessControl'
 import devLog from '@/utils/dev/logger'
 
@@ -23,6 +24,7 @@ const providerSchema = z.object({
 export default function ProviderRegisterForm() {
   const { user, isSSO, isProvider, address } = useUser()
   const { coordinatedProviderRegistration } = useUserEventCoordinator()
+  const saveRegistrationMutation = useSaveProviderRegistration()
   const [formData, setFormData] = useState({ name: '', email: '', wallet: '', country: '' })
   const [errors, setErrors] = useState({})
   const [isSuccess, setIsSuccess] = useState(false)
@@ -51,11 +53,7 @@ export default function ProviderRegisterForm() {
 
     try {
       await coordinatedProviderRegistration(async () => {
-        const res = await fetch('/api/provider/saveRegistration', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData)
-        })
-        if (!res.ok) throw new Error('Failed to save provider')
-        return res.json()
+        return await saveRegistrationMutation.mutateAsync(formData)
       }, formData.wallet)
       setIsSuccess(true)
       setErrors({})

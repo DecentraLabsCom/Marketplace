@@ -5,6 +5,7 @@
 import React, { useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useLabValidation } from '@/hooks/lab/useLabValidation'
+import { useUploadFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
 import FileUploadManager from '@/components/ui/FileUploadManager'
@@ -20,6 +21,9 @@ import devLog from '@/utils/dev/logger'
  * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  */
 export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, maxId = 0 }) {
+  
+  // Hooks
+  const uploadFileMutation = useUploadFile();
   
   // Form state
   const [activeTab, setActiveTab] = useState('full')
@@ -82,22 +86,12 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
    * File upload handler
    */
   const uploadFile = useCallback(async (file, destinationFolder, labId) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('destinationFolder', destinationFolder)
-    formData.append('labId', labId)
-
-    const response = await fetch('/api/provider/uploadFile', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      throw new Error(`Upload error: ${response.statusText}`)
-    }
-
-    return response.json()
-  }, [])
+    return await uploadFileMutation.mutateAsync({
+      file,
+      destinationFolder,
+      labId
+    });
+  }, [uploadFileMutation])
 
   /**
    * Handle multiple file uploads

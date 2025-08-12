@@ -2,6 +2,7 @@
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useLabToken } from '@/hooks/useLabToken'
+import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
@@ -48,6 +49,8 @@ function reducer(state, action) {
  */
 export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const { decimals, formatPrice } = useLabToken();
+  const uploadFileMutation = useUploadFile();
+  const deleteFileMutation = useDeleteFile();
   const [state, dispatch] = useReducer(reducer, lab, initialState);
   const {
     activeTab,
@@ -86,22 +89,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const jsonFileRegex = useMemo(() => new RegExp(/^[\w\-._/]+\.json$/i), []);
 
   const uploadFile = async (file, destinationFolder, labId) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('destinationFolder', destinationFolder);
-    formData.append('labId', labId);
-
-    const response = await fetch('/api/provider/uploadFile', {
-      method: 'POST',
-      body: formData,
+    const result = await uploadFileMutation.mutateAsync({
+      file,
+      destinationFolder,
+      labId
     });
 
-    if (!response.ok) {
-      throw new Error(`Error al uploading: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    let filePath = data.filePath;
+    let filePath = result.filePath;
 
     // Keep track of uploaded temporal files
     uploadedTempFiles.current.push(filePath);
@@ -114,21 +108,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   }, [lab, onClose]);
 
   const deleteFile = useCallback(async (filePath) => {
-    const formData = new FormData();
-    formData.append('filePath', filePath);
-    formData.append('deletingLab', 'false');
-
-    const response = await fetch('/api/provider/deleteFile', {
-      method: 'POST',
-      body: formData,
+    await deleteFileMutation.mutateAsync({
+      filePath,
+      deletingLab: false
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Failed to delete file: ${errorData.details || response.statusText}`);
-    }
     devLog.log(`Temporal file ${filePath} deleted successfully.`);
-  }, []);
+  }, [deleteFileMutation]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -363,18 +348,15 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       const filePathToDelete = localLab.images[index].startsWith('/')
         ? localLab.images[index].substring(1)
         : localLab.images[index];
-      const formDatatoDelete = new FormData();
-      formDatatoDelete.append('filePath', filePathToDelete);
-      fetch('/api/provider/deleteFile', {
-        method: 'POST',
-        body: formDatatoDelete,
-      }).then(response => {
-        if (!response.ok) {
-          devLog.error('Failed to delete image file:', filePathToDelete);
+      
+      deleteFileMutation.mutate(
+        { filePath: filePathToDelete, deletingLab: false },
+        {
+          onError: (error) => {
+            devLog.error('Failed to delete image file:', error.message);
+          }
         }
-      }).catch(error => {
-        devLog.error('Error deleting image file:', error.message);
-      });
+      );
     }
 
     dispatch({
@@ -398,18 +380,15 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       const filePathToDelete = localLab.docs[index].startsWith('/')
         ? localLab.docs[index].substring(1)
         : localLab.docs[index];
-      const formDatatoDelete = new FormData();
-      formDatatoDelete.append('filePath', filePathToDelete);
-      fetch('/api/provider/deleteFile', {
-        method: 'POST',
-        body: formDatatoDelete,
-      }).then(response => {
-        if (!response.ok) {
-          devLog.error('Failed to delete doc file:', filePathToDelete);
+      
+      deleteFileMutation.mutate(
+        { filePath: filePathToDelete, deletingLab: false },
+        {
+          onError: (error) => {
+            devLog.error('Failed to delete doc file:', error.message);
+          }
         }
-      }).catch(error => {
-        devLog.error('Error deleting doc file:', error);
-      });
+      );
     }
 
     dispatch({

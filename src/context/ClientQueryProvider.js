@@ -5,7 +5,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
-import { QUERY_KEYS } from '@/utils/hooks/queryKeys'
+import { labQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 const queryClient = new QueryClient({
@@ -34,7 +34,7 @@ const queryClient = new QueryClient({
 const persister = createAsyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : null,
   key: 'decentralabs-query-cache',
-  throttleTime: 1000, // Save to storage every 1 second
+  throttleTime: 5000, // Save to storage every 5 seconds (reduced frequency)
   serialize: JSON.stringify,
   deserialize: JSON.parse,
   // Only persist specific query types to avoid storing too much
@@ -42,6 +42,10 @@ const persister = createAsyncStoragePersister({
     removeOldestQuery()
   },
 });
+
+// Track logged query types to avoid spam and initialization state
+const loggedQueryTypes = new Set();
+let isInitialized = false;
 
 /**
  * React Query provider with optimized default configuration and persistence
@@ -54,6 +58,9 @@ export default function ClientQueryProvider({ children }) {
   
   // Initialize essential empty caches on app startup (no API calls)
   useEffect(() => {
+    // Prevent double initialization in React StrictMode
+    if (isInitialized) return;
+    
     const initializeEssentialCaches = () => {
       try {
         devLog.log('🏗️ Initializing essential empty caches on app startup...');
@@ -62,19 +69,13 @@ export default function ClientQueryProvider({ children }) {
         // Lab-specific caches will be created lazily when labs are first fetched
         
         // All labs composed cache
-        const allLabsKey = QUERY_KEYS.LABS.allComposed;
+        const allLabsKey = labQueryKeys.all();
         if (!queryClient.getQueryData(allLabsKey)) {
           queryClient.setQueryData(allLabsKey, []);
           devLog.log('📦 Created empty all-labs composed cache');
         }
         
-        // Provider data cache (generic - will be replaced with real data when provider loads)
-        const providerDataKey = QUERY_KEYS.PROVIDER.profile('placeholder');
-        if (!queryClient.getQueryData(providerDataKey)) {
-          queryClient.setQueryData(providerDataKey, null);
-          devLog.log('📦 Created empty provider data cache');
-        }
-        
+        isInitialized = true;
         devLog.log('✅ Successfully initialized essential empty caches (no API calls)');
       } catch (error) {
         devLog.warn('⚠️ Failed to initialize essential empty caches:', error.message);
@@ -108,8 +109,13 @@ export default function ClientQueryProvider({ children }) {
                                    queryType === 'provider' || 
                                    queryType === 'sso';
               
-              if (shouldPersist) {
-                devLog.log(`💾 Persisting query: ${queryType}`);
+              // Only log once per query type per session to avoid spam
+              if (shouldPersist && !loggedQueryTypes.has(queryType)) {
+                loggedQueryTypes.add(queryType);
+                // Only log in development to reduce production noise
+                if (process.env.NODE_ENV === 'development') {
+                  devLog.log(`💾 Persisting query type: ${queryType}`);
+                }
               }
               
               return shouldPersist;

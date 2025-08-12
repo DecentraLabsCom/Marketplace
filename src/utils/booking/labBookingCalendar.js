@@ -15,7 +15,15 @@ export function generateTimeOptions({ date, interval, bookingInfo }) {
     const options = [];
     const now = new Date();
 
-    devLog.log(bookingInfo)
+    // Only log if there are bookings to avoid spam
+    if (bookingInfo && bookingInfo.length > 0) {
+        devLog.log('⏰ generateTimeOptions - Processing bookings:', {
+            date: date.toDateString(),
+            interval,
+            bookingCount: bookingInfo.length
+        });
+    }
+    
     const dayBookings = (bookingInfo || []).filter(
         (b) => new Date(b.date).toDateString() === date.toDateString()
     );
