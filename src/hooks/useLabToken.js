@@ -124,7 +124,7 @@ export function useLabToken() {
 
   /**
    * Calculate the total cost of a reservation
-   * @param {string} labPrice - Laboratory price per second (from cache/backend)
+   * @param {string} labPrice - Laboratory price per second in contract units (smallest denomination)
    * @param {number} durationMinutes - Duration in minutes
    * @returns {bigint} - Total cost in token wei
    */
@@ -132,18 +132,18 @@ export function useLabToken() {
     if (!labPrice || !durationMinutes || !decimals) return 0n;
     
     try {
-      // labPrice is already in per-second format from cache/backend
-      const pricePerSecond = parseFloat(labPrice);
+      // Contract provides price in smallest units per second
+      const pricePerSecondUnits = parseFloat(labPrice.toString());
       
-      // Calculate total cost for the duration in seconds
+      if (isNaN(pricePerSecondUnits)) return 0n;
+      
+      // Calculate total cost for the duration in seconds (still in contract units)
       const durationSeconds = durationMinutes * 60;
-      const totalCost = pricePerSecond * durationSeconds;
+      const totalCostUnits = pricePerSecondUnits * durationSeconds;
       
-      // Format totalCost to avoid scientific notation for parseUnits
-      const totalCostFormatted = totalCost.toFixed(decimals);
-      
-      // Convert to wei (considering token decimals)
-      const costInWei = parseUnits(totalCostFormatted, decimals);
+      // totalCostUnits is already in the smallest token units (wei)
+      // Convert to bigint for return
+      const costInWei = BigInt(Math.floor(totalCostUnits));
       
       return costInWei;
     } catch (error) {

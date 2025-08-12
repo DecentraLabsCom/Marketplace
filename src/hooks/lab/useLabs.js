@@ -341,19 +341,16 @@ export const useAddLabSSO = (options = {}) => {
  */
 export const useAddLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const addLab = useContractWriteFunction('addLab');
+  const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');
 
   return useMutation({
     mutationFn: async (labData) => {
-      const tx = await addLab({
-        args: [labData.uri, labData.price, labData.auth, labData.accessURI, labData.accessKey]
-      });
+      const txHash = await addLab([labData.uri, labData.price, labData.auth, labData.accessURI, labData.accessKey]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useAddLabWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useAddLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt) => {
+    onSuccess: (result) => {
       // Invalidate labs queries
       queryClient.invalidateQueries(['labs']);
       devLog.log('✅ Lab added successfully via wallet, cache invalidated');
@@ -441,19 +438,16 @@ export const useUpdateLabSSO = (options = {}) => {
  */
 export const useUpdateLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const updateLab = useContractWriteFunction('updateLab');
+  const { contractWriteFunction: updateLab } = useContractWriteFunction('updateLab');
 
   return useMutation({
     mutationFn: async (updateData) => {
-      const tx = await updateLab({
-        args: [updateData.labId, updateData.uri, updateData.price, updateData.auth, updateData.accessURI, updateData.accessKey]
-      });
+      const txHash = await updateLab([updateData.labId, updateData.uri, updateData.price, updateData.auth, updateData.accessURI, updateData.accessKey]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useUpdateLabWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useUpdateLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, variables) => {
+    onSuccess: (result, variables) => {
       // Invalidate specific lab and labs list
       if (variables.labId) {
         queryClient.invalidateQueries(['labs', 'getLab', variables.labId]);
@@ -542,19 +536,16 @@ export const useDeleteLabSSO = (options = {}) => {
  */
 export const useDeleteLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const deleteLab = useContractWriteFunction('deleteLab');
+  const { contractWriteFunction: deleteLab } = useContractWriteFunction('deleteLab');
 
   return useMutation({
     mutationFn: async (labId) => {
-      const tx = await deleteLab({
-        args: [labId]
-      });
+      const txHash = await deleteLab([labId]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useDeleteLabWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useDeleteLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, labId) => {
+    onSuccess: (result, labId) => {
       // Remove specific lab and invalidate labs list
       queryClient.removeQueries(['labs', 'getLab', labId]);
       queryClient.invalidateQueries(['labs']);
@@ -643,19 +634,16 @@ export const useSetTokenURISSO = (options = {}) => {
  */
 export const useSetTokenURIWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const setTokenURI = useContractWriteFunction('setTokenURI');
+  const { contractWriteFunction: setTokenURI } = useContractWriteFunction('setTokenURI');
 
   return useMutation({
     mutationFn: async (uriData) => {
-      const tx = await setTokenURI({
-        args: [uriData.labId, uriData.tokenURI]
-      });
+      const txHash = await setTokenURI([uriData.labId, uriData.tokenURI]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useSetTokenURIWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useSetTokenURIWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, variables) => {
+    onSuccess: (result, variables) => {
       // Invalidate specific lab's tokenURI and the lab itself
       if (variables.labId) {
         queryClient.invalidateQueries(['labs', 'tokenURI', variables.labId]);

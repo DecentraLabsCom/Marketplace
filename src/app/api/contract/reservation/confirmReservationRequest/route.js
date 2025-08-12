@@ -37,13 +37,11 @@ export async function POST(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error confirming reservation:', error);
+    console.error('❌ Error confirming reservation:', error.message);
     
     return Response.json({ 
       error: 'Failed to confirm reservation',
       details: error.message
-    }, {status: 500,
-      
-    });
+    }, {status: 500});
   }
 }

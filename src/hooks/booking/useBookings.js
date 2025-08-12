@@ -658,19 +658,16 @@ export const useSafeBalance = (userAddress, options = {}) => {
  */
 export const useReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const reservationRequest = useContractWriteFunction('reservationRequest');
+  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
 
   return useMutation({
     mutationFn: async (requestData) => {
-      const tx = await reservationRequest({
-        args: [requestData.tokenId, requestData.start, requestData.end]
-      });
+      const txHash = await reservationRequest([requestData.tokenId, requestData.start, requestData.end]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useReservationRequestWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useReservationRequestWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, variables) => {
+    onSuccess: (result, variables) => {
       // Invalidate reservation queries
       queryClient.invalidateQueries(['reservations']);
       if (variables.tokenId) {
@@ -740,9 +737,9 @@ export const useReservationRequest = (options = {}) => {
   return useMutation({
     mutationFn: async (requestData) => {
       if (isSSO) {
-        return ssoMutation.mutateAsync(requestData);
+        return await ssoMutation.mutateAsync(requestData);
       } else {
-        return walletMutation.mutateAsync(requestData);
+        return await walletMutation.mutateAsync(requestData);
       }
     },
     onSuccess: (data, variables) => {
@@ -802,19 +799,16 @@ export const useCancelReservationRequestSSO = (options = {}) => {
  */
 export const useCancelReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const cancelReservationRequest = useContractWriteFunction('cancelReservationRequest');
+  const { contractWriteFunction: cancelReservationRequest } = useContractWriteFunction('cancelReservationRequest');
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const tx = await cancelReservationRequest({
-        args: [reservationKey]
-      });
+      const txHash = await cancelReservationRequest([reservationKey]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useCancelReservationRequestWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useCancelReservationRequestWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, reservationKey) => {
+    onSuccess: (result, reservationKey) => {
       // Remove specific reservation and invalidate related queries
       queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
       queryClient.removeQueries(['reservations', 'userOfReservation', reservationKey]);
@@ -902,19 +896,16 @@ export const useConfirmReservationRequestSSO = (options = {}) => {
  */
 export const useConfirmReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const confirmReservationRequest = useContractWriteFunction('confirmReservationRequest');
+  const { contractWriteFunction: confirmReservationRequest } = useContractWriteFunction('confirmReservationRequest');
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const tx = await confirmReservationRequest({
-        args: [reservationKey]
-      });
+      const txHash = await confirmReservationRequest([reservationKey]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useConfirmReservationRequestWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useConfirmReservationRequestWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, reservationKey) => {
+    onSuccess: (result, reservationKey) => {
       // Update reservation status in cache
       queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
       queryClient.invalidateQueries(['reservations']);
@@ -1001,19 +992,16 @@ export const useDenyReservationRequestSSO = (options = {}) => {
  */
 export const useDenyReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const denyReservationRequest = useContractWriteFunction('denyReservationRequest');
+  const { contractWriteFunction: denyReservationRequest } = useContractWriteFunction('denyReservationRequest');
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const tx = await denyReservationRequest({
-        args: [reservationKey]
-      });
+      const txHash = await denyReservationRequest([reservationKey]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useDenyReservationRequestWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useDenyReservationRequestWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, reservationKey) => {
+    onSuccess: (result, reservationKey) => {
       // Remove denied reservation and invalidate queries
       queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
       queryClient.invalidateQueries(['reservations']);
@@ -1100,19 +1088,16 @@ export const useCancelBookingSSO = (options = {}) => {
  */
 export const useCancelBookingWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const cancelBooking = useContractWriteFunction('cancelBooking');
+  const { contractWriteFunction: cancelBooking } = useContractWriteFunction('cancelBooking');
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const tx = await cancelBooking({
-        args: [reservationKey]
-      });
+      const txHash = await cancelBooking([reservationKey]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useCancelBookingWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useCancelBookingWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, reservationKey) => {
+    onSuccess: (result, reservationKey) => {
       // Remove cancelled booking and invalidate related queries
       queryClient.removeQueries(['reservations', 'getReservation', reservationKey]);
       queryClient.invalidateQueries(['reservations']);
@@ -1199,19 +1184,16 @@ export const useListTokenSSO = (options = {}) => {
  */
 export const useListTokenWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const listToken = useContractWriteFunction('listToken');
+  const { contractWriteFunction: listToken } = useContractWriteFunction('listToken');
 
   return useMutation({
     mutationFn: async (tokenId) => {
-      const tx = await listToken({
-        args: [tokenId]
-      });
+      const txHash = await listToken([tokenId]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useListTokenWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useListTokenWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, tokenId) => {
+    onSuccess: (result, tokenId) => {
       // Invalidate listing-related queries
       queryClient.invalidateQueries(['reservations', 'isTokenListed', tokenId]);
       queryClient.invalidateQueries(['reservations']);
@@ -1298,19 +1280,16 @@ export const useUnlistTokenSSO = (options = {}) => {
  */
 export const useUnlistTokenWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const unlistToken = useContractWriteFunction('unlistToken');
+  const { contractWriteFunction: unlistToken } = useContractWriteFunction('unlistToken');
 
   return useMutation({
     mutationFn: async (tokenId) => {
-      const tx = await unlistToken({
-        args: [tokenId]
-      });
+      const txHash = await unlistToken([tokenId]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useUnlistTokenWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useUnlistTokenWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, tokenId) => {
+    onSuccess: (result, tokenId) => {
       // Invalidate listing-related queries
       queryClient.invalidateQueries(['reservations', 'isTokenListed', tokenId]);
       queryClient.invalidateQueries(['reservations']);
@@ -1424,19 +1403,16 @@ export const useRequestFunds = (options = {}) => {
  */
 export const useRequestFundsWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const requestFunds = useContractWriteFunction('requestFunds');
+  const { contractWriteFunction: requestFunds } = useContractWriteFunction('requestFunds');
 
   return useMutation({
     mutationFn: async () => {
-      const tx = await requestFunds({
-        args: []
-      });
+      const txHash = await requestFunds([]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useRequestFundsWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useRequestFundsWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt) => {
+    onSuccess: (result) => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries(['reservations', 'getSafeBalance']);
       devLog.log('✅ Funds requested successfully via wallet, cache invalidated');

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { useSignMessage } from 'wagmi'
+import { authenticateLabAccess, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -24,60 +25,29 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
   const handleAccess = async () => {
     setLoading(true);
     setErrorMessage(null);
+    
     try {
-      // Step 1: Ask the backend for a message to be signed
-      const responseMessage = await fetch(auth + "message", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ wallet: userWallet }),
-      });
+      // Use helper function to handle the complete authentication flow
+      const authResult = await authenticateLabAccess(auth, userWallet, id, signMessageAsync);
 
-      if (!responseMessage.ok) {
-        setErrorMessage("Failed to get the message to sign");
-        setTimeout(() => setErrorMessage(null), 1500);
-      }
-
-      const { message } = await responseMessage.json();
-
-      // Step 2: Sign the message received from the backend
-      const signature = await signMessageAsync({ message });
-
-      // Step 3: Send the wallet address and the signed message to the backend for verification and 
-      // to obtain the JWT token (when there is a valid booking)
-      const responseAuth = await fetch(auth + "auth2", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          wallet: userWallet,
-          signature: signature,
-          labId: id
-        }),
-      });
-
-      if (!responseAuth.ok) {
-        setErrorMessage("An error has ocurred in the authentication service.");
-        setTimeout(() => setErrorMessage(null), 1500);
-      }
-
-      const data = await responseAuth.json();
-
-      if (data.token && data.labURL) {
-        // Redirect to the lab with the JWT token
-        router.push(data.labURL + `?jwt=${data.token}`);
-      } else if (data.error) {
-        setErrorMessage(data.error);
+      // Handle successful authentication
+      if (authResult.token && authResult.labURL) {
+        devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
+        router.push(authResult.labURL + `?jwt=${authResult.token}`);
+      } else if (authResult.error) {
+        // Handle authentication errors returned by the service
+        setErrorMessage(authResult.error);
         setTimeout(() => setErrorMessage(null), 1500);
       } else {
+        // Handle unexpected response format
         setErrorMessage("Unexpected error, please try again.");
         setTimeout(() => setErrorMessage(null), 1500);
       }
+      
     } catch (error) {
-      devLog.error('Lab access error:', error);
-      setErrorMessage("There was an error verifying your booking. Try again.");
+      // Handle authentication process errors
+      const userFriendlyMessage = getAuthErrorMessage(error);
+      setErrorMessage(userFriendlyMessage);
       setTimeout(() => setErrorMessage(null), 1500);
     } finally {
       setLoading(false);

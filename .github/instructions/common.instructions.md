@@ -1,6 +1,7 @@
 ---
 applyTo: '**'
 ---
+
 This project follows a set of coding standards and best practices to ensure code quality, maintainability, and readability. Please adhere to the following guidelines when contributing:
 
 1. **Data fetching and state management**: The project is structured to use React Query for data fetching, optimistic updates, retries, caching, and state management. Hooks, services and components should be designed to work seamlessly with this architecture.
@@ -23,7 +24,7 @@ This project follows a set of coding standards and best practices to ensure code
    - For most composed data needs, prefer using composed hooks with `useQueries` to maintain React Query's caching and error handling benefits.
    - There are currently no services defined in the project.
 
-5. **Event Context**: Use event contexts to manage blockchain-related events and update cache granularly. This allows for better separation of concerns and makes it easier to manage complex interactions between components. Each context should be responsible for a specific domain (e.g., user events, lab events, booking events).
+5. **Event Context**: Use event contexts to manage blockchain-related events and update cache granularly. This allows for better separation of concerns and makes it easier to manage complex interactions between components. Each context should be responsible for a specific domain (e.g., user events, lab events, booking events). Define and use helper functions with queryClient.fetchQuery on event listeners to keep React Query cache updates consistent (e.g., `queryClient.fetchQuery(['reservations', 'getReservation', reservationKey])`).
 
 6. **Cache Management**: The project uses granular cache updates instead of full cache invalidation:
    - **Granular Updates**: When data changes, add, update, or remove specific records from cache without invalidating everything.
@@ -32,9 +33,9 @@ This project follows a set of coding standards and best practices to ensure code
    - **Event-Driven Updates**: Blockchain events should trigger granular cache updates, not full invalidation.
    - **Manual UI Actions**: User actions (mutations) should also use granular cache updates for immediate UI feedback.
 
-7. **Wagmi Integration**: The project uses Wagmi for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities. In particular, use the `useContractWriteFunction` hook for all contract write operations, and `useDefaultReadContract` for read operations.
+7. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities. In particular, use the `useContractWriteFunction` hook for all contract write operations, and `useDefaultReadContract` for read operations.
 
-8. **Ethers.js Integration**: The project uses Ethers.js for interacting with the Ethereum blockchain from the server side. Ensure that all blockchain interactions are also implemented using Ethers.js utilities and hooks. This includes creating and signing transactions, as well as reading data from the blockchain. Always use `contractInstance` for interacting with smart contracts.
+8. **Ethers.js Integration**: The project uses Ethers.js v.6 for interacting with the Ethereum blockchain from the server side. Ensure that all blockchain interactions are also implemented using Ethers.js utilities and hooks. This includes creating and signing transactions, as well as reading data from the blockchain. Always use `contractInstance` for interacting with smart contracts.
 
 9. **RPC Providers**: The project uses JSON-RPC providers for interacting with the blockchain. There are fallback mechanisms in place to switch between different RPC providers in case of failures, rate limits, or timeouts. Fallbacks are configured and used for both client (wagmi.js-based: `wagmiConfig`) and server (ethers.js-based: `getProvider`) interactions.
 
@@ -42,8 +43,10 @@ This project follows a set of coding standards and best practices to ensure code
 
 11. **Component Design**: Components should be modular and reusable. Avoid creating large monolithic components. Instead, break them down into smaller, manageable pieces that can be easily tested and maintained.
 
-12. **Documentation**: When generating new code or reviewing changes in existing code, make sure to include proptypes and JSDoc comments for all components and functions. This will help maintain code quality and improve developer experience.
+12. **Notification Context**: Use a notification context to manage and display user notifications throughout the application. This context should provide a way to trigger notifications from anywhere in the app and handle their display in a consistent manner.
 
-13. **CSS**: Use tailwind CSS for styling. Ensure that styles are applied consistently across the application. Avoid inline styles and prefer using utility classes provided by Tailwind.
+13. **Documentation**: When generating new code or reviewing changes in existing code, make sure to include proptypes and JSDoc comments for all components and functions. This will help maintain code quality and improve developer experience.
 
-14. **Logging**: Implement logging for important events and errors. Use a centralized logging utility (devLog.xxx) to capture and format log messages consistently.
+14. **CSS**: Use tailwind CSS for styling. Ensure that styles are applied consistently across the application. Avoid inline styles and prefer using utility classes provided by Tailwind.
+
+15. **Logging**: Implement logging for important events and errors. Use a centralized logging utility (devLog.xxx) to capture and format log messages consistently.

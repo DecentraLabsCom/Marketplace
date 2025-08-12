@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
@@ -33,15 +33,15 @@ export default function LabDetail({ id, provider }) {
   });
   const labs = labsData?.labs || [];
   const { formatPrice } = useLabToken();
-  const [lab, setLab] = useState(null);
   const router = useRouter();
 
-  useEffect(() => {
+  // Use useMemo to find the lab instead of useState + useEffect to avoid infinite re-renders
+  const lab = useMemo(() => {
     if (labs && labs.length > 0) {
-      const currentLab = labs.find((lab) => lab.id == id);
-      setLab(currentLab);
+      return labs.find((lab) => lab.id == id) || null;
     }
-  }, [id, labs]);
+    return null;
+  }, [labs, id]);
 
   // ❌ Error handling for React Query
   if (labsError) {
@@ -82,7 +82,16 @@ export default function LabDetail({ id, provider }) {
         <article className="w-full md:w-1/2 flex flex-col p-4">
           <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} />
-            <button className="bg-brand hover:bg-[#333f63] text-white px-4 py-2 rounded mt-6 
+            {/* Price and Provider info - moved here */}
+            <div className="flex justify-between items-center text-[#335763] font-semibold mt-4 mb-2">
+              <span>{formatPrice(lab?.price)} $LAB / hour</span>
+              {provider && (
+                <span className="truncate max-w-[50%]" title={provider}>
+                  Provider: {provider}
+                </span>
+              )}
+            </div>
+            <button className="bg-brand hover:bg-[#333f63] text-white px-4 py-2 rounded mt-4 
               max-h-[45px] w-2/3 mx-auto" onClick={() => 
               router.push(`/reservation/${lab?.id}`)} aria-label={`Rent ${lab?.name}`}>
               Book Lab
@@ -101,16 +110,8 @@ export default function LabDetail({ id, provider }) {
             </div>
           </header>
           <p className="text-sm text-justify">{lab?.description}</p>
-          <p className="flex justify-between items-center text-[#335763] font-semibold mt-2">
-            <span>{formatPrice(lab?.price)} $LAB / hour</span>
-            {provider && (
-              <span className="truncate max-w-[50%]" title={provider}>
-                Provider: {provider}
-              </span>
-            )}
-          </p>
 
-          <div className="mt-2">
+          <div className="mt-4">
             {/* Category */}
             <div className="flex items-center">
               <span className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center 

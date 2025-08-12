@@ -2,7 +2,7 @@
 import { createContext, useContext, useState } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
-import { useBookingCacheUpdates } from '@/hooks/booking/useBookings'
+import { useBookingCacheUpdates, useReservation, useConfirmReservationRequestSSO } from '@/hooks/booking/useBookings'
 import { useQueryClient } from '@tanstack/react-query'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
@@ -30,6 +30,51 @@ export function BookingEventProvider({ children }) {
 
     // Function to check if manual update is in progress
     const isManualUpdateInProgress = manualUpdateInProgress;
+
+    /**
+     * Helper function that replicates useReservation hook logic for event listeners
+     * Cannot use hooks directly in event listeners, so we replicate the logic
+     */
+    const getReservationData = async (reservationKey) => {
+        if (!reservationKey) throw new Error('Reservation key is required');
+        
+        const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.log('🔍 getReservationData (helper):', reservationKey, data);
+        return data;
+    };
+
+    /**
+     * Helper function that replicates useConfirmReservationRequestSSO hook logic for event listeners
+     * Cannot use hooks directly in event listeners, so we replicate the logic
+     */
+    const confirmReservationData = async (reservationKey) => {
+        const response = await fetch('/api/contract/reservation/confirmReservationRequest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reservationKey })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to confirm reservation request: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Replicate the onSuccess logic from useConfirmReservationRequestSSO hook
+        queryClient.invalidateQueries(['reservations', 'getReservation', reservationKey]);
+        queryClient.invalidateQueries(['reservations']);
+        
+        return data;
+    };
 
     // Helper function to invalidate all booking-related caches
     /**
@@ -282,9 +327,9 @@ export function BookingEventProvider({ children }) {
                         devLog.warn('⚠️ Immediate cache update failed, continuing with API processing:', immediateCacheError);
                     }
 
-                    // **CRITICAL FIX**: Process the reservation request via API (missing in react-query branch)
+                    // **PROCESS RESERVATION**: Use React Query client to call existing hooks logic
                     try {
-                        devLog.log('🔄 Processing reservation request via API...', {
+                        devLog.log('🔄 Processing reservation request using React Query...', {
                             reservationKey,
                             labId: labId.toString(),
                             labIdType: typeof labId,
@@ -293,39 +338,72 @@ export function BookingEventProvider({ children }) {
                             end: end.toString()
                         });
 
-                        // Prepare the request body with extensive logging
-                        const requestBody = {
-                            reservationKey: reservationKey,
-                            labId: labId.toString(),
-                            start: start.toString(),
-                            end: end.toString(),
-                            metadataUri: null // Will be resolved by the API if needed
+                        // Step 1: Use queryClient to fetch reservation status (same logic as useReservation hook)
+                        const getReservationData = async () => {
+                            if (!reservationKey) throw new Error('Reservation key is required');
+                            
+                            const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+                                method: 'GET',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+                            }
+                            
+                            const data = await response.json();
+                            devLog.log('� getReservationData:', reservationKey, data);
+                            return data;
                         };
 
-                        devLog.log('🔄 Request body being sent to processReservationRequest:', requestBody);
-
-                        // Get lab metadata URI from context or fetch it
-                        // For now, we'll use the labId as a fallback since URI might not be immediately available
-                        const response = await fetch('/api/contract/reservation/processReservationRequest', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(requestBody),
+                        const reservationData = await queryClient.fetchQuery({
+                            queryKey: ['reservations', 'getReservation', reservationKey],
+                            queryFn: () => getReservationData(reservationKey),
+                            staleTime: 0 // Force fresh fetch for event processing
                         });
 
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            devLog.error('❌ Process reservation API failed:', {
-                                status: response.status,
-                                statusText: response.statusText,
-                                error: errorText
+                        devLog.log('📋 Current reservation status from helper function:', reservationData);
+
+                        // Step 2: Based on the status, decide what action to take
+                        let result;
+                        
+                        if (reservationData.reservation?.isPending) {
+                            // Step 3: Use helper function that replicates useConfirmReservationRequestSSO logic
+                            devLog.log('✅ Confirming pending reservation using helper function...');
+                            
+                            const confirmResult = await queryClient.fetchQuery({
+                                queryKey: ['mutations', 'confirmReservationRequest', reservationKey, Date.now()], // Unique key for mutation
+                                queryFn: () => confirmReservationData(reservationKey),
+                                staleTime: 0
                             });
-                            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+
+                            devLog.log('✅ Reservation confirmed via helper function:', confirmResult);
+                            
+                            result = {
+                                action: 'confirmed',
+                                transactionHash: confirmResult.transactionHash,
+                                timestamp: new Date().toISOString(),
+                                reason: 'Reservation confirmed automatically via helper function'
+                            };
+                        } else if (reservationData.reservation?.isConfirmed) {
+                            // Already confirmed, just update cache
+                            devLog.log('ℹ️ Reservation already confirmed, updating cache only');
+                            result = {
+                                action: 'confirmed',
+                                timestamp: new Date().toISOString(),
+                                reason: 'Reservation was already confirmed'
+                            };
+                        } else {
+                            // Handle other statuses (cancelled, denied, etc.)
+                            devLog.log('⚠️ Reservation in unexpected state:', reservationData.reservation?.reservationState);
+                            result = {
+                                action: 'denied',
+                                timestamp: new Date().toISOString(),
+                                reason: `Reservation state: ${reservationData.reservation?.reservationState || 'Unknown'}`
+                            };
                         }
 
-                        const result = await response.json();
-                        devLog.log('✅ Process reservation API result:', result);
+                        devLog.log('✅ Process reservation result using helper functions:', result);
 
                         // Use granular cache update based on API result with enhanced information
                         try {
@@ -366,25 +444,28 @@ export function BookingEventProvider({ children }) {
                                 apiResponse: result.action 
                             });
 
-                            // Show notification based on API result
+                            // Show final notification based on API result
                             if (result.action === 'confirmed') {
                                 addPersistentNotification(
                                     'success',
-                                    `Reservation confirmed`,
-                                    { duration: 5000 }
+                                    `Reservation confirmed! Your lab booking is now active.`,
+                                    { duration: 6000 }
                                 );
+                                devLog.log('✅ Final confirmation notification shown for reservation:', reservationKey);
                             } else if (result.action === 'denied') {
                                 addPersistentNotification(
-                                    'warning',
+                                    'error',
                                     `Reservation denied: ${result.reason}`,
                                     { duration: 7000 }
                                 );
+                                devLog.log('❌ Denial notification shown for reservation:', reservationKey);
                             } else {
                                 addPersistentNotification(
                                     'info',
                                     `Reservation processed - Status: ${reservationStatus}`,
                                     { duration: 5000 }
                                 );
+                                devLog.log('ℹ️ Processing notification shown for reservation:', reservationKey);
                             }
 
                         } catch (cacheError) {
@@ -446,7 +527,7 @@ export function BookingEventProvider({ children }) {
                 }
             }
         },
-        enabled: !!contractAddress && !!address,
+        enabled: !!contractAddress, // Listen to events always when contract is available
     });
 
     // BookingCanceled event listener

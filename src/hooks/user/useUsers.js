@@ -147,19 +147,16 @@ useIsLabProvider.queryFn = async ({ userAddress }) => {
  */
 export const useAddProviderWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const addProvider = useContractWriteFunction('addProvider');
+  const { contractWriteFunction: addProvider } = useContractWriteFunction('addProvider');
 
   return useMutation({
     mutationFn: async (providerData) => {
-      const tx = await addProvider({
-        args: [providerData.name, providerData.account, providerData.email, providerData.country]
-      });
+      const txHash = await addProvider([providerData.name, providerData.account, providerData.email, providerData.country]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useAddProviderWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useAddProviderWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, variables) => {
+    onSuccess: (result, variables) => {
       // Invalidate provider queries
       if (variables.account) {
         queryClient.invalidateQueries(['providers', 'isLabProvider', variables.account]);
@@ -287,19 +284,16 @@ export const useUpdateProviderSSO = (options = {}) => {
  */
 export const useUpdateProviderWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const updateProvider = useContractWriteFunction('updateProvider');
+  const { contractWriteFunction: updateProvider } = useContractWriteFunction('updateProvider');
 
   return useMutation({
     mutationFn: async (updateData) => {
-      const tx = await updateProvider({
-        args: [updateData.name, updateData.email, updateData.country]
-      });
+      const txHash = await updateProvider([updateData.name, updateData.email, updateData.country]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useUpdateProviderWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useUpdateProviderWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, variables) => {
+    onSuccess: (result, variables) => {
       // Invalidate provider queries
       queryClient.invalidateQueries(['providers']);
       devLog.log('✅ Provider updated successfully via wallet, cache invalidated');
@@ -385,19 +379,16 @@ export const useRemoveProviderSSO = (options = {}) => {
  */
 export const useRemoveProviderWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const removeProvider = useContractWriteFunction('removeProvider');
+  const { contractWriteFunction: removeProvider } = useContractWriteFunction('removeProvider');
 
   return useMutation({
     mutationFn: async (providerAddress) => {
-      const tx = await removeProvider({
-        args: [providerAddress]
-      });
+      const txHash = await removeProvider([providerAddress]);
       
-      const receipt = await tx.wait();
-      devLog.log('🔍 useRemoveProviderWallet:', receipt);
-      return receipt;
+      devLog.log('🔍 useRemoveProviderWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
     },
-    onSuccess: (receipt, providerAddress) => {
+    onSuccess: (result, providerAddress) => {
       // Remove provider from cache and invalidate queries
       queryClient.removeQueries(['providers', 'isLabProvider', providerAddress]);
       queryClient.invalidateQueries(['providers']);

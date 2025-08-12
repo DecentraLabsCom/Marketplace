@@ -5,7 +5,7 @@ import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
-import { useReservationRequest, useBookingCacheUpdates, useCreateBookingMutation } from '@/hooks/booking/useBookings'
+import { useReservationRequest, useBookingCacheUpdates } from '@/hooks/booking/useBookings'
 import { useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
 import { useLabToken } from '@/hooks/useLabToken'
 import AccessControl from '@/components/auth/AccessControl'
@@ -83,7 +83,7 @@ export default function LabReservation({ id }) {
   } = useLabToken();
   
   // 🚀 React Query mutation for booking creation
-  const createBookingMutation = useCreateBookingMutation();
+  const reservationRequestMutation = useReservationRequest();
   
   // Wait for transaction receipt
   const { 
@@ -141,19 +141,39 @@ export default function LabReservation({ id }) {
     return new Date(`${year}-${month}-${day}`);
   };
 
-  // Select the lab by id (only when there's a prop labId, don't interfere with manual selection)
-  useEffect(() => {    
+  // Use useMemo to find the lab from URL parameter to avoid infinite re-renders
+  const foundLab = useMemo(() => {
     if (labs.length && labId) {
-      const currentLab = labs.find((lab) => lab.id == labId);
-      setSelectedLab(currentLab);
+      return labs.find((lab) => lab.id == labId) || null;
+    }
+    return null;
+  }, [labs.length, labId]); // Use labs.length instead of labs array to avoid recreation
+
+  // Update selectedLab when foundLab changes (only when there's a prop labId, don't interfere with manual selection)
+  useEffect(() => {
+    if (foundLab && labId) {
+      setSelectedLab(foundLab);
     }
     // Note: Don't reset selectedLab to null when no labId - allow manual selection via dropdown
-  }, [labId, labs]);
+  }, [foundLab, labId]);
 
   // Update the time interval when the selected lab changes
   useEffect(() => {
     if (selectedLab && Array.isArray(selectedLab.timeSlots) && selectedLab.timeSlots.length > 0) {
       setTime(selectedLab.timeSlots[0]);
+    }
+  }, [selectedLab]);
+
+  // Update calendar date to lab opening date if it's in the future
+  useEffect(() => {
+    if (selectedLab && selectedLab.opens) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const opensDate = safeParseDate(selectedLab.opens, today);
+      
+      if (opensDate > today) {
+        setDate(opensDate);
+      }
     }
   }, [selectedLab]);
 
@@ -208,9 +228,9 @@ export default function LabReservation({ id }) {
 
   // Handle transaction confirmation and errors
   useEffect(() => {
-    if (isReceiptSuccess && receipt && txType && pendingData) {
-      // Show confirmation message when transaction is completed
-      addTemporaryNotification('pending', '⏳ Reservation requested. Waiting for confirmation...');
+    if (isReceiptSuccess && receipt && lastTxHash) {
+      // Show confirmation message when transaction is actually confirmed on-chain
+      addTemporaryNotification('success', '✅ Transaction confirmed on-chain! Your reservation is now being processed.');
       
       setIsBooking(false);
       
@@ -229,9 +249,9 @@ export default function LabReservation({ id }) {
 
       // The BookingEventContext will handle updating bookings automatically via blockchain events
       // No manual cache invalidation needed - our granular cache strategy handles this
-      devLog.log('✅ Transaction completed - BookingEventContext will handle granular cache updates via blockchain events');
+      devLog.log('✅ Transaction confirmed on blockchain - BookingEventContext will process the ReservationRequested event');
     }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addTemporaryNotification, isSSO, refreshTokenData]);
+  }, [isReceiptSuccess, receipt, lastTxHash, addTemporaryNotification, isSSO, refreshTokenData]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -378,11 +398,10 @@ export default function LabReservation({ id }) {
 
     try {
       // 🚀 Use React Query mutation for SSO booking creation
-      await createBookingMutation.mutateAsync({
-        labId,
+      await reservationRequestMutation.mutateAsync({
+        tokenId: labId,
         start,
-        timeslot,
-        cost: totalCost
+        end: start + timeslot
       });
 
       // Show success notification
@@ -474,19 +493,27 @@ export default function LabReservation({ id }) {
         return;
       }
       
-      // 🚀 Use React Query mutation for booking creation
-      await createBookingMutation.mutateAsync({
-        labId,
+      // 🚀 Use React Query mutation for booking creation and capture transaction hash
+      const result = await reservationRequestMutation.mutateAsync({
+        tokenId: labId,
         start,
-        timeslot,
-        cost
+        end: start + timeslot
       });
       
-      addTemporaryNotification('success', 
-        `✅ Reservation created successfully! Payment of ${formatBalance(cost)} LAB processed.`);
+      // Capture transaction hash for receipt monitoring
+      if (result?.hash) {
+        setLastTxHash(result.hash);
+        setTxType('reservation');
+        setPendingData({ labId, start, timeslot, cost });
         
-      // Handle successful booking
-      await handleBookingSuccess();
+        // Show initial success notification (transaction sent)
+        addTemporaryNotification('pending', '⏳ Reservation transaction sent. Waiting for blockchain confirmation...');
+      } else {
+        // Fallback success notification if no hash (shouldn't happen with wallet transactions)
+        addTemporaryNotification('success', 
+          `✅ Reservation created successfully! Payment of ${formatBalance(cost)} LAB processed.`);
+        await handleBookingSuccess();
+      }
     } catch (error) {
       devLog.error('Error making booking request:', error);
       
