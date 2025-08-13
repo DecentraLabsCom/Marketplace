@@ -309,18 +309,8 @@ export const useLabBookingsComposed = (labId, {
       const startTime = booking.reservation?.start || booking.startTime || booking.start;
       const endTime = booking.reservation?.end || booking.endTime || booking.end;
       
-      let status = booking.status;
-      if (!status) {
-        if (booking.cancelled) {
-          status = 'cancelled';
-        } else if (now < startTime) {
-          status = 'upcoming';
-        } else if (now >= startTime && now <= endTime) {
-          status = 'active';
-        } else {
-          status = 'completed';
-        }
-      }
+      // Use original contract status (numeric)
+      const contractStatus = booking.reservation?.status ?? booking.status ?? 0;
 
       // Create enriched booking with all required fields for calendar
       const enrichedBooking = {
@@ -329,8 +319,9 @@ export const useLabBookingsComposed = (labId, {
         id: booking.reservationKey || booking.id,
         reservationKey: booking.reservationKey,
         labId: parseInt(labId),
-        status,
-        statusCategory: status,
+        
+        // Status
+        status: contractStatus,
         
         // Time fields (keep both Unix timestamps and formatted versions)
         start: startTime,
@@ -338,11 +329,11 @@ export const useLabBookingsComposed = (labId, {
         startTime,
         endTime,
         
-        // Date field required by calendar (convert from Unix timestamp to Date)
-        date: startTime ? new Date(startTime * 1000).toISOString() : null,
+        // Date field required by calendar (convert from Unix timestamp to YYYY-MM-DD format)
+        date: startTime ? new Date(startTime * 1000).toLocaleDateString('en-CA') : null,
         
         // User information
-        userAddress: booking.reservation?.user || booking.userAddress,
+        userAddress: booking.reservation?.renter || booking.userAddress,
       };
 
       // Add user details formatting if user address exists
@@ -356,13 +347,25 @@ export const useLabBookingsComposed = (labId, {
       return enrichedBooking;
     });
 
-  // Calculate aggregates
+  // Calculate aggregates using contract status
   const aggregates = {
     totalBookings: processedBookings.length,
-    activeBookings: processedBookings.filter(b => b.statusCategory === 'active').length,
-    completedBookings: processedBookings.filter(b => b.statusCategory === 'completed').length,
-    cancelledBookings: processedBookings.filter(b => b.statusCategory === 'cancelled').length,
-    upcomingBookings: processedBookings.filter(b => b.statusCategory === 'upcoming').length,
+    pendingBookings: processedBookings.filter(b => b.status === 0).length,       // PENDING
+    confirmedBookings: processedBookings.filter(b => b.status === 1).length,     // BOOKED/CONFIRMED
+    usedBookings: processedBookings.filter(b => b.status === 2).length,          // USED
+    collectedBookings: processedBookings.filter(b => b.status === 3).length,     // COLLECTED
+    cancelledBookings: processedBookings.filter(b => b.status === 4).length,     // CANCELLED
+    
+    // Legacy aggregates for backward compatibility (using temporal logic)
+    activeBookings: processedBookings.filter(b => {
+      const now = Math.floor(Date.now() / 1000);
+      return b.status === 1 && now >= b.start && now <= b.end;
+    }).length,
+    completedBookings: processedBookings.filter(b => b.status === 2 || b.status === 3).length,
+    upcomingBookings: processedBookings.filter(b => {
+      const now = Math.floor(Date.now() / 1000);
+      return (b.status === 0 || b.status === 1) && now < b.start;
+    }).length,
   };
 
   // Status calculation

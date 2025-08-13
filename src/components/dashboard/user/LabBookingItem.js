@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
 import ConfirmModal from '@/components/ui/ConfirmModal'
+import { getBookingStatusDisplay } from '@/utils/booking/bookingStatus'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -32,58 +33,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
     closeModal,
     onClearError
 }) {
-    // Determine status display
-    const getStatusDisplay = () => {
-        // Check direct booking status first (if available)
-        if (booking.status === "4" || booking.status === 4) {
-            return {
-                text: "Cancelled",
-                className: "bg-red-100 text-red-800 border-red-200",
-                icon: "❌"
-            };
-        }
-        
-        if (booking.status === "3" || booking.status === 3) {
-            return {
-                text: "Collected",
-                className: "bg-purple-100 text-purple-800 border-purple-200",
-                icon: "🎯"
-            };
-        }
-        
-        if (booking.status === "2" || booking.status === 2) {
-            return {
-                text: "Used",
-                className: "bg-green-100 text-green-800 border-green-200",
-                icon: "✅"
-            };
-        }
-        
-        if (booking.status === "1" || booking.status === 1) {
-            return {
-                text: "Confirmed",
-                className: "bg-blue-100 text-blue-800 border-blue-200",
-                icon: "✓"
-            };
-        }
-        
-        if (booking.status === "0" || booking.status === 0) {
-            return {
-                text: "Pending",
-                className: "bg-orange-100 text-orange-800 border-orange-200",
-                icon: "⏳"
-            };
-        }
-        
-        // Default fallback if no status is available
-        return {
-            text: "Pending Confirmation",
-            className: "bg-yellow-100 text-yellow-800 border-yellow-200",
-            icon: "⏳"
-        };
-    };
-
-    const statusDisplay = getStatusDisplay();
+    // Determine status display using utility function
+    const statusDisplay = getBookingStatusDisplay(booking);
 
     return (
         <li className={`flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>

@@ -5,6 +5,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import LabBookingItem from '@/components/dashboard/user/LabBookingItem';
+import { isCancelledBooking, isPendingBooking } from '@/utils/booking/bookingStatus';
 import { DashboardSectionSkeleton } from '@/components/skeletons';
 
 /**
@@ -61,7 +62,7 @@ export default function BookingsList({
         return false;
       }
   // Exclude cancelled bookings from all lists
-  const isCancelled = booking.status === '4' || booking.status === 4;
+  const isCancelled = isCancelledBooking(booking);
   if (isCancelled) return false;
       
       const endDateTime = new Date(parseInt(booking.end) * 1000);
@@ -72,7 +73,7 @@ export default function BookingsList({
       } else {
         // For past bookings, only include confirmed ones (not PENDING)
         const hasReservationKey = booking.reservationKey;
-        const wasPending = booking.status === "0" || booking.status === 0;
+        const wasPending = isPendingBooking(booking);
         const isPastBooking = endDateTime.getTime() <= currentTime.getTime() && hasReservationKey && !wasPending;
         return isPastBooking;
       }

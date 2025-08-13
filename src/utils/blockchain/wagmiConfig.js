@@ -25,19 +25,20 @@ const createTransports = () => {
     return _cachedTransports;
   }
 
-  const defaultSepoliaTransport = webSocket(
-    `wss://${defaultNetworks[sepolia.id]}`, {
+  // Use HTTP for more stable connections, avoid WebSocket failures
+  const defaultSepoliaTransport = http(
+    `https://${defaultNetworks[sepolia.id]}`, {
     key: 'default',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
   });
 
-  const alchemySepoliaTransport = webSocket(
-    `wss://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
+  const alchemySepoliaTransport = http(
+    `https://${alchemyNetworks[sepolia.id]}${alchemyProjectId}`, {
     key: 'alchemy',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
@@ -46,7 +47,7 @@ const createTransports = () => {
   const moralisSepoliaTransport = http(
     `https://${moralisNetworks[sepolia.id]}${moralisProjectId}`, {
     key: 'moralis',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
@@ -55,16 +56,16 @@ const createTransports = () => {
   const ankrSepoliaTransport = http(
     `https://${ankrNetworks[sepolia.id]}${ankrProjectId}`, {
     key: 'ankr',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
   });
 
-  const quicknodeSepoliaTransport = webSocket(
-    `wss://${quicknodeNetworks[sepolia.id]}${quicknodeProjectId}`, {
+  const quicknodeSepoliaTransport = http(
+    `https://${quicknodeNetworks[sepolia.id]}${quicknodeProjectId}`, {
     key: 'quicknode',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
@@ -73,7 +74,7 @@ const createTransports = () => {
   const chainstackSepoliaTransport = http(
     `https://${chainstackNetworks[sepolia.id]}${chainstackProjectId}`, {
     key: 'chainstack',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
@@ -82,7 +83,7 @@ const createTransports = () => {
   const infuraSepoliaTransport = http(
     `https://${infuraNetworks[sepolia.id]}${infuraProjectId}`, {
     key: 'infura',
-    retryCount: 0,
+    retryCount: 1,
     batch: {
       wait: 200,
     },
@@ -90,10 +91,40 @@ const createTransports = () => {
 
   const defaultTransport = http();
 
-  const fallbackSepoliaTransport = fallback([
-    defaultSepoliaTransport, alchemySepoliaTransport, /*moralisSepoliaTransport,*/ ankrSepoliaTransport,
-    quicknodeSepoliaTransport, chainstackSepoliaTransport, infuraSepoliaTransport, defaultTransport
-  ]);
+  // Create fallback array with the most reliable providers first
+  const fallbackProviders = [];
+  
+  // Add providers only if they have valid configuration
+  if (alchemyProjectId) {
+    fallbackProviders.push(alchemySepoliaTransport);
+  }
+  
+  if (moralisProjectId) {
+    fallbackProviders.push(moralisSepoliaTransport);
+  }
+  
+  if (ankrProjectId) {
+    fallbackProviders.push(ankrSepoliaTransport);
+  }
+  
+  if (quicknodeProjectId) {
+    fallbackProviders.push(quicknodeSepoliaTransport);
+  }
+  
+  // Add these providers with caution as they're showing errors
+  if (chainstackProjectId) {
+    fallbackProviders.push(chainstackSepoliaTransport);
+  }
+  
+  if (infuraProjectId) {
+    fallbackProviders.push(infuraSepoliaTransport);
+  }
+  
+  // Always add default providers as fallback
+  fallbackProviders.push(defaultSepoliaTransport);
+  fallbackProviders.push(defaultTransport);
+
+  const fallbackSepoliaTransport = fallback(fallbackProviders);
 
   _cachedTransports = {
     [mainnet.id]: defaultTransport,

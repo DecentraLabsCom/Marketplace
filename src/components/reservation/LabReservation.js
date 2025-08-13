@@ -8,6 +8,7 @@ import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
 import { useReservationRequest, useBookingCacheUpdates } from '@/hooks/booking/useBookings'
 import { useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
 import { useLabToken } from '@/context/LabTokenContext'
+import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import AccessControl from '@/components/auth/AccessControl'
 import Carrousel from '@/components/ui/Carrousel'
 import LabTokenInfo from '@/components/reservation/LabTokenInfo'
@@ -184,7 +185,7 @@ export default function LabReservation({ id }) {
       date,
       interval: time,
       bookingInfo: (labBookings || []).filter(booking => 
-        booking.status !== "4" && booking.status !== 4 // Exclude cancelled bookings
+        !isCancelledBooking(booking) // Exclude cancelled bookings
       )
     });
     const firstAvailable = availableTimes.find(t => !t.disabled);
@@ -206,7 +207,7 @@ export default function LabReservation({ id }) {
       date,
       interval: time,
       bookingInfo: (labBookings || []).filter(booking => 
-        booking.status !== "4" && booking.status !== 4
+        !isCancelledBooking(booking)
       )
     });
     
@@ -284,7 +285,7 @@ export default function LabReservation({ id }) {
         date,
         interval: time,
         bookingInfo: (labBookings || []).filter(booking => 
-          booking.status !== "4" && booking.status !== 4 // Exclude cancelled bookings
+          !isCancelledBooking(booking) // Exclude cancelled bookings
         )
       })
     : [];
@@ -481,7 +482,7 @@ export default function LabReservation({ id }) {
         date,
         interval: time,
         bookingInfo: (labBookings || []).filter(booking => 
-          booking.status !== "4" && booking.status !== 4
+          !isCancelledBooking(booking)
         )
       });
       

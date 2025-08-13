@@ -1,4 +1,5 @@
 import { format, isToday } from 'date-fns'
+import { getBookingStatusText } from './bookingStatus'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -101,10 +102,10 @@ export function renderDayContents({ day, currentDateRender, bookingInfo }) {
                 const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
                 
                 // Add status indicator to the booking text
-                const statusText = (booking.status === "0" || booking.status === 0) ? " (Pending)" : "";
+                const statusText = booking.status !== 1 ? ` (${getBookingStatusText(booking)})` : "";
                 return `${booking.labName ? booking.labName + ': ' : ''}${startTime} - ${endTime}${statusText}`;
             }
-            const statusText = (booking.status === "0" || booking.status === 0) ? " (Pending)" : "";
+            const statusText = booking.status !== 1 ? ` (${getBookingStatusText(booking)})` : "";
             return booking.labName ? `Booked: ${booking.labName}${statusText}` : `Booked${statusText}`;
         }).join('\n');
     }
