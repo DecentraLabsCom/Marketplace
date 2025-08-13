@@ -117,7 +117,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const docUploadRef = useRef(null);
   const lastInitializedLabId = useRef(null);
 
-  const currentLabId = lab.id || maxId + 1;
+  const currentLabId = lab?.id || (maxId || 0) + 1;
   const jsonFileRegex = useMemo(() => new RegExp(/^[\w\-._/]+\.json$/i), []);
 
   const uploadFile = async (file, destinationFolder, labId) => {
@@ -205,12 +205,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     }
 
     // Skip if we already initialized this lab
-    if (lastInitializedLabId.current === lab.id) {
+    if (lastInitializedLabId.current === lab?.id) {
       return;
     }
 
-    devLog.log('LabModal: Initializing with lab:', { labId: lab.id, labName: lab.name });
-    lastInitializedLabId.current = lab.id;
+    devLog.log('LabModal: Initializing with lab:', { labId: lab?.id, labName: lab?.name });
+    lastInitializedLabId.current = lab?.id;
 
     // Batch all state updates to prevent multiple re-renders
     const updates = [];

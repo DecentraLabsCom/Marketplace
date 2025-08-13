@@ -346,7 +346,7 @@ export default function ProviderDashboard() {
   }
 
   // Handle adding a new lab using React Query mutation
-  async function handleAddLab({ labData }) {
+  const handleAddLab = useCallback(async ({ labData }) => {
     const maxId = Array.isArray(labs) && labs.length > 0 
       ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
@@ -364,13 +364,15 @@ export default function ProviderDashboard() {
       });
       
       addTemporaryNotification('success', '✅ Lab added!');
-      setIsModalOpen(false);
+      setTimeout(() => setIsModalOpen(false), 0);
       
     } catch (error) {
       devLog.error('Error adding lab:', error);
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
     }
-  }
+  }, [
+    labs, user?.name, createLabMutation, address, isSSO, user?.email, addTemporaryNotification
+  ]);
 
   // Handle delete a lab using React Query mutation
   const handleDeleteLab = async (labId) => {

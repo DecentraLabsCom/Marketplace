@@ -37,6 +37,8 @@ export const useMetadata = (metadataUri, options = {}) => {
           throw new Error('Metadata URI is required');
         }
 
+        devLog.log(`🔍 useMetadata queryFn: Fetching metadata for ${metadataUri}`);
+
         const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' }
@@ -50,7 +52,7 @@ export const useMetadata = (metadataUri, options = {}) => {
         }
         
         const data = await response.json();
-        devLog.info(`Metadata fetched successfully for URI: ${metadataUri}`);
+        devLog.info(`✅ useMetadata queryFn: Metadata fetched successfully for URI: ${metadataUri}`);
         return data;
       } catch (error) {
         devLog.error('Failed to fetch metadata:', error);
@@ -69,6 +71,8 @@ useMetadata.queryFn = async ({ metadataUri }) => {
     throw new Error('Metadata URI is required');
   }
 
+  devLog.log(`🔍 useMetadata.queryFn: Fetching metadata for ${metadataUri}`);
+
   const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -81,7 +85,9 @@ useMetadata.queryFn = async ({ metadataUri }) => {
     throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
   }
   
-  return response.json();
+  const data = await response.json();
+  devLog.log(`✅ useMetadata.queryFn: Metadata fetched successfully for URI: ${metadataUri}`);
+  return data;
 };
 
 // Module loaded confirmation (only logs once even in StrictMode)

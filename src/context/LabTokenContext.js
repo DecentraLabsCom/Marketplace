@@ -45,13 +45,6 @@ export function LabTokenProvider({ children }) {
     clearDecimalsCache: labTokenData.clearDecimalsCache
   };
   
-  // Debug: Track provider re-renders (only in development)
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      devLog.log('LabTokenProvider: Provider rendered/re-rendered');
-    }
-  });
-  
   // Memoize the context value to prevent unnecessary re-renders
   // Only depend on values that should trigger context updates
   const contextValue = useMemo(() => {

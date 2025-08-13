@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabCacheUpdates } from '@/hooks/lab/useLabs'
@@ -43,15 +43,7 @@ export function LabEventProvider({ children }) {
         devLog.log(`🎯 [LabEventContext] Smart cache update (reason: ${reason}):`, { labId, action });
         
         // Try granular update first if we have lab data and action
-        if (labData && action && labId) {
-            try {
-                labCacheUpdates.smartLabInvalidation(labId, labData, action);
-                devLog.log(`✅ [LabEventContext] Granular cache update completed`);
-                return;
-            } catch (error) {
-                devLog.warn('⚠️ Granular lab update failed, falling back to invalidation:', error);
-            }
-        }
+        if (labData && action && labId) smartLabInvalidation(labId, labData, action);
         
         // Fallback to traditional invalidation using React Query directly
         queryClient.invalidateQueries({ 
@@ -67,6 +59,34 @@ export function LabEventProvider({ children }) {
 
         devLog.log(`✅ [LabEventContext] Cache update completed`);
     };
+
+    /**
+     * Smart lab invalidation - optimized granular cache updates
+     * @param {string|number} labId - Lab ID
+     * @param {Object} labData - Lab data for granular updates
+     * @param {string} action - Action type: 'add', 'update', 'remove'
+     */
+    const smartLabInvalidation = useCallback((labId, labData, action) => {
+        devLog.log(`🎯 [LabEventContext] Smart invalidation:`, { labId, action });
+        
+        try {
+            // Use the correct method names from useLabCacheUpdates
+            if (action === 'add') {
+                labCacheUpdates.addLab(labData);
+            } else if (action === 'update') {
+                labCacheUpdates.updateLab(labId, labData);
+            } else if (action === 'remove') {
+                labCacheUpdates.removeLab(labId);
+            } else {
+                // Fallback to general invalidation
+                labCacheUpdates.invalidateAllLabs();
+            }
+            devLog.log(`✅ [LabEventContext] Smart invalidation completed`);
+        } catch (error) {
+            devLog.warn('⚠️ Smart invalidation failed, falling back to general invalidation:', error);
+            labCacheUpdates.invalidateAllLabs();
+        }
+    }, [labCacheUpdates]);
 
     // LabAdded event listener (instead of LabCreated)
     useWatchContractEvent({
@@ -276,6 +296,7 @@ export function LabEventProvider({ children }) {
         isManualUpdateInProgress,
         setManualUpdateInProgress,
         updateLabCaches,
+        smartLabInvalidation,
         // Expose granular cache utilities for manual UI usage
         ...labCacheUpdates
     };
