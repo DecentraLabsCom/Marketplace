@@ -2,7 +2,7 @@
  * Lab grid display component
  * Renders a responsive grid of lab cards with loading states
  */
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import LabCard from '@/components/home/LabCard'
 import { LabCardGridSkeleton } from '@/components/skeletons'
@@ -23,9 +23,15 @@ export default function LabGrid({
   emptyMessage = "No labs found matching your criteria.",
   className = ""
 }) {
+  // Prevent hydration mismatch by ensuring consistent initial render
+  const [isHydrated, setIsHydrated] = useState(false)
   
-  // Loading state
-  if (loading) {
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+  
+  // During SSR and initial hydration, always show loading to prevent mismatch
+  if (!isHydrated || loading) {
     return <LabCardGridSkeleton />
   }
 

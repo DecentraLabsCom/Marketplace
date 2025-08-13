@@ -31,6 +31,13 @@ export function LabTokenProvider({ children }) {
     clearDecimalsCache: labTokenData.clearDecimalsCache
   });
   
+  // Track last logged state to prevent duplicate logs
+  const lastLoggedState = useRef({
+    balance: null,
+    decimals: null,
+    isLoading: null
+  });
+  
   // Update function refs when labTokenData changes
   functionsRef.current = {
     calculateReservationCost: labTokenData.calculateReservationCost,
@@ -48,14 +55,26 @@ export function LabTokenProvider({ children }) {
   // Memoize the context value to prevent unnecessary re-renders
   // Only depend on values that should trigger context updates
   const contextValue = useMemo(() => {
-    // Only log when there's meaningful data or important state changes
-    const hasData = labTokenData.balance || labTokenData.decimals;
-    if (hasData && process.env.NODE_ENV === 'development') {
-      devLog.log('LabTokenContext: Context value updated', {
-        balance: labTokenData.balance?.toString(),
-        decimals: labTokenData.decimals,
-        isLoading: labTokenData.isLoading
-      });
+    // Only log meaningful state changes and avoid duplicates
+    const currentState = {
+      balance: labTokenData.balance?.toString(),
+      decimals: labTokenData.decimals,
+      isLoading: labTokenData.isLoading
+    };
+    
+    const shouldLog = (
+      // Only log if this is a meaningful change from last logged state
+      currentState.balance !== lastLoggedState.current.balance ||
+      currentState.decimals !== lastLoggedState.current.decimals ||
+      (currentState.isLoading !== lastLoggedState.current.isLoading && currentState.isLoading === false)
+    ) && (
+      // And only if it's actually meaningful data (not undefined balance unless loading)
+      currentState.balance !== 'undefined' || currentState.isLoading || currentState.decimals > 0
+    );
+    
+    if (shouldLog) {
+      devLog.log('LabTokenContext: Context value updated', currentState);
+      lastLoggedState.current = currentState;
     }
 
     return {

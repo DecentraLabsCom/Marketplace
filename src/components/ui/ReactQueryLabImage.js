@@ -74,7 +74,7 @@ const ReactQueryLabImage = ({
     if (onLoad) onLoad(event)
     
     if (process.env.NODE_ENV === 'development') {
-      devLog.log(`🖼️ Image loaded: ${displayImageUrl} ${isCached ? '(cached)' : '(original)'}`)
+      devLog.log(`🖼️ Image loaded:  ${isCached ? '(cached)' : '(original)'}`)
     }
   }
 

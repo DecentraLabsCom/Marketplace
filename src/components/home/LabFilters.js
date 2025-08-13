@@ -2,7 +2,7 @@
  * Lab filtering interface component
  * Provides search and filter controls for the marketplace
  */
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 
 /**
@@ -37,6 +37,15 @@ export default function LabFilters({
   searchInputRef,
   loading = false
 }) {
+  // Prevent hydration mismatch by ensuring consistent initial render
+  const [isHydrated, setIsHydrated] = useState(false)
+  
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+  
+  // Use consistent loading state during hydration
+  const effectiveLoading = isHydrated ? loading : false
   
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
@@ -77,7 +86,7 @@ export default function LabFilters({
             onChange={(e) => onCategoryChange(e.target.value)}
             value={selectedCategory} 
             className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] cursor-pointer w-full"
-            disabled={loading}
+            disabled={effectiveLoading}
           >
             <option value="All">All Categories</option>
             {categories.map((category) => (
@@ -96,7 +105,7 @@ export default function LabFilters({
             onChange={(e) => onProviderChange(e.target.value)}
             value={selectedProvider} 
             className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] cursor-pointer w-full"
-            disabled={loading}
+            disabled={effectiveLoading}
           >
             <option value="All">All Providers</option>
             {providers.map((provider) => (
@@ -119,7 +128,7 @@ export default function LabFilters({
               onChange={(e) => onFilterChange(e.target.value)} 
               value={selectedFilter}
               className="bg-white rounded border border-transparent py-1 px-1.5 flex items-center text-sm transition-all text-slate-600 hover:bg-[#caddff] cursor-pointer"
-              disabled={loading}
+              disabled={effectiveLoading}
             >
               <option value="Keyword">Keyword</option>
               <option value="Name">Name</option>
@@ -132,13 +141,13 @@ export default function LabFilters({
             placeholder="Type here..." 
             onKeyDown={handleKeyDown}
             className="w-full bg-transparent placeholder:text-slate-500 text-[#caddff] text-sm border border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none focus:border-[#caddff] shadow-sm focus:shadow"
-            disabled={loading}
+            disabled={effectiveLoading}
           />
           <button 
             onClick={handleSearch} 
             className="absolute top-1 right-1 flex items-center rounded bg-brand py-1 px-2.5 border border-transparent text-center text-sm text-white transition-all shadow-sm hover:shadow focus:bg-slate-700 focus:shadow-none active:bg-slate-700 hover:bg-slate-700 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" 
             type="button"
-            disabled={loading}
+            disabled={effectiveLoading}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-4 mr-1.5">
               <path fillRule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clipRule="evenodd" />
@@ -154,7 +163,7 @@ export default function LabFilters({
           onClick={handlePriceClick} 
           value={selectedPrice}
           className="w-[130px] py-[7px] border border-[#caddff] rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={loading}
+          disabled={effectiveLoading}
         >
           {selectedPrice}
         </button>
