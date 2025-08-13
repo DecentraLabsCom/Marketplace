@@ -17,7 +17,7 @@
  * @returns {Object} Object containing validation errors (empty if all valid)
  */
 
-import { validateDateString, validateDateRange } from './dateValidation'
+import { validateDateString, validateDateRange } from './dates/dateValidation'
 export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;

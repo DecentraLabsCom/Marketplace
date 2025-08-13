@@ -6,7 +6,7 @@ import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
-import { normalizeLabDates } from '@/utils/dateFormatter'
+import { normalizeLabDates } from '@/utils/dates/dateFormatter'
 import devLog from '@/utils/dev/logger'
 
 const initialState = (lab) => ({
