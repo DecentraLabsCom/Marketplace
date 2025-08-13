@@ -28,11 +28,11 @@
     },
     {
       "trait_type": "opens",
-      "value": "2024-01-01"
+      "value": "01/01/2025"
     },
     {
       "trait_type": "closes", 
-      "value": "2024-12-31"
+      "value": "12/31/2025"
     }
   ]
 }

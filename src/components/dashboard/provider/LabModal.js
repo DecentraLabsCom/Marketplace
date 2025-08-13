@@ -6,6 +6,7 @@ import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
+import { normalizeLabDates } from '@/utils/dateFormatter'
 import devLog from '@/utils/dev/logger'
 
 const initialState = (lab) => ({
@@ -601,11 +602,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
-        await onSubmit(localLab); // Call to the original submit function
+        // Normalize dates to MM/DD/YYYY format before submitting
+        const normalizedLabData = normalizeLabDates(localLab);
+        await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
         // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing
         // the modal
         uploadedTempFiles.current = [];
-        devLog.log('LabModal: Form submitted successfully, modal remains open');
+        devLog.log('LabModal: Form submitted successfully with normalized dates, modal remains open');
       } else {
         focusFirstError(currentErrors, 'full');
       }
@@ -619,8 +622,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
-        await onSubmit(localLab);
-        devLog.log('LabModal: Quick form submitted successfully, modal remains open');
+        // Normalize dates to MM/DD/YYYY format before submitting
+        const normalizedLabData = normalizeLabDates(localLab);
+        await onSubmit(normalizedLabData);
+        devLog.log('LabModal: Quick form submitted successfully with normalized dates, modal remains open');
       } else {
         focusFirstError(currentErrors, 'quick');
       }

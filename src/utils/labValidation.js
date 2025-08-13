@@ -16,10 +16,11 @@
  * @param {string} options.docInputType - Type of document input ('file' or 'url')
  * @returns {Object} Object containing validation errors (empty if all valid)
  */
+
+import { validateDateString, validateDateRange } from './dateValidation'
 export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
-    const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
     const imageExtensionRegex = /\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i;
     const pdfExtensionRegex = /\.pdf$/i;
 
@@ -50,16 +51,23 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
 
     if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
 
+    // Enhanced date validation
     if (!localLab.opens?.trim()) {
         errors.opens = 'Opening date is required';
-    } else if (!dateRegex.test(localLab.opens)) {
-        errors.opens = 'Invalid opening date format (must be MM/DD/YYYY)';
+    } else {
+        const opensValidation = validateDateString(localLab.opens);
+        if (!opensValidation.isValid) {
+            errors.opens = opensValidation.error;
+        }
     }
 
     if (!localLab.closes?.trim()) {
         errors.closes = 'Closing date is required';
-    } else if (!dateRegex.test(localLab.closes)) {
-        errors.closes = 'Invalid closing date format (must be MM/DD/YYYY)';
+    } else {
+        const closesValidation = validateDateString(localLab.closes);
+        if (!closesValidation.isValid) {
+            errors.closes = closesValidation.error;
+        }
     }
 
     if (!localLab.timeSlots || localLab.timeSlots.length === 0 ||
@@ -71,13 +79,11 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         errors.keywords = 'At least one keyword must be added';
     }
 
-    // Date comparison
-    if (!errors.opens && !errors.closes &&
-        localLab.opens?.trim() && localLab.closes?.trim()) {
-        const opensDate = new Date(localLab.opens);
-        const closesDate = new Date(localLab.closes);
-        if (closesDate.getTime() < opensDate.getTime()) {
-            errors.closes = 'Closing date must be after or equal to opening date';
+    // Enhanced date range validation
+    if (!errors.opens && !errors.closes && localLab.opens?.trim() && localLab.closes?.trim()) {
+        const rangeValidation = validateDateRange(localLab.opens, localLab.closes);
+        if (!rangeValidation.isValid) {
+            errors.closes = rangeValidation.error;
         }
     }
 

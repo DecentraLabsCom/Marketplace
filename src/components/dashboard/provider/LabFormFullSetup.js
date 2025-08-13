@@ -161,7 +161,7 @@ export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExte
       {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
       <input
         type="text"
-        placeholder="Opens (e.g. 08/31/2025)"
+        placeholder="Opens - MM/DD/YYYY format (e.g. 03/15/2025)"
         value={localLab?.opens || ''}
         onChange={(e) => setLocalLab({ ...localLab, opens: e.target.value })}
         className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
@@ -172,7 +172,7 @@ export default function LabFormFullSetup({ localLab, setLocalLab, errors, isExte
       {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
       <input
         type="text"
-        placeholder="Closes (e.g. 12/31/2025)"
+        placeholder="Closes - MM/DD/YYYY format (e.g. 12/31/2025)"
         value={localLab?.closes || ''}
         onChange={(e) => setLocalLab({ ...localLab, closes: e.target.value })}
         className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
