@@ -7,7 +7,7 @@ import { faSearch } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
 import LabAccess from '@/components/home/LabAccess'
-import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
+import { LabCardImage } from '@/components/ui/ReactQueryLabImage'
 import { Card, Badge, cn } from '@/components/ui'
 
 /**
@@ -37,20 +37,18 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         }
       )}
     >
-      {/* Lab Image */}
-      <div className="h-2/3 relative">
+      {/* Lab Image with React Query Caching */}
+      <div className="h-2/3 relative overflow-hidden rounded-t-md">
         {typeof image === "string" && image.trim() !== "" ? (
-          <MediaDisplayWithFallback 
-            mediaPath={image} 
-            mediaType={'image'} 
-            alt={name} 
-            fill 
-            priority 
-            sizes="80vw"
-            className="!relative object-cover rounded-t-md" 
+          <LabCardImage 
+            src={image}
+            alt={name}
+            labId={id}
+            showCacheStatus={process.env.NODE_ENV === 'development'}
+            priority={false}
           />
         ) : (
-          <div className="size-full bg-gray-300 flex items-center justify-center rounded-t-md">
+          <div className="size-full bg-gray-300 flex items-center justify-center">
             <span className="text-gray-500">No image</span>
           </div>
         )}

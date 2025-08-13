@@ -12,8 +12,9 @@ import {
   useOwnerOf,
   LAB_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useLabs'
-import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabProviders, PROVIDER_QUERY_CONFIG } from '@/hooks/provider/useProvider'
+import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
+import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { useLabToken } from '@/context/LabTokenContext'
 import devLog from '@/utils/dev/logger'
 
@@ -46,6 +47,7 @@ const useLabTokenDecimals = () => {
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
  * @param {boolean} options.includeOwners - Whether to fetch owner info for each lab
+ * @param {boolean} options.includeImages - Whether to cache images from metadata (default: false for backward compatibility)
  * @param {Object} options.queryOptions - Override options for base queries (labIds & providers only)
  *                                        Internal queries use optimized configurations and cannot be overridden
  * @returns {Object} React Query result with enriched lab data and comprehensive status
@@ -53,6 +55,7 @@ const useLabTokenDecimals = () => {
 export const useAllLabsComposed = ({ 
   includeMetadata = true, 
   includeOwners = false, 
+  includeImages = false,
   queryOptions = {} 
 } = {}) => {
   
@@ -127,13 +130,83 @@ export const useAllLabsComposed = ({
     combine: (results) => results
   });
 
+  // Step 5: Get image caching if requested and we have metadata
+  // Extract image URLs from metadata for caching
+  const imageUrlsToCache = [];
+  const labImageMap = new Map(); // Map lab index to image URLs
+
+  if (includeImages && includeMetadata && metadataResults.length > 0) {
+    metadataResults.forEach((metadataResult, index) => {
+      if (metadataResult.isSuccess && metadataResult.data) {
+        const metadata = metadataResult.data;
+        const labImages = [];
+        
+        // Extract main image
+        if (metadata.image) labImages.push(metadata.image);
+        
+        // Extract additional images from images array
+        if (metadata.images && Array.isArray(metadata.images)) {
+          labImages.push(...metadata.images.filter(Boolean));
+        }
+        
+        // Extract images from attributes
+        if (metadata.attributes) {
+          const additionalImagesAttr = metadata.attributes.find(
+            attr => attr.trait_type === 'additionalImages'
+          );
+          if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
+            labImages.push(...additionalImagesAttr.value.filter(Boolean));
+          }
+        }
+        
+        // Remove duplicates and store mapping
+        const uniqueLabImages = [...new Set(labImages)];
+        labImageMap.set(index, uniqueLabImages);
+        imageUrlsToCache.push(...uniqueLabImages);
+      }
+    });
+  }
+
+  // Remove duplicate URLs across all labs
+  const uniqueImageUrls = [...new Set(imageUrlsToCache)];
+
+  // Create image cache queries
+  const imageResults = useQueries({
+    queries: (includeImages && uniqueImageUrls.length > 0)
+      ? uniqueImageUrls.map(imageUrl => ({
+          queryKey: ['labImage', imageUrl],
+          queryFn: () => useLabImageQuery.queryFn(imageUrl), // Using the atomic queryFn
+          enabled: !!imageUrl,
+          staleTime: 48 * 60 * 60 * 1000,    // 48 hours for images
+          gcTime: 7 * 24 * 60 * 60 * 1000,   // 7 days
+          refetchOnWindowFocus: false,
+          refetchOnReconnect: true,
+          retry: 2,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Create a map of cached images for easy lookup
+  const cachedImageMap = new Map();
+  if (includeImages && imageResults.length > 0) {
+    imageResults.forEach((imageResult, index) => {
+      if (imageResult.isSuccess && imageResult.data?.dataUrl) {
+        const originalUrl = uniqueImageUrls[index];
+        cachedImageMap.set(originalUrl, imageResult.data.dataUrl);
+      }
+    });
+  }
+
   // Process and combine all results
   const isBaseLoading = labIdsResult.isLoading || decimalsResult.isLoading;
   // Note: providersResult.isLoading is not included since we have fallback logic
   const isLabDetailsLoading = labDetailResults.some(result => result.isLoading);
+  const isImageCachingLoading = imageResults.some(result => result.isLoading);
   const isEnrichmentLoading = ownerResults.some(result => result.isLoading) || 
                              metadataResults.some(result => result.isLoading) ||
-                             providersResult.isLoading; // Moved here since providers are for enrichment
+                             providersResult.isLoading || // Moved here since providers are for enrichment
+                             (includeImages && isImageCachingLoading); // Include image caching in enrichment loading
   const isLoading = isBaseLoading || isLabDetailsLoading || isEnrichmentLoading;
 
   const baseErrors = [];
@@ -142,9 +215,11 @@ export const useAllLabsComposed = ({
   // Note: providersResult.error is moved to enrichmentErrors since we have fallbacks
   
   const labDetailErrors = labDetailResults.filter(result => result.error).map(result => result.error);
+  const imageErrors = imageResults.filter(result => result.error).map(result => result.error);
   const enrichmentErrors = [
     ...ownerResults.filter(result => result.error).map(result => result.error),
-    ...metadataResults.filter(result => result.error).map(result => result.error)
+    ...metadataResults.filter(result => result.error).map(result => result.error),
+    ...imageErrors
   ];
   
   // Add providers error to enrichment errors since we have fallback logic
@@ -258,6 +333,42 @@ export const useAllLabsComposed = ({
       }
     }
 
+    // Step 6: Add cached images if requested
+    if (includeImages && includeMetadata) {
+      const labImages = labImageMap.get(labIndex) || [];
+      
+      // Add cached image URLs
+      if (labImages.length > 0) {
+        // Set the main cached image (first image) 
+        const mainImageUrl = labImages[0];
+        const cachedMainImage = cachedImageMap.get(mainImageUrl);
+        if (cachedMainImage) {
+          enrichedLab.cachedImageUrl = cachedMainImage;
+        }
+        
+        // Set all cached images
+        enrichedLab.cachedImages = labImages.map(imageUrl => 
+          cachedImageMap.get(imageUrl) || imageUrl // Use cached version or fallback to original
+        );
+        
+        // Add image cache metadata
+        enrichedLab.imageCache = {
+          totalImages: labImages.length,
+          cachedCount: labImages.filter(url => cachedImageMap.has(url)).length,
+          mainImageCached: !!cachedMainImage,
+          originalUrls: labImages,
+        };
+      } else {
+        // No images found in metadata
+        enrichedLab.imageCache = {
+          totalImages: 0,
+          cachedCount: 0,
+          mainImageCached: false,
+          originalUrls: [],
+        };
+      }
+    }
+
     // Ensure we have fallback values for required props
     if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
     
@@ -283,6 +394,9 @@ export const useAllLabsComposed = ({
 
   // Comprehensive status information
   const allResults = [labIdsResult, decimalsResult, providersResult, ...labDetailResults, ...ownerResults, ...metadataResults];
+  if (includeImages) {
+    allResults.push(...imageResults);
+  }
   const totalQueries = allResults.length;
   const successfulQueries = allResults.filter(r => r.isSuccess && !r.error).length;
   const failedQueries = allResults.filter(r => r.error).length;
@@ -342,6 +456,11 @@ export const useAllLabsComposed = ({
         totalMetadataQueries: metadataResults.length,
         successfulMetadata: metadataResults.filter(r => r.isSuccess).length,
         failedMetadata: metadataResults.filter(r => r.error).length,
+        totalImageQueries: includeImages ? imageResults.length : 0,
+        successfulImages: includeImages ? imageResults.filter(r => r.isSuccess).length : 0,
+        failedImages: includeImages ? imageResults.filter(r => r.error).length : 0,
+        cachedImagesCount: cachedImageMap.size,
+        uniqueImageUrls: uniqueImageUrls.length,
       },
       errors: [...baseErrors, ...labDetailErrors, ...enrichmentErrors],
       timestamp: new Date().toISOString()
@@ -356,6 +475,7 @@ export const useAllLabsComposed = ({
     },
     ownerResults,
     metadataResults,
+    imageResults,
 
     // Utility functions
     refetch: () => {
@@ -365,6 +485,9 @@ export const useAllLabsComposed = ({
       // Note: decimalsResult.refetch not available as it uses useLabToken
       ownerResults.forEach(result => result.refetch && result.refetch());
       metadataResults.forEach(result => result.refetch && result.refetch());
+      if (includeImages) {
+        imageResults.forEach(result => result.refetch && result.refetch());
+      }
     },
     
     // React Query status aggregation
@@ -389,7 +512,7 @@ export const useAllLabsBasic = (queryOptions = {}) => {
 };
 
 /**
- * Full composed hook with all enrichments
+ * Full composed hook with all enrichments including images
  * Optimized for dashboard and detailed views
  * @param {Object} queryOptions - Additional react-query options
  * @returns {Object} React Query result with fully enriched lab data
@@ -398,6 +521,22 @@ export const useAllLabsFull = (queryOptions = {}) => {
   return useAllLabsComposed({ 
     includeMetadata: true, 
     includeOwners: true, 
+    includeImages: true, // ✅ Include image caching by default
+    queryOptions 
+  });
+};
+
+/**
+ * Composed hook optimized for LabCard components
+ * Includes metadata and main image caching for optimal card performance
+ * @param {Object} queryOptions - Additional react-query options
+ * @returns {Object} React Query result with lab data optimized for cards
+ */
+export const useAllLabsForCards = (queryOptions = {}) => {
+  return useAllLabsComposed({ 
+    includeMetadata: true,  // Needed for names, descriptions, etc.
+    includeOwners: false,   // Not typically shown in cards
+    includeImages: true,    // ✅ Cache main images for better card performance
     queryOptions 
   });
 };

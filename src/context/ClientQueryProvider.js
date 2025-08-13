@@ -112,13 +112,17 @@ export default function ClientQueryProvider({ children }) {
               // - reservations: on-chain reservation data per user/lab
               // - bookings: client-side composed booking aggregates
               // - auth: sso session
+              // - labImage: cached lab images (base64 data)
+              // - metadata: lab metadata including image URLs
               const shouldPersist = (
                 queryType === 'labs' ||
                 queryType === 'provider' ||
                 queryType === 'providers' ||
                 queryType === 'reservations' ||
                 queryType === 'bookings' ||
-                queryType === 'auth'
+                queryType === 'auth' ||
+                queryType === 'labImage' ||
+                queryType === 'metadata'
               );
               
               // Only persist successful queries with data
