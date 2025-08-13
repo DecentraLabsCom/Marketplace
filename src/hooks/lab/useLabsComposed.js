@@ -14,7 +14,7 @@ import {
 } from './useLabs'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabProviders, PROVIDER_QUERY_CONFIG } from '@/hooks/provider/useProvider'
-import { useLabToken } from '@/hooks/useLabToken'
+import { useLabToken } from '@/context/LabTokenContext'
 import devLog from '@/utils/dev/logger'
 
 /**

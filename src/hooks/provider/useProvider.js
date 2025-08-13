@@ -6,6 +6,7 @@
  * @author DecentraLabs
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for provider hooks
@@ -108,11 +109,35 @@ export const useSaveLabData = (options = {}) => {
       }
     },
     onSuccess: (data, variables) => {
-      // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['metadata'] });
-      if (variables.uri) {
-        queryClient.invalidateQueries({ queryKey: ['metadata', variables.uri] });
+      devLog.log('🔄 [useSaveLabData] onSuccess - starting cache updates for:', variables?.uri);
+      
+      // Invalidate the specific metadata query that changed
+      if (variables?.uri) {
+        devLog.log('🔄 [useSaveLabData] About to invalidate metadata query with key:', ['metadata', variables.uri]);
+        
+        const result = queryClient.invalidateQueries({ 
+          queryKey: ['metadata', variables.uri],
+          exact: true,
+          refetchType: 'all' // Force refetch all queries, bypassing staleTime
+        });
+        
+        devLog.log('🔄 [useSaveLabData] Invalidation result:', result);
+        devLog.log('✅ [useSaveLabData] Invalidated metadata cache for:', variables.uri);
+        
+        // Debug: Log all current queries to see what's in cache
+        const queries = queryClient.getQueryCache().getAll();
+        const metadataQueries = queries.filter(q => q.queryKey.includes('metadata'));
+        devLog.log('🔍 [useSaveLabData] Current metadata queries in cache:', 
+          metadataQueries.map(q => ({ 
+            queryKey: q.queryKey, 
+            state: q.state.status,
+            dataUpdatedAt: q.state.dataUpdatedAt,
+            isStale: q.isStale()
+          }))
+        );
       }
+      
+      devLog.log('✅ [useSaveLabData] Cache invalidation completed');
     },
     ...options,
   });

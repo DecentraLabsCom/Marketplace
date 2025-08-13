@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useLabToken } from '@/hooks/useLabToken'
+import { useLabToken } from '@/context/LabTokenContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
@@ -16,7 +16,26 @@ const initialState = (lab) => ({
   localDocs: [],
   imageUrls: [],
   docUrls: [],
-  localLab: { ...lab },
+  localLab: { 
+    // Ensure all form fields have default values to prevent uncontrolled -> controlled warnings
+    id: lab?.id || null,
+    name: lab?.name || '',
+    category: lab?.category || '',
+    keywords: lab?.keywords || [],
+    description: lab?.description || '',
+    price: lab?.price || '',
+    auth: lab?.auth || '',
+    accessURI: lab?.accessURI || '',
+    accessKey: lab?.accessKey || '',
+    timeSlots: lab?.timeSlots || [],
+    opens: lab?.opens || '',
+    closes: lab?.closes || '',
+    images: lab?.images || [],
+    docs: lab?.docs || [],
+    uri: lab?.uri || '',
+    // Spread the rest of the lab properties after ensuring required fields have defaults
+    ...lab
+  },
   isExternalURI: false,
   errors: {},
   isLocalURI: false,
@@ -396,7 +415,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
     dispatch({
       type: 'MERGE_LOCAL_LAB',
-      value: { images: localLab.images.filter((_, i) => i !== index) },
+      value: { images: (localLab.images || []).filter((_, i) => i !== index) },
     });
     dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: newUrls });
   };
@@ -428,7 +447,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
 
     dispatch({
       type: 'MERGE_LOCAL_LAB',
-      value: { docs: localLab.docs.filter((_, i) => i !== index) },
+      value: { docs: (localLab.docs || []).filter((_, i) => i !== index) },
     });
     dispatch({ type: 'SET_FIELD', field: 'docUrls', value: newUrls });
   };

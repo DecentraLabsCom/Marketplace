@@ -27,7 +27,7 @@ import {
   useSaveLabData, 
   useDeleteLabData 
 } from '@/hooks/provider/useProvider'
-import { useLabToken } from '@/hooks/useLabToken'
+import { useLabToken } from '@/context/LabTokenContext'
 import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import LabModal from '@/components/dashboard/provider/LabModal'
@@ -256,21 +256,36 @@ export default function ProviderDashboard() {
                           labData.uri.startsWith('https://'));
     const mustDeleteOldJson = wasLocalJson && isNowExternal;
 
+    // Helper function to normalize values for comparison (treat undefined/null as empty string)
+    const normalize = (value) => value === undefined || value === null ? '' : value;
+    
+    // ONLY compare on-chain fields that are stored in the smart contract
+    // According to smart contract ABI: uri, price, auth, accessURI, accessKey
     const hasChangedOnChainData =
-      originalLab.uri !== labData.uri ||
-      originalLab.price !== labData.price ||
-      originalLab.auth !== labData.auth ||
-      originalLab.accessURI !== labData.accessURI ||
-      originalLab.accessKey !== labData.accessKey;
+      normalize(originalLab.uri) !== normalize(labData.uri) ||
+      normalize(originalLab.price) !== normalize(labData.price) ||
+      normalize(originalLab.auth) !== normalize(labData.auth) ||
+      normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
+      normalize(originalLab.accessKey) !== normalize(labData.accessKey);
+
+    // Debug logging to help identify what's causing transaction triggers
+    devLog.log('🔍 On-chain comparison debug:', {
+      uri: { original: normalize(originalLab.uri), new: normalize(labData.uri), changed: normalize(originalLab.uri) !== normalize(labData.uri) },
+      price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
+      auth: { original: normalize(originalLab.auth), new: normalize(labData.auth), changed: normalize(originalLab.auth) !== normalize(labData.auth) },
+      accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
+      accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
+      hasChangedOnChainData
+    });
 
     // Use coordinated update to prevent collisions with blockchain events
     await coordinatedLabUpdate(async () => {
 
     try {
-      // 1. Update lab data using React Query mutation
       if (hasChangedOnChainData) {
-        // 1a. If there is any change in the on-chain data, update blockchain via mutation
+        // 1a. If there are on-chain changes, update blockchain via mutation
         addTemporaryNotification('pending', '⏳ Updating lab onchain...');
+        devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
 
         // Use React Query mutation - it will route to correct service based on isSSO
         updateLabMutation.mutate({
@@ -284,19 +299,29 @@ export default function ProviderDashboard() {
           }
         });
       } else {
-        // 1b. If there is no change in the on-chain data, just update via React Query
-        // Keep price in human-readable format for consistency
-        updateLabMutation.mutate({
-          labId: labData.id,
-          labData: { ...labData, price: originalPrice }
-        });
-        // DON'T close modal - let user close it manually
-        addTemporaryNotification('success', '✅ Lab updated!');
-        devLog.log('ProviderDashboard: Lab updated via React Query (offchain), modal remains open');
+        // 1b. No on-chain changes - only update off-chain data (JSON file)
+        devLog.log('ProviderDashboard: No on-chain changes detected, updating only off-chain data');
+        
+        // Save the JSON if necessary (for off-chain data only)
+        if (labData.uri.startsWith('Lab-')) {
+          try {
+            await saveLabDataMutation.mutateAsync({
+              ...labData,
+              price: originalPrice // Save with human-readable price for JSON consistency
+            });
+            addTemporaryNotification('success', '✅ Lab metadata updated!');
+          } catch (error) {
+            addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
+            return;
+          }
+        } else {
+          // No JSON to save and no on-chain changes - just show success
+          addTemporaryNotification('success', '✅ No changes to save!');
+        }
       }
       
-      // 2. Save the JSON if necessary
-      if (labData.uri.startsWith('Lab-')) {
+      // 2. Save the JSON if there were on-chain changes (to keep metadata in sync)
+      if (hasChangedOnChainData && labData.uri.startsWith('Lab-')) {
         try {
           await saveLabDataMutation.mutateAsync({
             ...labData,

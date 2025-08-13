@@ -23,10 +23,29 @@ export function convertPriceToHuman(priceString, decimals) {
   if (!priceString || priceString === '0') return 0;
   
   try {
-    return parseFloat(formatUnits(BigInt(priceString), decimals));
+    // Ensure priceString is defined and can be converted to BigInt
+    if (priceString === undefined || priceString === null) {
+      devLog.error('convertPriceToHuman: priceString is undefined or null', { priceString, decimals });
+      return 0;
+    }
+    
+    // Convert to string if not already
+    const priceStr = priceString.toString();
+    if (!priceStr || priceStr === 'undefined' || priceStr === 'null') {
+      devLog.error('convertPriceToHuman: invalid price string', { priceString, priceStr, decimals });
+      return 0;
+    }
+    
+    return parseFloat(formatUnits(BigInt(priceStr), decimals));
   } catch (error) {
-    devLog.error('Error converting price to human format:', error);
-    return parseFloat(priceString);
+    devLog.error('Error converting price to human format:', error, { priceString, decimals });
+    // Try to parse as regular float if BigInt conversion fails
+    try {
+      return parseFloat(priceString) || 0;
+    } catch (parseError) {
+      devLog.error('Failed to parse price as float:', parseError, { priceString });
+      return 0;
+    }
   }
 }
 
@@ -91,12 +110,25 @@ export function composeLabObject(labId, labData, owner, metadata, decimals, prov
   const attrs = parseAttributes(metadata.attributes);
   const providerName = providerMap[owner.toLowerCase()] || owner;
 
+  // Safely extract price with better error handling
+  let priceValue = 0;
+  try {
+    const basePrice = labData?.base?.price;
+    if (basePrice !== undefined && basePrice !== null) {
+      priceValue = convertPriceToHuman(basePrice.toString(), decimals);
+    } else {
+      devLog.warn('composeLabObject: base price is undefined', { labId, labData });
+    }
+  } catch (error) {
+    devLog.error('composeLabObject: error processing price', error, { labId, labData });
+  }
+
   return {
     id: labId,
     name: metadata?.name ?? `Lab ${labId}`,
     category: attrs?.category ?? "",
     keywords: attrs?.keywords ?? [],
-    price: convertPriceToHuman(labData.base.price.toString(), decimals),
+    price: priceValue,
     description: metadata?.description ?? "No description available.",
     provider: providerName, 
     providerAddress: owner,

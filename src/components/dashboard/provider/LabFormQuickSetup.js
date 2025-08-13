@@ -30,7 +30,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         type="number"
         step="any"
         placeholder="Price"
-        value={localLab.price}
+        value={localLab?.price || ''}
         onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
         className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
         disabled:cursor-not-allowed disabled:border-gray-300"
@@ -42,7 +42,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       <input
         type="text"
         placeholder="Auth URL"
-        value={localLab.auth}
+        value={localLab?.auth || ''}
         onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
         className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
         disabled:cursor-not-allowed disabled:border-gray-300"
@@ -54,7 +54,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       <input
         type="text"
         placeholder="Access URI"
-        value={localLab.accessURI || ''}
+        value={localLab?.accessURI || ''}
         onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
         className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
         disabled:cursor-not-allowed disabled:border-gray-300"
@@ -66,7 +66,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       <input
         type="text"
         placeholder="Access Key"
-        value={localLab.accessKey || ''}
+        value={localLab?.accessKey || ''}
         onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
         className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
         disabled:cursor-not-allowed disabled:border-gray-300"
@@ -78,7 +78,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       <input
         type="text"
         placeholder="Lab Data URL (JSON)"
-        value={localLab.uri || ''}
+        value={localLab?.uri || ''}
         onChange={handleUriChange}
         onClick={() => isLocalURI && setClickedToEditUri(true)}
         onBlur={() => isLocalURI && setClickedToEditUri(false)}
@@ -117,7 +117,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         </button>
         <button type="button" onClick={onCancel}
           className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
-          Cancel
+          Close
         </button>
       </div>
     </form>

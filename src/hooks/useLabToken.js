@@ -50,8 +50,10 @@ export const clearDecimalsCache = () => {
 /**
  * Hook to handle LAB token operations
  * Includes functions for: balance, approval, transfers, and cost calculation
+ * NOTE: This should only be used inside LabTokenContext. 
+ * Components should use the context version instead.
  */
-export function useLabToken() {
+export function useLabTokenHook() {
   const { address, chain } = useAccount();
   const safeChain = selectChain(chain);
   const chainName = safeChain.name.toLowerCase();

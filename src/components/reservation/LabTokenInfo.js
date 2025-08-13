@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useLabToken } from '@/hooks/useLabToken'
+import { useLabToken } from '@/context/LabTokenContext'
 
 /**
  * Lab pricing and token information display component

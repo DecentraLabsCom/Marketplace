@@ -3,6 +3,7 @@ import '@/styles/global.css'
 import ClientQueryProvider from '@/context/ClientQueryProvider'
 import ClientWagmiProvider from '@/context/ClientWagmiProvider'
 import { UserData } from '@/context/UserContext'
+import { LabTokenProvider } from '@/context/LabTokenContext'
 import { UserEventProvider } from '@/context/UserEventContext'
 import { LabEventProvider } from '@/context/LabEventContext'
 import { BookingEventProvider } from '@/context/BookingEventContext'
@@ -57,23 +58,25 @@ export default function RootLayout({ children }) {
           <ClientWagmiProvider>
             <NotificationProvider>
               <UserData>
-                <UserEventProvider>
-                  <LabEventProvider>
-                    <BookingEventProvider>
-                      <header className="sticky top-0 z-50">
-                        <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
-                          <Navbar />
-                        </ClientOnly>
-                      </header>
-                      <main className="grow">
-                          {children}
-                      </main>
-                      <Footer />
-                      <GlobalNotificationStack />
-                      <DataRefreshIndicator />
-                    </BookingEventProvider>
-                  </LabEventProvider>
-                </UserEventProvider>
+                <LabTokenProvider>
+                  <UserEventProvider>
+                    <LabEventProvider>
+                      <BookingEventProvider>
+                        <header className="sticky top-0 z-50">
+                          <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
+                            <Navbar />
+                          </ClientOnly>
+                        </header>
+                        <main className="grow">
+                            {children}
+                        </main>
+                        <Footer />
+                        <GlobalNotificationStack />
+                        <DataRefreshIndicator />
+                      </BookingEventProvider>
+                    </LabEventProvider>
+                  </UserEventProvider>
+                </LabTokenProvider>
               </UserData>
             </NotificationProvider>
           </ClientWagmiProvider>

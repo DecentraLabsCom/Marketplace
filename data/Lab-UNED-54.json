@@ -13,7 +13,8 @@
         "PLCs",
         "Industry 4.0",
         "Control",
-        "Instrumentation"
+        "Sensors",
+        "Actuators"
       ]
     },
     {
@@ -26,7 +27,7 @@
     },
     {
       "trait_type": "opens",
-      "value": "05/04/2025"
+      "value": "01/10/2025"
     },
     {
       "trait_type": "closes",
@@ -43,5 +44,10 @@
       "trait_type": "docs",
       "value": []
     }
-  ]
+  ],
+  "_meta": {
+    "lastUpdated": "2025-08-13T10:39:00.011Z",
+    "uri": "Lab-UNED-54.json",
+    "version": 56
+  }
 }

@@ -11,6 +11,7 @@
  * - retry: 1
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { parseUnits } from 'viem'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { useUser } from '@/context/UserContext'
@@ -345,7 +346,26 @@ export const useAddLabWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (labData) => {
-      const txHash = await addLab([labData.uri, labData.price, labData.auth, labData.accessURI, labData.accessKey]);
+      // Ensure all required parameters are defined before sending to smart contract
+      const uri = labData.uri || '';
+      const rawPrice = labData.price || '0'; // Default to 0 if price is undefined
+      
+      // Convert price from ETH to wei for smart contract
+      let priceInWei;
+      try {
+        // Parse the price as a number with up to 18 decimal places (wei precision)
+        priceInWei = parseUnits(rawPrice.toString(), 18);
+      } catch (error) {
+        devLog.error('Error converting price to wei:', { rawPrice, error });
+        // Fallback to 0 if conversion fails
+        priceInWei = parseUnits('0', 18);
+      }
+      
+      const auth = labData.auth || '';
+      const accessURI = labData.accessURI || '';
+      const accessKey = labData.accessKey || '';
+      
+      const txHash = await addLab([uri, priceInWei, auth, accessURI, accessKey]);
       
       devLog.log('🔍 useAddLabWallet - Transaction Hash:', txHash);
       return { hash: txHash };
@@ -416,12 +436,55 @@ export const useUpdateLabSSO = (options = {}) => {
       return data;
     },
     onSuccess: (data, variables) => {
-      // Invalidate specific lab and labs list
-      if (variables.labId) {
-        queryClient.invalidateQueries(['labs', 'getLab', variables.labId]);
+      // Update cache granularly instead of invalidating
+      if (variables.labId && variables.labData) {
+        try {
+          // Update all labs list
+          queryClient.setQueryData(labQueryKeys.all(), (oldData) => {
+            if (!oldData) return []
+            return oldData.map(lab => 
+              lab.id === variables.labId ? { ...lab, ...variables.labData } : lab
+            )
+          });
+
+          // Update specific lab query
+          queryClient.setQueryData(labQueryKeys.byId(variables.labId), (oldData) => {
+            return { ...oldData, ...variables.labData };
+          });
+          
+          // If URI changed, invalidate metadata queries for the new URI
+          if (variables.labData.uri) {
+            queryClient.invalidateQueries({ 
+              queryKey: ['metadata', variables.labData.uri],
+              exact: true,
+              refetchType: 'active' // Force refetch active queries even if not stale
+            });
+            devLog.log('✅ URI changed, metadata invalidated for:', variables.labData.uri);
+          }
+          
+          // Invalidate composed queries that depend on lab data to ensure fresh data
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              return query.queryKey.some(key => 
+                typeof key === 'string' && (
+                  key.includes('composed') ||
+                  (key.includes('labs') && query.queryKey.length > 1) // Multi-part lab queries
+                )
+              );
+            },
+            refetchType: 'active' // Force refetch active queries even if not stale
+          });
+          
+          devLog.log('✅ Lab updated successfully via SSO, cache updated granularly with composed query refresh');
+        } catch (error) {
+          devLog.error('Failed granular cache update, falling back to invalidation:', error);
+          // Fallback to invalidation
+          if (variables.labId) {
+            queryClient.invalidateQueries(['labs', 'getLab', variables.labId]);
+          }
+          queryClient.invalidateQueries(['labs']);
+        }
       }
-      queryClient.invalidateQueries(['labs']);
-      devLog.log('✅ Lab updated successfully, cache invalidated');
     },
     onError: (error) => {
       devLog.error('❌ Failed to update lab:', error);
@@ -442,18 +505,84 @@ export const useUpdateLabWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (updateData) => {
-      const txHash = await updateLab([updateData.labId, updateData.uri, updateData.price, updateData.auth, updateData.accessURI, updateData.accessKey]);
+      // Handle both flat and nested structures
+      const labId = updateData.labId;
+      const labDataObj = updateData.labData || updateData;
+      
+      // Ensure all required parameters are defined before sending to smart contract
+      const uri = labDataObj.uri || '';
+      const rawPrice = labDataObj.price || '0'; // Default to 0 if price is undefined
+      
+      // Convert price from ETH to wei for smart contract
+      let priceInWei;
+      try {
+        // Parse the price as a number with up to 18 decimal places (wei precision)
+        priceInWei = parseUnits(rawPrice.toString(), 18);
+      } catch (error) {
+        devLog.error('Error converting price to wei:', { rawPrice, error });
+        // Fallback to 0 if conversion fails
+        priceInWei = parseUnits('0', 18);
+      }
+      
+      const auth = labDataObj.auth || '';
+      const accessURI = labDataObj.accessURI || '';
+      const accessKey = labDataObj.accessKey || '';
+      
+      const txHash = await updateLab([labId, uri, priceInWei, auth, accessURI, accessKey]);
       
       devLog.log('🔍 useUpdateLabWallet - Transaction Hash:', txHash);
       return { hash: txHash };
     },
     onSuccess: (result, variables) => {
-      // Invalidate specific lab and labs list
-      if (variables.labId) {
-        queryClient.invalidateQueries(['labs', 'getLab', variables.labId]);
+      // Update cache granularly instead of invalidating
+      if (variables.labId && variables.labData) {
+        try {
+          // Update all labs list
+          queryClient.setQueryData(labQueryKeys.all(), (oldData) => {
+            if (!oldData) return []
+            return oldData.map(lab => 
+              lab.id === variables.labId ? { ...lab, ...variables.labData } : lab
+            )
+          });
+
+          // Update specific lab query
+          queryClient.setQueryData(labQueryKeys.byId(variables.labId), (oldData) => {
+            return { ...oldData, ...variables.labData };
+          });
+          
+          // If URI changed, invalidate metadata queries for the new URI
+          if (variables.labData.uri) {
+            queryClient.invalidateQueries({ 
+              queryKey: ['metadata', variables.labData.uri],
+              exact: true,
+              refetchType: 'active' // Force refetch active queries even if not stale
+            });
+            devLog.log('✅ URI changed, metadata invalidated for:', variables.labData.uri);
+          }
+          
+          // Invalidate composed queries that depend on lab data to ensure fresh data
+          queryClient.invalidateQueries({ 
+            predicate: (query) => {
+              return query.queryKey.some(key => 
+                typeof key === 'string' && (
+                  key.includes('composed') ||
+                  (key.includes('labs') && query.queryKey.length > 1) // Multi-part lab queries
+                )
+              );
+            },
+            refetchType: 'active' // Force refetch active queries even if not stale
+          });
+          
+          devLog.log('✅ Lab updated successfully via wallet, cache updated granularly with composed query refresh');
+        } catch (error) {
+          devLog.error('Failed granular cache update, falling back to invalidation:', error);
+          // Fallback to invalidation
+          if (variables.labId) {
+            queryClient.invalidateQueries(['labs', 'getLab', variables.labId]);
+          }
+          queryClient.invalidateQueries(['labs']);
+        }
       }
-      queryClient.invalidateQueries(['labs']);
-      devLog.log('✅ Lab updated successfully via wallet, cache invalidated');
     },
     onError: (error) => {
       devLog.error('❌ Failed to update lab via wallet:', error);
@@ -638,7 +767,11 @@ export const useSetTokenURIWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (uriData) => {
-      const txHash = await setTokenURI([uriData.labId, uriData.tokenURI]);
+      // Ensure all required parameters are defined before sending to smart contract
+      const labId = uriData.labId;
+      const tokenURI = uriData.tokenURI || '';
+      
+      const txHash = await setTokenURI([labId, tokenURI]);
       
       devLog.log('🔍 useSetTokenURIWallet - Transaction Hash:', txHash);
       return { hash: txHash };
