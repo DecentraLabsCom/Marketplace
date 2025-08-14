@@ -1,15 +1,6 @@
-import HydrationBoundary from '@/components/ui/HydrationBoundary'
-import { prefetchLabsData } from '@/utils/ssr/prefetch'
 import Market from '@/components/home/Market'
 
-/**
- * Homepage with server-side prefetched lab data for optimal UX
- * Pre-loads critical lab and provider data to eliminate loading flash
- * Falls back gracefully if prefetch fails
- */
-export default async function HomePage() {
-  // Prefetch critical data on server for seamless hydration
-  const dehydratedState = await prefetchLabsData()
+export default function HomePage() {
 
   return (
     <div>
@@ -21,11 +12,7 @@ export default async function HomePage() {
           <div className="mt-4 border-t-4 border-brand w-80 mx-auto" />
         </div>
       </div>
-      
-      {/* HydrationBoundary provides prefetched data to client components */}
-      <HydrationBoundary state={dehydratedState} logHydration={true}>
-        <Market />
-      </HydrationBoundary>
+      <Market />
     </div>
   )
 }

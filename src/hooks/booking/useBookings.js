@@ -18,7 +18,7 @@ import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Export composed hooks
-export * from '../../utils/hooks/queries/bookingsComposedQueries'
+export * from './useBookingsComposed'
 
 // Common configuration for all booking/reservation hooks
 export const BOOKING_QUERY_CONFIG = {

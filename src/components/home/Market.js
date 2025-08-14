@@ -7,8 +7,8 @@
 "use client";
 import React, { useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
-import { useAllLabsComposed } from '@/utils/hooks/queries/labsComposedQueries'
-import { useUserBookingsComposed } from '@/utils/hooks/queries/bookingsComposedQueries'
+import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
+import { useUserBookingsComposed } from '@/hooks/booking/useBookingsComposed'
 import { useLabFilters } from '@/hooks/lab/useLabFilters'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'

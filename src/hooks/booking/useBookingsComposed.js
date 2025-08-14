@@ -5,14 +5,13 @@
  * 
  */
 import { useQueries } from '@tanstack/react-query'
-import { useCallback } from 'react'
 import { 
   useReservationsOf,
   useReservation,
   useReservationsOfToken,
   useReservationOfTokenByIndex,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
-} from '../../../hooks/booking/useBookings'
+} from './useBookings'
 import { useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
 import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
@@ -24,14 +23,12 @@ import devLog from '@/utils/dev/logger'
  * @param {string} userAddress - User wallet address
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeLabDetails - Whether to fetch lab details for each booking
- * @param {Function} options.select - Optional data transformation function (React Query select)
  * @param {Object} options.queryOptions - Override options for base booking queries only
  *                                        Internal queries use optimized configurations
  * @returns {Object} React Query result with enriched booking data
  */
 export const useUserBookingsComposed = (userAddress, { 
-  includeLabDetails = false,
-  select,
+  includeLabDetails = false, 
   queryOptions = {} 
 } = {}) => {
   
@@ -201,11 +198,9 @@ export const useUserBookingsComposed = (userAddress, {
     activeBookings: enrichedBookings.filter(b => b.statusCategory === 'active').length,
     completedBookings: enrichedBookings.filter(b => b.statusCategory === 'completed').length,
     cancelledBookings: enrichedBookings.filter(b => b.statusCategory === 'cancelled').length,
-    upcomingBookings: enrichedBookings.filter(b => b.statusCategory === 'upcoming').length,
   };
 
-  // Build the final result object
-  const finalResult = {
+  return {
     // Data
     data: {
       reservationKeys,
@@ -246,22 +241,6 @@ export const useUserBookingsComposed = (userAddress, {
       labDetailsResults.forEach(result => result.refetch && result.refetch());
     }
   };
-
-  // Apply select transformation if provided
-  if (select && typeof select === 'function') {
-    try {
-      const transformedResult = { 
-        ...finalResult,
-        data: select(finalResult.data)
-      };
-      return transformedResult;
-    } catch (error) {
-      devLog.error('Error in select transformation for user bookings:', error);
-      return finalResult; // Return original data on transformation error
-    }
-  }
-
-  return finalResult;
 };
 
 /**
@@ -716,201 +695,6 @@ export const extractCompletedBookings = (bookingsResult) => {
  */
 export const extractCancelledBookings = (bookingsResult) => {
   return extractBookingsByStatus(bookingsResult, 'cancelled');
-};
-
-// ===== SPECIALIZED HOOKS WITH SELECT TRANSFORMATIONS =====
-
-/**
- * Hook for getting user bookings optimized for calendar display
- * Transforms bookings into calendar-friendly format
- * @param {string} userAddress - User wallet address
- * @param {Object} options - Configuration options
- * @returns {Object} React Query result with calendar-optimized booking data
- */
-export const useUserBookingsForCalendar = (userAddress, options = {}) => {
-  return useUserBookingsComposed(userAddress, {
-    includeLabDetails: true, // Need lab names for calendar events
-    select: (data) => ({
-      // Transform bookings for calendar components
-      events: data.bookings.map(booking => ({
-        id: booking.reservationKey,
-        title: booking.labDetails?.name || `Lab ${booking.labId}`,
-        start: new Date(booking.start * 1000),
-        end: new Date(booking.end * 1000),
-        status: booking.statusCategory,
-        color: getEventColor(booking.statusCategory),
-        labId: booking.labId,
-        reservationKey: booking.reservationKey,
-        canCancel: booking.statusCategory === 'upcoming',
-        // Additional calendar metadata
-        allDay: false,
-        resource: {
-          labName: booking.labDetails?.name,
-          provider: booking.labDetails?.provider,
-          category: booking.labDetails?.category
-        }
-      })),
-      
-      // Calendar aggregates
-      totalEvents: data.totalBookings,
-      activeEvents: data.activeBookings,
-      upcomingEvents: data.upcomingBookings,
-      
-      // Calendar view helpers
-      dateRange: data.bookings.length > 0 ? {
-        earliest: Math.min(...data.bookings.map(b => b.start)),
-        latest: Math.max(...data.bookings.map(b => b.end))
-      } : null
-    }),
-    ...BOOKING_QUERY_CONFIG, // ✅ Use default booking configuration
-    ...options               // Allow override if needed
-  });
-};
-
-/**
- * Hook for getting user bookings optimized for dashboard cards
- * Pre-processes data for quick dashboard rendering
- * @param {string} userAddress - User wallet address
- * @param {Object} options - Configuration options
- * @returns {Object} React Query result with dashboard-optimized booking data
- */
-export const useUserBookingsForDashboard = (userAddress, options = {}) => {
-  // Stable selector function to prevent unnecessary re-renders and duplicate queries
-  const dashboardSelector = useCallback((data) => {
-    const now = Math.floor(Date.now() / 1000);
-    
-    return {
-      // Dashboard summary cards
-      summary: {
-        total: data.totalBookings,
-        active: data.activeBookings,
-        upcoming: data.upcomingBookings,
-        completed: data.completedBookings,
-        cancelled: data.cancelledBookings
-      },
-      
-      // Next upcoming booking for quick access
-      nextBooking: data.bookings
-        .filter(b => b.statusCategory === 'upcoming')
-        .sort((a, b) => a.start - b.start)[0] || null,
-      
-      // Current active booking
-      currentBooking: data.bookings
-        .find(b => b.statusCategory === 'active') || null,
-      
-      // Recent activity (last 30 days)
-      recentBookings: data.bookings
-        .filter(b => (now - b.end) < (30 * 24 * 3600)) // Last 30 days
-        .sort((a, b) => b.end - a.end)
-        .slice(0, 5)
-        .map(booking => ({
-          id: booking.reservationKey,
-          labName: booking.labDetails?.name || `Lab ${booking.labId}`,
-          date: new Date(booking.start * 1000).toLocaleDateString(),
-          time: `${new Date(booking.start * 1000).toLocaleTimeString()} - ${new Date(booking.end * 1000).toLocaleTimeString()}`,
-          status: booking.statusCategory,
-          provider: booking.labDetails?.provider
-        })),
-      
-      // Usage statistics
-      stats: {
-        totalHoursBooked: data.bookings.reduce((sum, b) => sum + ((b.end - b.start) / 3600), 0),
-        averageBookingLength: data.bookings.length > 0 
-          ? data.bookings.reduce((sum, b) => sum + ((b.end - b.start) / 3600), 0) / data.bookings.length 
-          : 0,
-        mostUsedLab: getMostUsedLab(data.bookings),
-        favoriteProvider: getFavoriteProvider(data.bookings)
-      }
-    };
-  }, []);
-
-  return useUserBookingsComposed(userAddress, {
-    includeLabDetails: true,
-    select: dashboardSelector,
-    ...BOOKING_QUERY_CONFIG, // ✅ Use default booking configuration
-    ...options               // Allow override if needed
-  });
-};
-
-/**
- * Hook for getting bookings with cancellation capabilities
- * Optimized for showing bookings that can be cancelled
- * @param {string} userAddress - User wallet address
- * @param {Object} options - Configuration options
- * @returns {Object} React Query result with cancellation-optimized booking data
- */
-export const useUserCancellableBookings = (userAddress, options = {}) => {
-  return useUserBookingsComposed(userAddress, {
-    includeLabDetails: true,
-    select: (data) => {
-      const cancellableBookings = data.bookings.filter(booking => 
-        booking.statusCategory === 'upcoming' || booking.statusCategory === 'active'
-      );
-      
-      return {
-        // Only cancellable bookings
-        bookings: cancellableBookings.map(booking => ({
-          id: booking.reservationKey,
-          reservationKey: booking.reservationKey,
-          labId: booking.labId,
-          labName: booking.labDetails?.name || `Lab ${booking.labId}`,
-          provider: booking.labDetails?.provider || 'Unknown',
-          startTime: booking.start,
-          endTime: booking.end,
-          duration: ((booking.end - booking.start) / 3600).toFixed(1) + 'h',
-          status: booking.statusCategory,
-          // Cancellation window info
-          canCancel: true,
-          cancellationDeadline: booking.start - (24 * 3600), // 24h before start
-          timeUntilStart: booking.start - Math.floor(Date.now() / 1000)
-        })),
-        
-        totalCancellable: cancellableBookings.length,
-        urgentCancellations: cancellableBookings.filter(b => 
-          (b.start - Math.floor(Date.now() / 1000)) < (24 * 3600) // Less than 24h
-        ).length
-      };
-    },
-    ...BOOKING_QUERY_CONFIG, // ✅ Use default booking configuration
-    ...options               // Allow override if needed
-  });
-};
-
-// Helper functions for select transformations
-const getEventColor = (statusCategory) => {
-  switch (statusCategory) {
-    case 'active': return '#22c55e'; // Green
-    case 'upcoming': return '#3b82f6'; // Blue
-    case 'completed': return '#6b7280'; // Gray
-    case 'cancelled': return '#ef4444'; // Red
-    default: return '#8b5cf6'; // Purple
-  }
-};
-
-const getMostUsedLab = (bookings) => {
-  if (bookings.length === 0) return null;
-  
-  const labCounts = {};
-  bookings.forEach(booking => {
-    if (booking.labDetails?.name) {
-      labCounts[booking.labDetails.name] = (labCounts[booking.labDetails.name] || 0) + 1;
-    }
-  });
-  
-  return Object.entries(labCounts).sort(([,a], [,b]) => b - a)[0]?.[0] || null;
-};
-
-const getFavoriteProvider = (bookings) => {
-  if (bookings.length === 0) return null;
-  
-  const providerCounts = {};
-  bookings.forEach(booking => {
-    if (booking.labDetails?.provider) {
-      providerCounts[booking.labDetails.provider] = (providerCounts[booking.labDetails.provider] || 0) + 1;
-    }
-  });
-  
-  return Object.entries(providerCounts).sort(([,a], [,b]) => b - a)[0]?.[0] || null;
 };
 
 // Module loaded confirmation (only logs once even in StrictMode)

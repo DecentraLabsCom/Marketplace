@@ -90,37 +90,5 @@ useMetadata.queryFn = async ({ metadataUri }) => {
   return data;
 };
 
-/**
- * Hook for fetching metadata by URI with select transformation
- * Only returns the essential metadata fields needed by components
- * @param {string} metadataUri - Metadata URI to fetch (required)
- * @param {Object} options - React Query options with default config
- * @returns {Object} Optimized metadata for components
- */
-export function useMetadataOptimized(metadataUri, options = {}) {
-  const config = { ...METADATA_QUERY_CONFIG, ...options }
-  
-  return useQuery({
-    queryKey: ['metadata', metadataUri],
-    queryFn: () => useMetadata.queryFn(metadataUri),
-    select: (data) => ({
-      // Only return essential metadata fields for components
-      name: data.name || 'Unnamed Lab',
-      description: data.description || '',
-      category: data.category || 'General',
-      images: Array.isArray(data.images) ? data.images.slice(0, 5) : [], // Limit to 5 images
-      docs: Array.isArray(data.docs) ? data.docs.slice(0, 3) : [], // Limit to 3 docs
-      keywords: Array.isArray(data.keywords) ? data.keywords.slice(0, 10) : [],
-      // Essential fields only
-      hasImages: Array.isArray(data.images) && data.images.length > 0,
-      hasDocs: Array.isArray(data.docs) && data.docs.length > 0,
-      imageCount: Array.isArray(data.images) ? data.images.length : 0,
-      docCount: Array.isArray(data.docs) ? data.docs.length : 0,
-    }),
-    enabled: !!metadataUri && config.enabled !== false,
-    ...config,
-  })
-}
-
 // Module loaded confirmation (only logs once even in StrictMode)
 devLog.moduleLoaded('✅ Metadata atomic hooks loaded');

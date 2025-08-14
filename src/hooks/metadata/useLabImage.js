@@ -187,7 +187,8 @@ export function useLabImageBatch(imageUrls = [], options = {}) {
     enabled: enabled && !!imageUrl,
   }))
   
-  // Focuses on the main image (first in array)
+  // We would use useQueries here, but let's create a simpler version
+  // that focuses on the main image (first in array) for now
   const mainImageUrl = imageUrls?.[0]
   const mainImageQuery = useLabImageQuery(mainImageUrl, { enabled })
   
@@ -273,73 +274,6 @@ export function useLabImageFromMetadata(labMetadata, options = {}) {
 export const labImageQueryKeys = {
   all: () => ['labImage'],
   image: (imageUrl) => ['labImage', imageUrl],
-}
-
-/**
- * Hook for optimized image display with select transformation
- * Only returns the essential data needed for image components
- * @param {string} imageUrl - Image URL to cache and optimize
- * @param {Object} options - Hook options with default config
- * @returns {Object} Optimized image data for components
- */
-export function useLabImageOptimized(imageUrl, options = {}) {
-  const config = { ...IMAGE_CACHE_CONFIG, ...options }
-  
-  return useQuery({
-    queryKey: ['labImage', imageUrl],
-    queryFn: async () => {
-      if (!imageUrl || typeof imageUrl !== 'string') {
-        throw new Error('Invalid image URL')
-      }
-      
-      devLog.log(`🖼️ Caching image: ${imageUrl}`)
-      const imageData = await imageToBase64(imageUrl)
-      devLog.log(`✅ Image cached: ${imageUrl} (${Math.round(imageData.size / 1024)}KB)`)
-      
-      return imageData
-    },
-    select: (data) => ({
-      // Only return essential data for image components
-      src: data.dataUrl,
-      alt: `Lab image from ${imageUrl}`,
-      isLoaded: true,
-      size: Math.round(data.size / 1024), // KB
-      width: data.dimensions?.width,
-      height: data.dimensions?.height,
-      // Cache metadata
-      isCached: true,
-      originalUrl: imageUrl,
-    }),
-    enabled: !!imageUrl && config.enabled !== false,
-    ...config,
-  })
-}
-
-/**
- * Hook for batch optimized images with select transformation
- * @param {Array} imageUrls - Array of image URLs 
- * @param {Object} options - Hook options
- * @returns {Object} Combined batch result with optimized data
- */
-export function useLabImageBatchOptimized(imageUrls = [], options = {}) {
-  const { enabled = true } = options
-  
-  // Use individual queries for each image
-  const results = imageUrls.map((imageUrl, index) => 
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useLabImageOptimized(imageUrl, { 
-      enabled: enabled && !!imageUrl,
-      ...options 
-    })
-  )
-  
-  // Combine results
-  return {
-    images: results.map(result => result.data).filter(Boolean),
-    isLoading: results.some(result => result.isLoading),
-    hasErrors: results.some(result => result.isError),
-    errors: results.map(result => result.error).filter(Boolean),
-  }
 }
 
 devLog.moduleLoaded('✅ React Query lab image caching loaded')

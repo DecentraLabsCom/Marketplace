@@ -22,10 +22,6 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       // Refetch when reconnecting
       refetchOnReconnect: true,
-      // Prevent duplicate query warnings by enabling strict deduplication
-      //structuralSharing: true,
-      // Add network mode to prevent concurrent requests to same endpoint
-      //networkMode: 'online',
     },
     mutations: {
       // Disable retry for mutations to avoid UX issues with repeated prompts

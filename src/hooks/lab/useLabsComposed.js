@@ -6,13 +6,12 @@
  * Uses atomic hook queryFn exports instead of direct fetch calls for consistency and shared caching
  */
 import { useQueries } from '@tanstack/react-query'
-import { useCallback } from 'react'
 import { 
   useAllLabs, 
   useLab,
   useOwnerOf,
   LAB_QUERY_CONFIG, // ✅ Import shared configuration
-} from '../../../hooks/lab/useLabs'
+} from './useLabs'
 import { useLabProviders, PROVIDER_QUERY_CONFIG } from '@/hooks/provider/useProvider'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
@@ -49,7 +48,6 @@ const useLabTokenDecimals = () => {
  * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
  * @param {boolean} options.includeOwners - Whether to fetch owner info for each lab
  * @param {boolean} options.includeImages - Whether to cache images from metadata (default: false for backward compatibility)
- * @param {Function} options.select - Optional data transformation function (React Query select)
  * @param {Object} options.queryOptions - Override options for base queries (labIds & providers only)
  *                                        Internal queries use optimized configurations and cannot be overridden
  * @returns {Object} React Query result with enriched lab data and comprehensive status
@@ -58,7 +56,6 @@ export const useAllLabsComposed = ({
   includeMetadata = true, 
   includeOwners = false, 
   includeImages = false,
-  select,
   queryOptions = {} 
 } = {}) => {
   
@@ -404,8 +401,7 @@ export const useAllLabsComposed = ({
   const successfulQueries = allResults.filter(r => r.isSuccess && !r.error).length;
   const failedQueries = allResults.filter(r => r.error).length;
 
-  // Build the final result object
-  const finalResult = {
+  return {
     // Data
     data: {
       labs: enrichedLabs,
@@ -499,22 +495,6 @@ export const useAllLabsComposed = ({
     isPaused: allResults.some(r => r.isPaused),
     isStale: allResults.some(r => r.isStale),
   };
-
-  // Apply select transformation if provided
-  if (select && typeof select === 'function') {
-    try {
-      const transformedResult = { 
-        ...finalResult,
-        data: select(finalResult.data)
-      };
-      return transformedResult;
-    } catch (error) {
-      devLog.error('Error in select transformation:', error);
-      return finalResult; // Return original data on transformation error
-    }
-  }
-
-  return finalResult;
 };
 
 /**
@@ -553,172 +533,11 @@ export const useAllLabsFull = (queryOptions = {}) => {
  * @returns {Object} React Query result with lab data optimized for cards
  */
 export const useAllLabsForCards = (queryOptions = {}) => {
-  // Stable selector function to prevent unnecessary re-renders and duplicate queries
-  const labsForCardsSelector = useCallback((data) => ({
-    // Transform labs for optimal card rendering
-    labs: data.labs.map(lab => ({
-      id: lab.id,
-      labId: lab.labId,
-      name: lab.name || `Lab ${lab.id}`,
-      description: lab.description || '',
-      category: lab.category || 'Uncategorized',
-      provider: lab.provider || 'Unknown Provider',
-      price: parseFloat(lab.price || '0'),
-      image: lab.cachedImageUrl || lab.image || '/labs/default-lab.jpg',
-      images: lab.cachedImages || lab.images || [],
-      docs: lab.docs || [], // ✅ Include docs for detail pages
-      keywords: Array.isArray(lab.keywords) ? lab.keywords : [],
-      timeSlots: lab.timeSlots || [15, 30, 60],
-      isActive: lab.isActive !== false
-    })).filter(lab => lab.isActive), // Only active labs for marketplace
-    totalLabs: data.totalLabs,
-    activeLabs: data.labs.filter(lab => lab.isActive !== false).length
-  }), []);
-
   return useAllLabsComposed({ 
     includeMetadata: true,  // Needed for names, descriptions, etc.
     includeOwners: false,   // Not typically shown in cards
     includeImages: true,    // ✅ Cache main images for better card performance
-    select: labsForCardsSelector,
-    queryOptions: {
-      ...LAB_QUERY_CONFIG, // ✅ Use default lab configuration
-      ...queryOptions      // Allow override if needed
-    }
-  });
-};
-
-/**
- * Composed hook optimized for marketplace filtering
- * Pre-processes labs for search and filter operations
- * @param {Object} options - Configuration options
- * @param {Function} options.select - Additional select transformation
- * @param {Object} options.queryOptions - Additional react-query options
- * @returns {Object} React Query result with lab data optimized for marketplace
- */
-export const useAllLabsForMarketplace = ({ select, queryOptions = {} } = {}) => {
-  return useAllLabsComposed({
-    includeMetadata: true,
-    includeOwners: false,
-    includeImages: false, // Skip image caching for initial load performance
-    select: (data) => {
-      const processed = {
-        // Labs optimized for filtering and search
-        labs: data.labs
-          .filter(lab => lab.isActive !== false && lab.metadata) // Only active labs with metadata
-          .map(lab => ({
-            id: lab.id,
-            labId: lab.labId,
-            name: lab.metadata?.name || lab.name || `Lab ${lab.id}`,
-            category: lab.metadata?.category || lab.category || 'Uncategorized',
-            provider: lab.provider || 'Unknown Provider',
-            price: parseFloat(lab.price || '0'),
-            keywords: Array.isArray(lab.keywords) ? lab.keywords : [],
-            description: lab.description || '',
-            image: lab.image || '/labs/default-lab.jpg',
-            timeSlots: lab.timeSlots || [15, 30, 60],
-            // Search-optimized fields
-            searchableKeywords: Array.isArray(lab.keywords) 
-              ? lab.keywords.map(k => k.toLowerCase()).join(' ')
-              : '',
-            searchableName: (lab.metadata?.name || lab.name || '').toLowerCase(),
-            searchableDescription: (lab.description || '').toLowerCase()
-          })),
-        
-        // Pre-computed filter options
-        categories: [...new Set(data.labs
-          .filter(lab => lab.isActive !== false && lab.metadata?.category)
-          .map(lab => lab.metadata.category))].sort(),
-        
-        providers: [...new Set(data.labs
-          .filter(lab => lab.isActive !== false && lab.provider)
-          .map(lab => lab.provider))].sort(),
-        
-        // Aggregated data
-        totalActiveLabs: data.labs.filter(lab => lab.isActive !== false).length,
-        totalLabs: data.totalLabs,
-        
-        // Price range for filtering
-        priceRange: data.labs.length > 0 ? {
-          min: Math.min(...data.labs.map(lab => parseFloat(lab.price || '0'))),
-          max: Math.max(...data.labs.map(lab => parseFloat(lab.price || '0')))
-        } : { min: 0, max: 0 }
-      };
-      
-      // Apply additional select transformation if provided
-      return select ? select(processed) : processed;
-    },
-    queryOptions: {
-      ...LAB_QUERY_CONFIG, // ✅ Use default lab configuration
-      ...queryOptions      // Allow override if needed
-    }
-  });
-};
-
-/**
- * Composed hook optimized for provider dashboard
- * Includes owner information and provider-specific data
- * @param {string} providerAddress - Provider wallet address
- * @param {Object} options - Configuration options
- * @param {Object} options.queryOptions - Additional react-query options
- * @returns {Object} React Query result with provider-specific lab data
- */
-export const useProviderLabsComposed = (providerAddress, { queryOptions = {} } = {}) => {
-  return useAllLabsComposed({
-    includeMetadata: true,
-    includeOwners: true,
-    includeImages: true,
-    select: (data) => {
-      if (!providerAddress) return { labs: [], totalLabs: 0, myLabs: 0 };
-      
-      const providerLabs = data.labs.filter(lab => 
-        lab.owner?.toLowerCase() === providerAddress.toLowerCase()
-      );
-      
-      return {
-        // Provider's labs with full details
-        labs: providerLabs.map(lab => ({
-          id: lab.id,
-          labId: lab.labId,
-          name: lab.name || `Lab ${lab.id}`,
-          description: lab.description || '',
-          category: lab.category || 'Uncategorized',
-          provider: lab.provider,
-          price: parseFloat(lab.price || '0'),
-          image: lab.cachedImageUrl || lab.image,
-          images: lab.cachedImages || lab.images || [],
-          keywords: lab.keywords || [],
-          timeSlots: lab.timeSlots || [15, 30, 60],
-          isActive: lab.isActive !== false,
-          owner: lab.owner,
-          // Management fields
-          uri: lab.uri,
-          accessURI: lab.accessURI,
-          auth: lab.auth,
-          metadata: lab.metadata
-        })),
-        
-        // Aggregated statistics
-        totalLabs: data.totalLabs,
-        myLabs: providerLabs.length,
-        activeLabs: providerLabs.filter(lab => lab.isActive !== false).length,
-        inactiveLabs: providerLabs.filter(lab => lab.isActive === false).length,
-        
-        // Category breakdown
-        categories: [...new Set(providerLabs
-          .filter(lab => lab.category)
-          .map(lab => lab.category))],
-        
-        // Average price
-        averagePrice: providerLabs.length > 0 
-          ? providerLabs.reduce((sum, lab) => sum + parseFloat(lab.price || '0'), 0) / providerLabs.length
-          : 0
-      };
-    },
-    queryOptions: {
-      ...LAB_QUERY_CONFIG, // ✅ Use default lab configuration
-      enabled: !!providerAddress, // Only fetch if provider address is provided
-      ...queryOptions      // Allow override if needed
-    }
+    queryOptions 
   });
 };
 

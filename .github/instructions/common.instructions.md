@@ -12,16 +12,14 @@ This project follows a set of coding standards and best practices to ensure code
    - **Simple hooks call simple endpoints**: Single `useQuery` calls that send requests to specific API endpoints for either fetching or mutating data (1:1 relationship).
    - **Cache-extracting hooks**: Simple data extraction from shared cache using basic `find()` operations.
    - **Atomic hooks**: Available for specific use cases when individual data is needed.
-   - **Specific hooks**: Create specific hooks for common use cases that require tailored logic or data transformations. These hooks should use 'select' to encapsulate the specific requirements of the use case while leveraging the underlying atomic hooks and React Query features. [NOT BEING USED AT THE MOMENT]
-   - **Composed queries**: For complex data orchestration that requires multiple related queries, use composed queries with `useQueries` (`src/utils/hooks/queries/`) to maintain React Query's caching, retry, and error handling benefits while providing unified data composition. These query hooks are implemented using atomic hooks, not direct fetch calls.
+   - **Composed hooks**: For complex data orchestration that requires multiple related queries, use `useQueries` to maintain React Query's caching, retry, and error handling benefits while providing unified data composition. These hooks are implemented using atomic hooks, not direct fetch calls.
    - **Mutation hooks**: Used for creating, updating, or deleting data. Three mutations must be provided for each operation: one for wallet-based actions e.g., `useCancelBookingWallet`), one for SSO users (e.g., `useCancelBookingSSO`), and one to route to the appropriate implementation (Wallet or SSO; e.g., `useCancelBooking`).
-   - **Composed mutations**: For complex workflows that involve multiple sequential or parallel operations, use composed mutations (`src/utils/hooks/mutations/`). These provide atomic operations with rollback support, optimistic updates, and coordinated cache management. Examples include lab creation with image uploads (`useCreateLabComposed`), booking workflows with payment processing (`useCreateBookingComposed`), and provider registration with blockchain operations (`useProviderRegistrationComposed`). [NOT BEING USED AT THE MOMENT]
    - All hooks should use the `use` prefix. Complex React Query compositions like `useQueries` are allowed when they preserve caching and error handling benefits for composed data operations.
    - The goal is to balance simplicity with React Query's powerful caching and resilience features.
 
 4. **Services**: Services are for composed fetch operations that are too computationally intensive for client-side orchestration:
-   - Services are server-based and may compose multiple atomic api endpoint calls for heavy orchestration scenarios.
-   - Atomic api endpoint calls must be handled through fetch.
+   - Services are server-based and compose multiple atomic api endpoint calls for heavy orchestration scenarios.
+   - Atomic api endpoint calls are handled through fetch.
    - Mutations are always handled through hooks, not services.
    - For most composed data needs, prefer using composed hooks with `useQueries` to maintain React Query's caching and error handling benefits.
    - There are currently no services defined in the project.
@@ -52,16 +50,3 @@ This project follows a set of coding standards and best practices to ensure code
 14. **CSS**: Use tailwind CSS for styling. Ensure that styles are applied consistently across the application. Avoid inline styles and prefer using utility classes provided by Tailwind.
 
 15. **Logging**: Implement logging for important events and errors. Use a centralized logging utility (devLog.xxx) to capture and format log messages consistently.
-
-16. **SSR Strategy**: The project implements a hybrid Server-Side Rendering (SSR) strategy to optimize performance, SEO, and user experience:
-   - **Hybrid SSR Approach**: Use SSR for public data and Client-Side Rendering (CSR) for private/user-specific data to ensure security and optimal UX.
-   - **HydrationBoundary for Public Data**: Use `HydrationBoundary` with prefetched public data (labs, providers, lab details) on pages that need SEO and instant data display. This includes:
-     - Homepage (`src/app/page.js`): Prefetch labs and providers
-     - Lab detail pages (`src/app/lab/[id]/page.js`): Prefetch specific lab data
-     - Dashboard pages (`src/app/providerdashboard/page.js`, `src/app/userdashboard/page.js`): Prefetch public labs data
-     - Reservation pages (`src/app/reservation/page.js`): Prefetch public labs data
-   - **Progressive Loading for Private Data**: Private data (user bookings, halos, wallet-specific information) should load client-side after hydration to prevent exposure in SSR and maintain security.
-   - **Server Components for Static Content**: Convert static pages (about, contact, FAQ) to server components for optimal SEO and performance.
-   - **SSR Prefetch Utilities**: Use centralized prefetch functions from `src/utils/ssr/prefetch.js` (e.g., `prefetchLabsData`, `prefetchLabDetails`, `prefetchProvidersOnly`) for consistent data fetching.
-   - **Custom HydrationBoundary**: Use the custom `HydrationBoundary` component (`src/components/ui/HydrationBoundary.js`) for error handling and consistent hydration behavior.
-   - **createSSRSafeQuery**: Use this utility for components that need to work in both SSR and CSR contexts without hydration mismatches.
