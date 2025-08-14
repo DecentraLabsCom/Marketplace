@@ -6,9 +6,9 @@ This diagram summarizes the key steps to become a lab provider on DecentraLabs:
 flowchart TD
     A[📋 Check lab requirements] --> B[🌐 Enable your lab for online access]
     B --> C[🔑 Set up authentication & authorization]
-    C --> D[📝 Register as a provider]
+    C --> D["📝 Register as a provider<br/><sub>(DecentraLabs marketplace)</sub>"]
 
-    D --> E{🔗 Tokenize & list your lab}
+    D --> E{"🔗 Tokenize & list your lab<br/><sub>(DecentraLabs marketplace)</sub>"}
 
     E --> F1[⚙️ Full Setup: Complete web form]
     F1 --> G1[Submit transaction & mint lab token]
