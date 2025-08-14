@@ -23,7 +23,7 @@ import { userQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Export composed hooks
-export * from './useUsersComposed'
+export * from '../../utils/hooks/queries/usersComposedQueries'
 
 // Common configuration for all user/provider hooks
 export const USER_QUERY_CONFIG = {

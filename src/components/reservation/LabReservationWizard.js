@@ -5,7 +5,7 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useCompleteBookingCreation } from '@/hooks/booking/useBookings'
-import { useUserBookingsComposed, useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
+import { useUserBookingsComposed, useLabBookingsComposed } from '@/utils/hooks/queries/bookingsComposedQueries'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import BookingForm from '@/components/reservation/BookingForm'
 import BookingConfirmation from '@/components/reservation/BookingConfirmation'

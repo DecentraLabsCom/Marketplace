@@ -1,9 +1,10 @@
+"use client";
 import React, { useEffect, useState, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
-import { useUserBookingsComposed } from '@/hooks/booking/useBookingsComposed'
+import { useAllLabsComposed } from '@/utils/hooks/queries/labsComposedQueries'
+import { useUserBookingsComposed } from '@/utils/hooks/queries/bookingsComposedQueries'
 import { useCancelBooking, useCancelReservationRequest } from '@/hooks/booking/useBookings'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
@@ -39,8 +40,7 @@ export default function UserDashboard() {
   } = useUserBookingsComposed(address, {
     includeLabDetails: true,
     queryOptions: {
-      enabled: !!address && isLoggedIn,
-      staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
+    enabled: !!address && isLoggedIn
     }
   });
 
@@ -203,7 +203,6 @@ export default function UserDashboard() {
 
       // UI removal is handled by BookingEventContext upon on-chain confirmation
       // This prevents premature list updates and avoids full list refreshes
-
     } catch (error) {
       devLog.error('Cancellation failed:', error);
       
@@ -219,7 +218,7 @@ export default function UserDashboard() {
         });
       }, 5000);
       
-  if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         addPersistentNotification('warning', '🚫 Transaction rejected by user.');
       } else {
         // Pass the full error to let NotificationContext derive a concise message
@@ -227,14 +226,6 @@ export default function UserDashboard() {
       }
     }
   };
-
-  // 🚀 All transaction handling is now done through React Query mutations
-  // Legacy blockchain transaction functions removed
-
-  // Additional utility functions
-
-  // 🚀 React Query handles all transaction management automatically
-  // No manual transaction state or confirmation handling needed
 
   const handleRefund = () => {
     closeModal();
@@ -251,7 +242,7 @@ export default function UserDashboard() {
     return labs
       .map(lab => {
         // Get user bookings for this lab from React Query data
-  const labUserBookings = userBookings?.filter(booking => String(booking.labId) === String(lab.id)) || [];
+        const labUserBookings = userBookings?.filter(booking => String(booking.labId) === String(lab.id)) || [];
         if (!Array.isArray(labUserBookings)) return null;
         const futureBooking = labUserBookings
           .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
@@ -266,14 +257,14 @@ export default function UserDashboard() {
   const activeBooking = useMemo(() => {
     if (!availableLab || !userBookings) return null;
     return userBookings
-  .filter(booking => String(booking.labId) === String(availableLab.id))
+      .filter(booking => String(booking.labId) === String(availableLab.id))
       .find(b => isBookingActive([b]));
   }, [availableLab, userBookings]);
 
   const nextBooking = useMemo(() => {
     if (availableLab || !firstActiveLab || !userBookings || !now) return null;
     return userBookings
-  .filter(booking => String(booking.labId) === String(firstActiveLab.id))
+      .filter(booking => String(booking.labId) === String(firstActiveLab.id))
       .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
       .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
   }, [availableLab, firstActiveLab, userBookings, now]);

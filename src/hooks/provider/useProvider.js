@@ -24,6 +24,7 @@ export const PROVIDER_QUERY_CONFIG = {
  * GET /api/contract/provider/getLabProviders
  * 
  * @param {Object} options - React Query options
+ * @param {Function} options.select - Optional data transformation function (React Query select)
  * @returns {Object} React Query result with providers data
  */
 export const useLabProviders = (options = {}) => {
@@ -311,6 +312,161 @@ export const useDeleteLabData = (options = {}) => {
       queryClient.invalidateQueries({ queryKey: ['metadata', labURI] });
     },
     ...options,
+  });
+};
+
+// ===== SPECIALIZED HOOKS WITH SELECT TRANSFORMATIONS =====
+
+/**
+ * Hook for getting providers optimized for dropdown/select components
+ * @param {Object} options - React Query options
+ * @returns {Object} React Query result with dropdown-optimized provider data
+ */
+export const useProvidersForDropdown = (options = {}) => {
+  return useLabProviders({
+    select: (data) => ({
+      // Transform for dropdown components
+      options: data.providers.map(provider => ({
+        value: provider.account,
+        label: provider.name,
+        email: provider.email,
+        country: provider.country,
+        isActive: provider.isActive !== false
+      })).sort((a, b) => a.label.localeCompare(b.label)),
+      
+      // Quick lookup
+      totalProviders: data.count,
+      activeProviders: data.providers.filter(p => p.isActive !== false).length
+    }),
+    ...PROVIDER_QUERY_CONFIG, // ✅ Use default provider configuration
+    ...options                // Allow override if needed
+  });
+};
+
+/**
+ * Hook for getting providers optimized for marketplace filtering
+ * Pre-processes provider names for filter options
+ * @param {Object} options - React Query options
+ * @returns {Object} React Query result with filter-optimized provider data
+ */
+export const useProvidersForFilters = (options = {}) => {
+  return useLabProviders({
+    select: (data) => ({
+      // Provider names for filtering
+      providerNames: [...new Set(data.providers
+        .filter(p => p.isActive !== false && p.name)
+        .map(p => p.name))]
+        .sort(),
+      
+      // Provider mapping for lookup
+      providerMap: data.providers.reduce((map, provider) => {
+        map[provider.name] = {
+          account: provider.account,
+          email: provider.email,
+          country: provider.country,
+          labCount: provider.labCount || 0
+        };
+        return map;
+      }, {}),
+      
+      // Geography breakdown
+      countries: [...new Set(data.providers
+        .filter(p => p.country)
+        .map(p => p.country))]
+        .sort(),
+      
+      // Statistics
+      totalProviders: data.count,
+      activeProviders: data.providers.filter(p => p.isActive !== false).length,
+      countriesCount: new Set(data.providers.filter(p => p.country).map(p => p.country)).size
+    }),
+    ...PROVIDER_QUERY_CONFIG, // ✅ Use default provider configuration
+    ...options                // Allow override if needed
+  });
+};
+
+/**
+ * Hook for getting provider statistics and analytics
+ * Optimized for admin dashboard and analytics views
+ * @param {Object} options - React Query options
+ * @returns {Object} React Query result with analytics-optimized provider data
+ */
+export const useProviderAnalytics = (options = {}) => {
+  return useLabProviders({
+    select: (data) => {
+      const activeProviders = data.providers.filter(p => p.isActive !== false);
+      const inactiveProviders = data.providers.filter(p => p.isActive === false);
+      
+      // Country distribution
+      const countryStats = data.providers.reduce((stats, provider) => {
+        if (provider.country) {
+          stats[provider.country] = (stats[provider.country] || 0) + 1;
+        }
+        return stats;
+      }, {});
+      
+      // Lab count distribution
+      const labCountStats = data.providers.reduce((stats, provider) => {
+        const labCount = provider.labCount || 0;
+        const bucket = labCount === 0 ? '0' : 
+                      labCount <= 2 ? '1-2' : 
+                      labCount <= 5 ? '3-5' : 
+                      labCount <= 10 ? '6-10' : '10+';
+        stats[bucket] = (stats[bucket] || 0) + 1;
+        return stats;
+      }, {});
+      
+      return {
+        // Provider counts
+        total: data.count,
+        active: activeProviders.length,
+        inactive: inactiveProviders.length,
+        
+        // Top providers by lab count
+        topProviders: data.providers
+          .filter(p => p.labCount > 0)
+          .sort((a, b) => (b.labCount || 0) - (a.labCount || 0))
+          .slice(0, 10)
+          .map(provider => ({
+            name: provider.name,
+            account: provider.account,
+            labCount: provider.labCount || 0,
+            country: provider.country,
+            email: provider.email
+          })),
+        
+        // Geographic distribution
+        geographic: {
+          countries: Object.keys(countryStats).length,
+          distribution: Object.entries(countryStats)
+            .sort(([,a], [,b]) => b - a)
+            .map(([country, count]) => ({ country, count })),
+          topCountries: Object.entries(countryStats)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 5)
+        },
+        
+        // Lab distribution
+        labDistribution: Object.entries(labCountStats)
+          .map(([range, count]) => ({ range, count })),
+        
+        // Average labs per provider
+        averageLabsPerProvider: data.providers.length > 0 
+          ? data.providers.reduce((sum, p) => sum + (p.labCount || 0), 0) / data.providers.length 
+          : 0,
+        
+        // Recently added (if we have timestamp data)
+        recentProviders: data.providers
+          .slice(-5) // Last 5 added (assuming array order represents addition order)
+          .map(provider => ({
+            name: provider.name,
+            account: provider.account,
+            country: provider.country
+          }))
+      };
+    },
+    ...PROVIDER_QUERY_CONFIG, // ✅ Use default provider configuration
+    ...options                // Allow override if needed
   });
 };
 

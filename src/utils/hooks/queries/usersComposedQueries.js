@@ -10,7 +10,7 @@ import {
   useLabProviders, 
   useIsLabProvider,
   USER_QUERY_CONFIG, // ✅ Import shared configuration
-} from './useUsers'
+} from '../../../hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 /**

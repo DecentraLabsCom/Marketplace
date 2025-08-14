@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { parseUnits } from 'viem'
 import { useWaitForTransactionReceipt } from 'wagmi'
@@ -13,12 +14,11 @@ import {
   useClaimLabBalanceMutation
 } from '@/hooks/lab/useLabs'
 import { 
-  useAllLabsComposed,
-  extractLabsByOwner
-} from '@/hooks/lab/useLabsComposed'
+  useAllLabsComposed
+} from '@/utils/hooks/queries/labsComposedQueries'
 import { 
   useLabBookingsComposed
-} from '@/hooks/booking/useBookingsComposed'
+} from '@/utils/hooks/queries/bookingsComposedQueries'
 // import { 
 //   useClaimAllBalanceMutation,
 //   useClaimLabBalanceMutation
@@ -66,7 +66,7 @@ export default function ProviderDashboard() {
     }
     
     try {
-      // Filter labs directly instead of using extractLabsByOwner
+      // Filter labs
       return labs.filter(lab => 
         lab.owner && lab.owner.toLowerCase() === address.toLowerCase()
       );
@@ -89,7 +89,7 @@ export default function ProviderDashboard() {
 
   // 🚀 React Query mutations for lab management
   const addLabMutation = useAddLab();
-  const updateLabMutation = useUpdateLab();
+  const updateLabMutation = useUpdateLab();  
   const deleteLabMutation = useDeleteLab();
   const createLabMutation = useCreateLabMutation();
   const toggleLabStatusMutation = useToggleLabStatusMutation();
@@ -277,7 +277,7 @@ export default function ProviderDashboard() {
       accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
       hasChangedOnChainData
     });
-
+      
     // Use coordinated update to prevent collisions with blockchain events
     await coordinatedLabUpdate(async () => {
 
@@ -306,7 +306,7 @@ export default function ProviderDashboard() {
         if (labData.uri.startsWith('Lab-')) {
           try {
             await saveLabDataMutation.mutateAsync({
-              ...labData,
+        ...labData,
               price: originalPrice // Save with human-readable price for JSON consistency
             });
             addTemporaryNotification('success', '✅ Lab metadata updated!');

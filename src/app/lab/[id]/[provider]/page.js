@@ -1,6 +1,21 @@
+import HydrationBoundary from '@/components/ui/HydrationBoundary'
+import { prefetchLabDetails } from '@/utils/ssr/prefetch'
 import LabDetail from '@/components/lab/LabDetail'
 
+/**
+ * Individual lab page with provider-specific view and server-side prefetched data
+ * Pre-loads specific lab details, metadata, and owner info for optimal UX and SEO
+ * Falls back gracefully if prefetch fails
+ */
 export default async function LabDetailWrapper({ params }) {
   const { id, provider } = await params;
-  return <LabDetail id={id} provider={provider} />
+  
+  // Prefetch specific lab data on server for seamless hydration and SEO
+  const dehydratedState = await prefetchLabDetails(id)
+
+  return (
+    <HydrationBoundary state={dehydratedState} logHydration={true}>
+      <LabDetail id={id} provider={provider} />
+    </HydrationBoundary>
+  )
 }

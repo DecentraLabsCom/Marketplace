@@ -19,7 +19,7 @@ import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Export composed hooks
-export * from './useLabsComposed'
+export * from '../../utils/hooks/queries/labsComposedQueries'
 
 // Common configuration for all lab hooks
 const LAB_QUERY_CONFIG = {
