@@ -2,7 +2,7 @@
 
 The DecentraLabs Marketplace offers two main approaches for tokenizing your laboratory:
 
-#### 1. Full Setup (recommended for beginners)
+### 1. Full Setup (recommended for beginners)
 
 This option allows you to input all laboratory data directly through the web interface in the marketplace; particularly in the **Lab Panel** ssection (which becomes visible and accessible once you are registered as a provider). This approach stores essential information on-chain while keeping detailed metadata accessible through decentralized storage.
 
@@ -35,7 +35,7 @@ This option allows you to input all laboratory data directly through the web int
 * Automatic metadata management
 * Immediate publication after transaction confirmation
 
-#### 2. Quick Setup (for technical users)
+### 2. Quick Setup (for technical users)
 
 This option is designed for users who prefer to manage their metadata externally or want more control over their data storage. This approach requires only essential on-chain data while referencing external metadata.
 
