@@ -10,12 +10,14 @@ flowchart TD
 
     D --> E{"🔗 Tokenize & list your lab<br/><sub>(DecentraLabs marketplace)</sub>"}
 
-    E --> F1[⚙️ Full Setup: Complete web form]
-    F1 --> G1[Submit transaction & mint lab token]
+    E --> F1(⚙️ Full Setup)
+    F1 --> F11[Complete web form]
+    F11 --> G1[⛓️ Submit transaction & mint lab token]
 
-    E --> F2[⚡ Quick Setup: Prepare JSON metadata]
-    F2 --> G2[Upload metadata & provide its URL]
-    G2 --> G1
+    E --> F2(⚡ Quick Setup)
+    F2 --> F21[Prepare JSON metadata & upload metadata file]
+    F21 --> F22[Complete webform, providing metadata URL]
+    F22 --> G1
 
     G1 --> H[✅ Lab listed & published in marketplace]
     H --> I[🛠️ Post-tokenization management]
