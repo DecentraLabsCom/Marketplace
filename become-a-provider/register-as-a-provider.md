@@ -1,10 +1,12 @@
 # Register as a provider
 
+### 🔭 Future Vision
+
 In the long term, DecentraLabs aims to support **federated Single Sign-On (SSO)** for institutional providers. This would allow us to automatically recognize verified university or research staff based on identity provider credentials (e.g., via [eduGAIN](https://edugain.org/)), streamlining the onboarding process and reducing the risk of fraud. Additionally, we envision a **DAO-based governance model** in which the community collectively decides who can join as a provider, ensuring openness, fairness, and transparency in provider approval.
 
 However, while these features are under development, the current provider registration process is handled manually and involves a simple but secure verification step performed by the DecentraLabs core team.
 
-#### 📝 Current Registration Process
+### 📝 Current Registration Process
 
 At present, becoming a provider involves the following steps:
 
