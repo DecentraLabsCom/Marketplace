@@ -11,32 +11,23 @@ A[📋 Check lab requirements] --> B[🌐 Enable online access for your lab]
 ```
 
 ```mermaid
-graph TD
-    %% Pre‑tokenization steps
-    A[Check lab requirements]:::step --> B[Enable your lab for online access]:::step
-    B --> C[Set up authentication & authorization]:::step
-    C --> D[Register as a provider]:::step
+flowchart TD
+    A[Check lab requirements] --> B[Enable your lab for online access]
+    B --> C[Set up authentication & authorization]
+    C --> D[Register as a provider]
 
-    %% Tokenization branching
-    D --> E{Tokenize & list your lab}:::decision
+    D --> E{Tokenize & list your lab}
 
-    %% Full setup branch
-    E --> F1[Full Setup: Complete web form]:::step
-    F1 --> G1[Submit transaction & mint lab token]:::step
+    E --> F1[Full Setup: Complete web form]
+    F1 --> G1[Submit transaction & mint lab token]
 
-    %% Quick setup branch
-    E --> F2[Quick Setup: Prepare JSON metadata]:::step
-    F2 --> G2[Upload metadata & provide its URL]:::step
-    G2 --> G1  %% both branches lead to lab token minting
+    E --> F2[Quick Setup: Prepare JSON metadata]
+    F2 --> G2[Upload metadata & provide its URL]
+    G2 --> G1
 
-    %% After tokenization
-    G1 --> H[Lab listed & published in marketplace]:::result
-    H --> I[Post‑tokenization management]:::step
+    G1 --> H[Lab listed & published in marketplace]
+    H --> I[Post-tokenization management]
 
-    %% Styles
-    classDef step fill:#f5f5f5,stroke:#333,stroke-width:1px;
-    classDef decision fill:#ffd966,stroke:#333,stroke-width:1px;
-    classDef result fill:#d5e8d4,stroke:#333,stroke-width:1px;
 ```
 
 The image below illustrates the architecture of the infrastructure you must have at your institution:
