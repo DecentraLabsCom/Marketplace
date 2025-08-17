@@ -807,6 +807,7 @@ export const useUnlistToken = (options = {}) => {
  */
 export const useRequestFundsSSO = (options = {}) => {
   const queryClient = useQueryClient();
+  const { address } = useUser();
 
   return useMutation({
     mutationFn: async () => {
@@ -826,7 +827,7 @@ export const useRequestFundsSSO = (options = {}) => {
     },
     onSuccess: (data) => {
       // Invalidate safe balance and related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(userAddress || '') });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
       devLog.log('✅ Funds requested successfully, cache invalidated');
     },
     onError: (error) => {
@@ -872,6 +873,7 @@ export const useRequestFunds = (options = {}) => {
  */
 export const useRequestFundsWallet = (options = {}) => {
   const queryClient = useQueryClient();
+  const { address } = useUser();
   const { contractWriteFunction: requestFunds } = useContractWriteFunction('requestFunds');
 
   return useMutation({
@@ -883,7 +885,7 @@ export const useRequestFundsWallet = (options = {}) => {
     },
     onSuccess: (result) => {
       // Invalidate safe balance and related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(userAddress || '') });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
       devLog.log('✅ Funds requested successfully via wallet, cache invalidated');
     },
     onError: (error) => {

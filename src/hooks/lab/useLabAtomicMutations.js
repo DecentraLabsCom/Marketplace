@@ -991,6 +991,7 @@ export const useUnlistLab = (options = {}) => {
  */
 export const useClaimAllBalanceMutation = (options = {}) => {
   const queryClient = useQueryClient();
+  const { address } = useUser();
   const { invalidateAllLabs } = useLabCacheUpdates();
   
   return useMutation({
@@ -1010,7 +1011,7 @@ export const useClaimAllBalanceMutation = (options = {}) => {
     onSuccess: (data) => {
       // Use cache utilities and invalidate balance queries
       try {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(userSession?.wallet || userSession?.address) });
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
         invalidateAllLabs(); // Labs might have updated balance info
         devLog.log('✅ All balance claimed successfully');
       } catch (error) {
@@ -1031,6 +1032,7 @@ export const useClaimAllBalanceMutation = (options = {}) => {
  */
 export const useClaimLabBalanceMutation = (options = {}) => {
   const queryClient = useQueryClient();
+  const { address } = useUser();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
   
   return useMutation({
@@ -1052,7 +1054,7 @@ export const useClaimLabBalanceMutation = (options = {}) => {
       // Use cache utilities for granular updates
       try {
         // Invalidate balance queries
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(userSession?.wallet || userSession?.address) });
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
         
         // Update the specific lab with balance claim info
         const updatedLabData = {

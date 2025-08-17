@@ -12,8 +12,7 @@
  * @returns {Response} JSON response with listing result, transaction hash, or detailed error
  */
 
-import { getProvider } from '@/utils/blockchain/provider'
-import { getContractInstance } from '@/utils/blockchain/contract'
+import { getContractInstance } from '../../utils/contractInstance'
 import { contractAddresses } from '@/contracts/diamond'
 import devLog from '@/utils/dev/logger'
 
@@ -47,13 +46,8 @@ export async function POST(request) {
 
     devLog.log('🎯 Starting lab listing process via SSO:', { labId: numericLabId });
 
-    // Get blockchain provider and contract instance
-    const provider = getProvider();
-    if (!provider) {
-      throw new Error('Failed to connect to blockchain provider');
-    }
-
-    const contractInstance = getContractInstance(provider);
+    // Get contract instance
+    const contractInstance = await getContractInstance();
     if (!contractInstance) {
       throw new Error('Failed to get contract instance');
     }

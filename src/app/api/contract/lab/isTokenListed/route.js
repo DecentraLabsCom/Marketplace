@@ -11,13 +11,12 @@
  * @returns {Response} JSON response with listing status or error details
  */
 
-import { getProvider } from '@/utils/blockchain/provider'
-import { getContractInstance } from '@/utils/blockchain/contract'
-import { contractAddresses } from '@/contracts/diamond'
+import { getContractInstance } from '../../utils/contractInstance'
 import devLog from '@/utils/dev/logger'
 
 export async function GET(request) {
   const startTime = Date.now();
+  let numericLabId; // Declare outside try block for error handling access
   
   try {
     // Extract labId from URL search parameters
@@ -34,7 +33,7 @@ export async function GET(request) {
     }
 
     // Validate labId is a valid number
-    const numericLabId = Number(labId);
+    numericLabId = Number(labId);
     if (isNaN(numericLabId) || numericLabId < 0) {
       return Response.json({ 
         error: 'Invalid lab ID format',
@@ -46,13 +45,8 @@ export async function GET(request) {
 
     devLog.log('🔍 Checking lab listing status:', { labId: numericLabId });
 
-    // Get blockchain provider and contract instance
-    const provider = getProvider();
-    if (!provider) {
-      throw new Error('Failed to connect to blockchain provider');
-    }
-
-    const contractInstance = getContractInstance(provider);
+    // Get contract instance
+    const contractInstance = await getContractInstance();
     if (!contractInstance) {
       throw new Error('Failed to get contract instance');
     }
@@ -104,7 +98,7 @@ export async function GET(request) {
     if (error.message?.includes('TokenNotFound') || error.message?.includes('nonexistent')) {
       return Response.json({
         error: 'Lab not found',
-        message: `Lab with ID ${labId} does not exist`,
+        message: `Lab with ID ${numericLabId} does not exist`,
         type: 'NOT_FOUND',
         processingTime
       }, { status: 404 });
