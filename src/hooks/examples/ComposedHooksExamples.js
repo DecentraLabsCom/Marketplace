@@ -19,7 +19,7 @@ import {
   useUserBookingsComposed,
   useLabBookingsComposed,
   useMultiLabBookingsComposed 
-} from '@/hooks/booking/useBookingsComposed'
+} from '@/hooks/booking/useBookings'
 
 /**
  * Example: Basic Lab List Component

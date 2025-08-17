@@ -6,7 +6,7 @@
  * @author DecentraLabs
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { labQueryKeys } from '@/utils/hooks/queryKeys'
+import { labQueryKeys, providerQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for provider hooks
@@ -28,7 +28,7 @@ export const PROVIDER_QUERY_CONFIG = {
  */
 export const useLabProviders = (options = {}) => {
   return useQuery({
-    queryKey: ['providers', 'getLabProviders'],
+    queryKey: providerQueryKeys.getLabProviders(),
     queryFn: async () => {
       try {
         const response = await fetch('/api/contract/provider/getLabProviders', {
@@ -113,10 +113,10 @@ export const useSaveLabData = (options = {}) => {
       
       // Invalidate the specific metadata query that changed
       if (variables?.uri) {
-        devLog.log('🔄 [useSaveLabData] About to invalidate metadata query with key:', ['metadata', variables.uri]);
+        devLog.log('🔄 [useSaveLabData] About to invalidate metadata query with key:', metadataQueryKeys.byUri(variables.uri));
         
         const result = queryClient.invalidateQueries({ 
-          queryKey: ['metadata', variables.uri],
+          queryKey: metadataQueryKeys.byUri(variables.uri),
           exact: true,
           refetchType: 'all' // Force refetch all queries, bypassing staleTime
         });
@@ -307,8 +307,8 @@ export const useDeleteLabData = (options = {}) => {
     },
     onSuccess: (data, labURI) => {
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: ['metadata'] });
-      queryClient.invalidateQueries({ queryKey: ['metadata', labURI] });
+      queryClient.invalidateQueries({ queryKey: metadataQueryKeys.all() });
+      queryClient.invalidateQueries({ queryKey: metadataQueryKeys.byUri(labURI) });
     },
     ...options,
   });

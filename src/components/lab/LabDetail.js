@@ -2,7 +2,7 @@
 import { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
-import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
+import { useAllLabsComposed } from '@/hooks/lab/useLabs'
 import { useLabToken } from '@/context/LabTokenContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'

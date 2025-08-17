@@ -8,14 +8,14 @@ This project follows a set of coding standards and best practices to ensure code
 
 2. **API endpoints**: All API endpoints should be atomic, with no business logic in the API layer. This means that each endpoint should perform a single, well-defined task. The API should be either GET (for queries) or POST (for mutations) and must receive and return data in a consistent format (including the appropiate HTTP codes for React Query to correctly identify errors), and any necessary transformations should be handled in the client-side code, particularly in the context of React Query (hooks). API endpoints in /app/api/contract call smart contracts, which are the source of truth for the data. The API endpoints are a subset of those in the diamond.js and the lab.js ABIs (in app/contracts/). Specification for the smart contract can be found at: https://github.com/DecentraLabsCom/Smart-Contract-Specifications
 
-3. **Hooks**: Custom hooks follow patterns that optimize React Query's caching and error handling capabilities:
-   - **Simple hooks call simple endpoints**: Single `useQuery` calls that send requests to specific API endpoints for either fetching or mutating data (1:1 relationship).
-   - **Cache-extracting hooks**: Simple data extraction from shared cache using basic `find()` operations.
-   - **Atomic hooks**: Available for specific use cases when individual data is needed.
-   - **Composed hooks**: For complex data orchestration that requires multiple related queries, use `useQueries` to maintain React Query's caching, retry, and error handling benefits while providing unified data composition. These hooks are implemented using atomic hooks, not direct fetch calls.
-   - **Mutation hooks**: Used for creating, updating, or deleting data. Three mutations must be provided for each operation: one for wallet-based actions e.g., `useCancelBookingWallet`), one for SSO users (e.g., `useCancelBookingSSO`), and one to route to the appropriate implementation (Wallet or SSO; e.g., `useCancelBooking`).
-   - All hooks should use the `use` prefix. Complex React Query compositions like `useQueries` are allowed when they preserve caching and error handling benefits for composed data operations.
-   - The goal is to balance simplicity with React Query's powerful caching and resilience features.
+3. **Hooks Architecture**: Custom hooks follow a modular, domain-based architecture that optimizes React Query's caching and error handling capabilities:
+   - **Index/Barrel Files**: Each domain has an index file (e.g., `useLabs.js`, `useBookings.js`...) that exports all hooks for that domain. Components should import from these index files rather than individual hook files to maintain architectural consistency and enable easier refactoring.
+   - **Atomic Query Hooks**: Single `useQuery` calls that fetch specific data pieces (1:1 relationship with API endpoints). These are the building blocks for composed hooks.
+   - **Atomic Mutation Hooks**: Single mutation operations. Three mutations must be provided for each operation: one for wallet-based actions (e.g., `useCancelBookingWallet`), one for SSO users (e.g., `useCancelBookingSSO`), and one to route to the appropriate implementation (Wallet or SSO; e.g., `useCancelBooking`).
+   - **Composed Query Hooks**: For complex data orchestration that requires multiple related queries, use `useQueries` to maintain React Query's caching, retry, and error handling benefits while providing unified data composition. These hooks are implemented using atomic hooks, not direct fetch calls.
+   - **Cache Update Utility Hooks**: Domain-specific cache management utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`...) that provide granular cache manipulation functions.
+   - **Cache-extracting hooks**: Simple data extraction from shared cache using basic `find()` operations for performance optimization.
+   - All hooks should use the `use` prefix. The goal is to balance simplicity with React Query's powerful caching and resilience features while maintaining clear domain separation.
 
 4. **Services**: Services are for composed fetch operations that are too computationally intensive for client-side orchestration:
    - Services are server-based and compose multiple atomic api endpoint calls for heavy orchestration scenarios.
@@ -24,14 +24,23 @@ This project follows a set of coding standards and best practices to ensure code
    - For most composed data needs, prefer using composed hooks with `useQueries` to maintain React Query's caching and error handling benefits.
    - There are currently no services defined in the project.
 
-5. **Event Context**: Use event contexts to manage blockchain-related events and update cache granularly. This allows for better separation of concerns and makes it easier to manage complex interactions between components. Each context should be responsible for a specific domain (e.g., user events, lab events, booking events). Define and use helper functions with queryClient.fetchQuery on event listeners to keep React Query cache updates consistent (e.g., `queryClient.fetchQuery(['reservations', 'getReservation', reservationKey])`).
+5. **Event Context and Cache Validation**: Use event contexts to manage blockchain-related events and validate or update cache granularly. This allows for better separation of concerns and makes it easier to manage complex interactions between components:
+   - **Domain-Specific Contexts**: Each context should be responsible for a specific domain (e.g., `UserEventContext`, `LabEventContext`, `BookingEventContext`).
+   - **Event-Driven Cache Updates**: Blockchain events should trigger granular cache updates through helper functions with `queryClient.fetchQuery` on event listeners to keep React Query cache consistent (e.g., `queryClient.fetchQuery(bookingQueryKeys.byReservationKey(reservationKey))`). Always use the centralized `queryKeys.js` file instead of hardcoding query keys.
+   - **Cache Validation**: Event contexts should validate cache data against blockchain state and update only when necessary.
+   - **Optimistic Updates**: For immediate UI feedback, mutations should implement optimistic updates that are later validated against blockchain events.
+   - **Error Recovery**: If optimistic updates fail validation, the cache should be corrected based on the actual blockchain state.
 
-6. **Cache Management**: The project uses granular cache updates instead of full cache invalidation:
-   - **Granular Updates**: When data changes, add, update, or remove specific records from cache without invalidating everything.
-   - **Smart Cache Functions**: Use domain-specific cache update utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`, `useUserCacheUpdates`).
-   - **Fallback Invalidation**: Only fall back to full cache invalidation when granular updates fail or data is considered stale.
-   - **Event-Driven Updates**: Blockchain events should trigger granular cache updates, not full invalidation.
-   - **Manual UI Actions**: User actions (mutations) should also use granular cache updates for immediate UI feedback.
+6. **Cache Management**: The project uses granular cache updates instead of full cache invalidation for optimal performance and user experience:
+   - **Optimistic Updates**: Mutations should implement optimistic updates to provide immediate UI feedback. Use `queryClient.setQueryData` to update cache optimistically before the mutation completes.
+   - **Granular Cache Updates**: When data changes, add, update, or remove specific records from cache without invalidating everything. Use domain-specific cache update utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`, `useUserCacheUpdates`).
+   - **Event-Driven Validation**: Blockchain events validate optimistic updates and correct the cache if necessary. Use event contexts to listen for blockchain events and update cache accordingly.
+   - **Fallback Invalidation**: Only fall back to full cache invalidation (`queryClient.invalidateQueries`) when granular updates fail, data is considered stale, or complex data relationships make granular updates impractical.
+   - **Cache Update Strategy**: 
+     * Manual UI Actions → Optimistic updates + granular cache manipulation
+     * Blockchain Events → Cache validation + granular corrections
+     * Error Recovery → Targeted invalidation or full fallback
+   - **Performance Optimization**: Prefer granular updates over invalidation to maintain UI responsiveness and minimize unnecessary re-fetches.
 
 7. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities. In particular, use the `useContractWriteFunction` hook for all contract write operations, and `useDefaultReadContract` for read operations.
 

@@ -15,10 +15,10 @@ import {
 import { 
   useAllLabsComposed,
   extractLabsByOwner
-} from '@/hooks/lab/useLabsComposed'
+} from '@/hooks/lab/useLabs'
 import { 
   useLabBookingsComposed
-} from '@/hooks/booking/useBookingsComposed'
+} from '@/hooks/booking/useBookings'
 // import { 
 //   useClaimAllBalanceMutation,
 //   useClaimLabBalanceMutation
@@ -28,7 +28,6 @@ import {
   useDeleteLabData 
 } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
-import { useLabEventCoordinator } from '@/hooks/lab/useLabEventCoordinator'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
@@ -83,7 +82,6 @@ export default function ProviderDashboard() {
   );
 
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
-  const { coordinatedLabUpdate } = useLabEventCoordinator();
   const { invalidateUserBookingsByLab } = useReservationEventCoordinator();
   const { decimals } = useLabToken();
 
@@ -278,9 +276,6 @@ export default function ProviderDashboard() {
       hasChangedOnChainData
     });
 
-    // Use coordinated update to prevent collisions with blockchain events
-    await coordinatedLabUpdate(async () => {
-
     try {
       if (hasChangedOnChainData) {
         // 1a. If there are on-chain changes, update blockchain via mutation
@@ -340,9 +335,7 @@ export default function ProviderDashboard() {
     } catch (error) {
       devLog.error('Error updating lab:', error);
       addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
-      throw error; // Re-throw for coordinatedLabUpdate to handle
     }
-    }); // End of coordinatedLabUpdate
   }
 
   // Handle adding a new lab using React Query mutation

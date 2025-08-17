@@ -4,8 +4,11 @@
  */
 import React, { useState, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useCompleteBookingCreation } from '@/hooks/booking/useBookings'
-import { useUserBookingsComposed, useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
+import { 
+  useCreateBookingMutation,
+  useUserBookingsComposed, 
+  useLabBookingsComposed 
+} from '@/hooks/booking/useBookings'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import BookingForm from '@/components/reservation/BookingForm'
 import BookingConfirmation from '@/components/reservation/BookingConfirmation'
@@ -74,7 +77,7 @@ export default function LabReservationWizard({
     calculateBookingCost,
     formatBalance,
     formatPrice
-  } = useCompleteBookingCreation(lab, handleBookingSuccess)
+  } = useCreateBookingMutation(lab, handleBookingSuccess)
 
   // Combined bookings for calendar
   const allBookings = useMemo(() => {

@@ -7,6 +7,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import devLog from '@/utils/dev/logger'
+import { labImageQueryKeys } from '@/utils/hooks/queryKeys'
 
 // Image cache configuration optimized for React Query
 const IMAGE_CACHE_CONFIG = {
@@ -91,7 +92,7 @@ async function imageToBase64(imageUrl) {
  */
 export function useLabImageQuery(imageUrl, options = {}) {
   return useQuery({
-    queryKey: ['labImage', imageUrl],
+    queryKey: labImageQueryKeys.byUrl(imageUrl),
     queryFn: async () => {
       if (!imageUrl || typeof imageUrl !== 'string') {
         throw new Error('Invalid image URL')
@@ -181,7 +182,7 @@ export function useLabImageBatch(imageUrls = [], options = {}) {
   
   // Create queries for all image URLs
   const imageQueries = imageUrls.filter(Boolean).map(imageUrl => ({
-    queryKey: ['labImage', imageUrl],
+    queryKey: labImageQueryKeys.byUrl(imageUrl),
     queryFn: () => imageToBase64(imageUrl),
     ...IMAGE_CACHE_CONFIG,
     enabled: enabled && !!imageUrl,

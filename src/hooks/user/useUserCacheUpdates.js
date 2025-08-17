@@ -5,7 +5,7 @@
 
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
-import { userQueryKeys } from '@/utils/hooks/queryKeys'
+import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 
 /**
  * Hook providing user-specific cache update functions
@@ -22,7 +22,7 @@ export function useUserCacheUpdates() {
     // Update provider status if available (use same query key as useIsLabProvider)
     if (updatedUser.isProvider !== undefined) {
       queryClient.setQueryData(
-        ['providers', 'isLabProvider', userAddress], 
+        providerQueryKeys.isLabProvider(userAddress), 
         { isLabProvider: updatedUser.isProvider, isProvider: updatedUser.isProvider }
       )
     }
@@ -57,7 +57,7 @@ export function useUserCacheUpdates() {
         queryKey: userQueryKeys.byAddress(userAddress)
       })
       queryClient.invalidateQueries({
-        queryKey: ['providers', 'isLabProvider', userAddress] // Use same query key as useIsLabProvider
+        queryKey: providerQueryKeys.isLabProvider(userAddress) // Use same query key as useIsLabProvider
       })
     } else {
       queryClient.invalidateQueries({

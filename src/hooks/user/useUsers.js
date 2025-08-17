@@ -19,7 +19,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { useUser } from '@/context/UserContext'
-import { userQueryKeys } from '@/utils/hooks/queryKeys'
+import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Export composed hooks
@@ -45,7 +45,7 @@ export const USER_QUERY_CONFIG = {
  */
 export const useLabProviders = (options = {}) => {
   return useQuery({
-    queryKey: ['providers', 'getLabProviders'],
+    queryKey: providerQueryKeys.getLabProviders(),
     queryFn: createSSRSafeQuery(
       async () => {
         const response = await fetch('/api/contract/provider/getLabProviders', {
@@ -93,7 +93,7 @@ useLabProviders.queryFn = async () => {
  */
 export const useIsLabProvider = (address, options = {}) => {
   return useQuery({
-    queryKey: ['providers', 'isLabProvider', address],
+    queryKey: providerQueryKeys.isLabProvider(address),
     queryFn: createSSRSafeQuery(
       async () => {
         if (!address) throw new Error('Address is required');

@@ -9,7 +9,7 @@ import {
   useLabProviders, 
   useRefreshProviderStatusMutation 
 } from '@/hooks/user/useUsers'
-import { userQueryKeys } from '@/utils/hooks/queryKeys'
+import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
@@ -170,12 +170,12 @@ function UserDataCore({ children }) {
             setIsSSO(false);
             setUser(null);
             // Clear provider-related cache when disconnecting
-            queryClient.removeQueries({ queryKey: ['provider'] });
+            queryClient.removeQueries({ queryKey: providerQueryKeys.all() });
         } else if (isConnected && address) {
             // Invalidate provider status cache when wallet connects
             // Invalidate provider status cache using the correct query key for useIsLabProvider
             queryClient.invalidateQueries({ 
-                queryKey: ['providers', 'isLabProvider', address] 
+                queryKey: providerQueryKeys.isLabProvider(address) 
             });
         }
     }, [isConnected, address, queryClient]);

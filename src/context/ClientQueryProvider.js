@@ -66,7 +66,7 @@ export default function ClientQueryProvider({ children }) {
         devLog.log('🏗️ Checking existing cache state on app startup...');
         
         // Check if we have existing labs data in cache
-        const allLabsKey = ['labs', 'getAllLabs']; // Use the actual query key from useAllLabs
+        const allLabsKey = labQueryKeys.getAllLabs(); // Use the actual query key from useAllLabs
         const existingLabsData = queryClient.getQueryData(allLabsKey);
         
         if (existingLabsData && existingLabsData.length > 0) {

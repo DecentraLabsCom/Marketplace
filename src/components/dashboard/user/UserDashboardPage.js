@@ -2,9 +2,12 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
-import { useUserBookingsComposed } from '@/hooks/booking/useBookingsComposed'
-import { useCancelBooking, useCancelReservationRequest } from '@/hooks/booking/useBookings'
+import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { 
+  useUserBookingsComposed,
+  useCancelBooking, 
+  useCancelReservationRequest 
+} from '@/hooks/booking/useBookings'
 import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'

@@ -16,6 +16,7 @@ import { useLabProviders, PROVIDER_QUERY_CONFIG } from '@/hooks/provider/useProv
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { useLabToken } from '@/context/LabTokenContext'
+import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -83,7 +84,7 @@ export const useAllLabsComposed = ({
   const labDetailResults = useQueries({
     queries: labIds.length > 0 
       ? labIds.map(labId => ({
-          queryKey: ['labs', 'getLab', labId],
+          queryKey: labQueryKeys.getLab(labId),
           queryFn: () => useLab.queryFn(labId), // ✅ Using atomic hook queryFn
           enabled: !!labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
@@ -102,7 +103,7 @@ export const useAllLabsComposed = ({
   const ownerResults = useQueries({
     queries: labsWithDetails.length > 0
       ? labsWithDetails.map(lab => ({
-          queryKey: ['labs', 'ownerOf', lab.labId],
+          queryKey: labQueryKeys.ownerOf(lab.labId),
           queryFn: () => useOwnerOf.queryFn(lab.labId), // ✅ Using atomic hook queryFn
           enabled: !!lab.labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
@@ -119,7 +120,7 @@ export const useAllLabsComposed = ({
           // Use the URI from lab.base.uri for metadata
           const metadataUri = lab.base?.uri;
           return {
-            queryKey: ['metadata', metadataUri],
+            queryKey: metadataQueryKeys.byUri(metadataUri),
             queryFn: () => useMetadata.queryFn({ metadataUri }), // ✅ Already using atomic hook queryFn
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG, // ✅ Metadata-specific configuration
@@ -174,7 +175,7 @@ export const useAllLabsComposed = ({
   const imageResults = useQueries({
     queries: (includeImages && uniqueImageUrls.length > 0)
       ? uniqueImageUrls.map(imageUrl => ({
-          queryKey: ['labImage', imageUrl],
+          queryKey: labImageQueryKeys.byUrl(imageUrl),
           queryFn: () => useLabImageQuery.queryFn(imageUrl), // Using the atomic queryFn
           enabled: !!imageUrl,
           staleTime: 48 * 60 * 60 * 1000,    // 48 hours for images

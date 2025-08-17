@@ -14,6 +14,7 @@ import {
 } from './useBookings'
 import { useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
 import { useUser } from '@/context/UserContext'
+import { bookingQueryKeys, labQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -48,7 +49,7 @@ export const useUserBookingsComposed = (userAddress, {
   const reservationKeyResults = useQueries({
     queries: hasReservations 
       ? Array.from({ length: reservationCount }, (_, index) => ({
-          queryKey: ['reservations', 'reservationKeyOfUserByIndex', userAddress, index],
+          queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
           queryFn: async () => {
             const response = await fetch(`/api/contract/reservation/reservationKeyOfUserByIndex?userAddress=${userAddress}&index=${index}`, {
               method: 'GET',
@@ -78,7 +79,7 @@ export const useUserBookingsComposed = (userAddress, {
   const bookingDetailsResults = useQueries({
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(key => ({
-          queryKey: ['reservations', 'getReservation', key],
+          queryKey: bookingQueryKeys.getReservation(key),
           queryFn: async () => {
             const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${key}`, {
               method: 'GET',
@@ -151,7 +152,7 @@ export const useUserBookingsComposed = (userAddress, {
   const labDetailsResults = useQueries({
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
-          queryKey: ['labs', 'getLab', booking.labId],
+          queryKey: labQueryKeys.getLab(booking.labId),
           queryFn: () => useLab.queryFn(booking.labId), // ✅ Using atomic hook queryFn
           enabled: !!booking.labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
@@ -270,7 +271,7 @@ export const useLabBookingsComposed = (labId, {
   const reservationKeyResults = useQueries({
     queries: reservationCount > 0 
       ? Array.from({ length: reservationCount }, (_, index) => ({
-          queryKey: ['reservations', 'getReservationOfTokenByIndex', labId, index],
+          queryKey: bookingQueryKeys.getReservationOfTokenByIndex(labId, index),
           queryFn: () => useReservationOfTokenByIndex.queryFn(labId, index),
           enabled: !!labId && reservationCount > 0,
           ...BOOKING_QUERY_CONFIG,
@@ -288,7 +289,7 @@ export const useLabBookingsComposed = (labId, {
   const reservationDetailResults = useQueries({
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(reservationKey => ({
-          queryKey: ['reservations', 'getReservation', reservationKey],
+          queryKey: bookingQueryKeys.getReservation(reservationKey),
           queryFn: () => useReservation.queryFn(reservationKey),
           enabled: !!reservationKey,
           ...BOOKING_QUERY_CONFIG,
@@ -439,7 +440,7 @@ export const useMultiLabBookingsComposed = (labIds, {
   // Always call useQueries, even with empty array to avoid conditional hook calls
   const labBookingResults = useQueries({
     queries: (Array.isArray(labIds) && labIds.length > 0) ? labIds.map(labId => ({
-      queryKey: ['reservations', 'getReservationsOfToken', labId],
+      queryKey: bookingQueryKeys.getReservationsOfToken(labId),
       queryFn: async () => {
         const data = await useReservationsOfToken.queryFn(labId); // ✅ Using atomic hook queryFn
         return { labId, data: data.data || data.reservations || [] };

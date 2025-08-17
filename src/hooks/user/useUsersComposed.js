@@ -11,6 +11,7 @@ import {
   useIsLabProvider,
   USER_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useUsers'
+import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -47,7 +48,7 @@ export const useProvidersWithNames = (options = {}) => {
 export const useBatchProviderCheck = (addresses = [], options = {}) => {
   return useQueries({
     queries: addresses.map((address) => ({
-      queryKey: ['providers', 'isLabProvider', address], // ✅ Use same query key as useIsLabProvider
+      queryKey: providerQueryKeys.isLabProvider(address), // ✅ Use same query key as useIsLabProvider
       queryFn: () => useIsLabProvider.queryFn({ userAddress: address }), // ✅ Using atomic hook queryFn
       enabled: !!address && options.enabled !== false,
       ...USER_QUERY_CONFIG, // ✅ User-specific configuration

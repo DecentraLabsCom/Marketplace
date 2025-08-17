@@ -4,9 +4,12 @@ import PropTypes from 'prop-types'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsComposed } from '@/hooks/lab/useLabsComposed'
-import { useReservationRequest, useBookingCacheUpdates } from '@/hooks/booking/useBookings'
-import { useLabBookingsComposed } from '@/hooks/booking/useBookingsComposed'
+import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { 
+  useReservationRequest, 
+  useBookingCacheUpdates,
+  useLabBookingsComposed 
+} from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/context/LabTokenContext'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import AccessControl from '@/components/auth/AccessControl'

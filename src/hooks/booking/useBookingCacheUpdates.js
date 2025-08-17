@@ -89,6 +89,93 @@ export function useBookingCacheUpdates() {
     })
   }, [queryClient])
 
+  // Optimistic booking operations
+  
+  // Add optimistic booking (for immediate UI feedback)
+  const addOptimisticBooking = useCallback((bookingData) => {
+    const optimisticBooking = {
+      ...bookingData,
+      id: `temp-${Date.now()}`,
+      reservationKey: `temp-${Date.now()}`,
+      isPending: true,
+      isProcessing: true,
+      timestamp: new Date().toISOString()
+    };
+
+    addBooking(optimisticBooking);
+    return optimisticBooking;
+  }, [addBooking])
+
+  // Replace optimistic booking with real data
+  const replaceOptimisticBooking = useCallback((optimisticId, realBooking) => {
+    // Update all bookings list
+    queryClient.setQueryData(bookingQueryKeys.all(), (oldData) => {
+      if (!oldData) return [realBooking];
+      return oldData.map(booking => 
+        booking.id === optimisticId ? realBooking : booking
+      );
+    });
+
+    // Update user bookings if available
+    if (realBooking.userAddress) {
+      queryClient.setQueryData(
+        bookingQueryKeys.byUser(realBooking.userAddress), 
+        (oldData) => {
+          if (!oldData) return [realBooking];
+          return oldData.map(booking => 
+            booking.id === optimisticId ? realBooking : booking
+          );
+        }
+      );
+    }
+
+    // Update lab bookings if available
+    if (realBooking.labId) {
+      queryClient.setQueryData(
+        bookingQueryKeys.byLab(realBooking.labId), 
+        (oldData) => {
+          if (!oldData) return [realBooking];
+          return oldData.map(booking => 
+            booking.id === optimisticId ? realBooking : booking
+          );
+        }
+      );
+    }
+
+    // Update specific booking query if we have real reservation key
+    if (realBooking.reservationKey || realBooking.id) {
+      const key = realBooking.reservationKey || realBooking.id;
+      queryClient.setQueryData(bookingQueryKeys.byReservationKey(key), realBooking);
+    }
+  }, [queryClient])
+
+  // Remove optimistic booking (on error)
+  const removeOptimisticBooking = useCallback((optimisticId) => {
+    // Update all bookings list
+    queryClient.setQueryData(bookingQueryKeys.all(), (oldData) => {
+      if (!oldData) return [];
+      return oldData.filter(booking => booking.id !== optimisticId);
+    });
+
+    // Update user bookings
+    queryClient.setQueriesData(
+      { queryKey: bookingQueryKeys.byUser("") }, // Match pattern for all users
+      (oldData) => {
+        if (!oldData) return [];
+        return oldData.filter(booking => booking.id !== optimisticId);
+      }
+    );
+
+    // Update lab bookings
+    queryClient.setQueriesData(
+      { queryKey: bookingQueryKeys.byLab("") }, // Match pattern for all labs
+      (oldData) => {
+        if (!oldData) return [];
+        return oldData.filter(booking => booking.id !== optimisticId);
+      }
+    );
+  }, [queryClient])
+
   // Granular invalidation helper used by BookingEventContext
   const smartBookingInvalidation = useCallback((userAddress = null, labId = null, bookingData = null, action = null) => {
     try {
@@ -119,10 +206,16 @@ export function useBookingCacheUpdates() {
   }, [addBooking, updateBooking, removeBooking, invalidateAllBookings, queryClient])
 
   return {
+    // Basic operations
     addBooking,
     updateBooking,
     removeBooking,
     invalidateAllBookings,
     smartBookingInvalidation,
+    
+    // **NEW: Optimistic operations**
+    addOptimisticBooking,
+    replaceOptimisticBooking,
+    removeOptimisticBooking
   }
 }

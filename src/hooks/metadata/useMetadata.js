@@ -6,6 +6,7 @@
  * @author DecentraLabs
  */
 import { useQuery } from '@tanstack/react-query'
+import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for metadata hooks
@@ -30,7 +31,7 @@ export { METADATA_QUERY_CONFIG };
  */
 export const useMetadata = (metadataUri, options = {}) => {
   return useQuery({
-    queryKey: ['metadata', metadataUri],
+    queryKey: metadataQueryKeys.byUri(metadataUri),
     queryFn: async () => {
       try {
         if (!metadataUri) {
