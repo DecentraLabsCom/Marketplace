@@ -7,10 +7,10 @@
  */
 import { useQueries } from '@tanstack/react-query'
 import { 
-  useLabProviders, 
-  useIsLabProvider,
-  USER_QUERY_CONFIG, // ✅ Import shared configuration
-} from './useUsers'
+  useGetLabProvidersQuery,
+  useIsLabProviderQuery,
+  USER_QUERY_CONFIG,
+} from './useUserAtomicQueries'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
@@ -19,7 +19,7 @@ import devLog from '@/utils/dev/logger'
  * Uses getLabProviders which already includes names in the response
  */
 export const useProvidersWithNames = (options = {}) => {
-  const providersQuery = useLabProviders({
+  const providersQuery = useGetLabProvidersQuery({
     ...USER_QUERY_CONFIG, // Use user/provider configuration
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: options.enabled,
@@ -48,11 +48,10 @@ export const useProvidersWithNames = (options = {}) => {
 export const useBatchProviderCheck = (addresses = [], options = {}) => {
   return useQueries({
     queries: addresses.map((address) => ({
-      queryKey: providerQueryKeys.isLabProvider(address), // ✅ Use same query key as useIsLabProvider
-      queryFn: () => useIsLabProvider.queryFn({ userAddress: address }), // ✅ Using atomic hook queryFn
+      queryKey: providerQueryKeys.isLabProvider(address),
+      queryFn: () => useIsLabProviderQuery.queryFn({ userAddress: address }),
       enabled: !!address && options.enabled !== false,
-      ...USER_QUERY_CONFIG, // ✅ User-specific configuration
-      // Note: options not spread here as USER_QUERY_CONFIG is optimized for user queries
+      ...USER_QUERY_CONFIG,
     })),
     combine: (results) => ({
       data: results.reduce((acc, result, index) => {
@@ -71,12 +70,11 @@ export const useBatchProviderCheck = (addresses = [], options = {}) => {
  * Combines provider check and details fetching
  */
 export const useProviderDetails = (address, options = {}) => {
-  const statusQuery = useIsLabProvider({ 
-    userAddress: address,
+  const statusQuery = useIsLabProviderQuery(address, {
     enabled: !!address && options.enabled !== false
   });
   
-  const detailsQuery = useLabProviders({
+  const detailsQuery = useGetLabProvidersQuery({
     enabled: statusQuery.data?.isProvider && options.enabled !== false
   });
 
@@ -106,7 +104,7 @@ export const useProviderDetails = (address, options = {}) => {
 export const useAllUsersComposed = ({ queryOptions = {} } = {}) => {
   
   // Use atomic hook for base data
-  const providersResult = useLabProviders(queryOptions);
+  const providersResult = useGetLabProvidersQuery(queryOptions);
 
   // Get providers from the atomic hook result
   const providers = providersResult.data?.providers || [];
@@ -154,14 +152,14 @@ export const useAllUsersComposed = ({ queryOptions = {} } = {}) => {
 export const useProviderStatusComposed = (providerAddress, { queryOptions = {} } = {}) => {
   
   // Use atomic hook for isProvider check
-  const isProviderResult = useIsLabProvider(providerAddress, {
+  const isProviderResult = useIsLabProviderQuery(providerAddress, {
     // Use atomic hook's default configuration, only allow specific overrides
     enabled: queryOptions.enabled !== undefined ? queryOptions.enabled : !!providerAddress,
     meta: queryOptions.meta,
   });
   
   // Get all providers to extract name and details
-  const providersResult = useLabProviders({
+  const providersResult = useGetLabProvidersQuery({
     // Use atomic hook's default configuration, only allow specific overrides
     enabled: queryOptions.enabled !== undefined ? queryOptions.enabled : !!providerAddress,
     meta: queryOptions.meta,
@@ -265,6 +263,8 @@ export const useAllUsersFull = (queryOptions = {}) => {
   return useAllUsersComposed({ queryOptions });
 };
 
+// ===== CACHE EXTRACTION HELPERS =====
+
 /**
  * Cache extraction helper for finding a specific provider from the composed data
  * @param {Object} composedResult - Result from useAllUsersComposed
@@ -309,5 +309,4 @@ export const getProviderNameFromComposed = (composedResult, providerAddress) => 
   return provider?.name || null;
 };
 
-// Module loaded confirmation (only logs once even in StrictMode)
-devLog.moduleLoaded('✅ User composed hooks loaded');
+devLog.moduleLoaded('✅ User composed queries loaded');

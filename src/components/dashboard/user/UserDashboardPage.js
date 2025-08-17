@@ -8,7 +8,6 @@ import {
   useCancelBooking, 
   useCancelReservationRequest 
 } from '@/hooks/booking/useBookings'
-import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
@@ -54,7 +53,6 @@ export default function UserDashboard() {
   );
 
   const { addPersistentNotification, addErrorNotification } = useNotifications();
-  const { coordinatedBookingCancellation } = useReservationEventCoordinator();
 
   // 🚀 Unified React Query mutations for cancellation
   const cancelBookingUnified = useCancelBooking();

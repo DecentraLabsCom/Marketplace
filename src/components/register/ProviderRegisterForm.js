@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { IoPerson } from 'react-icons/io5'
 import ReactFlagsSelect from 'react-flags-select'
 import { useUser } from '@/context/UserContext'
-import { useUserEventCoordinator } from '@/hooks/user/useUserEventCoordinator'
+import { useAddProvider } from '@/hooks/user/useUsers'
 import { useSaveProviderRegistration } from '@/hooks/provider/useProvider'
 import AccessControl from '@/components/auth/AccessControl'
 import devLog from '@/utils/dev/logger'
@@ -23,7 +23,7 @@ const providerSchema = z.object({
  */
 export default function ProviderRegisterForm() {
   const { user, isSSO, isProvider, address } = useUser()
-  const { coordinatedProviderRegistration } = useUserEventCoordinator()
+  const addProviderMutation = useAddProvider()
   const saveRegistrationMutation = useSaveProviderRegistration()
   const [formData, setFormData] = useState({ name: '', email: '', wallet: '', country: '' })
   const [errors, setErrors] = useState({})
@@ -52,9 +52,14 @@ export default function ProviderRegisterForm() {
     }
 
     try {
-      await coordinatedProviderRegistration(async () => {
-        return await saveRegistrationMutation.mutateAsync(formData)
-      }, formData.wallet)
+      // Use the atomic mutation directly - let React Query handle optimistic updates
+      await addProviderMutation.mutateAsync({
+        name: formData.name,
+        account: formData.wallet,
+        email: formData.email,
+        country: formData.country
+      })
+      
       setIsSuccess(true)
       setErrors({})
       setFormData({ name: '', email: '', wallet: '', country: '' })

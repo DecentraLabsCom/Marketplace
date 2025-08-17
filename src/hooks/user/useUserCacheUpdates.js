@@ -14,62 +14,133 @@ import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 export function useUserCacheUpdates() {
   const queryClient = useQueryClient()
 
-  // Update user data in cache
-  const updateUser = useCallback((userAddress, updatedUser) => {
-    // Update specific user query
-    queryClient.setQueryData(userQueryKeys.byAddress(userAddress), updatedUser)
+  // Add new provider to cache
+  const addProvider = useCallback((newProvider) => {
+    // Update providers list
+    queryClient.setQueryData(providerQueryKeys.list(), (oldData) => {
+      if (!oldData) return [newProvider]
+      return [newProvider, ...oldData]
+    })
 
-    // Update provider status if available (use same query key as useIsLabProvider)
-    if (updatedUser.isProvider !== undefined) {
+    // Update specific provider status if we have address
+    if (newProvider.address || newProvider.account) {
+      const address = newProvider.address || newProvider.account;
+      queryClient.setQueryData(providerQueryKeys.byAddress(address), newProvider)
       queryClient.setQueryData(
-        providerQueryKeys.isLabProvider(userAddress), 
-        { isLabProvider: updatedUser.isProvider, isProvider: updatedUser.isProvider }
+        providerQueryKeys.isLabProvider(address),
+        { isLabProvider: true, isProvider: true }
       )
     }
   }, [queryClient])
 
-  // Update provider status (use same query key as useIsLabProvider)
-  const updateProviderStatus = useCallback((userAddress, isProvider) => {
-    queryClient.setQueryData(
-      ['providers', 'isLabProvider', userAddress], 
-      { isLabProvider: isProvider, isProvider: isProvider }
-    )
+  // Update existing provider in cache
+  const updateProvider = useCallback((providerAddress, updatedProvider) => {
+    // Update providers list
+    queryClient.setQueryData(providerQueryKeys.list(), (oldData) => {
+      if (!oldData) return []
+      return oldData.map(provider => 
+        (provider.address === providerAddress || provider.account === providerAddress) 
+          ? { ...provider, ...updatedProvider } 
+          : provider
+      )
+    })
 
-    // Also update user data if cached
-    queryClient.setQueryData(
-      userQueryKeys.byAddress(userAddress), 
-      (oldData) => {
-        if (!oldData) return oldData
-        return { ...oldData, isProvider }
-      }
-    )
+    // Update specific provider queries
+    queryClient.setQueryData(providerQueryKeys.byAddress(providerAddress), (oldData) => {
+      if (!oldData) return updatedProvider;
+      return { ...oldData, ...updatedProvider };
+    })
   }, [queryClient])
 
-  // Update SSO session
-  const updateSSOSession = useCallback((sessionData) => {
-    queryClient.setQueryData(userQueryKeys.ssoSession(), sessionData)
+  // Remove provider from cache
+  const removeProvider = useCallback((providerAddress) => {
+    // Update providers list
+    queryClient.setQueryData(providerQueryKeys.list(), (oldData) => {
+      if (!oldData) return []
+      return oldData.filter(provider => 
+        provider.address !== providerAddress && provider.account !== providerAddress
+      )
+    })
+
+    // Invalidate specific provider query
+    queryClient.invalidateQueries({
+      queryKey: providerQueryKeys.byAddress(providerAddress)
+    })
   }, [queryClient])
 
-  // Invalidate user caches (fallback)
-  const invalidateUserQueries = useCallback((userAddress) => {
-    if (userAddress) {
-      queryClient.invalidateQueries({
-        queryKey: userQueryKeys.byAddress(userAddress)
-      })
-      queryClient.invalidateQueries({
-        queryKey: providerQueryKeys.isLabProvider(userAddress) // Use same query key as useIsLabProvider
-      })
-    } else {
-      queryClient.invalidateQueries({
-        queryKey: userQueryKeys.all()
-      })
+  // Update user data in cache
+  const updateUser = useCallback((userAddress, updatedUser) => {
+    // Update specific user query
+    queryClient.setQueryData(userQueryKeys.byAddress(userAddress), (oldData) => {
+      if (!oldData) return updatedUser;
+      return { ...oldData, ...updatedUser };
+    })
+  }, [queryClient])
+
+  // Invalidate all user caches (fallback)
+  const invalidateAllUsers = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: userQueryKeys.all()
+    })
+  }, [queryClient])
+
+  // Invalidate all provider caches (fallback)
+  const invalidateAllProviders = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: providerQueryKeys.all()
+    })
+  }, [queryClient])
+
+  // Add optimistic provider (for immediate UI feedback)
+  const addOptimisticProvider = useCallback((providerData) => {
+    const optimisticProvider = {
+      ...providerData,
+      id: `temp-${Date.now()}`,
+      isPending: true,
+      isProcessing: true,
+      timestamp: new Date().toISOString()
+    }
+
+    addProvider(optimisticProvider)
+    return optimisticProvider
+  }, [addProvider])
+
+  // Replace optimistic provider with real data
+  const replaceOptimisticProvider = useCallback((optimisticId, realProvider) => {
+    queryClient.setQueryData(providerQueryKeys.list(), (oldData) => {
+      if (!oldData) return [realProvider]
+      return oldData.map(provider => 
+        provider.id === optimisticId ? realProvider : provider
+      )
+    })
+
+    // Update specific provider status if we have real address
+    if (realProvider.address || realProvider.account) {
+      const address = realProvider.address || realProvider.account;
+      queryClient.setQueryData(providerQueryKeys.byAddress(address), realProvider)
     }
   }, [queryClient])
 
+  // Remove optimistic provider (on error)
+  const removeOptimisticProvider = useCallback((optimisticId) => {
+    queryClient.setQueryData(providerQueryKeys.list(), (oldData) => {
+      if (!oldData) return []
+      return oldData.filter(provider => provider.id !== optimisticId)
+    })
+  }, [queryClient])
+
   return {
+    // Basic operations
+    addProvider,
+    updateProvider,
+    removeProvider,
     updateUser,
-    updateProviderStatus,
-    updateSSOSession,
-    invalidateUserQueries
+    invalidateAllUsers,
+    invalidateAllProviders,
+    
+    // Optimistic operations
+    addOptimisticProvider,
+    replaceOptimisticProvider,
+    removeOptimisticProvider
   }
 }

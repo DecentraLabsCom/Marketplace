@@ -19,16 +19,11 @@ import {
 import { 
   useLabBookingsComposed
 } from '@/hooks/booking/useBookings'
-// import { 
-//   useClaimAllBalanceMutation,
-//   useClaimLabBalanceMutation
-// } from '@/hooks/booking/useBookings'
 import { 
   useSaveLabData, 
   useDeleteLabData 
 } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
-import { useReservationEventCoordinator } from '@/hooks/booking/useBookingEventCoordinator'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
@@ -82,7 +77,6 @@ export default function ProviderDashboard() {
   );
 
   const { addTemporaryNotification, addPersistentNotification } = useNotifications();
-  const { invalidateUserBookingsByLab } = useReservationEventCoordinator();
   const { decimals } = useLabToken();
 
   // 🚀 React Query mutations for lab management
@@ -377,12 +371,8 @@ export default function ProviderDashboard() {
       
       addTemporaryNotification('success', '✅ Lab deleted!');
 
-      // Clean up all bookings for this deleted lab using React Query
-      devLog.log('🗑️ Cleaning up all bookings for deleted lab:', labId);
-      
-      // The useBookingCacheInvalidation will handle cache cleanup
-      await invalidateUserBookingsByLab(labId);
-      devLog.log('✅ Successfully cleaned up all bookings for deleted lab:', labId);
+      // React Query mutations and event contexts will handle cache cleanup automatically
+      devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
       
       addTemporaryNotification('warning', 
         `⚠️ Lab deleted successfully. All associated reservations have been automatically cancelled.`
