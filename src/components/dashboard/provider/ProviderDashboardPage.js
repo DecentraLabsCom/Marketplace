@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { parseUnits } from 'viem'
-import { useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
   useAddLab, 
   useUpdateLab, 
   useDeleteLab,
-  useCreateLabMutation,
-  useToggleLabStatusMutation,
+  useListLab,
+  useUnlistLab,
   useClaimAllBalanceMutation,
   useClaimLabBalanceMutation
 } from '@/hooks/lab/useLabs'
@@ -83,8 +82,8 @@ export default function ProviderDashboard() {
   const addLabMutation = useAddLab();
   const updateLabMutation = useUpdateLab();
   const deleteLabMutation = useDeleteLab();
-  const createLabMutation = useCreateLabMutation();
-  const toggleLabStatusMutation = useToggleLabStatusMutation();
+  const listLabMutation = useListLab();
+  const unlistLabMutation = useUnlistLab();
   
   // 🚀 React Query mutations for balance claims
   const claimAllBalanceMutation = useClaimAllBalanceMutation();
@@ -111,20 +110,6 @@ export default function ProviderDashboard() {
   });
   const labBookings = labBookingsData?.bookings || [];
 
-  // Transaction state management for receipt handling
-  const [lastTxHash, setLastTxHash] = useState(null);
-  const [txType, setTxType] = useState(null); // 'add', 'update', 'delete', 'list', 'unlist'
-  const [pendingData, setPendingData] = useState(null);
-
-  // Wait for transaction receipt
-  const { 
-    data: receipt, 
-    isSuccess: isReceiptSuccess 
-  } = useWaitForTransactionReceipt({
-    hash: lastTxHash,
-    enabled: !!lastTxHash
-  });
-
   const newLabStructure = {
     name: '', category: '', keywords: [], price: '', description: '',
     provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
@@ -138,39 +123,6 @@ export default function ProviderDashboard() {
       : 0,
     [labs]
   );
-
-  // Handle transaction confirmation
-  useEffect(() => {
-    if (isReceiptSuccess && receipt && txType && pendingData) {
-      
-      addPersistentNotification('success', `✅ ${txType.charAt(0).toUpperCase() + txType.slice(1)} operation confirmed onchain!`);
-      
-      // 🚀 React Query mutations will automatically update the cache
-      // through invalidation and optimistic updates - no manual state management needed
-      switch(txType) {
-        case 'add':
-          // createLabMutation already handles cache updates
-          setIsModalOpen(false); // Only close for new labs
-          break;
-        case 'update':
-          // updateLabMutation already handles cache updates
-          devLog.log('ProviderDashboard: Lab updated via React Query, modal remains open');
-          break;
-        case 'delete':
-          // deleteLabMutation already handles cache updates
-          break;
-        case 'list':
-        case 'unlist':
-          // toggleLabStatusMutation already handles cache updates
-          break;
-      }
-      
-      // Reset transaction state
-      setLastTxHash(null);
-      setTxType(null);
-      setPendingData(null);
-    }
-  }, [isReceiptSuccess, receipt, txType, pendingData, addPersistentNotification]); // Removed 'labs' dependency
 
   const selectedLab = useMemo(() => 
     ownedLabs.find(lab => String(lab.id) === String(selectedLabId)),
@@ -343,7 +295,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('pending', '⏳ Adding lab...');
       
       // 🚀 Use React Query mutation for lab creation
-      await createLabMutation.mutateAsync({
+      await addLabMutation.mutateAsync({
         ...labData,
         providerId: address, // Add provider info
         isSSO,
@@ -358,7 +310,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
     }
   }, [
-    labs, user?.name, createLabMutation, address, isSSO, user?.email, addTemporaryNotification
+    labs, user?.name, addLabMutation, address, isSSO, user?.email, addTemporaryNotification
   ]);
 
   // Handle delete a lab using React Query mutation
@@ -389,8 +341,8 @@ export default function ProviderDashboard() {
     try {
       addTemporaryNotification('pending', '⏳ Listing lab...');
 
-      // 🚀 Use React Query mutation for lab status toggle
-      await toggleLabStatusMutation.mutateAsync({ labId, isListed: true });
+      // 🚀 Use React Query mutation for lab listing
+      await listLabMutation.mutateAsync(labId);
       
       addTemporaryNotification('success', '✅ Lab listed successfully!');
     } catch (error) {
@@ -404,8 +356,8 @@ export default function ProviderDashboard() {
     try {
       addTemporaryNotification('pending', '⏳ Unlisting lab...');
 
-      // 🚀 Use React Query mutation for lab status toggle
-      await toggleLabStatusMutation.mutateAsync({ labId, isListed: false });
+      // 🚀 Use React Query mutation for lab unlisting
+      await unlistLabMutation.mutateAsync(labId);
       
       addTemporaryNotification('success', '✅ Lab unlisted!');
     } catch (error) {

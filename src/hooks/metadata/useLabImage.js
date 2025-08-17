@@ -271,10 +271,4 @@ export function useLabImageFromMetadata(labMetadata, options = {}) {
   }
 }
 
-// Export query key factory for external use
-export const labImageQueryKeys = {
-  all: () => ['labImage'],
-  image: (imageUrl) => ['labImage', imageUrl],
-}
-
 devLog.moduleLoaded('✅ React Query lab image caching loaded')

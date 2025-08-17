@@ -51,7 +51,7 @@ export const useGetLabProvidersQuery = (options = {}) => {
         }
         
         const data = await response.json();
-        devLog.query('useGetLabProvidersQuery:', data);
+        devLog.log('useGetLabProvidersQuery:', data);
         return data;
       },
       [] // Return empty array during SSR
@@ -73,7 +73,7 @@ useGetLabProvidersQuery.queryFn = async () => {
   }
   
   const data = await response.json();
-  devLog.query('useGetLabProvidersQuery.queryFn:', data);
+  devLog.log('useGetLabProvidersQuery.queryFn:', data);
   return data;
 };
 
@@ -101,7 +101,7 @@ export const useIsLabProviderQuery = (address, options = {}) => {
         }
         
         const data = await response.json();
-        devLog.query('useIsLabProviderQuery:', address, data);
+        devLog.log('🔍 [useIsLabProviderQuery] ', address, data);
         return data;
       },
       { isProvider: false } // Return false during SSR
@@ -126,7 +126,7 @@ useIsLabProviderQuery.queryFn = async ({ userAddress }) => {
   }
   
   const data = await response.json();
-  devLog.query('useIsLabProviderQuery.queryFn:', userAddress, data);
+  devLog.log('useIsLabProviderQuery.queryFn:', userAddress, data);
   return data;
 };
 

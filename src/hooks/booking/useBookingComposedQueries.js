@@ -79,7 +79,7 @@ export const useUserBookingsComposed = (userAddress, {
   const bookingDetailsResults = useQueries({
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(key => ({
-          queryKey: bookingQueryKeys.getReservation(key),
+          queryKey: bookingQueryKeys.byReservationKey(key),
           queryFn: async () => {
             const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${key}`, {
               method: 'GET',
@@ -289,7 +289,7 @@ export const useLabBookingsComposed = (labId, {
   const reservationDetailResults = useQueries({
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(reservationKey => ({
-          queryKey: bookingQueryKeys.getReservation(reservationKey),
+          queryKey: bookingQueryKeys.byReservationKey(reservationKey),
           queryFn: () => useReservation.queryFn(reservationKey),
           enabled: !!reservationKey,
           ...BOOKING_QUERY_CONFIG,
