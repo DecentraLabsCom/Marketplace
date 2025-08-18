@@ -7,9 +7,7 @@ import {
   useUpdateLab, 
   useDeleteLab,
   useListLab,
-  useUnlistLab,
-  useClaimAllBalanceMutation,
-  useClaimLabBalanceMutation
+  useUnlistLab
 } from '@/hooks/lab/useLabs'
 import { 
   useAllLabsComposed,
@@ -18,6 +16,7 @@ import {
 import { 
   useLabBookingsComposed
 } from '@/hooks/booking/useBookings'
+import { useRequestFunds } from '@/hooks/booking/useBookings'
 import { 
   useSaveLabData, 
   useDeleteLabData 
@@ -85,9 +84,8 @@ export default function ProviderDashboard() {
   const listLabMutation = useListLab();
   const unlistLabMutation = useUnlistLab();
   
-  // 🚀 React Query mutations for balance claims
-  const claimAllBalanceMutation = useClaimAllBalanceMutation();
-  const claimLabBalanceMutation = useClaimLabBalanceMutation();
+  // 🚀 React Query mutations for requesting funds (claiming $LAB tokens)
+  const requestFundsMutation = useRequestFunds();
   
   // 🚀 React Query mutations for provider data management
   const saveLabDataMutation = useSaveLabData();
@@ -371,26 +369,12 @@ export default function ProviderDashboard() {
     try {
       addTemporaryNotification('pending', '⏳ Collecting all balances...');
       
-      await claimAllBalanceMutation.mutateAsync();
+      await requestFundsMutation.mutateAsync();
       
       addTemporaryNotification('success', '✅ Balance collected!');
     } catch (err) {
       devLog.error(err);
       addTemporaryNotification('error', `❌ Failed to collect balances: ${formatErrorMessage(err)}`);
-    }
-  };
-  
-  // Handle collecting balance from a specific lab
-  const handleCollect = async (labId) => {
-    try {
-      addTemporaryNotification('pending', '⏳ Collecting lab balance...');
-      
-      await claimLabBalanceMutation.mutateAsync(labId);
-      
-      addTemporaryNotification('success', '✅ Balance collected!');
-    } catch (err) {
-      devLog.error(err);
-      addTemporaryNotification('error', `❌ Failed to collect balance: ${formatErrorMessage(err)}`);
     }
   };
 
@@ -465,7 +449,6 @@ export default function ProviderDashboard() {
             isLoading={loading}
             onSelectChange={handleSelectChange}
             onEdit={() => setIsModalOpen(true)}
-            onCollect={handleCollect}
             onDelete={handleDeleteLab}
             onList={handleList}
             onUnlist={handleUnlist}

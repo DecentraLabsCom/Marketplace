@@ -4,17 +4,16 @@ import Carrousel from '@/components/ui/Carrousel'
 
 /**
  * Provider dashboard item for managing individual labs
- * Displays lab info with action buttons for edit, collect, delete, list/unlist
+ * Displays lab info with action buttons for edit, delete, list/unlist
  * @param {Object} props
  * @param {Object} props.lab - Lab object with id, name, images, price, status
  * @param {Function} props.onEdit - Handler for editing lab
- * @param {Function} props.onCollect - Handler for collecting lab earnings
  * @param {Function} props.onDelete - Handler for deleting lab
  * @param {Function} props.onList - Handler for listing lab in marketplace
  * @param {Function} props.onUnlist - Handler for unlisting lab from marketplace
  * @returns {JSX.Element} Provider lab management item with action buttons
  */
-const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCollect, onDelete, onList, onUnlist }) {
+const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDelete, onList, onUnlist }) {
   return (
     <div className="p-4 border rounded shadow max-w-4xl mx-auto">
         <h3 className="text-lg font-bold text-center mb-4">{lab.name}</h3>
@@ -31,41 +30,31 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onCol
                     border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
                     group-hover:opacity-100 transition-opacity duration-300" />
                 </button>
-                <button onClick={() => onCollect(lab.id)}
-                className="relative bg-[#bcc4fc] h-1/4 overflow-hidden group hover:font-bold"
-                >
-                    Collect
-                    <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                    border-b-[#94a6cc] border-l-[7em] border-l-transparent opacity-0 
-                    group-hover:opacity-100 transition-opacity duration-300" />
-                </button>
-                <button onClick={() => onList(lab.id)} disabled
-                className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold
-                            opacity-50 cursor-not-allowed"
+                <button onClick={() => onList(lab.id)}
+                className="relative bg-[#759ca8] h-1/4 overflow-hidden group hover:font-bold"
                 >
                     List
                     <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                     border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
                     group-hover:opacity-100 transition-opacity duration-300" />
                 </button>
-                <button onClick={() => onUnlist(lab.id)} disabled
-                className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold
-                            opacity-50 cursor-not-allowed"
+                <button onClick={() => onUnlist(lab.id)}
+                className="relative bg-[#7583ab] h-1/4 overflow-hidden group hover:font-bold"
                 >
                     Unlist
                     <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                     border-b-[#5f6a91] border-l-[7em] border-l-transparent opacity-0 
                     group-hover:opacity-100 transition-opacity duration-300" />
                 </button>
+                <button onClick={() => onDelete(lab.id)}
+                className="relative bg-[#a87583] h-1/4 overflow-hidden group hover:font-bold"
+                >
+                    Delete
+                    <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
+                    border-b-[#925c69] border-l-[7em] border-l-transparent opacity-0 
+                    group-hover:opacity-100 transition-opacity duration-300" />
+                </button>
             </div>
-        </div>
-        <div className="w-2/3 flex justify-center mt-4">
-            <button onClick={() => onDelete(lab.id)}
-                className="bg-[#a87583] text-white w-20 py-2 rounded hover:font-bold 
-                hover:bg-[#8a5c66]"
-            >
-                Delete
-            </button>
         </div>
     </div>
   );
@@ -78,7 +67,6 @@ ProviderLabItem.propTypes = {
     images: PropTypes.array
   }).isRequired,
   onEdit: PropTypes.func.isRequired,
-  onCollect: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onList: PropTypes.func.isRequired,
   onUnlist: PropTypes.func.isRequired

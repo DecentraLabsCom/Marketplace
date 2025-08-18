@@ -15,7 +15,6 @@ import ProviderLabItem from '@/components/dashboard/provider/ProviderLabItem';
  * @param {boolean} props.isLoading - Loading state for labs
  * @param {Function} props.onSelectChange - Callback when lab selection changes
  * @param {Function} props.onEdit - Callback to edit a lab
- * @param {Function} props.onCollect - Callback to collect tokens from a lab
  * @param {Function} props.onDelete - Callback to delete a lab
  * @param {Function} props.onList - Callback to list a lab
  * @param {Function} props.onUnlist - Callback to unlist a lab
@@ -28,7 +27,6 @@ export default function ProviderLabsList({
   isLoading = false,
   onSelectChange,
   onEdit,
-  onCollect,
   onDelete,
   onList,
   onUnlist
@@ -83,7 +81,6 @@ export default function ProviderLabsList({
         <ProviderLabItem
           lab={selectedLab}
           onEdit={onEdit}
-          onCollect={onCollect}
           onDelete={onDelete}
           onList={onList}
           onUnlist={onUnlist}
@@ -106,7 +103,6 @@ ProviderLabsList.propTypes = {
   isLoading: PropTypes.bool,
   onSelectChange: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
-  onCollect: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onList: PropTypes.func.isRequired,
   onUnlist: PropTypes.func.isRequired

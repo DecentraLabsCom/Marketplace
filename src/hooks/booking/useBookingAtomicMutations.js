@@ -608,198 +608,6 @@ export const useCancelBooking = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/listToken endpoint using server wallet (SSO users)
- * Lists a lab token for booking using server wallet for SSO users
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useListTokenSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (tokenId) => {
-      const response = await fetch('/api/contract/reservation/listToken', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tokenId })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to list token: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useListTokenSSO:', data);
-      return data;
-    },
-    onSuccess: (data, tokenId) => {
-      // Invalidate listing-related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.isTokenListed(tokenId) });
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Token listed successfully via SSO, cache invalidated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to list token via SSO:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Hook for wallet-based listToken using useContractWriteFunction
- * Lists a lab token for booking using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useListTokenWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: listToken } = useContractWriteFunction('listToken');
-
-  return useMutation({
-    mutationFn: async (tokenId) => {
-      const txHash = await listToken([tokenId]);
-      
-      devLog.log('🔍 useListTokenWallet - Transaction Hash:', txHash);
-      return { hash: txHash };
-    },
-    onSuccess: (result, tokenId) => {
-      // Invalidate listing-related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.isTokenListed(tokenId) });
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Token listed successfully via wallet, cache invalidated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to list token via wallet:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for listing tokens (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useListToken = (options = {}) => {
-  const { isSSO } = useUser();
-  const ssoMutation = useListTokenSSO(options);
-  const walletMutation = useListTokenWallet(options);
-
-  return useMutation({
-    mutationFn: async (tokenId) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(tokenId);
-      } else {
-        return walletMutation.mutateAsync(tokenId);
-      }
-    },
-    onSuccess: (data, tokenId) => {
-      devLog.log('✅ Token listed successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to list token via unified hook:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Hook for /api/contract/reservation/unlistToken endpoint using server wallet (SSO users)
- * Unlists a lab token from booking using server wallet for SSO users
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useUnlistTokenSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (tokenId) => {
-      const response = await fetch('/api/contract/reservation/unlistToken', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tokenId })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to unlist token: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useUnlistTokenSSO:', data);
-      return data;
-    },
-    onSuccess: (data, tokenId) => {
-      // Invalidate listing-related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.isTokenListed(tokenId) });
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Token unlisted successfully via SSO, cache invalidated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to unlist token via SSO:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Hook for wallet-based unlistToken using useContractWriteFunction
- * Unlists a lab token from booking using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useUnlistTokenWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: unlistToken } = useContractWriteFunction('unlistToken');
-
-  return useMutation({
-    mutationFn: async (tokenId) => {
-      const txHash = await unlistToken([tokenId]);
-      
-      devLog.log('🔍 useUnlistTokenWallet - Transaction Hash:', txHash);
-      return { hash: txHash };
-    },
-    onSuccess: (result, tokenId) => {
-      // Invalidate listing-related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.isTokenListed(tokenId) });
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Token unlisted successfully via wallet, cache invalidated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to unlist token via wallet:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for unlisting tokens (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useUnlistToken = (options = {}) => {
-  const { isSSO } = useUser();
-  const ssoMutation = useUnlistTokenSSO(options);
-  const walletMutation = useUnlistTokenWallet(options);
-
-  return useMutation({
-    mutationFn: async (tokenId) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(tokenId);
-      } else {
-        return walletMutation.mutateAsync(tokenId);
-      }
-    },
-    onSuccess: (data, tokenId) => {
-      devLog.log('✅ Token unlisted successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to unlist token via unified hook:', error);
-    },
-    ...options,
-  });
-};
-
-/**
  * Hook for /api/contract/reservation/requestFundsSSO endpoint
  * Requests funds for SSO users
  * @param {Object} [options={}] - Additional mutation options
@@ -838,34 +646,6 @@ export const useRequestFundsSSO = (options = {}) => {
 };
 
 /**
- * Unified Hook for requesting funds (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useRequestFunds = (options = {}) => {
-  const { isSSO } = useUser();
-  const ssoMutation = useRequestFundsSSO(options);
-  const walletMutation = useRequestFundsWallet(options);
-
-  return useMutation({
-    mutationFn: async () => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync();
-      } else {
-        return walletMutation.mutateAsync();
-      }
-    },
-    onSuccess: (data) => {
-      devLog.log('✅ Funds requested successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to request funds via unified hook:', error);
-    },
-    ...options,
-  });
-};
-
-/**
  * Hook for wallet-based requestFunds using useContractWriteFunction
  * Requests funds using user's wallet
  * @param {Object} [options={}] - Additional mutation options
@@ -890,6 +670,34 @@ export const useRequestFundsWallet = (options = {}) => {
     },
     onError: (error) => {
       devLog.error('❌ Failed to request funds via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+/**
+ * Unified Hook for requesting funds (auto-detects SSO vs Wallet)
+ * @param {Object} [options={}] - Additional mutation options
+ * @returns {Object} React Query mutation object
+ */
+export const useRequestFunds = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useRequestFundsSSO(options);
+  const walletMutation = useRequestFundsWallet(options);
+
+  return useMutation({
+    mutationFn: async () => {
+      if (isSSO) {
+        return ssoMutation.mutateAsync();
+      } else {
+        return walletMutation.mutateAsync();
+      }
+    },
+    onSuccess: (data) => {
+      devLog.log('✅ Funds requested successfully via unified hook');
+    },
+    onError: (error) => {
+      devLog.error('❌ Failed to request funds via unified hook:', error);
     },
     ...options,
   });
