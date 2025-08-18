@@ -8,11 +8,12 @@ import isBookingActive from '@/utils/booking/isBookingActive'
 /**
  * Custom hook for lab filtering and search
  * @param {Array} labs - Array of lab objects
- * @param {Array} userBookings - Array of user booking objects
+ * @param {Array} userBookings - Array of user booking objects (can be empty during loading)
  * @param {boolean} isLoggedIn - User login status
+ * @param {boolean} bookingsLoading - Whether bookings are still loading
  * @returns {Object} Filter state, handlers, and filtered results
  */
-export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) {
+export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false, bookingsLoading = false) {
   const searchInputRef = useRef(null)
   
   // Filter state
@@ -115,25 +116,25 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
       })
     }
 
-    // Mark labs with active bookings (only if user is logged in and has bookings)
-    const enrichedLabs = filtered.map(lab => ({
-      ...lab,
-      hasActiveBooking: isLoggedIn && userBookings && userBookings.length > 0 && userBookings.some(booking => 
-        booking.labId === lab.id && isBookingActive(booking)
-      )
-    }))
-
-    return enrichedLabs
+    return filtered
   }, [
     labs, 
     selectedCategory, 
     selectedPrice, 
     selectedProvider, 
     selectedFilter, 
-    searchDebounce, 
-    isLoggedIn,
-    userBookings
+    searchDebounce
   ])
+
+  // Separate memo for active booking marking to minimize re-renders
+  const enrichedLabs = useMemo(() => {
+    return searchFilteredLabs.map(lab => ({
+      ...lab,
+      hasActiveBooking: isLoggedIn && !bookingsLoading && userBookings && userBookings.length > 0 && userBookings.some(booking => 
+        booking.labId === lab.id && isBookingActive(booking)
+      )
+    }))
+  }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookings])
 
   // Reset filters function
   const resetFilters = useCallback(() => {
@@ -153,7 +154,7 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false) 
     selectedPrice,
     selectedProvider,
     selectedFilter,
-    searchFilteredLabs,
+    searchFilteredLabs: enrichedLabs, // Return enriched labs with active booking marks
     searchDebounce,
     
     // Setters

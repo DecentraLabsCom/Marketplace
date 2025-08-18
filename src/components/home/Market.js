@@ -15,7 +15,7 @@ import LabGrid from '@/components/home/LabGrid'
 import devLog from '@/utils/dev/logger'
 
 export default function Market() {
-  const { isLoggedIn, address } = useUser();
+  const { isLoggedIn, address, isWalletLoading } = useUser();
   
   // React Query for labs with metadata (memoized options)
   const labsQueryOptions = useMemo(() => ({
@@ -36,7 +36,7 @@ export default function Market() {
   // Extract labs array from composed result and memoize
   const labsArray = useMemo(() => labsData?.labs || [], [labsData?.labs]);
   
-  // Determine labs loading state (stable)
+  // Determine labs loading state (stable) - Show labs immediately, don't wait for bookings
   const labsLoading = useMemo(() => {
     return labsInitialLoading || (labsFetching && labsArray.length === 0);
   }, [labsInitialLoading, labsFetching, labsArray.length]);
@@ -44,10 +44,11 @@ export default function Market() {
   // Memoize labs to prevent infinite re-renders
   const labs = useMemo(() => labsArray, [labsArray]);
 
-  // React Query for user bookings (memoized options)
+  // React Query for user bookings (memoized options) - Only fetch when user is definitely connected
   const userBookingsOptions = useMemo(() => ({
-    enabled: !!address && isLoggedIn,
-  }), [address, isLoggedIn]);
+    enabled: !!address && isLoggedIn && !isWalletLoading, // Wait for wallet to stabilize
+    refetchOnMount: false, // Use cached data if available
+  }), [address, isLoggedIn, isWalletLoading]);
   
   const userBookingsQuery = useUserBookingsComposed(address, userBookingsOptions);
 
@@ -65,7 +66,8 @@ export default function Market() {
   // Memoize userBookings to prevent infinite re-renders
   const userBookings = useMemo(() => userBookingsData?.bookings || [], [userBookingsData?.bookings]);
 
-  // Use custom hook for filtering logic (with stable dependencies)
+  // Use custom hook for filtering logic (with progressive loading)
+  // Pass labs immediately, userBookings only when available (for active booking marking)
   const {
     selectedCategory,
     selectedPrice,
@@ -80,10 +82,10 @@ export default function Market() {
     providers,
     searchInputRef,
     resetFilters
-  } = useLabFilters(labs, userBookings, isLoggedIn);
+  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading);
 
   return (
-    <main className="container mx-auto p-6">
+    <main className="container mx-auto p-6">  
       <LabFilters
         categories={categories}
         providers={providers}

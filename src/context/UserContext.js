@@ -169,8 +169,9 @@ function UserDataCore({ children }) {
         if (!isConnected) {
             setIsSSO(false);
             setUser(null);
-            // Clear provider-related cache when disconnecting
-            queryClient.removeQueries({ queryKey: providerQueryKeys.all() });
+            // Only clear user-specific cache when disconnecting, not all provider data
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(address) });
         } else if (isConnected && address) {
             // Invalidate provider status cache when wallet connects
             // Invalidate provider status cache using the correct query key for useIsLabProvider
