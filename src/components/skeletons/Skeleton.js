@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types'
+
 // Base skeleton component with consistent styling
 export function Skeleton({ className = "", width = "w-full", height = "h-4", rounded = "rounded" }) {
   return (
@@ -53,4 +55,31 @@ export function SkeletonButton({ className = "" }) {
       rounded="rounded-md"
     />
   );
+}
+
+// PropTypes
+Skeleton.propTypes = {
+  className: PropTypes.string,
+  width: PropTypes.string,
+  height: PropTypes.string,
+  rounded: PropTypes.string
+}
+
+SkeletonCard.propTypes = {
+  children: PropTypes.node.isRequired,
+  className: PropTypes.string
+}
+
+SkeletonText.propTypes = {
+  lines: PropTypes.number,
+  className: PropTypes.string
+}
+
+SkeletonImage.propTypes = {
+  aspectRatio: PropTypes.string,
+  className: PropTypes.string
+}
+
+SkeletonButton.propTypes = {
+  className: PropTypes.string
 }

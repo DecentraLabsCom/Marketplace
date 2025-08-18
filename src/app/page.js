@@ -1,4 +1,4 @@
-import Market from '@/components/Market'
+import Market from '@/components/home/Market'
 
 export default function HomePage() {
 
@@ -9,7 +9,7 @@ export default function HomePage() {
         <div className="relative z-10">
           <h1 className="text-3xl font-bold mb-2">Explore Online Labs</h1>
           <p className="text-base">Discover and access laboratories from anywhere in the world.</p>
-          <div className="mt-4 border-t-4 border-[#715c8c] w-80 mx-auto" />
+          <div className="mt-4 border-t-4 border-brand w-80 mx-auto" />
         </div>
       </div>
       <Market />

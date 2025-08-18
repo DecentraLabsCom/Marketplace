@@ -1,6 +1,14 @@
-import { createServiceProvider, createIdentityProvider } from "@/utils/sso";
-import { NextResponse } from "next/server";
+/**
+ * API endpoint for initiating SAML2 SSO login process
+ * Handles GET requests to redirect users to SSO identity provider
+ */
+import { NextResponse } from 'next/server'
+import { createServiceProvider, createIdentityProvider } from '@/utils/auth/sso'
 
+/**
+ * Initiates SAML2 SSO login by redirecting to identity provider
+ * @returns {Response} Redirect response to SSO login URL or error
+ */
 export async function GET() {
   const sp = createServiceProvider();
   const idp = await createIdentityProvider();

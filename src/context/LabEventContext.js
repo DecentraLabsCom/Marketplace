@@ -1,302 +1,213 @@
-"use client"
-import { createContext, useContext, useRef, useCallback, useState } from "react";
-import { useWatchContractEvent } from 'wagmi';
-import { useLabs } from "@/context/LabContext";
-import { useBookings } from "@/context/BookingContext";
-import { contractABI, contractAddresses } from '@/contracts/diamond';
-import devLog from '@/utils/logger';
-import { selectChain } from '@/utils/selectChain';
-import { useAccount } from "wagmi";
-
-function toIdString(id) {
-    if (typeof id === "bigint") return id.toString();
-    if (typeof id === "number") return id.toString();
-    if (typeof id === "string") return id;
-    return String(id);
-}
+"use client";
+import { createContext, useContext } from 'react'
+import { useWatchContractEvent, useAccount } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
+import { labQueryKeys } from '@/utils/hooks/queryKeys'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
+import { selectChain } from '@/utils/blockchain/selectChain'
+import devLog from '@/utils/dev/logger'
+import PropTypes from 'prop-types'
 
 const LabEventContext = createContext();
 
+/**
+ * Simplified Lab Event Provider
+ * Only handles blockchain events and validates/updates React Query cache
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components
+ */
 export function LabEventProvider({ children }) {
     const { chain } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
-    const { setLabs, fetchLabs } = useLabs();
-    const { fetchUserBookings } = useBookings();
+    const queryClient = useQueryClient();
 
-    // Debouncing and state management for intelligent updates
-    const lastEventTime = useRef(new Map()); // Track last event time by type
-    const pendingUpdates = useRef(new Set()); // Track pending lab IDs for updates
-    const updateTimeoutRef = useRef(null);
-
-    // Manual update tracking for coordination (useState for reactivity)
-    const [manualUpdateInProgress, setManualUpdateInProgressState] = useState(false);
-    const manualUpdateTimeout = useRef(null);
-
-    // Function to check if manual update is in progress
-    const isManualUpdateInProgress = manualUpdateInProgress;
-
-    // Function to set manual update in progress
-    const setManualUpdateInProgress = useCallback((inProgress, duration = 3000) => {
-        setManualUpdateInProgressState(inProgress);
-        
-        if (inProgress) {
-            // Clear existing timeout
-            if (manualUpdateTimeout.current) {
-                clearTimeout(manualUpdateTimeout.current);
-            }
-            
-            // Auto-clear after duration
-            manualUpdateTimeout.current = setTimeout(() => {
-                setManualUpdateInProgressState(false);
-                devLog.log('🕒 Manual update timeout cleared');
-            }, duration);
-        } else {
-            // Clear timeout immediately
-            if (manualUpdateTimeout.current) {
-                clearTimeout(manualUpdateTimeout.current);
-                manualUpdateTimeout.current = null;
-            }
-        }
-    }, []);
-
-    // Smart cache invalidation - preserves sessionStorage timestamps
-    const invalidateLabCache = useCallback((labId = null) => {
-        if (labId) {
-            // Selective invalidation - mark specific lab as needing update
-            pendingUpdates.current.add(labId);
-        } else {
-            // Full invalidation - clear all cache
-            sessionStorage.removeItem('labs');
-            sessionStorage.removeItem('labs_timestamp');
-        }
-    }, []);
-
-    // Invalidate booking data for a specific lab
-    const invalidateLabBookingData = useCallback((labId) => {
-        if (labId) {
-            // Clear the specific lab booking cache
-            const cacheKey = `lab_bookings_${labId}`;
-            sessionStorage.removeItem(cacheKey);
-            sessionStorage.removeItem(`${cacheKey}_timestamp`);
-            
-            // Also force refresh user bookings since they might be affected
-            fetchUserBookings(true);
-            
-            devLog.log(`🗑️ Invalidated booking data for lab ${labId}`);
-        }
-    }, [fetchUserBookings]);
-
-    // Debounced batch update for multiple lab changes
-    const scheduleLabsUpdate = useCallback((delay = 500) => {
-        if (updateTimeoutRef.current) {
-            clearTimeout(updateTimeoutRef.current);
-        }
-        
-        updateTimeoutRef.current = setTimeout(() => {
-            if (pendingUpdates.current.size > 0) {
-                devLog.log('Processing batch lab updates for IDs:', Array.from(pendingUpdates.current));
-                pendingUpdates.current.clear();
-                fetchLabs();
-            }
-        }, delay);
-    }, [fetchLabs]);
-
-    // Enhanced event handlers with collision prevention
-    async function handleLabAdded(args) {
-        const eventKey = `LabAdded_${args._labId}`;
-        const now = Date.now();
-        
-        // Prevent duplicate processing of same event within 2 seconds
-        if (lastEventTime.current.has(eventKey) && 
-            now - lastEventTime.current.get(eventKey) < 2000) {
-            return;
-        }
-        lastEventTime.current.set(eventKey, now);
-
-        // ✅ CHECK: Skip if manual update is in progress
-        if (isManualUpdateInProgress) {
-            devLog.log('⏸️ Skipping LabAdded event - manual update in progress:', args._labId);
-            return;
-        }
-
-        devLog.log('🔥 LabAdded event received (processing):', args);
-        
-        try {
-            const labId = toIdString(args._labId);
-            
-            // Build the new lab object from event data
-            const newLab = {
-                id: labId,
-                provider: args._provider,
-                uri: args._uri,
-                price: args._price?.toString() || "0",
-                auth: args._auth || "",
-                accessURI: args._accessURI || "",
-                accessKey: args._accessKey || ""
-            };
-
-            // If we have a metadata URI, try to fetch additional metadata
-            if (args._uri) {
-                try {
-                    const metadataResponse = await fetch(args._uri);
-                    if (metadataResponse.ok) {
-                        const metadata = await metadataResponse.json();
-                        // Merge metadata into the lab object
-                        Object.assign(newLab, metadata);
-                    }
-                } catch (metadataError) {
-                    devLog.warn('Could not fetch metadata for new lab:', metadataError);
-                }
-            }
-
-            // Smart state update - prevent duplicates and handle concurrent updates
-            setLabs(prev => {
-                const existingLabIndex = prev.findIndex(lab => toIdString(lab.id) === labId);
-                if (existingLabIndex !== -1) {
-                    // Update existing lab instead of adding duplicate
-                    const updatedLabs = [...prev];
-                    updatedLabs[existingLabIndex] = { 
-                        ...updatedLabs[existingLabIndex], 
-                        ...newLab
-                    };
-                    return updatedLabs;
-                } else {
-                    // Add new lab
-                    return [...prev, newLab];
-                }
-            });
-
-            // Update cache timestamp to prevent unnecessary fetches
-            invalidateLabCache(labId);
-            
-            devLog.log('✅ Successfully processed LabAdded event:', newLab);    
-        } catch (error) {
-            devLog.error('❌ Error handling LabAdded event:', error);
-            // Fallback: schedule a delayed full refresh instead of immediate
-            scheduleLabsUpdate(1000);
-        }
-    }
-
-    function handleLabDeleted(args) {
-        const eventKey = `LabDeleted_${args._labId}`;
-        const now = Date.now();
-        
-        // Prevent duplicate processing
-        if (lastEventTime.current.has(eventKey) && 
-            now - lastEventTime.current.get(eventKey) < 2000) {
-            return;
-        }
-        lastEventTime.current.set(eventKey, now);
-
-        // ✅ CHECK: Skip if manual update is in progress
-        if (isManualUpdateInProgress) {
-            devLog.log('⏸️ Skipping LabDeleted event - manual update in progress:', args._labId);
-            return;
-        }
-
-        devLog.log('🗑️ LabDeleted event received (processing):', args);
-        
-        const deletedLabId = toIdString(args._labId);
-        
-        // Remove the lab from the labs array
-        setLabs(prev => {
-            const filteredLabs = prev.filter(lab => toIdString(lab.id) !== deletedLabId);
-            
-            // Only update cache if there was actually a change
-            if (filteredLabs.length !== prev.length) {
-                invalidateLabCache(deletedLabId);
-                // Invalidate booking data for the deleted lab
-                invalidateLabBookingData(deletedLabId);
-                devLog.log('✅ Successfully removed lab from state:', deletedLabId);
-            }
-            
-            return filteredLabs;
-        });
-        
-        // Force refresh user bookings to get updated data (remove this since it's now handled by invalidateLabBookingData)
-        // fetchUserBookings(true);
-    }
-
-    function handleLabUpdated(args) {
-        const eventKey = `LabUpdated_${args._labId}`;
-        const now = Date.now();
-        
-        // Prevent duplicate processing and batch multiple updates
-        if (lastEventTime.current.has(eventKey) && 
-            now - lastEventTime.current.get(eventKey) < 2000) {
-            return;
-        }
-        lastEventTime.current.set(eventKey, now);
-
-        // ✅ CHECK: Skip if manual update is in progress
-        if (isManualUpdateInProgress) {
-            devLog.log('⏸️ Skipping LabUpdated event - manual update in progress:', args._labId);
-            return;
-        }
-
-        devLog.log('📝 LabUpdated event received (scheduling update):', args);
-        
-        const labId = toIdString(args._labId);
-        
-        // Mark this lab for update and schedule batch processing
-        pendingUpdates.current.add(labId);
-        invalidateLabCache(labId);
-        
-        // Use debounced update to batch multiple rapid changes
-        scheduleLabsUpdate(1500); // Slightly longer delay for updates to batch them
-    }
-
-    // Listen for LabAdded events
+    // LabAdded event listener - simple cache invalidation
     useWatchContractEvent({
         address: contractAddress,
         abi: contractABI,
         eventName: 'LabAdded',
-        onLogs(logs) {
-            logs.forEach(log => {
-                handleLabAdded(log.args);
+        onLogs: (logs) => {
+            devLog.log('🏗️ [LabEventContext] LabAdded events detected:', logs.length);
+            
+            // Simple invalidation - let React Query handle the rest
+            queryClient.invalidateQueries({ 
+                queryKey: labQueryKeys.getAllLabs() 
             });
-        },
+            
+            // Invalidate specific lab queries if we have labId
+            logs.forEach(log => {
+                const labId = log.args._labId?.toString();
+                if (labId) {
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.getLab(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.isTokenListed(labId) 
+                    });
+                }
+            });
+        }
     });
 
-    // Listen for LabDeleted events
-    useWatchContractEvent({
-        address: contractAddress,
-        abi: contractABI,
-        eventName: 'LabDeleted',
-        onLogs(logs) {
-            logs.forEach(log => {
-                handleLabDeleted(log.args);
-            });
-        },
-    });
-
-    // Listen for LabUpdated events
+    // LabUpdated event listener
     useWatchContractEvent({
         address: contractAddress,
         abi: contractABI,
         eventName: 'LabUpdated',
-        onLogs(logs) {
+        onLogs: (logs) => {
+            devLog.log('🔄 [LabEventContext] LabUpdated events detected:', logs.length);
+            
             logs.forEach(log => {
-                handleLabUpdated(log.args);
+                const labId = log.args._labId?.toString();
+                if (labId) {
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.getLab(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.tokenURI(labId) 
+                    });
+                }
             });
-        },
+            
+            // Also invalidate the list in case lab data affects listing
+            queryClient.invalidateQueries({ 
+                queryKey: labQueryKeys.getAllLabs() 
+            });
+        }
+    });
+
+    // LabListed event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'LabListed',
+        onLogs: (logs) => {
+            devLog.log('📋 [LabEventContext] LabListed events detected:', logs.length);
+            
+            logs.forEach(log => {
+                const labId = log.args._labId?.toString();
+                if (labId) {
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.getLab(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.isTokenListed(labId) 
+                    });
+                }
+            });
+            
+            queryClient.invalidateQueries({ 
+                queryKey: labQueryKeys.getAllLabs() 
+            });
+        }
+    });
+
+    // LabUnlisted event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'LabUnlisted',
+        onLogs: (logs) => {
+            devLog.log('📋 [LabEventContext] LabUnlisted events detected:', logs.length);
+            
+            logs.forEach(log => {
+                const labId = log.args._labId?.toString();
+                if (labId) {
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.getLab(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.isTokenListed(labId) 
+                    });
+                }
+            });
+            
+            queryClient.invalidateQueries({ 
+                queryKey: labQueryKeys.getAllLabs() 
+            });
+        }
+    });
+
+    // LabDeleted event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'LabDeleted',
+        onLogs: (logs) => {
+            devLog.log('🗑️ [LabEventContext] LabDeleted events detected:', logs.length);
+            
+            logs.forEach(log => {
+                const labId = log.args._labId?.toString();
+                if (labId) {
+                    // For deleted labs, invalidate all related queries
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.getLab(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.tokenURI(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.isTokenListed(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.ownerOf(labId) 
+                    });
+                }
+            });
+            
+            queryClient.invalidateQueries({ 
+                queryKey: labQueryKeys.getAllLabs() 
+            });
+        }
+    });
+
+    // LabURISet event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'LabURISet',
+        onLogs: (logs) => {
+            devLog.log('🔗 [LabEventContext] LabURISet events detected:', logs.length);
+            
+            logs.forEach(log => {
+                const labId = log.args._labId?.toString();
+                if (labId) {
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.getLab(labId) 
+                    });
+                    queryClient.invalidateQueries({ 
+                        queryKey: labQueryKeys.tokenURI(labId) 
+                    });
+                }
+            });
+            
+            // URI changes might affect lab display in lists
+            queryClient.invalidateQueries({ 
+                queryKey: labQueryKeys.getAllLabs() 
+            });
+        }
     });
 
     return (
-        <LabEventContext.Provider value={{ 
-            invalidateLabCache,
-            invalidateLabBookingData,
-            scheduleLabsUpdate,
-            isManualUpdateInProgress,
-            setManualUpdateInProgress,
-            pendingUpdates: pendingUpdates.current
-        }}>
+        <LabEventContext.Provider value={{}}>
             {children}
         </LabEventContext.Provider>
     );
 }
 
-export function useLabEvents() {
-    return useContext(LabEventContext);
+LabEventProvider.propTypes = {
+    children: PropTypes.node.isRequired,
+};
+
+/**
+ * Hook to use the Lab Event Context
+ * @returns {Object} Lab event context value
+ */
+export function useLabEventContext() {
+    const context = useContext(LabEventContext);
+    if (context === undefined) {
+        throw new Error('useLabEventContext must be used within a LabEventProvider');
+    }
+    return context;
 }

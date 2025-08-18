@@ -1,4 +1,5 @@
-import { Skeleton, SkeletonCard, SkeletonText, SkeletonImage, SkeletonButton } from './Skeleton';
+import PropTypes from 'prop-types'
+import { Skeleton, SkeletonCard, SkeletonText, SkeletonImage, SkeletonButton } from './Skeleton'
 
 export function LabCardSkeleton() {
   return (
@@ -45,4 +46,9 @@ export function LabCardGridSkeleton({ count = 6 }) {
       ))}
     </div>
   );
+}
+
+// PropTypes
+LabCardGridSkeleton.propTypes = {
+  count: PropTypes.number
 }

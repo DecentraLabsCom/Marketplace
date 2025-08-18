@@ -1,7 +1,14 @@
-import { createServiceProvider } from "@/utils/sso";
-import { NextResponse } from "next/server";
-import devLog from '@/utils/logger';
+/**
+ * API endpoint for generating SAML2 service provider metadata
+ * Handles GET requests to provide XML metadata for SSO configuration
+ */
+import { NextResponse } from 'next/server'
+import { createServiceProvider } from '@/utils/auth/sso'
 
+/**
+ * Generates and returns SAML2 metadata XML for service provider configuration
+ * @returns {Response} XML response with SAML metadata or error response
+ */
 export async function GET() {
     const sp = createServiceProvider();
     try {
@@ -22,7 +29,7 @@ export async function GET() {
             headers: { "Content-Type": "application/xml" },
         });
     } catch (error) {
-        devLog.error("Error generating SAML metadata:", error);
+        console.error("Error generating SAML metadata:", error);
         return new NextResponse("Unexpected error generating metadata", { status: 500 });
     }
 }

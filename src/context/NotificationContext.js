@@ -1,17 +1,25 @@
-"use client"
-import { useContext, useState, useCallback } from "react";
-import devLog from '@/utils/logger';
-import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext';
+"use client";
+import { useContext, useState, useCallback } from 'react'
+import PropTypes from 'prop-types'
+import devLog from '@/utils/dev/logger'
+import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
   ErrorSeverity,
   ErrorCategory 
-} from '@/utils/errorBoundaries';
+} from '@/utils/errorBoundaries'
 
 // Create optimized context
 const { Context: NotificationContext, Provider: OptimizedNotificationProvider } = createOptimizedContext('NotificationContext');
 
+/**
+ * Core notification provider component with state management
+ * Manages notification queue, auto-removal, and user interactions
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with notification context
+ * @returns {JSX.Element} Provider with notification management functionality
+ */
 function NotificationProviderCore({ children }) {
     const [notifications, setNotifications] = useState([]);
     const { handleError } = useErrorHandler();
@@ -154,53 +162,58 @@ function NotificationProviderCore({ children }) {
         });
     }, [addNotification]);
 
-    // Smart error notification with enhanced error categorization
+    // Smart error notification with enhanced error categorization and concise messages
     const addErrorNotification = useCallback((error, context = '', options = {}) => {
         try {
             devLog.error(`Error in ${context}:`, error);
             
             let errorMessage = '❌ An error occurred';
             let priority = 'high';
-            let duration = 8000;
+            let duration = 6000; // Reduced from 8000
             
             if (typeof error === 'string') {
                 errorMessage = `❌ ${error}`;
-            } else if (error?.message) {
+            } else if (error?.message || error?.shortMessage) {
                 // Handle AbortController errors specifically
-                if (error.name === 'AbortError' || error.message.includes('aborted')) {
-                    errorMessage = '⚠️ Request was cancelled due to timeout';
+                const message = error.message || '';
+                const shortMessage = error.shortMessage || '';
+                if (error.name === 'AbortError' || message.includes('aborted')) {
+                    errorMessage = '⚠️ Request cancelled';
                     priority = 'normal';
-                    duration = 5000;
+                    duration = 4000; // Reduced from 5000
                     return addTemporaryNotification('warning', errorMessage, null, { priority, duration });
                 }
                 // Handle user rejection specifically
-                else if (error.message.includes('User rejected') || 
-                    error.message.includes('User denied') ||
-                    error.message.includes('user rejected')) {
-                    errorMessage = '❌ Transaction cancelled by user';
+                else if (
+                    shortMessage.toLowerCase().includes('user rejected') ||
+                    shortMessage.toLowerCase().includes('user denied') ||
+                    message.toLowerCase().includes('user rejected') ||
+                    message.toLowerCase().includes('user denied')
+                ) {
+                    errorMessage = '🚫 Transaction rejected by user';
                     priority = 'normal';
-                    duration = 6000;
+                    duration = 3500; // Slightly shorter
                 } else if (error.message.includes('insufficient funds')) {
-                    errorMessage = '❌ Insufficient funds for transaction';
+                    errorMessage = '❌ Insufficient funds';
                     priority = 'high';
-                    duration = 10000;
+                    duration = 6000; // Reduced from 10000
                 } else if (error.message.includes('network') || error.message.includes('fetch')) {
-                    errorMessage = '❌ Network error. Please check your connection';
+                    errorMessage = '❌ Network error';
                     priority = 'high';
-                    duration = 8000;
+                    duration = 6000; // Reduced from 8000
                 } else if (error.message.includes('validation')) {
                     errorMessage = '❌ Validation failed';
                     priority = 'normal';
-                    duration = 6000;
+                    duration = 4000; // Reduced from 6000
                 } else if (error.message.includes('timeout')) {
-                    errorMessage = '⚠️ Request timed out. Please try again';
+                    errorMessage = '⚠️ Request timeout';
                     priority = 'normal';
-                    duration = 7000;
+                    duration = 5000; // Reduced from 7000
                 } else {
-                    // For other errors, show a generic message but preserve context if provided
-                    errorMessage = context ? `❌ ${context} failed` : '❌ Operation failed';
+                    // For other errors, show a concise generic message
+                    errorMessage = '❌ Operation failed';
                     priority = 'high';
-                    duration = 8000;
+                    duration = 5000; // Reduced from 8000
                 }
             }
             
@@ -327,7 +340,13 @@ function NotificationProviderCore({ children }) {
     );
 }
 
-// Wrap with Error Boundary
+/**
+ * Notification provider with error boundary
+ * Main export for notification context with error handling wrapper
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with notification context
+ * @returns {JSX.Element} Notification context provider wrapped with error boundary
+ */
 export function NotificationProvider({ children }) {
     return (
         <ErrorBoundary
@@ -347,10 +366,29 @@ export function NotificationProvider({ children }) {
     );
 }
 
+/**
+ * Hook to access notification context
+ * Provides notification management functions for displaying user messages
+ * @returns {Object} Notification context functions and state
+ * @returns {Array} returns.notifications - Current notifications array
+ * @returns {Function} returns.addNotification - Function to add new notifications
+ * @returns {Function} returns.removeNotification - Function to remove notifications
+ * @returns {Function} returns.clearAllNotifications - Function to clear all notifications
+ * @throws {Error} When used outside of NotificationProvider
+ */
 export function useNotifications() {
     const context = useContext(NotificationContext);
     if (!context) {
         throw new Error('useNotifications must be used within a NotificationProvider');
     }
     return context;
+}
+
+// PropTypes
+NotificationProviderCore.propTypes = {
+    children: PropTypes.node.isRequired
+}
+
+NotificationProvider.propTypes = {
+    children: PropTypes.node.isRequired
 }

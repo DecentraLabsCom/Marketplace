@@ -1,7 +1,26 @@
+/**
+ * Comprehensive validation for lab data in full setup mode
+ * Validates all required fields, formats, and constraints for lab creation/editing
+ * @param {Object} localLab - Lab data object to validate
+ * @param {string} localLab.name - Lab name (required)
+ * @param {string} localLab.category - Lab category (required)
+ * @param {string} localLab.description - Lab description (required)
+ * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
+ * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL format)
+ * @param {string} localLab.opens - Lab opening date (MM/DD/YYYY format)
+ * @param {string} localLab.closes - Lab closing date (MM/DD/YYYY format)
+ * @param {Array} localLab.images - Array of image URLs/files
+ * @param {Array} localLab.docs - Array of document URLs/files
+ * @param {Object} options - Validation options
+ * @param {string} options.imageInputType - Type of image input ('file' or 'url')
+ * @param {string} options.docInputType - Type of document input ('file' or 'url')
+ * @returns {Object} Object containing validation errors (empty if all valid)
+ */
+
+import { validateDateString, validateDateRange } from './dates/dateValidation'
 export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
-    const dateRegex = /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
     const imageExtensionRegex = /\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i;
     const pdfExtensionRegex = /\.pdf$/i;
 
@@ -32,16 +51,23 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
 
     if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
 
+    // Enhanced date validation
     if (!localLab.opens?.trim()) {
         errors.opens = 'Opening date is required';
-    } else if (!dateRegex.test(localLab.opens)) {
-        errors.opens = 'Invalid opening date format (must be MM/DD/YYYY)';
+    } else {
+        const opensValidation = validateDateString(localLab.opens);
+        if (!opensValidation.isValid) {
+            errors.opens = opensValidation.error;
+        }
     }
 
     if (!localLab.closes?.trim()) {
         errors.closes = 'Closing date is required';
-    } else if (!dateRegex.test(localLab.closes)) {
-        errors.closes = 'Invalid closing date format (must be MM/DD/YYYY)';
+    } else {
+        const closesValidation = validateDateString(localLab.closes);
+        if (!closesValidation.isValid) {
+            errors.closes = closesValidation.error;
+        }
     }
 
     if (!localLab.timeSlots || localLab.timeSlots.length === 0 ||
@@ -53,13 +79,11 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         errors.keywords = 'At least one keyword must be added';
     }
 
-    // Date comparison
-    if (!errors.opens && !errors.closes &&
-        localLab.opens?.trim() && localLab.closes?.trim()) {
-        const opensDate = new Date(localLab.opens);
-        const closesDate = new Date(localLab.closes);
-        if (closesDate.getTime() < opensDate.getTime()) {
-            errors.closes = 'Closing date must be after or equal to opening date';
+    // Enhanced date range validation
+    if (!errors.opens && !errors.closes && localLab.opens?.trim() && localLab.closes?.trim()) {
+        const rangeValidation = validateDateRange(localLab.opens, localLab.closes);
+        if (!rangeValidation.isValid) {
+            errors.closes = rangeValidation.error;
         }
     }
 
@@ -82,6 +106,14 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     return errors;
 }
 
+/**
+ * Quick validation for lab data in simplified setup mode
+ * Validates only essential fields required for basic lab registration
+ * @param {Object} localLab - Lab data object to validate
+ * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
+ * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL or external URI format)
+ * @returns {Object} Object containing validation errors (empty if all valid)
+ */
 export function validateLabQuick(localLab) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;

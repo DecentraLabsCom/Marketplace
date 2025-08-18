@@ -1,4 +1,5 @@
-import { Skeleton, SkeletonCard, SkeletonButton } from './Skeleton';
+import PropTypes from 'prop-types'
+import { Skeleton, SkeletonCard, SkeletonButton } from './Skeleton'
 
 export function BookingItemSkeleton() {
   return (
@@ -56,4 +57,13 @@ export function DashboardSectionSkeleton({ title = true }) {
       <BookingListSkeleton count={2} />
     </div>
   );
+}
+
+// PropTypes
+BookingListSkeleton.propTypes = {
+  count: PropTypes.number
+}
+
+DashboardSectionSkeleton.propTypes = {
+  title: PropTypes.bool
 }

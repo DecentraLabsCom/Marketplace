@@ -2,8 +2,9 @@
  * Error Boundary System with Tiered Error Handling
  * Provides robust error boundaries and hierarchical error handling
  */
-import React from 'react';
-import devLog from '@/utils/logger';
+import React from 'react'
+import PropTypes from 'prop-types'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Error Severity Levels
@@ -141,26 +142,50 @@ class ErrorHandler {
     let userMessage = 'An unexpected error occurred';
     let recoverable = true;
 
+    // Handle empty/meaningless error objects (React Query sometimes sends these)
+    if (!error || (typeof error === 'object' && Object.keys(error).length === 0)) {
+      devLog.warn('Skipping empty/meaningless error object in enhanceError');
+      return new EnhancedError('Empty error object', {
+        severity: ErrorSeverity.LOW,
+        category: ErrorCategory.UI,
+        context: { ...context, originalError: error, skipped: true },
+        userMessage: 'A minor error occurred but has been handled',
+        recoverable: true
+      });
+    }
+
+    // Extract error message, handling various error types
+    let errorMessage = 'Unknown error';
+    if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    } else if (error?.error) {
+      errorMessage = error.error;
+    } else if (error?.toString && typeof error.toString === 'function') {
+      errorMessage = error.toString();
+    }
+
     // Auto-categorize based on error message/type
-    if (error.message.includes('fetch') || error.message.includes('network')) {
+    if (errorMessage.includes('fetch') || errorMessage.includes('network')) {
       category = ErrorCategory.NETWORK;
       userMessage = 'Network connection error. Please check your internet connection.';
-    } else if (error.message.includes('blockchain') || error.message.includes('transaction')) {
+    } else if (errorMessage.includes('blockchain') || errorMessage.includes('transaction')) {
       category = ErrorCategory.BLOCKCHAIN;
       severity = ErrorSeverity.HIGH;
       userMessage = 'Blockchain transaction error. Please try again.';
-    } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+    } else if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
       category = ErrorCategory.VALIDATION;
       severity = ErrorSeverity.LOW;
       userMessage = 'Please check your input and try again.';
-    } else if (error.message.includes('auth') || error.message.includes('unauthorized')) {
+    } else if (errorMessage.includes('auth') || errorMessage.includes('unauthorized')) {
       category = ErrorCategory.AUTHENTICATION;
       severity = ErrorSeverity.HIGH;
       userMessage = 'Authentication required. Please log in again.';
       recoverable = false;
     }
 
-    return new EnhancedError(error.message, {
+    return new EnhancedError(errorMessage, {
       severity,
       category,
       context: { ...context, originalError: error },
@@ -283,6 +308,18 @@ export const globalErrorHandler = new ErrorHandler();
 
 /**
  * React Error Boundary Component
+ * Catches JavaScript errors anywhere in the child component tree and displays a fallback UI
+ * @class ErrorBoundary
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child components to wrap with error boundary
+ * @param {Function} [props.fallback] - Function that receives (error, errorInfo) and returns JSX fallback UI
+ * @param {string} [props.name] - Name identifier for the error boundary
+ * @param {string} [props.severity] - Error severity level from ErrorSeverity enum
+ * @param {string} [props.category] - Error category from ErrorCategory enum
+ * @param {string} [props.userMessage] - User-friendly error message
+ * @param {boolean} [props.recoverable=true] - Whether the error is recoverable with "Try Again"
+ * @param {Function} [props.onError] - Custom error handler function
+ * @param {Object} [props.errorContext] - Additional context for error logging
  */
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -333,7 +370,7 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       // Custom fallback UI
-      if (this.props.fallback) {
+      if (this.props.fallback && typeof this.props.fallback === 'function') {
         return this.props.fallback(this.state.error, this.state.errorInfo);
       }
 
@@ -374,8 +411,25 @@ export class ErrorBoundary extends React.Component {
   }
 }
 
+// PropTypes for ErrorBoundary
+ErrorBoundary.propTypes = {
+  children: PropTypes.node.isRequired,
+  fallback: PropTypes.func, // Function that receives (error, errorInfo) and returns JSX
+  name: PropTypes.string,
+  severity: PropTypes.oneOf(Object.values(ErrorSeverity)),
+  category: PropTypes.oneOf(Object.values(ErrorCategory)),
+  userMessage: PropTypes.string,
+  recoverable: PropTypes.bool,
+  onError: PropTypes.func,
+  errorContext: PropTypes.object
+};
+
 /**
  * Higher-Order Component for Error Boundaries
+ * Wraps a component with error boundary functionality
+ * @param {React.Component} WrappedComponent - Component to wrap with error boundary
+ * @param {Object} errorBoundaryProps - Props to pass to the ErrorBoundary component
+ * @returns {React.Component} Component wrapped with error boundary protection
  */
 export function withErrorBoundary(WrappedComponent, errorBoundaryProps = {}) {
   const WithErrorBoundaryComponent = React.forwardRef((props, ref) => (
@@ -392,6 +446,10 @@ export function withErrorBoundary(WrappedComponent, errorBoundaryProps = {}) {
 
 /**
  * Hook for handling errors in functional components
+ * Provides error handling functions that integrate with the global error system
+ * @returns {Object} Object containing error handling functions
+ * @returns {Function} returns.handleError - Function to handle errors with optional context
+ * @returns {Function} returns.createErrorHandler - Function that creates error handlers with preset context
  */
 export function useErrorHandler() {
   const handleError = React.useCallback((error, context = {}) => {
@@ -407,6 +465,10 @@ export function useErrorHandler() {
 
 /**
  * Hook for async error handling
+ * Provides utilities for handling errors in async operations
+ * @returns {Object} Object containing async error handling utilities
+ * @returns {Function} returns.executeAsync - Function to execute async operations with error handling
+ * @returns {Function} returns.handleAsyncError - Function to handle async errors
  */
 export function useAsyncError() {
   const { handleError } = useErrorHandler();

@@ -1,19 +1,19 @@
 import 'react-datepicker/dist/react-datepicker.css'
 import '@/styles/global.css'
+import PropTypes from 'prop-types'
 import ClientQueryProvider from '@/context/ClientQueryProvider'
 import ClientWagmiProvider from '@/context/ClientWagmiProvider'
 import { UserData } from '@/context/UserContext'
-import { UserEventProvider } from "@/context/UserEventContext";
-import { LabData } from '@/context/LabContext'
-import { BookingData } from '@/context/BookingContext'
-import { LabEventProvider } from "@/context/LabEventContext";
-import { BookingEventProvider } from "@/context/BookingEventContext";
-import { NotificationProvider } from "@/context/NotificationContext";
-import Navbar from '@/components/Navbar'
-import Footer from '@/components/Footer'
-import GlobalNotificationStack from '@/components/GlobalNotificationStack'
-import DataRefreshIndicator from '@/components/DataRefreshIndicator'
-import ClientOnly from '@/components/ClientOnly'
+import { LabTokenProvider } from '@/context/LabTokenContext'
+import { UserEventProvider } from '@/context/UserEventContext'
+import { LabEventProvider } from '@/context/LabEventContext'
+import { BookingEventProvider } from '@/context/BookingEventContext'
+import { NotificationProvider } from '@/context/NotificationContext'
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
+import GlobalNotificationStack from '@/components/layout/GlobalNotificationStack'
+import DataRefreshIndicator from '@/components/layout/DataRefreshIndicator'
+import ClientOnly from '@/components/layout/ClientOnly'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',
@@ -59,32 +59,35 @@ export default function RootLayout({ children }) {
           <ClientWagmiProvider>
             <NotificationProvider>
               <UserData>
-                <UserEventProvider>
-                  <LabData>
-                    <BookingData>
-                      <LabEventProvider>
-                        <BookingEventProvider>
-                      <header className="sticky top-0 z-50">
-                        <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
-                          <Navbar />
-                        </ClientOnly>
-                      </header>
-                      <main className="grow">
-                          {children}
-                      </main>
-                      <Footer />
-                      <GlobalNotificationStack />
-                      <DataRefreshIndicator />
-                    </BookingEventProvider>
-                  </LabEventProvider>
-                </BookingData>
-              </LabData>
-              </UserEventProvider>
-            </UserData>
+                <LabTokenProvider>
+                  <UserEventProvider>
+                    <LabEventProvider>
+                      <BookingEventProvider>
+                        <header className="sticky top-0 z-50">
+                          <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
+                            <Navbar />
+                          </ClientOnly>
+                        </header>
+                        <main className="grow">
+                            {children}
+                        </main>
+                        <Footer />
+                        <GlobalNotificationStack />
+                        <DataRefreshIndicator />
+                      </BookingEventProvider>
+                    </LabEventProvider>
+                  </UserEventProvider>
+                </LabTokenProvider>
+              </UserData>
             </NotificationProvider>
           </ClientWagmiProvider>
         </ClientQueryProvider>
       </body>
     </html>
   )
+}
+
+// PropTypes
+RootLayout.propTypes = {
+  children: PropTypes.node.isRequired
 }

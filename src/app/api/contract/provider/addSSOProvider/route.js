@@ -1,10 +1,23 @@
-import devLog from '@/utils/logger';
+/**
+ * API endpoint for adding SSO providers to the blockchain
+ * Handles POST requests to register SSO users as providers using server wallet
+ */
 
-import { getContractInstance } from '../../utils/contractInstance';
-import retry from '@/utils/retry';
-import { ethers } from 'ethers';
-import { validateProviderRole } from '@/utils/roleValidation';
+import { getContractInstance } from '../../utils/contractInstance'
+import { ethers } from 'ethers'
+import { validateProviderRole } from '@/utils/auth/roleValidation'
 
+/**
+ * Registers SSO user as provider on blockchain using server-managed wallet
+ * @param {Request} request - HTTP request with provider data
+ * @param {Object} request.body - Provider registration data
+ * @param {string} request.body.name - Provider name (required)
+ * @param {string} request.body.email - Provider email (required)
+ * @param {string} request.body.affiliation - Provider affiliation/country
+ * @param {string} request.body.role - User role for validation
+ * @param {string} request.body.scopedRole - Scoped role for validation
+ * @returns {Response} JSON response with registration result or error
+ */
 export async function POST(request) {
   const body = await request.json();
   const { name, email, affiliation, role, scopedRole } = body;
@@ -17,7 +30,7 @@ export async function POST(request) {
   const roleValidation = validateProviderRole(role, scopedRole);
   
   if (!roleValidation.isValid) {
-    devLog.log(`Registration denied for role: "${role}", scopedRole: "${scopedRole}"`);
+    console.log(`Registration denied for role: "${role}", scopedRole: "${scopedRole}"`);
     return Response.json({ 
       error: roleValidation.reason 
     }, { status: 403 });
@@ -34,22 +47,21 @@ export async function POST(request) {
     // Use affiliation as country if available, otherwise use a default
     const country = affiliation || 'Unknown';
 
-    devLog.log(`Registering SSO provider: ${name} with server wallet: ${providerWallet}`);
+    console.log(`Registering SSO provider: ${name} with server wallet: ${providerWallet}`);
 
     // Call contract with server-managed wallet address
-    const tx = await retry(() => contract.addProvider(name, providerWallet, email, country));
+    const tx = await contract.addProvider(name, providerWallet, email, country);
     await tx.wait();
 
-    devLog.log(`SSO provider registered successfully: ${name}`);
+    console.log(`SSO provider registered successfully: ${name}`);
 
     // Return success with the wallet address used
     return Response.json({ 
-      success: true, 
       walletAddress: providerWallet,
       transactionHash: tx.hash 
     }, { status: 200 });
   } catch (error) {
-    devLog.error('Error registering SSO provider:', error);
+    console.error('Error registering SSO provider:', error);
     return Response.json({ error: 'Failed to register provider' }, { status: 500 });
   }
 }

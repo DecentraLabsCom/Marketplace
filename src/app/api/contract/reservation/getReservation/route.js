@@ -1,30 +1,41 @@
-import devLog from '@/utils/logger';
+/**
+ * API endpoint for retrieving a specific reservation by key
+ * Handles GET requests to fetch individual reservation data
+ * Optimized for React Query client-side caching - no server-side cache
+ */
 
-import { getContractInstance } from '../../utils/contractInstance';
+import { getContractInstance } from '../../utils/contractInstance'
+/**
+ * Retrieves a specific reservation by its key
+ * @param {Request} request - HTTP request with query parameters
+ * @param {string} request.searchParams.reservationKey - Reservation key (bytes32 format, required)
+ * @returns {Response} JSON response with reservation data or error
+ */
+export async function GET(request) {
+  const url = new URL(request.url);
+  const reservationKey = url.searchParams.get('reservationKey');
+  
+  if (!reservationKey) {
+    return Response.json({ 
+      error: 'Missing reservationKey parameter' 
+    }, {status: 400 });
+  }
 
-export async function POST(request) {
+  // Validate reservationKey format (should be bytes32)
+  if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
+    return Response.json({ 
+      error: 'Invalid reservationKey format - must be bytes32 (0x + 64 hex chars)',
+      providedKey: reservationKey 
+    }, {status: 400 });
+  }
+
   try {
-    const body = await request.json();
-    const { reservationKey } = body;
+    console.log(`🔍 Fetching reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
     
-    if (!reservationKey) {
-      return Response.json({ error: 'Missing reservationKey' }, { status: 400 });
-    }
-
-    // Validate reservationKey format (should be bytes32)
-    if (!reservationKey.startsWith('0x') || reservationKey.length !== 66) {
-      return Response.json({ error: 'Invalid reservationKey format' }, { status: 400 });
-    }
-
     const contract = await getContractInstance();
 
     // Get reservation data from contract
-    const reservationData = await Promise.race([
-      contract.getReservation(reservationKey),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('getReservation timeout')), 10000)
-      )
-    ]);
+    const reservationData = await contract.getReservation(reservationKey);
 
     // Contract returns: { labId, renter, price, start, end, status }
     // Status: 0 = PENDING, 1 = BOOKED, 2 = USED, 3 = COLLECTED, 4 = CANCELLED
@@ -65,8 +76,9 @@ export async function POST(request) {
       }
     }
 
+    console.log(`✅ Successfully fetched reservation: ${reservationState}`);
+
     return Response.json({ 
-      success: true,
       reservation: {
         labId: reservationData.labId?.toString() || null,
         renter: renterAddress,
@@ -84,15 +96,17 @@ export async function POST(request) {
         isCompleted: status === 2 || status === 3, // USED or COLLECTED
         isConfirmed: isConfirmed,
         exists: exists
-      }
-    }, { status: 200 });
+      },
+      reservationKey
+    }, {status: 200});
 
   } catch (error) {
-    devLog.error('Error fetching reservation:', error);
+    console.error('❌ Error fetching reservation:', error);
     
     return Response.json({ 
       error: 'Failed to fetch reservation',
-      details: error.message 
-    }, { status: 500 });
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      reservationKey 
+    }, {status: 500 });
   }
 }

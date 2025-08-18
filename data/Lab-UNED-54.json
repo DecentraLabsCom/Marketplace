@@ -13,7 +13,8 @@
         "PLCs",
         "Industry 4.0",
         "Control",
-        "Instrumentation"
+        "Sensors",
+        "Actuators"
       ]
     },
     {
@@ -26,7 +27,7 @@
     },
     {
       "trait_type": "opens",
-      "value": "05/04/2025"
+      "value": "10/01/2025"
     },
     {
       "trait_type": "closes",

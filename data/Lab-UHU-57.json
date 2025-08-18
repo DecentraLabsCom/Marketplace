@@ -1,0 +1,38 @@
+{
+  "name": "Lab UHU 57",
+  "description": "Advanced laboratory facility at Universidad de Huelva for specialized research and experiments",
+  "image": "/labs/lab5/01.png",
+  "images": [
+    "/labs/lab5/01.png",
+    "/labs/lab5/02.jpg"
+  ],
+  "category": "Research",
+  "provider": "UHU",
+  "keywords": ["research", "advanced", "specialized", "experiments"],
+  "attributes": [
+    {
+      "trait_type": "category",
+      "value": "Research"
+    },
+    {
+      "trait_type": "provider",
+      "value": "Universidad de Huelva"
+    },
+    {
+      "trait_type": "keywords",
+      "value": ["research", "advanced", "specialized", "experiments"]
+    },
+    {
+      "trait_type": "timeSlots",
+      "value": [30, 60, 120]
+    },
+    {
+      "trait_type": "opens",
+      "value": "01/01/2025"
+    },
+    {
+      "trait_type": "closes", 
+      "value": "12/31/2025"
+    }
+  ]
+}

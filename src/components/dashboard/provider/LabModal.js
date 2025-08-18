@@ -1,0 +1,713 @@
+"use client";
+import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
+import PropTypes from 'prop-types'
+import { useLabToken } from '@/context/LabTokenContext'
+import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
+import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
+import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
+import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
+import { normalizeLabDates } from '@/utils/dates/dateFormatter'
+import devLog from '@/utils/dev/logger'
+
+const initialState = (lab) => ({
+  activeTab: 'full',
+  imageInputType: 'link',
+  docInputType: 'link',
+  localImages: [],
+  localDocs: [],
+  imageUrls: [],
+  docUrls: [],
+  localLab: { 
+    // Ensure all form fields have default values to prevent uncontrolled -> controlled warnings
+    id: lab?.id || null,
+    name: lab?.name || '',
+    category: lab?.category || '',
+    keywords: lab?.keywords || [],
+    description: lab?.description || '',
+    price: lab?.price || '',
+    auth: lab?.auth || '',
+    accessURI: lab?.accessURI || '',
+    accessKey: lab?.accessKey || '',
+    timeSlots: lab?.timeSlots || [],
+    opens: lab?.opens || '',
+    closes: lab?.closes || '',
+    images: lab?.images || [],
+    docs: lab?.docs || [],
+    uri: lab?.uri || '',
+    // Spread the rest of the lab properties after ensuring required fields have defaults
+    ...lab
+  },
+  isExternalURI: false,
+  errors: {},
+  isLocalURI: false,
+  clickedToEditUri: false,
+});
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'MERGE_LOCAL_LAB':
+      return { ...state, localLab: { ...state.localLab, ...action.value } };
+    case 'BATCH_UPDATE':
+      // Handle multiple updates in a single render cycle
+      return action.updates.reduce((currentState, update) => {
+        switch (update.type) {
+          case 'SET_FIELD':
+            return { ...currentState, [update.field]: update.value };
+          case 'MERGE_LOCAL_LAB':
+            return { ...currentState, localLab: { ...currentState.localLab, ...update.value } };
+          default:
+            return currentState;
+        }
+      }, state);
+    case 'RESET':
+      return initialState(action.lab);
+    default:
+      return state;
+  }
+}
+
+/**
+ * Modal for creating and editing lab information with full and quick setup modes
+ * Handles complex form state, file uploads, and validation
+ * @param {Object} props
+ * @param {boolean} props.isOpen - Whether the modal is visible
+ * @param {Function} props.onClose - Callback to close the modal
+ * @param {Function} props.onSubmit - Callback to submit lab data
+ * @param {Object} props.lab - Lab object for editing (null for creating new lab)
+ * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
+ * @returns {JSX.Element} Lab creation/editing modal component
+ */
+export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
+  const { decimals, formatPrice } = useLabToken();
+  const uploadFileMutation = useUploadFile();
+  const deleteFileMutation = useDeleteFile();
+  const [state, dispatch] = useReducer(reducer, lab, initialState);
+  const {
+    activeTab,
+    imageInputType,
+    docInputType,
+    localImages,
+    localDocs,
+    imageUrls,
+    docUrls,
+    localLab,
+    isExternalURI,
+    errors,
+    isLocalURI,
+    clickedToEditUri,
+  } = state;
+
+  const nameRef = useRef(null);
+  const categoryRef = useRef(null);
+  const keywordsRef = useRef(null);
+  const descriptionRef = useRef(null);
+  const priceRef = useRef(null);
+  const authRef = useRef(null);
+  const accessURIRef = useRef(null);
+  const accessKeyRef = useRef(null);
+  const timeSlotsRef = useRef(null);
+  const opensRef = useRef(null);
+  const closesRef = useRef(null);
+  const uriRef = useRef(null);
+  const imageLinkRef = useRef(null);
+  const docLinkRef = useRef(null);
+  const uploadedTempFiles = useRef([]);
+  const imageUploadRef = useRef(null);
+  const docUploadRef = useRef(null);
+  const lastInitializedLabId = useRef(null);
+
+  const currentLabId = lab?.id || (maxId || 0) + 1;
+  const jsonFileRegex = useMemo(() => new RegExp(/^[\w\-._/]+\.json$/i), []);
+
+  const uploadFile = async (file, destinationFolder, labId) => {
+    const result = await uploadFileMutation.mutateAsync({
+      file,
+      destinationFolder,
+      labId
+    });
+
+    let filePath = result.filePath;
+
+    // Keep track of uploaded temporal files
+    uploadedTempFiles.current.push(filePath);
+    return filePath;
+  };
+
+  const handleClose = useCallback(() => {
+    dispatch({ type: 'RESET', lab: {} }); // Use empty object to avoid lab dependency
+    onClose();
+  }, [onClose]); // Keep minimal dependencies
+
+  const deleteFile = useCallback(async (filePath) => {
+    await deleteFileMutation.mutateAsync({
+      filePath,
+      deletingLab: false
+    });
+    devLog.log(`Temporal file ${filePath} deleted successfully.`);
+  }, [deleteFileMutation]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      // Delete uploaded temporal files
+      Promise.allSettled(uploadedTempFiles.current.map(filePath => deleteFile(filePath)))
+        .then(results => {
+          results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              devLog.error(`Failed deleting ${uploadedTempFiles.current[index]}:`, result.reason);
+            }
+          });
+          uploadedTempFiles.current = [];
+        });
+
+      // Batch all cleanup updates in a single dispatch
+      const cleanupUpdates = [
+        { type: 'SET_FIELD', field: 'localImages', value: [] },
+        { type: 'SET_FIELD', field: 'localDocs', value: [] },
+        { type: 'SET_FIELD', field: 'imageUrls', value: [] },
+        { type: 'SET_FIELD', field: 'docUrls', value: [] },
+        { type: 'SET_FIELD', field: 'isExternalURI', value: false },
+        { type: 'SET_FIELD', field: 'isLocalURI', value: false },
+        { type: 'SET_FIELD', field: 'clickedToEditUri', value: false },
+        { type: 'SET_FIELD', field: 'errors', value: {} }
+      ];
+      dispatch({ type: 'BATCH_UPDATE', updates: cleanupUpdates });
+      return;
+    }
+
+    uploadedTempFiles.current = [];
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        dispatch({ type: 'RESET', lab: {} });
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]); // Use onClose directly instead of handleClose
+
+  // Load existing images and docs for preview when the modal opens
+  useEffect(() => {
+    // Only run when modal is open and lab changes
+    if (!isOpen) {
+      lastInitializedLabId.current = null;
+      return;
+    }
+    
+    // Only run if we have a valid lab object
+    if (!lab || typeof lab !== 'object') {
+      devLog.warn('LabModal: Invalid lab object received:', lab);
+      return;
+    }
+
+    // Skip if we already initialized this lab
+    if (lastInitializedLabId.current === lab?.id) {
+      return;
+    }
+
+    devLog.log('LabModal: Initializing with lab:', { labId: lab?.id, labName: lab?.name });
+    lastInitializedLabId.current = lab?.id;
+
+    // Batch all state updates to prevent multiple re-renders
+    const updates = [];
+    
+    // Create a stable lab object to merge with local state
+    let labToMerge = { ...lab };
+    
+    // Convert price from per-second (cache format) to per-hour (UI input format)
+    if (labToMerge.price && decimals) {
+      try {
+        // Use formatPrice to convert from per-second to per-hour for input fields
+        const pricePerHour = formatPrice(labToMerge.price);
+        labToMerge.price = pricePerHour;
+      } catch (error) {
+        devLog.error('Error converting price for UI input:', error);
+        // Keep original price if conversion fails
+      }
+    }
+    
+    updates.push({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
+    
+    // Handle URI flags
+    const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
+    updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
+    
+    const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
+    updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: hasLocalUri });
+    
+    updates.push({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
+
+    // Handle images
+    if (lab?.images?.length > 0) {
+      const initialImageUrls = lab.images.map(imageUrl => {
+        if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+          return imageUrl;
+        }
+        return imageUrl;
+      });
+      updates.push({ type: 'SET_FIELD', field: 'imageUrls', value: initialImageUrls });
+      updates.push({ type: 'SET_FIELD', field: 'imageInputType', value: 'upload' });
+    } else {
+      updates.push({ type: 'SET_FIELD', field: 'imageInputType', value: 'link' });
+      updates.push({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
+    }
+
+    // Handle docs
+    if (lab?.docs?.length > 0) {
+      updates.push({ type: 'SET_FIELD', field: 'docUrls', value: lab.docs });
+      updates.push({ type: 'SET_FIELD', field: 'docInputType', value: 'upload' });
+    } else {
+      updates.push({ type: 'SET_FIELD', field: 'docInputType', value: 'link' });
+      updates.push({ type: 'SET_FIELD', field: 'docUrls', value: [] });
+    }
+
+    // Execute all updates in a single batch to prevent multiple re-renders
+    dispatch({ type: 'BATCH_UPDATE', updates });
+  }, [isOpen, lab?.id, decimals, formatPrice, jsonFileRegex]); // Include all dependencies
+
+  const handleImageChange = useCallback((e) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            // Filter out non-image files.
+            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+
+            if (!currentLabId) {
+              devLog.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
+              return;
+            }
+
+            if (imageFiles.length !== files.length) {
+                alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
+                // Only use the valid images and discard the rest
+                dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...imageFiles] });
+
+                // Create URLs for previewing immediately.
+                const newImageUrls = imageFiles.map(file => URL.createObjectURL(file));
+                dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
+
+                // Upload files *asynchronously* and update lab.images
+                const uploadImages = async () => {
+                    try {
+                        const uploadedPaths = await Promise.all(
+                            imageFiles.map(async (file) => {
+                                return await uploadFile(file, 'images', currentLabId);
+                            })
+                        );
+                        dispatch({
+                            type: 'MERGE_LOCAL_LAB',
+                            value: {
+                              images: [...(localLab.images || []), ...uploadedPaths],
+                            },
+                        });
+                    } catch (error) {
+                        devLog.error("Error uploading", error);
+                    }
+                }
+                uploadImages();
+
+            } else {
+                dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...files] });
+                const newImageUrls = files.map(file => URL.createObjectURL(file));
+                dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
+
+                const uploadImages = async () => {
+                    try {
+                        const uploadedPaths = await Promise.all(
+                            files.map(async (file) => {
+                                return await uploadFile(file, 'images', currentLabId);
+                            })
+                        );
+                        dispatch({
+                            type: 'MERGE_LOCAL_LAB',
+                            value: {
+                              images: [...(localLab.images || []), ...uploadedPaths],
+                            },
+                        });
+                    } catch (error) {
+                        devLog.error("Error uploading", error);
+                    }
+                }
+                uploadImages();
+            }
+        }
+    }, [localLab, localImages, imageUrls, currentLabId, lab]);
+
+  const handleDocChange = useCallback(async (e) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      // Filter out non-PDF files.
+      const pdfFiles = files.filter(file => file.type === 'application/pdf');
+
+      if (pdfFiles.length !== files.length) {
+        alert('Only PDF files are allowed for documents.');
+        // Only use the valid PDFs and discard the rest
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...pdfFiles]});
+
+        try {
+          const newDocUrls = await Promise.all(
+            pdfFiles.map(async (file) => {
+              const filePath = await uploadFile(file, 'docs', currentLabId);
+              return filePath;
+            })
+          );
+
+          dispatch({
+            type: 'MERGE_LOCAL_LAB',
+            value: {
+              docs: [...(localLab.docs || []), ...newDocUrls],
+            },
+          });
+        } catch (error) {
+          devLog.error("Error uploading docs", error);
+        }
+      } else { // If all files are PDFs
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...files] });
+
+        try {
+          const newDocUrls = await Promise.all(
+            files.map(async (file) => {
+              const filePath = await uploadFile(file, 'docs', currentLabId);
+              return filePath;
+            })
+          );
+
+          dispatch({
+            type: 'MERGE_LOCAL_LAB',
+            value: {
+              docs: [...(localLab.docs || []), ...newDocUrls],
+            },
+          });
+        } catch (error) {
+          devLog.error("Error uploading docs", error);
+        }
+      }
+    }
+  }, [localLab, localDocs, currentLabId]);
+
+  const removeImage = (index) => {
+    const newImages = localImages.filter((_, i) => i !== index);
+    dispatch({ type: 'SET_FIELD', field: 'localImages', value: newImages });
+
+    const newUrls = imageUrls.filter((_, i) => i !== index);
+    const urlToRemove = imageUrls[index];
+    if (urlToRemove) {
+      URL.revokeObjectURL(urlToRemove);
+    }
+
+    if (localLab.images[index] && !localLab.images[index].startsWith('http')) {
+      const filePathToDelete = localLab.images[index].startsWith('/')
+        ? localLab.images[index].substring(1)
+        : localLab.images[index];
+      
+      deleteFileMutation.mutate(
+        { filePath: filePathToDelete, deletingLab: false },
+        {
+          onError: (error) => {
+            devLog.error('Failed to delete image file:', error.message);
+          }
+        }
+      );
+    }
+
+    dispatch({
+      type: 'MERGE_LOCAL_LAB',
+      value: { images: (localLab.images || []).filter((_, i) => i !== index) },
+    });
+    dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: newUrls });
+  };
+
+  const removeDoc = (index) => {
+    const newDocs = localDocs.filter((_, i) => i !== index);
+    dispatch({ type: 'SET_FIELD', field: 'localDocs', value: newDocs });
+
+    const newUrls = docUrls.filter((_, i) => i !== index);
+    const urlToRemove = docUrls[index];
+    if (urlToRemove) {
+      URL.revokeObjectURL(urlToRemove);
+    }
+
+    if (localLab.docs[index]) {
+      const filePathToDelete = localLab.docs[index].startsWith('/')
+        ? localLab.docs[index].substring(1)
+        : localLab.docs[index];
+      
+      deleteFileMutation.mutate(
+        { filePath: filePathToDelete, deletingLab: false },
+        {
+          onError: (error) => {
+            devLog.error('Failed to delete doc file:', error.message);
+          }
+        }
+      );
+    }
+
+    dispatch({
+      type: 'MERGE_LOCAL_LAB',
+      value: { docs: (localLab.docs || []).filter((_, i) => i !== index) },
+    });
+    dispatch({ type: 'SET_FIELD', field: 'docUrls', value: newUrls });
+  };
+
+  const handleUriChange = (e) => {
+    const newUri = e.target.value;
+    const originalLabUri = lab?.uri || '';
+
+    const startsWithProtocol = newUri.startsWith('http://') || 
+                              newUri.startsWith('https://') || 
+                              newUri.startsWith('ftp://');
+    const newIsExternal = !!(newUri && startsWithProtocol);
+    const newIsLocal = !!(newUri && !newIsExternal && jsonFileRegex.test(newUri));
+
+    let newErrors = { ...errors };
+    const updates = [];
+
+    // --- Case 1: Was a local URI, attempting to change its path/name ---
+    if ((isLocalURI || (originalLabUri && jsonFileRegex.test(originalLabUri))) && newIsLocal && 
+    newUri !== originalLabUri) {
+      // Revert the URI to its original value and grey out.
+      updates.push({ type: 'MERGE_LOCAL_LAB', value: { uri: originalLabUri } });
+      updates.push({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });
+      updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: false });
+      updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: true });
+      if (!newUri.endsWith('.json')) {
+        updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+      } else {
+        updates.push({ type: 'SET_FIELD', field: 'errors', value: { uri: '' } });
+      }
+      dispatch({ type: 'BATCH_UPDATE', updates });
+      return;
+    } else if (!newIsExternal && !newIsLocal && clickedToEditUri && newUri !== '') {
+      newErrors.uri = 'It must be an external URL';
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+    } else if (newIsExternal && clickedToEditUri && newErrors.uri === 'It must be an external URL') {
+      delete newErrors.uri;
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+    } else if (newUri == '' && clickedToEditUri) {
+      newErrors.uri = 'Lab Data URL is required';
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+    }
+
+    // --- Update 'localLab.uri' and states ---
+    // If we reached here, the change is either allowed or it's an external link
+    updates.push({ type: 'MERGE_LOCAL_LAB', value: { uri: newUri } });
+    updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: newIsExternal });
+    updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: newIsLocal });
+
+    // --- Case 2: Introducing an external link (and clearing Full Setup fields) ---
+    if (newIsExternal && !isExternalURI) {
+      updates.push({
+        type: 'MERGE_LOCAL_LAB',
+        value: {
+          name: '',
+          category: '',
+          keywords: [],
+          description: '',
+          timeSlots: [],
+          opens: '',
+          closes: '',
+          images: [],
+          docs: [],
+        },
+      });
+
+      // Clear image and document previews and associated local states
+      updates.push({ type: 'SET_FIELD', field: 'imageUrls', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'docUrls', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'localImages', value: [] });
+      updates.push({ type: 'SET_FIELD', field: 'localDocs', value: [] });
+
+      // Delete any temporarily uploaded files from the server
+      if (uploadedTempFiles.current.length > 0) {
+        Promise.allSettled(uploadedTempFiles.current.map(filePath => deleteFile(filePath)))
+          .then(results => {
+            results.forEach((result, index) => {
+              if (result.status === 'rejected') {
+                  devLog.error(`Failed deleting temp file ${uploadedTempFiles.current[index]}:`, result.reason);
+              }
+            });
+            uploadedTempFiles.current = [];
+        });
+      }
+      newErrors.uri = 'Introducing a link to a JSON file will replace the data in Full Setup with the ' +
+                      'information contained in the linked JSON';
+      updates.push({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+    }
+
+    // Execute all updates in a single batch
+    dispatch({ type: 'BATCH_UPDATE', updates });
+  };
+
+  useEffect(() => {
+    dispatch({ type: 'SET_FIELD', field: 'errors', value: {} });
+  }, [activeTab]);
+
+  const validateForm = () => {
+    let newErrors = {};
+    if (activeTab === 'full') {
+      if (!isExternalURI) {
+        newErrors = validateLabFull(localLab, { imageInputType, docInputType });
+      }
+    } else if (activeTab === 'quick') {
+      newErrors = validateLabQuick(localLab);
+    }
+    dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
+    return newErrors;
+  };
+
+  // Function to focus the first input with an error
+  const focusFirstError = (currentErrors, currentTab) => {
+    const fieldsToFocus = {
+        full: [
+            { name: 'name', ref: nameRef },
+            { name: 'category', ref: categoryRef },
+            { name: 'keywords', ref: keywordsRef },
+            { name: 'description', ref: descriptionRef },
+            { name: 'price', ref: priceRef },
+            { name: 'auth', ref: authRef },
+            { name: 'accessURI', ref: accessURIRef },
+            { name: 'accessKey', ref: accessKeyRef },
+            { name: 'timeSlots', ref: timeSlotsRef },
+            { name: 'opens', ref: opensRef },
+            { name: 'closes', ref: closesRef },
+            { name: 'uri', ref: uriRef },
+            { name: 'images', ref: imageLinkRef },
+            { name: 'docs', ref: docLinkRef },
+        ],
+        quick: [
+            { name: 'price', ref: priceRef },
+            { name: 'auth', ref: authRef },
+            { name: 'accessURI', ref: accessURIRef },
+            { name: 'accessKey', ref: accessKeyRef },
+            { name: 'uri', ref: uriRef },
+        ],
+    };
+
+    const relevantFields = fieldsToFocus[currentTab];
+
+    for (const field of relevantFields) {
+        if (currentErrors[field.name] && field.ref.current) {
+            field.ref.current.focus();
+            break;
+        }
+    }
+  };
+
+  const handleSubmitFull = async (e) => {
+    e.preventDefault();
+    const currentErrors = validateForm();
+    try {
+      if (Object.keys(currentErrors).length === 0) {
+        // Normalize dates to MM/DD/YYYY format before submitting
+        const normalizedLabData = normalizeLabDates(localLab);
+        await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
+        // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing
+        // the modal
+        uploadedTempFiles.current = [];
+        devLog.log('LabModal: Form submitted successfully with normalized dates, modal remains open');
+      } else {
+        focusFirstError(currentErrors, 'full');
+      }
+    } catch (error) {
+      devLog.error('Error saving lab:', error);
+    }
+  }
+
+  const handleSubmitQuick = async (e) => {
+    e.preventDefault();
+    const currentErrors = validateForm();
+    try {
+      if (Object.keys(currentErrors).length === 0) {
+        // Normalize dates to MM/DD/YYYY format before submitting
+        const normalizedLabData = normalizeLabDates(localLab);
+        await onSubmit(normalizedLabData);
+        devLog.log('LabModal: Quick form submitted successfully with normalized dates, modal remains open');
+      } else {
+        focusFirstError(currentErrors, 'quick');
+      }
+    } catch (error) {
+      devLog.error('Error saving lab:', error);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div onClick={handleClose} style={{ minHeight: "100vh" }}
+      className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto">
+      <div onClick={e => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 my-8 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-semibold mb-4 text-black">
+          {lab?.id ? 'Edit Lab' : 'Add New Lab'}
+        </h2>
+        <div className="mb-4">
+          <div className="flex">
+            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
+              className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
+                ? 'bg-[#7875a8] text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            >
+              Full Setup
+            </button>
+            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
+              className={`px-4 py-2 rounded ${activeTab === 'quick'
+                ? 'bg-[#7875a8] text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+            >
+              Quick Setup
+            </button>
+          </div>
+          <div className='mt-4'>
+            {activeTab === 'full' && (
+              <LabFormFullSetup localLab={localLab} isExternalURI={isExternalURI} imageInputType={imageInputType}
+                setLocalLab={value => dispatch({ type: 'MERGE_LOCAL_LAB', value })} docInputType={docInputType}
+                setImageInputType={value => dispatch({ type: 'SET_FIELD', field: 'imageInputType', value })}
+                imageUrls={imageUrls} imageLinkRef={imageLinkRef} imageUploadRef={imageUploadRef} errors={errors}
+                handleImageChange={handleImageChange} removeImage={removeImage} localImages={localImages}
+                setDocInputType={value => dispatch({ type: 'SET_FIELD', field: 'docInputType', value })}
+                onCancel={handleClose} docUrls={docUrls} docLinkRef={docLinkRef} docUploadRef={docUploadRef} 
+                handleDocChange={handleDocChange} removeDoc={removeDoc} localDocs={localDocs} nameRef={nameRef}
+                categoryRef={categoryRef} keywordsRef={keywordsRef} descriptionRef={descriptionRef} 
+                priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef} accessKeyRef={accessKeyRef}
+                timeSlotsRef={timeSlotsRef} opensRef={opensRef} closesRef={closesRef} onSubmit={handleSubmitFull}
+              />
+            )}
+            {activeTab === 'quick' && (
+              <LabFormQuickSetup setLocalLab={value => dispatch({ type: 'MERGE_LOCAL_LAB', value })} errors={errors}
+                isLocalURI={isLocalURI} priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef} lab={lab}
+                accessKeyRef={accessKeyRef} clickedToEditUri={clickedToEditUri} handleUriChange={handleUriChange}
+                setClickedToEditUri={value => dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value })}
+                onSubmit={handleSubmitQuick} onCancel={handleClose} uriRef={uriRef} localLab={localLab}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+};
+
+LabModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  lab: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+    description: PropTypes.string,
+    price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    auth: PropTypes.string,
+    images: PropTypes.array,
+    docs: PropTypes.array
+  }),
+  maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+}
+
+LabModal.defaultProps = {
+  lab: null,
+  maxId: 0
+}
