@@ -10,8 +10,6 @@
  * - refetchInterval: false
  * - refetchOnReconnect: true
  * - retry: 1
- *
- * @author DecentraLabs
  */
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
@@ -35,7 +33,16 @@ export { LAB_QUERY_CONFIG };
  * Hook for /api/contract/lab/getAllLabs endpoint
  * Gets all labs from the smart contract
  * @param {Object} [options={}] - Additional react-query options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Object} [options.meta] - Metadata for the query
  * @returns {Object} React Query result with all labs data
+ * @returns {Array} returns.data - Array of lab IDs from the contract
+ * @returns {boolean} returns.isLoading - Whether the query is loading
+ * @returns {boolean} returns.isError - Whether the query has an error
+ * @returns {Error|null} returns.error - Error object if query failed
+ * @returns {Function} returns.refetch - Function to manually refetch
  */
 export const useAllLabs = (options = {}) => {
   return useQuery({

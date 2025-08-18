@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types'
 import { Skeleton, SkeletonCard } from './Skeleton'
 
 export function FormSkeleton() {
@@ -53,4 +54,10 @@ export function ButtonLoadingSkeleton({ children, isLoading = false }) {
     );
   }
   return children;
+}
+
+// PropTypes
+ButtonLoadingSkeleton.propTypes = {
+  children: PropTypes.node.isRequired,
+  isLoading: PropTypes.bool
 }

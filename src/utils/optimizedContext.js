@@ -1,31 +1,11 @@
 /**
  * Optimized Context Pattern - Base utilities for memory-efficient contexts
  */
-import React, { useMemo, createContext, useContext, useState, useEffect } from 'react'
+import React, { useMemo, createContext, useContext } from 'react'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 
-/**
- * Creates an optimized context with automatic memoization
- * Memoizes context factory results to prevent unnecessary recalculations
- * @param {Function} contextFactory - Function that creates the context value
- * @param {Array} dependencies - Dependencies array for memoization
- * @returns {any} Memoized context value from factory function
- * @throws {Error} When context factory throws an error
- */
-export const useOptimizedContext = (contextFactory, dependencies = []) => {
-  const contextValue = useMemo(() => {
-    try {
-      return contextFactory();
-    } catch (error) {
-      devLog.error('Context factory error:', error);
-      throw error;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextFactory, ...dependencies]);
-  
-  return contextValue;
-};
+
 
 /**
  * Creates a context with built-in error handling and optimization
@@ -104,37 +84,9 @@ ContextErrorBoundary.propTypes = {
   children: PropTypes.node.isRequired
 }
 
-/**
- * Higher-order component for context optimization
- * Wraps a context component with error boundary and optimization
- * @param {React.Component} ContextComponent - The context component to wrap
- * @param {string} contextName - Name of the context for error handling
- * @returns {React.Component} Optimized component wrapped with error boundary
- */
-export const withOptimizedContext = (ContextComponent, contextName) => {
-  const OptimizedComponent = (props) => {
-    return (
-      <ContextErrorBoundary contextName={contextName}>
-        <ContextComponent {...props} />
-      </ContextErrorBoundary>
-    );
-  };
-  
-  OptimizedComponent.displayName = `Optimized${contextName}`;
-  return OptimizedComponent;
-};
 
-/**
- * Hook for memoizing callback functions in contexts
- * Prevents unnecessary re-renders by memoizing callback functions
- * @param {Function} callback - The callback function to memoize
- * @param {Array} dependencies - Dependencies array for the callback
- * @returns {Function} Memoized callback function
- */
-export const useOptimizedCallback = (callback, dependencies = []) => {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useMemo(() => callback, [callback, ...dependencies]);
-};
+
+
 
 /**
  * Hook for memoizing context values with debugging
@@ -179,25 +131,6 @@ export const useMemoizedValue = (valueFactory, dependencies = []) => {
   }, [valueFactory, ...dependencies]);
 };
 
-/**
- * Hook for debouncing values to prevent excessive updates
- * Delays value updates until after a specified delay period
- * @param {any} value - The value to debounce
- * @param {number} delay - Delay in milliseconds (default: 300ms)
- * @returns {any} Debounced value that updates after the delay period
- */
-export const useDebounced = (value, delay = 300) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
 
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [value, delay]);
 
-  return debouncedValue;
-};

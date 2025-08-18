@@ -17,6 +17,10 @@ import devLog from '@/utils/dev/logger'
 /**
  * Get formatted list of provider data including names
  * Uses getLabProviders which already includes names in the response
+ * @param {Object} [options={}] - Configuration options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Object} [options.meta] - Meta information for the query
+ * @returns {Object} React Query result with formatted provider data
  */
 export const useProvidersWithNames = (options = {}) => {
   const providersQuery = useGetLabProvidersQuery({
@@ -44,6 +48,10 @@ export const useProvidersWithNames = (options = {}) => {
 /**
  * Check if multiple addresses are providers
  * Uses batched queries for efficient provider checking
+ * @param {string[]} [addresses=[]] - Array of addresses to check
+ * @param {Object} [options={}] - Configuration options
+ * @param {boolean} [options.enabled] - Whether the queries should be enabled
+ * @returns {Object} React Query result with batch provider check data
  */
 export const useBatchProviderCheck = (addresses = [], options = {}) => {
   return useQueries({
@@ -68,6 +76,10 @@ export const useBatchProviderCheck = (addresses = [], options = {}) => {
 /**
  * Get provider status and details for a specific address
  * Combines provider check and details fetching
+ * @param {string} address - Provider address to check
+ * @param {Object} [options={}] - Configuration options
+ * @param {boolean} [options.enabled] - Whether the queries should be enabled
+ * @returns {Object} React Query result with provider status and details
  */
 export const useProviderDetails = (address, options = {}) => {
   const statusQuery = useIsLabProviderQuery(address, {
@@ -246,7 +258,7 @@ export const useProviderStatusComposed = (providerAddress, { queryOptions = {} }
 /**
  * Lightweight composed hook for basic user list without extra enrichment
  * Alias for useAllUsersComposed for consistency
- * @param {Object} queryOptions - Additional react-query options
+ * @param {Object} [queryOptions={}] - Additional react-query options
  * @returns {Object} React Query result with basic user data
  */
 export const useAllUsersBasic = (queryOptions = {}) => {
@@ -256,7 +268,7 @@ export const useAllUsersBasic = (queryOptions = {}) => {
 /**
  * Full composed hook - same as basic since we only have one provider endpoint
  * Alias for useAllUsersComposed for consistency
- * @param {Object} queryOptions - Additional react-query options
+ * @param {Object} [queryOptions={}] - Additional react-query options
  * @returns {Object} React Query result with user data
  */
 export const useAllUsersFull = (queryOptions = {}) => {

@@ -4,11 +4,22 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 
+/**
+ * Format wallet address for display purposes
+ * Truncates address to show first 6 and last 4 characters
+ * @param {string} address - Wallet address to format
+ * @returns {string} Formatted address or "Not connected" if no address
+ */
 function formatAddress(address) {
   if (!address) return "Not connected";
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
+/**
+ * Account component for user authentication and logout
+ * Displays user information and provides logout functionality for both wallet and SSO users
+ * @returns {JSX.Element} Account display and logout interface
+ */
 export default function Account() {
   const { isConnected, isSSO, isLoggedIn, address, user } = useUser();
   const { disconnect } = useDisconnect();

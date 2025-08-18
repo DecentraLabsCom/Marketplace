@@ -1,8 +1,14 @@
 import React from 'react'
+import PropTypes from 'prop-types'
 import { getRoleDisplayName } from '@/utils/auth/roleValidation'
 
 /**
  * Renders access denied message for invalid SSO roles
+ * @param {Object} props - Component props
+ * @param {string} props.reason - Reason for access denial
+ * @param {string} props.userRole - User's current role
+ * @param {string} [props.scopedRole] - User's scoped role (optional)
+ * @returns {JSX.Element} Access denied message component
  */
 export default function ProviderAccessDenied({ reason, userRole, scopedRole }) {
   return (
@@ -25,4 +31,10 @@ export default function ProviderAccessDenied({ reason, userRole, scopedRole }) {
       </div>
     </div>
   )
+}
+
+ProviderAccessDenied.propTypes = {
+  reason: PropTypes.string.isRequired,
+  userRole: PropTypes.string.isRequired,
+  scopedRole: PropTypes.string
 }

@@ -11,6 +11,11 @@ import devLog from '@/utils/dev/logger'
 /**
  * Hook providing lab-specific cache update functions
  * @returns {Object} Cache update functions for labs
+ * @returns {Function} returns.addLab - Add new lab to cache function
+ * @returns {Function} returns.updateLab - Update existing lab in cache function
+ * @returns {Function} returns.removeLab - Remove lab from cache function
+ * @returns {Function} returns.invalidateAllLabs - Invalidate all lab queries function
+ * @returns {Function} returns.invalidateLabById - Invalidate specific lab query function
  */
 export function useLabCacheUpdates() {
   const queryClient = useQueryClient()

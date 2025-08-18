@@ -1,8 +1,6 @@
 /**
  * Index file for lab domain hooks
  * Exports all atomic queries, mutations, composed queries, and cache utilities
- * 
- * @author DecentraLabs
  */
 
 // Export all atomic query hooks

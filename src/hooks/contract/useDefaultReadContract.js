@@ -1,5 +1,4 @@
 import { useReadContract, useAccount } from 'wagmi'
-import PropTypes from 'prop-types'
 import { contractAddresses, contractABI } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
@@ -47,17 +46,4 @@ export default function useDefaultReadContract(contractFunctionName, args = [], 
       refetchOnReconnect: true,
     },
   });
-}
-
-useDefaultReadContract.propTypes = {
-  contractFunctionName: PropTypes.string.isRequired,
-  args: PropTypes.array,
-  hasFetched: PropTypes.bool,
-  contractType: PropTypes.oneOf(['diamond', 'lab']),
-}
-
-useDefaultReadContract.defaultProps = {
-  args: [],
-  hasFetched: false,
-  contractType: 'diamond',
 }

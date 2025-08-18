@@ -1,5 +1,6 @@
 import 'react-datepicker/dist/react-datepicker.css'
 import '@/styles/global.css'
+import PropTypes from 'prop-types'
 import ClientQueryProvider from '@/context/ClientQueryProvider'
 import ClientWagmiProvider from '@/context/ClientWagmiProvider'
 import { UserData } from '@/context/UserContext'
@@ -84,4 +85,9 @@ export default function RootLayout({ children }) {
       </body>
     </html>
   )
+}
+
+// PropTypes
+RootLayout.propTypes = {
+  children: PropTypes.node.isRequired
 }

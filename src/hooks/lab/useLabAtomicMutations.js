@@ -2,7 +2,6 @@
  * Atomic React Query Hooks for Lab-related Write Operations  
  * Each hook maps 1:1 to a specific API endpoint in /api/contract/lab/
  * Handles mutations (create, update, delete operations)
- * 
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { parseUnits } from 'viem'

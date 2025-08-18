@@ -34,7 +34,18 @@ export const USER_QUERY_CONFIG = {
  * Hook for /api/contract/provider/getLabProviders endpoint
  * Gets all registered lab providers from the smart contract
  * @param {Object} [options={}] - Additional react-query options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Object} [options.meta] - Metadata for the query
  * @returns {Object} React Query result with providers data
+ * @returns {Object} returns.data - Providers data with count and providers array
+ * @returns {number} returns.data.count - Number of registered providers
+ * @returns {Array} returns.data.providers - Array of provider objects
+ * @returns {boolean} returns.isLoading - Whether the query is loading
+ * @returns {boolean} returns.isError - Whether the query has an error
+ * @returns {Error|null} returns.error - Error object if query failed
+ * @returns {Function} returns.refetch - Function to manually refetch
  */
 export const useGetLabProvidersQuery = (options = {}) => {
   return useQuery({

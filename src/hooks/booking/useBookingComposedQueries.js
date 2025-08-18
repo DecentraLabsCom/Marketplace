@@ -2,7 +2,6 @@
  * Composed React Query Hooks for Booking/Reservation-related operations
  * These hooks use useQueries to orchestrate multiple related atomic hooks while maintaining
  * React Query's caching, error handling, and retry capabilities
- * 
  */
 import { useQueries } from '@tanstack/react-query'
 import { 

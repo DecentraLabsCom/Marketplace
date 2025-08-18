@@ -5,8 +5,8 @@ import { useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
-  useIsLabProvider, 
-  useLabProviders, 
+  useIsLabProviderQuery, 
+  useGetLabProvidersQuery, 
   useRefreshProviderStatusMutation 
 } from '@/hooks/user/useUsers'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
@@ -51,7 +51,7 @@ function UserDataCore({ children }) {
         data: providerStatus, 
         isLoading: isProviderLoading,
         error: providerError 
-    } = useIsLabProvider(address, {
+    } = useIsLabProviderQuery(address, {
         enabled: Boolean(address) && !isWalletLoading, // Only fetch when wallet connection is stable
         retry: false, // Don't retry failed provider status queries
     });
@@ -60,7 +60,7 @@ function UserDataCore({ children }) {
     const { 
         data: providersData,
         isLoading: isProvidersLoading 
-    } = useLabProviders({
+    } = useGetLabProvidersQuery({
         enabled: Boolean(providerStatus?.isLabProvider), // Only fetch if user is confirmed provider
         staleTime: 10 * 60 * 1000, // 10 minutes for provider list
     });
@@ -174,7 +174,7 @@ function UserDataCore({ children }) {
             queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(address) });
         } else if (isConnected && address) {
             // Invalidate provider status cache when wallet connects
-            // Invalidate provider status cache using the correct query key for useIsLabProvider
+            // Invalidate provider status cache using the correct query key for useIsLabProviderQuery
             queryClient.invalidateQueries({ 
                 queryKey: providerQueryKeys.isLabProvider(address) 
             });

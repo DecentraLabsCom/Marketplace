@@ -12,6 +12,8 @@ import devLog from '@/utils/dev/logger'
  * @param {string} displayMode - Display mode for filtering
  * @param {string} highlightClassName - CSS class for highlighted days
  * @returns {Object} Filtered bookings and day className function
+ * @returns {Array} returns.filteredBookings - Bookings filtered by display mode
+ * @returns {Function} returns.dayClassName - Function to determine day CSS class based on bookings
  */
 export function useBookingFilter(bookingInfo = [], displayMode = 'default', highlightClassName = "bg-[#9fc6f5] text-white") {
   

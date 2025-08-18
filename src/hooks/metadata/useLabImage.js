@@ -2,8 +2,6 @@
  * Image Caching with React Query
  * Extends React Query to cache lab images as base64 data
  * Integrates seamlessly with existing metadata caching system
- * 
- * @author DecentraLabs
  */
 import { useQuery } from '@tanstack/react-query'
 import devLog from '@/utils/dev/logger'
@@ -87,8 +85,22 @@ async function imageToBase64(imageUrl) {
 /**
  * React Query hook for caching individual lab images
  * @param {string} imageUrl - Image URL to cache
- * @param {Object} options - Additional React Query options
+ * @param {Object} [options={}] - Additional React Query options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Object} [options.meta] - Metadata for the query
  * @returns {Object} React Query result with cached image data
+ * @returns {Object} returns.data - Cached image data object
+ * @returns {string} returns.data.dataUrl - Base64 data URL of the cached image
+ * @returns {string} returns.data.originalUrl - Original image URL
+ * @returns {number} returns.data.size - Approximate size in bytes
+ * @returns {Object} returns.data.dimensions - Image dimensions {width, height}
+ * @returns {number} returns.data.timestamp - Cache timestamp
+ * @returns {boolean} returns.isLoading - Whether the query is loading
+ * @returns {boolean} returns.isError - Whether the query has an error
+ * @returns {Error|null} returns.error - Error object if query failed
+ * @returns {Function} returns.refetch - Function to manually refetch
  */
 export function useLabImageQuery(imageUrl, options = {}) {
   return useQuery({
@@ -126,10 +138,19 @@ useLabImageQuery.queryFn = async (imageUrl) => {
 /**
  * Hook for getting cached image with fallback to original URL
  * @param {string} imageUrl - Image URL
- * @param {Object} options - Hook options
- * @param {boolean} options.autoCache - Whether to automatically cache (default: true)
- * @param {boolean} options.preferCached - Whether to prefer cached version (default: true)
+ * @param {Object} [options={}] - Hook options
+ * @param {boolean} [options.autoCache=true] - Whether to automatically cache
+ * @param {boolean} [options.preferCached=true] - Whether to prefer cached version
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
  * @returns {Object} Image state with best URL to use
+ * @returns {string} returns.imageUrl - Best image URL to use (cached or original)
+ * @returns {boolean} returns.isCached - Whether the image is cached
+ * @returns {boolean} returns.isLoading - Whether caching is in progress
+ * @returns {boolean} returns.isError - Whether caching failed
+ * @returns {Object} returns.cachedData - Cached image data if available
+ * @returns {string} returns.fallbackUrl - Original URL as fallback
  */
 export function useLabImage(imageUrl, options = {}) {
   const { autoCache = true, preferCached = true, ...queryOptions } = options

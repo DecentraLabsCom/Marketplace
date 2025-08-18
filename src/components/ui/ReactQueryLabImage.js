@@ -2,8 +2,6 @@
  * React Query-based Lab Image Component
  * Uses React Query's caching system for optimal image caching
  * Integrates seamlessly with existing metadata caching
- * 
- * @author DecentraLabs
  */
 import React, { useState } from 'react'
 import PropTypes from 'prop-types'

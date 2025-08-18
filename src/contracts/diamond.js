@@ -2751,13 +2751,3 @@ export const contractABI = [
     "type": "function"
   }
 ];
-
-/*export const readOnlyABI = contractABI.filter(
-  (item) => item.type === 'function' && item.stateMutability === 'view'
-);
-
-export const writeOnlyABI = contractABI.filter(
-  (item) =>
-    item.type === 'function' &&
-    (item.stateMutability === 'nonpayable' || item.stateMutability === 'payable')
-);*/

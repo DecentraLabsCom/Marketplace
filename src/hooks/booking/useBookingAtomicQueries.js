@@ -10,7 +10,6 @@
  * - refetchInterval: false
  * - refetchOnReconnect: true
  * - retry: 1
- *
  */
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
@@ -31,7 +30,16 @@ export const BOOKING_QUERY_CONFIG = {
  * Hook for /api/contract/reservation/getAllReservations endpoint
  * Gets all reservations from the smart contract
  * @param {Object} [options={}] - Additional react-query options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Object} [options.meta] - Metadata for the query
  * @returns {Object} React Query result with all reservations data
+ * @returns {Array} returns.data - Array of all reservations from the contract
+ * @returns {boolean} returns.isLoading - Whether the query is loading
+ * @returns {boolean} returns.isError - Whether the query has an error
+ * @returns {Error|null} returns.error - Error object if query failed
+ * @returns {Function} returns.refetch - Function to manually refetch
  */
 export const useAllReservations = (options = {}) => {
   return useQuery({

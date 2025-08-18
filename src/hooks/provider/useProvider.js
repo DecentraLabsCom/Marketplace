@@ -2,8 +2,6 @@
  * Atomic React Query Hook Mutations for Provider-related operations
  * These hooks provide single-responsibility access to provider endpoints
  * Following the pattern: one hook per API endpoint for consistent caching
- * 
- * @author DecentraLabs
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, providerQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
@@ -14,8 +12,18 @@ import devLog from '@/utils/dev/logger'
  * Hook for saving lab data
  * POST /api/provider/saveLabData
  * 
- * @param {Object} options - React Query mutation options
+ * @param {Object} [options={}] - React Query mutation options
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Function} [options.onMutate] - Optimistic update function
+ * @param {Object} [options.meta] - Metadata for the mutation
  * @returns {Object} React Query mutation result
+ * @returns {Function} returns.mutate - Execute the mutation function
+ * @returns {Function} returns.mutateAsync - Execute the mutation with promise
+ * @returns {boolean} returns.isPending - Whether the mutation is pending
+ * @returns {boolean} returns.isError - Whether the mutation has an error
+ * @returns {Error|null} returns.error - Error object if mutation failed
+ * @returns {any} returns.data - Data returned from successful mutation
  */
 export const useSaveLabData = (options = {}) => {
   const queryClient = useQueryClient();

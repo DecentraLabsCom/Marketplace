@@ -2,8 +2,6 @@
  * Atomic React Query Hooks for Metadata-related operations
  * These hooks provide single-responsibility access to metadata endpoints
  * Following the pattern: one hook per API endpoint for consistent caching
- * 
- * @author DecentraLabs
  */
 import { useQuery } from '@tanstack/react-query'
 import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
@@ -26,8 +24,23 @@ export { METADATA_QUERY_CONFIG };
  * GET /api/metadata?uri={metadataUri}
  * 
  * @param {string} metadataUri - Metadata URI to fetch (required)
- * @param {Object} options - React Query options
+ * @param {Object} [options={}] - React Query options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Object} [options.meta] - Metadata for the query
  * @returns {Object} React Query result with metadata
+ * @returns {Object} returns.data - Lab metadata object
+ * @returns {string} returns.data.name - Lab name
+ * @returns {string} returns.data.description - Lab description
+ * @returns {string} returns.data.image - Main lab image URL
+ * @returns {Array} returns.data.images - Array of additional image URLs
+ * @returns {string} returns.data.category - Lab category
+ * @returns {Array} returns.data.attributes - Array of metadata attributes
+ * @returns {boolean} returns.isLoading - Whether the query is loading
+ * @returns {boolean} returns.isError - Whether the query has an error
+ * @returns {Error|null} returns.error - Error object if query failed
+ * @returns {Function} returns.refetch - Function to manually refetch
  */
 export const useMetadata = (metadataUri, options = {}) => {
   return useQuery({
@@ -64,9 +77,9 @@ export const useMetadata = (metadataUri, options = {}) => {
     ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration
     ...options,
   });
-};
+}
 
-// Export queryFn for use in composed hooks
+// Set queryFn as a static property for reuse in mutations
 useMetadata.queryFn = async ({ metadataUri }) => {
   if (!metadataUri) {
     throw new Error('Metadata URI is required');

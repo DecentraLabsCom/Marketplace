@@ -426,6 +426,10 @@ ErrorBoundary.propTypes = {
 
 /**
  * Higher-Order Component for Error Boundaries
+ * Wraps a component with error boundary functionality
+ * @param {React.Component} WrappedComponent - Component to wrap with error boundary
+ * @param {Object} errorBoundaryProps - Props to pass to the ErrorBoundary component
+ * @returns {React.Component} Component wrapped with error boundary protection
  */
 export function withErrorBoundary(WrappedComponent, errorBoundaryProps = {}) {
   const WithErrorBoundaryComponent = React.forwardRef((props, ref) => (
@@ -442,6 +446,10 @@ export function withErrorBoundary(WrappedComponent, errorBoundaryProps = {}) {
 
 /**
  * Hook for handling errors in functional components
+ * Provides error handling functions that integrate with the global error system
+ * @returns {Object} Object containing error handling functions
+ * @returns {Function} returns.handleError - Function to handle errors with optional context
+ * @returns {Function} returns.createErrorHandler - Function that creates error handlers with preset context
  */
 export function useErrorHandler() {
   const handleError = React.useCallback((error, context = {}) => {
@@ -457,6 +465,10 @@ export function useErrorHandler() {
 
 /**
  * Hook for async error handling
+ * Provides utilities for handling errors in async operations
+ * @returns {Object} Object containing async error handling utilities
+ * @returns {Function} returns.executeAsync - Function to execute async operations with error handling
+ * @returns {Function} returns.handleAsyncError - Function to handle async errors
  */
 export function useAsyncError() {
   const { handleError } = useErrorHandler();

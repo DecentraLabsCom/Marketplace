@@ -12,6 +12,20 @@ import isBookingActive from '@/utils/booking/isBookingActive'
  * @param {boolean} isLoggedIn - User login status
  * @param {boolean} bookingsLoading - Whether bookings are still loading
  * @returns {Object} Filter state, handlers, and filtered results
+ * @returns {string} returns.selectedCategory - Currently selected category filter
+ * @returns {string} returns.selectedPrice - Currently selected price sorting
+ * @returns {string} returns.selectedProvider - Currently selected provider filter
+ * @returns {string} returns.selectedFilter - Currently selected search filter type
+ * @returns {Array} returns.searchFilteredLabs - Filtered and enriched labs array
+ * @returns {string} returns.searchDebounce - Current debounced search term
+ * @returns {Function} returns.setSelectedCategory - Set category filter function
+ * @returns {Function} returns.setSelectedPrice - Set price sorting function
+ * @returns {Function} returns.setSelectedProvider - Set provider filter function
+ * @returns {Function} returns.setSelectedFilter - Set search filter type function
+ * @returns {Array} returns.categories - Available categories for filtering
+ * @returns {Array} returns.providers - Available providers for filtering
+ * @returns {Object} returns.searchInputRef - Ref for search input element
+ * @returns {Function} returns.resetFilters - Reset all filters function
  */
 export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false, bookingsLoading = false) {
   const searchInputRef = useRef(null)

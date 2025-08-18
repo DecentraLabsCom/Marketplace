@@ -51,6 +51,9 @@ export function convertPriceToHuman(priceString, decimals) {
 
 /**
  * Create provider lookup map from providers array
+ * Transforms array of provider objects into a keyed object for fast lookups
+ * @param {Array} providers - Array of provider objects with address and metadata
+ * @returns {Object} Map object where keys are provider addresses and values are provider data
  */
 export function createProviderMap(providers) {
   const providerMap = {};
@@ -104,7 +107,15 @@ export function createProviderMap(providers) {
 }
 
 /**
- * Compose complete lab object from atomic data
+ * Compose complete lab object from atomic data pieces
+ * Combines lab contract data, metadata, owner info, and provider mapping into a unified lab object
+ * @param {string|number} labId - Unique lab identifier
+ * @param {Object} labData - Raw lab data from smart contract
+ * @param {string} owner - Lab owner's wallet address
+ * @param {Object} metadata - Lab metadata object with attributes
+ * @param {number} decimals - Token decimals for price conversion
+ * @param {Object} providerMap - Provider address to name mapping
+ * @returns {Object} Complete lab object with all properties normalized and accessible
  */
 export function composeLabObject(labId, labData, owner, metadata, decimals, providerMap) {
   const attrs = parseAttributes(metadata.attributes);
@@ -146,6 +157,10 @@ export function composeLabObject(labId, labData, owner, metadata, decimals, prov
 
 /**
  * Create fallback lab object for failed requests
+ * Provides a minimal lab object when primary data sources fail
+ * @param {string|number} labId - Lab identifier to create fallback for
+ * @param {string} baseUri - Optional base URI for the lab (defaults to empty string)
+ * @returns {Object} Minimal lab object with safe default values
  */
 export function createFallbackLab(labId, baseUri = '') {
   return {

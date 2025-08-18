@@ -52,6 +52,23 @@ export const clearDecimalsCache = () => {
  * Includes functions for: balance, approval, transfers, and cost calculation
  * NOTE: This should only be used inside LabTokenContext. 
  * Components should use the context version instead.
+ * 
+ * @returns {Object} Lab token utilities and state
+ * @returns {bigint} returns.balance - User's LAB token balance in wei
+ * @returns {bigint} returns.allowance - Approved amount for diamond contract in wei
+ * @returns {number} returns.decimals - Token decimals (cached across sessions)
+ * @returns {boolean} returns.isLoading - Whether any operation is loading
+ * @returns {string} returns.labTokenAddress - LAB token contract address
+ * @returns {Function} returns.calculateReservationCost - Calculate booking cost function
+ * @returns {Function} returns.approveLabTokens - Approve tokens for spending function
+ * @returns {Function} returns.checkBalanceAndAllowance - Check balances function
+ * @returns {Function} returns.checkSufficientBalance - Check sufficient balance function
+ * @returns {Function} returns.formatTokenAmount - Format amount to readable string function
+ * @returns {Function} returns.formatPrice - Format price per hour function
+ * @returns {Function} returns.refreshTokenData - Manually refresh data function
+ * @returns {Function} returns.refetchBalance - Refetch balance function
+ * @returns {Function} returns.refetchAllowance - Refetch allowance function
+ * @returns {Function} returns.clearDecimalsCache - Clear cached decimals function
  */
 export function useLabTokenHook() {
   const { address, chain } = useAccount();

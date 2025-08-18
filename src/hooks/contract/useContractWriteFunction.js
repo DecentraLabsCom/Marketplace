@@ -1,5 +1,4 @@
 import { useWriteContract, useAccount } from 'wagmi'
-import PropTypes from 'prop-types'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
@@ -71,13 +70,4 @@ export default function useContractWriteFunction(functionName, contractType = 'd
   }
 
   return { contractWriteFunction, ...rest }
-}
-
-useContractWriteFunction.propTypes = {
-  functionName: PropTypes.string.isRequired,
-  contractType: PropTypes.oneOf(['diamond', 'lab']),
-}
-
-useContractWriteFunction.defaultProps = {
-  contractType: 'diamond',
 }

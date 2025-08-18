@@ -68,25 +68,6 @@ export {
   useUserCacheUpdates,
 } from './useUserCacheUpdates'
 
-// ===== BACKWARD COMPATIBILITY ALIASES =====
-// These aliases maintain compatibility with existing code while encouraging
-// migration to the new atomic hook naming convention
-
-/**
- * @deprecated Use useGetLabProvidersQuery instead
- */
-export const useLabProviders = useGetLabProvidersQuery
-
-/**
- * @deprecated Use useIsLabProviderQuery instead  
- */
-export const useIsLabProvider = useIsLabProviderQuery
-
-// Import the actual hooks to create the aliases
-import { 
-  useGetLabProvidersQuery,
-  useIsLabProviderQuery,
-} from './useUserAtomicQueries'
 
 // Log module loading (only logs once even in StrictMode)
 import devLog from '@/utils/dev/logger'
