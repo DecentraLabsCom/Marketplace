@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { parseUnits } from 'viem'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
@@ -31,7 +32,8 @@ import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import devLog from '@/utils/dev/logger'
 
 export default function ProviderDashboard() {
-  const { address, user, isSSO } = useUser();  
+  const { address, user, isSSO, isProvider, isProviderLoading, isLoading } = useUser();  
+  const router = useRouter();
   
   // 🚀 React Query for all labs with owner information
   const allLabsResult = useAllLabsComposed({ 
@@ -148,6 +150,44 @@ export default function ProviderDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
 
+  // Handle adding a new lab using React Query mutation
+  const handleAddLab = useCallback(async ({ labData }) => {
+    const maxId = Array.isArray(labs) && labs.length > 0 
+      ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
+      : 0;
+    labData.uri = labData.uri || `Lab-${user?.name || 'Provider'}-${maxId + 1}.json`;
+
+    try {
+      addTemporaryNotification('pending', '⏳ Adding lab...');
+      
+      // 🚀 Use React Query mutation for lab creation
+      await addLabMutation.mutateAsync({
+        ...labData,
+        providerId: address, // Add provider info
+        isSSO,
+        userEmail: user.email
+      });
+      
+      addTemporaryNotification('success', '✅ Lab added!');
+      setTimeout(() => setIsModalOpen(false), 0);
+      
+    } catch (error) {
+      devLog.error('Error adding lab:', error);
+      addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
+    }
+  }, [
+    labs, user?.name, addLabMutation, address, isSSO, user?.email, addTemporaryNotification
+  ]);
+
+  // Redirect non-providers to home page
+  useEffect(() => {
+    // Only redirect after loading is complete to avoid false redirects
+    if (!isLoading && !isProviderLoading && address && !isProvider) {
+      router.push('/');
+      return;
+    }
+  }, [isProvider, isProviderLoading, isLoading, address, router]);
+
   // Automatically set the first lab as the selected lab (only once)
   useEffect(() => {
     if (ownedLabs.length > 0 && !selectedLabId && !isModalOpen && !hasInitialized.current) {
@@ -159,6 +199,31 @@ export default function ProviderDashboard() {
     }
   }, [ownedLabs.length, selectedLabId, isModalOpen]);
 
+  // Show loading state while determining provider status
+  if (isLoading || isProviderLoading) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <div className="container mx-auto p-4 text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
+            <span>Loading provider data...</span>
+          </div>
+        </div>
+      </AccessControl>
+    );
+  }
+
+  // Don't render anything if user is not a provider (redirect will handle it)
+  if (!isProvider) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <div className="container mx-auto p-4 text-center">
+          <p>Redirecting to home page...</p>
+        </div>
+      </AccessControl>
+    );
+  }
+  
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
     // Store the original human-readable price for local state updates
@@ -281,35 +346,6 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
     }
   }
-
-  // Handle adding a new lab using React Query mutation
-  const handleAddLab = useCallback(async ({ labData }) => {
-    const maxId = Array.isArray(labs) && labs.length > 0 
-      ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
-      : 0;
-    labData.uri = labData.uri || `Lab-${user?.name || 'Provider'}-${maxId + 1}.json`;
-
-    try {
-      addTemporaryNotification('pending', '⏳ Adding lab...');
-      
-      // 🚀 Use React Query mutation for lab creation
-      await addLabMutation.mutateAsync({
-        ...labData,
-        providerId: address, // Add provider info
-        isSSO,
-        userEmail: user.email
-      });
-      
-      addTemporaryNotification('success', '✅ Lab added!');
-      setTimeout(() => setIsModalOpen(false), 0);
-      
-    } catch (error) {
-      devLog.error('Error adding lab:', error);
-      addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
-    }
-  }, [
-    labs, user?.name, addLabMutation, address, isSSO, user?.email, addTemporaryNotification
-  ]);
 
   // Handle delete a lab using React Query mutation
   const handleDeleteLab = async (labId) => {
