@@ -1,10 +1,18 @@
 # Tokenize and list your lab
 
+Once a user is registered as a provider, the **Lab Panel** becomes visible and accessible. The image below shows an example where the provider already has a lab tokenized and listed, but this does not affect the process and explanation of adding a new lab. For this, click on the **Add New Lab** button, under the calendar on the right.
+
+<figure><img src="../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
+
+This will open a modal to add a new lab, as shown in the next figure.
+
+<figure><img src="../.gitbook/assets/image (2).png" alt=""><figcaption></figcaption></figure>
+
 The DecentraLabs Marketplace offers two main approaches for tokenizing your laboratory:
 
 ### ⚙️ Full Setup (recommended for beginners)
 
-This option allows you to input all laboratory data directly through the web interface in the marketplace; particularly in the **Lab Panel** ssection (which becomes visible and accessible once you are registered as a provider). This approach stores essential information on-chain while keeping detailed metadata accessible through decentralized storage.
+This option allows you to input all laboratory data directly through the web interface in the marketplace and corresponds to the modal shown in the image above. This approach stores essential information on-chain while keeping detailed metadata accessible through decentralized storage.
 
 **Steps:**
 
@@ -37,7 +45,9 @@ This option allows you to input all laboratory data directly through the web int
 
 ### ⚡ Quick Setup (for technical users)
 
-This option is designed for users who prefer to manage their metadata externally or want more control over their data storage. This approach requires only essential on-chain data while referencing external metadata.
+This option is designed for users who prefer to manage their metadata externally or want more control over their data storage. This approach requires only essential on-chain data while referencing external metadata. The next figure displays how the modal looks for this setup mode.
+
+<figure><img src="../.gitbook/assets/image (3).png" alt=""><figcaption></figcaption></figure>
 
 **Steps:**
 

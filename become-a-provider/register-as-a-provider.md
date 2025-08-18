@@ -27,4 +27,8 @@ At present, becoming a provider involves the following steps:
 
 Once approved, you will be able to proceed with publishing and managing your labs through the decentralized infrastructure.
 
+The image below shows the form in the DecentraLabs Marketplace to register your interest to become a lab provider.
+
+<figure><img src="../.gitbook/assets/image (4).png" alt=""><figcaption></figcaption></figure>
+
 > 💡 In future releases, this process will be streamlined and governed collectively. For now, it ensures trust and security as the ecosystem grows.
