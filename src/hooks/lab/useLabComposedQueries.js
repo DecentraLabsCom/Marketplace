@@ -12,7 +12,7 @@ import {
   useOwnerOf,
   LAB_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useLabs'
-import { useLabProviders, PROVIDER_QUERY_CONFIG } from '@/hooks/provider/useProvider'
+import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUsers'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { useLabToken } from '@/context/LabTokenContext'
@@ -70,8 +70,8 @@ export const useAllLabsComposed = ({
   const decimalsResult = useLabTokenDecimals();
 
   // Get providers data for owner matching (always fetch for provider resolution)
-  const providersResult = useLabProviders({
-    ...PROVIDER_QUERY_CONFIG,
+  const providersResult = useGetLabProvidersQuery({
+    ...USER_QUERY_CONFIG,
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: queryOptions.enabled,
     meta: queryOptions.meta,

@@ -1,5 +1,5 @@
 /**
- * Atomic React Query Hooks for Provider-related operations
+ * Atomic React Query Hook Mutations for Provider-related operations
  * These hooks provide single-responsibility access to provider endpoints
  * Following the pattern: one hook per API endpoint for consistent caching
  * 
@@ -9,68 +9,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, providerQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
-// Common configuration for provider hooks
-export const PROVIDER_QUERY_CONFIG = {
-  staleTime: 5 * 60 * 1000,     // 5 minutes - providers don't change often
-  gcTime: 30 * 60 * 1000,       // 30 minutes
-  refetchOnWindowFocus: false,
-  refetchInterval: false,
-  refetchOnReconnect: true,
-  retry: 2,
-}
-
-/**
- * Hook for getting all lab providers
- * GET /api/contract/provider/getLabProviders
- * 
- * @param {Object} options - React Query options
- * @returns {Object} React Query result with providers data
- */
-export const useLabProviders = (options = {}) => {
-  return useQuery({
-    queryKey: providerQueryKeys.getLabProviders(),
-    queryFn: async () => {
-      try {
-        const response = await fetch('/api/contract/provider/getLabProviders', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch lab providers: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        devLog.info(`Lab providers fetched successfully: ${data.count} providers`);
-        return data;
-      } catch (error) {
-        devLog.error('Failed to fetch lab providers:', error);
-        throw error;
-      }
-    },
-    ...PROVIDER_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-export const labProvidersQueryFn = async () => {
-  const response = await fetch('/api/contract/provider/getLabProviders', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch lab providers: ${response.status} ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  devLog.info(`Lab providers fetched successfully (queryFn): ${data.count} providers`);
-  return data;
-};
-
-// Attach queryFn to hook for backward compatibility
-useLabProviders.queryFn = labProvidersQueryFn;
 
 /**
  * Hook for saving lab data
