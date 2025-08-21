@@ -69,7 +69,7 @@ export const useAllLabsComposed = ({
   });
   const decimalsResult = useLabTokenDecimals();
 
-  // Get providers data for owner matching (always fetch for provider resolution)
+  // Get providers data for owner matching (when owners are included)
   const providersResult = useGetLabProvidersQuery({
     ...USER_QUERY_CONFIG,
     // Only allow override of non-critical options like enabled, meta, etc.
@@ -99,9 +99,9 @@ export const useAllLabsComposed = ({
     .filter(result => result.isSuccess && result.data)
     .map(result => result.data);
 
-  // Step 3: Get owner data (always needed for provider matching, even if not requested for output)
+  // Step 3: Get owner data (only when needed)
   const ownerResults = useQueries({
-    queries: labsWithDetails.length > 0
+    queries: (includeOwners && labsWithDetails.length > 0)
       ? labsWithDetails.map(lab => ({
           queryKey: labQueryKeys.ownerOf(lab.labId),
           queryFn: () => useOwnerOf.queryFn(lab.labId), // ✅ Using atomic hook queryFn
@@ -239,8 +239,8 @@ export const useAllLabsComposed = ({
       ...lab.base,
     };
 
-    // Get owner data (always needed for provider matching)
-    const ownerData = ownerResults[labIndex]?.data;
+    // Get owner data (only when requested or needed for provider matching)
+    const ownerData = includeOwners ? ownerResults[labIndex]?.data : null;
     const ownerAddress = ownerData?.owner || ownerData;
     
     // Add owner data to output only if requested
@@ -248,7 +248,7 @@ export const useAllLabsComposed = ({
       enrichedLab.owner = ownerAddress;
     }
 
-    // Get provider info by matching lab owner with provider accounts
+    // Get provider info by matching lab owner with provider accounts (only if we have owner data)
     if (providersResult.data?.providers && ownerAddress) {
       const matchingProvider = providersResult.data.providers.find(
         provider => provider.account.toLowerCase() === ownerAddress.toLowerCase()
@@ -262,6 +262,11 @@ export const useAllLabsComposed = ({
         };
         enrichedLab.provider = matchingProvider.name; // Use provider name as display name
       }
+    }
+    
+    // Fallback provider if no owner matching available
+    if (!enrichedLab.provider) {
+      enrichedLab.provider = formatWalletAddress(ownerAddress) || 'Unknown Provider';
     }
 
     // Add metadata if requested and available

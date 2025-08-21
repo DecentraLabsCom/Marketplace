@@ -640,7 +640,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
     <div onClick={handleClose} style={{ minHeight: "100vh" }}
       className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto">
       <div onClick={e => e.stopPropagation()}
-        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg mx-4 my-8 max-h-[90vh] overflow-y-auto">
+        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-semibold mb-4 text-black">
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
