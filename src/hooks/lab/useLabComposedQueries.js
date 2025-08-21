@@ -45,7 +45,13 @@ const useLabTokenDecimals = () => {
 /**
  * Composed hook for getting all labs with enriched data
  * Orchestrates multiple atomic hooks: labs list (IDs), individual lab details, decimals, owner data for provider matching, and optional metadata/images
- * Owner data is always fetched for provider matching but failures are handled gracefully with fallbacks
+ * 
+ * RESILIENT LOADING BEHAVIOR:
+ * - Lab data loads immediately when basic queries complete
+ * - Owner queries run in background and NEVER block UI loading
+ * - Failed/stuck owner queries fall back to "Unknown Provider" gracefully
+ * - Cards display with provider info when available, "Unknown Provider" when not
+ * 
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
  * @param {boolean} options.includeOwners - Whether to include owner info in the output (owner data is always fetched for provider matching)
@@ -208,12 +214,10 @@ export const useAllLabsComposed = ({
   const isLabDetailsLoading = labDetailResults.some(result => result.isLoading);
   const isImageCachingLoading = imageResults.some(result => result.isLoading);
   
-  // Owner queries are resilient - we don't wait for them to complete
-  // Only include them in loading if they're actively loading and haven't failed yet
-  const isOwnerLoading = ownerResults.some(result => result.isLoading && !result.error);
+  // Owner queries are completely background - NEVER wait for them to complete
+  // They load in the background and gracefully fall back to "Unknown Provider"
   
-  const isEnrichmentLoading = (ownerResults.length > 0 && isOwnerLoading) || 
-                             metadataResults.some(result => result.isLoading) ||
+  const isEnrichmentLoading = metadataResults.some(result => result.isLoading) ||
                              providersResult.isLoading || // Moved here since providers are for enrichment
                              (includeImages && isImageCachingLoading); // Include image caching in enrichment loading
   const isLoading = isBaseLoading || isLabDetailsLoading || isEnrichmentLoading;
@@ -555,13 +559,14 @@ export const useAllLabsFull = (queryOptions = {}) => {
 /**
  * Composed hook optimized for LabCard components
  * Includes metadata and main image caching for optimal card performance
+ * Includes owner data for provider matching (loads in background)
  * @param {Object} queryOptions - Additional react-query options
  * @returns {Object} React Query result with lab data optimized for cards
  */
 export const useAllLabsForCards = (queryOptions = {}) => {
   return useAllLabsComposed({ 
     includeMetadata: true,  // Needed for names, descriptions, etc.
-    includeOwners: false,   // Not typically shown in cards
+    includeOwners: true,    // Needed for provider matching (loads in background)
     includeImages: true,    // ✅ Cache main images for better card performance
     queryOptions 
   });
