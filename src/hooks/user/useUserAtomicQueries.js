@@ -47,33 +47,8 @@ export const USER_QUERY_CONFIG = {
  * @returns {Error|null} returns.error - Error object if query failed
  * @returns {Function} returns.refetch - Function to manually refetch
  */
-export const useGetLabProvidersQuery = (options = {}) => {
-  return useQuery({
-    queryKey: providerQueryKeys.getLabProviders(),
-    queryFn: createSSRSafeQuery(
-      async () => {
-        const response = await fetch('/api/contract/provider/getLabProviders', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch lab providers: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('useGetLabProvidersQuery:', data);
-        return data;
-      },
-      [] // Return empty array during SSR
-    ),
-    ...USER_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks and mutations
-useGetLabProvidersQuery.queryFn = async () => {
+// Define queryFn first for reuse
+const getLabProvidersQueryFn = async () => {
   const response = await fetch('/api/contract/provider/getLabProviders', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -84,7 +59,40 @@ useGetLabProvidersQuery.queryFn = async () => {
   }
   
   const data = await response.json();
-  devLog.log('useGetLabProvidersQuery.queryFn:', data);
+  devLog.log('useGetLabProvidersQuery:', data);
+  return data;
+};
+
+export const useGetLabProvidersQuery = (options = {}) => {
+  return useQuery({
+    queryKey: providerQueryKeys.getLabProviders(),
+    queryFn: createSSRSafeQuery(
+      () => getLabProvidersQueryFn(), // ✅ Reuse the queryFn
+      [] // Return empty array during SSR
+    ),
+    ...USER_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks and mutations
+useGetLabProvidersQuery.queryFn = getLabProvidersQueryFn;
+
+// Define queryFn first for reuse
+const getIsLabProviderQueryFn = async ({ userAddress }) => {
+  if (!userAddress) throw new Error('Address is required');
+  
+  const response = await fetch(`/api/contract/provider/isLabProvider?wallet=${userAddress}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to check provider status: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('useIsLabProviderQuery:', userAddress, data);
   return data;
 };
 
@@ -99,22 +107,7 @@ export const useIsLabProviderQuery = (address, options = {}) => {
   return useQuery({
     queryKey: providerQueryKeys.isLabProvider(address),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!address) throw new Error('Address is required');
-        
-        const response = await fetch(`/api/contract/provider/isLabProvider?wallet=${address}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to check provider status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 [useIsLabProviderQuery] ', address, data);
-        return data;
-      },
+      () => getIsLabProviderQueryFn({ userAddress: address }), // ✅ Reuse the queryFn
       { isProvider: false } // Return false during SSR
     ),
     enabled: !!address,
@@ -124,24 +117,16 @@ export const useIsLabProviderQuery = (address, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks and mutations
-useIsLabProviderQuery.queryFn = async ({ userAddress }) => {
-  if (!userAddress) throw new Error('Address is required');
-  
-  const response = await fetch(`/api/contract/provider/isLabProvider?wallet=${userAddress}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to check provider status: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('useIsLabProviderQuery.queryFn:', userAddress, data);
-  return data;
-};
+useIsLabProviderQuery.queryFn = getIsLabProviderQueryFn;
 
 // ===== SSO SESSION QUERIES =====
+
+// Define queryFn first for reuse
+const getSSOSessionQueryFn = async () => {
+  // Placeholder for SSO session logic
+  // This would typically check server session or local storage
+  return null;
+};
 
 /**
  * SSO Session Query Hook
@@ -151,11 +136,7 @@ useIsLabProviderQuery.queryFn = async ({ userAddress }) => {
 export const useSSOSessionQuery = (options = {}) => {
   return useQuery({
     queryKey: userQueryKeys.ssoSession(),
-    queryFn: async () => {
-      // Placeholder for SSO session logic
-      // This would typically check server session or local storage
-      return null;
-    },
+    queryFn: () => getSSOSessionQueryFn(), // ✅ Reuse the queryFn
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
     ...options,
@@ -163,10 +144,6 @@ export const useSSOSessionQuery = (options = {}) => {
 };
 
 // Export queryFn for use in composed hooks and mutations
-useSSOSessionQuery.queryFn = async () => {
-  // Placeholder for SSO session logic
-  // This would typically check server session or local storage
-  return null;
-};
+useSSOSessionQuery.queryFn = getSSOSessionQueryFn;
 
 devLog.moduleLoaded('✅ User atomic queries loaded');

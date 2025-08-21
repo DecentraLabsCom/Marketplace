@@ -44,33 +44,8 @@ export { LAB_QUERY_CONFIG };
  * @returns {Error|null} returns.error - Error object if query failed
  * @returns {Function} returns.refetch - Function to manually refetch
  */
-export const useAllLabs = (options = {}) => {
-  return useQuery({
-    queryKey: labQueryKeys.getAllLabs(),
-    queryFn: createSSRSafeQuery(
-      async () => {
-        const response = await fetch('/api/contract/lab/getAllLabs', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch all labs: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useAllLabs:', data);
-        return data;
-      },
-      [] // Return empty array during SSR
-    ),
-    ...LAB_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useAllLabs.queryFn = async () => {
+// Define queryFn first for reuse
+const getAllLabsQueryFn = async () => {
   const response = await fetch('/api/contract/lab/getAllLabs', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -81,7 +56,55 @@ useAllLabs.queryFn = async () => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useAllLabs.queryFn:', data);
+  devLog.log('🔍 useAllLabs:', data);
+  return data;
+};
+
+/**
+ * Hook for /api/contract/lab/getAllLabs endpoint
+ * Gets all lab IDs from the contract
+ * @param {Object} [options={}] - Additional react-query options
+ * @param {boolean} [options.enabled] - Whether the query should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
+ * @param {Object} [options.meta] - Metadata for the query
+ * @returns {Object} React Query result with all labs data
+ * @returns {Array} returns.data - Array of lab IDs from the contract
+ * @returns {boolean} returns.isLoading - Whether the query is loading
+ * @returns {boolean} returns.isError - Whether the query has an error
+ * @returns {Error|null} returns.error - Error object if query failed
+ * @returns {Function} returns.refetch - Function to manually refetch
+ */
+export const useAllLabs = (options = {}) => {
+  return useQuery({
+    queryKey: labQueryKeys.getAllLabs(),
+    queryFn: createSSRSafeQuery(
+      getAllLabsQueryFn, // ✅ Reuse the queryFn
+      [] // Return empty array during SSR
+    ),
+    ...LAB_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks
+useAllLabs.queryFn = getAllLabsQueryFn;
+
+// Define queryFn first for reuse
+const getLabQueryFn = async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+  
+  const response = await fetch(`/api/contract/lab/getLab?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useLab:', labId, data);
   return data;
 };
 
@@ -96,22 +119,7 @@ export const useLab = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.getLab(labId),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!labId) throw new Error('Lab ID is required');
-        
-        const response = await fetch(`/api/contract/lab/getLab?labId=${labId}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch lab ${labId}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useLab:', labId, data);
-        return data;
-      },
+      () => getLabQueryFn(labId), // ✅ Reuse the queryFn
       null // Return null during SSR
     ),
     enabled: !!labId,
@@ -121,20 +129,23 @@ export const useLab = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useLab.queryFn = async (labId) => {
-  if (!labId) throw new Error('Lab ID is required');
+useLab.queryFn = getLabQueryFn;
+
+// Define queryFn first for reuse
+const getBalanceOfQueryFn = async (ownerAddress) => {
+  if (!ownerAddress) throw new Error('Owner address is required');
   
-  const response = await fetch(`/api/contract/lab/getLab?labId=${labId}`, {
+  const response = await fetch(`/api/contract/lab/balanceOf?owner=${ownerAddress}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch lab ${labId}: ${response.status}`);
+    throw new Error(`Failed to fetch balance for ${ownerAddress}: ${response.status}`);
   }
   
   const data = await response.json();
-  devLog.log('🔍 useLab queryFn:', labId, data);
+  devLog.log('🔍 useBalanceOf:', ownerAddress, data);
   return data;
 };
 
@@ -149,28 +160,34 @@ export const useBalanceOf = (ownerAddress, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.balanceOf(ownerAddress),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!ownerAddress) throw new Error('Owner address is required');
-        
-        const response = await fetch(`/api/contract/lab/balanceOf?owner=${ownerAddress}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch balance for ${ownerAddress}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useBalanceOf:', ownerAddress, data);
-        return data;
-      },
+      () => getBalanceOfQueryFn(ownerAddress), // ✅ Reuse the queryFn
       { balance: '0' } // Return zero balance during SSR
     ),
     enabled: !!ownerAddress,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
+};
+
+// Export queryFn for use in composed hooks
+useBalanceOf.queryFn = getBalanceOfQueryFn;
+
+// Define queryFn first for reuse
+const getOwnerOfQueryFn = async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+  
+  const response = await fetch(`/api/contract/lab/ownerOf?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch owner of lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useOwnerOf:', labId, data);
+  return data;
 };
 
 /**
@@ -184,22 +201,7 @@ export const useOwnerOf = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.ownerOf(labId),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!labId) throw new Error('Lab ID is required');
-        
-        const response = await fetch(`/api/contract/lab/ownerOf?labId=${labId}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch owner of lab ${labId}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useOwnerOf:', labId, data);
-        return data;
-      },
+      () => getOwnerOfQueryFn(labId), // ✅ Reuse the queryFn
       { owner: null } // Return null owner during SSR
     ),
     enabled: !!labId,
@@ -209,20 +211,25 @@ export const useOwnerOf = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useOwnerOf.queryFn = async (labId) => {
-  if (!labId) throw new Error('Lab ID is required');
+useOwnerOf.queryFn = getOwnerOfQueryFn;
+
+// Define queryFn first for reuse
+const getTokenOfOwnerByIndexQueryFn = async (ownerAddress, index) => {
+  if (!ownerAddress || index === undefined || index === null) {
+    throw new Error('Owner address and index are required');
+  }
   
-  const response = await fetch(`/api/contract/lab/ownerOf?labId=${labId}`, {
+  const response = await fetch(`/api/contract/lab/tokenOfOwnerByIndex?owner=${ownerAddress}&index=${index}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch owner of lab ${labId}: ${response.status}`);
+    throw new Error(`Failed to fetch token at index ${index} for ${ownerAddress}: ${response.status}`);
   }
   
   const data = await response.json();
-  devLog.log('🔍 useOwnerOf queryFn:', labId, data);
+  devLog.log('🔍 useTokenOfOwnerByIndex:', ownerAddress, index, data);
   return data;
 };
 
@@ -238,30 +245,34 @@ export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.tokenOfOwnerByIndex(ownerAddress, index),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!ownerAddress || index === undefined || index === null) {
-          throw new Error('Owner address and index are required');
-        }
-        
-        const response = await fetch(`/api/contract/lab/tokenOfOwnerByIndex?owner=${ownerAddress}&index=${index}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch token at index ${index} for ${ownerAddress}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useTokenOfOwnerByIndex:', ownerAddress, index, data);
-        return data;
-      },
+      () => getTokenOfOwnerByIndexQueryFn(ownerAddress, index), // ✅ Reuse the queryFn
       { tokenId: null } // Return null during SSR
     ),
     enabled: !!ownerAddress && (index !== undefined && index !== null),
     ...LAB_QUERY_CONFIG,
     ...options,
   });
+};
+
+// Export queryFn for use in composed hooks
+useTokenOfOwnerByIndex.queryFn = getTokenOfOwnerByIndexQueryFn;
+
+// Define queryFn first for reuse
+const getTokenURIQueryFn = async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+  
+  const response = await fetch(`/api/contract/lab/tokenURI?tokenId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch token URI for lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useTokenURI:', labId, data);
+  return data;
 };
 
 /**
@@ -275,28 +286,34 @@ export const useTokenURI = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.tokenURI(labId),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!labId) throw new Error('Lab ID is required');
-        
-        const response = await fetch(`/api/contract/lab/tokenURI?tokenId=${labId}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch token URI for lab ${labId}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useTokenURI:', labId, data);
-        return data;
-      },
+      () => getTokenURIQueryFn(labId), // ✅ Reuse the queryFn
       { uri: '' } // Return empty URI during SSR
     ),
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
+};
+
+// Export queryFn for use in composed hooks
+useTokenURI.queryFn = getTokenURIQueryFn;
+
+// Define queryFn first for reuse
+const getIsTokenListedQueryFn = async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+  
+  const response = await fetch(`/api/contract/lab/isTokenListed?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch listing status for lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useIsTokenListed:', labId, data);
+  return data;
 };
 
 /**
@@ -310,22 +327,7 @@ export const useIsTokenListed = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.isTokenListed(labId),
     queryFn: createSSRSafeQuery(
-      async () => {
-        if (!labId) throw new Error('Lab ID is required');
-        
-        const response = await fetch(`/api/contract/lab/isTokenListed?labId=${labId}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch listing status for lab ${labId}: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        devLog.log('🔍 useIsTokenListed:', labId, data);
-        return data;
-      },
+      () => getIsTokenListedQueryFn(labId), // ✅ Reuse the queryFn
       { isListed: false } // Return false during SSR
     ),
     enabled: !!labId,
@@ -335,19 +337,4 @@ export const useIsTokenListed = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useIsTokenListed.queryFn = async (labId) => {
-  if (!labId) throw new Error('Lab ID is required');
-  
-  const response = await fetch(`/api/contract/lab/isTokenListed?labId=${labId}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch listing status for lab ${labId}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useIsTokenListed queryFn:', labId, data);
-  return data;
-};
+useIsTokenListed.queryFn = getIsTokenListedQueryFn;

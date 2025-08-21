@@ -44,10 +44,11 @@ const useLabTokenDecimals = () => {
 
 /**
  * Composed hook for getting all labs with enriched data
- * Orchestrates multiple atomic hooks: labs list (IDs), individual lab details, decimals, and optional metadata/owners
+ * Orchestrates multiple atomic hooks: labs list (IDs), individual lab details, decimals, owner data for provider matching, and optional metadata/images
+ * Owner data is always fetched for provider matching but failures are handled gracefully with fallbacks
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
- * @param {boolean} options.includeOwners - Whether to fetch owner info for each lab
+ * @param {boolean} options.includeOwners - Whether to include owner info in the output (owner data is always fetched for provider matching)
  * @param {boolean} options.includeImages - Whether to cache images from metadata (default: false for backward compatibility)
  * @param {Object} options.queryOptions - Override options for base queries (labIds & providers only)
  *                                        Internal queries use optimized configurations and cannot be overridden
@@ -87,7 +88,7 @@ export const useAllLabsComposed = ({
           queryKey: labQueryKeys.getLab(labId),
           queryFn: () => useLab.queryFn(labId), // ✅ Using atomic hook queryFn
           enabled: !!labId,
-          ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
+          ...LAB_QUERY_CONFIG,
           // Note: queryOptions not spread here as LAB_QUERY_CONFIG is optimized for lab data
         }))
       : [],
@@ -99,14 +100,16 @@ export const useAllLabsComposed = ({
     .filter(result => result.isSuccess && result.data)
     .map(result => result.data);
 
-  // Step 3: Get owner data (only when needed)
+  // Step 3: Get owner data for provider matching
   const ownerResults = useQueries({
-    queries: (includeOwners && labsWithDetails.length > 0)
+    queries: labsWithDetails.length > 0
       ? labsWithDetails.map(lab => ({
           queryKey: labQueryKeys.ownerOf(lab.labId),
           queryFn: () => useOwnerOf.queryFn(lab.labId), // ✅ Using atomic hook queryFn
           enabled: !!lab.labId,
-          ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
+          ...LAB_QUERY_CONFIG,
+          // Use select to provide fallback data on error
+          select: (data) => data,
           // Note: queryOptions not spread here as LAB_QUERY_CONFIG is optimized for lab data
         }))
       : [],
@@ -204,7 +207,12 @@ export const useAllLabsComposed = ({
   // Note: providersResult.isLoading is not included since we have fallback logic
   const isLabDetailsLoading = labDetailResults.some(result => result.isLoading);
   const isImageCachingLoading = imageResults.some(result => result.isLoading);
-  const isEnrichmentLoading = ownerResults.some(result => result.isLoading) || 
+  
+  // Owner queries are resilient - we don't wait for them to complete
+  // Only include them in loading if they're actively loading and haven't failed yet
+  const isOwnerLoading = ownerResults.some(result => result.isLoading && !result.error);
+  
+  const isEnrichmentLoading = (ownerResults.length > 0 && isOwnerLoading) || 
                              metadataResults.some(result => result.isLoading) ||
                              providersResult.isLoading || // Moved here since providers are for enrichment
                              (includeImages && isImageCachingLoading); // Include image caching in enrichment loading
@@ -217,8 +225,11 @@ export const useAllLabsComposed = ({
   
   const labDetailErrors = labDetailResults.filter(result => result.error).map(result => result.error);
   const imageErrors = imageResults.filter(result => result.error).map(result => result.error);
+  
+  // Owner errors are not critical - they should be treated as enrichment errors
+  const ownerErrors = ownerResults.filter(result => result.error).map(result => result.error);
   const enrichmentErrors = [
-    ...ownerResults.filter(result => result.error).map(result => result.error),
+    ...ownerErrors, // Owner errors are not critical - we have fallbacks
     ...metadataResults.filter(result => result.error).map(result => result.error),
     ...imageErrors
   ];
@@ -239,17 +250,18 @@ export const useAllLabsComposed = ({
       ...lab.base,
     };
 
-    // Get owner data (only when requested or needed for provider matching)
-    const ownerData = includeOwners ? ownerResults[labIndex]?.data : null;
+    // Get owner data - always try to get it for provider matching, handle failures gracefully
+    const ownerData = ownerResults[labIndex]?.data || null;
     const ownerAddress = ownerData?.owner || ownerData;
+    const ownerQueryFailed = ownerResults[labIndex]?.error || ownerResults[labIndex]?.isError;
     
-    // Add owner data to output only if requested
-    if (includeOwners && ownerAddress) {
+    // Add owner data to output only if explicitly requested AND successfully obtained
+    if (includeOwners && ownerAddress && !ownerQueryFailed) {
       enrichedLab.owner = ownerAddress;
     }
 
     // Get provider info by matching lab owner with provider accounts (only if we have owner data)
-    if (providersResult.data?.providers && ownerAddress) {
+    if (providersResult.data?.providers && ownerAddress && !ownerQueryFailed) {
       const matchingProvider = providersResult.data.providers.find(
         provider => provider.account.toLowerCase() === ownerAddress.toLowerCase()
       );
@@ -264,9 +276,22 @@ export const useAllLabsComposed = ({
       }
     }
     
-    // Fallback provider if no owner matching available
+    // Fallback provider logic with multiple sources
     if (!enrichedLab.provider) {
-      enrichedLab.provider = formatWalletAddress(ownerAddress) || 'Unknown Provider';
+      if (ownerAddress && !ownerQueryFailed) {
+        // Use formatted wallet address as fallback if we have owner data
+        enrichedLab.provider = formatWalletAddress(ownerAddress);
+      } else if (lab.base?.uri) {
+        // Extract provider from metadata URI if owner data failed (e.g., Lab-UNED-54.json -> UNED)
+        const uriMatch = lab.base.uri.match(/Lab-([A-Z]+)-\d+/);
+        if (uriMatch) {
+          enrichedLab.provider = uriMatch[1]; // Extract UNED, UHU, UBC, etc.
+        } else {
+          enrichedLab.provider = 'Unknown Provider';
+        }
+      } else {
+        enrichedLab.provider = 'Unknown Provider';
+      }
     }
 
     // Add metadata if requested and available
@@ -378,14 +403,9 @@ export const useAllLabsComposed = ({
     // Ensure we have fallback values for required props
     if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
     
-    // Provider fallback logic with formatted wallet address
+    // Provider fallback logic (this is already handled above, but ensure we always have a value)
     if (!enrichedLab.provider) {
-      if (ownerAddress) {
-        // Use formatted wallet address as fallback
-        enrichedLab.provider = formatWalletAddress(ownerAddress);
-      } else {
-        enrichedLab.provider = 'Unknown Provider';
-      }
+      enrichedLab.provider = 'Unknown Provider';
     }
     
     if (!enrichedLab.price) enrichedLab.price = '0';
