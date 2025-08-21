@@ -8,14 +8,9 @@ const PROVIDER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours cache
 
 /**
  * Creates and caches a fallback provider for the specified network
- * Combines multiple provider services (Alchemy, Ankr, QuickNode, etc.) for redundancy
+ * Combines multiple provider services with optimized timeouts and error handling
  * 
  * @param {Object} network - Network configuration object
- * @param {string} network.name - Name of the network (e.g., 'mainnet', 'polygon')
- * @param {number} network.id - Chain ID of the network
- * @param {Object} network.rpcUrls - RPC URL configuration
- * @param {Object} network.rpcUrls.default - Default RPC URLs
- * @param {string[]} network.rpcUrls.default.http - Array of HTTP RPC URLs
  * @returns {Promise<ethers.FallbackProvider>} Configured fallback provider with multiple services
  * @throws {Error} If no providers can be initialized
  */
@@ -25,9 +20,10 @@ export default async function getProvider(network) {
     const cached = providerCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < PROVIDER_CACHE_TTL) {
-        console.log(`Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers, ${providerCache.size} networks cached)`);
+        console.log(`Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers)`);
         return cached.provider;
     }
+
     let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
     let ankrProjectId = process.env.NEXT_PUBLIC_ANKR_ID;
     let quicknodeProjectId = process.env.NEXT_PUBLIC_QUICKNODE_ID;
@@ -36,156 +32,183 @@ export default async function getProvider(network) {
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     const rpcUrl = network.rpcUrls.default.http[0];
     const networkInfo = { name: network.name, chainId: network.id };
-    const options = {batchMaxCount: 10}; // Optimized for free tier compatibility
+    
+    // Optimized options for faster response and better reliability
+    const options = {
+        batchMaxCount: 5,        // Reduced batch size for faster processing
+        staticNetwork: networkInfo, // Static network info for better performance
+        timeout: 5000,           // 5 second timeout per provider
+    };
 
     const providers = [];
 
-    // Add both WebSocket and HTTP providers with try-catch
-    try {
-        providers.push(new ethers.WebSocketProvider(
-            `wss://${defaultNetworks[network.id]}`,
-            networkInfo
-        ));
-    } catch (e) {
-        console.warn('Default WebSocket provider failed to initialize:', e.message);
-    }
-
-    try {
-        providers.push(new ethers.JsonRpcProvider(
-            `https://${defaultNetworks[network.id]}`,
-            networkInfo, options
-        ));
-    } catch (e) {
-        console.warn('Default HTTP provider failed to initialize:', e.message);
-    }
-
+    // ✅ PRIORITY 1: Specialized providers (most reliable for reads)
     if (alchemyProjectId) {
         try {
-            providers.push(new ethers.WebSocketProvider(
-                `wss://${alchemyNetworks[network.id]}${alchemyProjectId}`,
-                networkInfo
-            ));
+            providers.push({
+                provider: new ethers.AlchemyProvider(network.id, alchemyProjectId),
+                priority: 1,
+                weight: 2,  // Higher weight = higher preference
+                stallTimeout: 1500  // Fast response expected
+            });
+            console.log('✅ Added Alchemy provider');
         } catch (e) {
-            console.warn('Alchemy WebSocket provider failed to initialize:', e.message);
-        }
-        
-        try {
-            providers.push(new ethers.AlchemyProvider(network.id, alchemyProjectId));
-        } catch (e) {
-            console.warn('Alchemy provider failed to initialize:', e.message);
-        }
-    }
-
-    if (ankrProjectId) {
-        try {
-            providers.push(new ethers.JsonRpcProvider(
-                `https://${ankrNetworks[network.id]}${ankrProjectId}`,
-                networkInfo, options
-            ));
-        } catch (e) {
-            console.warn('Ankr provider failed to initialize:', e.message);
-        }
-    }
-
-    if (quicknodeProjectId) {
-        try {
-            providers.push(new ethers.WebSocketProvider(
-                `wss://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-                networkInfo
-            ));
-        } catch (e) {
-            console.warn('Quicknode WebSocket provider failed to initialize:', e.message);
-        }
-        
-        try {
-            providers.push(new ethers.JsonRpcProvider(
-                `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-                networkInfo, options
-            ));
-        } catch (e) {
-            console.warn('Quicknode HTTP provider failed to initialize:', e.message);
-        }
-    }
-
-    if (chainstackProjectId) {
-        try {
-            providers.push(new ethers.WebSocketProvider(
-                `wss://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-                networkInfo
-            ));
-        } catch (e) {
-            console.warn('Chainstack WebSocket provider failed to initialize:', e.message);
-        }
-        
-        try {
-            providers.push(new ethers.JsonRpcProvider(
-                `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-                networkInfo, options
-            ));
-        } catch (e) {
-            console.warn('Chainstack HTTP provider failed to initialize:', e.message);
+            console.warn('❌ Alchemy provider failed to initialize:', e.message);
         }
     }
 
     if (infuraProjectId) {
         try {
-            providers.push(
-                new ethers.InfuraProvider(
+            providers.push({
+                provider: new ethers.InfuraProvider(
                   network.id,
                   infuraSecretKey
                     ? { projectId: infuraProjectId, projectSecret: infuraSecretKey }
                     : infuraProjectId
-                )
-            );
+                ),
+                priority: 1,
+                weight: 2,
+                stallTimeout: 1500
+            });
+            console.log('✅ Added Infura provider');
         } catch (e) {
-            console.warn('Infura provider failed to initialize:', e.message);
+            console.warn('❌ Infura provider failed to initialize:', e.message);
         }
     }
-    
-    // Public RPC
+
+    // ✅ PRIORITY 2: HTTP providers (reliable but slower)
+    if (alchemyProjectId) {
+        try {
+            providers.push({
+                provider: new ethers.JsonRpcProvider(
+                    `https://${alchemyNetworks[network.id]}${alchemyProjectId}`,
+                    networkInfo, 
+                    options
+                ),
+                priority: 2,
+                weight: 1,
+                stallTimeout: 2000
+            });
+            console.log('✅ Added Alchemy HTTP provider');
+        } catch (e) {
+            console.warn('❌ Alchemy HTTP provider failed to initialize:', e.message);
+        }
+    }
+
+    if (ankrProjectId) {
+        try {
+            providers.push({
+                provider: new ethers.JsonRpcProvider(
+                    `https://${ankrNetworks[network.id]}${ankrProjectId}`,
+                    networkInfo, 
+                    options
+                ),
+                priority: 2,
+                weight: 1,
+                stallTimeout: 2000
+            });
+            console.log('✅ Added Ankr HTTP provider');
+        } catch (e) {
+            console.warn('❌ Ankr provider failed to initialize:', e.message);
+        }
+    }
+
+    if (quicknodeProjectId) {
+        try {
+            providers.push({
+                provider: new ethers.JsonRpcProvider(
+                    `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
+                    networkInfo, 
+                    options
+                ),
+                priority: 2,
+                weight: 1,
+                stallTimeout: 2000
+            });
+            console.log('✅ Added Quicknode HTTP provider');
+        } catch (e) {
+            console.warn('❌ Quicknode HTTP provider failed to initialize:', e.message);
+        }
+    }
+
+    if (chainstackProjectId) {
+        try {
+            providers.push({
+                provider: new ethers.JsonRpcProvider(
+                    `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
+                    networkInfo, 
+                    options
+                ),
+                priority: 2,
+                weight: 1,
+                stallTimeout: 2000
+            });
+            console.log('✅ Added Chainstack HTTP provider');
+        } catch (e) {
+            console.warn('❌ Chainstack provider failed to initialize:', e.message);
+        }
+    }
+
+    // ✅ PRIORITY 3: Public RPC (fallback)
     try {
-        providers.push(new ethers.JsonRpcProvider(rpcUrl, networkInfo, options));
+        providers.push({
+            provider: new ethers.JsonRpcProvider(rpcUrl, networkInfo, options),
+            priority: 3,
+            weight: 1,
+            stallTimeout: 3000  // Longer timeout for public RPC
+        });
+        console.log('✅ Added Public RPC provider');
     } catch (e) {
-        console.warn('Public RPC provider failed to initialize:', e.message);
+        console.warn('❌ Public RPC provider failed to initialize:', e.message);
+    }
+
+    // ✅ DEFAULT HTTP PROVIDER (last resort)
+    try {
+        providers.push({
+            provider: new ethers.JsonRpcProvider(
+                `https://${defaultNetworks[network.id]}`,
+                networkInfo, 
+                options
+            ),
+            priority: 4,
+            weight: 1,
+            stallTimeout: 3000
+        });
+        console.log('✅ Added Default HTTP provider');
+    } catch (e) {
+        console.warn('❌ Default HTTP provider failed to initialize:', e.message);
     }
 
     if (providers.length === 0) {
         throw new Error('No providers could be initialized');
     }
 
-    // Classify providers for logging
-    const specialProviders = providers.filter(p => 
-        p.constructor.name === 'AlchemyProvider' || 
-        p.constructor.name === 'InfuraProvider'
-    );
-    const httpProviders = providers.filter(p => 
-        p.constructor.name === 'JsonRpcProvider'
-    );
-    const wsProviders = providers.filter(p => 
-        p.constructor.name === 'WebSocketProvider'
-    );
-
-    console.log(`Initialized ${providers.length} providers for ${network.name}: ${specialProviders.length} special + ${httpProviders.length} HTTP + ${wsProviders.length} WebSocket`);
+    console.log(`Initialized ${providers.length} providers for ${network.name} with optimized configuration`);
     
-    const fallbackProvider = new ethers.FallbackProvider(providers, networkInfo, {
-        quorum: 1,
-        stallTimeout: 2000,  // 2 seconds before trying next provider
-        priority: 1,         // Lower priority = higher preference
-    });
+    // ✅ ROBUST FALLBACK CONFIGURATION
+    const fallbackProvider = new ethers.FallbackProvider(
+        providers.map(p => p.provider), 
+        networkInfo, 
+        {
+            quorum: 1,              // Only need 1 successful response
+            stallTimeout: 1000,     // 1 second before trying next provider
+            priority: 1,            // Lower priority = higher preference
+        }
+    );
 
     // Cache the fallback provider with metadata
     providerCache.set(cacheKey, {
         provider: fallbackProvider,
         providerCount: providers.length,
         breakdown: {
-            special: specialProviders.length,
-            http: httpProviders.length,
-            websocket: wsProviders.length
+            specialized: providers.filter(p => p.priority === 1).length,
+            http: providers.filter(p => p.priority === 2).length,
+            public: providers.filter(p => p.priority >= 3).length,
         },
         timestamp: Date.now()
     });
 
-    console.log(`Cached FallbackProvider for ${network.name} with ${providers.length} providers`);
+    console.log(`Cached ROBUST FallbackProvider for ${network.name} with ${providers.length} providers`);
     
     return fallbackProvider;
 }

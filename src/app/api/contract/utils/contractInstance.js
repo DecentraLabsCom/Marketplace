@@ -1,6 +1,6 @@
 /**
  * Contract instance utility for blockchain interactions
- * Provides configured contract instances for diamond and lab token contracts
+ * Provides configured contract instances with optimized provider configuration
  */
 import { ethers } from 'ethers'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
@@ -9,15 +9,14 @@ import { defaultChain } from '@/utils/blockchain/networkConfig.js'
 import getProvider from './getProvider'
 
 /**
- * Creates and configures a contract instance with signer
+ * Creates and configures a contract instance with optimized provider
  * @param {string} [contractType='diamond'] - Type of contract ('diamond' or 'lab')
- * @returns {Promise<ethers.Contract>} Configured contract instance with signer
+ * @param {boolean} [readOnly=true] - Whether to create read-only contract (no signer)
+ * @returns {Promise<ethers.Contract>} Configured contract instance
  * @throws {Error} If contract address not found for current chain
  */
-export async function getContractInstance(contractType = 'diamond') {
+export async function getContractInstance(contractType = 'diamond', readOnly = true) {
   const provider = await getProvider(defaultChain);
-  const signer = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-
   const chainKey = defaultChain.name.toLowerCase();
   
   // Choose contract based on type
@@ -37,9 +36,12 @@ export async function getContractInstance(contractType = 'diamond') {
     }
   }
 
-  return new ethers.Contract(
-    address,
-    abi,
-    signer
-  );
+  if (readOnly) {
+    // For read-only operations, no signer needed (faster and more efficient)
+    return new ethers.Contract(address, abi, provider);
+  } else {
+    // For write operations, use signer
+    const signer = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+    return new ethers.Contract(address, abi, signer);
+  }
 }
