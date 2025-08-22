@@ -3,8 +3,8 @@
  * These hooks provide single-responsibility access to provider endpoints
  * Following the pattern: one hook per API endpoint for consistent caching
  */
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { labQueryKeys, providerQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 
@@ -35,10 +35,16 @@ export const useSaveLabData = (options = {}) => {
           throw new Error('Lab data is required');
         }
 
+        // Add timestamp and cache-busting query param for Vercel production
+        const timestamp = Date.now();
         const response = await fetch('/api/provider/saveLabData', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labData })
+          headers: { 
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          },
+          body: JSON.stringify({ labData, timestamp })
         });
         
         if (!response.ok) {
@@ -47,43 +53,52 @@ export const useSaveLabData = (options = {}) => {
         }
         
         const data = await response.json();
-        devLog.info('Lab data saved successfully');
-        return data;
+        devLog.info('Lab data saved successfully', { uri: labData.uri, timestamp });
+        return { ...data, timestamp };
       } catch (error) {
         devLog.error('Failed to save lab data:', error);
         throw error;
       }
     },
-    onSuccess: (data, variables) => {
+    onSuccess: async (data, variables) => {
       devLog.log('🔄 [useSaveLabData] onSuccess - starting cache updates for:', variables?.uri);
       
-      // Invalidate the specific metadata query that changed
       if (variables?.uri) {
-        devLog.log('🔄 [useSaveLabData] About to invalidate metadata query with key:', metadataQueryKeys.byUri(variables.uri));
+        // Step 1: Remove the old data from cache immediately
+        queryClient.removeQueries({
+          queryKey: metadataQueryKeys.byUri(variables.uri),
+          exact: true
+        });
+        devLog.log('�️ [useSaveLabData] Removed old cache for:', variables.uri);
         
-        const result = queryClient.invalidateQueries({ 
+        // Step 2: Add a small delay to ensure blob propagation in Vercel
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Step 3: Force invalidation with aggressive settings
+        await queryClient.invalidateQueries({ 
           queryKey: metadataQueryKeys.byUri(variables.uri),
           exact: true,
-          refetchType: 'all' // Force refetch all queries, bypassing staleTime
+          refetchType: 'all'
         });
         
-        devLog.log('🔄 [useSaveLabData] Invalidation result:', result);
-        devLog.log('✅ [useSaveLabData] Invalidated metadata cache for:', variables.uri);
+        // Step 4: Also invalidate broader metadata patterns to catch composed queries
+        await queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey;
+            return Array.isArray(key) && 
+                   key.some(segment => 
+                     typeof segment === 'string' && 
+                     (segment.includes('metadata') || segment === variables.uri)
+                   );
+          },
+          refetchType: 'all'
+        });
         
-        // Debug: Log all current queries to see what's in cache
-        const queries = queryClient.getQueryCache().getAll();
-        const metadataQueries = queries.filter(q => q.queryKey.includes('metadata'));
-        devLog.log('🔍 [useSaveLabData] Current metadata queries in cache:', 
-          metadataQueries.map(q => ({ 
-            queryKey: q.queryKey, 
-            state: q.state.status,
-            dataUpdatedAt: q.state.dataUpdatedAt,
-            isStale: q.isStale()
-          }))
-        );
+        devLog.log('✅ [useSaveLabData] Cache invalidation completed for:', variables.uri);
       }
-      
-      devLog.log('✅ [useSaveLabData] Cache invalidation completed');
+    },
+    onError: (error, variables) => {
+      devLog.error('❌ [useSaveLabData] Mutation failed for:', variables?.uri, error);
     },
     ...options,
   });

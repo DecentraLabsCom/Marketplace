@@ -313,6 +313,10 @@ export default function ProviderDashboard() {
               ...labData,
               price: originalPrice // Save with human-readable price for JSON consistency
             });
+            
+            // Add a small delay to ensure cache propagation in production
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
             addTemporaryNotification('success', '✅ Lab metadata updated!');
           } catch (error) {
             addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
@@ -331,6 +335,10 @@ export default function ProviderDashboard() {
             ...labData,
             price: originalPrice // Save with human-readable price for JSON consistency
           });
+          
+          // Add a small delay to ensure cache propagation in production
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
         } catch (error) {
           addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
           return;

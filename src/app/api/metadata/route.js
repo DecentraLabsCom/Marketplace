@@ -66,7 +66,17 @@ export async function GET(request) {
       } else {
         try {
           const blobUrl = path.join(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL, 'data', metadataUri);
-          const response = await fetch(blobUrl);
+          // Add cache-busting parameter if 't' query param is present (from client)
+          const cacheBuster = searchParams.get('t');
+          const fetchUrl = cacheBuster ? `${blobUrl}?t=${cacheBuster}` : blobUrl;
+          
+          const response = await fetch(fetchUrl, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          });
+          
           if (!response.ok) {
             if (response.status === 404) {
               return NextResponse.json(
@@ -123,14 +133,27 @@ export async function GET(request) {
     }
     
     // Return successful response with metadata for React Query optimization
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       ...metadata,
       _meta: {
         uri: metadataUri,
         timestamp,
-        source: metadataUri.startsWith('Lab-') ? (isVercel ? 'blob' : 'local') : 'external'
+        source: metadataUri.startsWith('Lab-') ? (isVercel ? 'blob' : 'local') : 'external',
+        version: metadata._meta?.version || 1,
+        cacheBreaker: metadata._meta?.cacheBreaker || Date.now()
       }
     }, { status: 200 });
+    
+    // Add cache-control headers to ensure fresh data in production
+    const cacheBuster = searchParams.get('t');
+    if (cacheBuster || isVercel) {
+      // If cache-busting requested or in Vercel, add no-cache headers
+      successResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      successResponse.headers.set('Pragma', 'no-cache');
+      successResponse.headers.set('Expires', '0');
+    }
+    
+    return successResponse;
 
   } catch (error) {
     console.error('Error in metadata endpoint:', error);

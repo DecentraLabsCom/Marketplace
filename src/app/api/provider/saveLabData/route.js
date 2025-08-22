@@ -131,7 +131,9 @@ export async function POST(req) {
       _meta: {
         lastUpdated: timestamp,
         uri: uri,
-        version: existingData?._meta?.version ? existingData._meta.version + 1 : 1
+        version: existingData?._meta?.version ? existingData._meta.version + 1 : 1,
+        // Add cache-busting timestamp for Vercel production
+        cacheBreaker: Date.now()
       }
     };
 
@@ -176,16 +178,24 @@ export async function POST(req) {
     }
 
     // Return success response optimized for React Query
-    return NextResponse.json(
+    const successResponse = NextResponse.json(
       { 
         message: 'Lab data saved/updated successfully',
         uri: uri,
         version: finalData._meta.version,
         timestamp: timestamp,
-        isUpdate: !!existingData
+        isUpdate: !!existingData,
+        cacheBreaker: finalData._meta.cacheBreaker
       }, 
       { status: 200 }
     );
+    
+    // Add cache-control headers to prevent caching issues in production
+    successResponse.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    successResponse.headers.set('Pragma', 'no-cache');
+    successResponse.headers.set('Expires', '0');
+    
+    return successResponse;
 
   } catch (error) {
     console.error('Error in saveLabData endpoint:', error);
