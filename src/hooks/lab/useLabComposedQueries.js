@@ -54,16 +54,16 @@ const useLabTokenDecimals = () => {
  * 
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
- * @param {boolean} options.includeOwners - Whether to include owner info in the output (owner data is always fetched for provider matching)
- * @param {boolean} options.includeImages - Whether to cache images from metadata (default: false for backward compatibility)
+ * @param {boolean} options.includeOwnerAddresses - Whether to include owner addresses in the output (owner data is always fetched for provider matching)
+ * @param {boolean} options.includeImages - Whether to cache images from metadata (default: true for better performance)
  * @param {Object} options.queryOptions - Override options for base queries (labIds & providers only)
  *                                        Internal queries use optimized configurations and cannot be overridden
  * @returns {Object} React Query result with enriched lab data and comprehensive status
  */
 export const useAllLabsComposed = ({ 
   includeMetadata = true, 
-  includeOwners = false, 
-  includeImages = false,
+  includeOwnerAddresses = false, 
+  includeImages = true,
   queryOptions = {} 
 } = {}) => {
   
@@ -260,7 +260,7 @@ export const useAllLabsComposed = ({
     const ownerQueryFailed = ownerResults[labIndex]?.error || ownerResults[labIndex]?.isError;
     
     // Add owner data to output only if explicitly requested AND successfully obtained
-    if (includeOwners && ownerAddress && !ownerQueryFailed) {
+    if (includeOwnerAddresses && ownerAddress && !ownerQueryFailed) {
       enrichedLab.owner = ownerAddress;
     }
 
@@ -448,7 +448,7 @@ export const useAllLabsComposed = ({
     // Comprehensive meta information
     meta: {
       includeMetadata,
-      includeOwners,
+      includeOwnerAddresses,
       totalQueries,
       successfulQueries,
       failedQueries,
@@ -525,51 +525,6 @@ export const useAllLabsComposed = ({
     isPaused: allResults.some(r => r.isPaused),
     isStale: allResults.some(r => r.isStale),
   };
-};
-
-/**
- * Lightweight composed hook for basic lab list with decimals only
- * Optimized for cases where enrichment is not needed
- * @param {Object} queryOptions - Additional react-query options
- * @returns {Object} React Query result with basic lab data
- */
-export const useAllLabsBasic = (queryOptions = {}) => {
-  return useAllLabsComposed({ 
-    includeMetadata: false, 
-    includeOwners: false, 
-    queryOptions 
-  });
-};
-
-/**
- * Full composed hook with all enrichments including images
- * Optimized for dashboard and detailed views
- * @param {Object} queryOptions - Additional react-query options
- * @returns {Object} React Query result with fully enriched lab data
- */
-export const useAllLabsFull = (queryOptions = {}) => {
-  return useAllLabsComposed({ 
-    includeMetadata: true, 
-    includeOwners: true, 
-    includeImages: true, // ✅ Include image caching by default
-    queryOptions 
-  });
-};
-
-/**
- * Composed hook optimized for LabCard components
- * Includes metadata and main image caching for optimal card performance
- * Includes owner data for provider matching (loads in background)
- * @param {Object} queryOptions - Additional react-query options
- * @returns {Object} React Query result with lab data optimized for cards
- */
-export const useAllLabsForCards = (queryOptions = {}) => {
-  return useAllLabsComposed({ 
-    includeMetadata: true,  // Needed for names, descriptions, etc.
-    includeOwners: true,    // Needed for provider matching (loads in background)
-    includeImages: true,    // ✅ Cache main images for better card performance
-    queryOptions 
-  });
 };
 
 /**

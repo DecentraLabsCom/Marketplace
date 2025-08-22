@@ -45,7 +45,7 @@ export { LAB_QUERY_CONFIG };
  * @returns {Function} returns.refetch - Function to manually refetch
  */
 // Define queryFn first for reuse
-const getAllLabsQueryFn = async () => {
+const getAllLabsQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/lab/getAllLabs', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -58,7 +58,7 @@ const getAllLabsQueryFn = async () => {
   const data = await response.json();
   devLog.log('🔍 useAllLabs:', data);
   return data;
-};
+}, []); // Return empty array during SSR
 
 /**
  * Hook for /api/contract/lab/getAllLabs endpoint
@@ -78,10 +78,7 @@ const getAllLabsQueryFn = async () => {
 export const useAllLabs = (options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.getAllLabs(),
-    queryFn: createSSRSafeQuery(
-      getAllLabsQueryFn, // ✅ Reuse the queryFn
-      [] // Return empty array during SSR
-    ),
+    queryFn: getAllLabsQueryFn, // ✅ Reuse the SSR-safe queryFn
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -91,7 +88,7 @@ export const useAllLabs = (options = {}) => {
 useAllLabs.queryFn = getAllLabsQueryFn;
 
 // Define queryFn first for reuse
-const getLabQueryFn = async (labId) => {
+const getLabQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch(`/api/contract/lab/getLab?labId=${labId}`, {
@@ -106,7 +103,7 @@ const getLabQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useLab:', labId, data);
   return data;
-};
+}, null); // Return null during SSR
 
 /**
  * Hook for /api/contract/lab/getLab endpoint
@@ -118,10 +115,7 @@ const getLabQueryFn = async (labId) => {
 export const useLab = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.getLab(labId),
-    queryFn: createSSRSafeQuery(
-      () => getLabQueryFn(labId), // ✅ Reuse the queryFn
-      null // Return null during SSR
-    ),
+    queryFn: () => getLabQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -132,7 +126,7 @@ export const useLab = (labId, options = {}) => {
 useLab.queryFn = getLabQueryFn;
 
 // Define queryFn first for reuse
-const getBalanceOfQueryFn = async (ownerAddress) => {
+const getBalanceOfQueryFn = createSSRSafeQuery(async (ownerAddress) => {
   if (!ownerAddress) throw new Error('Owner address is required');
   
   const response = await fetch(`/api/contract/lab/balanceOf?owner=${ownerAddress}`, {
@@ -147,7 +141,7 @@ const getBalanceOfQueryFn = async (ownerAddress) => {
   const data = await response.json();
   devLog.log('🔍 useBalanceOf:', ownerAddress, data);
   return data;
-};
+}, { balance: '0' }); // Return '0' during SSR
 
 /**
  * Hook for /api/contract/lab/balanceOf endpoint
@@ -159,10 +153,7 @@ const getBalanceOfQueryFn = async (ownerAddress) => {
 export const useBalanceOf = (ownerAddress, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.balanceOf(ownerAddress),
-    queryFn: createSSRSafeQuery(
-      () => getBalanceOfQueryFn(ownerAddress), // ✅ Reuse the queryFn
-      { balance: '0' } // Return zero balance during SSR
-    ),
+    queryFn: () => getBalanceOfQueryFn(ownerAddress), // ✅ Reuse the SSR-safe queryFn
     enabled: !!ownerAddress,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -173,7 +164,7 @@ export const useBalanceOf = (ownerAddress, options = {}) => {
 useBalanceOf.queryFn = getBalanceOfQueryFn;
 
 // Define queryFn first for reuse
-const getOwnerOfQueryFn = async (labId) => {
+const getOwnerOfQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch(`/api/contract/lab/ownerOf?labId=${labId}`, {
@@ -188,7 +179,7 @@ const getOwnerOfQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useOwnerOf:', labId, data);
   return data;
-};
+}, { owner: null }); // Return null during SSR
 
 /**
  * Hook for /api/contract/lab/ownerOf endpoint
@@ -200,10 +191,7 @@ const getOwnerOfQueryFn = async (labId) => {
 export const useOwnerOf = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.ownerOf(labId),
-    queryFn: createSSRSafeQuery(
-      () => getOwnerOfQueryFn(labId), // ✅ Reuse the queryFn
-      { owner: null } // Return null owner during SSR
-    ),
+    queryFn: () => getOwnerOfQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -214,7 +202,7 @@ export const useOwnerOf = (labId, options = {}) => {
 useOwnerOf.queryFn = getOwnerOfQueryFn;
 
 // Define queryFn first for reuse
-const getTokenOfOwnerByIndexQueryFn = async (ownerAddress, index) => {
+const getTokenOfOwnerByIndexQueryFn = createSSRSafeQuery(async (ownerAddress, index) => {
   if (!ownerAddress || index === undefined || index === null) {
     throw new Error('Owner address and index are required');
   }
@@ -231,7 +219,7 @@ const getTokenOfOwnerByIndexQueryFn = async (ownerAddress, index) => {
   const data = await response.json();
   devLog.log('🔍 useTokenOfOwnerByIndex:', ownerAddress, index, data);
   return data;
-};
+}, { tokenId: null }); // Return null during SSR
 
 /**
  * Hook for /api/contract/lab/tokenOfOwnerByIndex endpoint
@@ -244,10 +232,7 @@ const getTokenOfOwnerByIndexQueryFn = async (ownerAddress, index) => {
 export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.tokenOfOwnerByIndex(ownerAddress, index),
-    queryFn: createSSRSafeQuery(
-      () => getTokenOfOwnerByIndexQueryFn(ownerAddress, index), // ✅ Reuse the queryFn
-      { tokenId: null } // Return null during SSR
-    ),
+    queryFn: () => getTokenOfOwnerByIndexQueryFn(ownerAddress, index), // ✅ Reuse the SSR-safe queryFn
     enabled: !!ownerAddress && (index !== undefined && index !== null),
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -258,7 +243,7 @@ export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
 useTokenOfOwnerByIndex.queryFn = getTokenOfOwnerByIndexQueryFn;
 
 // Define queryFn first for reuse
-const getTokenURIQueryFn = async (labId) => {
+const getTokenURIQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch(`/api/contract/lab/tokenURI?tokenId=${labId}`, {
@@ -273,7 +258,7 @@ const getTokenURIQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useTokenURI:', labId, data);
   return data;
-};
+}, { uri: '' }); // Return empty string during SSR
 
 /**
  * Hook for /api/contract/lab/tokenURI endpoint
@@ -285,10 +270,7 @@ const getTokenURIQueryFn = async (labId) => {
 export const useTokenURI = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.tokenURI(labId),
-    queryFn: createSSRSafeQuery(
-      () => getTokenURIQueryFn(labId), // ✅ Reuse the queryFn
-      { uri: '' } // Return empty URI during SSR
-    ),
+    queryFn: () => getTokenURIQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -299,7 +281,7 @@ export const useTokenURI = (labId, options = {}) => {
 useTokenURI.queryFn = getTokenURIQueryFn;
 
 // Define queryFn first for reuse
-const getIsTokenListedQueryFn = async (labId) => {
+const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch(`/api/contract/lab/isTokenListed?labId=${labId}`, {
@@ -314,7 +296,7 @@ const getIsTokenListedQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useIsTokenListed:', labId, data);
   return data;
-};
+}, { isListed: false }); // Return false during SSR
 
 /**
  * Hook for /api/contract/lab/isTokenListed endpoint
@@ -326,10 +308,7 @@ const getIsTokenListedQueryFn = async (labId) => {
 export const useIsTokenListed = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.isTokenListed(labId),
-    queryFn: createSSRSafeQuery(
-      () => getIsTokenListedQueryFn(labId), // ✅ Reuse the queryFn
-      { isListed: false } // Return false during SSR
-    ),
+    queryFn: () => getIsTokenListedQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,

@@ -35,13 +35,10 @@ export default function ProviderDashboard() {
   const { address, user, isSSO, isProvider, isProviderLoading, isLoading } = useUser();  
   const router = useRouter();
   
-  // 🚀 React Query for all labs with owner information
+  // 🚀 React Query for all labs with full enrichment (including owner addresses)
   const allLabsResult = useAllLabsComposed({ 
-    includeMetadata: true, 
-    includeOwners: true,
-    queryOptions: {
-      enabled: !!address
-    }
+    includeOwnerAddresses: true,
+    enabled: !!address
   });
   
   const { 

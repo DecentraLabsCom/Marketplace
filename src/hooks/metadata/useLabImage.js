@@ -3,7 +3,8 @@
  * Extends React Query to cache lab images as base64 data
  * Integrates seamlessly with existing metadata caching system
  */
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
+import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import devLog from '@/utils/dev/logger'
 import { labImageQueryKeys } from '@/utils/hooks/queryKeys'
 
@@ -82,6 +83,19 @@ async function imageToBase64(imageUrl) {
   })
 }
 
+// Define queryFn first for reuse
+const getLabImageQueryFn = createSSRSafeQuery(async (imageUrl) => {
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    throw new Error('Invalid image URL')
+  }
+  
+  devLog.log(`🖼️ getLabImageQueryFn: Caching image: ${imageUrl}`)
+  const imageData = await imageToBase64(imageUrl)
+  devLog.log(`✅ getLabImageQueryFn: Image cached: ${imageUrl} (${Math.round(imageData.size / 1024)}KB)`)
+  
+  return imageData
+}, null) // Return null during SSR
+
 /**
  * React Query hook for caching individual lab images
  * @param {string} imageUrl - Image URL to cache
@@ -105,35 +119,15 @@ async function imageToBase64(imageUrl) {
 export function useLabImageQuery(imageUrl, options = {}) {
   return useQuery({
     queryKey: labImageQueryKeys.byUrl(imageUrl),
-    queryFn: async () => {
-      if (!imageUrl || typeof imageUrl !== 'string') {
-        throw new Error('Invalid image URL')
-      }
-      
-      devLog.log(`🖼️ Caching image: ${imageUrl}`)
-      const imageData = await imageToBase64(imageUrl)
-      devLog.log(`✅ Image cached: ${imageUrl} (${Math.round(imageData.size / 1024)}KB)`)
-      
-      return imageData
-    },
+    queryFn: () => getLabImageQueryFn(imageUrl), // ✅ Reuse the SSR-safe queryFn
     enabled: !!imageUrl && options.enabled !== false,
     ...IMAGE_CACHE_CONFIG,
     ...options,
   })
 }
 
-// Export queryFn for use in composed hooks (following the pattern from other atomic hooks)
-useLabImageQuery.queryFn = async (imageUrl) => {
-  if (!imageUrl || typeof imageUrl !== 'string') {
-    throw new Error('Invalid image URL')
-  }
-  
-  devLog.log(`🖼️ useLabImageQuery.queryFn: Caching image: ${imageUrl}`)
-  const imageData = await imageToBase64(imageUrl)
-  devLog.log(`✅ useLabImageQuery.queryFn: Image cached: ${imageUrl} (${Math.round(imageData.size / 1024)}KB)`)
-  
-  return imageData
-}
+// Export queryFn for use in composed hooks
+useLabImageQuery.queryFn = getLabImageQueryFn;
 
 /**
  * Hook for getting cached image with fallback to original URL
@@ -194,57 +188,135 @@ export function useLabImage(imageUrl, options = {}) {
 
 /**
  * Hook for batch caching lab images from metadata
+ * Uses useQueries for efficient parallel image caching
  * @param {Array} imageUrls - Array of image URLs from lab metadata
  * @param {Object} options - Hook options
+ * @param {boolean} [options.enabled=true] - Whether the queries should be enabled
+ * @param {Function} [options.onSuccess] - Success callback function
+ * @param {Function} [options.onError] - Error callback function
  * @returns {Object} Batch image caching state
+ * @returns {Object} returns.mainImage - Main image data and state
+ * @returns {Array} returns.allImages - Array of all image results
+ * @returns {number} returns.totalImages - Total number of images
+ * @returns {number} returns.cachedImages - Number of successfully cached images
+ * @returns {number} returns.loadingImages - Number of images currently loading
+ * @returns {number} returns.errorImages - Number of images that failed to load
+ * @returns {boolean} returns.isAllLoaded - Whether all images are loaded
+ * @returns {boolean} returns.isAnyLoading - Whether any images are loading
+ * @returns {Function} returns.getCachedImageUrl - Utility to get cached URL for any image
  */
 export function useLabImageBatch(imageUrls = [], options = {}) {
-  const { enabled = true } = options
+  const { enabled = true, onSuccess, onError } = options
   
-  // Create queries for all image URLs
-  const imageQueries = imageUrls.filter(Boolean).map(imageUrl => ({
-    queryKey: labImageQueryKeys.byUrl(imageUrl),
-    queryFn: () => imageToBase64(imageUrl),
-    ...IMAGE_CACHE_CONFIG,
-    enabled: enabled && !!imageUrl,
-  }))
+  // Filter out invalid URLs and remove duplicates
+  const validImageUrls = [...new Set(imageUrls.filter(Boolean))]
   
-  // We would use useQueries here, but let's create a simpler version
-  // that focuses on the main image (first in array) for now
-  const mainImageUrl = imageUrls?.[0]
-  const mainImageQuery = useLabImageQuery(mainImageUrl, { enabled })
+  // Create queries for all image URLs using useQueries
+  const imageQueries = useQueries({
+    queries: validImageUrls.map(imageUrl => ({
+      queryKey: labImageQueryKeys.byUrl(imageUrl),
+      queryFn: () => getLabImageQueryFn(imageUrl), // ✅ Reuse the SSR-safe queryFn
+      ...IMAGE_CACHE_CONFIG,
+      enabled: enabled && !!imageUrl,
+      onSuccess: (data) => {
+        devLog.log(`✅ [useLabImageBatch] Image cached: ${imageUrl}`)
+        onSuccess?.(data, imageUrl)
+      },
+      onError: (error) => {
+        devLog.error(`❌ [useLabImageBatch] Image cache failed: ${imageUrl}`, error)
+        onError?.(error, imageUrl)
+      },
+    }))
+  })
+  
+  // Calculate batch statistics
+  const totalImages = validImageUrls.length
+  const cachedImages = imageQueries.filter(query => query.isSuccess).length
+  const loadingImages = imageQueries.filter(query => query.isLoading).length
+  const errorImages = imageQueries.filter(query => query.isError).length
+  
+  // Main image (first in array)
+  const mainImageQuery = imageQueries[0]
+  const mainImageUrl = validImageUrls[0]
+  
+  // Create a map for quick URL lookups
+  const urlToQueryMap = new Map()
+  validImageUrls.forEach((url, index) => {
+    urlToQueryMap.set(url, imageQueries[index])
+  })
   
   return {
+    // Main image data
     mainImage: {
-      imageUrl: mainImageQuery.data?.dataUrl || mainImageUrl,
+      imageUrl: mainImageQuery?.data?.dataUrl || mainImageUrl,
       originalUrl: mainImageUrl,
-      isLoading: mainImageQuery.isLoading,
-      isCached: mainImageQuery.isSuccess,
-      error: mainImageQuery.error,
-      data: mainImageQuery.data,
+      isLoading: mainImageQuery?.isLoading || false,
+      isCached: mainImageQuery?.isSuccess || false,
+      error: mainImageQuery?.error || null,
+      data: mainImageQuery?.data || null,
     },
     
-    // Batch status
-    totalImages: imageUrls.length,
-    cachedImages: mainImageQuery.isSuccess ? 1 : 0,
-    isLoading: mainImageQuery.isLoading,
+    // All images data
+    allImages: imageQueries.map((query, index) => ({
+      imageUrl: query.data?.dataUrl || validImageUrls[index],
+      originalUrl: validImageUrls[index],
+      isLoading: query.isLoading,
+      isCached: query.isSuccess,
+      error: query.error,
+      data: query.data,
+    })),
+    
+    // Batch statistics
+    totalImages,
+    cachedImages,
+    loadingImages,
+    errorImages,
+    isAllLoaded: totalImages > 0 && cachedImages === totalImages,
+    isAnyLoading: loadingImages > 0,
     
     // Utility methods
     getCachedImageUrl: (url) => {
-      if (url === mainImageUrl && mainImageQuery.data?.dataUrl) {
-        return mainImageQuery.data.dataUrl
-      }
-      return url // Fallback to original
-    }
+      const query = urlToQueryMap.get(url)
+      return query?.data?.dataUrl || url // Fallback to original URL
+    },
+    
+    // Additional utilities
+    getCachedImageData: (url) => {
+      const query = urlToQueryMap.get(url)
+      return query?.data || null
+    },
+    
+    getImageStatus: (url) => {
+      const query = urlToQueryMap.get(url)
+      if (!query) return 'not-found'
+      if (query.isLoading) return 'loading'
+      if (query.isError) return 'error'
+      if (query.isSuccess) return 'cached'
+      return 'idle'
+    },
   }
 }
 
 /**
  * Enhanced hook that integrates with lab metadata
- * Automatically caches the main lab image from metadata
+ * Automatically caches all lab images from metadata using parallel queries
  * @param {Object} labMetadata - Lab metadata object
- * @param {Object} options - Hook options
- * @returns {Object} Lab image with caching
+ * @param {Object} [options={}] - Hook options
+ * @param {boolean} [options.enabled=true] - Whether the queries should be enabled
+ * @param {Function} [options.onSuccess] - Success callback for individual images
+ * @param {Function} [options.onError] - Error callback for individual images
+ * @returns {Object} Lab image with comprehensive caching
+ * @returns {string} returns.mainImageUrl - Main lab image URL (cached or original)
+ * @returns {boolean} returns.isMainImageCached - Whether main image is cached
+ * @returns {Array} returns.allImageUrls - All unique image URLs from metadata
+ * @returns {Array} returns.allImages - All image results with caching data
+ * @returns {number} returns.totalImages - Total number of images
+ * @returns {number} returns.cachedImages - Number of successfully cached images
+ * @returns {boolean} returns.isAllLoaded - Whether all images are cached
+ * @returns {boolean} returns.isAnyLoading - Whether any images are loading
+ * @returns {Function} returns.getLabCardImage - Get optimized image for LabCard
+ * @returns {Function} returns.getGalleryImages - Get all images for gallery view
+ * @returns {Function} returns.getCachedImageUrl - Get cached URL for specific image
  */
 export function useLabImageFromMetadata(labMetadata, options = {}) {
   // Extract image URLs from metadata
@@ -268,28 +340,57 @@ export function useLabImageFromMetadata(labMetadata, options = {}) {
     }
   }
   
-  // Remove duplicates
-  const uniqueImageUrls = [...new Set(imageUrls)]
+  // Remove duplicates and filter valid URLs
+  const uniqueImageUrls = [...new Set(imageUrls.filter(Boolean))]
   
-  // Use batch hook for all images
+  // Use batch hook for all images with parallel caching
   const batchResult = useLabImageBatch(uniqueImageUrls, options)
   
   return {
+    // Expose all batch functionality
     ...batchResult,
     
-    // Main image (for LabCard)
+    // Main image convenience properties (for LabCard)
     mainImageUrl: batchResult.mainImage.imageUrl,
     isMainImageCached: batchResult.mainImage.isCached,
     
     // All images
     allImageUrls: uniqueImageUrls,
     
-    // Lab-specific helpers
-    getLabCardImage: () => batchResult.mainImage.imageUrl,
-    getGalleryImages: () => uniqueImageUrls.map(url => 
-      batchResult.getCachedImageUrl(url)
-    ),
+    // Lab-specific helper functions
+    getLabCardImage: () => {
+      // Return the best available main image (cached if available)
+      return batchResult.mainImage.imageUrl
+    },
+    
+    getGalleryImages: () => {
+      // Return all images with their cached versions
+      return batchResult.allImages.map(img => ({
+        url: img.imageUrl, // Cached or original
+        originalUrl: img.originalUrl,
+        isCached: img.isCached,
+        isLoading: img.isLoading,
+        error: img.error,
+        data: img.data,
+      }))
+    },
+    
+    // Enhanced metadata-specific utilities
+    getImageByIndex: (index) => {
+      const image = batchResult.allImages[index]
+      return image ? image.imageUrl : null
+    },
+    
+    getMainImageData: () => {
+      return batchResult.mainImage.data
+    },
+    
+    // Performance metrics
+    getCacheEfficiency: () => {
+      if (batchResult.totalImages === 0) return 0
+      return (batchResult.cachedImages / batchResult.totalImages) * 100
+    },
   }
 }
 
-devLog.moduleLoaded('✅ React Query lab image caching loaded')
+devLog.moduleLoaded('✅ React Query lab image caching loaded with useQueries batch support')

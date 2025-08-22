@@ -82,7 +82,7 @@ export const useSaveLabData = (options = {}) => {
         });
         
         // Step 4: Also invalidate broader metadata patterns to catch composed queries
-        await queryClient.invalidateQueries({
+        /*await queryClient.invalidateQueries({
           predicate: (query) => {
             const key = query.queryKey;
             return Array.isArray(key) && 
@@ -92,7 +92,7 @@ export const useSaveLabData = (options = {}) => {
                    );
           },
           refetchType: 'all'
-        });
+        });*/
         
         devLog.log('✅ [useSaveLabData] Cache invalidation completed for:', variables.uri);
       }

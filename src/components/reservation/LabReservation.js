@@ -35,10 +35,7 @@ export default function LabReservation({ id }) {
     data: labsData,
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsComposed({
-    includeMetadata: true, // Include metadata to get lab names
-    includeOwners: false
-  });
+  } = useAllLabsComposed();
   const labs = labsData?.labs || [];
   const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();

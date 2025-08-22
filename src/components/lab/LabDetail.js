@@ -23,13 +23,9 @@ export default function LabDetail({ id, provider }) {
     isError: labsError,
     error: labsErrorDetails 
   } = useAllLabsComposed({
-    includeMetadata: true, // Include metadata to get lab names, descriptions, etc.
-    includeOwners: false,
-    queryOptions: {
-      staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-      refetchOnWindowFocus: false, // No automatic refetch
-      refetchInterval: false, // Disable automatic periodic refetch
-    }
+    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
+    refetchOnWindowFocus: false, // No automatic refetch
+    refetchInterval: false, // Disable automatic periodic refetch
   });
   const labs = labsData?.labs || [];
   const { formatPrice } = useLabToken();

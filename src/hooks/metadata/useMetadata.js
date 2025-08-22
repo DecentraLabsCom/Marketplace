@@ -5,6 +5,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
+import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for metadata hooks
@@ -18,6 +19,36 @@ const METADATA_QUERY_CONFIG = {
 
 // Export configuration for use in composed hooks
 export { METADATA_QUERY_CONFIG };
+
+// Define queryFn first for reuse
+const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
+  try {
+    if (!metadataUri) {
+      throw new Error('Metadata URI is required');
+    }
+
+    devLog.log(`🔍 getMetadataQueryFn: Fetching metadata for ${metadataUri}`);
+
+    const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`Metadata not found: ${metadataUri}`);
+      }
+      throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    devLog.info(`✅ getMetadataQueryFn: Metadata fetched successfully for URI: ${metadataUri}`);
+    return data;
+  } catch (error) {
+    devLog.error('Failed to fetch metadata:', error);
+    throw error;
+  }
+}, null); // Return null during SSR
 
 /**
  * Hook for fetching metadata by URI
@@ -45,64 +76,15 @@ export { METADATA_QUERY_CONFIG };
 export const useMetadata = (metadataUri, options = {}) => {
   return useQuery({
     queryKey: metadataQueryKeys.byUri(metadataUri),
-    queryFn: async () => {
-      try {
-        if (!metadataUri) {
-          throw new Error('Metadata URI is required');
-        }
-
-        devLog.log(`🔍 useMetadata queryFn: Fetching metadata for ${metadataUri}`);
-
-        const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error(`Metadata not found: ${metadataUri}`);
-          }
-          throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        devLog.info(`✅ useMetadata queryFn: Metadata fetched successfully for URI: ${metadataUri}`);
-        return data;
-      } catch (error) {
-        devLog.error('Failed to fetch metadata:', error);
-        throw error;
-      }
-    },
+    queryFn: () => getMetadataQueryFn(metadataUri), // ✅ Reuse the SSR-safe queryFn
     enabled: !!metadataUri && options.enabled !== false,
     ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration
     ...options,
   });
 }
 
-// Set queryFn as a static property for reuse in mutations
-useMetadata.queryFn = async ({ metadataUri }) => {
-  if (!metadataUri) {
-    throw new Error('Metadata URI is required');
-  }
-
-  devLog.log(`🔍 useMetadata.queryFn: Fetching metadata for ${metadataUri}`);
-
-  const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error(`Metadata not found: ${metadataUri}`);
-    }
-    throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
-  }
-  
-  const data = await response.json();
-  devLog.log(`✅ useMetadata.queryFn: Metadata fetched successfully for URI: ${metadataUri}`);
-  return data;
-};
+// Export queryFn for use in composed hooks
+useMetadata.queryFn = getMetadataQueryFn;
 
 // Module loaded confirmation (only logs once even in StrictMode)
 devLog.moduleLoaded('✅ Metadata atomic hooks loaded');

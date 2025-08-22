@@ -17,13 +17,8 @@ import devLog from '@/utils/dev/logger'
 export default function Market() {
   const { isLoggedIn, address, isWalletLoading } = useUser();
   
-  // React Query for labs with metadata (memoized options)
-  const labsQueryOptions = useMemo(() => ({
-    includeMetadata: true, 
-    includeOwners: false 
-  }), []);
-  
-  const labsQuery = useAllLabsComposed(labsQueryOptions);
+  // React Query for labs with optimized defaults (metadata + images, no owner addresses)
+  const labsQuery = useAllLabsComposed();
   
   const { 
     data: labsData, 

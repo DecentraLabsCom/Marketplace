@@ -48,7 +48,7 @@ export const USER_QUERY_CONFIG = {
  * @returns {Function} returns.refetch - Function to manually refetch
  */
 // Define queryFn first for reuse
-const getLabProvidersQueryFn = async () => {
+const getLabProvidersQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/provider/getLabProviders', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -61,15 +61,12 @@ const getLabProvidersQueryFn = async () => {
   const data = await response.json();
   devLog.log('useGetLabProvidersQuery:', data);
   return data;
-};
+}, []); // Return empty array during SSR
 
 export const useGetLabProvidersQuery = (options = {}) => {
   return useQuery({
     queryKey: providerQueryKeys.getLabProviders(),
-    queryFn: createSSRSafeQuery(
-      () => getLabProvidersQueryFn(), // ✅ Reuse the queryFn
-      [] // Return empty array during SSR
-    ),
+    queryFn: () => getLabProvidersQueryFn(), // ✅ Reuse the SSR-safe queryFn
     ...USER_QUERY_CONFIG,
     ...options,
   });
@@ -79,7 +76,7 @@ export const useGetLabProvidersQuery = (options = {}) => {
 useGetLabProvidersQuery.queryFn = getLabProvidersQueryFn;
 
 // Define queryFn first for reuse
-const getIsLabProviderQueryFn = async ({ userAddress }) => {
+const getIsLabProviderQueryFn = createSSRSafeQuery(async ({ userAddress }) => {
   if (!userAddress) throw new Error('Address is required');
   
   const response = await fetch(`/api/contract/provider/isLabProvider?wallet=${userAddress}`, {
@@ -94,7 +91,7 @@ const getIsLabProviderQueryFn = async ({ userAddress }) => {
   const data = await response.json();
   devLog.log('useIsLabProviderQuery:', userAddress, data);
   return data;
-};
+}, { isProvider: false }); // Return false during SSR
 
 /**
  * Hook for /api/contract/provider/isLabProvider endpoint
@@ -106,10 +103,7 @@ const getIsLabProviderQueryFn = async ({ userAddress }) => {
 export const useIsLabProviderQuery = (address, options = {}) => {
   return useQuery({
     queryKey: providerQueryKeys.isLabProvider(address),
-    queryFn: createSSRSafeQuery(
-      () => getIsLabProviderQueryFn({ userAddress: address }), // ✅ Reuse the queryFn
-      { isProvider: false } // Return false during SSR
-    ),
+    queryFn: () => getIsLabProviderQueryFn({ userAddress: address }), // ✅ Reuse the SSR-safe queryFn
     enabled: !!address,
     ...USER_QUERY_CONFIG,
     ...options,

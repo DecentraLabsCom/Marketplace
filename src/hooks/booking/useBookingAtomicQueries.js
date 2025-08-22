@@ -27,7 +27,7 @@ export const BOOKING_QUERY_CONFIG = {
 }
 
 // Define queryFn first for reuse
-const getAllReservationsQueryFn = async () => {
+const getAllReservationsQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/reservation/getAllReservations', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -40,7 +40,7 @@ const getAllReservationsQueryFn = async () => {
   const data = await response.json();
   devLog.log('🔍 useAllReservations:', data);
   return data;
-};
+}, []); // Return empty array during SSR
 
 /**
  * Hook for /api/contract/reservation/getAllReservations endpoint
@@ -60,10 +60,7 @@ const getAllReservationsQueryFn = async () => {
 export const useAllReservations = (options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.all(),
-    queryFn: createSSRSafeQuery(
-      () => getAllReservationsQueryFn(), // ✅ Reuse the queryFn
-      [] // Return empty array during SSR
-    ),
+    queryFn: () => getAllReservationsQueryFn(), // ✅ Reuse the queryFn (already SSR-safe)
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
@@ -73,7 +70,7 @@ export const useAllReservations = (options = {}) => {
 useAllReservations.queryFn = getAllReservationsQueryFn;
 
 // Define queryFn first for reuse
-const getReservationQueryFn = async (reservationKey) => {
+const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
   if (!reservationKey) throw new Error('Reservation key is required');
   
   const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
@@ -88,7 +85,7 @@ const getReservationQueryFn = async (reservationKey) => {
   const data = await response.json();
   devLog.log('🔍 useReservation:', reservationKey, data);
   return data;
-};
+}, null); // Return null during SSR
 
 /**
  * Hook for /api/contract/reservation/getReservation endpoint
@@ -100,10 +97,7 @@ const getReservationQueryFn = async (reservationKey) => {
 export const useReservation = (reservationKey, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.byReservationKey(reservationKey),
-    queryFn: createSSRSafeQuery(
-      () => getReservationQueryFn(reservationKey), // ✅ Reuse the queryFn
-      null // Return null during SSR
-    ),
+    queryFn: () => getReservationQueryFn(reservationKey), // ✅ Reuse the SSR-safe queryFn
     enabled: !!reservationKey,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -114,7 +108,7 @@ export const useReservation = (reservationKey, options = {}) => {
 useReservation.queryFn = getReservationQueryFn;
 
 // Define queryFn first for reuse
-const getReservationsOfTokenQueryFn = async (labId) => {
+const getReservationsOfTokenQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch(`/api/contract/reservation/getReservationsOfToken?labId=${labId}`, {
@@ -129,7 +123,7 @@ const getReservationsOfTokenQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useReservationsOfToken:', labId, data);
   return data;
-};
+}, []); // Return empty array during SSR
 
 /**
  * Hook for /api/contract/reservation/getReservationsOfToken endpoint
@@ -141,10 +135,7 @@ const getReservationsOfTokenQueryFn = async (labId) => {
 export const useReservationsOfToken = (labId, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.getReservationsOfToken(labId),
-    queryFn: createSSRSafeQuery(
-      () => getReservationsOfTokenQueryFn(labId), // ✅ Reuse the queryFn
-      [] // Return empty array during SSR
-    ),
+    queryFn: () => getReservationsOfTokenQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -155,7 +146,7 @@ export const useReservationsOfToken = (labId, options = {}) => {
 useReservationsOfToken.queryFn = getReservationsOfTokenQueryFn;
 
 // Define queryFn first for reuse
-const getReservationOfTokenByIndexQueryFn = async (labId, index) => {
+const getReservationOfTokenByIndexQueryFn = createSSRSafeQuery(async (labId, index) => {
   if (!labId || index === undefined || index === null) {
     throw new Error('Lab ID and index are required');
   }
@@ -172,7 +163,7 @@ const getReservationOfTokenByIndexQueryFn = async (labId, index) => {
   const data = await response.json();
   devLog.log('🔍 useReservationOfTokenByIndex:', labId, index, data);
   return data;
-};
+}, null); // Return null during SSR 
 
 /**
  * Hook for /api/contract/reservation/getReservationOfTokenByIndex endpoint
@@ -185,10 +176,7 @@ const getReservationOfTokenByIndexQueryFn = async (labId, index) => {
 export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.getReservationOfTokenByIndex(labId, index),
-    queryFn: createSSRSafeQuery(
-      () => getReservationOfTokenByIndexQueryFn(labId, index), // ✅ Reuse the queryFn
-      null // Return null during SSR
-    ),
+    queryFn: () => getReservationOfTokenByIndexQueryFn(labId, index), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId && (index !== undefined && index !== null),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -199,7 +187,7 @@ export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
 useReservationOfTokenByIndex.queryFn = getReservationOfTokenByIndexQueryFn;
 
 // Define queryFn first for reuse
-const getReservationsOfQueryFn = async (userAddress) => {
+const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
   if (!userAddress) throw new Error('User address is required');
   
   const response = await fetch('/api/contract/reservation/getReservationsOf', {
@@ -215,7 +203,7 @@ const getReservationsOfQueryFn = async (userAddress) => {
   const data = await response.json();
   devLog.log('🔍 useReservationsOf:', userAddress, data);
   return data;
-};
+}, []); // Return empty array during SSR
 
 /**
  * Hook for /api/contract/reservation/reservationsOf endpoint
@@ -227,10 +215,7 @@ const getReservationsOfQueryFn = async (userAddress) => {
 export const useReservationsOf = (userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.reservationsOf(userAddress),
-    queryFn: createSSRSafeQuery(
-      () => getReservationsOfQueryFn(userAddress), // ✅ Reuse the queryFn
-      [] // Return empty array during SSR
-    ),
+    queryFn: () => getReservationsOfQueryFn(userAddress), // ✅ Reuse the SSR-safe queryFn
     enabled: !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -241,7 +226,7 @@ export const useReservationsOf = (userAddress, options = {}) => {
 useReservationsOf.queryFn = getReservationsOfQueryFn;
 
 // Define queryFn first for reuse
-const getReservationKeyByIndexQueryFn = async (index) => {
+const getReservationKeyByIndexQueryFn = createSSRSafeQuery(async (index) => {
   if (index === undefined || index === null) {
     throw new Error('Index is required');
   }
@@ -259,7 +244,7 @@ const getReservationKeyByIndexQueryFn = async (index) => {
   const data = await response.json();
   devLog.log('🔍 useReservationKeyByIndex:', index, data);
   return data;
-};
+}, { reservationKey: null }); // Return null during SSR
 
 /**
  * Hook for /api/contract/reservation/reservationKeyByIndex endpoint
@@ -271,10 +256,7 @@ const getReservationKeyByIndexQueryFn = async (index) => {
 export const useReservationKeyByIndex = (index, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.reservationKeyByIndex(index),
-    queryFn: createSSRSafeQuery(
-      () => getReservationKeyByIndexQueryFn(index), // ✅ Reuse the queryFn
-      { reservationKey: null } // Return null during SSR
-    ),
+    queryFn: () => getReservationKeyByIndexQueryFn(index), // ✅ Reuse the SSR-safe queryFn
     enabled: (index !== undefined && index !== null),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -285,7 +267,7 @@ export const useReservationKeyByIndex = (index, options = {}) => {
 useReservationKeyByIndex.queryFn = getReservationKeyByIndexQueryFn;
 
 // Define queryFn first for reuse
-const getReservationKeyOfUserByIndexQueryFn = async (userAddress, index) => {
+const getReservationKeyOfUserByIndexQueryFn = createSSRSafeQuery(async (userAddress, index) => {
   if (!userAddress || index === undefined || index === null) {
     throw new Error('User address and index are required');
   }
@@ -306,7 +288,7 @@ const getReservationKeyOfUserByIndexQueryFn = async (userAddress, index) => {
   const data = await response.json();
   devLog.log('🔍 useReservationKeyOfUserByIndex:', userAddress, index, data);
   return data;
-};
+}, { reservationKey: null }); // Return null during SSR
 
 /**
  * Hook for /api/contract/reservation/reservationKeyOfUserByIndex endpoint
@@ -319,10 +301,7 @@ const getReservationKeyOfUserByIndexQueryFn = async (userAddress, index) => {
 export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-    queryFn: createSSRSafeQuery(
-      () => getReservationKeyOfUserByIndexQueryFn(userAddress, index), // ✅ Reuse the queryFn
-      { reservationKey: null } // Return null during SSR
-    ),
+    queryFn: () => getReservationKeyOfUserByIndexQueryFn(userAddress, index), // ✅ Reuse the SSR-safe queryFn
     enabled: !!userAddress && (index !== undefined && index !== null),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -333,7 +312,7 @@ export const useReservationKeyOfUserByIndex = (userAddress, index, options = {})
 useReservationKeyOfUserByIndex.queryFn = getReservationKeyOfUserByIndexQueryFn;
 
 // Define queryFn first for reuse
-const getTotalReservationsQueryFn = async () => {
+const getTotalReservationsQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/reservation/totalReservations', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -346,7 +325,7 @@ const getTotalReservationsQueryFn = async () => {
   const data = await response.json();
   devLog.log('🔍 useTotalReservations:', data);
   return data;
-};
+}, { total: '0' }); // Return '0' during SSR
 
 /**
  * Hook for /api/contract/reservation/totalReservations endpoint
@@ -357,10 +336,7 @@ const getTotalReservationsQueryFn = async () => {
 export const useTotalReservations = (options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.totalReservations(),
-    queryFn: createSSRSafeQuery(
-      () => getTotalReservationsQueryFn(), // ✅ Reuse the queryFn
-      { total: '0' } // Return zero during SSR
-    ),
+    queryFn: () => getTotalReservationsQueryFn(), // ✅ Reuse the SSR-safe queryFn
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
@@ -370,7 +346,7 @@ export const useTotalReservations = (options = {}) => {
 useTotalReservations.queryFn = getTotalReservationsQueryFn;
 
 // Define queryFn first for reuse
-const getUserOfReservationQueryFn = async (reservationKey) => {
+const getUserOfReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
   if (!reservationKey) throw new Error('Reservation key is required');
   
   const response = await fetch('/api/contract/reservation/userOfReservation', {
@@ -386,7 +362,7 @@ const getUserOfReservationQueryFn = async (reservationKey) => {
   const data = await response.json();
   devLog.log('🔍 useUserOfReservation:', reservationKey, data);
   return data;
-};
+}, { user: null }); // Return null during SSR
 
 /**
  * Hook for /api/contract/reservation/userOfReservation endpoint
@@ -398,10 +374,7 @@ const getUserOfReservationQueryFn = async (reservationKey) => {
 export const useUserOfReservation = (reservationKey, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.userOfReservation(reservationKey),
-    queryFn: createSSRSafeQuery(
-      () => getUserOfReservationQueryFn(reservationKey), // ✅ Reuse the queryFn
-      { user: null } // Return null during SSR
-    ),
+    queryFn: () => getUserOfReservationQueryFn(reservationKey), // ✅ Reuse the SSR-safe queryFn
     enabled: !!reservationKey,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -412,7 +385,7 @@ export const useUserOfReservation = (reservationKey, options = {}) => {
 useUserOfReservation.queryFn = getUserOfReservationQueryFn;
 
 // Define queryFn first for reuse
-const getCheckAvailableQueryFn = async (labId, start, duration) => {
+const getCheckAvailableQueryFn = createSSRSafeQuery(async (labId, start, duration) => {
   if (!labId || !start || !duration) {
     throw new Error('Lab ID, start time, and duration are required');
   }
@@ -434,7 +407,7 @@ const getCheckAvailableQueryFn = async (labId, start, duration) => {
   const data = await response.json();
   devLog.log('🔍 useCheckAvailable:', labId, start, duration, data);
   return data;
-};
+}, { available: false }); // Return false during SSR
 
 /**
  * Hook for /api/contract/reservation/checkAvailable endpoint
@@ -448,10 +421,7 @@ const getCheckAvailableQueryFn = async (labId, start, duration) => {
 export const useCheckAvailable = (labId, start, duration, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.checkAvailable(labId, start, duration),
-    queryFn: createSSRSafeQuery(
-      () => getCheckAvailableQueryFn(labId, start, duration), // ✅ Reuse the queryFn
-      { available: false } // Return false during SSR
-    ),
+    queryFn: () => getCheckAvailableQueryFn(labId, start, duration), // ✅ Reuse the SSR-safe queryFn
     enabled: !!(labId && start && duration),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -462,7 +432,7 @@ export const useCheckAvailable = (labId, start, duration, options = {}) => {
 useCheckAvailable.queryFn = getCheckAvailableQueryFn;
 
 // Define queryFn first for reuse
-const getHasActiveBookingQueryFn = async (userAddress) => {
+const getHasActiveBookingQueryFn = createSSRSafeQuery(async (userAddress) => {
   if (!userAddress) throw new Error('User address is required');
   
   const response = await fetch('/api/contract/reservation/hasActiveBooking', {
@@ -478,7 +448,7 @@ const getHasActiveBookingQueryFn = async (userAddress) => {
   const data = await response.json();
   devLog.log('🔍 useHasActiveBooking:', userAddress, data);
   return data;
-};
+}, { hasActiveBooking: false }); // Return false during SSR
 
 /**
  * Hook for /api/contract/reservation/hasActiveBooking endpoint
@@ -490,10 +460,7 @@ const getHasActiveBookingQueryFn = async (userAddress) => {
 export const useHasActiveBooking = (userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.hasActiveBooking(userAddress),
-    queryFn: createSSRSafeQuery(
-      () => getHasActiveBookingQueryFn(userAddress), // ✅ Reuse the queryFn
-      { hasActiveBooking: false } // Return false during SSR
-    ),
+    queryFn: () => getHasActiveBookingQueryFn(userAddress), // ✅ Reuse the SSR-safe queryFn
     enabled: !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -504,7 +471,7 @@ export const useHasActiveBooking = (userAddress, options = {}) => {
 useHasActiveBooking.queryFn = getHasActiveBookingQueryFn;
 
 // Define queryFn first for reuse
-const getHasActiveBookingByTokenQueryFn = async (labId) => {
+const getHasActiveBookingByTokenQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch('/api/contract/reservation/hasActiveBookingByToken', {
@@ -520,7 +487,7 @@ const getHasActiveBookingByTokenQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useHasActiveBookingByToken:', labId, data);
   return data;
-};
+}, { hasActiveBooking: false }); // Return false during SSR
 
 /**
  * Hook for /api/contract/reservation/hasActiveBookingByToken endpoint
@@ -532,10 +499,7 @@ const getHasActiveBookingByTokenQueryFn = async (labId) => {
 export const useHasActiveBookingByToken = (labId, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.hasActiveBookingByToken(labId),
-    queryFn: createSSRSafeQuery(
-      () => getHasActiveBookingByTokenQueryFn(labId), // ✅ Reuse the queryFn
-      { hasActiveBooking: false } // Return false during SSR
-    ),
+    queryFn: () => getHasActiveBookingByTokenQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -546,7 +510,7 @@ export const useHasActiveBookingByToken = (labId, options = {}) => {
 useHasActiveBookingByToken.queryFn = getHasActiveBookingByTokenQueryFn;
 
 // Define queryFn first for reuse
-const getIsTokenListedQueryFn = async (labId) => {
+const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
   const response = await fetch('/api/contract/reservation/isTokenListed', {
@@ -562,7 +526,7 @@ const getIsTokenListedQueryFn = async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useIsTokenListed:', labId, data);
   return data;
-};
+}, { isListed: false }); // Return false during SSR
 
 /**
  * Hook for /api/contract/reservation/isTokenListed endpoint
@@ -574,10 +538,7 @@ const getIsTokenListedQueryFn = async (labId) => {
 export const useIsTokenListed = (labId, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.isTokenListed(labId),
-    queryFn: createSSRSafeQuery(
-      () => getIsTokenListedQueryFn(labId), // ✅ Reuse the queryFn
-      { isListed: false } // Return false during SSR
-    ),
+    queryFn: () => getIsTokenListedQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
     enabled: !!labId,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -588,7 +549,7 @@ export const useIsTokenListed = (labId, options = {}) => {
 useIsTokenListed.queryFn = getIsTokenListedQueryFn;
 
 // Define queryFn first for reuse
-const getLabTokenAddressQueryFn = async () => {
+const getLabTokenAddressQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/reservation/getLabTokenAddress', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
@@ -601,7 +562,7 @@ const getLabTokenAddressQueryFn = async () => {
   const data = await response.json();
   devLog.log('🔍 useLabTokenAddress:', data);
   return data;
-};
+}, { tokenAddress: null }); // Return null during SSR
 
 /**
  * Hook for /api/contract/reservation/getLabTokenAddress endpoint
@@ -612,10 +573,7 @@ const getLabTokenAddressQueryFn = async () => {
 export const useLabTokenAddress = (options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.labTokenAddress(),
-    queryFn: createSSRSafeQuery(
-      () => getLabTokenAddressQueryFn(), // ✅ Reuse the queryFn
-      { tokenAddress: null } // Return null during SSR
-    ),
+    queryFn: () => getLabTokenAddressQueryFn(), // ✅ Reuse the SSR-safe queryFn
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
@@ -625,7 +583,7 @@ export const useLabTokenAddress = (options = {}) => {
 useLabTokenAddress.queryFn = getLabTokenAddressQueryFn;
 
 // Define queryFn first for reuse
-const getSafeBalanceQueryFn = async (userAddress) => {
+const getSafeBalanceQueryFn = createSSRSafeQuery(async (userAddress) => {
   if (!userAddress) throw new Error('User address is required');
   
   const response = await fetch('/api/contract/reservation/getSafeBalance', {
@@ -641,7 +599,7 @@ const getSafeBalanceQueryFn = async (userAddress) => {
   const data = await response.json();
   devLog.log('🔍 useSafeBalance:', userAddress, data);
   return data;
-};
+}, { balance: '0' }); // Return '0' during SSR
 
 /**
  * Hook for /api/contract/reservation/getSafeBalance endpoint
@@ -653,10 +611,7 @@ const getSafeBalanceQueryFn = async (userAddress) => {
 export const useSafeBalance = (userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.safeBalance(userAddress),
-    queryFn: createSSRSafeQuery(
-      () => getSafeBalanceQueryFn(userAddress), // ✅ Reuse the queryFn
-      { balance: '0' } // Return zero balance during SSR
-    ),
+    queryFn: () => getSafeBalanceQueryFn(userAddress), // ✅ Reuse the SSR-safe queryFn
     enabled: !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,

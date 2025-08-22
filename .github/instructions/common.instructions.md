@@ -15,6 +15,7 @@ This project follows a set of coding standards and best practices to ensure code
    - **Composed Query Hooks**: For complex data orchestration that requires multiple related queries, use `useQueries` to maintain React Query's caching, retry, and error handling benefits while providing unified data composition. These hooks are implemented using atomic hooks, not direct fetch calls.
    - **Cache Update Utility Hooks**: Domain-specific cache management utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`...) that provide granular cache manipulation functions.
    - **Cache-extracting hooks**: Simple data extraction from shared cache using basic `find()` operations for performance optimization.
+   - **QueryFn Pattern**: All atomic hooks should define and export a centralized, (SSR-safe, when needed) queryFn function that is reused by both the corresponding atomic hook implementation and external composed hooks.
    - All hooks should use the `use` prefix. The goal is to balance simplicity with React Query's powerful caching and resilience features while maintaining clear domain separation.
 
 4. **Services**: Services are for composed fetch operations that are too computationally intensive for client-side orchestration:

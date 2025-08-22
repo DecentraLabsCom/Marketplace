@@ -26,10 +26,7 @@ export default function UserDashboard() {
     isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsComposed({
-    includeMetadata: true, // Include metadata to get lab names
-    includeOwners: false
-  });
+  } = useAllLabsComposed();
   const labs = labsData?.labs || [];
 
   // 🚀 React Query for user bookings with lab details
