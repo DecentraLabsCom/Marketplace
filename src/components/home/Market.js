@@ -8,7 +8,7 @@
 import React, { useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
 import { useAllLabsComposed } from '@/hooks/lab/useLabs'
-import { useUserBookingsComposed } from '@/hooks/booking/useBookings'
+import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabFilters'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
@@ -42,10 +42,12 @@ export default function Market() {
   // React Query for user bookings (memoized options) - Only fetch when user is definitely connected
   const userBookingsOptions = useMemo(() => ({
     enabled: !!address && isLoggedIn && !isWalletLoading, // Wait for wallet to stabilize
-    refetchOnMount: false, // Use cached data if available
+    queryOptions: {
+      refetchOnMount: false, // Use cached data if available
+    }
   }), [address, isLoggedIn, isWalletLoading]);
   
-  const userBookingsQuery = useUserBookingsComposed(address, userBookingsOptions);
+  const userBookingsQuery = useUserBookingsForMarket(address, userBookingsOptions);
 
   const {
     data: userBookingsData,
@@ -59,7 +61,12 @@ export default function Market() {
   }, [bookingsInitialLoading, bookingsFetching, userBookingsData]);
 
   // Memoize userBookings to prevent infinite re-renders
-  const userBookings = useMemo(() => userBookingsData?.bookings || [], [userBookingsData?.bookings]);
+  const userBookings = useMemo(() => userBookingsData || {
+    userLabsWithActiveBookings: new Set(),
+    activeBookingsCount: 0,
+    upcomingBookingsCount: 0,
+    hasBookingInLab: () => false
+  }, [userBookingsData]);
 
   // Use custom hook for filtering logic (with progressive loading)
   // Pass labs immediately, userBookings only when available (for active booking marking)

@@ -4,6 +4,7 @@
  * React Query's caching, error handling, and retry capabilities
  */
 import { useQueries } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { 
   useReservationsOf,
   useReservation,
@@ -11,7 +12,7 @@ import {
   useReservationOfTokenByIndex,
   useReservationKeyOfUserByIndex,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
-} from './useBookings'
+} from './useBookingAtomicQueries'
 import { useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
 import { useUser } from '@/context/UserContext'
 import { bookingQueryKeys, labQueryKeys } from '@/utils/hooks/queryKeys'
@@ -680,6 +681,247 @@ export const extractCompletedBookings = (bookingsResult) => {
 export const extractCancelledBookings = (bookingsResult) => {
   return extractBookingsByStatus(bookingsResult, 'cancelled');
 };
+
+/**
+ * Composed hook for getting complete user reservations with full details
+ * Orchestrates: reservationsOf + reservationKeyOfUserByIndex + getReservation
+ * @param {string} userAddress - User wallet address
+ * @param {Object} options - Configuration options  
+ * @param {number} [options.limit=20] - Maximum number of reservations to fetch
+ * @param {Object} [options.queryOptions] - Override options for base queries
+ * @returns {Object} React Query result with complete user reservations
+ */
+export const useUserReservationsComplete = (userAddress, { 
+  limit = 20, 
+  queryOptions = {} 
+} = {}) => {
+  
+  // Step 1: Get total count of reservations using atomic hook
+  const reservationCountResult = useReservationsOf(userAddress, {
+    ...BOOKING_QUERY_CONFIG,
+    enabled: !!userAddress && (queryOptions.enabled !== false),
+    meta: queryOptions.meta,
+  });
+  
+  const totalCount = reservationCountResult.data?.count || 0;
+  const reservationsToFetch = Math.min(totalCount, limit);
+  const hasReservations = reservationsToFetch > 0;
+
+  // Step 2: Get reservation keys for the user (limited)
+  const reservationKeyResults = useQueries({
+    queries: hasReservations 
+      ? Array.from({ length: reservationsToFetch }, (_, index) => ({
+          queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
+          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index),
+          ...BOOKING_QUERY_CONFIG,
+          enabled: !!userAddress && totalCount > 0,
+        }))
+      : [],
+    combine: (results) => {
+      const isLoading = results.some(result => result.isLoading);
+      const isError = results.some(result => result.isError);
+      const keys = results
+        .filter(result => result.data && !result.isError)
+        .map(result => result.data.reservationKey)
+        .filter(Boolean);
+      
+      return { isLoading, isError, keys, results };
+    }
+  });
+
+  // Step 3: Get complete reservation details for each key
+  const reservationDetailResults = useQueries({
+    queries: reservationKeyResults.keys.map(key => ({
+      queryKey: bookingQueryKeys.byReservationKey(key),
+      queryFn: () => useReservation.queryFn(key),
+      ...BOOKING_QUERY_CONFIG,
+      enabled: !!key,
+    })),
+    combine: (results) => {
+      const isLoading = results.some(result => result.isLoading);
+      const isError = results.some(result => result.isError);
+      const reservations = results
+        .filter(result => result.data && !result.isError)
+        .map((result, index) => {
+          // Extract reservation data from the nested structure
+          const reservationData = result.data?.reservation || result.data;
+          
+          // Safely parse timestamps with validation
+          const parseTimestamp = (timestamp) => {
+            try {
+              const parsed = parseInt(timestamp);
+              if (isNaN(parsed) || parsed <= 0) {
+                devLog.warn('⚠️ Invalid timestamp received:', timestamp);
+                return null;
+              }
+              const date = new Date(parsed * 1000);
+              if (isNaN(date.getTime())) {
+                devLog.warn('⚠️ Invalid date from timestamp:', parsed);
+                return null;
+              }
+              return date.toISOString();
+            } catch (error) {
+              devLog.error('❌ Error parsing timestamp:', timestamp, error);
+              return null;
+            }
+          };
+
+          const startDate = parseTimestamp(reservationData.start);
+          const endDate = parseTimestamp(reservationData.end);
+          
+          return {
+            ...reservationData,
+            reservationKey: reservationKeyResults.keys[index],
+            // Helper fields for frontend with safe timestamp conversion
+            startDate: startDate || new Date().toISOString(), // Fallback to current date
+            endDate: endDate || new Date().toISOString(), // Fallback to current date
+            statusText: getReservationStatusText(parseInt(reservationData.status) || 0),
+          };
+        });
+      
+      return { isLoading, isError, reservations, results };
+    }
+  });
+
+  // Combine loading states
+  const isLoading = reservationCountResult.isLoading || 
+                   reservationKeyResults.isLoading || 
+                   reservationDetailResults.isLoading;
+  
+  const isError = reservationCountResult.isError || 
+                  reservationKeyResults.isError || 
+                  reservationDetailResults.isError;
+
+  // Calculate booking summary analytics from complete reservation data
+  const summary = useMemo(() => {
+    const reservations = reservationDetailResults.reservations;
+    
+    if (!reservations.length) {
+      devLog.log('📊 useUserReservationsComplete - No reservations found, returning zeros');
+      return {
+        totalBookings: totalCount,
+        activeBookings: 0,
+        upcomingBookings: 0,
+        completedBookings: 0,
+        pendingBookings: 0,
+        recentActivity: []
+      };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    let activeBookings = 0;
+    let upcomingBookings = 0;
+    let completedBookings = 0;
+    let pendingBookings = 0;
+    const activities = [];
+
+    reservations.forEach(reservation => {
+      // Safely parse timestamps with validation
+      const start = parseInt(reservation.start);
+      const end = parseInt(reservation.end);
+      const status = parseInt(reservation.status) || 0;
+
+      // Skip reservations with invalid timestamps
+      if (isNaN(start) || isNaN(end) || start <= 0 || end <= 0) {
+        devLog.warn('⚠️ Skipping reservation with invalid timestamps:', {
+          reservationKey: reservation.reservationKey,
+          start: reservation.start,
+          end: reservation.end
+        });
+        return;
+      }
+
+      // Add to recent activity (for recent 30 days)
+      const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
+      if (start > thirtyDaysAgo) {
+        let action = 'Unknown';
+        if (status === 4) action = 'Cancelled';
+        else if (status === 3) action = 'Completed';
+        else if (status === 1 && start <= now && now <= end) action = 'Active';
+        else if (status === 1 && start > now) action = 'Upcoming';
+        else if (status === 0) action = 'Pending';
+
+        // Safely format date
+        try {
+          const date = new Date(start * 1000);
+          const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+          
+          activities.push({
+            action,
+            labId: reservation.labId,
+            date: formattedDate,
+            status: reservation.statusText
+          });
+        } catch (error) {
+          devLog.warn('⚠️ Error formatting date for activity:', error);
+        }
+      }
+
+      // Count by status and timing (excluding cancelled bookings)
+      if (status === 3) {
+        completedBookings++;
+      } else if (status === 0) {
+        pendingBookings++;
+      } else if (status === 1) {
+        if (start <= now && now <= end) {
+          activeBookings++;
+        } else if (start > now) {
+          upcomingBookings++;
+        } else if (end < now) {
+          completedBookings++; // Past confirmed booking
+        }
+      }
+      // Note: Status 4 (cancelled) bookings are ignored
+    });
+
+    const result = {
+      totalBookings: totalCount,
+      activeBookings,
+      upcomingBookings,
+      completedBookings,
+      pendingBookings,
+      recentActivity: activities.slice(0, 5), // Keep only top 5
+    };
+
+    devLog.log('📊 useUserReservationsComplete - Summary calculated:', result);
+    return result;
+  }, [reservationDetailResults.reservations, totalCount]);
+
+  return {
+    data: {
+      reservations: reservationDetailResults.reservations,
+      total: totalCount,
+      fetched: reservationDetailResults.reservations.length,
+      userAddress,
+      summary // ✅ Include booking summary in composed hook
+    },
+    isLoading,
+    isError,
+    error: reservationCountResult.error || 
+           reservationKeyResults.error || 
+           reservationDetailResults.error,
+    refetch: () => {
+      reservationCountResult.refetch();
+      // Other refetches will trigger automatically due to dependencies
+    }
+  };
+};
+
+/**
+ * Helper function to convert status number to text
+ * @param {number} status - Status number from contract
+ * @returns {string} Human-readable status
+ */
+function getReservationStatusText(status) {
+  switch (status) {
+    case 0: return 'Pending';
+    case 1: return 'Confirmed';
+    case 2: return 'Active'; 
+    case 3: return 'Completed';
+    case 4: return 'Cancelled';
+    default: return 'Unknown';
+  }
+}
 
 // Module loaded confirmation (only logs once even in StrictMode)
 devLog.moduleLoaded('✅ Booking composed hooks loaded');

@@ -6,7 +6,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { 
   useCreateBookingMutation,
-  useUserBookingsComposed, 
+  useBookingsForCalendar, 
   useLabBookingsComposed 
 } from '@/hooks/booking/useBookings'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
@@ -50,12 +50,12 @@ export default function LabReservationWizard({
   const { 
     data: userBookingsData, 
     isLoading: userBookingsLoading 
-  } = useUserBookingsComposed(userAccount, {
+  } = useBookingsForCalendar(userAccount, lab?.id, {
     enabled: !!userAccount
   });
   const userBookings = useMemo(() => 
-    userBookingsData?.bookings || [], 
-    [userBookingsData?.bookings]
+    userBookingsData?.userBookings || [], 
+    [userBookingsData?.userBookings]
   );
   
   const { 

@@ -8,7 +8,7 @@ import isBookingActive from '@/utils/booking/isBookingActive'
 /**
  * Custom hook for lab filtering and search
  * @param {Array} labs - Array of lab objects
- * @param {Array} userBookings - Array of user booking objects (can be empty during loading)
+ * @param {Object} userBookingsData - User bookings data from useUserBookingsForMarket (with Set and helper methods)
  * @param {boolean} isLoggedIn - User login status
  * @param {boolean} bookingsLoading - Whether bookings are still loading
  * @returns {Object} Filter state, handlers, and filtered results
@@ -27,7 +27,7 @@ import isBookingActive from '@/utils/booking/isBookingActive'
  * @returns {Object} returns.searchInputRef - Ref for search input element
  * @returns {Function} returns.resetFilters - Reset all filters function
  */
-export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false, bookingsLoading = false) {
+export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false) {
   const searchInputRef = useRef(null)
   
   // Filter state
@@ -144,11 +144,9 @@ export function useLabFilters(labs = [], userBookings = [], isLoggedIn = false, 
   const enrichedLabs = useMemo(() => {
     return searchFilteredLabs.map(lab => ({
       ...lab,
-      hasActiveBooking: isLoggedIn && !bookingsLoading && userBookings && userBookings.length > 0 && userBookings.some(booking => 
-        booking.labId === lab.id && isBookingActive(booking)
-      )
+      hasActiveBooking: isLoggedIn && !bookingsLoading && userBookingsData?.hasBookingInLab?.(lab.id)
     }))
-  }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookings])
+  }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookingsData])
 
   // Reset filters function
   const resetFilters = useCallback(() => {

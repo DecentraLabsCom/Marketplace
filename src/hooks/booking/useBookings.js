@@ -12,5 +12,8 @@ export * from './useBookingAtomicMutations'
 // Export composed query hooks
 export * from './useBookingComposedQueries'
 
+// Export lightweight/specialized hooks
+export * from './useBookingSpecializedQueries'
+
 // Export cache update utilities
 export * from './useBookingCacheUpdates'

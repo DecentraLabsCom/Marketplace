@@ -11,7 +11,8 @@ import AccessControl from '@/components/auth/AccessControl'
 import { DashboardSectionSkeleton } from '@/components/skeletons'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
-import ActiveLabCard from '@/components/dashboard/user/ActiveLabCard'
+import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSection'
+import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
 import devLog from '@/utils/dev/logger'
 import isBookingActive from '@/utils/booking/isBookingActive'
@@ -108,15 +109,6 @@ export default function UserDashboard() {
   useEffect(() => {
     setNow(new Date());
   }, []);
-
-  // Update availableLab when userBookings or now changes
-  const availableLab = useMemo(() => {
-    if (!userBookings?.length || !now) return null;
-    
-    // Find a booking with an active lab using userBookings from composed hook
-    const activeBooking = userBookings.find(booking => isBookingActive([booking]));
-    return activeBooking?.labDetails || null;
-  }, [userBookings, now]);
       
   const openModal = (type, labId, booking = null) => {
     setSelectedLabId(labId);
@@ -221,58 +213,6 @@ export default function UserDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
 
-  // If there is no active booking, search for the first one in the future
-  const firstActiveLab = useMemo(() => {
-    if (availableLab || !now || !userBookings?.length) return null;
-    
-    // Find the next future booking
-    const futureBooking = userBookings
-      .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
-      .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
-      
-    return futureBooking?.labDetails || null;
-  }, [availableLab, now, userBookings]);
-
-  // Find active booking or the next one in the future (must be defined before any early returns)
-  const activeBooking = useMemo(() => {
-    if (!availableLab || !userBookings) return null;
-    return userBookings
-      .filter(booking => booking.labDetails?.id === availableLab.id)
-      .find(b => isBookingActive([b]));
-  }, [availableLab, userBookings]);
-
-  const nextBooking = useMemo(() => {
-    if (availableLab || !firstActiveLab || !userBookings || !now) return null;
-    return userBookings
-      .filter(booking => booking.labDetails?.id === firstActiveLab.id)
-      .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
-      .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
-  }, [availableLab, firstActiveLab, userBookings, now]);
-
-  // To show starting and ending times of bookings
-  const getBookingTimes = booking => {
-    if (!booking?.start || !booking?.end) return { start: null, end: null };
-    
-    // Safe date parsing
-    const parseTimestamp = (timestamp) => {
-      if (!timestamp) return null;
-      const parsed = parseInt(timestamp);
-      if (isNaN(parsed) || parsed <= 0) return null;
-      const date = new Date(parsed * 1000);
-      return date.getTime() && !isNaN(date.getTime()) ? date : null;
-    };
-    
-    const startDate = parseTimestamp(booking.start);
-    const endDate = parseTimestamp(booking.end);
-    
-    if (!startDate || !endDate) return { start: null, end: null };
-    
-    return {
-      start: `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`,
-      end: `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
-    };
-  };
-
   // Simulate user data fetching
   useEffect(() => {
     if (isLoggedIn && userBookings?.length > 0) {
@@ -373,56 +313,43 @@ export default function UserDashboard() {
               })
             )}
             
-            <div className='flex min-[1280px]:flex-row flex-col'>
-              <div className="border shadow text-white rounded p-6 mb-1 min-[1280px]:mr-1 min-[1280px]:w-3/4">
-                <div className="flex flex-col">
-                  {/* Dynamic header based on available lab */}
-                  {availableLab ? (
-                    <h2 className="text-2xl font-semibold mb-4 text-white text-center">
-                      Active now: {availableLab.name}
-                    </h2>
-                  ) : firstActiveLab ? (
-                    <h2 className="text-2xl font-semibold mb-4 text-white text-center">
-                      Next: {firstActiveLab.name}
-                    </h2>
-                  ) : null}
-                  
-                  {/* ActiveLabCard for available lab */}
-                  {availableLab ? (
-                    <ActiveLabCard
-                      lab={availableLab}
-                      booking={activeBooking}
-                      userAddress={user?.userid || address}
-                      isActive={true}
-                      bookingTimes={getBookingTimes(activeBooking)}
+            <div className='flex min-[1280px]:flex-row flex-col gap-2 mb-6'>
+              {/* Active booking section - uses optimized hook */}
+              <div className="min-[1280px]:w-2/3 w-full">
+                <ActiveBookingSection 
+                  userAddress={user?.userid || address}
+                  options={{
+                    enabled: !!address && isLoggedIn,
+                    staleTime: 5 * 60 * 1000, // 5 minutes
+                  }}
+                />
+              </div>
+              
+              {/* Calendar section */}
+              <div className="min-[1280px]:w-2/12 w-full">
+                <div className="shadow text-white -6 mb-1 flex flex-col justify-center h-full">
+                  <h3 className="text-base font-semibold mb-3 text-center">Calendar</h3>
+                  <div className="flex flex-row justify-center">
+                    <CalendarWithBookings
+                      selectedDate={date}
+                      onDateChange={(newDate) => setDate(newDate)}
+                      bookingInfo={bookingInfo}
+                      minDate={today}
+                      displayMode="user-dashboard"
                     />
-                  ) : firstActiveLab && nextBooking ? (
-                    <ActiveLabCard
-                      lab={firstActiveLab}
-                      booking={nextBooking}
-                      userAddress={user?.userid || address}
-                      isActive={false}
-                      bookingTimes={getBookingTimes(nextBooking)}
-                    />
-                  ) : (
-                    <span className="text-gray-300 text-center">
-                      No upcoming or active lab
-                    </span>
-                  )}
+                  </div>
                 </div>
               </div>
-              {/* CALENDAR */}
-              <div className="border shadow text-white rounded p-6 mb-1 flex-1 min-[1280px]:w-1/4 flex justify-center 
-                items-center">
-                <div className="flex flex-row">
-                  <CalendarWithBookings
-                    selectedDate={date}
-                    onDateChange={(newDate) => setDate(newDate)}
-                    bookingInfo={bookingInfo}
-                    minDate={today}
-                    displayMode="user-dashboard"
-                  />
-                </div>
+
+              {/* Booking summary section - uses optimized hook */}
+              <div className="min-[1280px]:w-2/12 w-full">
+                <BookingSummarySection 
+                  userAddress={user?.userid || address}
+                  options={{
+                    enabled: !!address && isLoggedIn,
+                    staleTime: 10 * 60 * 1000, // 10 minutes - summary is less dynamic
+                  }}
+                />
               </div>
             </div>
             {/* Bottom panel: bookings lists */}

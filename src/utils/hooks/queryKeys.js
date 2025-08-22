@@ -14,6 +14,8 @@ export const bookingQueryKeys = {
   userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
   labComposed: (labId, includeMetrics = true) => ['bookings', 'lab-composed', labId, includeMetrics],
   multiLab: (labIds, includeMetrics = false) => ['bookings', 'multi-lab', labIds.sort(), includeMetrics],
+  userReservationsComplete: (userAddress, limit) => ['bookings', 'userReservationsComplete', userAddress, limit],
+
   
   // Additional atomic query keys for all booking/reservation endpoints
   getReservationsOfToken: (labId) => ['bookings', 'reservationsOfToken', labId],
