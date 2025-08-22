@@ -63,7 +63,6 @@ export default function LabReservation({ id }) {
     isLoading: labBookingsLoading,
     error: labBookingsError
   } = useLabBookingsComposed(selectedLab?.id, {
-    includeUserDetails: false,
     queryOptions: {
       enabled: !!selectedLab?.id
     }

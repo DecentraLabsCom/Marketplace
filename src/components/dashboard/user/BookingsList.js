@@ -12,7 +12,6 @@ import { DashboardSectionSkeleton } from '@/components/skeletons';
  * Renders a list of bookings (upcoming or past) with proper formatting
  * @param {Object} props - Component props
  * @param {Array} props.bookings - Array of booking objects
- * @param {Array} props.labs - Array of lab objects for lookup
  * @param {Date} props.currentTime - Current time for filtering
  * @param {boolean} props.isLoading - Loading state
  * @param {string} props.type - Type of bookings ('upcoming' or 'past')
@@ -29,7 +28,6 @@ import { DashboardSectionSkeleton } from '@/components/skeletons';
  */
 export default function BookingsList({ 
   bookings = [], 
-  labs = [], 
   currentTime, 
   isLoading, 
   type = 'upcoming',
@@ -88,7 +86,8 @@ export default function BookingsList({
    * @returns {Object} Enhanced booking object
    */
   const enhanceBooking = (booking) => {
-    const lab = labs.find(l => String(l.id) === String(booking.labId));
+    // Use labDetails from composed hook
+    const lab = booking.labDetails || { name: `Lab ${booking.labId}`, id: booking.labId };
     const startDateTime = new Date(parseInt(booking.start) * 1000);
     
     return {
@@ -131,7 +130,7 @@ export default function BookingsList({
   const filteredBookings = filterBookings(bookings);
   const enhancedBookings = filteredBookings
     .map(enhanceBooking)
-    .filter(booking => booking.lab) // Only include bookings with valid labs
+    .filter(booking => booking.lab) // Only include bookings with valid lab data
     .sort((a, b) => {
       // Upcoming: earliest first, Past: most recent first
       const multiplier = isUpcoming ? 1 : -1;
@@ -200,10 +199,6 @@ BookingsList.propTypes = {
     start: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     end: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     status: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
-  })),
-  labs: PropTypes.arrayOf(PropTypes.shape({
-    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    name: PropTypes.string.isRequired
   })),
   currentTime: PropTypes.instanceOf(Date),
   isLoading: PropTypes.bool.isRequired,

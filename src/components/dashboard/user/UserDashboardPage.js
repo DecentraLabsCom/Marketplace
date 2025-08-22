@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsComposed } from '@/hooks/lab/useLabs'
 import { 
   useUserBookingsComposed,
   useCancelBooking, 
@@ -20,15 +19,6 @@ import isBookingActive from '@/utils/booking/isBookingActive'
 export default function UserDashboard() {
   const { isLoggedIn, address, user, isSSO } = useUser();
   
-  // 🚀 React Query for labs with enriched metadata
-  const { 
-    data: labsData,
-    isLoading: loading, 
-    isError: labsError,
-    error: labsErrorDetails 
-  } = useAllLabsComposed();
-  const labs = labsData?.labs || [];
-
   // 🚀 React Query for user bookings with lab details
   const { 
     data: userBookingsData, 
@@ -36,7 +26,7 @@ export default function UserDashboard() {
     isError: bookingsError,
     error: bookingsErrorDetails 
   } = useUserBookingsComposed(address, {
-    includeLabDetails: true,
+    includeLabDetails: true, // ✅ Enable lab details since we need lab.name in bookingInfo
     queryOptions: {
       enabled: !!address && isLoggedIn,
       staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
@@ -57,23 +47,13 @@ export default function UserDashboard() {
 
   // Debug: Log booking data from React Query
   useEffect(() => {
-    console.log('UserDashboard: Received labs data:', {
-      labsCount: labs.length,
-      address,
-      labs: labs.slice(0, 3).map(lab => ({
-        id: lab.id,
-        name: lab.name
-      }))
-    });
-  }, [labs.length, address]);
-
-  useEffect(() => {
     console.log('UserDashboard: Received user bookings data:', {
       userBookingsCount: userBookings.length,
       address,
       userBookings: userBookings.slice(0, 3).map(booking => ({
         reservationKey: booking.reservationKey,
         labId: booking.labId,
+        labName: booking.labDetails?.name,
         status: booking.status
       }))
     });
@@ -86,10 +66,11 @@ export default function UserDashboard() {
   const [selectedBooking, setSelectedBooking] = useState(null);
 
   const bookingInfo = useMemo(() => {
-    if (!userBookings || !labs) return [];
+    if (!userBookings) return [];
     
     return userBookings.map(booking => {
-      const lab = labs.find(l => String(l.id) === String(booking.labId));
+      // ✅ Use lab details from composed hook instead of manual find()
+      const labName = booking.labDetails?.name || `Lab ${booking.labId}`;
       
       // Safe date parsing function
       const parseTimestamp = (timestamp) => {
@@ -105,7 +86,7 @@ export default function UserDashboard() {
       
       return {
         ...booking,
-        labName: lab?.name ?? `Lab ${booking.labId}`,
+        labName,
         status: booking.status,
         // Ensure date field exists for calendar compatibility
         date: booking.date || (startDate ? startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
@@ -114,7 +95,7 @@ export default function UserDashboard() {
         endTime: endDate ? endDate.toLocaleTimeString() : 'N/A'
       };
     });
-  }, [userBookings, labs]);
+  }, [userBookings]);
   
   // Additional state variables
   const [userData, setUserData] = useState(null);
@@ -127,17 +108,14 @@ export default function UserDashboard() {
     setNow(new Date());
   }, []);
 
-  // Update availableLab when labs or now changes
+  // Update availableLab when userBookings or now changes
   const availableLab = useMemo(() => {
-    if (!labs?.length || !now || !userBookings?.length) return null;
+    if (!userBookings?.length || !now) return null;
     
-    // Find a lab with active bookings using userBookings from BookingContext
-    const labsWithActiveBookings = labs.filter(lab => {
-  const labUserBookings = userBookings?.filter(booking => String(booking.labId) === String(lab.id)) || [];
-      return isBookingActive(labUserBookings);
-    });
-    return labsWithActiveBookings[0] || null;
-  }, [labs, now, userBookings]);
+    // Find a booking with an active lab using userBookings from composed hook
+    const activeBooking = userBookings.find(booking => isBookingActive([booking]));
+    return activeBooking?.labDetails || null;
+  }, [userBookings, now]);
       
   const openModal = (type, labId, booking = null) => {
     setSelectedLabId(labId);
@@ -244,34 +222,28 @@ export default function UserDashboard() {
 
   // If there is no active booking, search for the first one in the future
   const firstActiveLab = useMemo(() => {
-    if (availableLab || !now || !labs.length) return null;
+    if (availableLab || !now || !userBookings?.length) return null;
     
-    return labs
-      .map(lab => {
-        // Get user bookings for this lab from React Query data
-  const labUserBookings = userBookings?.filter(booking => String(booking.labId) === String(lab.id)) || [];
-        if (!Array.isArray(labUserBookings)) return null;
-        const futureBooking = labUserBookings
-          .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
-          .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
-        return futureBooking ? { lab, booking: futureBooking } : null;
-      })
-      .filter(Boolean)
-      .sort((a, b) => parseInt(a.booking.start) - parseInt(b.booking.start))[0]?.lab;
-  }, [availableLab, now, labs, userBookings]);
+    // Find the next future booking
+    const futureBooking = userBookings
+      .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
+      .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
+      
+    return futureBooking?.labDetails || null;
+  }, [availableLab, now, userBookings]);
 
   // Find active booking or the next one in the future (must be defined before any early returns)
   const activeBooking = useMemo(() => {
     if (!availableLab || !userBookings) return null;
     return userBookings
-  .filter(booking => String(booking.labId) === String(availableLab.id))
+      .filter(booking => booking.labDetails?.id === availableLab.id)
       .find(b => isBookingActive([b]));
   }, [availableLab, userBookings]);
 
   const nextBooking = useMemo(() => {
     if (availableLab || !firstActiveLab || !userBookings || !now) return null;
     return userBookings
-  .filter(booking => String(booking.labId) === String(firstActiveLab.id))
+      .filter(booking => booking.labDetails?.id === firstActiveLab.id)
       .filter(b => b.start && parseInt(b.start) * 1000 > now.getTime())
       .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0];
   }, [availableLab, firstActiveLab, userBookings, now]);
@@ -302,18 +274,18 @@ export default function UserDashboard() {
 
   // Simulate user data fetching
   useEffect(() => {
-    if (isLoggedIn && labs.length > 0) {
+    if (isLoggedIn && userBookings?.length > 0) {
       const userid = address || user?.id;
       const affiliation = user?.affiliation || 'Unknown';
       setUserData({
         userid: userid,
         affiliation: affiliation,
-        labs: labs,
+        // Remove labs dependency - user data doesn't need full labs list
       });
     }
-  }, [isLoggedIn, labs.length, address, user?.id, user?.affiliation]);
+  }, [isLoggedIn, userBookings?.length, address, user?.id, user?.affiliation]);
 
-  if (!now || (!userData && loading)) {
+  if (!now || (!userData && bookingsLoading)) {
     return (
       <AccessControl message="Please log in to view and make reservations.">
         <div className="container mx-auto p-4 space-y-6">
@@ -331,7 +303,7 @@ export default function UserDashboard() {
     )
   }
 
-  if (loading) {
+  if (bookingsLoading) {
     return (
       <AccessControl message="Please log in to view your dashboard.">
         <div className="container mx-auto p-4 space-y-6">
@@ -349,17 +321,14 @@ export default function UserDashboard() {
     )
   }
 
-  
-
   // ❌ Error handling for React Query
-  if (labsError || bookingsError) {
+  if (bookingsError) {
     return (
       <AccessControl message="Please log in to view and make reservations.">
         <div className="container mx-auto p-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Dashboard</h2>
             <p className="text-red-600 mb-4">
-              {labsError && (labsErrorDetails?.message || 'Failed to load laboratory data')}
               {bookingsError && (bookingsErrorDetails?.message || 'Failed to load booking data')}
             </p>
             <button 
@@ -460,7 +429,6 @@ export default function UserDashboard() {
               {/* Upcoming bookings list */}
               <BookingsList
                 bookings={userBookings}
-                labs={labs}
                 currentTime={now}
                 isLoading={bookingsLoading}
                 type="upcoming"
@@ -480,7 +448,6 @@ export default function UserDashboard() {
               {/* Past bookings list */}
               <BookingsList
                 bookings={userBookings}
-                labs={labs}
                 currentTime={now}
                 isLoading={bookingsLoading}
                 type="past"

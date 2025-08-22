@@ -10,18 +10,10 @@ import {
   useListLab,
   useUnlistLab
 } from '@/hooks/lab/useLabs'
-import { 
-  useAllLabsComposed,
-  extractLabsByOwner
-} from '@/hooks/lab/useLabs'
-import { 
-  useLabBookingsComposed
-} from '@/hooks/booking/useBookings'
+import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { useLabBookingsComposed } from '@/hooks/booking/useBookings'
 import { useRequestFunds } from '@/hooks/booking/useBookings'
-import { 
-  useSaveLabData, 
-  useDeleteLabData 
-} from '@/hooks/provider/useProvider'
+import { useSaveLabData, useDeleteLabData } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
@@ -100,7 +92,6 @@ export default function ProviderDashboard() {
     data: labBookingsData, 
     isError: bookingsError
   } = useLabBookingsComposed(selectedLabId, {
-    includeUserDetails: true,
     queryOptions: {
       enabled: !!selectedLabId
     }
