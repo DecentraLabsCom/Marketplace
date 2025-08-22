@@ -54,6 +54,7 @@ export default function UserDashboard() {
         reservationKey: booking.reservationKey,
         labId: booking.labId,
         labName: booking.labDetails?.name,
+        labDetails: booking.labDetails,
         status: booking.status
       }))
     });

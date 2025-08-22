@@ -35,7 +35,20 @@ export default function ActiveLabCard({
     );
   }
 
-  const statusText = isActive ? "Available today" : `Available: ${booking?.date || ''}`;
+  // Format date from booking timestamp if available
+  const formatBookingDate = (booking) => {
+    if (!booking?.start) return '';
+    try {
+      const startDate = new Date(parseInt(booking.start) * 1000);
+      if (isNaN(startDate.getTime())) return '';
+      return startDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const formattedDate = formatBookingDate(booking);
+  const statusText = isActive ? "Available today" : `Available: ${formattedDate}`;
   const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
 
   return (

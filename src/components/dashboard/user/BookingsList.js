@@ -90,10 +90,14 @@ export default function BookingsList({
     const lab = booking.labDetails || { name: `Lab ${booking.labId}`, id: booking.labId };
     const startDateTime = new Date(parseInt(booking.start) * 1000);
     
+    // Format date for display (YYYY-MM-DD format)
+    const formattedDate = startDateTime.toLocaleDateString('en-CA');
+    
     return {
       ...booking,
       lab: lab,
       startDateTime,
+      date: formattedDate,
       // Add visual feedback for failed cancellations (upcoming only)
       hasCancellationError: isUpcoming ? failedCancellations.has(booking.reservationKey) : false
     };

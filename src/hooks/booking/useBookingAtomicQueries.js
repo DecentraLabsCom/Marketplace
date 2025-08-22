@@ -190,10 +190,9 @@ useReservationOfTokenByIndex.queryFn = getReservationOfTokenByIndexQueryFn;
 const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
   if (!userAddress) throw new Error('User address is required');
   
-  const response = await fetch('/api/contract/reservation/getReservationsOf', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userAddress })
+  const response = await fetch(`/api/contract/reservation/reservationsOf?userAddress=${userAddress}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
   });
   
   if (!response.ok) {
@@ -231,11 +230,7 @@ const getReservationKeyByIndexQueryFn = createSSRSafeQuery(async (index) => {
     throw new Error('Index is required');
   }
   
-  const response = await fetch('/api/contract/reservation/reservationKeyByIndex', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ index: index.toString() })
-  });
+  const response = await fetch(`/api/contract/reservation/reservationKeyByIndex?index=${encodeURIComponent(index)}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch reservation key at index ${index}: ${response.status}`);
@@ -272,13 +267,9 @@ const getReservationKeyOfUserByIndexQueryFn = createSSRSafeQuery(async (userAddr
     throw new Error('User address and index are required');
   }
   
-  const response = await fetch('/api/contract/reservation/reservationKeyOfUserByIndex', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      user: userAddress,
-      index: index.toString()
-    })
+  const response = await fetch(`/api/contract/reservation/reservationKeyOfUserByIndex?userAddress=${userAddress}&index=${index}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
   });
   
   if (!response.ok) {
@@ -349,11 +340,7 @@ useTotalReservations.queryFn = getTotalReservationsQueryFn;
 const getUserOfReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
   if (!reservationKey) throw new Error('Reservation key is required');
   
-  const response = await fetch('/api/contract/reservation/userOfReservation', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ reservationKey })
-  });
+  const response = await fetch(`/api/contract/reservation/userOfReservation?reservationKey=${encodeURIComponent(reservationKey)}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch user for reservation ${reservationKey}: ${response.status}`);
@@ -390,15 +377,8 @@ const getCheckAvailableQueryFn = createSSRSafeQuery(async (labId, start, duratio
     throw new Error('Lab ID, start time, and duration are required');
   }
   
-  const response = await fetch('/api/contract/reservation/checkAvailable', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      labId: labId.toString(),
-      start: start.toString(),
-      duration: duration.toString()
-    })
-  });
+  const end = parseInt(start) + parseInt(duration);
+  const response = await fetch(`/api/contract/reservation/checkAvailable?labId=${encodeURIComponent(labId)}&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
   
   if (!response.ok) {
     throw new Error(`Failed to check availability for lab ${labId}: ${response.status}`);

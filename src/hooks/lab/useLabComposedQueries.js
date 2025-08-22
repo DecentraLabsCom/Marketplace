@@ -130,7 +130,7 @@ export const useAllLabsComposed = ({
           const metadataUri = lab.base?.uri;
           return {
             queryKey: metadataQueryKeys.byUri(metadataUri),
-            queryFn: () => useMetadata.queryFn({ metadataUri }), // ✅ Already using atomic hook queryFn
+            queryFn: () => useMetadata.queryFn(metadataUri),
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG, // ✅ Metadata-specific configuration
             // Note: queryOptions not spread here as METADATA_QUERY_CONFIG is optimized for metadata
