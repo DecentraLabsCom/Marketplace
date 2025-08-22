@@ -9,6 +9,7 @@ import {
   useReservation,
   useReservationsOfToken,
   useReservationOfTokenByIndex,
+  useReservationKeyOfUserByIndex,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookings'
 import { useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
@@ -49,19 +50,7 @@ export const useUserBookingsComposed = (userAddress, {
     queries: hasReservations 
       ? Array.from({ length: reservationCount }, (_, index) => ({
           queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-          queryFn: async () => {
-            const response = await fetch(`/api/contract/reservation/reservationKeyOfUserByIndex?userAddress=${userAddress}&index=${index}`, {
-              method: 'GET',
-              headers: { 'Content-Type': 'application/json' }
-            });
-            
-            if (!response.ok) {
-              throw new Error(`Failed to fetch reservation key for user ${userAddress} at index ${index}: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return data.reservationKey;
-          },
+          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index), // ✅ Using atomic hook queryFn
           enabled: !!userAddress && hasReservations,
           ...BOOKING_QUERY_CONFIG,
         }))
@@ -72,26 +61,14 @@ export const useUserBookingsComposed = (userAddress, {
   // Extract reservation keys from successful results
   const reservationKeys = reservationKeyResults
     .filter(result => result.isSuccess && result.data)
-    .map(result => result.data);
+    .map(result => result.data.reservationKey || result.data); // Handle both formats
 
   // Step 3: Get booking details for each reservation key
   const bookingDetailsResults = useQueries({
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
-          queryFn: async () => {
-            const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${key}`, {
-              method: 'GET',
-              headers: { 'Content-Type': 'application/json' }
-            });
-            
-            if (!response.ok) {
-              throw new Error(`Failed to fetch reservation details for key ${key}: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            return { ...data, reservationKey: key };
-          },
+          queryFn: () => useReservation.queryFn(key), // ✅ Using atomic hook queryFn
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
         }))
@@ -102,7 +79,14 @@ export const useUserBookingsComposed = (userAddress, {
   // Extract raw booking API payloads
   const rawBookingPayloads = bookingDetailsResults
     .filter(result => result.isSuccess && result.data)
-    .map(result => result.data);
+    .map(result => {
+      const data = result.data;
+      // Ensure we have reservationKey in the payload
+      return {
+        ...data,
+        reservationKey: data.reservationKey || reservationKeys[bookingDetailsResults.indexOf(result)]
+      };
+    });
 
   // Normalize bookings to flat shape expected by UI (calendar, lists)
   const now = Math.floor(Date.now() / 1000);
