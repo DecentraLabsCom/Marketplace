@@ -9,9 +9,6 @@ export * from './useLabAtomicQueries'
 // Export all atomic mutation hooks  
 export * from './useLabAtomicMutations'
 
-// Export composed query hooks
-export * from './useLabComposedQueries'
-
 // Export specialized query hooks
 export * from './useLabSpecializedQueries'
 
