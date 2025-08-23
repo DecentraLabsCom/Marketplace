@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { parseUnits } from 'viem'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useUser } from '@/context/UserContext'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { labQueryKeys, bookingQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
@@ -664,44 +665,30 @@ export const useSetTokenURI = (options = {}) => {
 export const useListLabSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { setOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
   
   return useMutation({
     mutationFn: async (labId) => {
-      // Optimistic update: Mark lab as listed immediately in cache
-      const optimisticListedLab = {
-        id: labId,
-        labId: labId,
-        isListed: true,
-        status: 'listed',
-        isPending: true,
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        // Apply optimistic update
-        updateLab(labId, optimisticListedLab);
-        devLog.log('🎯 Optimistic lab listing:', { labId });
-
-        const response = await fetch('/api/contract/lab/listLabSSO', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labId }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to list lab');
-        }
-        
-        return response.json();
-      } catch (error) {
-        // Revert optimistic update on error by fetching fresh data
-        invalidateAllLabs();
-        throw error;
+      // Set optimistic UI state immediately
+      setOptimisticListingState(labId, true, true);
+      
+      const response = await fetch('/api/contract/lab/listLabSSO', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labId }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to list lab');
       }
+      
+      return response.json();
     },
     onSuccess: (data, labId) => {
-      // Use cache utilities to confirm the change
+      // Clear optimistic state and update cache with real data
+      clearOptimisticListingState(labId);
+      
       try {
         const confirmedListedLab = {
           ...data,
@@ -720,7 +707,9 @@ export const useListLabSSO = (options = {}) => {
         invalidateAllLabs();
       }
     },
-    onError: (error) => {
+    onError: (error, labId) => {
+      // Clear optimistic state on error
+      clearOptimisticListingState(labId);
       devLog.error('❌ Failed to list lab:', error);
     },
     ...options,
@@ -736,55 +725,46 @@ export const useListLabSSO = (options = {}) => {
 export const useListLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
   const { contractWriteFunction: listToken } = useContractWriteFunction('listToken');
   
   return useMutation({
     mutationFn: async (labId) => {
-      // Optimistic update: Mark lab as listing in cache
-      const optimisticListingLab = {
-        id: labId,
-        labId: labId,
-        isListed: false, // Not listed yet, just processing
-        isPending: true,
-        status: 'listing',
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        // Apply optimistic update
-        updateLab(labId, optimisticListingLab);
-        devLog.log('🎯 Optimistic lab listing via wallet:', labId);
-
-        const txHash = await listToken([labId]);
-        
-        devLog.log('🔍 useListLabWallet - Transaction Hash:', txHash);
-        return { hash: txHash };
-      } catch (error) {
-        // Revert optimistic update on error
-        invalidateAllLabs();
-        throw error;
-      }
+      // Set optimistic UI state immediately
+      setOptimisticListingState(labId, true, true);
+      
+      const txHash = await listToken([labId]);
+      
+      devLog.log('🔍 useListLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash, labId };
     },
     onSuccess: (result, labId) => {
-      // Use cache utilities to show transaction sent
+      // Transaction sent successfully - complete optimistic state
+      completeOptimisticListingState(labId);
+      
       try {
-        const transactionPendingLab = {
+        // Update listing status cache
+        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), true);
+        
+        const transactionCompleteLab = {
           id: labId,
           labId: labId,
           transactionHash: result.hash,
-          isPending: true, // Still pending blockchain confirmation
-          status: 'pending-listing',
+          isPending: false, // Transaction sent and completed
+          status: 'listed',
           timestamp: new Date().toISOString()
         };
 
-        updateLab(labId, transactionPendingLab);
-        devLog.log('✅ Lab listing transaction sent via wallet, awaiting blockchain confirmation');
+        updateLab(labId, transactionCompleteLab);
+        devLog.log('✅ Lab listing transaction completed successfully');
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
         invalidateAllLabs();
       }
     },
-    onError: (error) => {
+    onError: (error, labId) => {
+      // Clear optimistic state on error
+      clearOptimisticListingState(labId);
       devLog.error('❌ Failed to list lab via wallet:', error);
     },
     ...options,
@@ -798,25 +778,13 @@ export const useListLabWallet = (options = {}) => {
  */
 export const useListLab = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useListLabSSO(options);
-  const walletMutation = useListLabWallet(options);
-
-  return useMutation({
-    mutationFn: async (labId) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(labId);
-      } else {
-        return walletMutation.mutateAsync(labId);
-      }
-    },
-    onSuccess: (data, labId) => {
-      devLog.log('✅ Lab listed successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to list lab via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useListLabSSO(options);
+  } else {
+    return useListLabWallet(options);
+  }
 };
 
 /**
@@ -828,44 +796,30 @@ export const useListLab = (options = {}) => {
 export const useUnlistLabSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { setOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
   
   return useMutation({
     mutationFn: async (labId) => {
-      // Optimistic update: Mark lab as unlisted immediately in cache
-      const optimisticUnlistedLab = {
-        id: labId,
-        labId: labId,
-        isListed: false,
-        status: 'unlisted',
-        isPending: true,
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        // Apply optimistic update
-        updateLab(labId, optimisticUnlistedLab);
-        devLog.log('🎯 Optimistic lab unlisting:', { labId });
-
-        const response = await fetch('/api/contract/lab/unlistLabSSO', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labId }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to unlist lab');
-        }
-        
-        return response.json();
-      } catch (error) {
-        // Revert optimistic update on error by fetching fresh data
-        invalidateAllLabs();
-        throw error;
+      // Set optimistic UI state immediately
+      setOptimisticListingState(labId, false, true);
+      
+      const response = await fetch('/api/contract/lab/unlistLabSSO', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labId }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to unlist lab');
       }
+      
+      return response.json();
     },
     onSuccess: (data, labId) => {
-      // Use cache utilities to confirm the change
+      // Clear optimistic state and update cache with real data
+      clearOptimisticListingState(labId);
+      
       try {
         const confirmedUnlistedLab = {
           ...data,
@@ -884,7 +838,9 @@ export const useUnlistLabSSO = (options = {}) => {
         invalidateAllLabs();
       }
     },
-    onError: (error) => {
+    onError: (error, labId) => {
+      // Clear optimistic state on error
+      clearOptimisticListingState(labId);
       devLog.error('❌ Failed to unlist lab:', error);
     },
     ...options,
@@ -900,55 +856,46 @@ export const useUnlistLabSSO = (options = {}) => {
 export const useUnlistLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
   const { contractWriteFunction: unlistToken } = useContractWriteFunction('unlistToken');
   
   return useMutation({
     mutationFn: async (labId) => {
-      // Optimistic update: Mark lab as unlisting in cache
-      const optimisticUnlistingLab = {
-        id: labId,
-        labId: labId,
-        isListed: true, // Still listed until blockchain confirms
-        isPending: true,
-        status: 'unlisting',
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        // Apply optimistic update
-        updateLab(labId, optimisticUnlistingLab);
-        devLog.log('🎯 Optimistic lab unlisting via wallet:', labId);
-
-        const txHash = await unlistToken([labId]);
-        
-        devLog.log('🔍 useUnlistLabWallet - Transaction Hash:', txHash);
-        return { hash: txHash };
-      } catch (error) {
-        // Revert optimistic update on error
-        invalidateAllLabs();
-        throw error;
-      }
+      // Set optimistic UI state immediately
+      setOptimisticListingState(labId, false, true);
+      
+      const txHash = await unlistToken([labId]);
+      
+      devLog.log('🔍 useUnlistLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash, labId };
     },
     onSuccess: (result, labId) => {
-      // Use cache utilities to show transaction sent
+      // Transaction sent successfully - complete optimistic state
+      completeOptimisticListingState(labId);
+      
       try {
-        const transactionPendingLab = {
+        // Update listing status cache
+        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), false);
+        
+        const transactionCompleteLab = {
           id: labId,
           labId: labId,
           transactionHash: result.hash,
-          isPending: true, // Still pending blockchain confirmation
-          status: 'pending-unlisting',
+          isPending: false, // Transaction sent and completed
+          status: 'unlisted',
           timestamp: new Date().toISOString()
         };
 
-        updateLab(labId, transactionPendingLab);
-        devLog.log('✅ Lab unlisting transaction sent via wallet, awaiting blockchain confirmation');
+        updateLab(labId, transactionCompleteLab);
+        devLog.log('✅ Lab unlisting transaction completed successfully');
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
         invalidateAllLabs();
       }
     },
-    onError: (error) => {
+    onError: (error, labId) => {
+      // Clear optimistic state on error
+      clearOptimisticListingState(labId);
       devLog.error('❌ Failed to unlist lab via wallet:', error);
     },
     ...options,
@@ -962,25 +909,13 @@ export const useUnlistLabWallet = (options = {}) => {
  */
 export const useUnlistLab = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useUnlistLabSSO(options);
-  const walletMutation = useUnlistLabWallet(options);
-
-  return useMutation({
-    mutationFn: async (labId) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(labId);
-      } else {
-        return walletMutation.mutateAsync(labId);
-      }
-    },
-    onSuccess: (data, labId) => {
-      devLog.log('✅ Lab unlisted successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to unlist lab via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useUnlistLabSSO(options);
+  } else {
+    return useUnlistLabWallet(options);
+  }
 };
 
 // Re-export cache updates utility

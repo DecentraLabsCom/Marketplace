@@ -7,6 +7,7 @@ import {
   useAllLabs, 
   useLab,
   useOwnerOf,
+  useIsTokenListed,
   LAB_QUERY_CONFIG 
 } from './useLabAtomicQueries'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
@@ -96,16 +97,30 @@ export const useLabsForMarket = (options = {}) => {
     combine: (results) => results
   });
 
-  // Step 5: Get metadata for labs
+  // Step 5: Check listing status for all labs
+  const listingResults = useQueries({
+    queries: labIds.length > 0
+      ? labIds.map(labId => ({
+          queryKey: labQueryKeys.isTokenListed(labId),
+          queryFn: () => useIsTokenListed.queryFn(labId),
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Step 6: Get metadata for labs (only for listed labs for performance)
   const metadataResults = useQueries({
     queries: labDetailResults.length > 0
       ? labDetailResults.map((result, index) => {
           const lab = result.data;
           const metadataUri = lab?.base?.uri;
+          const isListed = listingResults[index]?.data?.isListed;
           return {
             queryKey: metadataQueryKeys.byUri(metadataUri),
             queryFn: () => useMetadata.queryFn(metadataUri),
-            enabled: !!metadataUri && result.isSuccess,
+            enabled: !!metadataUri && result.isSuccess && isListed, // Only fetch metadata for listed labs
             ...METADATA_QUERY_CONFIG,
           };
         })
@@ -113,7 +128,7 @@ export const useLabsForMarket = (options = {}) => {
     combine: (results) => results
   });
 
-  // Step 6: Extract and cache images from metadata
+  // Step 7: Extract and cache images from metadata
   const imageUrlsToCache = [];
   const labImageMap = new Map(); // Map lab index to image URLs
 
@@ -152,7 +167,7 @@ export const useLabsForMarket = (options = {}) => {
   // Remove duplicate URLs across all labs
   const uniqueImageUrls = [...new Set(imageUrlsToCache)];
 
-  // Step 7: Create image cache queries
+  // Step 8: Create image cache queries
   const imageResults = useQueries({
     queries: uniqueImageUrls.length > 0
       ? uniqueImageUrls.map(imageUrl => ({
@@ -172,6 +187,7 @@ export const useLabsForMarket = (options = {}) => {
   const isLoading = labIdsResult.isLoading || 
                    labDetailResults.some(r => r.isLoading) ||
                    ownerResults.some(r => r.isLoading) ||
+                   listingResults.some(r => r.isLoading) ||
                    metadataResults.some(r => r.isLoading) ||
                    imageResults.some(r => r.isLoading) ||
                    providerMapping.isLoading;
@@ -180,14 +196,20 @@ export const useLabsForMarket = (options = {}) => {
                    labDetailResults.some(r => r.error) ||
                    ownerResults.some(r => r.error);
 
-  // Transform data for market display
+  // Transform data for market display - Only include listed labs
   const labs = labDetailResults
-    .filter(result => result.isSuccess && result.data)
+    .filter((result, index) => {
+      const isListed = listingResults[index]?.data?.isListed;
+      return result.isSuccess && result.data && isListed;
+    })
     .map((labResult, index) => {
       const lab = labResult.data;
-      const ownerData = ownerResults[index]?.data;
+      
+      // Find the correct indices for results arrays since we filtered some labs
+      const originalIndex = labDetailResults.findIndex(r => r === labResult);
+      const ownerData = ownerResults[originalIndex]?.data;
       const ownerAddress = ownerData?.owner || ownerData;
-      const metadata = metadataResults[index]?.data;
+      const metadata = metadataResults[originalIndex]?.data;
 
       const enrichedLab = {
         id: lab.labId,
@@ -227,7 +249,7 @@ export const useLabsForMarket = (options = {}) => {
         enrichedLab.images = [...new Set(allImages)];
         
         // Add image URLs mapped to this lab
-        const labImages = labImageMap.get(index) || [];
+        const labImages = labImageMap.get(originalIndex) || [];
         if (labImages.length > 0) {
           enrichedLab.imageUrls = labImages;
           // Set primary image if not already set
@@ -317,6 +339,12 @@ export const useLabById = (labId, options = {}) => {
     enabled: !!normalizedLabId && (options.enabled !== false),
   });
 
+  // Check if lab is listed
+  const listingResult = useIsTokenListed(normalizedLabId, {
+    ...LAB_QUERY_CONFIG,
+    enabled: !!normalizedLabId && (options.enabled !== false),
+  });
+
   // Get metadata
   const metadataUri = labResult.data?.base?.uri;
   const metadataResult = useMetadata(metadataUri, {
@@ -375,11 +403,14 @@ export const useLabById = (labId, options = {}) => {
     combine: (results) => results
   });
 
-  const isLoading = labResult.isLoading || ownerResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
-  const hasErrors = labResult.error || ownerResult.error || metadataResult.error;
+  const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
+  const hasErrors = labResult.error || ownerResult.error || listingResult.error || metadataResult.error;
 
-  // Transform data
-  const lab = labResult.data ? (() => {
+  // Check if lab is listed
+  const isListed = listingResult.data?.isListed;
+
+  // Transform data - Only return lab if it's listed
+  const lab = (labResult.data && isListed) ? (() => {
     const lab = labResult.data;
     const ownerData = ownerResult.data;
     const ownerAddress = ownerData?.owner || ownerData;
@@ -487,6 +518,7 @@ export const useLabById = (labId, options = {}) => {
     refetch: () => {
       labResult.refetch();
       ownerResult.refetch();
+      listingResult.refetch();
       metadataResult.refetch();
       imageResults.forEach(r => r.refetch && r.refetch());
     }
@@ -535,6 +567,19 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       ? ownedLabIds.map(labId => ({
           queryKey: labQueryKeys.getLab(labId),
           queryFn: () => useLab.queryFn(labId),
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Get listing status for owned labs
+  const listingResults = useQueries({
+    queries: ownedLabIds.length > 0
+      ? ownedLabIds.map(labId => ({
+          queryKey: labQueryKeys.isTokenListed(labId),
+          queryFn: () => useIsTokenListed.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -617,6 +662,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const isLoading = labIdsResult.isLoading || 
                    ownerResults.some(r => r.isLoading) ||
                    labDetailResults.some(r => r.isLoading) ||
+                   listingResults.some(r => r.isLoading) ||
                    metadataResults.some(r => r.isLoading) ||
                    imageResults.some(r => r.isLoading);
 
@@ -629,12 +675,14 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     .map((labResult, index) => {
       const lab = labResult.data;
       const metadata = metadataResults[index]?.data;
+      const listingData = listingResults[index]?.data;
 
       const enrichedLab = {
         id: lab.labId,
         labId: lab.labId,
         tokenId: lab.labId,
         owner: ownerAddress, // We know the owner
+        isListed: listingData?.isListed || false, // Add listing status
         ...lab.base,
       };
 
@@ -715,6 +763,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       labIdsResult.refetch();
       ownerResults.forEach(r => r.refetch && r.refetch());
       labDetailResults.forEach(r => r.refetch && r.refetch());
+      listingResults.forEach(r => r.refetch && r.refetch());
       metadataResults.forEach(r => r.refetch && r.refetch());
       imageResults.forEach(r => r.refetch && r.refetch());
     }
@@ -751,12 +800,28 @@ export const useLabsForReservation = (options = {}) => {
     combine: (results) => results
   });
 
-  // Get lab data with IDs
+  // Step 3: Check listing status for all labs
+  const listingResults = useQueries({
+    queries: labIds.length > 0
+      ? labIds.map(labId => ({
+          queryKey: labQueryKeys.isTokenListed(labId),
+          queryFn: () => useIsTokenListed.queryFn(labId),
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Get lab data with IDs - only for listed labs
   const labsWithDetails = labDetailResults
-    .filter(result => result.isSuccess && result.data)
+    .filter((result, index) => {
+      const isListed = listingResults[index]?.data?.isListed;
+      return result.isSuccess && result.data && isListed;
+    })
     .map(result => result.data);
 
-  // Step 3: Get metadata for each lab to get names, descriptions, and images
+  // Step 4: Get metadata for each listed lab to get names, descriptions, and images
   const metadataResults = useQueries({
     queries: labsWithDetails.length > 0 
       ? labsWithDetails.map(lab => {
@@ -775,6 +840,7 @@ export const useLabsForReservation = (options = {}) => {
   // Process and combine results
   const isLoading = labIdsResult.isLoading || 
                    labDetailResults.some(r => r.isLoading) ||
+                   listingResults.some(r => r.isLoading) ||
                    metadataResults.some(r => r.isLoading);
   
   const hasErrors = labIdsResult.error || labDetailResults.some(r => r.error);
@@ -823,6 +889,7 @@ export const useLabsForReservation = (options = {}) => {
     refetch: () => {
       labIdsResult.refetch();
       labDetailResults.forEach(r => r.refetch && r.refetch());
+      listingResults.forEach(r => r.refetch && r.refetch());
       metadataResults.forEach(r => r.refetch && r.refetch());
     }
   };

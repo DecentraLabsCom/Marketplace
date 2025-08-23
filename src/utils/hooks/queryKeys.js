@@ -50,6 +50,12 @@ export const labQueryKeys = {
   tokenOfOwnerByIndex: (ownerAddress, index) => ['labs', 'tokenOfOwnerByIndex', ownerAddress, index],
   tokenURI: (labId) => ['labs', 'tokenURI', labId],
   isTokenListed: (labId) => ['labs', 'isTokenListed', labId],
+  
+  // Specialized query keys for composed hooks
+  labsForMarket: () => ['labs', 'specialized', 'market'],
+  labsForProvider: (ownerAddress) => ['labs', 'specialized', 'provider', ownerAddress],
+  labsForReservation: () => ['labs', 'specialized', 'reservation'],
+  labById: (labId) => ['labs', 'specialized', 'byId', labId],
 };
 
 // User query keys

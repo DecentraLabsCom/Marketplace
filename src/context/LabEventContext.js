@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
 
@@ -21,6 +22,7 @@ export function LabEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const queryClient = useQueryClient();
+    const { clearOptimisticListingState } = useOptimisticUI();
 
     // LabAdded event listener - simple cache invalidation
     useWatchContractEvent({
@@ -88,6 +90,9 @@ export function LabEventProvider({ children }) {
             logs.forEach(log => {
                 const labId = log.args._labId?.toString();
                 if (labId) {
+                    // Clear optimistic state - blockchain has confirmed the change
+                    clearOptimisticListingState(labId);
+                    
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });
@@ -114,6 +119,9 @@ export function LabEventProvider({ children }) {
             logs.forEach(log => {
                 const labId = log.args._labId?.toString();
                 if (labId) {
+                    // Clear optimistic state - blockchain has confirmed the change
+                    clearOptimisticListingState(labId);
+                    
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });

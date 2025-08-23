@@ -9,6 +9,7 @@ import { UserEventProvider } from '@/context/UserEventContext'
 import { LabEventProvider } from '@/context/LabEventContext'
 import { BookingEventProvider } from '@/context/BookingEventContext'
 import { NotificationProvider } from '@/context/NotificationContext'
+import { OptimisticUIProvider } from '@/context/OptimisticUIContext'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import GlobalNotificationStack from '@/components/layout/GlobalNotificationStack'
@@ -58,27 +59,29 @@ export default function RootLayout({ children }) {
         <ClientQueryProvider>
           <ClientWagmiProvider>
             <NotificationProvider>
-              <UserData>
-                <LabTokenProvider>
-                  <UserEventProvider>
-                    <LabEventProvider>
-                      <BookingEventProvider>
-                        <header className="sticky top-0 z-50">
-                          <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
-                            <Navbar />
-                          </ClientOnly>
-                        </header>
-                        <main className="grow">
-                            {children}
-                        </main>
-                        <Footer />
-                        <GlobalNotificationStack />
-                        <DataRefreshIndicator />
-                      </BookingEventProvider>
-                    </LabEventProvider>
-                  </UserEventProvider>
-                </LabTokenProvider>
-              </UserData>
+              <OptimisticUIProvider>
+                <UserData>
+                  <LabTokenProvider>
+                    <UserEventProvider>
+                      <LabEventProvider>
+                        <BookingEventProvider>
+                          <header className="sticky top-0 z-50">
+                            <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
+                              <Navbar />
+                            </ClientOnly>
+                          </header>
+                          <main className="grow">
+                              {children}
+                          </main>
+                          <Footer />
+                          <GlobalNotificationStack />
+                          <DataRefreshIndicator />
+                        </BookingEventProvider>
+                      </LabEventProvider>
+                    </UserEventProvider>
+                  </LabTokenProvider>
+                </UserData>
+              </OptimisticUIProvider>
             </NotificationProvider>
           </ClientWagmiProvider>
         </ClientQueryProvider>

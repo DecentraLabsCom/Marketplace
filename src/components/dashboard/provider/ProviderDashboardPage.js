@@ -8,9 +8,9 @@ import {
   useUpdateLab, 
   useDeleteLab,
   useListLab,
-  useUnlistLab
+  useUnlistLab,
+  useLabsForProvider
 } from '@/hooks/lab/useLabs'
-import { useLabsForProvider } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
 import { useRequestFunds } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData } from '@/hooks/provider/useProvider'
@@ -356,8 +356,6 @@ export default function ProviderDashboard() {
   // Handle listing a lab using React Query mutation
   const handleList = async (labId) => {
     try {
-      addTemporaryNotification('pending', '⏳ Listing lab...');
-
       // 🚀 Use React Query mutation for lab listing
       await listLabMutation.mutateAsync(labId);
       

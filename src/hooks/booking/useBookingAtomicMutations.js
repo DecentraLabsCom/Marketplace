@@ -151,25 +151,13 @@ export const useReservationRequestSSO = (options = {}) => {
  */
 export const useReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useReservationRequestSSO(options);
-  const walletMutation = useReservationRequestWallet(options);
-
-  return useMutation({
-    mutationFn: async (requestData) => {
-      if (isSSO) {
-        return await ssoMutation.mutateAsync(requestData);
-      } else {
-        return await walletMutation.mutateAsync(requestData);
-      }
-    },
-    onSuccess: (data, variables) => {
-      devLog.log('✅ Reservation request created successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to create reservation request via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useReservationRequestSSO(options);
+  } else {
+    return useReservationRequestWallet(options);
+  }
 };
 
 /**
@@ -275,25 +263,13 @@ export const useCancelReservationRequestWallet = (options = {}) => {
  */
 export const useCancelReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useCancelReservationRequestSSO(options);
-  const walletMutation = useCancelReservationRequestWallet(options);
-
-  return useMutation({
-    mutationFn: async (reservationKey) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(reservationKey);
-      } else {
-        return walletMutation.mutateAsync(reservationKey);
-      }
-    },
-    onSuccess: (data, reservationKey) => {
-      devLog.log('✅ Reservation request cancelled successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to cancel reservation request via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useCancelReservationRequestSSO(options);
+  } else {
+    return useCancelReservationRequestWallet(options);
+  }
 };
 
 /**
@@ -371,25 +347,13 @@ export const useConfirmReservationRequestWallet = (options = {}) => {
  */
 export const useConfirmReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useConfirmReservationRequestSSO(options);
-  const walletMutation = useConfirmReservationRequestWallet(options);
-
-  return useMutation({
-    mutationFn: async (reservationKey) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(reservationKey);
-      } else {
-        return walletMutation.mutateAsync(reservationKey);
-      }
-    },
-    onSuccess: (data, reservationKey) => {
-      devLog.log('✅ Reservation request confirmed successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to confirm reservation request via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useConfirmReservationRequestSSO(options);
+  } else {
+    return useConfirmReservationRequestWallet(options);
+  }
 };
 
 /**
@@ -467,25 +431,13 @@ export const useDenyReservationRequestWallet = (options = {}) => {
  */
 export const useDenyReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useDenyReservationRequestSSO(options);
-  const walletMutation = useDenyReservationRequestWallet(options);
-
-  return useMutation({
-    mutationFn: async (reservationKey) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(reservationKey);
-      } else {
-        return walletMutation.mutateAsync(reservationKey);
-      }
-    },
-    onSuccess: (data, reservationKey) => {
-      devLog.log('✅ Reservation request denied successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to deny reservation request via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useDenyReservationRequestSSO(options);
+  } else {
+    return useDenyReservationRequestWallet(options);
+  }
 };
 
 /**
@@ -585,25 +537,13 @@ export const useCancelBookingWallet = (options = {}) => {
  */
 export const useCancelBooking = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useCancelBookingSSO(options);
-  const walletMutation = useCancelBookingWallet(options);
-
-  return useMutation({
-    mutationFn: async (reservationKey) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(reservationKey);
-      } else {
-        return walletMutation.mutateAsync(reservationKey);
-      }
-    },
-    onSuccess: (data, reservationKey) => {
-      devLog.log('✅ Booking cancelled successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to cancel booking via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useCancelBookingSSO(options);
+  } else {
+    return useCancelBookingWallet(options);
+  }
 };
 
 /**
@@ -681,25 +621,13 @@ export const useRequestFundsWallet = (options = {}) => {
  */
 export const useRequestFunds = (options = {}) => {
   const { isSSO } = useUser();
-  const ssoMutation = useRequestFundsSSO(options);
-  const walletMutation = useRequestFundsWallet(options);
-
-  return useMutation({
-    mutationFn: async () => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync();
-      } else {
-        return walletMutation.mutateAsync();
-      }
-    },
-    onSuccess: (data) => {
-      devLog.log('✅ Funds requested successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to request funds via unified hook:', error);
-    },
-    ...options,
-  });
+  
+  // Return the appropriate mutation directly to preserve optimistic updates
+  if (isSSO) {
+    return useRequestFundsSSO(options);
+  } else {
+    return useRequestFundsWallet(options);
+  }
 };
 
 /**
