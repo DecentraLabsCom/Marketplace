@@ -7,7 +7,7 @@ import PropTypes from 'prop-types'
 import { 
   useCreateBookingMutation,
   useBookingsForCalendar, 
-  useLabBookingsComposed 
+  useLabBookingsDashboard 
 } from '@/hooks/booking/useBookings'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import BookingForm from '@/components/reservation/BookingForm'
@@ -61,7 +61,7 @@ export default function LabReservationWizard({
   const { 
     data: labBookingsData, 
     isLoading: labBookingsLoading 
-  } = useLabBookingsComposed(lab?.id, true, {
+  } = useLabBookingsDashboard(lab?.id, true, {
     enabled: !!lab?.id
   });
   const labBookings = useMemo(() => 

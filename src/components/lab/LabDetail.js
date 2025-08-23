@@ -22,11 +22,7 @@ export default function LabDetail({ id, provider }) {
     isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsComposed({
-    staleTime: 30 * 60 * 1000, // 30 minutes - blockchain data doesn't change frequently
-    refetchOnWindowFocus: false, // No automatic refetch
-    refetchInterval: false, // Disable automatic periodic refetch
-  });
+  } = useAllLabsComposed();
   const labs = labsData?.labs || [];
   const { formatPrice } = useLabToken();
   const router = useRouter();

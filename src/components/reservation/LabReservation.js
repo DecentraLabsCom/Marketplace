@@ -8,7 +8,7 @@ import { useAllLabsComposed } from '@/hooks/lab/useLabs'
 import { 
   useReservationRequest, 
   useBookingCacheUpdates,
-  useLabBookingsComposed 
+  useLabBookingsDashboard 
 } from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/context/LabTokenContext'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
@@ -62,7 +62,7 @@ export default function LabReservation({ id }) {
     data: labBookingsData,
     isLoading: labBookingsLoading,
     error: labBookingsError
-  } = useLabBookingsComposed(selectedLab?.id, {
+  } = useLabBookingsDashboard(selectedLab?.id, {
     queryOptions: {
       enabled: !!selectedLab?.id
     }

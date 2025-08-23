@@ -11,7 +11,7 @@ import {
   useUnlistLab
 } from '@/hooks/lab/useLabs'
 import { useAllLabsComposed } from '@/hooks/lab/useLabs'
-import { useLabBookingsComposed } from '@/hooks/booking/useBookings'
+import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
 import { useRequestFunds } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
@@ -49,15 +49,18 @@ export default function ProviderDashboard() {
     }
     
     try {
-      // Filter labs directly instead of using extractLabsByOwner
-      return labs.filter(lab => 
-        lab.owner && lab.owner.toLowerCase() === address.toLowerCase()
-      );
+      // Filter labs directly by owner address
+      const filtered = labs.filter(lab => {
+        const labOwner = lab.owner || lab.ownerAddress;
+        return labOwner && labOwner.toLowerCase() === address.toLowerCase();
+      });
+      
+      return filtered;
     } catch (error) {
       console.error('Error extracting owned labs:', error);
       return [];
     }
-  }, [labs, address]); // Use labs directly instead of allLabsResult
+  }, [labs, address]);
 
   // Legacy compatibility - derive ownedLabIds from owned labs
   const ownedLabIds = useMemo(() => 
@@ -91,7 +94,7 @@ export default function ProviderDashboard() {
   const { 
     data: labBookingsData, 
     isError: bookingsError
-  } = useLabBookingsComposed(selectedLabId, {
+  } = useLabBookingsDashboard(selectedLabId, {
     queryOptions: {
       enabled: !!selectedLabId
     }

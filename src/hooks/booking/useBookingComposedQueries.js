@@ -2,6 +2,10 @@
  * Composed React Query Hooks for Booking/Reservation-related operations
  * These hooks use useQueries to orchestrate multiple related atomic hooks while maintaining
  * React Query's caching, error handling, and retry capabilities
+ * 
+ * Main hooks:
+ * - useUserBookingsDashboard: User bookings with enriched details, analytics, and optional features for user dashboard
+ * - useLabBookingsDashboard: Lab bookings with enriched details and analytics for provider dashboard  
  */
 import { useQueries } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -15,8 +19,8 @@ import {
 } from './useBookingAtomicQueries'
 import { useLab, useOwnerOf, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
-import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUserAtomicQueries' // ✅ Import provider hooks
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
+import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -58,22 +62,164 @@ const processMetadataDocs = (metadataData) => {
 };
 
 /**
- * Composed hook for getting user bookings with enriched details
- * Replicates getUserBookings service as a React Query hook
- * Orchestrates: reservation keys → booking details → optional lab details
+ * Helper function to calculate booking summary analytics
+ * @param {Array} bookings - Array of booking objects
+ * @param {Object} options - Configuration options
+ * @param {boolean} [options.includeUpcoming=true] - Whether to include upcoming bookings in summary
+ * @param {boolean} [options.includeCancelled=true] - Whether to include cancelled bookings in summary
+ * @returns {Object} Summary object with booking counts
+ */
+const calculateBookingSummary = (bookings = [], options = {}) => {
+  const {
+    includeUpcoming = true,
+    includeCancelled = true
+  } = options;
+
+  if (!Array.isArray(bookings) || bookings.length === 0) {
+    return {
+      totalBookings: 0,
+      activeBookings: 0,
+      upcomingBookings: 0,
+      completedBookings: 0,
+      cancelledBookings: 0,
+      pendingBookings: 0
+    };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  
+  const summary = {
+    totalBookings: bookings.length,
+    activeBookings: 0,
+    upcomingBookings: 0,
+    completedBookings: 0,
+    cancelledBookings: 0,
+    pendingBookings: 0  // Add pending bookings counter
+  };
+
+  bookings.forEach(booking => {
+    const statusCategory = booking.statusCategory;
+    const status = parseInt(booking.status); // Ensure status is a number
+    const start = booking.start || booking.startTime;
+    const end = booking.end || booking.endTime;
+
+    // Debug log for each booking
+    devLog.log('📊 Processing booking for summary:', {
+      reservationKey: booking.reservationKey || booking.id,
+      status: booking.status,
+      numericStatus: status,
+      statusCategory,
+      start,
+      end,
+      now
+    });
+
+    // Use statusCategory if available, otherwise derive from status and timing
+    if (statusCategory) {
+      switch (statusCategory) {
+        case 'active':
+          summary.activeBookings++;
+          break;
+        case 'upcoming':
+          if (includeUpcoming) summary.upcomingBookings++;
+          break;
+        case 'completed':
+          summary.completedBookings++;
+          break;
+        case 'cancelled':
+          if (includeCancelled) summary.cancelledBookings++;
+          break;
+        case 'pending':
+          summary.pendingBookings++;
+          break;
+      }
+    } else {
+      // Fallback to manual calculation based on contract status
+      if (status === 4) {
+        if (includeCancelled) summary.cancelledBookings++;
+      } else if (status === 0) {
+        // PENDING - always count as pending regardless of timing
+        summary.pendingBookings++;
+      } else if (status === 2 || status === 3) {
+        // USED or COLLECTED - always completed
+        summary.completedBookings++;
+      } else if (status === 1) {
+        // CONFIRMED/BOOKED - use timing logic
+        if (start && end) {
+          if (now >= start && now <= end) {
+            summary.activeBookings++;
+          } else if (now < start) {
+            if (includeUpcoming) summary.upcomingBookings++;
+          } else {
+            summary.completedBookings++;
+          }
+        } else {
+          // No timing info, assume upcoming
+          if (includeUpcoming) summary.upcomingBookings++;
+        }
+      } else {
+        // Unknown status - use timing logic as fallback
+        if (start && end) {
+          if (now >= start && now <= end) {
+            summary.activeBookings++;
+          } else if (now < start) {
+            if (includeUpcoming) summary.upcomingBookings++;
+          } else {
+            summary.completedBookings++;
+          }
+        }
+      }
+    }
+  });
+
+  // Debug log final summary
+  devLog.log('📊 Final booking summary calculated:', {
+    totalBookings: summary.totalBookings,
+    pendingBookings: summary.pendingBookings,
+    upcomingBookings: summary.upcomingBookings,
+    activeBookings: summary.activeBookings,
+    completedBookings: summary.completedBookings,
+    cancelledBookings: summary.cancelledBookings,
+    options
+  });
+
+  return summary;
+};
+
+/**
+ * Helper function to convert status number to text
+ * @param {number} status - Status number from contract
+ * @returns {string} Human-readable status
+ */
+function getReservationStatusText(status) {
+  switch (status) {
+    case 0: return 'Pending';
+    case 1: return 'Confirmed';
+    case 2: return 'Active'; 
+    case 3: return 'Completed';
+    case 4: return 'Cancelled';
+    default: return 'Unknown';
+  }
+}
+
+/**
+ * Composed dashboard hook for getting user bookings with enriched details and comprehensive analytics
+ * Orchestrates: reservation count → reservation keys → booking details → optional lab details → analytics
+ * Provides booking summary analytics, recent activity, and status categorization for dashboard components
  * @param {string} userAddress - User wallet address
  * @param {Object} options - Configuration options
- * @param {boolean} options.includeLabDetails - Whether to fetch lab details for each booking
- * @param {Object} options.queryOptions - Override options for base booking queries only
- *                                        Internal queries use optimized configurations
- * @returns {Object} React Query result with enriched booking data
+ * @param {boolean} [options.includeLabDetails=false] - Whether to fetch lab details for each booking
+ * @param {boolean} [options.includeRecentActivity=false] - Whether to calculate recent activity summary
+ * @param {number} [options.limit] - Maximum number of reservations to fetch (unlimited if not specified)
+ * @param {Object} [options.queryOptions] - Override options for base booking queries only
+ * @returns {Object} React Query result with enriched booking data, analytics summary, and optional recent activity
  */
-export const useUserBookingsComposed = (userAddress, { 
-  includeLabDetails = false, 
+export const useUserBookingsDashboard = (userAddress, { 
+  includeLabDetails = false,
+  includeRecentActivity = false,
+  limit,
   queryOptions = {} 
-} = {}) => {
-  
-  // Step 1: Get user reservation count using atomic hook
+} = {}) => {  // Step 1: Get user reservation count using atomic hook
   const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
     // Only allow override of non-critical options like enabled, meta, etc.
@@ -81,11 +227,12 @@ export const useUserBookingsComposed = (userAddress, {
     meta: queryOptions.meta,
   });
   
-  // Extract reservation count
-  const reservationCount = reservationCountResult.data?.count || 0;
+  // Extract reservation count and apply limit if specified
+  const totalReservationCount = reservationCountResult.data?.count || 0;
+  const reservationCount = limit ? Math.min(totalReservationCount, limit) : totalReservationCount;
   const hasReservations = reservationCount > 0;
 
-  // Step 2: Get reservation keys for each index
+  // Step 2: Get reservation keys for each index (limited if specified)
   const reservationKeyResults = useQueries({
     queries: hasReservations 
       ? Array.from({ length: reservationCount }, (_, index) => ({
@@ -142,9 +289,25 @@ export const useUserBookingsComposed = (userAddress, {
 
     // Derive status category for analytics/filters (keep numeric status for business rules)
     let statusCategory = 'unknown';
-    if (statusNumeric === 4 || statusNumeric === '4') {
+    const numericStatus = parseInt(statusNumeric);
+    
+    if (numericStatus === 4 || statusNumeric === '4') {
       statusCategory = 'cancelled';
+    } else if (numericStatus === 0 || statusNumeric === '0') {
+      statusCategory = 'pending';  // Always pending regardless of timing
+    } else if (numericStatus === 2 || numericStatus === 3) {
+      statusCategory = 'completed';  // USED or COLLECTED
+    } else if (numericStatus === 1) {
+      // CONFIRMED/BOOKED - use timing logic
+      if (startTime && endTime) {
+        if (now < startTime) statusCategory = 'upcoming';
+        else if (now >= startTime && now <= endTime) statusCategory = 'active';
+        else statusCategory = 'completed';
+      } else {
+        statusCategory = 'upcoming';  // No timing, assume upcoming
+      }
     } else if (startTime && endTime) {
+      // Unknown status - fallback to temporal logic
       if (now < startTime) statusCategory = 'upcoming';
       else if (now >= startTime && now <= endTime) statusCategory = 'active';
       else statusCategory = 'completed';
@@ -171,7 +334,7 @@ export const useUserBookingsComposed = (userAddress, {
     booking.labId !== undefined && booking.labId !== null
   );
 
-  // Step 3: Get lab details for each booking if requested
+  // Step 5: Get lab details for each booking if requested
   const labDetailsResults = useQueries({
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
@@ -185,7 +348,7 @@ export const useUserBookingsComposed = (userAddress, {
     combine: (results) => results
   });
 
-  // Step 4: Get lab metadata for enriched lab details (if lab details are included)
+  // Step 5: Get lab metadata for enriched lab details (if lab details are included)
   const labMetadataResults = useQueries({
     queries: (includeLabDetails && labDetailsResults.length > 0) 
       ? labDetailsResults.map((labResult, index) => {
@@ -202,7 +365,7 @@ export const useUserBookingsComposed = (userAddress, {
     combine: (results) => results
   });
 
-  // Step 5: Get lab owners for provider mapping (if lab details are included)
+  // Step 6: Get lab owners for provider mapping (if lab details are included)
   const labOwnerResults = useQueries({
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
@@ -215,10 +378,9 @@ export const useUserBookingsComposed = (userAddress, {
     combine: (results) => results
   });
 
-  // Step 6: Get providers data for provider name mapping (only when lab details are included)
-  const providersResult = useGetLabProvidersQuery({
-    ...USER_QUERY_CONFIG, // ✅ Using shared configuration
-    enabled: includeLabDetails, // Only fetch when lab details are needed
+  // Step 7: Provider mapping utility hook
+  const providerMapping = useProviderMapping({
+    enabled: includeLabDetails // Only fetch when lab details are needed
   });
 
   // Process and combine all results
@@ -228,7 +390,7 @@ export const useUserBookingsComposed = (userAddress, {
                    (includeLabDetails && labDetailsResults.some(result => result.isLoading)) ||
                    (includeLabDetails && labMetadataResults.some(result => result.isLoading)) ||
                    (includeLabDetails && labOwnerResults.some(result => result.isLoading)) ||
-                   (includeLabDetails && providersResult.isLoading);
+                   (includeLabDetails && providerMapping.isLoading);
 
   const baseErrors = reservationCountResult.error ? [reservationCountResult.error] : [];
   const keyErrors = reservationKeyResults.filter(result => result.error)
@@ -241,7 +403,7 @@ export const useUserBookingsComposed = (userAddress, {
                                           .map(result => result.error);
   const ownerErrors = labOwnerResults.filter(result => result.error)
                                     .map(result => result.error);
-  const providerErrors = providersResult.error ? [providersResult.error] : [];
+  const providerErrors = providerMapping.error ? [providerMapping.error] : [];
   
   const hasErrors = baseErrors.length > 0;
   const hasPartialErrors = keyErrors.length > 0 || bookingErrors.length > 0 || labErrors.length > 0 || metadataErrors.length > 0 || ownerErrors.length > 0 || providerErrors.length > 0;
@@ -282,43 +444,13 @@ export const useUserBookingsComposed = (userAddress, {
           enrichedOwner: enrichedLabDetails.owner
         });
 
-        // Add provider name mapping if provider data is available
+        // Add provider name mapping using utility hook
         const labOwner = enrichedLabDetails.owner;
+        const providerInfo = providerMapping.mapOwnerToProvider(labOwner);
         
-        if (providersResult.data?.providers && labOwner) {
-          devLog.log('🔍 Provider mapping debug:', {
-            providersCount: providersResult.data.providers.length,
-            labOwner: labOwner,
-            providers: providersResult.data.providers.map(p => ({ account: p.account, name: p.name }))
-          });
-          
-          const matchingProvider = providersResult.data.providers.find(
-            provider => provider.account?.toLowerCase() === labOwner.toLowerCase()
-          );
-          
-          devLog.log('🎯 Provider match result:', {
-            matchingProvider,
-            labOwner: labOwner
-          });
-          
-          if (matchingProvider) {
-            enrichedLabDetails.providerName = matchingProvider.name;
-            enrichedLabDetails.providerInfo = {
-              name: matchingProvider.name,
-              email: matchingProvider.email,
-              country: matchingProvider.country,
-              account: matchingProvider.account
-            };
-          }
-        } else {
-          devLog.log('⚠️ Provider mapping skipped:', {
-            hasProviders: !!providersResult.data?.providers,
-            providersCount: providersResult.data?.providers?.length || 0,
-            hasOwner: !!labOwner,
-            labOwner: labOwner,
-            ownerData: ownerData,
-            enrichedLabDetails: enrichedLabDetails
-          });
+        if (providerInfo) {
+          enrichedLabDetails.providerName = providerInfo.name;
+          enrichedLabDetails.providerInfo = providerInfo;
         }
         
         // ✅ Create a properly formatted lab object for components
@@ -357,20 +489,89 @@ export const useUserBookingsComposed = (userAddress, {
     return booking;
   });
 
-  // Calculate aggregates
-  const aggregates = {
-    totalBookings: enrichedBookings.length,
-    activeBookings: enrichedBookings.filter(b => b.statusCategory === 'active').length,
-    completedBookings: enrichedBookings.filter(b => b.statusCategory === 'completed').length,
-    cancelledBookings: enrichedBookings.filter(b => b.statusCategory === 'cancelled').length,
-  };
+  // Calculate aggregates using utility function
+  const aggregates = calculateBookingSummary(enrichedBookings);
+
+  // Calculate recent activity if requested (optional feature)
+  const recentActivity = useMemo(() => {
+    if (!includeRecentActivity || !enrichedBookings.length) {
+      return [];
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
+    const activities = [];
+
+    enrichedBookings.forEach(booking => {
+      const start = booking.start || booking.startTime;
+      const end = booking.end || booking.endTime;
+      const status = parseInt(booking.status) || 0;
+
+      // Skip bookings with invalid timestamps
+      if (!start || !end || isNaN(start) || isNaN(end) || start <= 0 || end <= 0) {
+        return;
+      }
+
+      // Add to recent activity (for recent 30 days)
+      if (start > thirtyDaysAgo) {
+        let action = 'Unknown';
+        if (status === 4) action = 'Cancelled';
+        else if (status === 3) action = 'Completed';
+        else if (status === 1 && start <= now && now <= end) action = 'Active';
+        else if (status === 1 && start > now) action = 'Upcoming';
+        else if (status === 0) action = 'Pending';
+
+        // Safely format date
+        try {
+          const date = new Date(start * 1000);
+          const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+          
+          activities.push({
+            action,
+            labId: booking.labId,
+            date: formattedDate,
+            status: getReservationStatusText(status)
+          });
+        } catch (error) {
+          devLog.warn('⚠️ Error formatting date for activity:', error);
+        }
+      }
+    });
+
+    return activities.slice(0, 5); // Keep only top 5
+  }, [includeRecentActivity, enrichedBookings]);
+
+  // Create summary object with analytics and optional recent activity
+  const summary = useMemo(() => {
+    const result = {
+      ...aggregates,
+      totalBookings: totalReservationCount, // Use total count, not limited count
+      ...(includeRecentActivity && { recentActivity })
+    };
+
+    devLog.log('📊 useUserBookingsDashboard - Summary calculated:', {
+      result,
+      includeRecentActivity,
+      totalReservationCount,
+      limitedCount: reservationCount
+    });
+
+    return result;
+  }, [aggregates, totalReservationCount, includeRecentActivity, recentActivity, reservationCount]);
 
   return {
     // Data
     data: {
       reservationKeys,
       bookings: enrichedBookings,
+      // Include individual analytics for backward compatibility
       ...aggregates,
+      // Include summary object with analytics and optional recent activity
+      summary,
+      // Include metadata for complete compatibility
+      total: totalReservationCount,
+      fetched: enrichedBookings.length,
+      userAddress,
     },
     
     // Status
@@ -406,27 +607,28 @@ export const useUserBookingsComposed = (userAddress, {
       labDetailsResults.forEach(result => result.refetch && result.refetch());
       labMetadataResults.forEach(result => result.refetch && result.refetch());
       labOwnerResults.forEach(result => result.refetch && result.refetch());
-      if (includeLabDetails) providersResult.refetch();
+      if (includeLabDetails) providerMapping.providersResult?.refetch();
     }
   };
 };
 
 /**
- * Composed hook for getting lab bookings with enriched data
+ * Dashboard-focused hook for getting lab bookings with enriched data and analytics
  * Orchestrates: lab reservations count → reservation keys → reservation details → status enrichment
+ * Provides booking summary analytics and user details for provider dashboard components
  * @param {string|number} labId - Lab ID
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeUserDetails - Whether to fetch user details for each booking
  * @param {Object} options.queryOptions - Additional react-query options
- * @returns {Object} React Query result with enriched lab booking data
+ * @returns {Object} React Query result with enriched lab booking data and analytics summary
  */
-export const useLabBookingsComposed = (labId, { 
+export const useLabBookingsDashboard = (labId, { 
   includeUserDetails = false, 
   queryOptions = {} 
 } = {}) => {
   
   // Debug log for input parameters
-  devLog.log('📅 useLabBookingsComposed called with:', {
+  devLog.log('📅 useLabBookingsDashboard called with:', {
     labId,
     includeUserDetails,
     queryOptions
@@ -568,26 +770,22 @@ export const useLabBookingsComposed = (labId, {
     }))
   });
 
-  // Calculate aggregates using contract status
-  const aggregates = {
-    totalBookings: processedBookings.length,
+  // Calculate aggregates using utility function 
+  const aggregates = calculateBookingSummary(processedBookings, {
+    includeUpcoming: true,
+    includeCancelled: true
+  });
+
+  // Add lab-specific status aggregates
+  const labSpecificAggregates = {
     pendingBookings: processedBookings.filter(b => b.status === 0).length,       // PENDING
     confirmedBookings: processedBookings.filter(b => b.status === 1).length,     // BOOKED/CONFIRMED
     usedBookings: processedBookings.filter(b => b.status === 2).length,          // USED
     collectedBookings: processedBookings.filter(b => b.status === 3).length,     // COLLECTED
-    cancelledBookings: processedBookings.filter(b => b.status === 4).length,     // CANCELLED
-    
-    // Legacy aggregates for backward compatibility (using temporal logic)
-    activeBookings: processedBookings.filter(b => {
-      const now = Math.floor(Date.now() / 1000);
-      return b.status === 1 && now >= b.start && now <= b.end;
-    }).length,
-    completedBookings: processedBookings.filter(b => b.status === 2 || b.status === 3).length,
-    upcomingBookings: processedBookings.filter(b => {
-      const now = Math.floor(Date.now() / 1000);
-      return (b.status === 0 || b.status === 1) && now < b.start;
-    }).length,
   };
+
+  // Combine standard and lab-specific aggregates
+  const combinedAggregates = { ...aggregates, ...labSpecificAggregates };
 
   // Status calculation
   const isLoading = reservationCountResult.isLoading || 
@@ -607,7 +805,7 @@ export const useLabBookingsComposed = (labId, {
     data: {
       labId,
       bookings: processedBookings,
-      ...aggregates,
+      ...combinedAggregates,
     },
     
     // Status
@@ -644,7 +842,7 @@ export const useLabBookingsComposed = (labId, {
 
 /**
  * Cache extraction helper for finding a specific booking from user bookings
- * @param {Object} userBookingsResult - Result from useUserBookingsComposed
+ * @param {Object} userBookingsResult - Result from useUserBookingsDashboard
  * @param {string} reservationKey - Reservation key to find
  * @returns {Object|null} Booking data if found, null otherwise
  */
@@ -705,247 +903,6 @@ export const extractCompletedBookings = (bookingsResult) => {
 export const extractCancelledBookings = (bookingsResult) => {
   return extractBookingsByStatus(bookingsResult, 'cancelled');
 };
-
-/**
- * Composed hook for getting complete user reservations with full details
- * Orchestrates: reservationsOf + reservationKeyOfUserByIndex + getReservation
- * @param {string} userAddress - User wallet address
- * @param {Object} options - Configuration options  
- * @param {number} [options.limit=20] - Maximum number of reservations to fetch
- * @param {Object} [options.queryOptions] - Override options for base queries
- * @returns {Object} React Query result with complete user reservations
- */
-export const useUserReservationsComplete = (userAddress, { 
-  limit = 20, 
-  queryOptions = {} 
-} = {}) => {
-  
-  // Step 1: Get total count of reservations using atomic hook
-  const reservationCountResult = useReservationsOf(userAddress, {
-    ...BOOKING_QUERY_CONFIG,
-    enabled: !!userAddress && (queryOptions.enabled !== false),
-    meta: queryOptions.meta,
-  });
-  
-  const totalCount = reservationCountResult.data?.count || 0;
-  const reservationsToFetch = Math.min(totalCount, limit);
-  const hasReservations = reservationsToFetch > 0;
-
-  // Step 2: Get reservation keys for the user (limited)
-  const reservationKeyResults = useQueries({
-    queries: hasReservations 
-      ? Array.from({ length: reservationsToFetch }, (_, index) => ({
-          queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index),
-          ...BOOKING_QUERY_CONFIG,
-          enabled: !!userAddress && totalCount > 0,
-        }))
-      : [],
-    combine: (results) => {
-      const isLoading = results.some(result => result.isLoading);
-      const isError = results.some(result => result.isError);
-      const keys = results
-        .filter(result => result.data && !result.isError)
-        .map(result => result.data.reservationKey)
-        .filter(Boolean);
-      
-      return { isLoading, isError, keys, results };
-    }
-  });
-
-  // Step 3: Get complete reservation details for each key
-  const reservationDetailResults = useQueries({
-    queries: reservationKeyResults.keys.map(key => ({
-      queryKey: bookingQueryKeys.byReservationKey(key),
-      queryFn: () => useReservation.queryFn(key),
-      ...BOOKING_QUERY_CONFIG,
-      enabled: !!key,
-    })),
-    combine: (results) => {
-      const isLoading = results.some(result => result.isLoading);
-      const isError = results.some(result => result.isError);
-      const reservations = results
-        .filter(result => result.data && !result.isError)
-        .map((result, index) => {
-          // Extract reservation data from the nested structure
-          const reservationData = result.data?.reservation || result.data;
-          
-          // Safely parse timestamps with validation
-          const parseTimestamp = (timestamp) => {
-            try {
-              const parsed = parseInt(timestamp);
-              if (isNaN(parsed) || parsed <= 0) {
-                devLog.warn('⚠️ Invalid timestamp received:', timestamp);
-                return null;
-              }
-              const date = new Date(parsed * 1000);
-              if (isNaN(date.getTime())) {
-                devLog.warn('⚠️ Invalid date from timestamp:', parsed);
-                return null;
-              }
-              return date.toISOString();
-            } catch (error) {
-              devLog.error('❌ Error parsing timestamp:', timestamp, error);
-              return null;
-            }
-          };
-
-          const startDate = parseTimestamp(reservationData.start);
-          const endDate = parseTimestamp(reservationData.end);
-          
-          return {
-            ...reservationData,
-            reservationKey: reservationKeyResults.keys[index],
-            // Helper fields for frontend with safe timestamp conversion
-            startDate: startDate || new Date().toISOString(), // Fallback to current date
-            endDate: endDate || new Date().toISOString(), // Fallback to current date
-            statusText: getReservationStatusText(parseInt(reservationData.status) || 0),
-          };
-        });
-      
-      return { isLoading, isError, reservations, results };
-    }
-  });
-
-  // Combine loading states
-  const isLoading = reservationCountResult.isLoading || 
-                   reservationKeyResults.isLoading || 
-                   reservationDetailResults.isLoading;
-  
-  const isError = reservationCountResult.isError || 
-                  reservationKeyResults.isError || 
-                  reservationDetailResults.isError;
-
-  // Calculate booking summary analytics from complete reservation data
-  const summary = useMemo(() => {
-    const reservations = reservationDetailResults.reservations;
-    
-    if (!reservations.length) {
-      devLog.log('📊 useUserReservationsComplete - No reservations found, returning zeros');
-      return {
-        totalBookings: totalCount,
-        activeBookings: 0,
-        upcomingBookings: 0,
-        completedBookings: 0,
-        pendingBookings: 0,
-        recentActivity: []
-      };
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    let activeBookings = 0;
-    let upcomingBookings = 0;
-    let completedBookings = 0;
-    let pendingBookings = 0;
-    const activities = [];
-
-    reservations.forEach(reservation => {
-      // Safely parse timestamps with validation
-      const start = parseInt(reservation.start);
-      const end = parseInt(reservation.end);
-      const status = parseInt(reservation.status) || 0;
-
-      // Skip reservations with invalid timestamps
-      if (isNaN(start) || isNaN(end) || start <= 0 || end <= 0) {
-        devLog.warn('⚠️ Skipping reservation with invalid timestamps:', {
-          reservationKey: reservation.reservationKey,
-          start: reservation.start,
-          end: reservation.end
-        });
-        return;
-      }
-
-      // Add to recent activity (for recent 30 days)
-      const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
-      if (start > thirtyDaysAgo) {
-        let action = 'Unknown';
-        if (status === 4) action = 'Cancelled';
-        else if (status === 3) action = 'Completed';
-        else if (status === 1 && start <= now && now <= end) action = 'Active';
-        else if (status === 1 && start > now) action = 'Upcoming';
-        else if (status === 0) action = 'Pending';
-
-        // Safely format date
-        try {
-          const date = new Date(start * 1000);
-          const formattedDate = isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
-          
-          activities.push({
-            action,
-            labId: reservation.labId,
-            date: formattedDate,
-            status: reservation.statusText
-          });
-        } catch (error) {
-          devLog.warn('⚠️ Error formatting date for activity:', error);
-        }
-      }
-
-      // Count by status and timing (excluding cancelled bookings)
-      if (status === 3) {
-        completedBookings++;
-      } else if (status === 0) {
-        pendingBookings++;
-      } else if (status === 1) {
-        if (start <= now && now <= end) {
-          activeBookings++;
-        } else if (start > now) {
-          upcomingBookings++;
-        } else if (end < now) {
-          completedBookings++; // Past confirmed booking
-        }
-      }
-      // Note: Status 4 (cancelled) bookings are ignored
-    });
-
-    const result = {
-      totalBookings: totalCount,
-      activeBookings,
-      upcomingBookings,
-      completedBookings,
-      pendingBookings,
-      recentActivity: activities.slice(0, 5), // Keep only top 5
-    };
-
-    devLog.log('📊 useUserReservationsComplete - Summary calculated:', result);
-    return result;
-  }, [reservationDetailResults.reservations, totalCount]);
-
-  return {
-    data: {
-      reservations: reservationDetailResults.reservations,
-      total: totalCount,
-      fetched: reservationDetailResults.reservations.length,
-      userAddress,
-      summary // ✅ Include booking summary in composed hook
-    },
-    isLoading,
-    isError,
-    error: reservationCountResult.error || 
-           reservationKeyResults.error || 
-           reservationDetailResults.error,
-    refetch: () => {
-      reservationCountResult.refetch();
-      // Other refetches will trigger automatically due to dependencies
-    }
-  };
-};
-
-/**
- * Helper function to convert status number to text
- * @param {number} status - Status number from contract
- * @returns {string} Human-readable status
- */
-function getReservationStatusText(status) {
-  switch (status) {
-    case 0: return 'Pending';
-    case 1: return 'Confirmed';
-    case 2: return 'Active'; 
-    case 3: return 'Completed';
-    case 4: return 'Cancelled';
-    default: return 'Unknown';
-  }
-}
 
 // Module loaded confirmation (only logs once even in StrictMode)
 devLog.moduleLoaded('✅ Booking composed hooks loaded');

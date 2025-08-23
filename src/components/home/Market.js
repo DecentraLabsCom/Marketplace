@@ -17,8 +17,10 @@ import devLog from '@/utils/dev/logger'
 export default function Market() {
   const { isLoggedIn, address, isWalletLoading } = useUser();
   
-  // React Query for labs with optimized defaults (metadata + images, no owner addresses)
-  const labsQuery = useAllLabsComposed();
+  // React Query for labs with provider mapping enabled
+  const labsQuery = useAllLabsComposed({
+    includeOwners: true
+  });
   
   const { 
     data: labsData, 

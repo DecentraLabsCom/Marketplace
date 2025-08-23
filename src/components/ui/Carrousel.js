@@ -80,11 +80,21 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
     <div className="relative w-full overflow-hidden" 
       style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
         {images.map((image, index) => {
+          // Only preload the first image to avoid layout shift and improve initial loading
+          const shouldPrioritize = index === 0;
+          
           return (
             <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                       index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-              <MediaDisplayWithFallback mediaPath={image} mediaType={'image'} alt={`Image ${index + 1}`} fill className="object-cover object-center 
-                rounded-md" style={{objectPosition: 'center'}} sizes="100vw, 50vw"
+              <MediaDisplayWithFallback 
+                mediaPath={image} 
+                mediaType={'image'} 
+                alt={`Image ${index + 1}`} 
+                fill 
+                className="object-cover object-center rounded-md" 
+                style={{objectPosition: 'center'}} 
+                sizes="100vw, 50vw"
+                priority={shouldPrioritize} // Only preload first image
               />
             </div>
           );

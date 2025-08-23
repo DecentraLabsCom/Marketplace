@@ -12,7 +12,7 @@ import {
   useOwnerOf,
   LAB_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useLabs'
-import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUsers'
+import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { useLabToken } from '@/context/LabTokenContext'
@@ -49,12 +49,10 @@ const useLabTokenDecimals = () => {
  * RESILIENT LOADING BEHAVIOR:
  * - Lab data loads immediately when basic queries complete
  * - Owner queries run in background and NEVER block UI loading
- * - Failed/stuck owner queries fall back to "Unknown Provider" gracefully
- * - Cards display with provider info when available, "Unknown Provider" when not
  * 
  * @param {Object} options - Configuration options
  * @param {boolean} options.includeMetadata - Whether to fetch metadata for each lab
- * @param {boolean} options.includeOwnerAddresses - Whether to include owner addresses in the output (owner data is always fetched for provider matching)
+ * @param {boolean} options.includeOwners - Whether to include owner names in the output
  * @param {boolean} options.includeImages - Whether to cache images from metadata (default: true for better performance)
  * @param {Object} options.queryOptions - Override options for base queries (labIds & providers only)
  *                                        Internal queries use optimized configurations and cannot be overridden
@@ -62,10 +60,14 @@ const useLabTokenDecimals = () => {
  */
 export const useAllLabsComposed = ({ 
   includeMetadata = true, 
-  includeOwnerAddresses = false, 
+  includeOwners = false,
+  includeOwnerAddresses = false,
   includeImages = true,
   queryOptions = {} 
 } = {}) => {
+  
+  // Merge the owner-related parameters for backward compatibility
+  const shouldIncludeOwners = includeOwners || includeOwnerAddresses;
   
   // Step 1: Get all lab IDs using the atomic hook
   const labIdsResult = useAllLabs({
@@ -76,12 +78,9 @@ export const useAllLabsComposed = ({
   });
   const decimalsResult = useLabTokenDecimals();
 
-  // Get providers data for owner matching (when owners are included)
-  const providersResult = useGetLabProvidersQuery({
-    ...USER_QUERY_CONFIG,
-    // Only allow override of non-critical options like enabled, meta, etc.
-    enabled: queryOptions.enabled,
-    meta: queryOptions.meta,
+  // Provider mapping utility hook
+  const providerMapping = useProviderMapping({
+    enabled: shouldIncludeOwners || queryOptions.enabled !== false // Enable when we need owners or not explicitly disabled
   });
 
   // Get lab IDs from the atomic hook result (getAllLabs returns array of ID strings)
@@ -210,7 +209,7 @@ export const useAllLabsComposed = ({
 
   // Process and combine all results
   const isBaseLoading = labIdsResult.isLoading || decimalsResult.isLoading;
-  // Note: providersResult.isLoading is not included since we have fallback logic
+  // Note: providerMapping.isLoading is not included since we have fallback logic
   const isLabDetailsLoading = labDetailResults.some(result => result.isLoading);
   const isImageCachingLoading = imageResults.some(result => result.isLoading);
   
@@ -218,14 +217,14 @@ export const useAllLabsComposed = ({
   // They load in the background and gracefully fall back to "Unknown Provider"
   
   const isEnrichmentLoading = metadataResults.some(result => result.isLoading) ||
-                             providersResult.isLoading || // Moved here since providers are for enrichment
+                             providerMapping.isLoading || // Moved here since providers are for enrichment
                              (includeImages && isImageCachingLoading); // Include image caching in enrichment loading
   const isLoading = isBaseLoading || isLabDetailsLoading || isEnrichmentLoading;
 
   const baseErrors = [];
   if (labIdsResult.error) baseErrors.push(labIdsResult.error);
   if (decimalsResult.error) baseErrors.push(decimalsResult.error);
-  // Note: providersResult.error is moved to enrichmentErrors since we have fallbacks
+  // Note: providerMapping.error is moved to enrichmentErrors since we have fallbacks
   
   const labDetailErrors = labDetailResults.filter(result => result.error).map(result => result.error);
   const imageErrors = imageResults.filter(result => result.error).map(result => result.error);
@@ -238,8 +237,8 @@ export const useAllLabsComposed = ({
     ...imageErrors
   ];
   
-  // Add providers error to enrichment errors since we have fallback logic
-  if (providersResult.error) enrichmentErrors.push(providersResult.error);
+  // Add provider mapping error to enrichment errors since we have fallback logic
+  if (providerMapping.error) enrichmentErrors.push(providerMapping.error);
   
   const hasErrors = baseErrors.length > 0 || labDetailErrors.length > 0;
   const hasPartialErrors = enrichmentErrors.length > 0;
@@ -260,23 +259,22 @@ export const useAllLabsComposed = ({
     const ownerQueryFailed = ownerResults[labIndex]?.error || ownerResults[labIndex]?.isError;
     
     // Add owner data to output only if explicitly requested AND successfully obtained
-    if (includeOwnerAddresses && ownerAddress && !ownerQueryFailed) {
+    if (shouldIncludeOwners && ownerAddress && !ownerQueryFailed) {
       enrichedLab.owner = ownerAddress;
     }
 
-    // Get provider info by matching lab owner with provider accounts (only if we have owner data)
-    if (providersResult.data?.providers && ownerAddress && !ownerQueryFailed) {
-      const matchingProvider = providersResult.data.providers.find(
-        provider => provider.account.toLowerCase() === ownerAddress.toLowerCase()
-      );
-      if (matchingProvider) {
+    // Get provider info by matching lab owner with provider accounts (using same method as booking hook)
+    if (ownerAddress && !ownerQueryFailed) {
+      const providerInfo = providerMapping.mapOwnerToProvider(ownerAddress);
+      
+      if (providerInfo) {
         enrichedLab.providerInfo = {
-          name: matchingProvider.name,
-          email: matchingProvider.email,
-          country: matchingProvider.country,
-          account: matchingProvider.account
+          name: providerInfo.name,
+          email: providerInfo.email,
+          country: providerInfo.country,
+          account: providerInfo.account
         };
-        enrichedLab.provider = matchingProvider.name; // Use provider name as display name
+        enrichedLab.provider = providerInfo.name; // Use provider name as display name
       }
     }
     
@@ -423,7 +421,7 @@ export const useAllLabsComposed = ({
   });
 
   // Comprehensive status information
-  const allResults = [labIdsResult, decimalsResult, providersResult, ...labDetailResults, ...ownerResults, ...metadataResults];
+  const allResults = [labIdsResult, decimalsResult, providerMapping, ...labDetailResults, ...ownerResults, ...metadataResults];
   if (includeImages) {
     allResults.push(...imageResults);
   }
@@ -448,7 +446,7 @@ export const useAllLabsComposed = ({
     // Comprehensive meta information
     meta: {
       includeMetadata,
-      includeOwnerAddresses,
+      includeOwners: shouldIncludeOwners, // Use the merged parameter
       totalQueries,
       successfulQueries,
       failedQueries,
@@ -472,11 +470,11 @@ export const useAllLabsComposed = ({
           error: decimalsResult.error
         },
         providers: {
-          isLoading: providersResult.isLoading,
-          isSuccess: providersResult.isSuccess,
-          isError: providersResult.isError,
-          error: providersResult.error,
-          count: providersResult.data?.count || 0
+          isLoading: providerMapping.isLoading,
+          isSuccess: providerMapping.isSuccess,
+          isError: providerMapping.isError,
+          error: providerMapping.error,
+          count: providerMapping.data?.count || 0
         }
       },
       enrichmentStatus: {
@@ -501,7 +499,7 @@ export const useAllLabsComposed = ({
       labIds: labIdsResult,
       labDetails: labDetailResults,
       decimals: decimalsResult,
-      providers: providersResult,
+      providers: providerMapping,
     },
     ownerResults,
     metadataResults,
@@ -510,7 +508,7 @@ export const useAllLabsComposed = ({
     // Utility functions
     refetch: () => {
       labIdsResult.refetch();
-      providersResult.refetch();
+      providerMapping.refetch();
       labDetailResults.forEach(result => result.refetch && result.refetch());
       // Note: decimalsResult.refetch not available as it uses useLabToken
       ownerResults.forEach(result => result.refetch && result.refetch());

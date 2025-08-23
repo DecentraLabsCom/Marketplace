@@ -1,10 +1,10 @@
 /**
  * Optimized component for displaying active booking status
- * Uses useUserBookingsComposed for enriched lab data with metadata and provider names
+ * Uses useUserBookingsDashboard for enriched lab data with metadata and provider names
  */
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useUserBookingsComposed } from '@/hooks/booking/useBookingComposedQueries';
+import { useUserBookingsDashboard } from '@/hooks/booking/useBookingComposedQueries';
 import ActiveLabCard from './ActiveLabCard';
 
 /**
@@ -20,7 +20,7 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
     data: userBookingsData, 
     isLoading: activeBookingLoading,
     isError: activeBookingError 
-  } = useUserBookingsComposed(userAddress, {
+  } = useUserBookingsDashboard(userAddress, {
     includeLabDetails: true, // ✅ Enable enriched lab details with metadata and provider names
     queryOptions: {
       enabled: !!userAddress && (options.enabled !== false),

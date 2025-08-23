@@ -1,10 +1,10 @@
 /**
  * Optimized component for displaying user booking statistics
- * Uses useUserReservationsComplete for efficient summary data from composed hook
+ * Uses useUserBookingsDashboard with summary analytics
  */
 import React from 'react';
 import PropTypes from 'prop-types';
-import { useUserReservationsComplete } from '@/hooks/booking/useBookings';
+import { useUserBookingsDashboard } from '@/hooks/booking/useBookingComposedQueries';
 import devLog from '@/utils/dev/logger';
 
 /**
@@ -19,12 +19,15 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
     data: reservationsData, 
     isLoading: summaryLoading,
     isError: summaryError 
-  } = useUserReservationsComplete(userAddress, {
+  } = useUserBookingsDashboard(userAddress, {
+    includeLabDetails: false, // Don't need lab details for summary
+    includeRecentActivity: true, // Include recent activity for complete summary
     limit: 50, // Get more data for accurate analytics
     queryOptions: options
   });
 
-  // Extract summary data from composed hook
+  // Extract summary data directly from the hook response
+  // The hook now provides both individual analytics and summary object
   const summaryData = reservationsData?.summary || {};
   const {
     totalBookings,

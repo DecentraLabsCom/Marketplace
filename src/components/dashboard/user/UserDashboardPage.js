@@ -3,7 +3,7 @@ import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
-  useUserBookingsComposed,
+  useUserBookingsDashboard,
   useCancelBooking, 
   useCancelReservationRequest 
 } from '@/hooks/booking/useBookings'
@@ -26,7 +26,7 @@ export default function UserDashboard() {
     isLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useUserBookingsComposed(address, {
+  } = useUserBookingsDashboard(address, {
     includeLabDetails: true, // ✅ Enable lab details since we need lab.name in bookingInfo
     queryOptions: {
       enabled: !!address && isLoggedIn,

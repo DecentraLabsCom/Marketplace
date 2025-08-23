@@ -19,6 +19,7 @@ import devLog from '@/utils/dev/logger'
  * @param {string|number} props.height - Media height
  * @param {string|number} props.width - Media width
  * @param {string} props.title - Title attribute for links
+ * @param {boolean} props.priority - Whether image should be loaded with priority (no lazy loading)
  * @returns {JSX.Element} Media element with fallback handling
  */
 export default function MediaDisplayWithFallback({ 
@@ -31,7 +32,8 @@ export default function MediaDisplayWithFallback({
   sizes,
   height,
   width,
-  title
+  title,
+  priority = false
 }) {
   
   // State to control if we should try Vercel Blob URL (false initially) or if it failed (true) for IMAGES
@@ -207,7 +209,8 @@ export default function MediaDisplayWithFallback({
         fill={fill} 
         className={className} 
         style={style} 
-        sizes={sizes} 
+        sizes={sizes}
+        priority={priority} // Add priority support for eager loading
         onError={() => {
           if (isVercel && !hasVercelBlobFailed) {
             setHasVercelBlobFailed(true); // Try local fallback
@@ -290,7 +293,8 @@ MediaDisplayWithFallback.propTypes = {
   sizes: PropTypes.string,
   height: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  title: PropTypes.string
+  title: PropTypes.string,
+  priority: PropTypes.bool
 }
 
 MediaDisplayWithFallback.defaultProps = {
@@ -301,5 +305,6 @@ MediaDisplayWithFallback.defaultProps = {
   sizes: undefined,
   height: undefined,
   width: undefined,
-  title: ''
+  title: '',
+  priority: false
 }
