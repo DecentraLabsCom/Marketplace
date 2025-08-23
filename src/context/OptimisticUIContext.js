@@ -173,10 +173,11 @@ export function OptimisticUIProvider({ children }) {
       setLabStates(prev => {
         const cleaned = {}
         Object.entries(prev).forEach(([labId, state]) => {
+          const maxAge = state.isPending ? maxAgePending : maxAgeCompleted
           if (now - state.timestamp < maxAge) {
             cleaned[labId] = state
           } else {
-            devLog.log(`🧹 [OptimisticUI] Auto-cleaning stale lab state for lab ${labId}`)
+            devLog.log(`🧹 [OptimisticUI] Auto-cleaning ${state.isPending ? 'pending' : 'completed'} lab state for lab ${labId}`)
           }
         })
         return cleaned

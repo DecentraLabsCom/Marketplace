@@ -152,12 +152,12 @@ export const useReservationRequestSSO = (options = {}) => {
 export const useReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useReservationRequestSSO(options);
-  } else {
-    return useReservationRequestWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useReservationRequestSSO(options);
+  const walletMutation = useReservationRequestWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
@@ -264,12 +264,12 @@ export const useCancelReservationRequestWallet = (options = {}) => {
 export const useCancelReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useCancelReservationRequestSSO(options);
-  } else {
-    return useCancelReservationRequestWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useCancelReservationRequestSSO(options);
+  const walletMutation = useCancelReservationRequestWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
@@ -348,12 +348,12 @@ export const useConfirmReservationRequestWallet = (options = {}) => {
 export const useConfirmReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useConfirmReservationRequestSSO(options);
-  } else {
-    return useConfirmReservationRequestWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useConfirmReservationRequestSSO(options);
+  const walletMutation = useConfirmReservationRequestWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
@@ -432,12 +432,12 @@ export const useDenyReservationRequestWallet = (options = {}) => {
 export const useDenyReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useDenyReservationRequestSSO(options);
-  } else {
-    return useDenyReservationRequestWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useDenyReservationRequestSSO(options);
+  const walletMutation = useDenyReservationRequestWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
@@ -538,12 +538,12 @@ export const useCancelBookingWallet = (options = {}) => {
 export const useCancelBooking = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useCancelBookingSSO(options);
-  } else {
-    return useCancelBookingWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useCancelBookingSSO(options);
+  const walletMutation = useCancelBookingWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
@@ -622,12 +622,12 @@ export const useRequestFundsWallet = (options = {}) => {
 export const useRequestFunds = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useRequestFundsSSO(options);
-  } else {
-    return useRequestFundsWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useRequestFundsSSO(options);
+  const walletMutation = useRequestFundsWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**

@@ -779,12 +779,12 @@ export const useListLabWallet = (options = {}) => {
 export const useListLab = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useListLabSSO(options);
-  } else {
-    return useListLabWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useListLabSSO(options);
+  const walletMutation = useListLabWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
@@ -910,12 +910,12 @@ export const useUnlistLabWallet = (options = {}) => {
 export const useUnlistLab = (options = {}) => {
   const { isSSO } = useUser();
   
-  // Return the appropriate mutation directly to preserve optimistic updates
-  if (isSSO) {
-    return useUnlistLabSSO(options);
-  } else {
-    return useUnlistLabWallet(options);
-  }
+  // Call both hooks unconditionally to follow rules of hooks
+  const ssoMutation = useUnlistLabSSO(options);
+  const walletMutation = useUnlistLabWallet(options);
+  
+  // Return the appropriate mutation
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 // Re-export cache updates utility

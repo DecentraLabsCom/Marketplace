@@ -33,15 +33,21 @@ This project follows a set of coding standards and best practices to ensure code
    - **Error Recovery**: If optimistic updates fail validation, the cache should be corrected based on the actual blockchain state.
 
 6. **Cache Management**: The project uses granular cache updates instead of full cache invalidation for optimal performance and user experience:
-   - **Optimistic Updates**: Mutations should implement optimistic updates to provide immediate UI feedback. Use `queryClient.setQueryData` to update cache optimistically before the mutation completes.
+   - **Optimistic Updates**: For immediate UI feedback, use the `OptimisticUIContext` to manage local UI state independently from React Query cache. This provides clean separation between server state (React Query) and optimistic UI state (local context).
+   - **OptimisticUIContext Pattern**: 
+     * Use `setOptimisticListingState(labId, targetState, isPending: true)` to set immediate UI feedback when mutations start
+     * Use `completeOptimisticListingState(labId)` when transactions are successfully sent (marks as non-pending but keeps the new state)
+     * Use `clearOptimisticListingState(labId)` when blockchain events confirm the final state or when errors occur
+     * The context automatically cleans up stale states (1 minute for pending, 10 minutes for completed)
    - **Granular Cache Updates**: When data changes, add, update, or remove specific records from cache without invalidating everything. Use domain-specific cache update utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`, `useUserCacheUpdates`).
    - **Event-Driven Validation**: Blockchain events validate optimistic updates and correct the cache if necessary. Use event contexts to listen for blockchain events and update cache accordingly.
    - **Fallback Invalidation**: Only fall back to full cache invalidation (`queryClient.invalidateQueries`) when granular updates fail, data is considered stale, or complex data relationships make granular updates impractical.
    - **Cache Update Strategy**: 
-     * Manual UI Actions → Optimistic updates + granular cache manipulation
-     * Blockchain Events → Cache validation + granular corrections
-     * Error Recovery → Targeted invalidation or full fallback
-   - **Performance Optimization**: Prefer granular updates over invalidation to maintain UI responsiveness and minimize unnecessary re-fetches.
+     * Manual UI Actions → OptimisticUIContext for immediate feedback + granular cache manipulation for server state
+     * Transaction Success → Complete optimistic state (keep new state, mark as non-pending) + update relevant cache keys
+     * Blockchain Events → Cache validation + clear optimistic state
+     * Error Recovery → Clear optimistic state + targeted invalidation or full fallback
+   - **Performance Optimization**: Prefer OptimisticUIContext for UI state and granular cache updates for server state to maintain UI responsiveness and minimize unnecessary re-fetches.
 
 7. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities. In particular, use the `useContractWriteFunction` hook for all contract write operations, and `useDefaultReadContract` for read operations.
 
