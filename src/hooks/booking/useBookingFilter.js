@@ -17,21 +17,24 @@ import devLog from '@/utils/dev/logger'
  */
 export function useBookingFilter(bookingInfo = [], displayMode = 'default', highlightClassName = "bg-[#9fc6f5] text-white") {
   
+  // Ensure bookingInfo is always an array
+  const safeBookingInfo = Array.isArray(bookingInfo) ? bookingInfo : []
+  
   // Filter bookings based on display mode and business logic
   const filteredBookings = useMemo(() => {
-    const filtered = filterBookingsByDisplayMode(bookingInfo, displayMode)
+    const filtered = filterBookingsByDisplayMode(safeBookingInfo, displayMode)
     
     // Only log if there are actual changes or issues
-    if (filtered.length !== bookingInfo?.length) {
+    if (filtered.length !== safeBookingInfo?.length) {
       devLog.log('🔍 CalendarWithBookings: Filtering results:', {
-        originalCount: bookingInfo?.length || 0,
+        originalCount: safeBookingInfo?.length || 0,
         filteredCount: filtered.length,
         displayMode: displayMode
       })
     }
     
     return filtered
-  }, [bookingInfo, displayMode])
+  }, [safeBookingInfo, displayMode])
 
   // Function to determine if a day should be highlighted
   const dayClassName = useMemo(() => {

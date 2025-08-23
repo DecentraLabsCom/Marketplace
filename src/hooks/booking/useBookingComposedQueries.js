@@ -13,10 +13,49 @@ import {
   useReservationKeyOfUserByIndex,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
-import { useUser } from '@/context/UserContext'
-import { bookingQueryKeys, labQueryKeys } from '@/utils/hooks/queryKeys'
+import { useLab, useOwnerOf, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
+import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
+import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUserAtomicQueries' // ✅ Import provider hooks
+import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
+
+/**
+ * Helper function to extract images from metadata attributes
+ * @param {Object} metadataData - Metadata object from API
+ * @returns {Array} Array of image URLs
+ */
+const processMetadataImages = (metadataData) => {
+  if (!metadataData?.attributes) return [];
+  
+  const imagesAttribute = metadataData.attributes.find(
+    attr => attr.trait_type === 'additionalImages'
+  );
+  
+  const images = imagesAttribute?.value || [];
+  
+  // Add main image if it exists and not already in images array
+  if (metadataData.image && !images.includes(metadataData.image)) {
+    images.unshift(metadataData.image);
+  }
+  
+  return Array.isArray(images) ? images : [];
+};
+
+/**
+ * Helper function to extract docs from metadata attributes
+ * @param {Object} metadataData - Metadata object from API
+ * @returns {Array} Array of document URLs
+ */
+const processMetadataDocs = (metadataData) => {
+  if (!metadataData?.attributes) return [];
+  
+  const docsAttribute = metadataData.attributes.find(
+    attr => attr.trait_type === 'docs'
+  );
+  
+  const docs = docsAttribute?.value || [];
+  return Array.isArray(docs) ? docs : [];
+};
 
 /**
  * Composed hook for getting user bookings with enriched details
@@ -146,11 +185,50 @@ export const useUserBookingsComposed = (userAddress, {
     combine: (results) => results
   });
 
+  // Step 4: Get lab metadata for enriched lab details (if lab details are included)
+  const labMetadataResults = useQueries({
+    queries: (includeLabDetails && labDetailsResults.length > 0) 
+      ? labDetailsResults.map((labResult, index) => {
+          const labData = labResult?.data;
+          const metadataUri = labData?.base?.uri;
+          return {
+            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryFn: () => useMetadata.queryFn(metadataUri), // ✅ Using atomic hook queryFn
+            enabled: !!metadataUri,
+            ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration
+          };
+        })
+      : [],
+    combine: (results) => results
+  });
+
+  // Step 5: Get lab owners for provider mapping (if lab details are included)
+  const labOwnerResults = useQueries({
+    queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
+      ? bookingsWithLabIds.map(booking => ({
+          queryKey: labQueryKeys.ownerOf(booking.labId),
+          queryFn: () => useOwnerOf.queryFn(booking.labId), // ✅ Using atomic hook queryFn
+          enabled: !!booking.labId,
+          ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Step 6: Get providers data for provider name mapping (only when lab details are included)
+  const providersResult = useGetLabProvidersQuery({
+    ...USER_QUERY_CONFIG, // ✅ Using shared configuration
+    enabled: includeLabDetails, // Only fetch when lab details are needed
+  });
+
   // Process and combine all results
   const isLoading = reservationCountResult.isLoading || 
                    reservationKeyResults.some(result => result.isLoading) ||
                    bookingDetailsResults.some(result => result.isLoading) ||
-                   (includeLabDetails && labDetailsResults.some(result => result.isLoading));
+                   (includeLabDetails && labDetailsResults.some(result => result.isLoading)) ||
+                   (includeLabDetails && labMetadataResults.some(result => result.isLoading)) ||
+                   (includeLabDetails && labOwnerResults.some(result => result.isLoading)) ||
+                   (includeLabDetails && providersResult.isLoading);
 
   const baseErrors = reservationCountResult.error ? [reservationCountResult.error] : [];
   const keyErrors = reservationKeyResults.filter(result => result.error)
@@ -159,9 +237,14 @@ export const useUserBookingsComposed = (userAddress, {
                                             .map(result => result.error);
   const labErrors = labDetailsResults.filter(result => result.error)
                                     .map(result => result.error);
+  const metadataErrors = labMetadataResults.filter(result => result.error)
+                                          .map(result => result.error);
+  const ownerErrors = labOwnerResults.filter(result => result.error)
+                                    .map(result => result.error);
+  const providerErrors = providersResult.error ? [providersResult.error] : [];
   
   const hasErrors = baseErrors.length > 0;
-  const hasPartialErrors = keyErrors.length > 0 || bookingErrors.length > 0 || labErrors.length > 0;
+  const hasPartialErrors = keyErrors.length > 0 || bookingErrors.length > 0 || labErrors.length > 0 || metadataErrors.length > 0 || ownerErrors.length > 0 || providerErrors.length > 0;
 
   // Enrich with optional lab details (keep flat shape)
   const enrichedBookings = bookings.map((booking) => {
@@ -171,7 +254,104 @@ export const useUserBookingsComposed = (userAddress, {
       );
       
       if (matchingLabIndex >= 0 && labDetailsResults[matchingLabIndex]?.data) {
-        return { ...booking, labDetails: labDetailsResults[matchingLabIndex].data };
+        const labData = labDetailsResults[matchingLabIndex].data;
+        const metadataData = labMetadataResults[matchingLabIndex]?.data;
+        const ownerData = labOwnerResults[matchingLabIndex]?.data;
+        
+        // Combine lab data with metadata for enriched experience
+        const enrichedLabDetails = {
+          ...labData,
+          // Add metadata fields if available
+          name: metadataData?.name || labData?.name || `Lab ${booking.labId}`,
+          description: metadataData?.description || labData?.description,
+          image: metadataData?.image || labData?.image,
+          category: metadataData?.category || labData?.category,
+          keywords: metadataData?.keywords || labData?.keywords,
+          // Add owner from ownerOf query  
+          owner: ownerData?.owner,
+          // Process attributes to extract images and docs
+          images: processMetadataImages(metadataData),
+          docs: processMetadataDocs(metadataData)
+        };
+
+        // Debug full lab data structure to understand owner field
+        devLog.log('🔬 Full lab data structure:', {
+          labData: labData,
+          labDataKeys: Object.keys(labData || {}),
+          ownerData: ownerData,
+          enrichedOwner: enrichedLabDetails.owner
+        });
+
+        // Add provider name mapping if provider data is available
+        const labOwner = enrichedLabDetails.owner;
+        
+        if (providersResult.data?.providers && labOwner) {
+          devLog.log('🔍 Provider mapping debug:', {
+            providersCount: providersResult.data.providers.length,
+            labOwner: labOwner,
+            providers: providersResult.data.providers.map(p => ({ account: p.account, name: p.name }))
+          });
+          
+          const matchingProvider = providersResult.data.providers.find(
+            provider => provider.account?.toLowerCase() === labOwner.toLowerCase()
+          );
+          
+          devLog.log('🎯 Provider match result:', {
+            matchingProvider,
+            labOwner: labOwner
+          });
+          
+          if (matchingProvider) {
+            enrichedLabDetails.providerName = matchingProvider.name;
+            enrichedLabDetails.providerInfo = {
+              name: matchingProvider.name,
+              email: matchingProvider.email,
+              country: matchingProvider.country,
+              account: matchingProvider.account
+            };
+          }
+        } else {
+          devLog.log('⚠️ Provider mapping skipped:', {
+            hasProviders: !!providersResult.data?.providers,
+            providersCount: providersResult.data?.providers?.length || 0,
+            hasOwner: !!labOwner,
+            labOwner: labOwner,
+            ownerData: ownerData,
+            enrichedLabDetails: enrichedLabDetails
+          });
+        }
+        
+        // ✅ Create a properly formatted lab object for components
+        const formattedLab = {
+          id: booking.labId, // ✅ Always use labId from booking for consistency
+          name: enrichedLabDetails.name,
+          provider: enrichedLabDetails.providerName || enrichedLabDetails.provider || 'Unknown Provider',
+          // ✅ Preserve enriched metadata fields for Carrousel and DocsCarrousel
+          images: enrichedLabDetails.images || [], // For Carrousel component
+          docs: enrichedLabDetails.docs || [], // For DocsCarrousel component  
+          image: enrichedLabDetails.image, // Main image
+          description: enrichedLabDetails.description,
+          category: enrichedLabDetails.category,
+          keywords: enrichedLabDetails.keywords,
+          auth: enrichedLabDetails.auth,
+          // Pass through all other enriched lab details
+          ...enrichedLabDetails
+        };
+
+        // Debug log for formatted lab data
+        devLog.log('🖼️ FormattedLab for ActiveLabCard:', {
+          labId: booking.labId,
+          formattedImages: formattedLab.images,
+          formattedDocs: formattedLab.docs,
+          enrichedImages: enrichedLabDetails.images,
+          enrichedDocs: enrichedLabDetails.docs,
+          metadataData: metadataData,
+          metadataAttributes: metadataData?.attributes,
+          processedImages: processMetadataImages(metadataData),
+          processedDocs: processMetadataDocs(metadataData)
+        });
+
+        return { ...booking, labDetails: formattedLab };
       }
     }
     return booking;
@@ -208,7 +388,7 @@ export const useUserBookingsComposed = (userAddress, {
       successCount: bookingDetailsResults.filter(r => r.isSuccess).length,
       failedCount: bookingDetailsResults.filter(r => r.error).length,
       hasPartialFailures: hasPartialErrors,
-      errors: [...baseErrors, ...keyErrors, ...bookingErrors, ...labErrors],
+      errors: [...baseErrors, ...keyErrors, ...bookingErrors, ...labErrors, ...metadataErrors, ...ownerErrors],
       timestamp: new Date().toISOString()
     },
 
@@ -224,6 +404,9 @@ export const useUserBookingsComposed = (userAddress, {
       reservationKeyResults.forEach(result => result.refetch && result.refetch());
       bookingDetailsResults.forEach(result => result.refetch && result.refetch());
       labDetailsResults.forEach(result => result.refetch && result.refetch());
+      labMetadataResults.forEach(result => result.refetch && result.refetch());
+      labOwnerResults.forEach(result => result.refetch && result.refetch());
+      if (includeLabDetails) providersResult.refetch();
     }
   };
 };
@@ -242,6 +425,13 @@ export const useLabBookingsComposed = (labId, {
   queryOptions = {} 
 } = {}) => {
   
+  // Debug log for input parameters
+  devLog.log('📅 useLabBookingsComposed called with:', {
+    labId,
+    includeUserDetails,
+    queryOptions
+  });
+  
   // Step 1: Get reservation count for lab
   const reservationCountResult = useReservationsOfToken(labId, {
     ...BOOKING_QUERY_CONFIG,
@@ -250,6 +440,16 @@ export const useLabBookingsComposed = (labId, {
   });
   
   const reservationCount = reservationCountResult.data?.count || 0;
+  
+  // Debug log for reservation count
+  devLog.log('📊 Lab reservations count:', {
+    labId,
+    reservationCount,
+    isLoading: reservationCountResult.isLoading,
+    isError: reservationCountResult.isError,
+    error: reservationCountResult.error,
+    data: reservationCountResult.data
+  });
   
   // Step 2: Get all reservation keys for this lab using indices
   const reservationKeyResults = useQueries({
@@ -268,6 +468,18 @@ export const useLabBookingsComposed = (labId, {
   const reservationKeys = reservationKeyResults
     .filter(result => result.isSuccess && result.data?.reservationKey)
     .map(result => result.data.reservationKey);
+  
+  // Debug log for reservation keys
+  devLog.log('🔑 Lab reservation keys:', {
+    labId,
+    reservationKeys,
+    reservationKeyResults: reservationKeyResults.map(r => ({
+      isSuccess: r.isSuccess,
+      isError: r.isError,
+      data: r.data,
+      error: r.error
+    }))
+  });
   
   // Step 3: Get detailed reservation data for each key
   const reservationDetailResults = useQueries({
@@ -331,6 +543,30 @@ export const useLabBookingsComposed = (labId, {
 
       return enrichedBooking;
     });
+
+  // Debug log for processed bookings
+  devLog.log('📋 Processed lab bookings:', {
+    labId,
+    processedBookingsCount: processedBookings.length,
+    processedBookings: processedBookings.map(b => ({
+      id: b.id,
+      reservationKey: b.reservationKey,
+      status: b.status,
+      start: b.start,
+      end: b.end,
+      date: b.date,
+      userAddress: b.userAddress
+    })),
+    reservationDetailResults: reservationDetailResults.map(r => ({
+      isSuccess: r.isSuccess,
+      isError: r.isError,
+      data: r.data ? {
+        reservationKey: r.data.reservationKey,
+        reservation: r.data.reservation
+      } : null,
+      error: r.error
+    }))
+  });
 
   // Calculate aggregates using contract status
   const aggregates = {
@@ -404,218 +640,6 @@ export const useLabBookingsComposed = (labId, {
       reservationDetailResults.forEach(result => result.refetch());
     }
   };
-};
-
-/**
- * Composed hook for getting bookings for multiple labs with analytics
- * Replicates getMultiLabBookings service as a React Query hook
- * Orchestrates: multiple lab bookings → aggregation → analytics
- * @param {Array<string|number>} labIds - Array of lab IDs
- * @param {Object} options - Configuration options
- * @param {boolean} options.includeAnalytics - Whether to include analytics data
- * @param {Object} options.queryOptions - Additional react-query options
- * @returns {Object} React Query result with multi-lab booking data and analytics
- */
-export const useMultiLabBookingsComposed = (labIds, { 
-  includeAnalytics = false, 
-  queryOptions = {} 
-} = {}) => {
-  
-  // Always call useQueries, even with empty array to avoid conditional hook calls
-  const labBookingResults = useQueries({
-    queries: (Array.isArray(labIds) && labIds.length > 0) ? labIds.map(labId => ({
-      queryKey: bookingQueryKeys.getReservationsOfToken(labId),
-      queryFn: async () => {
-        const data = await useReservationsOfToken.queryFn(labId); // ✅ Using atomic hook queryFn
-        return { labId, data: data.data || data.reservations || [] };
-      },
-      enabled: !!labId,
-      ...BOOKING_QUERY_CONFIG, // ✅ Booking-specific configuration
-      // Note: queryOptions not spread here as BOOKING_QUERY_CONFIG is optimized for booking data
-    })) : [],
-    combine: (results) => results
-  });
-
-  // Validate input and return early if invalid (but after hook calls)
-  if (!Array.isArray(labIds) || labIds.length === 0) {
-    return {
-      data: {
-        labBookings: {},
-        aggregates: {
-          totalLabs: 0,
-          totalBookings: 0,
-          totalActiveBookings: 0,
-          totalUpcomingBookings: 0,
-          totalCompletedBookings: 0,
-          averageBookingsPerLab: 0
-        },
-        analytics: includeAnalytics ? {
-          busiestLabs: [],
-          quietestLabs: [],
-          utilizationRates: {}
-        } : null
-      },
-      isLoading: false,
-      isSuccess: true,
-      isError: false,
-      error: null,
-      meta: {
-        labIds: [],
-        hasPartialFailures: false,
-        errors: []
-      }
-    };
-  }
-
-  // Process results
-  const isLoading = labBookingResults.some(result => result.isLoading);
-  const errors = labBookingResults.filter(result => result.error).map(result => result.error);
-  const hasErrors = errors.length === labBookingResults.length; // Only error if ALL failed
-  const hasPartialErrors = errors.length > 0 && errors.length < labBookingResults.length;
-
-  // Build lab bookings data
-  const labBookings = {};
-  const successfulLabs = [];
-  
-  labBookingResults.forEach((result, index) => {
-    const labId = labIds[index];
-    
-    if (result.isSuccess && result.data) {
-      // Extract array from the count response - for now return empty array since endpoint only returns count
-      const rawBookingsData = result.data || {};
-      const rawBookings = Array.isArray(rawBookingsData) ? rawBookingsData : [];
-      const now = Math.floor(Date.now() / 1000);
-      
-      // Process bookings with status determination
-      const processedBookings = rawBookings.map(booking => {
-        const startTime = booking.startTime || booking.start;
-        const endTime = booking.endTime || booking.end;
-        
-        let status = booking.status;
-        if (!status) {
-          if (booking.cancelled) {
-            status = 'cancelled';
-          } else if (now < startTime) {
-            status = 'upcoming';
-          } else if (now >= startTime && now <= endTime) {
-            status = 'active';
-          } else {
-            status = 'completed';
-          }
-        }
-
-        return { ...booking, status, statusCategory: status };
-      });
-
-      // Calculate lab-specific aggregates
-      const labData = {
-        labId,
-        bookings: processedBookings,
-        totalBookings: processedBookings.length,
-        activeBookings: processedBookings.filter(b => b.statusCategory === 'active').length,
-        upcomingBookings: processedBookings.filter(b => b.statusCategory === 'upcoming').length,
-        completedBookings: processedBookings.filter(b => b.statusCategory === 'completed').length,
-        cancelledBookings: processedBookings.filter(b => b.statusCategory === 'cancelled').length,
-      };
-
-      labBookings[labId] = labData;
-      successfulLabs.push(labData);
-    } else {
-      // Add failed lab with empty data
-      labBookings[labId] = {
-        labId,
-        bookings: [],
-        totalBookings: 0,
-        activeBookings: 0,
-        upcomingBookings: 0, 
-        completedBookings: 0,
-        cancelledBookings: 0,
-        error: result.error?.message || 'Unknown error',
-        failed: true
-      };
-    }
-  });
-
-  // Calculate overall aggregates
-  const aggregates = {
-    totalLabs: labIds.length,
-    totalBookings: successfulLabs.reduce((sum, lab) => sum + lab.totalBookings, 0),
-    totalActiveBookings: successfulLabs.reduce((sum, lab) => sum + lab.activeBookings, 0),
-    totalUpcomingBookings: successfulLabs.reduce((sum, lab) => sum + lab.upcomingBookings, 0),
-    totalCompletedBookings: successfulLabs.reduce((sum, lab) => sum + lab.completedBookings, 0),
-    averageBookingsPerLab: successfulLabs.length > 0 ? 
-      Math.round((successfulLabs.reduce((sum, lab) => sum + lab.totalBookings, 0) / successfulLabs.length) * 100) / 100 : 0
-  };
-
-  // Generate analytics if requested
-  let analytics = null;
-  if (includeAnalytics && successfulLabs.length > 0) {
-    const labStats = successfulLabs
-      .map(lab => ({
-        labId: lab.labId,
-        totalBookings: lab.totalBookings,
-        activeBookings: lab.activeBookings,
-        utilizationRate: lab.totalBookings > 0 ? 
-          Math.round((lab.activeBookings / lab.totalBookings) * 100) : 0
-      }))
-      .sort((a, b) => b.totalBookings - a.totalBookings);
-
-    analytics = {
-      busiestLabs: labStats.slice(0, 3),
-      quietestLabs: labStats.slice(-3).reverse(),
-      utilizationRates: {}
-    };
-    
-    labStats.forEach(stat => {
-      analytics.utilizationRates[stat.labId] = stat.utilizationRate;
-    });
-  }
-
-  return {
-    // Data
-    data: {
-      labBookings,
-      aggregates,
-      analytics
-    },
-    
-    // Status
-    isLoading,
-    isSuccess: !hasErrors && successfulLabs.length > 0,
-    isError: hasErrors,
-    error: hasErrors ? errors[0] : null,
-    
-    // Meta information
-    meta: {
-      labIds,
-      includeAnalytics,
-      totalRequested: labIds.length,
-      successCount: successfulLabs.length,
-      failedCount: labIds.length - successfulLabs.length,
-      hasPartialFailures: hasPartialErrors,
-      errors,
-      timestamp: new Date().toISOString()
-    },
-
-    // Individual result access
-    labBookingResults,
-
-    // Utility functions
-    refetch: () => {
-      labBookingResults.forEach(result => result.refetch && result.refetch());
-    }
-  };
-};
-
-/**
- * Hook for current user's bookings with details (uses UserContext)
- * Convenience hook that automatically gets current user's address
- * @param {Object} options - Configuration options
- * @returns {Object} React Query result with current user's bookings
- */
-export const useCurrentUserBookingsComposed = (options = {}) => {
-  const { userAddress } = useUser();
-  return useUserBookingsComposed(userAddress, options);
 };
 
 /**

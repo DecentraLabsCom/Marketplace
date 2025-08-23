@@ -86,8 +86,15 @@ export default function BookingsList({
    * @returns {Object} Enhanced booking object
    */
   const enhanceBooking = (booking) => {
-    // Use labDetails from composed hook
-    const lab = booking.labDetails || { name: `Lab ${booking.labId}`, id: booking.labId };
+    // ✅ labDetails now comes pre-formatted from the composed hook
+    const lab = booking.labDetails || { 
+      id: booking.labId,
+      name: `Lab ${booking.labId}`,
+      provider: 'Unknown Provider',
+      images: [],
+      docs: []
+    };
+    
     const startDateTime = new Date(parseInt(booking.start) * 1000);
     
     // Format date for display (YYYY-MM-DD format)

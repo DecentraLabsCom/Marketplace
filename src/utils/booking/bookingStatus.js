@@ -214,17 +214,8 @@ export const hasValidDate = (booking) => {
  */
 export const filterBookingsByDisplayMode = (bookings = [], displayMode = 'default') => {
   return bookings.filter(booking => {
-    devLog.log('🔍 Processing booking:', { 
-      id: booking.id, 
-      status: booking.status, 
-      start: booking.start, 
-      date: booking.date,
-      labId: booking.labId 
-    })
-    
     // Always exclude cancelled bookings
     if (isCancelledBooking(booking)) {
-      devLog.log('❌ Excluding cancelled booking:', booking.id)
       return false
     }
     
@@ -237,22 +228,10 @@ export const filterBookingsByDisplayMode = (bookings = [], displayMode = 'defaul
     const isPending = isPendingBooking(booking)
     const isConfirmed = isConfirmedBooking(booking)
     
-    let shouldShow = false
-    
     switch (displayMode) {
       case 'lab-reservation':
         // LabReservation: show both pending and confirmed future reservations
-        shouldShow = !isPast && (isPending || isConfirmed)
-        devLog.log('🏷️ lab-reservation result:', { 
-          bookingId: booking.id, 
-          shouldShow, 
-          isPast, 
-          isPending, 
-          isConfirmed,
-          date: booking.date,
-          status: booking.status
-        })
-        return shouldShow
+        return !isPast && (isPending || isConfirmed)
         
       case 'user-dashboard':
         // UserDashboard: user reservations (past and future with specific conditions)
@@ -281,5 +260,5 @@ export const filterBookingsByDisplayMode = (bookings = [], displayMode = 'defaul
         }
         return true
     }
-  })
+  });
 }

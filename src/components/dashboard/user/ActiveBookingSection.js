@@ -1,11 +1,10 @@
 /**
  * Optimized component for displaying active booking status
- * Uses useActiveUserBooking for minimal data fetching
+ * Uses useUserBookingsComposed for enriched lab data with metadata and provider names
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useActiveUserBooking } from '@/hooks/booking/useBookings';
-import { useLab } from '@/hooks/lab/useLabs';
+import { useUserBookingsComposed } from '@/hooks/booking/useBookingComposedQueries';
 import ActiveLabCard from './ActiveLabCard';
 
 /**
@@ -16,26 +15,59 @@ import ActiveLabCard from './ActiveLabCard';
  * @returns {JSX.Element} Active booking section
  */
 export default function ActiveBookingSection({ userAddress, options = {} }) {
-  // ✅ Use specialized hook for active booking only
+  // ✅ Use composed hook for enriched lab data with metadata and provider names
   const { 
-    data: activeBookingData, 
+    data: userBookingsData, 
     isLoading: activeBookingLoading,
     isError: activeBookingError 
-  } = useActiveUserBooking(userAddress, options);
-
-  const { activeBooking, nextBooking, hasActiveBooking } = activeBookingData || {};
-
-  // Get lab details for the active/next booking
-  const targetBooking = activeBooking || nextBooking;
-  const { 
-    data: labData, 
-    isLoading: labLoading 
-  } = useLab(targetBooking?.labId, {
-    enabled: !!targetBooking?.labId
+  } = useUserBookingsComposed(userAddress, {
+    includeLabDetails: true, // ✅ Enable enriched lab details with metadata and provider names
+    queryOptions: {
+      enabled: !!userAddress && (options.enabled !== false),
+      staleTime: 30 * 1000, // 30 seconds for active booking updates
+      ...options.queryOptions,
+    }
   });
 
+  // Extract active and next booking from enriched data
+  const { activeBooking, nextBooking, hasActiveBooking, labData } = useMemo(() => {
+    const bookings = userBookingsData?.bookings || [];
+    const now = Math.floor(Date.now() / 1000);
+    
+    // Find current active booking
+    const active = bookings.find(booking => {
+      const start = parseInt(booking.start);
+      const end = parseInt(booking.end);
+      const status = parseInt(booking.status);
+      
+      return status === 1 && start <= now && end >= now;
+    }) || null;
+
+    // Find next upcoming booking (if no active booking)
+    const next = !active ? bookings
+      .filter(booking => {
+        const start = parseInt(booking.start);
+        const status = parseInt(booking.status);
+        
+        return (status === 0 || status === 1) && start > now;
+      })
+      .sort((a, b) => parseInt(a.start) - parseInt(b.start))[0] || null : null;
+
+    // Extract lab data from the target booking (active or next)
+    const targetBooking = active || next;
+    // ✅ labDetails now comes pre-formatted from the composed hook
+    const enrichedLabData = targetBooking?.labDetails || null;
+
+    return {
+      activeBooking: active,
+      nextBooking: next,
+      hasActiveBooking: !!active,
+      labData: enrichedLabData
+    };
+  }, [userBookingsData?.bookings]);
+
   // Loading state
-  if (activeBookingLoading || (targetBooking && labLoading)) {
+  if (activeBookingLoading) {
     return (
       <div className="border shadow text-white rounded p-6 mb-1 h-full">
         <div className="flex items-center justify-center">
@@ -95,7 +127,7 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
         ) : null}
         
         {/* ActiveLabCard for available lab */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="w-full">
           {hasActiveBooking && labData ? (
             <ActiveLabCard
               lab={labData}

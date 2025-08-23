@@ -327,7 +327,7 @@ export default function UserDashboard() {
               
               {/* Calendar section */}
               <div className="min-[1280px]:w-2/12 w-full">
-                <div className="shadow text-white -6 mb-1 flex flex-col justify-center h-full">
+                <div className="shadow text-white mb-1 justify-center h-full">
                   <h3 className="text-base font-semibold mb-3 text-center">Calendar</h3>
                   <div className="flex flex-row justify-center">
                     <CalendarWithBookings

@@ -27,6 +27,15 @@ export default function ActiveLabCard({
   isActive = false, 
   bookingTimes = { start: null, end: null } 
 }) {
+  // Debug log to see what lab data is being passed
+  console.log('🔍 ActiveLabCard received lab data:', {
+    lab,
+    hasLab: !!lab,
+    labImages: lab?.images,
+    labDocs: lab?.docs,
+    labKeys: lab ? Object.keys(lab) : null
+  });
+
   if (!lab) {
     return (
       <span className="text-gray-300 text-center">

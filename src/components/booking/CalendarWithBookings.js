@@ -32,9 +32,12 @@ export default function CalendarWithBookings({
   displayMode = 'default'
 }) {
 
+  // Ensure bookingInfo is always an array to prevent undefined errors
+  const safeBookingInfo = Array.isArray(bookingInfo) ? bookingInfo : []
+
   // Use custom hook for booking filtering and day highlighting
   const { filteredBookings, dayClassName } = useBookingFilter(
-    bookingInfo, 
+    safeBookingInfo, 
     displayMode, 
     highlightClassName
   )
