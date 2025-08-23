@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { useAccount } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
@@ -18,7 +17,7 @@ import devLog from '@/utils/dev/logger'
 import isBookingActive from '@/utils/booking/isBookingActive'
 
 export default function UserDashboard() {
-  const { isLoggedIn, address, user, isSSO } = useUser();
+  const { isLoggedIn, address, user, isSSO, isConnected } = useUser();
   
   // 🚀 React Query for user bookings with lab details
   const { 
@@ -60,8 +59,6 @@ export default function UserDashboard() {
       }))
     });
   }, [userBookings.length, address]);
-
-  const { isConnected } = useAccount();
   
   // State for UI feedback only
   const [failedCancellations, setFailedCancellations] = useState(new Set());

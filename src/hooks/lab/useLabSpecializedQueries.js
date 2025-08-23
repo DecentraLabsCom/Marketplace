@@ -25,6 +25,28 @@ const formatWalletAddress = (address) => {
 };
 
 /**
+ * Helper function to extract images from metadata attributes
+ * @param {Object} metadataData - Metadata object from API
+ * @returns {Array} Array of image URLs
+ */
+const processLabImages = (metadataData) => {
+  if (!metadataData?.attributes) return [];
+  
+  const imagesAttribute = metadataData.attributes.find(
+    attr => attr.trait_type === 'additionalImages'
+  );
+  
+  const images = imagesAttribute?.value || [];
+  
+  // Add main image if it exists and not already in images array
+  if (metadataData.image && !images.includes(metadataData.image)) {
+    images.unshift(metadataData.image);
+  }
+  
+  return Array.isArray(images) ? images : [];
+};
+
+/**
  * Specialized hook for Market component
  * Gets all labs with provider mapping but minimal data transformation
  * Optimized for filtering and display in lab grid
@@ -695,6 +717,113 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       labDetailResults.forEach(r => r.refetch && r.refetch());
       metadataResults.forEach(r => r.refetch && r.refetch());
       imageResults.forEach(r => r.refetch && r.refetch());
+    }
+  };
+};
+
+/**
+ * Specialized hook for Lab Reservation component
+ * Gets all labs with essential data for dropdown selection and lab details display
+ * Includes metadata for names, descriptions, and images but excludes owners/providers for performance
+ * @param {Object} options - Configuration options
+ * @returns {Object} Labs with complete data needed for reservation functionality
+ */
+export const useLabsForReservation = (options = {}) => {
+  // Step 1: Get all lab IDs
+  const labIdsResult = useAllLabs({
+    ...LAB_QUERY_CONFIG,
+    enabled: options.enabled !== false,
+    select: (data) => data || []
+  });
+
+  const labIds = labIdsResult.data || [];
+
+  // Step 2: Get lab details for each ID
+  const labDetailResults = useQueries({
+    queries: labIds.length > 0 
+      ? labIds.map(labId => ({
+          queryKey: labQueryKeys.getLab(labId),
+          queryFn: () => useLab.queryFn(labId),
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Get lab data with IDs
+  const labsWithDetails = labDetailResults
+    .filter(result => result.isSuccess && result.data)
+    .map(result => result.data);
+
+  // Step 3: Get metadata for each lab to get names, descriptions, and images
+  const metadataResults = useQueries({
+    queries: labsWithDetails.length > 0 
+      ? labsWithDetails.map(lab => {
+          const metadataUri = lab?.base?.uri;
+          return {
+            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryFn: () => useMetadata.queryFn(metadataUri),
+            enabled: !!metadataUri,
+            ...METADATA_QUERY_CONFIG,
+          };
+        })
+      : [],
+    combine: (results) => results
+  });
+
+  // Process and combine results
+  const isLoading = labIdsResult.isLoading || 
+                   labDetailResults.some(r => r.isLoading) ||
+                   metadataResults.some(r => r.isLoading);
+  
+  const hasErrors = labIdsResult.error || labDetailResults.some(r => r.error);
+
+  // Enrich labs with metadata for complete reservation data
+  const enrichedLabs = labsWithDetails.map((lab, index) => {
+    const metadataData = metadataResults[index]?.data;
+    
+    // Extract images from metadata 
+    const images = processLabImages(metadataData);
+    
+    return {
+      id: lab.labId,
+      labId: lab.labId,
+      // Use metadata name or fallback to Lab ID
+      name: metadataData?.name || `Lab ${lab.labId}`,
+      description: metadataData?.description || 'No description available',
+      image: metadataData?.image,
+      images, // For Carrousel component
+      // Essential reservation data
+      price: lab.base?.price || '0',
+      timeSlots: [15, 30, 60], // Default time slots, can be customized per lab
+      opens: lab.base?.opens,
+      closes: lab.base?.closes,
+      // Include other base data
+      ...lab.base
+    };
+  });
+
+  devLog.log('🎯 useLabsForReservation - Complete result:', {
+    totalLabs: enrichedLabs.length,
+    sampleLabs: enrichedLabs.slice(0, 2).map(lab => ({ 
+      id: lab.id, 
+      name: lab.name,
+      hasImages: lab.images?.length > 0,
+      hasDescription: !!lab.description 
+    }))
+  });
+
+  return {
+    data: { labs: enrichedLabs, totalLabs: enrichedLabs.length },
+    isLoading,
+    isSuccess: !hasErrors && enrichedLabs.length > 0,
+    isError: hasErrors,
+    error: labIdsResult.error || labDetailResults.find(r => r.error)?.error || null,
+    refetch: () => {
+      labIdsResult.refetch();
+      labDetailResults.forEach(r => r.refetch && r.refetch());
+      metadataResults.forEach(r => r.refetch && r.refetch());
     }
   };
 };

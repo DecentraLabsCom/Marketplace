@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { useLabsForReservation } from '@/hooks/lab/useLabs'
 import { 
   useReservationRequest, 
   useBookingCacheUpdates,
@@ -35,7 +35,7 @@ export default function LabReservation({ id }) {
     data: labsData,
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsComposed();
+  } = useLabsForReservation();
   const labs = labsData?.labs || [];
   const { isSSO, address: userAddress } = useUser();
   const { addTemporaryNotification, addErrorNotification } = useNotifications();

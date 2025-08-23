@@ -206,5 +206,163 @@ export const useActiveUserBooking = (userAddress, options = {}) => {
   });
 };
 
-// Module loaded confirmation (only logs once even in StrictMode)
+/**
+ * Specialized hook for BookingSummarySection
+ * Gets only booking analytics without lab details or individual bookings
+ * Optimized for dashboard summary cards
+ * @param {string} userAddress - User wallet address
+ * @param {Object} options - Configuration options
+ * @returns {Object} Booking analytics summary only
+ */
+export const useUserBookingSummary = (userAddress, options = {}) => {
+  return useReservationsOf(userAddress, {
+    ...BOOKING_QUERY_CONFIG,
+    ...options.queryOptions,
+    enabled: !!userAddress && (options.enabled !== false),
+    
+    // ✅ Transform to summary analytics only
+    select: (rawReservations) => {
+      if (!rawReservations?.length) {
+        return {
+          totalBookings: 0,
+          activeBookings: 0,
+          upcomingBookings: 0,
+          completedBookings: 0,
+          cancelledBookings: 0,
+          pendingBookings: 0
+        };
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const summary = {
+        totalBookings: rawReservations.length,
+        activeBookings: 0,
+        upcomingBookings: 0,
+        completedBookings: 0,
+        cancelledBookings: 0,
+        pendingBookings: 0
+      };
+
+      rawReservations.forEach(reservation => {
+        const start = parseInt(reservation.start);
+        const end = parseInt(reservation.end);
+        const status = parseInt(reservation.status);
+        
+        if (status === 4) {
+          summary.cancelledBookings++;
+        } else if (status === 0) {
+          summary.pendingBookings++;
+        } else if (status === 2 || status === 3) {
+          summary.completedBookings++;
+        } else if (status === 1) {
+          if (start && end) {
+            if (now >= start && now <= end) {
+              summary.activeBookings++;
+            } else if (now < start) {
+              summary.upcomingBookings++;
+            } else {
+              summary.completedBookings++;
+            }
+          } else {
+            summary.upcomingBookings++;
+          }
+        }
+      });
+
+      devLog.log('📊 useUserBookingSummary - Analytics only:', summary);
+      return summary;
+    }
+  });
+};
+
+/**
+ * Specialized hook for ActiveBookingSection
+ * Gets current active and next upcoming booking with minimal lab enrichment
+ * @param {string} userAddress - User wallet address
+ * @param {Object} options - Configuration options
+ * @returns {Object} Active and next booking with basic lab data
+ */
+export const useUserActiveBookings = (userAddress, options = {}) => {
+  return useReservationsOf(userAddress, {
+    ...BOOKING_QUERY_CONFIG,
+    ...options.queryOptions,
+    enabled: !!userAddress && (options.enabled !== false),
+    
+    // ✅ Extract only active and next booking
+    select: (rawReservations) => {
+      if (!rawReservations?.length) {
+        return {
+          activeBooking: null,
+          nextBooking: null,
+          hasActiveBooking: false
+        };
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      let activeBooking = null;
+      let nextBooking = null;
+
+      // Find current active booking
+      const activeReservation = rawReservations.find(reservation => {
+        const start = parseInt(reservation.start);
+        const end = parseInt(reservation.end);
+        const status = parseInt(reservation.status);
+        
+        return status === 1 && start <= now && end >= now;
+      });
+
+      if (activeReservation) {
+        activeBooking = {
+          id: activeReservation.reservationKey,
+          reservationKey: activeReservation.reservationKey,
+          labId: activeReservation.labId,
+          status: activeReservation.status,
+          start: activeReservation.start,
+          end: activeReservation.end,
+          date: new Date(parseInt(activeReservation.start) * 1000).toISOString()
+        };
+      }
+
+      // Find next upcoming booking (if no active booking)
+      if (!activeBooking) {
+        const upcomingReservations = rawReservations
+          .filter(reservation => {
+            const start = parseInt(reservation.start);
+            const status = parseInt(reservation.status);
+            
+            return (status === 0 || status === 1) && start > now;
+          })
+          .sort((a, b) => parseInt(a.start) - parseInt(b.start));
+
+        if (upcomingReservations.length > 0) {
+          const nextReservation = upcomingReservations[0];
+          nextBooking = {
+            id: nextReservation.reservationKey,
+            reservationKey: nextReservation.reservationKey,
+            labId: nextReservation.labId,
+            status: nextReservation.status,
+            start: nextReservation.start,
+            end: nextReservation.end,
+            date: new Date(parseInt(nextReservation.start) * 1000).toISOString()
+          };
+        }
+      }
+
+      devLog.log('🎯 useUserActiveBookings - Active/Next only:', {
+        hasActive: !!activeBooking,
+        hasNext: !!nextBooking,
+        activeLabId: activeBooking?.labId,
+        nextLabId: nextBooking?.labId
+      });
+
+      return {
+        activeBooking,
+        nextBooking,
+        hasActiveBooking: !!activeBooking
+      };
+    }
+  });
+};
+
+// Module loaded confirmation
 devLog.moduleLoaded('✅ Booking specialized hooks loaded');

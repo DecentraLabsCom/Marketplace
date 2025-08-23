@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import PropTypes from 'prop-types';
-import { useUserBookingsDashboard } from '@/hooks/booking/useBookingComposedQueries';
+import { useUserBookingsDashboard } from '@/hooks/booking/useBookings';
 import devLog from '@/utils/dev/logger';
 
 /**
@@ -16,19 +16,16 @@ import devLog from '@/utils/dev/logger';
  */
 export default function BookingSummarySection({ userAddress, options = {} }) {
   const { 
-    data: reservationsData, 
+    data: bookingsData, 
     isLoading: summaryLoading,
     isError: summaryError 
   } = useUserBookingsDashboard(userAddress, {
-    includeLabDetails: false, // Don't need lab details for summary
-    includeRecentActivity: true, // Include recent activity for complete summary
-    limit: 50, // Get more data for accurate analytics
+    includeLabDetails: false,
     queryOptions: options
   });
 
-  // Extract summary data directly from the hook response
-  // The hook now provides both individual analytics and summary object
-  const summaryData = reservationsData?.summary || {};
+  // Extract summary data from bookings data
+  const summaryData = bookingsData || {};
   const {
     totalBookings,
     activeBookings,
@@ -41,11 +38,12 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
   React.useEffect(() => {
     devLog.log('🎯 BookingSummarySection - Debug:', {
       userAddress,
+      bookingsData,
       summaryData,
       isLoading: summaryLoading,
       isError: summaryError
     });
-  }, [userAddress, summaryData, summaryLoading, summaryError]);
+  }, [userAddress, bookingsData, summaryData, summaryLoading, summaryError]);
 
   // Loading state
   if (summaryLoading) {
