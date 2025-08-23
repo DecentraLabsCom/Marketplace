@@ -7,7 +7,7 @@
 "use client";
 import React, { useMemo } from 'react'
 import { useUser } from '@/context/UserContext'
-import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { useLabsForMarket } from '@/hooks/lab/useLabs'
 import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabFilters'
 import LabFilters from '@/components/home/LabFilters'
@@ -17,10 +17,8 @@ import devLog from '@/utils/dev/logger'
 export default function Market() {
   const { isLoggedIn, address, isWalletLoading } = useUser();
   
-  // React Query for labs with provider mapping enabled
-  const labsQuery = useAllLabsComposed({
-    includeOwners: true
-  });
+  // React Query for labs optimized for market display
+  const labsQuery = useLabsForMarket();
   
   const { 
     data: labsData, 

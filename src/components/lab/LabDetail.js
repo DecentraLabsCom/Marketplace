@@ -1,8 +1,8 @@
 "use client";
-import { useMemo } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
-import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { useLabById } from '@/hooks/lab/useLabs'
 import { useLabToken } from '@/context/LabTokenContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
@@ -18,22 +18,15 @@ import { LabHeroSkeleton } from '@/components/skeletons'
  */
 export default function LabDetail({ id, provider }) {
   const { 
-    data: labsData,
+    data: lab,
     isLoading: loading, 
     isError: labsError,
     error: labsErrorDetails 
-  } = useAllLabsComposed();
-  const labs = labsData?.labs || [];
+  } = useLabById(id);
   const { formatPrice } = useLabToken();
   const router = useRouter();
 
-  // Use useMemo to find the lab instead of useState + useEffect to avoid infinite re-renders
-  const lab = useMemo(() => {
-    if (labs && labs.length > 0) {
-      return labs.find((lab) => lab.id == id) || null;
-    }
-    return null;
-  }, [labs, id]);
+  // Lab is directly returned from the hook, no need for additional processing
 
   // ❌ Error handling for React Query
   if (labsError) {

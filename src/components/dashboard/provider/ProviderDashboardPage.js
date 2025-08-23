@@ -10,7 +10,7 @@ import {
   useListLab,
   useUnlistLab
 } from '@/hooks/lab/useLabs'
-import { useAllLabsComposed } from '@/hooks/lab/useLabs'
+import { useLabsForProvider } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
 import { useRequestFunds } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData } from '@/hooks/provider/useProvider'
@@ -27,9 +27,8 @@ export default function ProviderDashboard() {
   const { address, user, isSSO, isProvider, isProviderLoading, isLoading } = useUser();  
   const router = useRouter();
   
-  // 🚀 React Query for all labs with full enrichment (including owner addresses)
-  const allLabsResult = useAllLabsComposed({ 
-    includeOwnerAddresses: true,
+  // 🚀 React Query for labs owned by this provider
+  const allLabsResult = useLabsForProvider(address, { 
     enabled: !!address
   });
   
@@ -42,25 +41,10 @@ export default function ProviderDashboard() {
   
   const labs = Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
   
-  // Extract owned labs using the helper function
+  // Extract owned labs - already filtered by useLabsForProvider
   const ownedLabs = useMemo(() => {
-    if (!address || !Array.isArray(labs)) {
-      return [];
-    }
-    
-    try {
-      // Filter labs directly by owner address
-      const filtered = labs.filter(lab => {
-        const labOwner = lab.owner || lab.ownerAddress;
-        return labOwner && labOwner.toLowerCase() === address.toLowerCase();
-      });
-      
-      return filtered;
-    } catch (error) {
-      console.error('Error extracting owned labs:', error);
-      return [];
-    }
-  }, [labs, address]);
+    return Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
+  }, [allLabsData?.labs]);
 
   // Legacy compatibility - derive ownedLabIds from owned labs
   const ownedLabIds = useMemo(() => 
@@ -109,10 +93,10 @@ export default function ProviderDashboard() {
   const [newLab, setNewLab] = useState(newLabStructure);
   
   const maxId = useMemo(() => 
-    Array.isArray(labs) && labs.length > 0 
-      ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
+    Array.isArray(ownedLabs) && ownedLabs.length > 0 
+      ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0,
-    [labs]
+    [ownedLabs]
   );
 
   const selectedLab = useMemo(() => 
@@ -143,8 +127,8 @@ export default function ProviderDashboard() {
 
   // Handle adding a new lab using React Query mutation
   const handleAddLab = useCallback(async ({ labData }) => {
-    const maxId = Array.isArray(labs) && labs.length > 0 
-      ? Math.max(...labs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
+    const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
+      ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
     labData.uri = labData.uri || `Lab-${user?.name || 'Provider'}-${maxId + 1}.json`;
 
@@ -167,7 +151,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
     }
   }, [
-    labs, user?.name, addLabMutation, address, isSSO, user?.email, addTemporaryNotification
+    ownedLabs, user?.name, addLabMutation, address, isSSO, user?.email, addTemporaryNotification
   ]);
 
   // Redirect non-providers to home page
@@ -247,7 +231,7 @@ export default function ProviderDashboard() {
   // Handle editing/updating a lab
   async function handleEditLab({ labData, originalPrice }) {
     labData.uri = labData.uri || `Lab-${user.name}-${labData.id}.json`;
-    const originalLab = labs.find(lab => lab.id == labData.id);
+    const originalLab = ownedLabs.find(lab => lab.id == labData.id);
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
     const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 

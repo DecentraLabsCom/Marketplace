@@ -1,6 +1,6 @@
 /**
  * Index file for lab domain hooks
- * Exports all atomic queries, mutations, composed queries, and cache utilities
+ * Exports all atomic queries, mutations, composed queries, specialized queries, and cache utilities
  */
 
 // Export all atomic query hooks
@@ -11,6 +11,9 @@ export * from './useLabAtomicMutations'
 
 // Export composed query hooks
 export * from './useLabComposedQueries'
+
+// Export specialized query hooks
+export * from './useLabSpecializedQueries'
 
 // Export cache update utilities
 export * from './useLabCacheUpdates'

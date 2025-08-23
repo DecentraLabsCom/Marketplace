@@ -80,7 +80,7 @@ export default function LabGrid({
             price={lab.price}
             auth={lab.auth}
             activeBooking={lab.hasActiveBooking}
-            image={lab.images?.[0]}
+            image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}
           />
         ))}
       </div>
