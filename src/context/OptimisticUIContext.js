@@ -148,12 +148,12 @@ export function OptimisticUIProvider({ children }) {
     return serverState
   }, [labStates])
 
-  // Auto-cleanup stale optimistic states (older than 10 minutes for completed, 1 minute for pending)
+  // Auto-cleanup stale optimistic states
   React.useEffect(() => {
     const cleanup = () => {
       const now = Date.now()
-      const maxAgePending = 60 * 1000 // 1 minute for pending operations
-      const maxAgeCompleted = 10 * 60 * 1000 // 10 minutes for completed operations
+      const maxAgePending = 2 * 60 * 1000 // 2 minutes for pending operations
+      const maxAgeCompleted = 15 * 60 * 1000 // 15 minutes for completed operations
       
       // Clean listing states
       setLabListingStates(prev => {

@@ -28,7 +28,6 @@ export const bookingQueryKeys = {
   checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
   hasActiveBooking: (userAddress) => ['bookings', 'hasActiveBooking', userAddress],
   hasActiveBookingByToken: (labId) => ['bookings', 'hasActiveBookingByToken', labId],
-  isTokenListed: (labId) => ['bookings', 'isTokenListed', labId],
   labTokenAddress: () => ['bookings', 'labTokenAddress'],
   safeBalance: (userAddress) => ['bookings', 'safeBalance', userAddress],
 };

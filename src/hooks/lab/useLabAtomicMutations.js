@@ -743,9 +743,13 @@ export const useListLabWallet = (options = {}) => {
       completeOptimisticListingState(labId);
       
       try {
-        // Update listing status cache
-        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), true);
-        
+        // Update listing status cache with complete response format
+        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), {
+          labId: parseInt(labId),
+          isListed: true,
+          timestamp: new Date().toISOString(),
+          processingTime: 0 // Optimistic update, no processing time
+        });        
         const transactionCompleteLab = {
           id: labId,
           labId: labId,
@@ -874,9 +878,13 @@ export const useUnlistLabWallet = (options = {}) => {
       completeOptimisticListingState(labId);
       
       try {
-        // Update listing status cache
-        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), false);
-        
+        // Update listing status cache with complete response format
+        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), {
+          labId: parseInt(labId),
+          isListed: false,
+          timestamp: new Date().toISOString(),
+          processingTime: 0 // Optimistic update, no processing time
+        });        
         const transactionCompleteLab = {
           id: labId,
           labId: labId,

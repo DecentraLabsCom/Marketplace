@@ -284,7 +284,7 @@ useTokenURI.queryFn = getTokenURIQueryFn;
 const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
   
-  const response = await fetch(`/api/contract/lab/isTokenListed?labId=${labId}`, {
+  const response = await fetch(`/api/contract/reservation/isTokenListed?labId=${labId}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
@@ -299,7 +299,7 @@ const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
 }, { isListed: false }); // Return false during SSR
 
 /**
- * Hook for /api/contract/lab/isTokenListed endpoint
+ * Hook for /api/contract/reservation/isTokenListed endpoint
  * Checks if a specific lab token is listed in the marketplace
  * @param {string|number} labId - Lab ID to check listing status for
  * @param {Object} [options={}] - Additional react-query options

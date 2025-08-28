@@ -15,6 +15,7 @@ import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { useQueries } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -55,6 +56,9 @@ const processLabImages = (metadataData) => {
  * @returns {Object} Lab data optimized for market display
  */
 export const useLabsForMarket = (options = {}) => {
+  // Get optimistic UI context for listing states
+  const { getEffectiveListingState } = useOptimisticUI();
+  
   // Step 1: Get all lab IDs
   const labIdsResult = useAllLabs({
     ...LAB_QUERY_CONFIG,
@@ -116,11 +120,16 @@ export const useLabsForMarket = (options = {}) => {
       ? labDetailResults.map((result, index) => {
           const lab = result.data;
           const metadataUri = lab?.base?.uri;
-          const isListed = listingResults[index]?.data?.isListed;
+          const serverIsListed = listingResults[index]?.data?.isListed;
+          
+          // Use effective listing state for metadata fetching
+          const effectiveState = getEffectiveListingState(lab?.labId, serverIsListed);
+          const shouldFetchMetadata = effectiveState.isListed;
+          
           return {
             queryKey: metadataQueryKeys.byUri(metadataUri),
             queryFn: () => useMetadata.queryFn(metadataUri),
-            enabled: !!metadataUri && result.isSuccess && isListed, // Only fetch metadata for listed labs
+            enabled: !!metadataUri && result.isSuccess && shouldFetchMetadata, // Only fetch metadata for listed labs
             ...METADATA_QUERY_CONFIG,
           };
         })
@@ -199,8 +208,15 @@ export const useLabsForMarket = (options = {}) => {
   // Transform data for market display - Only include listed labs
   const labs = labDetailResults
     .filter((result, index) => {
-      const isListed = listingResults[index]?.data?.isListed;
-      return result.isSuccess && result.data && isListed;
+      if (!result.isSuccess || !result.data) return false;
+      
+      const labId = result.data.labId;
+      const serverIsListed = listingResults[index]?.data?.isListed;
+      
+      // Use effective listing state (optimistic overrides server state)
+      const effectiveState = getEffectiveListingState(labId, serverIsListed);
+      
+      return effectiveState.isListed;
     })
     .map((labResult, index) => {
       const lab = labResult.data;

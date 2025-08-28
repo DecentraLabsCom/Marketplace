@@ -243,50 +243,6 @@ export function BookingEventProvider({ children }) {
         }
     });
 
-    // TokenListed/TokenUnlisted events (booking-related)
-    useWatchContractEvent({
-        address: contractAddress,
-        abi: contractABI,
-        eventName: 'TokenListed',
-        onLogs: (logs) => {
-            devLog.log('📋 [BookingEventContext] TokenListed events detected:', logs.length);
-            
-            logs.forEach(log => {
-                const tokenId = log.args._tokenId?.toString();
-                if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.isTokenListed(tokenId) 
-                    });
-                }
-            });
-            
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-        }
-    });
-
-    useWatchContractEvent({
-        address: contractAddress,
-        abi: contractABI,
-        eventName: 'TokenUnlisted',
-        onLogs: (logs) => {
-            devLog.log('📋 [BookingEventContext] TokenUnlisted events detected:', logs.length);
-            
-            logs.forEach(log => {
-                const tokenId = log.args._tokenId?.toString();
-                if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.isTokenListed(tokenId) 
-                    });
-                }
-            });
-            
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-        }
-    });
 
     return (
         <BookingEventContext.Provider value={{}}>

@@ -489,44 +489,8 @@ export const useHasActiveBookingByToken = (labId, options = {}) => {
 // Export queryFn for use in composed hooks
 useHasActiveBookingByToken.queryFn = getHasActiveBookingByTokenQueryFn;
 
-// Define queryFn first for reuse
-const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
-  if (!labId) throw new Error('Lab ID is required');
-  
-  const response = await fetch('/api/contract/reservation/isTokenListed', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tokenId: labId.toString() })
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to check listing status for lab ${labId}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useIsTokenListed:', labId, data);
-  return data;
-}, { isListed: false }); // Return false during SSR
-
-/**
- * Hook for /api/contract/reservation/isTokenListed endpoint
- * Checks if a lab token is currently listed for booking
- * @param {string|number} labId - Lab ID to check
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with listing status
- */
-export const useIsTokenListed = (labId, options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.isTokenListed(labId),
-    queryFn: () => getIsTokenListedQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
-    enabled: !!labId,
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useIsTokenListed.queryFn = getIsTokenListedQueryFn;
+// Note: useIsTokenListed has been moved to useLabAtomicQueries 
+// since token listing is a lab property, not a booking property
 
 // Define queryFn first for reuse
 const getLabTokenAddressQueryFn = createSSRSafeQuery(async () => {
