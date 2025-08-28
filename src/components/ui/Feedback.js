@@ -194,7 +194,7 @@ export function Spinner({
     sm: 'size-4',
     md: 'size-8',
     lg: 'size-12',
-    xl: 'h-16 w-16'
+    xl: 'size-16'
   }
 
   const classes = cn(

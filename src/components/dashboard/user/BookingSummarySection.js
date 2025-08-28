@@ -50,7 +50,7 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
     return (
       <div className="text-white p-6 mb-1 h-full">
         <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+          <div className="animate-spin rounded-full size-6 border-b-2 border-white"></div>
           <span className="ml-2 text-sm">Loading summary...</span>
         </div>
       </div>
