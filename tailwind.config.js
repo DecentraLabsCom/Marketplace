@@ -9,6 +9,14 @@ export default {
     './src/components/**/*.{js,ts,jsx,tsx}',
     './src/utils/**/*.{js,ts,jsx,tsx}',
   ],
+  safelist: [
+    // Ensure global CSS classes and their dependencies are always included
+    'separator-width',
+    'separator-width-black',
+    'animate-separator-width',
+    // Size utilities (already defined in global.css)
+    { pattern: /^size-/ },
+  ],
   theme: {
     extend: {
       // Colors from design system
@@ -147,7 +155,6 @@ export default {
   plugins: [
     require('@tailwindcss/forms'),
     require('@tailwindcss/typography'),
-    require('@tailwindcss/aspect-ratio'),
   ],
 };
 

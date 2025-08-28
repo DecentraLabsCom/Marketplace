@@ -107,7 +107,7 @@ const ReactQueryLabImage = ({
   if (fill) imageProps.fill = fill
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative size-full">
       <Image {...imageProps} />
       
       {/* Loading placeholder */}
