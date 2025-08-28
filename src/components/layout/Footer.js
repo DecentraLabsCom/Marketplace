@@ -9,7 +9,7 @@ import Link from 'next/link'
  */
 export default function Footer() {
   return (
-    <footer className="bg-[#333f63] text-center p-3 mt-8 relative">
+    <footer className="bg-hover-dark text-center p-3 mt-8 relative">
       <div className="container mx-auto p-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
@@ -28,13 +28,13 @@ export default function Footer() {
 
           {/* Center: Links */}
           <div className="flex space-x-4 justify-center items-center">
-            <Link href="/about" className="hover:text-brand transition font-semibold">
+            <Link href="/about" className="hover:text-brand-secondary transition font-semibold">
               About
             </Link>
-            <Link href="/faq" className="hover:text-brand transition font-semibold">
+            <Link href="/faq" className="hover:text-brand-secondary transition font-semibold">
               FAQ
             </Link>
-            <Link href="/contact" className="hover:text-brand transition font-semibold">
+            <Link href="/contact" className="hover:text-brand-secondary transition font-semibold">
               Contact
             </Link>
           </div>
@@ -42,13 +42,13 @@ export default function Footer() {
           {/* Right: Social Media */}
           <div className="flex space-x-4 justify-center items-center">
             <a href="https://decentralabs.nebsyst.com" target="_blank" rel="noopener noreferrer">
-              <FaGlobe className="size-6 hover:text-brand" />
+              <FaGlobe className="size-6 hover:text-brand-secondary" />
             </a>
             <a href="https://github.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
-              <FaGithub className="size-6 hover:text-brand" />
+              <FaGithub className="size-6 hover:text-brand-secondary" />
             </a>
             <a href="https://x.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
-              <FaXTwitter className="size-6 hover:text-brand" />
+              <FaXTwitter className="size-6 hover:text-brand-secondary" />
             </a>
           </div>
         </div>

@@ -18,11 +18,11 @@ export default function GlobalNotificationStack() {
         <div 
           key={notification.id}
           className={`mb-3 p-4 rounded-lg shadow-lg max-w-sm sm:max-w-md animate-slide-in ${
-            notification.type === 'success' ? 'bg-[#7b976e]' : 
-            notification.type === 'error' ? 'bg-[#a87583]' : 
-            notification.type === 'warning' ? 'bg-[#bcc4fc]' : 
+            notification.type === 'success' ? 'bg-success' : 
+            notification.type === 'error' ? 'bg-error' : 
+            notification.type === 'warning' ? 'bg-warning' : 
             notification.type === 'pending' ? 'bg-brand' : 
-            'bg-[#335763]'
+            'bg-text-secondary'
           }`}
           style={{
             animationDelay: `${index * 100}ms`

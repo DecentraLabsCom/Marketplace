@@ -33,7 +33,7 @@ const DocPreviewList = React.memo(function DocPreviewList({ docUrls, removeDoc, 
               <button
                 type="button"
                 onClick={() => removeDoc(index)}
-                className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed"
+                className="text-error hover:text-error-text disabled:cursor-not-allowed"
                 disabled={isExternalURI}
               >
                 <XCircle className="size-4" />

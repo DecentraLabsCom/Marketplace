@@ -125,7 +125,7 @@ export default function FileUploadManager({
               <button
                 type="button"
                 onClick={() => onUrlRemove(index)}
-                className="text-red-600 hover:text-red-800 text-sm"
+                className="text-error-text hover:text-error-dark text-sm"
                 disabled={disabled}
               >
                 Remove
@@ -169,7 +169,7 @@ export default function FileUploadManager({
               <button
                 type="button"
                 onClick={() => onFileRemove(index)}
-                className="text-red-600 hover:text-red-800 text-sm ml-2"
+                className="text-error-text hover:text-error-dark text-sm ml-2"
                 disabled={disabled}
               >
                 Remove
@@ -182,7 +182,7 @@ export default function FileUploadManager({
           <button
             type="button"
             onClick={handleUploadFiles}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="mt-2 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
             disabled={disabled}
           >
             Upload {fileTypeLabel}s
@@ -237,7 +237,7 @@ export default function FileUploadManager({
             <button
               type="button"
               onClick={handleAddUrl}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
               disabled={disabled || urls.length >= maxFiles}
             >
               Add
@@ -260,7 +260,7 @@ export default function FileUploadManager({
             accept={acceptedTypes}
             multiple
             onChange={handleFileSelect}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-info-bg file:text-info-text hover:file:bg-info-light"
             disabled={disabled || files.length >= maxFiles}
           />
           {files.length >= maxFiles && (

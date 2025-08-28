@@ -34,7 +34,7 @@ export function Card({
   }
 
   const variantClasses = {
-    default: 'bg-gray-200 rounded-md',
+    default: 'bg-neutral-200 rounded-md',
     modal: 'bg-white rounded-lg'
   }
 
@@ -48,7 +48,7 @@ export function Card({
     padding !== 'none' ? paddingClasses[padding] : '',
     shadow ? shadowClasses[variant] : '',
     {
-      'border border-gray-200': border
+      'border border-neutral-200': border
     },
     className
   )
@@ -75,7 +75,7 @@ export function CardHeader({
   actions,
   className = ''
 }) {
-  const classes = cn('border-b border-gray-200 pb-4 mb-4', className)
+  const classes = cn('border-b border-neutral-200 pb-4 mb-4', className)
 
   return (
     <div className={classes}>
@@ -83,12 +83,12 @@ export function CardHeader({
         <div className="flex items-start justify-center">
           <div>
             {title && (
-              <h3 className="text-lg leading-6 text-[#333f63] font-bold">
+              <h3 className="text-lg leading-6 text-hover-dark font-bold">
                 {title}
               </h3>
             )}
             {subtitle && (
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-neutral-500">
                 {subtitle}
               </p>
             )}
@@ -137,7 +137,7 @@ export function CardFooter({
   }
 
   const classes = cn(
-    'border-t border-gray-200 pt-4 mt-4 flex items-center',
+    'border-t border-neutral-200 pt-4 mt-4 flex items-center',
     alignClasses[align],
     className
   )
@@ -381,17 +381,17 @@ export function Divider({
     return (
       <div className={cn('relative', className)}>
         <div className="absolute inset-0 flex items-center">
-          <div className={cn('w-full border-t border-gray-300', styleClasses[style])} />
+          <div className={cn('w-full border-t border-neutral-300', styleClasses[style])} />
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="bg-white px-2 text-gray-500">{label}</span>
+          <span className="bg-white px-2 text-neutral-500">{label}</span>
         </div>
       </div>
     )
   }
 
   const classes = cn(
-    'border-gray-300',
+    'border-neutral-300',
     orientationClasses[orientation],
     styleClasses[style],
     orientation === 'horizontal' ? 'border-t' : 'border-l',

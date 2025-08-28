@@ -66,7 +66,7 @@ export default function RootLayout({ children }) {
                       <LabEventProvider>
                         <BookingEventProvider>
                           <header className="sticky top-0 z-50">
-                            <ClientOnly fallback={<div className="bg-[#caddff] text-[#333f63] p-3 shadow-md h-20" />}>
+                            <ClientOnly fallback={<div className="bg-header-bg text-hover-dark p-3 shadow-md h-20" />}>
                               <Navbar />
                             </ClientOnly>
                           </header>

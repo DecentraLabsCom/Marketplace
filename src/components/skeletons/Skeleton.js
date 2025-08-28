@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 export function Skeleton({ className = "", width = "w-full", height = "h-4", rounded = "rounded" }) {
   return (
     <div 
-      className={`animate-pulse bg-gray-200 dark:bg-gray-700 ${width} ${height} ${rounded} ${className}`}
+      className={`animate-pulse bg-neutral-200 dark:bg-neutral-700 ${width} ${height} ${rounded} ${className}`}
     />
   );
 }
@@ -12,7 +12,7 @@ export function Skeleton({ className = "", width = "w-full", height = "h-4", rou
 // Card skeleton wrapper
 export function SkeletonCard({ children, className = "" }) {
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 space-y-3 ${className}`}>
+    <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow-md p-4 space-y-3 ${className}`}>
       {children}
     </div>
   );

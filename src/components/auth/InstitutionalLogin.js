@@ -22,7 +22,7 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
   return (
     <div onClick={handleInstitutionalLogin}
         className="bg-brand text-white font-bold rounded-lg px-4 py-2 transition duration-300 
-        cursor-pointer ease-in-out hover:bg-[#333f63] hover:text-white  flex items-center 
+        cursor-pointer ease-in-out hover:bg-hover-dark hover:text-white  flex items-center 
         justify-center"
         >
         <FontAwesomeIcon icon={faUniversity} className="font-semibold text-4xl mr-3" title="Institutional Account"/>

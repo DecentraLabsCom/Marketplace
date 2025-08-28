@@ -63,10 +63,10 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
 
       {/* Lab Details */}
       <div className="p-4 h-1/3">
-        <h2 className="text-xl min-[700px]:text-2xl font-bold min-[768px]:mt-2 text-[#333f63]">{name}</h2>
+        <h2 className="text-xl min-[700px]:text-2xl font-bold min-[768px]:mt-2 text-hover-dark">{name}</h2>
         <div className="md:flex md:justify-between md:items-center min-[700px]:block min-[768px]:mt-4">
-          <p className="text-[#3f3363] font-semibold text-base mt-2">{provider}</p>
-          <p className="text-[#335763] font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p> 
+          <p className="text-ui-label-dark font-semibold text-base mt-2">{provider}</p>
+          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p> 
         </div>
       </div>
 

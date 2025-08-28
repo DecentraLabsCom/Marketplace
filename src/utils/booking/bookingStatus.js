@@ -64,12 +64,12 @@ export const getBookingStatusText = (booking) => {
  */
 export const getBookingStatusColor = (booking) => {
   switch (Number(booking.status)) {
-    case 0: return 'text-yellow-600';      // Pending - yellow
-    case 1: return 'text-green-600';       // Confirmed - green
-    case 2: return 'text-blue-600';        // Used - blue
-    case 3: return 'text-gray-600';        // Collected - gray
-    case 4: return 'text-red-600';         // Cancelled - red
-    default: return 'text-gray-400';       // Unknown - light gray
+    case 0: return 'text-warning';         // Pending - warning yellow
+    case 1: return 'text-success';         // Confirmed - success green
+    case 2: return 'text-info';            // Used - info blue
+    case 3: return 'text-neutral-600';     // Collected - neutral gray
+    case 4: return 'text-error';           // Cancelled - error red
+    default: return 'text-neutral-400';    // Unknown - light gray
   }
 }
 
@@ -82,32 +82,32 @@ export const getBookingStatusDisplay = (booking) => {
   switch (Number(booking.status)) {
     case 0: return {
       text: "Pending",
-      className: "bg-orange-100 text-orange-800 border-orange-200",
+      className: "bg-booking-pending-bg text-booking-pending-text border-booking-pending-border",
       icon: "⏳"
     };
     case 1: return {
       text: "Confirmed",
-      className: "bg-blue-100 text-blue-800 border-blue-200",
+      className: "bg-booking-confirmed-bg text-booking-confirmed-text border-booking-confirmed-border",
       icon: "✓"
     };
     case 2: return {
       text: "Used",
-      className: "bg-green-100 text-green-800 border-green-200",
+      className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
       icon: "✅"
     };
     case 3: return {
       text: "Collected",
-      className: "bg-purple-100 text-purple-800 border-purple-200",
+      className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
       icon: "🎯"
     };
     case 4: return {
       text: "Cancelled",
-      className: "bg-red-100 text-red-800 border-red-200",
+      className: "bg-booking-cancelled-bg text-booking-cancelled-text border-booking-cancelled-border",
       icon: "❌"
     };
     default: return {
       text: "Unknown",
-      className: "bg-gray-100 text-gray-800 border-gray-200",
+      className: "bg-neutral-100 text-neutral-800 border-neutral-200",
       icon: "❓"
     };
   }

@@ -651,7 +651,7 @@ export default function LabReservation({ id }) {
                       labPrice={selectedLab.price}
                       durationMinutes={time}
                     />
-                    <p className="text-[#335763] font-semibold text-xl mt-4 text-center">{formatPrice(selectedLab.price)} $LAB / hour</p>
+                    <p className="text-text-secondary font-semibold text-xl mt-4 text-center">{formatPrice(selectedLab.price)} $LAB / hour</p>
                   </div>
                 )}
               </div>
@@ -668,7 +668,7 @@ export default function LabReservation({ id }) {
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
                   isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedAvailableTime
                     ? 'bg-gray-500 cursor-not-allowed' 
-                    : 'bg-brand hover:bg-[#333f63]'
+                    : 'bg-brand hover:bg-hover-dark'
                 }`}
               >
                 {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 

@@ -33,10 +33,10 @@ export default function ConfirmModal({ isOpen, onClose, onContinue }) {
             Are you sure you want to proceed?</h2>
             <div className="flex flex-row pt-4 justify-between px-10">
             <button
-                className='px-3 mr-3 py-1 text-lg rounded bg-[#75a887] hover:bg-[#5c8a68] text-white'
+                className='px-3 mr-3 py-1 text-lg rounded bg-success hover:bg-success-dark text-white'
                 onClick={onContinue}
                 >Continue</button>
-            <button onClick={onClose} className='px-5 mr-3 py-1 text-lg rounded bg-[#a87583] hover:bg-[#8a5c66]
+            <button onClick={onClose} className='px-5 mr-3 py-1 text-lg rounded bg-error hover:bg-error-dark
             text-white'>Cancel</button>
             </div>
         </div>

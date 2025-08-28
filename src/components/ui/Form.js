@@ -7,7 +7,7 @@ import PropTypes from 'prop-types'
 import { cn } from '@/utils/cn'
 
 // Base input classes
-const baseInputClasses = 'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6 transition-all duration-150'
+const baseInputClasses = 'block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6 transition-all duration-150'
 
 // Input variants
 const inputVariants = {
@@ -17,7 +17,7 @@ const inputVariants = {
     lg: 'px-4 py-2 text-lg'
   },
   state: {
-    default: 'ring-gray-300 focus:ring-primary-600',
+    default: 'ring-neutral-300 focus:ring-primary-600',
     error: 'ring-error focus:ring-error',
     success: 'ring-success focus:ring-success'
   }
@@ -60,7 +60,7 @@ export const Input = forwardRef(({
       {label && (
         <label 
           htmlFor={inputId}
-          className="block text-sm font-medium leading-6 text-gray-900 mb-2"
+          className="block text-sm font-medium leading-6 text-neutral-900 mb-2"
         >
           {label}
           {required && <span className="text-error ml-1">*</span>}
@@ -81,7 +81,7 @@ export const Input = forwardRef(({
       )}
       
       {helpText && !error && (
-        <p className="mt-2 text-sm text-gray-500" id={`${inputId}-description`}>
+        <p className="mt-2 text-sm text-neutral-500" id={`${inputId}-description`}>
           {helpText}
         </p>
       )}
@@ -123,7 +123,7 @@ export const Textarea = forwardRef(({
       {label && (
         <label 
           htmlFor={textareaId}
-          className="block text-sm font-medium leading-6 text-gray-900 mb-2"
+          className="block text-sm font-medium leading-6 text-neutral-900 mb-2"
         >
           {label}
           {required && <span className="text-error ml-1">*</span>}
@@ -145,7 +145,7 @@ export const Textarea = forwardRef(({
       )}
       
       {helpText && !error && (
-        <p className="mt-2 text-sm text-gray-500" id={`${textareaId}-description`}>
+        <p className="mt-2 text-sm text-neutral-500" id={`${textareaId}-description`}>
           {helpText}
         </p>
       )}
@@ -189,7 +189,7 @@ export const Select = forwardRef(({
       {label && (
         <label 
           htmlFor={selectId}
-          className="block text-sm font-medium leading-6 text-gray-900 mb-2"
+          className="block text-sm font-medium leading-6 text-neutral-900 mb-2"
         >
           {label}
           {required && <span className="text-error ml-1">*</span>}
@@ -221,7 +221,7 @@ export const Select = forwardRef(({
       )}
       
       {helpText && !error && (
-        <p className="mt-2 text-sm text-gray-500" id={`${selectId}-description`}>
+        <p className="mt-2 text-sm text-neutral-500" id={`${selectId}-description`}>
           {helpText}
         </p>
       )}
@@ -254,7 +254,7 @@ export const Checkbox = forwardRef(({
           id={checkboxId}
           type="checkbox"
           className={cn(
-            'size-4 rounded border-gray-300 text-primary-600 focus:ring-primary-600',
+            'size-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600',
             className
           )}
           {...props}
@@ -262,13 +262,13 @@ export const Checkbox = forwardRef(({
       </div>
       <div className="ml-3 text-sm leading-6">
         {label && (
-          <label htmlFor={checkboxId} className="font-medium text-gray-900">
+          <label htmlFor={checkboxId} className="font-medium text-neutral-900">
             {label}
             {required && <span className="text-error ml-1">*</span>}
           </label>
         )}
         {description && (
-          <p className="text-gray-500">{description}</p>
+          <p className="text-neutral-500">{description}</p>
         )}
       </div>
     </div>
@@ -297,7 +297,7 @@ export function RadioGroup({
   return (
     <fieldset className={cn('w-full', className)}>
       {label && (
-        <legend className="text-sm font-medium leading-6 text-gray-900">
+        <legend className="text-sm font-medium leading-6 text-neutral-900">
           {label}
           {required && <span className="text-error ml-1">*</span>}
         </legend>
@@ -314,9 +314,9 @@ export function RadioGroup({
                 value={option.value}
                 checked={value === option.value}
                 onChange={onChange}
-                className="size-4 border-gray-300 text-primary-600 focus:ring-primary-600"
+                className="size-4 border-neutral-300 text-primary-600 focus:ring-primary-600"
               />
-              <label htmlFor={radioId} className="ml-3 block text-sm font-medium leading-6 text-gray-900">
+              <label htmlFor={radioId} className="ml-3 block text-sm font-medium leading-6 text-neutral-900">
                 {option.label}
               </label>
             </div>
@@ -354,12 +354,12 @@ export function FormGroup({ children, title, description, className = '' }) {
       {(title || description) && (
         <div>
           {title && (
-            <h3 className="text-lg font-medium leading-6 text-gray-900">
+            <h3 className="text-lg font-medium leading-6 text-neutral-900">
               {title}
             </h3>
           )}
           {description && (
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-neutral-500">
               {description}
             </p>
           )}

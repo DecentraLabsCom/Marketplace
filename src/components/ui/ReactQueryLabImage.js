@@ -112,12 +112,12 @@ const ReactQueryLabImage = ({
       
       {/* Loading placeholder */}
       {!imageLoaded && (
-        <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+        <div className="absolute inset-0 bg-neutral-200 animate-pulse flex items-center justify-center">
           <Spinner 
             size="md" 
             color="primary-600"
             label={isCaching ? 'Caching image...' : 'Loading image...'}
-            className="text-gray-500"
+            className="text-neutral-500"
           />
         </div>
       )}

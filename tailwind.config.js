@@ -23,11 +23,55 @@ export default {
         error: designSystem.colors.status.error,
         info: designSystem.colors.status.info,
         calendar: designSystem.colors.calendar,
+        booking: designSystem.colors.booking,
+        brand: designSystem.colors.brand,
+        ui: designSystem.colors.ui,
         
-        // Legacy colors for backward compatibility
-        brand: designSystem.colors.primary[600],
-        'brand-light': designSystem.colors.primary[100],
-        'brand-dark': designSystem.colors.primary[800]
+        // Direct token aliases for common colors
+        'header-bg': designSystem.colors.calendar.header,       // #caddff
+        'hover-dark': designSystem.colors.calendar.hover,       // #333f63
+        'brand-primary': designSystem.colors.brand.primary,     // #715c8c
+        'brand-secondary': designSystem.colors.brand.secondary, // #caddff
+        'text-secondary': designSystem.colors.text.secondary,   // #335763
+        'ui-label-dark': designSystem.colors.ui.label.dark,     // #3f3363
+        
+        // Neutral/Gray tokens for replacing generic Tailwind grays
+        'neutral': designSystem.colors.text.neutral,
+        'gray': designSystem.colors.text.neutral,  // Override default Tailwind grays
+        
+        // Status tokens for replacing generic colors
+        'success-bg': designSystem.colors.status.success.bg,
+        'success-text': designSystem.colors.status.success.text,
+        'success-border': designSystem.colors.status.success.border,
+        'error-bg': designSystem.colors.status.error.bg,
+        'error-text': designSystem.colors.status.error.text,
+        'error-border': designSystem.colors.status.error.border,
+        'warning-bg': designSystem.colors.status.warning.bg,
+        'warning-text': designSystem.colors.status.warning.text,
+        'warning-border': designSystem.colors.status.warning.border,
+        'info-bg': designSystem.colors.status.info.bg,
+        'info-text': designSystem.colors.status.info.text,
+        'info-border': designSystem.colors.status.info.border,
+        
+        // Booking status tokens
+        'booking-pending-bg': designSystem.colors.booking.pending.bg,
+        'booking-pending-text': designSystem.colors.booking.pending.text,
+        'booking-pending-border': designSystem.colors.booking.pending.border,
+        'booking-confirmed-bg': designSystem.colors.booking.confirmed.bg,
+        'booking-confirmed-text': designSystem.colors.booking.confirmed.text,
+        'booking-confirmed-border': designSystem.colors.booking.confirmed.border,
+        'booking-used-bg': designSystem.colors.booking.used.bg,
+        'booking-used-text': designSystem.colors.booking.used.text,
+        'booking-used-border': designSystem.colors.booking.used.border,
+        'booking-collected-bg': designSystem.colors.booking.collected.bg,
+        'booking-collected-text': designSystem.colors.booking.collected.text,
+        'booking-collected-border': designSystem.colors.booking.collected.border,
+        'booking-cancelled-bg': designSystem.colors.booking.cancelled.bg,
+        'booking-cancelled-text': designSystem.colors.booking.cancelled.text,
+        'booking-cancelled-border': designSystem.colors.booking.cancelled.border,
+        
+        // Single brand token (for backward compatibility)
+        'brand': designSystem.colors.brand.primary            // #715c8c
       },
       
       // Typography

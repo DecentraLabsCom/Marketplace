@@ -39,14 +39,14 @@ export default function Navbar() {
 
   const menuButton = (href, label) => (
     <Link href={href}
-      className="bg-white shadow-md flex items-center hover:bg-[#333f63] hover:text-white p-3"
+      className="bg-white shadow-md flex items-center hover:bg-hover-dark hover:text-white p-3"
     >
       {label}
     </Link>
   );
 
   return (
-    <nav className="bg-[#caddff] text-[#333f63] p-3 shadow-md">
+    <nav className="bg-header-bg text-hover-dark p-3 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
         {/* Logo */}
         <Link href="/">
@@ -82,23 +82,23 @@ export default function Navbar() {
 
       {/* Mobile Dropdown */}
       {menuOpen && (
-        <div className="md:hidden bg-[#caddff] text-[#333f63] shadow-md absolute inset-x-0 z-50">
+        <div className="md:hidden bg-header-bg text-hover-dark shadow-md absolute inset-x-0 z-50">
           <div className="flex flex-col items-center py-4 space-y-2">
             {showMenuButtons && (
               <>
-                <Link href="/reservation" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
+                <Link href="/reservation" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                   Book a Lab
                 </Link>
-                <Link href="/userdashboard" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
+                <Link href="/userdashboard" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                   Dashboard
                 </Link>
                 {showRegisterButton() && (
-                  <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
+                  <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                     Register as a Provider
                   </Link>
                 )}
                 {showProviderButton && (
-                  <Link href="/providerdashboard" className="w-full pt-1 text-center font-bold hover:bg-[#333f63] hover:text-white rounded">
+                  <Link href="/providerdashboard" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                     Lab Panel
                   </Link>
                 )}

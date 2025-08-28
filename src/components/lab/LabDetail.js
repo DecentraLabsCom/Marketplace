@@ -32,14 +32,14 @@ export default function LabDetail({ id, provider }) {
   if (labsError) {
     return (
       <main className="container mx-auto p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-          <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Lab</h2>
-          <p className="text-red-600 mb-4">
+        <div className="bg-error-bg border border-error-border rounded-lg p-6 max-w-md mx-auto">
+          <h2 className="text-error-text text-xl font-semibold mb-2">Error Loading Lab</h2>
+          <p className="text-error-text mb-4">
             {labsErrorDetails?.message || 'Failed to load laboratory data'}
           </p>
           <button 
             onClick={() => window.location.reload()}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+            className="bg-error text-white px-4 py-2 rounded hover:bg-error-dark transition-colors"
           >
             Retry
           </button>
@@ -68,7 +68,7 @@ export default function LabDetail({ id, provider }) {
           <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} />
             {/* Price and Provider info - moved here */}
-            <div className="flex justify-between items-center text-[#335763] font-semibold mt-4 mb-2">
+            <div className="flex justify-between items-center text-text-secondary font-semibold mt-4 mb-2">
               <span>{formatPrice(lab?.price)} $LAB / hour</span>
               {provider && (
                 <span className="truncate max-w-[50%]" title={provider}>
@@ -76,7 +76,7 @@ export default function LabDetail({ id, provider }) {
                 </span>
               )}
             </div>
-            <button className="bg-brand hover:bg-[#333f63] text-white px-4 py-2 rounded mt-4 
+            <button className="bg-brand hover:bg-hover-dark text-white px-4 py-2 rounded mt-4 
               max-h-[45px] w-2/3 mx-auto" onClick={() => 
               router.push(`/reservation/${lab?.id}`)} aria-label={`Rent ${lab?.name}`}>
               Book Lab
@@ -87,7 +87,7 @@ export default function LabDetail({ id, provider }) {
         {/* Lab Details Section */}
         <article className="w-full md:w-2/5 mt-4">
           <header>
-            <h1 className="text-2xl text-[#caddff] font-bold pb-2 text-center">
+            <h1 className="text-2xl text-header-bg font-bold pb-2 text-center">
               {lab?.name}
             </h1>
             <div className="flex justify-center">
@@ -98,18 +98,20 @@ export default function LabDetail({ id, provider }) {
 
           <div className="mt-4">
             {/* Category */}
-            <div className="flex items-center">
-              <span className="bg-[#3f3363] text-gray-200 inline-flex items-center justify-center 
-              py-1 px-3 text-sm rounded" aria-label={`Category: ${lab?.category}`}>
-                {lab?.category}
-              </span>
-            </div>
+            {lab?.category && (
+              <div className="flex items-center">
+                <span className="bg-ui-label-dark text-neutral-200 inline-flex items-center justify-center 
+                py-1 px-3 text-sm rounded">
+                  {lab.category}
+                </span>
+              </div>
+            )}
 
             {/* Keywords */}
             <div className="flex flex-wrap gap-2 mt-2">
               {(Array.isArray(lab.keywords) ? lab.keywords : []).map((keyword) => (
-                <span key={keyword} className="bg-[#335763] text-gray-200 inline-flex items-center 
-                  justify-center py-1 px-3 text-sm rounded" aria-label={`Keyword: ${keyword}`}>
+                <span key={keyword} className="bg-text-secondary text-neutral-200 inline-flex items-center 
+                  justify-center py-1 px-3 text-sm rounded">
                   {keyword}
                 </span>
               ))}
@@ -117,7 +119,7 @@ export default function LabDetail({ id, provider }) {
 
             {/* Documentation */}
             <div className={`flex flex-col text-center mt-4 overflow-hidden`}>
-              <h3 className="text-[#caddff] text-lg font-semibold">
+              <h3 className="text-header-bg text-lg font-semibold">
                 Documentation
               </h3>
               <div className="transition-opacity duration-300 opacity-100 mt-2">

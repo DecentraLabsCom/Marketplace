@@ -447,6 +447,18 @@ export const useLabById = (labId, options = {}) => {
       if (metadata.category) enrichedLab.category = metadata.category;
       if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
       if (metadata.attributes) {
+        // Extract category from attributes if not set directly
+        if (!enrichedLab.category) {
+          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
+          if (categoryAttr) enrichedLab.category = categoryAttr.value;
+        }
+        
+        // Extract keywords from attributes if not set directly
+        if (!enrichedLab.keywords) {
+          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
+          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
+        }
+        
         // Extract timeSlots, docs, etc. from attributes
         const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
         if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;

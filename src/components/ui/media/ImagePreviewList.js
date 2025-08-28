@@ -22,7 +22,7 @@ const ImagePreviewList = React.memo(function ImagePreviewList({ imageUrls, remov
           <button
             type="button"
             onClick={() => removeImage(index)}
-            className="absolute top-0 right-0 bg-red-500 text-white rounded-full opacity-0 
+            className="absolute top-0 right-0 bg-error text-white rounded-full opacity-0 
               group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
             disabled={isExternalURI}
           >

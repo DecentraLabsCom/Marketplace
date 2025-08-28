@@ -35,21 +35,6 @@ export const colors = {
     950: '#020617'
   },
   
-  // Accent colors
-  accent: {
-    50: '#f0f9ff',
-    100: '#e0f2fe',
-    200: '#bae6fd',
-    300: '#7dd3fc',
-    400: '#38bdf8',
-    500: '#0ea5e9',
-    600: '#0284c7',
-    700: '#0369a1',
-    800: '#075985',
-    900: '#0c4a6e',
-    950: '#082f49'
-  },
-  
   // UI Colors  
   background: {
     light: '#ffffff',
@@ -61,45 +46,126 @@ export const colors = {
   
   // Text colors
   text: {
-    primary: '#171717',
-    secondary: '#4b5563',
-    muted: '#9ca3af',
-    inverse: '#ffffff',
-    accent: '#715c8c'
+    primary: '#171717',     // Main text color (gray-900)
+    secondary: '#335763',   // Secondary color used in the project
+    muted: '#6b7280',       // Muted text (gray-500)
+    inverse: '#ffffff',     // White text
+    accent: '#715c8c',      // Brand accent text
+    neutral: {
+      50: '#f9fafb',        // Very light gray
+      100: '#f3f4f6',       // Light gray
+      200: '#e5e7eb',       // Border gray
+      300: '#d1d5db',       // Medium border
+      400: '#9ca3af',       // Muted text
+      500: '#6b7280',       // Standard muted
+      600: '#4b5563',       // Dark muted
+      700: '#374151',       // Darker text
+      800: '#1f2937',       // Very dark text
+      900: '#111827'        // Almost black
+    }
   },
   
   // Status colors
   status: {
     success: {
-      light: '#dcfce7',
-      DEFAULT: '#16a34a',
-      dark: '#166534'
+      light: '#dcfce7',     // bg-green-50 equivalent 
+      DEFAULT: '#75a887',   // Light green used in the project
+      dark: '#5c8a68',      // Darker green for hover
+      bg: '#f0fdf4',        // Very light background
+      border: '#bbf7d0',    // Light border
+      text: '#15803d'       // Dark text for contrast
     },
     warning: {
-      light: '#fef3c7',
-      DEFAULT: '#f59e0b',
-      dark: '#d97706'
+      light: '#fef3c7',     // bg-yellow-50 equivalent
+      DEFAULT: '#f59e0b',   // Warning yellow
+      dark: '#d97706',      // Darker yellow for hover
+      bg: '#fffbeb',        // Very light background
+      border: '#fed7aa',    // Light border
+      text: '#92400e'       // Dark text for contrast
     },
     error: {
-      light: '#fef2f2',
-      DEFAULT: '#dc2626',
-      dark: '#991b1b'
+      light: '#fef2f2',     // bg-red-50 equivalent
+      DEFAULT: '#a87583',   // Light pink/red used in the project
+      dark: '#8a5c66',      // Darker pink for hover
+      bg: '#fef2f2',        // Very light background (red-50)
+      border: '#fecaca',    // Light border (red-200)
+      text: '#dc2626'       // Dark text for contrast (red-600)
     },
     info: {
-      light: '#dbeafe',
-      DEFAULT: '#3b82f6',
-      dark: '#1d4ed8'
+      light: '#dbeafe',     // bg-blue-50 equivalent
+      DEFAULT: '#3b82f6',   // Info blue
+      dark: '#1d4ed8',      // Darker blue for hover
+      bg: '#eff6ff',        // Very light background
+      border: '#bfdbfe',    // Light border
+      text: '#1d4ed8'       // Dark text for contrast
     }
   },
   
   // Calendar and booking colors
   calendar: {
-    header: '#caddff',
-    selected: '#715c8c',
-    hover: '#333f63',
-    booked: '#9fc6f5',
-    pending: '#f59e0b',
-    available: '#16a34a'
+    header: '#caddff',    // Light blue header background
+    selected: '#715c8c',  // Primary brand color for selected items
+    hover: '#333f63',     // Dark blue for hover states
+    booked: '#9fc6f5',    // Light blue for booked slots
+    pending: '#f59e0b',   // Warning yellow for pending
+    available: '#16a34a'  // Success green for available slots
+  },
+  
+  // Booking status colors (semantic)
+  booking: {
+    pending: {
+      bg: '#fffbeb',        // yellow-50
+      text: '#92400e',      // yellow-800  
+      border: '#fed7aa'     // yellow-200
+    },
+    confirmed: {
+      bg: '#f0fdf4',        // green-50
+      text: '#15803d',      // green-700
+      border: '#bbf7d0'     // green-200
+    },
+    used: {
+      bg: '#eff6ff',        // blue-50
+      text: '#1d4ed8',      // blue-700
+      border: '#bfdbfe'     // blue-200
+    },
+    collected: {
+      bg: '#f9fafb',        // gray-50
+      text: '#374151',      // gray-700
+      border: '#e5e7eb'     // gray-200
+    },
+    cancelled: {
+      bg: '#fef2f2',        // red-50
+      text: '#dc2626',      // red-600
+      border: '#fecaca'     // red-200
+    }
+  },
+  
+  // Brand aliases for common use cases
+  brand: {
+    primary: '#715c8c',     // Main brand color (same as primary.600)
+    secondary: '#caddff',   // Light brand color for backgrounds
+    dark: '#333f63',        // Dark brand color for hovers/emphasis
+    light: '#f0f0ff'        // Very light brand color
+  },
+  
+  // Additional UI colors used in the application
+  ui: {
+    // Action colors
+    action: {
+      primary: '#7b976e',         // Main green for actions
+      primaryHover: '#83a875',    // Green hover
+      secondary: '#bcc4fc',       // Light blue for secondary actions
+      secondaryHover: '#aab8e6',  // Blue hover
+      neutral: '#759ca8',         // Neutral bluish gray
+      neutralHover: '#5f7a91'     // Neutral bluish gray hover
+    },
+    // Label/badge colors
+    label: {
+      dark: '#3f3363',        // Dark for labels
+      medium: '#335763',      // Medium for labels
+      light: '#7583ab',       // Light for labels
+      purple: '#7875a8'       // Purple for special labels
+    }
   }
 }
 

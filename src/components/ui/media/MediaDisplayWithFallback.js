@@ -237,7 +237,7 @@ export default function MediaDisplayWithFallback({
 
     if (hasDocError) {
       return (
-        <div className="flex flex-col items-center justify-center bg-red-100 text-red-700 rounded-lg p-4 
+        <div className="flex flex-col items-center justify-center bg-error-bg text-error-text rounded-lg p-4 
         text-center" style={{ height: height, width: width }}>
           <XCircle className="size-8 mb-2" />
           <p>Document could not be loaded.</p>

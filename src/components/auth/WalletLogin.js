@@ -37,7 +37,7 @@ export default function WalletLogin({ setIsModalOpen }) {
       {/* Wallet Login Button */}
       <div onClick={handleWalletLogin}
         className="bg-brand text-white font-bold rounded-lg px-4 py-2 transition duration-300 
-        cursor-pointer ease-in-out hover:bg-[#333f63] hover:text-white flex items-center justify-center">
+        cursor-pointer ease-in-out hover:bg-hover-dark hover:text-white flex items-center justify-center">
         <FontAwesomeIcon icon={faWallet} className="font-semibold text-4xl mr-3" title="Connect Wallet" />
         Wallet Login
       </div>
@@ -47,7 +47,7 @@ export default function WalletLogin({ setIsModalOpen }) {
         <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
           onClick={closeModal}>
           <div className="bg-white rounded-lg shadow-lg p-6 w-96" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-4 text-[#333f63]">Choose Wallet</h2>
+            <h2 className="text-lg font-bold mb-4 text-hover-dark">Choose Wallet</h2>
             <div className="flex flex-col space-y-4">
               {connectors.map((connector) => (
                 <WalletOption key={connector.uid} connector={connector} onClick={() => {
@@ -82,7 +82,7 @@ function WalletOption({ connector, onClick }) {
       className={`w-full px-4 py-2 text-left rounded-lg border transition duration-300 
           ${
             ready 
-            ? 'bg-brand text-center text-white hover:bg-[#333f63] hover:shadow-lg' 
+            ? 'bg-brand text-center text-white hover:bg-hover-dark hover:shadow-lg' 
             : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
     >

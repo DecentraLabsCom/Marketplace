@@ -118,9 +118,9 @@ export default function ProviderRegisterForm() {
   if (isProvider) {
     return (
       <div className="container mx-auto p-4 text-center">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 max-w-md mx-auto">
-          <h2 className="text-green-800 text-xl font-semibold mb-2">Already Registered</h2>
-          <p className="text-green-600">You are already registered as a provider.</p>
+        <div className="bg-success-bg border border-success-border rounded-lg p-6 max-w-md mx-auto">
+          <h2 className="text-success-text text-xl font-semibold mb-2">Already Registered</h2>
+          <p className="text-success">You are already registered as a provider.</p>
         </div>
       </div>
     )
@@ -138,7 +138,7 @@ export default function ProviderRegisterForm() {
           {isSuccess && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-4">
-                <h3 className="text-lg font-semibold text-green-600 mb-2">Registration Submitted!</h3>
+                <h3 className="text-lg font-semibold text-success mb-2">Registration Submitted!</h3>
                 <p className="text-gray-600 mb-4">
                   Your provider registration request has been submitted successfully. 
                   An administrator will review your application and contact you via email.
@@ -157,8 +157,8 @@ export default function ProviderRegisterForm() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* General Error */}
             {errors.general && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-600 text-sm">{errors.general[0]}</p>
+              <div className="bg-error-bg border border-error-border rounded-lg p-3">
+                <p className="text-error-text text-sm">{errors.general[0]}</p>
               </div>
             )}
 
@@ -214,7 +214,7 @@ export default function ProviderRegisterForm() {
                 selectButtonClassName="w-full h-10 px-3 border border-gray-300 rounded-md text-left focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
               />
               {errors.country && (
-                <p className="text-red-400 text-sm mt-1">{errors.country[0]}</p>
+                <p className="text-error text-sm mt-1">{errors.country[0]}</p>
               )}
             </div>
 

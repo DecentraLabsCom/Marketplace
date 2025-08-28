@@ -38,9 +38,9 @@ export default function Account() {
     <div className="flex items-center space-x-6 ml-auto font-bold">
       {isLoggedIn && (
         <div className="pointer-events-none flex flex-col items-center">
-          <div className="text-sm text-[#333f63]">{user?.email || formatAddress(address)}</div>
+          <div className="text-sm text-hover-dark">{user?.email || formatAddress(address)}</div>
           {(user?.name || ensName) && (
-            <div className="text-[14px] text-[#335763]">
+            <div className="text-[14px] text-text-secondary">
               {user?.name ? user.name : ensName }
             </div>
           )}
@@ -48,7 +48,7 @@ export default function Account() {
       )}
       <button onClick={handleLogout}>
         <FontAwesomeIcon icon={faSignOutAlt} className="text-brand font-semibold text-4xl
-                hover:text-[#333f63]" title={isConnected ? "Disconnect Wallet" : "Logout"}/>
+                hover:text-hover-dark" title={isConnected ? "Disconnect Wallet" : "Logout"}/>
       </button>
     </div>
   )

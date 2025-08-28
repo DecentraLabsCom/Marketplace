@@ -85,7 +85,7 @@ export default function LabFilters({
             id="category-filter" 
             onChange={(e) => onCategoryChange(e.target.value)}
             value={selectedCategory} 
-            className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] cursor-pointer w-full"
+            className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
             disabled={effectiveLoading}
           >
             <option value="All">All Categories</option>
@@ -104,7 +104,7 @@ export default function LabFilters({
             id="provider-filter" 
             onChange={(e) => onProviderChange(e.target.value)}
             value={selectedProvider} 
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-[#caddff] cursor-pointer w-full"
+            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
             disabled={effectiveLoading}
           >
             <option value="All">All Providers</option>
@@ -127,7 +127,7 @@ export default function LabFilters({
             <select 
               onChange={(e) => onFilterChange(e.target.value)} 
               value={selectedFilter}
-              className="bg-white rounded border border-transparent py-1 px-1.5 flex items-center text-sm transition-all text-slate-600 hover:bg-[#caddff] cursor-pointer"
+              className="bg-white rounded border border-transparent py-1 px-1.5 flex items-center text-sm transition-all text-slate-600 hover:bg-header-bg cursor-pointer"
               disabled={effectiveLoading}
             >
               <option value="Keyword">Keyword</option>
@@ -140,7 +140,7 @@ export default function LabFilters({
             type="text" 
             placeholder="Type here..." 
             onKeyDown={handleKeyDown}
-            className="w-full bg-transparent placeholder:text-slate-500 text-[#caddff] text-sm border border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none focus:border-[#caddff] shadow-sm focus:shadow"
+            className="w-full bg-transparent placeholder:text-slate-500 text-header-bg text-sm border border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none focus:border-header-bg shadow-sm focus:shadow"
             disabled={effectiveLoading}
           />
           <button 
@@ -162,7 +162,7 @@ export default function LabFilters({
         <button 
           onClick={handlePriceClick} 
           value={selectedPrice}
-          className="w-[130px] py-[7px] border border-[#caddff] rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-[130px] py-[7px] border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={effectiveLoading}
         >
           {selectedPrice}
