@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabsForReservation } from '@/hooks/lab/useLabs'
@@ -537,7 +538,7 @@ export default function LabReservation({ id }) {
   if (labsError) {
     return (
       <AccessControl message="Please log in to view and make reservations.">
-        <div className="container mx-auto p-6">
+        <Container padding="sm">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
             <p className="text-red-600 mb-4">
@@ -550,14 +551,14 @@ export default function LabReservation({ id }) {
               Retry
             </button>
           </div>
-        </div>
+        </Container>
       </AccessControl>
     );
   }
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
-      <div className="container mx-auto p-4 text-white">
+      <Container padding="sm" className="text-white">
         <div className="relative bg-cover bg-center text-white py-5 text-center">
           <h1 className="text-3xl font-bold mb-2">Book your Lab now!</h1>
         </div>
@@ -679,7 +680,7 @@ export default function LabReservation({ id }) {
             </div>
           </>
         )}
-      </div>
+      </Container>
     </AccessControl>
   );
 }

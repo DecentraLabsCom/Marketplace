@@ -1,6 +1,8 @@
+import { Container } from '@/components/ui'
+
 export default function About() {
   return (
-    <div className="container mx-auto p-4">
+    <Container padding="sm">
       <div className="relative bg-cover bg-center text-white py-5 text-center">
         <h1 className="text-3xl font-bold mb-2">About DecentraLabs</h1>
       </div>
@@ -47,6 +49,6 @@ export default function About() {
           </div>
         </div>
       </div>
-    </div>
+    </Container>
   )
 }

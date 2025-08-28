@@ -2,6 +2,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
+import { Container } from '@/components/ui'
 import { useLabById } from '@/hooks/lab/useLabs'
 import { useLabToken } from '@/context/LabTokenContext'
 import Carrousel from '@/components/ui/Carrousel'
@@ -31,7 +32,7 @@ export default function LabDetail({ id, provider }) {
   // ❌ Error handling for React Query
   if (labsError) {
     return (
-      <main className="container mx-auto p-6">
+      <Container as="main" padding="sm">
         <div className="bg-error-bg border border-error-border rounded-lg p-6 max-w-md mx-auto">
           <h2 className="text-error-text text-xl font-semibold mb-2">Error Loading Lab</h2>
           <p className="text-error-text mb-4">
@@ -44,15 +45,15 @@ export default function LabDetail({ id, provider }) {
             Retry
           </button>
         </div>
-      </main>
+      </Container>
     );
   }
 
   if (loading) {
     return (
-      <main className="container mx-auto p-6">
+      <Container as="main" padding="sm">
         <LabHeroSkeleton />
-      </main>
+      </Container>
     );
   }
 
@@ -61,7 +62,7 @@ export default function LabDetail({ id, provider }) {
   }
 
   return (
-    <main className="container mx-auto p-6">
+    <Container as="main" padding="sm">
       <section className="flex flex-col md:flex-row md:justify-center gap-6 md:gap-10">
         {/* Carousel Section */}
         <article className="w-full md:w-1/2 flex flex-col p-4">
@@ -133,7 +134,7 @@ export default function LabDetail({ id, provider }) {
           </div>
         </article>
       </section>
-    </main>
+    </Container>
   )
 }
 

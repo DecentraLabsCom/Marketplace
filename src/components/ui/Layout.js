@@ -151,50 +151,40 @@ export function CardFooter({
 
 /**
  * Container Component
+ * Replicates the behavior of "container mx-auto px-4" exactly
  * @param {Object} props - Container props
  * @param {React.ReactNode} props.children - Container content
- * @param {'sm'|'md'|'lg'|'xl'|'2xl'|'full'} props.maxWidth - Maximum width
- * @param {boolean} props.centered - Whether to center content
- * @param {'none'|'sm'|'md'|'lg'|'xl'} props.padding - Container padding
+ * @param {'none'|'sm'|'md'|'lg'|'xl'} props.padding - Horizontal padding only (like px-4)
+ * @param {string} props.as - HTML element type
  */
 export function Container({
   children,
-  maxWidth = 'lg',
-  centered = true,
-  padding = 'md',
+  as: Component = 'div',
+  padding = 'sm',
   className = '',
   ...props
 }) {
-  const maxWidthClasses = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-4xl',
-    xl: 'max-w-6xl',
-    '2xl': 'max-w-7xl',
-    full: 'max-w-full'
-  }
-
+  // Use Tailwind's responsive container class + mx-auto + horizontal padding
+  // This exactly replicates "container mx-auto px-4" behavior
   const paddingClasses = {
     none: '',
-    sm: 'px-4',
-    md: 'px-6',
-    lg: 'px-8',
-    xl: 'px-10'
+    sm: 'px-4',   // 1rem horizontal padding (default like original px-4)
+    md: 'px-6',   // 1.5rem horizontal padding
+    lg: 'px-8',   // 2rem horizontal padding
+    xl: 'px-10'   // 2.5rem horizontal padding
   }
 
   const classes = cn(
-    maxWidthClasses[maxWidth],
-    paddingClasses[padding],
-    {
-      'mx-auto': centered
-    },
+    'container',     // Tailwind's responsive container
+    'mx-auto',       // Center horizontally
+    paddingClasses[padding],  // Only horizontal padding
     className
   )
 
   return (
-    <div className={classes} {...props}>
+    <Component className={classes} {...props}>
       {children}
-    </div>
+    </Component>
   )
 }
 
@@ -470,8 +460,7 @@ CardFooter.propTypes = {
 
 Container.propTypes = {
   children: PropTypes.node.isRequired,
-  maxWidth: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', '2xl', 'full']),
-  centered: PropTypes.bool,
+  as: PropTypes.string,
   padding: PropTypes.oneOf(['none', 'sm', 'md', 'lg', 'xl']),
   className: PropTypes.string
 }

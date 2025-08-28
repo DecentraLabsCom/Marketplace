@@ -85,7 +85,7 @@ export default function LabFilters({
             id="category-filter" 
             onChange={(e) => onCategoryChange(e.target.value)}
             value={selectedCategory} 
-            className="pl-4 pr-2 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
+            className="pl-4 pr-8 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
             disabled={effectiveLoading}
           >
             <option value="All">All Categories</option>
@@ -104,7 +104,7 @@ export default function LabFilters({
             id="provider-filter" 
             onChange={(e) => onProviderChange(e.target.value)}
             value={selectedProvider} 
-            className="px-4 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
+            className="pl-4 pr-8 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
             disabled={effectiveLoading}
           >
             <option value="All">All Providers</option>
@@ -127,7 +127,7 @@ export default function LabFilters({
             <select 
               onChange={(e) => onFilterChange(e.target.value)} 
               value={selectedFilter}
-              className="bg-white rounded border border-transparent py-1 px-1.5 flex items-center text-sm transition-all text-slate-600 hover:bg-header-bg cursor-pointer"
+              className="bg-white rounded border border-transparent py-1 pl-1.5 pr-7 flex items-center text-sm transition-all text-slate-600 hover:bg-header-bg cursor-pointer"
               disabled={effectiveLoading}
             >
               <option value="Keyword">Keyword</option>

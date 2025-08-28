@@ -6,6 +6,7 @@
  */
 "use client";
 import React, { useMemo } from 'react'
+import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useLabsForMarket } from '@/hooks/lab/useLabs'
 import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
@@ -87,7 +88,7 @@ export default function Market() {
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading);
 
   return (
-    <main className="container mx-auto p-6">  
+    <Container as="main" padding="sm">
       <LabFilters
         categories={categories}
         providers={providers}
@@ -110,6 +111,6 @@ export default function Market() {
         error={labsError}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."
       />
-    </main>
+    </Container>
   )
 }

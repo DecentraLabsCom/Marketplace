@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/context/UserContext'
+import { Container } from '../ui/Layout'
 
 /**
  * @param {object} props
@@ -41,20 +42,20 @@ export default function AccessControl({
   // Show loading state while wallet connection is being determined
   if (isWalletLoading || isLoading) {
     return (
-      <div className="container mx-auto p-4 text-white text-center">
+      <Container padding="sm" className="text-white text-center">
         <div className="flex items-center justify-center space-x-2">
           <div className="animate-spin rounded-full size-6 border-b-2 border-white"></div>
           <span>Connecting...</span>
         </div>
-      </div>
+      </Container>
     );
   }
 
   if (!hasAccess) {
     return (
-      <div className="container mx-auto p-4 text-white text-center">
+      <Container padding="sm" className="text-white text-center">
         {message}
-      </div>
+      </Container>
     );
   }
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { Container, Stack } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
@@ -226,17 +227,19 @@ export default function UserDashboard() {
   if (!now || (!userData && bookingsLoading)) {
     return (
       <AccessControl message="Please log in to view and make reservations.">
-        <div className="container mx-auto p-4 space-y-6">
-          <DashboardSectionSkeleton />
-          <div className="flex md:flex-row flex-col gap-4">
-            <div className="md:w-1/2">
-              <DashboardSectionSkeleton />
+        <Container padding="sm">
+          <Stack spacing="lg">
+            <DashboardSectionSkeleton />
+            <div className="flex md:flex-row flex-col gap-4">
+              <div className="md:w-1/2">
+                <DashboardSectionSkeleton />
+              </div>
+              <div className="md:w-1/2">
+                <DashboardSectionSkeleton />
+              </div>
             </div>
-            <div className="md:w-1/2">
-              <DashboardSectionSkeleton />
-            </div>
-          </div>
-        </div>
+          </Stack>
+        </Container>
       </AccessControl>
     )
   }
@@ -244,17 +247,19 @@ export default function UserDashboard() {
   if (bookingsLoading) {
     return (
       <AccessControl message="Please log in to view your dashboard.">
-        <div className="container mx-auto p-4 space-y-6">
-          <DashboardSectionSkeleton />
-          <div className="flex md:flex-row flex-col gap-4">
-            <div className="md:w-1/2">
-              <DashboardSectionSkeleton />
-            </div>
+        <Container padding="sm">
+          <Stack spacing="lg">
+            <DashboardSectionSkeleton />
+            <div className="flex md:flex-row flex-col gap-4">
+              <div className="md:w-1/2">
+                <DashboardSectionSkeleton />
+              </div>
             <div className="md:w-1/2">
               <DashboardSectionSkeleton />
             </div>
           </div>
-        </div>
+          </Stack>
+        </Container>
       </AccessControl>
     )
   }
@@ -263,7 +268,7 @@ export default function UserDashboard() {
   if (bookingsError) {
     return (
       <AccessControl message="Please log in to view and make reservations.">
-        <div className="container mx-auto p-6">
+        <Container padding="sm">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Dashboard</h2>
             <p className="text-red-600 mb-4">
@@ -276,14 +281,14 @@ export default function UserDashboard() {
               Retry
             </button>
           </div>
-        </div>
+        </Container>
       </AccessControl>
     );
   }
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
-      <div className="container mx-auto p-4">
+      <Container padding="sm">
         <DashboardHeader title="User Dashboard" />
 
         <div>
@@ -386,7 +391,7 @@ export default function UserDashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </Container>
     </AccessControl>
   )
 }

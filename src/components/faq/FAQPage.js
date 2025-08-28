@@ -1,3 +1,5 @@
+import { Container } from '@/components/ui'
+
 export default function FAQ() {
   const faqData = [
     {
@@ -59,7 +61,7 @@ export default function FAQ() {
   ];
 
   return (
-    <div className="container mx-auto p-4">
+    <Container padding="sm">
       <div className="relative bg-cover bg-center text-white py-5 text-center">
         <h1 className="text-3xl font-bold mb-2">Frequently Asked Questions</h1>
       </div>
@@ -88,6 +90,6 @@ export default function FAQ() {
           ))}
         </div>
       </div>
-    </div>
+    </Container>
   )
 }

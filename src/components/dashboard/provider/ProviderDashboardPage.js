@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseUnits } from 'viem'
+import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { 
@@ -178,12 +179,12 @@ export default function ProviderDashboard() {
   if (isLoading || isProviderLoading) {
     return (
       <AccessControl requireWallet message="Please log in to manage your labs.">
-        <div className="container mx-auto p-4 text-center">
+        <Container padding="sm" className="text-center">
           <div className="flex items-center justify-center space-x-2">
             <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
             <span>Loading provider data...</span>
           </div>
-        </div>
+        </Container>
       </AccessControl>
     );
   }
@@ -192,9 +193,9 @@ export default function ProviderDashboard() {
   if (!isProvider) {
     return (
       <AccessControl requireWallet message="Please log in to manage your labs.">
-        <div className="container mx-auto p-4 text-center">
+        <Container padding="sm" className="text-center">
           <p>Redirecting to home page...</p>
-        </div>
+        </Container>
       </AccessControl>
     );
   }
@@ -433,7 +434,7 @@ export default function ProviderDashboard() {
   if (labsError) {
     return (
       <AccessControl requireWallet message="Please log in to manage your labs.">
-        <div className="container mx-auto p-6">
+        <Container padding="sm">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
             <p className="text-red-600 mb-4">
@@ -446,14 +447,14 @@ export default function ProviderDashboard() {
               Retry
             </button>
           </div>
-        </div>
+        </Container>
       </AccessControl>
     );
   }
 
   return (
     <AccessControl requireWallet message="Please log in to manage your labs.">
-      <div className="container mx-auto p-4">
+      <Container padding="sm">
         {/* Dashboard header */}
         <DashboardHeader title="Lab Panel" />
 
@@ -495,7 +496,7 @@ export default function ProviderDashboard() {
 
         <LabModal isOpen={shouldShowModal} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
           lab={modalLab} maxId={maxId} key={modalLab?.id || 'new'} />
-      </div>
+      </Container>
     </AccessControl>
   );
 }

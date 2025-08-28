@@ -1,6 +1,7 @@
 import { FaXTwitter, FaGlobe, FaGithub } from 'react-icons/fa6'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Container } from '../ui/Layout'
 
 /**
  * Site footer component with branding, links, and funding acknowledgments
@@ -10,7 +11,7 @@ import Link from 'next/link'
 export default function Footer() {
   return (
     <footer className="bg-hover-dark text-center p-3 mt-8 relative">
-      <div className="container mx-auto p-1">
+      <Container padding="none" className="p-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
           <div className="flex justify-center">
@@ -52,7 +53,7 @@ export default function Footer() {
             </a>
           </div>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 }

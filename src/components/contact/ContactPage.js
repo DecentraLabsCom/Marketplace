@@ -1,3 +1,5 @@
+import { Container } from '@/components/ui'
+
 export default function Contact() {
   function sendEmail(event) {
     event.preventDefault();
@@ -13,7 +15,7 @@ export default function Contact() {
   }
 
   return (
-    <div className="container mx-auto p-4 ">
+    <Container padding="sm">
       <div className="relative bg-cover bg-center text-white py-5 text-center">
         <h1 className="text-3xl font-bold mb-2">Contact Information</h1>
       </div>
@@ -37,6 +39,6 @@ export default function Contact() {
       </form>
       <p className="text-hover-dark font-semibold text-center mt-4">contact@nebsyst.com</p>
       </div>
-    </div>
+    </Container>
   )
 }

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import ReactFlagsSelect from 'react-flags-select'
 import { useUser } from '@/context/UserContext'
 import AccessControl from '@/components/auth/AccessControl'
-import { Input, Button } from '@/components/ui'
+import { Container, Input, Button } from '@/components/ui'
 import devLog from '@/utils/dev/logger'
 
 const providerSchema = z.object({
@@ -106,29 +106,29 @@ export default function ProviderRegisterForm() {
   // Show loading state while checking user status
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4 text-center">
+      <Container padding="sm" className="text-center">
         <div className="flex items-center justify-center space-x-2">
           <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
           <span>Loading...</span>
         </div>
-      </div>
+      </Container>
     )
   }
   
   if (isProvider) {
     return (
-      <div className="container mx-auto p-4 text-center">
+      <Container padding="sm" className="text-center">
         <div className="bg-success-bg border border-success-border rounded-lg p-6 max-w-md mx-auto">
           <h2 className="text-success-text text-xl font-semibold mb-2">Already Registered</h2>
           <p className="text-success">You are already registered as a provider.</p>
         </div>
-      </div>
+      </Container>
     )
   }
 
   return (
     <AccessControl requireWallet message="Please connect your wallet to register as a provider.">
-      <div className="container mx-auto p-4">
+      <Container padding="sm">
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
           <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
             Register as Provider
@@ -237,7 +237,7 @@ export default function ProviderRegisterForm() {
             </p>
           </div>
         </div>
-      </div>
+      </Container>
     </AccessControl>
   )
 }

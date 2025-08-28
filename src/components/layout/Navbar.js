@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars } from '@fortawesome/free-solid-svg-icons'
+import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import Login from '@/components/auth/Login'
 import { validateProviderRole } from '@/utils/auth/roleValidation'
@@ -47,7 +48,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-header-bg text-hover-dark p-3 shadow-md">
-      <div className="container mx-auto flex justify-between items-center">
+      <Container className="flex justify-between items-center">
         {/* Logo */}
         <Link href="/">
           <div className="h-14 relative">
@@ -78,7 +79,7 @@ export default function Navbar() {
         <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
           <FontAwesomeIcon icon={faBars} />
         </button>
-      </div>
+      </Container>
 
       {/* Mobile Dropdown */}
       {menuOpen && (
