@@ -2,22 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Notification animations */
-@keyframes slide-in {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out forwards;
-}
-
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -36,59 +20,28 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.btn {
-  @apply bg-primary-600 text-white font-bold rounded-lg px-4 py-2 transition duration-300 ease-in-out hover:bg-primary-700;
-}
+@layer components {
+  .btn {
+    @apply bg-brand-primary text-white font-bold rounded-lg px-4 py-2 transition duration-300 ease-in-out hover:bg-primary-700;
+  }
 
-.card {
-  @apply bg-white shadow-lg rounded-lg p-6 transform transition duration-500 hover:scale-105;
-}
-
-@keyframes glow {
-  0% {
-    box-shadow: 0 0 2px #715c8c, 0 0 4px #715c8c, 0 0 6px #715c8c, 0 0 8px #715c8c;
-  }
-  20% {
-    box-shadow: 0 0 3px #715c8c, 0 0 6px #715c8c, 0 0 9px #715c8c, 0 0 12px #715c8c;
-  }
-  40% {
-    box-shadow: 0 0 4px #715c8c, 0 0 8px #715c8c, 0 0 12px #715c8c, 0 0 16px #715c8c;
-  }
-  60% {
-    box-shadow: 0 0 3px #715c8c, 0 0 6px #715c8c, 0 0 9px #715c8c, 0 0 12px #715c8c;
-  }
-  80% {
-    box-shadow: 0 0 2px #715c8c, 0 0 4px #715c8c, 0 0 6px #715c8c, 0 0 8px #715c8c;
-  }
-  100% {
-    box-shadow: 0 0 1px #715c8c, 0 0 2px #715c8c, 0 0 3px #715c8c, 0 0 4px #715c8c;
+  .card {
+    @apply bg-white shadow-lg rounded-lg p-6 transform transition duration-500 hover:scale-105;
   }
 }
 
-.animate-glow {
-  animation: glow 2s infinite alternate;
-}
-
-/* Horizontal divider animations */
-@keyframes separator-width {
-  0% {
-    width: 0;
-  }
-  100% {
-    width: 100%;
-  }
-}
+/* Horizontal divider styles using Tailwind animation */
 .separator-width {
   border: 0;
   height: 1px;
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
-  animation: separator-width 1s ease-out forwards;
+  @apply animate-separator-width;
 }
 .separator-width-black {
   border: 0;
   height: 1px;
   background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
-  animation: separator-width 1s ease-out forwards;
+  @apply animate-separator-width;
 }
 
 /* Style override for Country select external component: react-flags-select */

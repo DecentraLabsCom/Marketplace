@@ -6,20 +6,20 @@ import React, { forwardRef } from 'react'
 import PropTypes from 'prop-types'
 import { cn } from '@/utils/cn'
 
-// Base input classes
-const baseInputClasses = 'block w-full rounded-md border-0 py-1.5 text-neutral-900 shadow-sm ring-1 ring-inset ring-neutral-300 placeholder:text-neutral-400 focus:ring-2 focus:ring-inset focus:ring-primary-600 sm:text-sm sm:leading-6 transition-all duration-150'
+// Base input classes - optimized with @tailwindcss/forms while preserving appearance
+const baseInputClasses = 'block w-full rounded-md py-1.5 text-neutral-900 placeholder:text-neutral-400 shadow-sm border-neutral-300 focus:border-primary-600 focus:ring-primary-600 focus:ring-1 sm:text-sm sm:leading-6 transition-all duration-150'
 
-// Input variants
+// Input variants - optimized with @tailwindcss/forms while preserving appearance
 const inputVariants = {
   size: {
     sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-1.5 text-base',
+    md: 'px-3 py-1.5 text-base', 
     lg: 'px-4 py-2 text-lg'
   },
   state: {
-    default: 'ring-neutral-300 focus:ring-primary-600',
-    error: 'ring-error focus:ring-error',
-    success: 'ring-success focus:ring-success'
+    default: 'border-neutral-300 focus:border-primary-600 focus:ring-primary-600',
+    error: 'border-error focus:border-error focus:ring-error',
+    success: 'border-success focus:border-success focus:ring-success'
   }
 }
 

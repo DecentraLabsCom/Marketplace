@@ -15,7 +15,7 @@ export default {
       colors: {
         primary: designSystem.colors.primary,
         secondary: designSystem.colors.secondary,
-        accent: designSystem.colors.accent,
+        accent: designSystem.colors.text.accent,
         background: designSystem.colors.background,
         text: designSystem.colors.text,
         success: designSystem.colors.status.success,
@@ -113,22 +113,22 @@ export default {
         },
         glow: {
           '0%': {
-            boxShadow: '0 0 2px rgb(113 92 140), 0 0 4px rgb(113 92 140), 0 0 6px rgb(113 92 140), 0 0 8px rgb(113 92 140)',
+            boxShadow: `0 0 2px ${designSystem.colors.brand.primary}, 0 0 4px ${designSystem.colors.brand.primary}, 0 0 6px ${designSystem.colors.brand.primary}, 0 0 8px ${designSystem.colors.brand.primary}`,
           },
           '20%': {
-            boxShadow: '0 0 3px rgb(113 92 140), 0 0 6px rgb(113 92 140), 0 0 9px rgb(113 92 140), 0 0 12px rgb(113 92 140)',
+            boxShadow: `0 0 3px ${designSystem.colors.brand.primary}, 0 0 6px ${designSystem.colors.brand.primary}, 0 0 9px ${designSystem.colors.brand.primary}, 0 0 12px ${designSystem.colors.brand.primary}`,
           },
           '40%': {
-            boxShadow: '0 0 4px rgb(113 92 140), 0 0 8px rgb(113 92 140), 0 0 12px rgb(113 92 140), 0 0 16px rgb(113 92 140)',
+            boxShadow: `0 0 4px ${designSystem.colors.brand.primary}, 0 0 8px ${designSystem.colors.brand.primary}, 0 0 12px ${designSystem.colors.brand.primary}, 0 0 16px ${designSystem.colors.brand.primary}`,
           },
           '60%': {
-            boxShadow: '0 0 3px rgb(113 92 140), 0 0 6px rgb(113 92 140), 0 0 9px rgb(113 92 140), 0 0 12px rgb(113 92 140)',
+            boxShadow: `0 0 3px ${designSystem.colors.brand.primary}, 0 0 6px ${designSystem.colors.brand.primary}, 0 0 9px ${designSystem.colors.brand.primary}, 0 0 12px ${designSystem.colors.brand.primary}`,
           },
           '80%': {
-            boxShadow: '0 0 2px rgb(113 92 140), 0 0 4px rgb(113 92 140), 0 0 6px rgb(113 92 140), 0 0 8px rgb(113 92 140)',
+            boxShadow: `0 0 2px ${designSystem.colors.brand.primary}, 0 0 4px ${designSystem.colors.brand.primary}, 0 0 6px ${designSystem.colors.brand.primary}, 0 0 8px ${designSystem.colors.brand.primary}`,
           },
           '100%': {
-            boxShadow: '0 0 1px rgb(113 92 140), 0 0 2px rgb(113 92 140), 0 0 3px rgb(113 92 140), 0 0 4px rgb(113 92 140)',
+            boxShadow: `0 0 1px ${designSystem.colors.brand.primary}, 0 0 2px ${designSystem.colors.brand.primary}, 0 0 3px ${designSystem.colors.brand.primary}, 0 0 4px ${designSystem.colors.brand.primary}`,
           },
         },
         'separator-width': {
@@ -144,6 +144,10 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+    require('@tailwindcss/aspect-ratio'),
+  ],
 };
 

@@ -71,7 +71,7 @@ export default function FAQ() {
             <div key={index} className="py-5">
               <details className="group">
                 <summary className="flex cursor-pointer list-none items-center justify-between 
-                text-2xl font-semibold mb-4 text-gray-800">
+                text-2xl font-semibold mb-4 text-hover-dark">
                     <span>{item.question}</span>
                     <span className="transition group-open:rotate-180">
                     <svg fill="none" height="24" shapeRendering="geometricPrecision"
