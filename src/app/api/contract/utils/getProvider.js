@@ -20,7 +20,7 @@ export default async function getProvider(network) {
     const cached = providerCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < PROVIDER_CACHE_TTL) {
-        console.log(`Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers)`);
+        console.log(`✅ Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers)`);
         return cached.provider;
     }
 
@@ -30,13 +30,24 @@ export default async function getProvider(network) {
     let chainstackProjectId = process.env.NEXT_PUBLIC_CHAINSTACK_ID;
     let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
-    const rpcUrl = network.rpcUrls.default.http[0];
-    const networkInfo = { name: network.name, chainId: network.id };
+    const rpcUrl = network.rpcUrls?.default?.http?.[0];
+    const chainId = network.id;
+
+    // Debug log for environment variables
+    console.log(`📊 Provider availability check for ${network.name}:`, {
+        alchemy: !!alchemyProjectId,
+        ankr: !!ankrProjectId,
+        quicknode: !!quicknodeProjectId,
+        chainstack: !!chainstackProjectId,
+        infura: !!infuraProjectId,
+        rpcUrl: !!rpcUrl,
+        networkConfigExists: !!defaultNetworks[network.id]
+    });
     
     // Optimized options for faster response and better reliability
     const options = {
         batchMaxCount: 3,        // Limited to 3 for free tier compatibility
-        timeout: 5000,           // 5 second timeout per provider
+        timeout: 3000,           // 3 second timeout per provider
     };
 
     const providers = [];
@@ -60,7 +71,7 @@ export default async function getProvider(network) {
         try {
             providers.push({
                 provider: new ethers.InfuraProvider(
-                  network.id,
+                  chainId,
                   infuraSecretKey
                     ? { projectId: infuraProjectId, projectSecret: infuraSecretKey }
                     : infuraProjectId
@@ -76,12 +87,13 @@ export default async function getProvider(network) {
     }
 
     // ✅ PRIORITY 2: HTTP providers (reliable but slower)
-    if (alchemyProjectId) {
+    if (alchemyProjectId && alchemyNetworks[network.id]) {
         try {
+            const alchemyUrl = `https://${alchemyNetworks[network.id]}${alchemyProjectId}`;
             providers.push({
                 provider: new ethers.JsonRpcProvider(
-                    `https://${alchemyNetworks[network.id]}${alchemyProjectId}`,
-                    network.id,
+                    alchemyUrl,
+                    chainId,
                     options
                 ),
                 priority: 2,
@@ -94,12 +106,13 @@ export default async function getProvider(network) {
         }
     }
 
-    if (ankrProjectId) {
+    if (ankrProjectId && ankrNetworks[network.id]) {
         try {
+            const ankrUrl = `https://${ankrNetworks[network.id]}${ankrProjectId}`;
             providers.push({
                 provider: new ethers.JsonRpcProvider(
-                    `https://${ankrNetworks[network.id]}${ankrProjectId}`,
-                    network.id,
+                    ankrUrl,
+                    chainId,
                     options
                 ),
                 priority: 2,
@@ -112,12 +125,13 @@ export default async function getProvider(network) {
         }
     }
 
-    if (quicknodeProjectId) {
+    if (quicknodeProjectId && quicknodeNetworks[network.id]) {
         try {
+            const quicknodeUrl = `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`;
             providers.push({
                 provider: new ethers.JsonRpcProvider(
-                    `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-                    network.id,
+                    quicknodeUrl,
+                    chainId,
                     options
                 ),
                 priority: 2,
@@ -130,12 +144,13 @@ export default async function getProvider(network) {
         }
     }
 
-    if (chainstackProjectId) {
+    if (chainstackProjectId && chainstackNetworks[network.id]) {
         try {
+            const chainstackUrl = `https://${chainstackNetworks[network.id]}${chainstackProjectId}`;
             providers.push({
                 provider: new ethers.JsonRpcProvider(
-                    `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-                    network.id,
+                    chainstackUrl,
+                    chainId,
                     options
                 ),
                 priority: 2,
@@ -149,33 +164,38 @@ export default async function getProvider(network) {
     }
 
     // ✅ PRIORITY 3: Public RPC (fallback)
-    try {
-        providers.push({
-            provider: new ethers.JsonRpcProvider(rpcUrl, network.id, options),
-            priority: 3,
-            weight: 1,
-            stallTimeout: 3000  // Longer timeout for public RPC
-        });
-        console.log('✅ Added Public RPC provider');
-    } catch (e) {
-        console.warn('❌ Public RPC provider failed to initialize:', e.message);
+    if (rpcUrl) {
+        try {
+            providers.push({
+                provider: new ethers.JsonRpcProvider(rpcUrl, chainId, options),
+                priority: 3,
+                weight: 1,
+                stallTimeout: 2000
+            });
+            console.log('✅ Added Public RPC provider');
+        } catch (e) {
+            console.warn('❌ Public RPC provider failed to initialize:', e.message);
+        }
     }
 
     // ✅ DEFAULT HTTP PROVIDER (last resort)
-    try {
-        providers.push({
-            provider: new ethers.JsonRpcProvider(
-                `https://${defaultNetworks[network.id]}`,
-                network.id,
-                options
-            ),
-            priority: 4,
-            weight: 1,
-            stallTimeout: 3000
-        });
-        console.log('✅ Added Default HTTP provider');
-    } catch (e) {
-        console.warn('❌ Default HTTP provider failed to initialize:', e.message);
+    if (defaultNetworks[network.id]) {
+        try {
+            const defaultUrl = `https://${defaultNetworks[network.id]}`;
+            providers.push({
+                provider: new ethers.JsonRpcProvider(
+                    defaultUrl,
+                    chainId,
+                    options
+                ),
+                priority: 4,
+                weight: 1,
+                stallTimeout: 2000
+            });
+            console.log('✅ Added Default HTTP provider');
+        } catch (e) {
+            console.warn('❌ Default HTTP provider failed to initialize:', e.message);
+        }
     }
 
     if (providers.length === 0) {
@@ -187,7 +207,7 @@ export default async function getProvider(network) {
     // ✅ ROBUST FALLBACK CONFIGURATION
     const fallbackProvider = new ethers.FallbackProvider(
         providers.map(p => p.provider), 
-        network.id,
+        chainId,
         {
             quorum: 1,              // Only need 1 successful response
             stallTimeout: 1000,     // 1 second before trying next provider

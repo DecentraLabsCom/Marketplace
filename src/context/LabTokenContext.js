@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useMemo, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useLabTokenHook } from '@/hooks/useLabToken';
 import devLog from '@/utils/dev/logger';
@@ -17,29 +17,18 @@ export function LabTokenProvider({ children }) {
   // Single instance of useLabToken - this is the only place it's called
   const labTokenData = useLabTokenHook();
   
-  // Use refs to maintain stable function references
-  const functionsRef = useRef({
-    calculateReservationCost: labTokenData.calculateReservationCost,
-    approveLabTokens: labTokenData.approveLabTokens,
-    checkBalanceAndAllowance: labTokenData.checkBalanceAndAllowance,
-    checkSufficientBalance: labTokenData.checkSufficientBalance,
-    formatTokenAmount: labTokenData.formatTokenAmount,
-    formatPrice: labTokenData.formatPrice,
-    refreshTokenData: labTokenData.refreshTokenData,
-    refetchBalance: labTokenData.refetchBalance,
-    refetchAllowance: labTokenData.refetchAllowance,
-    clearDecimalsCache: labTokenData.clearDecimalsCache
-  });
-  
   // Track last logged state to prevent duplicate logs
   const lastLoggedState = useRef({
-    balance: null,
-    decimals: null,
-    isLoading: null
+    balance: 'initial',
+    decimals: 'initial', 
+    isLoading: 'initial'
   });
   
-  // Update function refs when labTokenData changes
-  functionsRef.current = {
+  // Track last context value to prevent unnecessary re-renders
+  const lastContextValue = useRef(null);
+  
+  // Create stable function references using useCallback
+  const stableFunctions = useMemo(() => ({
     calculateReservationCost: labTokenData.calculateReservationCost,
     approveLabTokens: labTokenData.approveLabTokens,
     checkBalanceAndAllowance: labTokenData.checkBalanceAndAllowance,
@@ -50,34 +39,66 @@ export function LabTokenProvider({ children }) {
     refetchBalance: labTokenData.refetchBalance,
     refetchAllowance: labTokenData.refetchAllowance,
     clearDecimalsCache: labTokenData.clearDecimalsCache
-  };
+  }), [
+    labTokenData.calculateReservationCost,
+    labTokenData.approveLabTokens,
+    labTokenData.checkBalanceAndAllowance,
+    labTokenData.checkSufficientBalance,
+    labTokenData.formatTokenAmount,
+    labTokenData.formatPrice,
+    labTokenData.refreshTokenData,
+    labTokenData.refetchBalance,
+    labTokenData.refetchAllowance,
+    labTokenData.clearDecimalsCache
+  ]);
   
   // Memoize the context value to prevent unnecessary re-renders
   // Only depend on values that should trigger context updates
   const contextValue = useMemo(() => {
-    // Only log meaningful state changes and avoid duplicates
+    // Convert values to serializable format for comparison
     const currentState = {
-      balance: labTokenData.balance?.toString(),
+      balance: labTokenData.balance?.toString() || 'undefined',
       decimals: labTokenData.decimals,
-      isLoading: labTokenData.isLoading
+      isLoading: labTokenData.isLoading,
+      labTokenAddress: labTokenData.labTokenAddress
     };
     
-    const shouldLog = (
-      // Only log if this is a meaningful change from last logged state
+    // Check if this is actually a new value compared to the last one
+    if (lastContextValue.current) {
+      const isSameAsLast = (
+        lastContextValue.current.balance === currentState.balance &&
+        lastContextValue.current.decimals === currentState.decimals &&
+        lastContextValue.current.isLoading === currentState.isLoading &&
+        lastContextValue.current.labTokenAddress === currentState.labTokenAddress
+      );
+      
+      // If nothing changed, return the same object reference to prevent re-renders
+      if (isSameAsLast) {
+        return lastContextValue.current;
+      }
+    }
+    
+    // Check if we should log this change
+    const hasChanged = (
       currentState.balance !== lastLoggedState.current.balance ||
       currentState.decimals !== lastLoggedState.current.decimals ||
-      (currentState.isLoading !== lastLoggedState.current.isLoading && currentState.isLoading === false)
-    ) && (
-      // And only if it's actually meaningful data (not undefined balance unless loading)
-      currentState.balance !== 'undefined' || currentState.isLoading || currentState.decimals > 0
+      currentState.isLoading !== lastLoggedState.current.isLoading
+    );
+    
+    // Only log meaningful changes
+    const shouldLog = hasChanged && (
+      // Log if we have real data
+      (currentState.balance !== 'undefined' && currentState.decimals != null) ||
+      // Or if loading state changed
+      (lastLoggedState.current.isLoading !== currentState.isLoading)
     );
     
     if (shouldLog) {
       devLog.log('LabTokenContext: Context value updated', currentState);
-      lastLoggedState.current = currentState;
+      lastLoggedState.current = { ...currentState };
     }
 
-    return {
+    const newContextValue = {
       // Token state - these values changing should trigger updates
       balance: labTokenData.balance,
       allowance: labTokenData.allowance,
@@ -86,14 +107,20 @@ export function LabTokenProvider({ children }) {
       labTokenAddress: labTokenData.labTokenAddress,
       
       // Token functions - use stable references
-      ...functionsRef.current
+      ...stableFunctions
     };
+    
+    // Store reference for next comparison
+    lastContextValue.current = newContextValue;
+    
+    return newContextValue;
   }, [
     labTokenData.balance,
     labTokenData.allowance,
     labTokenData.decimals,
     labTokenData.isLoading,
-    labTokenData.labTokenAddress
+    labTokenData.labTokenAddress,
+    stableFunctions
   ]);
 
   return (
