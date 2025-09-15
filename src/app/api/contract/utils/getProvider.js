@@ -35,7 +35,7 @@ export default async function getProvider(network) {
     
     // Optimized options for faster response and better reliability
     const options = {
-        batchMaxCount: 5,        // Reduced batch size for faster processing
+        batchMaxCount: 3,        // Limited to 3 for free tier compatibility
         timeout: 5000,           // 5 second timeout per provider
     };
 

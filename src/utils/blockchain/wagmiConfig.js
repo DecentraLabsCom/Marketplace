@@ -32,6 +32,7 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
@@ -41,6 +42,7 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
@@ -50,6 +52,7 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
@@ -59,6 +62,7 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
@@ -68,6 +72,7 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
@@ -77,6 +82,7 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
@@ -86,10 +92,15 @@ const createTransports = () => {
     retryCount: 1,
     batch: {
       wait: 200,
+      batchSize: 3,  // Limit batch size for free tier compatibility
     },
   });
 
-  const defaultTransport = http();
+  const defaultTransport = http({
+    batch: {
+      batchSize: 3,  // Limit batch size for free tier compatibility
+    },
+  });
 
   // Create fallback array with the most reliable providers first
   const fallbackProviders = [];
