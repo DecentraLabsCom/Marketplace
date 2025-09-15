@@ -27,6 +27,7 @@ export function BookingEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ReservationRequested',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('📝 [BookingEventContext] ReservationRequested events detected:', logs.length);
             
@@ -73,6 +74,7 @@ export function BookingEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ReservationConfirmed',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('✅ [BookingEventContext] ReservationConfirmed events detected:', logs.length);
             
@@ -108,6 +110,7 @@ export function BookingEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ReservationCanceled',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] ReservationCanceled events detected:', logs.length);
             
@@ -143,6 +146,7 @@ export function BookingEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'BookingCanceled',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] BookingCanceled events detected:', logs.length);
             
@@ -178,6 +182,7 @@ export function BookingEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ReservationRequestCanceled',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('🚫 [BookingEventContext] ReservationRequestCanceled events detected:', logs.length);
             
@@ -213,6 +218,7 @@ export function BookingEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ReservationRequestDenied',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('⛔ [BookingEventContext] ReservationRequestDenied events detected:', logs.length);
             

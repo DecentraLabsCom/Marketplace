@@ -27,6 +27,7 @@ export function UserEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ProviderAdded',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('🏢 [UserEventContext] ProviderAdded events detected:', logs.length);
             
@@ -61,6 +62,7 @@ export function UserEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ProviderRemoved',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('🗑️ [UserEventContext] ProviderRemoved events detected:', logs.length);
             
@@ -93,6 +95,7 @@ export function UserEventProvider({ children }) {
         address: contractAddress,
         abi: contractABI,
         eventName: 'ProviderUpdated',
+        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
             devLog.log('📝 [UserEventContext] ProviderUpdated events detected:', logs.length);
             
