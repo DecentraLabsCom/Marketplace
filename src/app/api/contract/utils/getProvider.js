@@ -36,7 +36,6 @@ export default async function getProvider(network) {
     // Optimized options for faster response and better reliability
     const options = {
         batchMaxCount: 5,        // Reduced batch size for faster processing
-        staticNetwork: networkInfo, // Static network info for better performance
         timeout: 5000,           // 5 second timeout per provider
     };
 
@@ -82,7 +81,7 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     `https://${alchemyNetworks[network.id]}${alchemyProjectId}`,
-                    networkInfo, 
+                    network.id,
                     options
                 ),
                 priority: 2,
@@ -100,7 +99,7 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     `https://${ankrNetworks[network.id]}${ankrProjectId}`,
-                    networkInfo, 
+                    network.id,
                     options
                 ),
                 priority: 2,
@@ -118,7 +117,7 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`,
-                    networkInfo, 
+                    network.id,
                     options
                 ),
                 priority: 2,
@@ -136,7 +135,7 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     `https://${chainstackNetworks[network.id]}${chainstackProjectId}`,
-                    networkInfo, 
+                    network.id,
                     options
                 ),
                 priority: 2,
@@ -152,7 +151,7 @@ export default async function getProvider(network) {
     // ✅ PRIORITY 3: Public RPC (fallback)
     try {
         providers.push({
-            provider: new ethers.JsonRpcProvider(rpcUrl, networkInfo, options),
+            provider: new ethers.JsonRpcProvider(rpcUrl, network.id, options),
             priority: 3,
             weight: 1,
             stallTimeout: 3000  // Longer timeout for public RPC
@@ -167,7 +166,7 @@ export default async function getProvider(network) {
         providers.push({
             provider: new ethers.JsonRpcProvider(
                 `https://${defaultNetworks[network.id]}`,
-                networkInfo, 
+                network.id,
                 options
             ),
             priority: 4,
@@ -188,7 +187,7 @@ export default async function getProvider(network) {
     // ✅ ROBUST FALLBACK CONFIGURATION
     const fallbackProvider = new ethers.FallbackProvider(
         providers.map(p => p.provider), 
-        networkInfo, 
+        network.id,
         {
             quorum: 1,              // Only need 1 successful response
             stallTimeout: 1000,     // 1 second before trying next provider
