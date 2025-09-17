@@ -72,35 +72,35 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
     <div className="text-white mb-1 h-full">
       <h3 className="text-base font-semibold mb-3 text-center">Summary</h3>
       
-      <div className="p-2">
+      <div className="2xl:p-2 p-1 2xl:block flex gap-4 items-center">
         {/* Total Statistics */}
-        <div className="text-center mb-3">
+        <div className="2xl:text-center 2xl:mb-3 flex-shrink-0 text-center">
           <div className="text-2xl font-bold text-blue-300">{totalBookings || 0}</div>
-          <div className="text-gray-300 text-s">Total Bookings</div>
+          <div className="text-gray-300 text-sm">Total Bookings</div>
         </div>
+
+        {/* Divider: vertical on horizontal layout, horizontal centered 30% on vertical layout */}
+        <div className="2xl:p-0 2xl:w-[30%] mx-auto border-t border-gray-600 pt-0.5 2xl:h-0 h-16 w-px bg-gray-600"/>
 
         {/* Status Breakdown */}
-        <div className="border-t border-gray-600 pt-2">
-          <div className="space-y-1 text-s">
-            <div className="flex justify-between">
-              <span className="text-gray-300">Active:</span>
-              <span className="font-semibold text-green-300">{activeBookings || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Upcoming:</span>
-              <span className="font-semibold text-blue-300">{upcomingBookings || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Pending:</span>
-              <span className="font-semibold text-yellow-300">{pendingBookings || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-300">Completed:</span>
-              <span className="font-semibold text-gray-300">{completedBookings || 0}</span>
-            </div>
+        <div className="2xl:space-y-1 2xl:text-sm flex-1 space-y-1 text-[0.78rem]">
+          <div className="flex justify-between">
+            <span className="text-gray-300">Active:</span>
+            <span className="font-semibold text-green-300">{activeBookings || 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-300">Upcoming:</span>
+            <span className="font-semibold text-blue-300">{upcomingBookings || 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-300">Pending:</span>
+            <span className="font-semibold text-yellow-300">{pendingBookings || 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-300">Completed:</span>
+            <span className="font-semibold text-gray-300">{completedBookings || 0}</span>
           </div>
         </div>
-
       </div>
     </div>
   );

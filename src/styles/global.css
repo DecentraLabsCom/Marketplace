@@ -178,3 +178,124 @@ body {
 .react-datepicker__day.pending-booking:hover {
   background-color: #d97706 !important; /* Darker orange on hover */
 }
+
+/* Custom scrollbar styles for booking lists */
+.bookings-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #715c8c rgba(31, 41, 55, 0.2);
+  /* Move scrollbar to left using RTL direction */
+  direction: rtl;
+}
+
+/* Reset content direction back to normal */
+.bookings-scroll > li {
+  direction: ltr;
+}
+
+/* WebKit scrollbar styles (Chrome, Safari, Edge) */
+.bookings-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.bookings-scroll::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.1);
+  border-radius: 8px;
+  margin: 2px 0;
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+.bookings-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(45deg, #715c8c 0%, #8b6ba3 50%, #715c8c 100%);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.bookings-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(45deg, #8b6ba3 0%, #a685c2 50%, #8b6ba3 100%);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 2px 4px rgba(113, 92, 140, 0.3),
+    0 0 8px rgba(113, 92, 140, 0.2);
+  transform: scale(1.05);
+}
+
+.bookings-scroll::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(45deg, #5d4a73 0%, #715c8c 50%, #5d4a73 100%);
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.2),
+    0 1px 2px rgba(0, 0, 0, 0.15);
+  transform: scale(0.95);
+}
+
+/* Global custom scrollbar styles for all elements */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #715c8c rgba(31, 41, 55, 0.15);
+}
+
+/* WebKit scrollbar styles for all elements (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.08);
+  border-radius: 0px; /* Square corners */
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #715c8c 0%, #8b6ba3 50%, #715c8c 100%);
+  border-radius: 0px; /* Square corners */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #8b6ba3 0%, #a685c2 50%, #8b6ba3 100%);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 2px 4px rgba(113, 92, 140, 0.25);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(135deg, #5d4a73 0%, #715c8c 50%, #5d4a73 100%);
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Corner where horizontal and vertical scrollbars meet */
+*::-webkit-scrollbar-corner {
+  background: rgba(31, 41, 55, 0.08);
+}
+
+/* Horizontal scrollbar styles */
+*::-webkit-scrollbar:horizontal {
+  height: 10px;
+}
+
+/* Special override for body to ensure main page scrollbar looks good */
+body::-webkit-scrollbar {
+  width: 12px;
+}
+
+body::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #715c8c 0%, #8b6ba3 50%, #715c8c 100%);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 3px rgba(0, 0, 0, 0.1);
+}
+
+body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #8b6ba3 0%, #a685c2 50%, #8b6ba3 100%);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 3px 6px rgba(113, 92, 140, 0.2);
+}

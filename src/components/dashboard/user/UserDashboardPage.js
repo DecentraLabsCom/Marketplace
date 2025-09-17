@@ -315,9 +315,9 @@ export default function UserDashboard() {
               })
             )}
             
-            <div className='flex min-[1280px]:flex-row flex-col gap-2 mb-6'>
+            <div className='flex xl:flex-row flex-col gap-4 mb-6'>
               {/* Active booking section - uses optimized hook */}
-              <div className="min-[1280px]:w-2/3 w-full">
+              <div className="xl:w-2/3 w-full">
                 <ActiveBookingSection 
                   userAddress={user?.userid || address}
                   options={{
@@ -327,35 +327,38 @@ export default function UserDashboard() {
                 />
               </div>
               
-              {/* Calendar section */}
-              <div className="min-[1280px]:w-2/12 w-full">
-                <div className="shadow text-white mb-1 justify-center h-full">
-                  <h3 className="text-base font-semibold mb-3 text-center">Calendar</h3>
-                  <div className="flex flex-row justify-center">
-                    <CalendarWithBookings
-                      selectedDate={date}
-                      onDateChange={(newDate) => setDate(newDate)}
-                      bookingInfo={bookingInfo}
-                      minDate={today}
-                      displayMode="user-dashboard"
-                    />
+              {/* Right sidebar: Calendar and Summary */}
+              <div className="xl:w-1/3 w-full flex flex-col gap-4">
+                {/* Calendar section */}
+                <div className="w-full">
+                  <div className="shadow text-white mb-1 justify-center">
+                    <h3 className="text-base font-semibold mb-3 text-center">Calendar</h3>
+                    <div className="flex flex-row justify-center">
+                      <CalendarWithBookings
+                        selectedDate={date}
+                        onDateChange={(newDate) => setDate(newDate)}
+                        bookingInfo={bookingInfo}
+                        minDate={today}
+                        displayMode="user-dashboard"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Booking summary section - uses optimized hook */}
-              <div className="min-[1280px]:w-2/12 w-full">
-                <BookingSummarySection 
-                  userAddress={user?.userid || address}
-                  options={{
-                    enabled: !!address && isLoggedIn,
-                    staleTime: 10 * 60 * 1000, // 10 minutes - summary is less dynamic
-                  }}
-                />
+                {/* Booking summary section - uses optimized hook */}
+                <div className="w-full">
+                  <BookingSummarySection 
+                    userAddress={user?.userid || address}
+                    options={{
+                      enabled: !!address && isLoggedIn,
+                      staleTime: 10 * 60 * 1000, // 10 minutes - summary is less dynamic
+                    }}
+                  />
+                </div>
               </div>
             </div>
             {/* Bottom panel: bookings lists */}
-            <div className="flex min-[1280px]:flex-row flex-col gap-4 mt-6">
+            <div className="flex xl:flex-row flex-col gap-4 mt-6">
               {/* Upcoming bookings list */}
               <BookingsList
                 bookings={userBookings}
@@ -369,7 +372,7 @@ export default function UserDashboard() {
               />
               
               {/* Vertical divider */}
-              <div className="min-[1280px]:mt-1 min-[1280px]:mx-3 min-[1280px]:w-px min-[1280px]:self-stretch bg-gradient-to-tr 
+              <div className="xl:mt-1 xl:mx-3 xl:w-px xl:self-stretch bg-gradient-to-tr 
                 from-transparent via-neutral-800 to-transparent opacity-90 
                 dark:via-neutral-200 border-l border-neutral-800 
                 dark:border-neutral-200 border-dashed"

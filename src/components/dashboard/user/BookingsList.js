@@ -156,10 +156,10 @@ export default function BookingsList({
         </h2>
       </div>
       
-      <ul className='w-full flex-1'>
-        {isLoading ? (
-          <DashboardSectionSkeleton title={false} />
-        ) : (
+      <ul className={`w-full flex-1 ${enhancedBookings.length > 5 ? 'max-h-96 overflow-y-auto bookings-scroll' : ''}`}>
+          {isLoading ? (
+            <DashboardSectionSkeleton title={false} />
+          ) : (
           currentTime && enhancedBookings.length > 0 ? (
             enhancedBookings.map((booking) => {
               const { startTime, endTime } = formatBookingTimes(booking);
@@ -193,11 +193,11 @@ export default function BookingsList({
               {emptyMessage}
             </li>
           )
-        )}
-        {!currentTime && !isLoading && (
-          <li className="text-center text-gray-500">Loading...</li>
-        )}
-      </ul>
+          )}
+          {!currentTime && !isLoading && (
+            <li className="text-center text-gray-500">Loading...</li>
+          )}
+        </ul>
     </div>
   );
 }
