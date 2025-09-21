@@ -30,4 +30,4 @@ flowchart TD
 
 The image below illustrates the architecture of the infrastructure you must have at your institution:
 
-<figure><img src="../.gitbook/assets/provider-infrastructure.png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/image.png" alt=""><figcaption></figcaption></figure>

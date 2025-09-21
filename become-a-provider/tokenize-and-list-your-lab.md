@@ -2,7 +2,7 @@
 
 Once a user is registered as a provider, the **Lab Panel** becomes visible and accessible. The image below shows an example where the provider already has a lab tokenized and listed, but this does not affect the process and explanation of adding a new lab. For this, click on the **Add New Lab** button, under the calendar on the right.
 
-<figure><img src="../.gitbook/assets/image (1).png" alt=""><figcaption></figcaption></figure>
+<figure><img src="../.gitbook/assets/image (1) (1).png" alt=""><figcaption></figcaption></figure>
 
 This will open a modal to add a new lab, as shown in the next figure.
 
