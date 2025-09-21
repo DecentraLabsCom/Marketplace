@@ -14,10 +14,9 @@ import { LabHeroSkeleton } from '@/components/skeletons'
  * Shows comprehensive lab data including images, documentation, pricing, and provider info
  * @param {Object} props
  * @param {string|number} props.id - Lab ID to display details for
- * @param {string} props.provider - Provider address or identifier
  * @returns {JSX.Element} Complete lab detail view with images, docs, and metadata
  */
-export default function LabDetail({ id, provider }) {
+export default function LabDetail({ id }) {
   const { 
     data: lab,
     isLoading: loading, 
@@ -71,9 +70,9 @@ export default function LabDetail({ id, provider }) {
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-center text-text-secondary font-semibold mt-4 mb-2">
               <span>{formatPrice(lab?.price)} $LAB / hour</span>
-              {provider && (
-                <span className="truncate max-w-[50%]" title={provider}>
-                  Provider: {provider}
+              {lab?.provider && (
+                <span className="truncate max-w-[50%]" title={lab.provider}>
+                  Provider: {lab.provider}
                 </span>
               )}
             </div>

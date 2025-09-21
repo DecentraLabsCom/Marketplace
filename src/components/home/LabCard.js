@@ -70,7 +70,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         </div>
       </div>
 
-      <Link href={`/lab/${id}/${provider}`}>
+      <Link href={`/lab/${id}`}>
         <div className="absolute inset-0 flex items-center justify-center opacity-0
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
           text-white text-lg font-bold">
