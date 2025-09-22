@@ -53,16 +53,21 @@ const processLabImages = (metadataData) => {
  * Gets all labs with provider mapping but minimal data transformation
  * Optimized for filtering and display in lab grid
  * @param {Object} options - Configuration options
- * @returns {Object} Lab data optimized for market display
+ * @param {boolean} [options.includeUnlisted=false] - Whether to include unlisted labs in results
+ * @param {boolean} [options.enabled=true] - Whether the query should be enabled
+ * @returns {Object} Lab data optimized for market display (includes isListed property when includeUnlisted=true)
  */
 export const useLabsForMarket = (options = {}) => {
+  // Extract includeUnlisted option
+  const { includeUnlisted = false, ...queryOptions } = options;
+  
   // Get optimistic UI context for listing states
   const { getEffectiveListingState } = useOptimisticUI();
   
   // Step 1: Get all lab IDs
   const labIdsResult = useAllLabs({
     ...LAB_QUERY_CONFIG,
-    enabled: options.enabled !== false,
+    enabled: queryOptions.enabled !== false,
     
     // ✅ Use select to just return the IDs array
     select: (data) => data || []
@@ -114,7 +119,7 @@ export const useLabsForMarket = (options = {}) => {
     combine: (results) => results
   });
 
-  // Step 6: Get metadata for labs (only for listed labs for performance)
+  // Step 6: Get metadata for labs (conditional based on includeUnlisted option)
   const metadataResults = useQueries({
     queries: labDetailResults.length > 0
       ? labDetailResults.map((result, index) => {
@@ -124,12 +129,16 @@ export const useLabsForMarket = (options = {}) => {
           
           // Use effective listing state for metadata fetching
           const effectiveState = getEffectiveListingState(lab?.labId, serverIsListed);
-          const shouldFetchMetadata = effectiveState.isListed;
+          
+          // Determine if we should fetch metadata based on listing state and options
+          const shouldFetchMetadata = includeUnlisted 
+            ? !!metadataUri && result.isSuccess  // Fetch for all labs if includeUnlisted is true
+            : effectiveState.isListed; // Only for listed labs if includeUnlisted is false
           
           return {
             queryKey: metadataQueryKeys.byUri(metadataUri),
             queryFn: () => useMetadata.queryFn(metadataUri),
-            enabled: !!metadataUri && result.isSuccess && shouldFetchMetadata, // Only fetch metadata for listed labs
+            enabled: shouldFetchMetadata,
             ...METADATA_QUERY_CONFIG,
           };
         })
@@ -205,10 +214,15 @@ export const useLabsForMarket = (options = {}) => {
                    labDetailResults.some(r => r.error) ||
                    ownerResults.some(r => r.error);
 
-  // Transform data for market display - Only include listed labs
+  // Transform data for market display - Include unlisted labs if requested
   const labs = labDetailResults
     .filter((result, index) => {
       if (!result.isSuccess || !result.data) return false;
+      
+      if (includeUnlisted) {
+        // Include all labs when includeUnlisted is true
+        return true;
+      }
       
       const labId = result.data.labId;
       const serverIsListed = listingResults[index]?.data?.isListed;
@@ -227,10 +241,15 @@ export const useLabsForMarket = (options = {}) => {
       const ownerAddress = ownerData?.owner || ownerData;
       const metadata = metadataResults[originalIndex]?.data;
 
+      // Get listing status for this lab
+      const serverIsListed = listingResults[originalIndex]?.data?.isListed;
+      const effectiveState = getEffectiveListingState(lab.labId, serverIsListed);
+      
       const enrichedLab = {
         id: lab.labId,
         labId: lab.labId,
         tokenId: lab.labId,
+        isListed: effectiveState.isListed, // Add listing status
         ...lab.base,
       };
 
@@ -425,8 +444,8 @@ export const useLabById = (labId, options = {}) => {
   // Check if lab is listed
   const isListed = listingResult.data?.isListed;
 
-  // Transform data - Only return lab if it's listed
-  const lab = (labResult.data && isListed) ? (() => {
+  // Transform data - Always return lab if it exists, include listing status
+  const lab = labResult.data ? (() => {
     const lab = labResult.data;
     const ownerData = ownerResult.data;
     const ownerAddress = ownerData?.owner || ownerData;
@@ -436,6 +455,7 @@ export const useLabById = (labId, options = {}) => {
       id: lab.labId,
       labId: lab.labId,
       tokenId: lab.labId,
+      isListed: isListed, // Add listing status
       ...lab.base,
     };
 

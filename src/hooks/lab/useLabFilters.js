@@ -16,12 +16,14 @@ import isBookingActive from '@/utils/booking/isBookingActive'
  * @returns {string} returns.selectedPrice - Currently selected price sorting
  * @returns {string} returns.selectedProvider - Currently selected provider filter
  * @returns {string} returns.selectedFilter - Currently selected search filter type
+ * @returns {boolean} returns.showUnlisted - Whether to show unlisted labs
  * @returns {Array} returns.searchFilteredLabs - Filtered and enriched labs array
  * @returns {string} returns.searchDebounce - Current debounced search term
  * @returns {Function} returns.setSelectedCategory - Set category filter function
  * @returns {Function} returns.setSelectedPrice - Set price sorting function
  * @returns {Function} returns.setSelectedProvider - Set provider filter function
  * @returns {Function} returns.setSelectedFilter - Set search filter type function
+ * @returns {Function} returns.setShowUnlisted - Set show unlisted labs function
  * @returns {Array} returns.categories - Available categories for filtering
  * @returns {Array} returns.providers - Available providers for filtering
  * @returns {Object} returns.searchInputRef - Ref for search input element
@@ -35,6 +37,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price")
   const [selectedProvider, setSelectedProvider] = useState("All")
   const [selectedFilter, setSelectedFilter] = useState("Keyword")
+  const [showUnlisted, setShowUnlisted] = useState(false)
   const [searchDebounce, setSearchDebounce] = useState("")
 
   // Get all lab categories and providers using memoization
@@ -154,6 +157,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedPrice("Sort by Price")
     setSelectedProvider("All")
     setSelectedFilter("Keyword")
+    setShowUnlisted(false)
     setSearchDebounce("")
     if (searchInputRef.current) {
       searchInputRef.current.value = ""
@@ -166,6 +170,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     selectedPrice,
     selectedProvider,
     selectedFilter,
+    showUnlisted,
     searchFilteredLabs: enrichedLabs, // Return enriched labs with active booking marks
     searchDebounce,
     
@@ -174,6 +179,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedPrice,
     setSelectedProvider,
     setSelectedFilter,
+    setShowUnlisted,
     
     // Derived data
     categories,

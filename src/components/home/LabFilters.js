@@ -14,10 +14,12 @@ import PropTypes from 'prop-types'
  * @param {string} props.selectedPrice - Currently selected price sort
  * @param {string} props.selectedProvider - Currently selected provider
  * @param {string} props.selectedFilter - Currently selected search filter type
+ * @param {boolean} props.showUnlisted - Whether to show unlisted labs
  * @param {Function} props.onCategoryChange - Category selection handler
  * @param {Function} props.onPriceChange - Price sort handler
  * @param {Function} props.onProviderChange - Provider selection handler
  * @param {Function} props.onFilterChange - Search filter type handler
+ * @param {Function} props.onShowUnlistedChange - Show unlisted labs handler
  * @param {Function} props.onReset - Reset filters handler
  * @param {Object} props.searchInputRef - Ref for search input
  * @param {boolean} props.loading - Loading state
@@ -29,10 +31,12 @@ export default function LabFilters({
   selectedPrice,
   selectedProvider,
   selectedFilter,
+  showUnlisted = false,
   onCategoryChange,
   onPriceChange,
   onProviderChange,
   onFilterChange,
+  onShowUnlistedChange,
   onReset,
   searchInputRef,
   loading = false
@@ -71,6 +75,10 @@ export default function LabFilters({
     } else {
       onPriceChange("Sort by Price");
     }
+  }
+
+  const handleListingToggle = () => {
+    onShowUnlistedChange(!showUnlisted);
   }
 
   return (
@@ -168,6 +176,17 @@ export default function LabFilters({
           {selectedPrice}
         </button>
       </div>
+
+      {/* Lab listing toggle */}
+      <div className="w-full md:w-auto flex justify-center md:justify-start items-center">
+        <button 
+          onClick={handleListingToggle} 
+          className="w-[120px] py-[7px] border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={effectiveLoading}
+        >
+          {showUnlisted ? "All labs" : "Listed labs"}
+        </button>
+      </div>
     </section>
   )
 }
@@ -179,10 +198,12 @@ LabFilters.propTypes = {
   selectedPrice: PropTypes.string.isRequired,
   selectedProvider: PropTypes.string.isRequired,
   selectedFilter: PropTypes.string.isRequired,
+  showUnlisted: PropTypes.bool,
   onCategoryChange: PropTypes.func.isRequired,
   onPriceChange: PropTypes.func.isRequired,
   onProviderChange: PropTypes.func.isRequired,
   onFilterChange: PropTypes.func.isRequired,
+  onShowUnlistedChange: PropTypes.func.isRequired,
   onReset: PropTypes.func.isRequired,
   searchInputRef: PropTypes.object.isRequired,
   loading: PropTypes.bool

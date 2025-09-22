@@ -20,10 +20,11 @@ import { Card, Badge, cn } from '@/components/ui'
  * @param {string|number} props.price - Lab price per hour
  * @param {string} props.auth - Authentication requirements
  * @param {boolean} props.activeBooking - Whether user has active booking
+ * @param {boolean} [props.isListed=true] - Whether the lab is currently listed
  * @param {string} props.image - Lab main image URL
  * @returns {JSX.Element} Lab card with image, details, and action buttons
  */
-const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, image }) {
+const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, isListed = true, image }) {
   const { address, isConnected } = useUser();
   const { formatPrice } = useLabToken();
  
@@ -59,6 +60,15 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
             <Badge variant="success" size="sm">Active</Badge>
           </div>
         )}
+        
+        {/* Unlisted Badge */}
+        {!isListed && (
+          <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand border-l-2 border-brand px-3 py-2 rounded-bl-lg shadow-lg backdrop-blur-sm`}>
+            <span className="text-xs font-semibold uppercase tracking-wide">
+              Unlisted
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Lab Details */}
@@ -70,7 +80,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         </div>
       </div>
 
-      <Link href={`/lab/${id}/${provider}`}>
+      <Link href={`/lab/${id}`}>
         <div className="absolute inset-0 flex items-center justify-center opacity-0
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
           text-white text-lg font-bold">
@@ -92,12 +102,14 @@ LabCard.propTypes = {
   price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   auth: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
   activeBooking: PropTypes.bool,
+  isListed: PropTypes.bool,
   image: PropTypes.string
 }
 
 LabCard.defaultProps = {
   auth: null,
   activeBooking: false,
+  isListed: true,
   image: ''
 }
 
