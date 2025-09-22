@@ -128,7 +128,7 @@ function WalletOption({ connector, onClick }) {
       return (
         <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
           <Image
-            src="/wallets/metamask.svg"
+            src="/wallets/MetaMask.svg"
             alt="MetaMask"
             width={32}
             height={32}
@@ -140,7 +140,7 @@ function WalletOption({ connector, onClick }) {
       return (
         <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
           <Image
-            src="/wallets/walletconnect.svg"
+            src="/wallets/WalletConnect.svg"
             alt="WalletConnect"
             width={32}
             height={32}
