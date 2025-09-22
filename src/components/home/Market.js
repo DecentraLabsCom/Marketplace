@@ -5,7 +5,7 @@
  * @returns {JSX.Element} Complete marketplace interface with lab grid, search, and user-specific features
  */
 "use client";
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useCallback } from 'react'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useLabsForMarket } from '@/hooks/lab/useLabs'
@@ -18,8 +18,13 @@ import devLog from '@/utils/dev/logger'
 export default function Market() {
   const { isLoggedIn, address, isWalletLoading } = useUser();
   
-  // React Query for labs optimized for market display
-  const labsQuery = useLabsForMarket();
+  // State for show unlisted option
+  const [showUnlisted, setShowUnlisted] = useState(false);
+  
+  // React Query for labs optimized for market display (with conditional unlisted inclusion)
+  const labsQuery = useLabsForMarket({ 
+    includeUnlisted: showUnlisted 
+  });
   
   const { 
     data: labsData, 
@@ -87,6 +92,12 @@ export default function Market() {
     resetFilters
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading);
 
+  // Handle reset to also reset showUnlisted
+  const handleReset = useCallback(() => {
+    resetFilters();
+    setShowUnlisted(false);
+  }, [resetFilters]);
+
   return (
     <Container as="main" padding="sm">
       <LabFilters
@@ -96,11 +107,13 @@ export default function Market() {
         selectedPrice={selectedPrice}
         selectedProvider={selectedProvider}
         selectedFilter={selectedFilter}
+        showUnlisted={showUnlisted}
         onCategoryChange={setSelectedCategory}
         onPriceChange={setSelectedPrice}
         onProviderChange={setSelectedProvider}
         onFilterChange={setSelectedFilter}
-        onReset={resetFilters}
+        onShowUnlistedChange={setShowUnlisted}
+        onReset={handleReset}
         searchInputRef={searchInputRef}
         loading={labsLoading}
       />

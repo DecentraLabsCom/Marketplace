@@ -76,10 +76,20 @@ export default function LabDetail({ id }) {
                 </span>
               )}
             </div>
-            <button className="bg-brand hover:bg-hover-dark text-white px-4 py-2 rounded mt-4 
-              max-h-[45px] w-2/3 mx-auto" onClick={() => 
-              router.push(`/reservation/${lab?.id}`)} aria-label={`Rent ${lab?.name}`}>
-              Book Lab
+            <button 
+              className={`px-4 py-2 rounded mt-4 max-h-[45px] w-2/3 mx-auto transition-colors ${
+                lab?.isListed === false 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-brand hover:bg-hover-dark text-white'
+              }`}
+              onClick={() => {
+                if (lab?.isListed !== false) {
+                  router.push(`/reservation/${lab?.id}`);
+                }
+              }} 
+              disabled={lab?.isListed === false}
+              aria-label={lab?.isListed === false ? 'Lab not available for booking' : `Rent ${lab?.name}`}>
+              {lab?.isListed === false ? 'Not Available' : 'Book Lab'}
             </button>
           </div>
         </article>
@@ -90,6 +100,27 @@ export default function LabDetail({ id }) {
             <h1 className="text-2xl text-header-bg font-bold pb-2 text-center">
               {lab?.name}
             </h1>
+            
+            {/* Unlisted Lab Badge */}
+            {lab?.isListed === false && (
+              <div className="flex justify-center mb-4">
+                <div className="bg-[#1f2426] border-l-4 border-brand p-3 rounded-r-lg shadow-sm">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-brand" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-header-bg font-medium">
+                        This laboratory is currently unlisted and not available for booking.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex justify-center">
               <hr className="mb-2 separator-width w-1/2" />
             </div>

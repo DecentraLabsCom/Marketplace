@@ -80,6 +80,7 @@ export default function LabGrid({
             price={lab.price}
             auth={lab.auth}
             activeBooking={lab.hasActiveBooking}
+            isListed={lab.isListed}
             image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}
           />
         ))}
@@ -99,7 +100,8 @@ LabGrid.propTypes = {
     keywords: PropTypes.string,
     imageUrls: PropTypes.arrayOf(PropTypes.string),
     uri: PropTypes.string,
-    hasActiveBooking: PropTypes.bool
+    hasActiveBooking: PropTypes.bool,
+    isListed: PropTypes.bool
   })),
   loading: PropTypes.bool,
   error: PropTypes.bool,
