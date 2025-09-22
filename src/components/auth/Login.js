@@ -5,7 +5,7 @@ import { useUser } from '@/context/UserContext'
 import WalletLogin from '@/components/auth/WalletLogin'
 import InstitutionalLogin from '@/components/auth/InstitutionalLogin'
 import Account from '@/utils/auth/account'
-import { Button, Card, CardHeader, CardContent, Stack } from '@/components/ui'
+import { Button, Card, CardHeader, CardContent } from '@/components/ui'
 
 /**
  * Main login component that provides multiple authentication methods
@@ -56,10 +56,10 @@ export default function Login() {
           >
             <CardHeader title="Choose Login Method" />
             <CardContent>
-              <Stack spacing="md">
+              <div className="flex flex-col space-y-3">
                 <WalletLogin setIsModalOpen={setIsModalOpen} />
                 <InstitutionalLogin setIsModalOpen={setIsModalOpen} />
-              </Stack>
+              </div>
             </CardContent>
           </Card>
         </div>
