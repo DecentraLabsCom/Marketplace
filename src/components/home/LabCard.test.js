@@ -75,15 +75,16 @@ describe('LabCard component', () => {
     expect(container.firstChild).toHaveClass('border-4', 'border-brand', 'animate-glow')
   })
 
-  test('renders Explore Lab overlay link with correct href', () => {
-    useUser.mockReturnValue({ address: null, isConnected: false })
+    test('renders Explore Lab overlay link with correct href', () => {
+  useUser.mockReturnValue({ address: null, isConnected: false })
 
-    render(<LabCard {...baseProps} />)
+  render(<LabCard {...baseProps} />)
 
-    const link = screen.getByRole('link', { name: /Explore Lab/i })
-    expect(link).toHaveAttribute('href', `/lab/${baseProps.id}/${baseProps.provider}`)
-    expect(screen.getByText(/Explore Lab/i)).toBeInTheDocument()
-  })
+  const link = screen.getByRole('link', { name: /Explore Lab/i })
+  expect(link).toHaveAttribute('href', `/lab/${baseProps.id}`)
+  expect(screen.getByText(/Explore Lab/i)).toBeInTheDocument()
+})
+
 
   test('overlay carries Tailwind classes for hover (opacity-0 and group-hover:opacity-100)', () => {
     useUser.mockReturnValue({ address: null, isConnected: false })
