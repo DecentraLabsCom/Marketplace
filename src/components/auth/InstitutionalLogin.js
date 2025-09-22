@@ -20,14 +20,29 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
   }
 
   return (
-    <div onClick={handleInstitutionalLogin}
-        className="bg-brand text-white font-bold rounded-lg px-4 py-2 transition duration-300 
-        cursor-pointer ease-in-out hover:bg-hover-dark hover:text-white  flex items-center 
-        justify-center"
-        >
-        <FontAwesomeIcon icon={faUniversity} className="font-semibold text-4xl mr-3" title="Institutional Account"/>
-        Institutional Login
-    </div>
+    <button 
+      onClick={handleInstitutionalLogin}
+      className="group w-full p-4 text-left rounded-xl border bg-brand border-brand hover:bg-hover-dark hover:shadow-lg text-white transition-all duration-300 transform hover:scale-[1.02]"
+    >
+      <div className="flex items-center space-x-4">
+        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm">
+          <FontAwesomeIcon icon={faUniversity} className="text-brand text-lg" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-lg text-white">
+            Institutional Login
+          </h3>
+          <p className="text-sm text-white/80">
+            SSO authentication
+          </p>
+        </div>
+        <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </button>
   )
 }
 
