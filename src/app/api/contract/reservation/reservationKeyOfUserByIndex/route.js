@@ -61,10 +61,33 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('❌ Error getting reservation key:', error);
+        
+    // Handle specific contract errors gracefully
+    const isIndexOutOfRange = error.message && (
+      error.message.includes('out of bounds') ||
+      error.message.includes('index out of range') ||
+      error.message.includes('array access out of bounds') ||
+      error.code === 'CALL_EXCEPTION' ||
+      error.reason?.includes('out of bounds')
+    );
     
+    if (isIndexOutOfRange) {
+      console.log(`🔍 Index ${indexNum} appears to be out of range for user`);
+      return Response.json({ 
+        error: 'Index out of range',
+        details: `Requested index ${indexNum} is not available for this user`,
+        userAddress,
+        index: indexNum,
+        suggestion: 'Try with a lower index or check the total reservation count first'
+      }, {status: 400 });
+    }
+    
+    // For other contract errors, return 500 with detailed info
     return Response.json({ 
       error: 'Failed to get reservation key',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Contract call failed',
+      errorCode: error.code,
+      errorReason: error.reason,
       userAddress,
       index: indexNum
     }, {status: 500 });
