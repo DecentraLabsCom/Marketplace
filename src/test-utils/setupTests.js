@@ -1,40 +1,22 @@
+// Extend Jest with @testing-library matchers
 require('@testing-library/jest-dom');
 
+// Polyfill for TextEncoder/TextDecoder (needed in JSDOM)
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
 
-// Mock para Next.js router
-jest.mock('next/router', () => ({
-  useRouter() {
-    return {
-      route: '/',
-      pathname: '/',
-      query: '',
-      asPath: '/',
-      push: jest.fn(),
-      pop: jest.fn(),
-      reload: jest.fn(),
-      back: jest.fn(),
-      prefetch: jest.fn(),
-      beforePopState: jest.fn(),
-      events: {
-        on: jest.fn(),
-        off: jest.fn(),
-        emit: jest.fn(),
-      },
-    };
-  },
-}));
+// Centralized mocks for complex external libs
+jest.mock('next/router', () => require('./mocks/nextRouter'));
+jest.mock('wagmi', () => require('./mocks/wagmi'));
+jest.mock('viem', () => require('./mocks/viem'));
+jest.mock('@/utils/blockchain/wagmiConfig', () => ({ resetWagmiCache: jest.fn() }));
+jest.mock('@/utils/blockchain/networkConfig', () => ({ moralisNetworks: {}, ankrNetworks: {} }));
 
-// Mock para wagmi hooks
-jest.mock('wagmi', () => ({
-  useAccount: () => ({
-    address: '0x123',
-    isConnected: false,
-  }),
-  useConnect: () => ({
-    connect: jest.fn(),
-    connectors: [],
-  }),
-  useDisconnect: () => ({
-    disconnect: jest.fn(),
-  }),
-}));
+// Cleanup after each test to avoid cross-test pollution
+afterEach(() => {
+  jest.clearAllMocks();
+  jest.restoreAllMocks();
+});

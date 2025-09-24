@@ -21,6 +21,11 @@ const customJestConfig = {
     '<rootDir>/src/**/__tests__/**/*.{js,jsx}',
     '<rootDir>/src/**/*.{test,spec}.{js,jsx}',
   ],
+  
+  transformIgnorePatterns: [
+     // Allow transformation of ESM packages that Jest can't handle directly
+    '/node_modules/(?!(wagmi|viem)/)', 
+  ],
 };
 
 export default createJestConfig(customJestConfig);
