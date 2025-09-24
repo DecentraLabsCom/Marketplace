@@ -23,7 +23,8 @@ export async function POST(request) {
 
     console.log(`Confirming reservation: ${reservationKey}`);
     
-    const contract = await getContractInstance();
+    // Get contract instance with WRITE permissions (readOnly = false)
+    const contract = await getContractInstance('diamond', false);
     
     // Execute blockchain transaction
     const tx = await contract.confirmReservationRequest(reservationKey);
@@ -37,7 +38,12 @@ export async function POST(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('❌ Error confirming reservation:', error.message);
+    console.error('❌ Error confirming reservation:', {
+      reservationKey: body?.reservationKey,
+      errorMessage: error.message,
+      errorStack: error.stack,
+      errorCode: error.code
+    });
     
     return Response.json({ 
       error: 'Failed to confirm reservation',

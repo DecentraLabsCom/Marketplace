@@ -1,5 +1,6 @@
 import { format, isToday } from 'date-fns'
 import { getBookingStatusText } from './bookingStatus'
+import { parseDateSafe, isSameCalendarDay } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -26,7 +27,7 @@ export function generateTimeOptions({ date, interval, bookingInfo }) {
     }
     
     const dayBookings = (bookingInfo || []).filter(
-        (b) => new Date(b.date).toDateString() === date.toDateString()
+        (b) => isSameCalendarDay(b.date, date)
     );
 
     const dayStart = new Date(date);
@@ -82,8 +83,7 @@ export function renderDayContents({ day, currentDateRender, bookingInfo }) {
     const bookingsOnDay = (bookingInfo || [])
         .filter(b => {
             const dateStr = b.dateString || b.date;
-            const bookingDate = new Date(dateStr);
-            return !isNaN(bookingDate) && bookingDate.toDateString() === currentDateRender.toDateString();
+            return isSameCalendarDay(dateStr, currentDateRender);
         });
 
     let title = undefined;

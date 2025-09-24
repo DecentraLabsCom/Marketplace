@@ -89,7 +89,7 @@ export default function UserDashboard() {
         labName,
         status: booking.status,
         // Ensure date field exists for calendar compatibility
-        date: booking.date || (startDate ? startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+        date: booking.date || (startDate ? startDate.toLocaleDateString('en-CA') : new Date().toLocaleDateString('en-CA')),
         // Add formatted times for display
         startTime: startDate ? startDate.toLocaleTimeString() : 'N/A',
         endTime: endDate ? endDate.toLocaleTimeString() : 'N/A'
