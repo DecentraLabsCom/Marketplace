@@ -28,24 +28,26 @@ export default function ProviderDashboard() {
   const { address, user, isSSO, isProvider, isProviderLoading, isLoading } = useUser();  
   const router = useRouter();
   
-  // 🚀 React Query for labs owned by this provider
+  // 🚀 React Query for labs owned by this provider - with safe defaults
   const allLabsResult = useLabsForProvider(address, { 
-    enabled: !!address
+    enabled: !!address && !isLoading && !isProviderLoading
   });
   
-  const { 
-    data: allLabsData,
-    isLoading: loading,
-    isError: labsError,
-    error: labsErrorDetails 
-  } = allLabsResult || {}; // Safety check for allLabsResult
+  // Safe destructuring with guaranteed defaults to prevent Rules of Hooks violations
+  const allLabsData = allLabsResult?.data || null;
+  const loading = allLabsResult?.isLoading || false;
+  const labsError = allLabsResult?.isError || false;
+  const labsErrorDetails = allLabsResult?.error || null;
   
   const labs = Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
   
   // Extract owned labs - already filtered by useLabsForProvider
   const ownedLabs = useMemo(() => {
-    return Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
-  }, [allLabsData?.labs]);
+    if (!allLabsData || !Array.isArray(allLabsData.labs)) {
+      return [];
+    }
+    return allLabsData.labs;
+  }, [allLabsData]);
 
   // Legacy compatibility - derive ownedLabIds from owned labs
   const ownedLabIds = useMemo(() => 
@@ -174,31 +176,6 @@ export default function ProviderDashboard() {
       }
     }
   }, [ownedLabs.length, selectedLabId, isModalOpen]);
-
-  // Show loading state while determining provider status
-  if (isLoading || isProviderLoading) {
-    return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
-        <Container padding="sm" className="text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
-            <span>Loading provider data...</span>
-          </div>
-        </Container>
-      </AccessControl>
-    );
-  }
-
-  // Don't render anything if user is not a provider (redirect will handle it)
-  if (!isProvider) {
-    return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
-        <Container padding="sm" className="text-center">
-          <p>Redirecting to home page...</p>
-        </Container>
-      </AccessControl>
-    );
-  }
   
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
@@ -429,6 +406,45 @@ export default function ProviderDashboard() {
     
     return message.trim() || 'Operation failed';
   };
+
+  // Handle wallet disconnection (redirect will handle it)
+  if (!isLoading && !isProviderLoading && !address) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <Container padding="sm" className="text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
+            <span>Redirecting to home...</span>
+          </div>
+        </Container>
+      </AccessControl>
+    );
+  }
+
+  // Show loading state while determining provider status
+  if (isLoading || isProviderLoading) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <Container padding="sm" className="text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
+            <span>Loading provider data...</span>
+          </div>
+        </Container>
+      </AccessControl>
+    );
+  }
+
+  // Don't render anything if user is not a provider (redirect will handle it)
+  if (!isProvider) {
+    return (
+      <AccessControl requireWallet message="Please log in to manage your labs.">
+        <Container padding="sm" className="text-center">
+          <p>Redirecting to home page...</p>
+        </Container>
+      </AccessControl>
+    );
+  }
 
   // ❌ Error handling for React Query
   if (labsError) {

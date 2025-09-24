@@ -581,7 +581,7 @@ export const useLabById = (labId, options = {}) => {
  * @returns {Object} Labs owned by the address
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
-  // Get all lab IDs first
+  // Get all lab IDs first - always call hooks, use enabled to control execution
   const labIdsResult = useAllLabs({
     ...LAB_QUERY_CONFIG,
     enabled: !!ownerAddress && (options.enabled !== false),
@@ -604,6 +604,9 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   // Filter lab IDs by ownership and get details only for owned labs
   const ownedLabIds = labIds.filter((labId, index) => {
+    // Return empty array if no ownerAddress to prevent errors
+    if (!ownerAddress) return false;
+    
     const ownerData = ownerResults[index]?.data;
     const labOwner = ownerData?.owner || ownerData;
     return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
