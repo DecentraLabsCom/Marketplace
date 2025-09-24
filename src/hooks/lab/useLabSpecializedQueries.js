@@ -900,6 +900,10 @@ export const useLabsForReservation = (options = {}) => {
     // Extract images from metadata 
     const images = processLabImages(metadataData);
     
+    // Extract opens and closes dates from metadata attributes
+    const opensAttr = metadataData?.attributes?.find(attr => attr.trait_type === 'opens');
+    const closesAttr = metadataData?.attributes?.find(attr => attr.trait_type === 'closes');
+    
     return {
       id: lab.labId,
       labId: lab.labId,
@@ -911,8 +915,8 @@ export const useLabsForReservation = (options = {}) => {
       // Essential reservation data
       price: lab.base?.price || '0',
       timeSlots: [15, 30, 60], // Default time slots, can be customized per lab
-      opens: lab.base?.opens,
-      closes: lab.base?.closes,
+      opens: opensAttr?.value,
+      closes: closesAttr?.value,
       // Include other base data
       ...lab.base
     };
@@ -923,6 +927,8 @@ export const useLabsForReservation = (options = {}) => {
     sampleLabs: enrichedLabs.slice(0, 2).map(lab => ({ 
       id: lab.id, 
       name: lab.name,
+      opens: lab.opens,
+      closes: lab.closes,
       hasImages: lab.images?.length > 0,
       hasDescription: !!lab.description 
     }))

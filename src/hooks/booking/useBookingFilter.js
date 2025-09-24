@@ -4,6 +4,7 @@
  */
 import { useMemo } from 'react'
 import { filterBookingsByDisplayMode, isPendingBooking, isConfirmedBooking } from '@/utils/booking/bookingStatus'
+import { parseDateSafe, isSameCalendarDay } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -40,8 +41,7 @@ export function useBookingFilter(bookingInfo = [], displayMode = 'default', high
   const dayClassName = useMemo(() => {
     return (day) => {
       const dayBookings = filteredBookings.filter(booking => {
-        const bookingDate = new Date(booking.date)
-        return !isNaN(bookingDate) && bookingDate.toDateString() === day.toDateString()
+        return isSameCalendarDay(booking.date, day)
       })
       
       // Only log for debugging if there are bookings for this day

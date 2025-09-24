@@ -108,22 +108,22 @@ export const useAddLabWallet = (options = {}) => {
         const uri = labData.uri || '';
         const rawPrice = labData.price || '0'; // Default to 0 if price is undefined
         
-        // Convert price from ETH to wei for smart contract
-        let priceInWei;
+        // Price is already in correct contract units (converted in ProviderDashboardPage.js)
+        // No additional conversion needed - just ensure it's a valid BigInt
+        let priceInContractUnits;
         try {
-          // Parse the price as a number with up to 18 decimal places (wei precision)
-          priceInWei = parseUnits(rawPrice.toString(), 18);
+          priceInContractUnits = BigInt(rawPrice.toString());
         } catch (error) {
-          devLog.error('Error converting price to wei:', { rawPrice, error });
+          devLog.error('Error converting price to BigInt:', { rawPrice, error });
           // Fallback to 0 if conversion fails
-          priceInWei = parseUnits('0', 18);
+          priceInContractUnits = BigInt('0');
         }
         
         const auth = labData.auth || '';
         const accessURI = labData.accessURI || '';
         const accessKey = labData.accessKey || '';
         
-        const txHash = await addLab([uri, priceInWei, auth, accessURI, accessKey]);
+        const txHash = await addLab([uri, priceInContractUnits, auth, accessURI, accessKey]);
         
         devLog.log('🔍 useAddLabWallet - Transaction Hash:', txHash);
         return { hash: txHash, optimisticId: optimisticLab.id };
@@ -275,22 +275,22 @@ export const useUpdateLabWallet = (options = {}) => {
       const uri = labDataObj.uri || '';
       const rawPrice = labDataObj.price || '0'; // Default to 0 if price is undefined
       
-      // Convert price from ETH to wei for smart contract
-      let priceInWei;
+      // Price is already in correct contract units (converted in ProviderDashboardPage.js)
+      // No additional conversion needed - just ensure it's a valid BigInt
+      let priceInContractUnits;
       try {
-        // Parse the price as a number with up to 18 decimal places (wei precision)
-        priceInWei = parseUnits(rawPrice.toString(), 18);
+        priceInContractUnits = BigInt(rawPrice.toString());
       } catch (error) {
-        devLog.error('Error converting price to wei:', { rawPrice, error });
+        devLog.error('Error converting price to BigInt:', { rawPrice, error });
         // Fallback to 0 if conversion fails
-        priceInWei = parseUnits('0', 18);
+        priceInContractUnits = BigInt('0');
       }
       
       const auth = labDataObj.auth || '';
       const accessURI = labDataObj.accessURI || '';
       const accessKey = labDataObj.accessKey || '';
       
-      const txHash = await updateLabContract([labId, uri, priceInWei, auth, accessURI, accessKey]);
+      const txHash = await updateLabContract([labId, uri, priceInContractUnits, auth, accessURI, accessKey]);
       
       devLog.log('🔍 useUpdateLabWallet - Transaction Hash:', txHash);
       return { hash: txHash };

@@ -121,7 +121,7 @@ export const useBookingsForCalendar = (userAddress, labId, options = {}) => {
           start: reservation.start,
           end: reservation.end,
           status: reservation.status,
-          date: reservation.date || new Date(parseInt(reservation.start) * 1000).toISOString().split('T')[0],
+          date: reservation.date || new Date(parseInt(reservation.start) * 1000).toLocaleDateString('en-CA'),
           // Add type to distinguish user vs lab bookings
           type: 'user'
         }));
