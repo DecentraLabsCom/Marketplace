@@ -13,9 +13,11 @@ import { getContractInstance } from '../../utils/contractInstance'
  * @returns {Response} JSON response with confirmation result or error
  */
 export async function POST(request) {
+  let reservationKey = null; // Declare here so it's available in catch block
+  
   try {
     const body = await request.json();
-    const { reservationKey } = body;
+    reservationKey = body.reservationKey;
     
     if (!reservationKey) {
       return Response.json({ error: 'Missing reservationKey' }, {status: 400 });
@@ -39,7 +41,7 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('❌ Error confirming reservation:', {
-      reservationKey: body?.reservationKey,
+      reservationKey,
       errorMessage: error.message,
       errorStack: error.stack,
       errorCode: error.code
