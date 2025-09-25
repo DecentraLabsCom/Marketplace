@@ -260,6 +260,27 @@ export const useLabsForMarket = (options = {}) => {
         if (metadata.image) enrichedLab.image = metadata.image;
         if (metadata.category) enrichedLab.category = metadata.category;
         if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
+
+        // Extract additional data from attributes
+        if (metadata.attributes) {
+          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
+          if (categoryAttr) enrichedLab.category = categoryAttr.value;
+          
+          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
+          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
+          
+          const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
+          if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
+          
+          const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
+          if (opensAttr) enrichedLab.opens = opensAttr.value;
+          
+          const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
+          if (closesAttr) enrichedLab.closes = closesAttr.value;
+          
+          const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
+          if (docsAttr) enrichedLab.docs = docsAttr.value;
+        }
         
         // Normalize images array: combine all available images
         const allImages = [];
@@ -747,8 +768,20 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
         if (metadata.provider) enrichedLab.provider = metadata.provider;
 
         if (metadata.attributes) {
+          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
+          if (categoryAttr) enrichedLab.category = categoryAttr.value;
+          
+          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
+          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
+          
           const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
           if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
+          
+          const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
+          if (opensAttr) enrichedLab.opens = opensAttr.value;
+          
+          const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
+          if (closesAttr) enrichedLab.closes = closesAttr.value;
           
           const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
           if (docsAttr) enrichedLab.docs = docsAttr.value;
