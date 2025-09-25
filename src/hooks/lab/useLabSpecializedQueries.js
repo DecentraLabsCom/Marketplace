@@ -260,6 +260,27 @@ export const useLabsForMarket = (options = {}) => {
         if (metadata.image) enrichedLab.image = metadata.image;
         if (metadata.category) enrichedLab.category = metadata.category;
         if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
+
+        // Extract additional data from attributes
+        if (metadata.attributes) {
+          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
+          if (categoryAttr) enrichedLab.category = categoryAttr.value;
+          
+          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
+          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
+          
+          const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
+          if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
+          
+          const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
+          if (opensAttr) enrichedLab.opens = opensAttr.value;
+          
+          const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
+          if (closesAttr) enrichedLab.closes = closesAttr.value;
+          
+          const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
+          if (docsAttr) enrichedLab.docs = docsAttr.value;
+        }
         
         // Normalize images array: combine all available images
         const allImages = [];
@@ -581,7 +602,7 @@ export const useLabById = (labId, options = {}) => {
  * @returns {Object} Labs owned by the address
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
-  // Get all lab IDs first
+  // Get all lab IDs first - always call hooks, use enabled to control execution
   const labIdsResult = useAllLabs({
     ...LAB_QUERY_CONFIG,
     enabled: !!ownerAddress && (options.enabled !== false),
@@ -604,6 +625,9 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   // Filter lab IDs by ownership and get details only for owned labs
   const ownedLabIds = labIds.filter((labId, index) => {
+    // Return empty array if no ownerAddress to prevent errors
+    if (!ownerAddress) return false;
+    
     const ownerData = ownerResults[index]?.data;
     const labOwner = ownerData?.owner || ownerData;
     return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
@@ -744,8 +768,20 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
         if (metadata.provider) enrichedLab.provider = metadata.provider;
 
         if (metadata.attributes) {
+          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
+          if (categoryAttr) enrichedLab.category = categoryAttr.value;
+          
+          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
+          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
+          
           const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
           if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
+          
+          const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
+          if (opensAttr) enrichedLab.opens = opensAttr.value;
+          
+          const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
+          if (closesAttr) enrichedLab.closes = closesAttr.value;
           
           const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
           if (docsAttr) enrichedLab.docs = docsAttr.value;

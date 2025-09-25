@@ -232,15 +232,59 @@ export const useUserBookingsDashboard = (userAddress, {
   const reservationCount = limit ? Math.min(totalReservationCount, limit) : totalReservationCount;
   const hasReservations = reservationCount > 0;
 
+  // DEBUG: Log reservation count details
+  devLog.log(`🔍 [useUserBookingsDashboard] User ${userAddress?.slice(0, 6)}...${userAddress?.slice(-4)}:`, {
+    totalReservationCount,
+    reservationCount,
+    limit,
+    hasReservations,
+    willCreateIndices: hasReservations ? `0 to ${reservationCount - 1}` : 'none'
+  });
+
   // Step 2: Get reservation keys for each index (limited if specified)
+  // SAFETY: Additional validation to prevent out-of-range queries
+  const safeReservationCount = Math.max(0, Math.min(reservationCount, 100)); // Cap at 100 for safety
+  
+  devLog.log(`🔍 [useUserBookingsDashboard] SAFETY CHECK:`, {
+    originalReservationCount: reservationCount,
+    safeReservationCount,
+    totalReservationCount,
+    willCreateQueries: safeReservationCount > 0,
+    userAddress: userAddress?.slice(0, 6) + '...' + userAddress?.slice(-4)
+  });
+
   const reservationKeyResults = useQueries({
-    queries: hasReservations 
-      ? Array.from({ length: reservationCount }, (_, index) => ({
-          queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index), // ✅ Using atomic hook queryFn
-          enabled: !!userAddress && hasReservations,
-          ...BOOKING_QUERY_CONFIG,
-        }))
+    queries: hasReservations && safeReservationCount > 0
+      ? Array.from({ length: safeReservationCount }, (_, index) => {
+          // VALIDATION: Prevent out-of-range queries
+          if (index < 0 || index >= safeReservationCount) {
+            devLog.error(`🚨 [useUserBookingsDashboard] BLOCKED OUT-OF-RANGE INDEX ${index}!`, {
+              index,
+              safeReservationCount,
+              originalReservationCount: reservationCount,
+              totalReservationCount,
+              userAddress: userAddress?.slice(0, 6) + '...' + userAddress?.slice(-4)
+            });
+            
+            // Return a disabled query to prevent the API call
+            return {
+              queryKey: ['blocked-query', userAddress, index],
+              queryFn: () => Promise.reject(new Error(`Index ${index} out of range`)),
+              enabled: false,
+              ...BOOKING_QUERY_CONFIG,
+            };
+          }
+          
+          // DEBUG: Log valid indices being created
+          devLog.log(`✅ [useUserBookingsDashboard] Creating query for valid INDEX ${index}`);
+          
+          return {
+            queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
+            queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index), // ✅ Using atomic hook queryFn
+            enabled: !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
+            ...BOOKING_QUERY_CONFIG,
+          };
+        })
       : [],
     combine: (results) => results
   });
