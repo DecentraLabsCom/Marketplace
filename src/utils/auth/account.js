@@ -38,10 +38,17 @@ export default function Account() {
     <div className="flex items-center space-x-6 ml-auto font-bold">
       {isLoggedIn && (
         <div className="pointer-events-none flex flex-col items-center">
-          <div className="text-sm text-hover-dark">{user?.email || formatAddress(address)}</div>
+          <div className="text-sm text-hover-dark">
+            {isSSO ? (user?.email || user?.id || "SSO User") : formatAddress(address)}
+          </div>
           {(user?.name || ensName) && (
             <div className="text-[14px] text-text-secondary">
               {user?.name ? user.name : ensName }
+            </div>
+          )}
+          {isSSO && user?.affiliation && (
+            <div className="text-[12px] text-text-secondary opacity-75">
+              {user.affiliation}
             </div>
           )}
         </div>

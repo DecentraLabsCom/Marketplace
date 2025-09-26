@@ -44,7 +44,7 @@ function UserDataCore({ children }) {
         isLoading: ssoLoading,
         error: ssoError 
     } = useSSOSessionQuery({
-        enabled: isConnected && !isWalletLoading // Only fetch when wallet connection is stable
+        enabled: !isWalletLoading // Fetch SSO session regardless of wallet connection
     });
 
     const { 
@@ -104,7 +104,7 @@ function UserDataCore({ children }) {
 
     // Computed values
     const isProvider = Boolean(providerStatus?.isLabProvider);
-    const isLoggedIn = isConnected && Boolean(address) && !isWalletLoading;
+    const isLoggedIn = (isConnected && Boolean(address) && !isWalletLoading) || (isSSO && Boolean(user));
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
     // Combined loading state - don't wait for providers list for basic functionality
@@ -115,7 +115,7 @@ function UserDataCore({ children }) {
         let updatedUser = {};
         let shouldUpdate = false;
 
-        // Handle SSO session data
+        // Handle SSO session data - this should work even without wallet connection
         if (ssoData) {
             setIsSSO(Boolean(ssoData.isSSO));
             
@@ -129,7 +129,7 @@ function UserDataCore({ children }) {
             }
         }
 
-        // Handle provider data
+        // Handle provider data only when wallet is connected
         if (address && providerStatus) {
             updatedUser = {
                 ...updatedUser,
@@ -152,6 +152,15 @@ function UserDataCore({ children }) {
                 updatedUser.name = ssoData.user.name;
             }
             
+            shouldUpdate = true;
+        }
+
+        // If we have SSO data but no wallet connection, still update the user
+        if (ssoData?.user && !address) {
+            updatedUser = {
+                ...ssoData.user,
+                isProvider: false, // SSO users without wallet can't be providers
+            };
             shouldUpdate = true;
         }
 
