@@ -58,7 +58,7 @@ export default function Account() {
           <div className="text-sm text-hover-dark">
             {isSSO ? (user?.institutionName || user?.affiliation || user?.name) : (user?.name || ensName)}
           </div>
-          <div className="text-sm text-secondary">
+          <div className="text-sm text-text-secondary">
             {isSSO ? (user?.email || user?.id || "SSO User") : formatAddress(address)}
           </div>
         </div>
