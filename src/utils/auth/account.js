@@ -28,26 +28,30 @@ export default function Account() {
 
   const handleLogout = async () => {
     try {
-      // Handle wallet disconnect
-      if (isConnected) {
-        disconnect();
+      // Handle SSO logout first (it includes both SSO and wallet disconnect logic)
+      if (isSSO) {
+        await logoutSSO();
+        // Give a small delay to let state updates propagate
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 100);
+        return;
       }
       
-      // Handle SSO logout
-      if (isSSO) {
-        const success = await logoutSSO();
-        if (success) {
-          // Redirect to home page after successful logout
+      // Handle wallet disconnect only
+      if (isConnected) {
+        disconnect();
+        // For wallet-only users, redirect after disconnect
+        setTimeout(() => {
           window.location.href = "/";
-        } else {
-          // Fallback: force reload if logout had issues
-          window.location.reload();
-        }
+        }, 100);
       }
     } catch (error) {
       console.error('Error during logout:', error);
-      // Fallback: reload the page anyway
-      window.location.reload();
+      // Only reload if really necessary
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 200);
     }
   }
 
