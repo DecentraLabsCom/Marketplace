@@ -21,16 +21,33 @@ function formatAddress(address) {
  * @returns {JSX.Element} Account display and logout interface
  */
 export default function Account() {
-  const { isConnected, isSSO, isLoggedIn, address, user } = useUser();
+  const { isConnected, isSSO, isLoggedIn, address, user, logoutSSO } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address });
   const { data: ensAvatar } = useEnsAvatar({ name: ensName });
 
   const handleLogout = async () => {
-    if (isConnected) disconnect();
-    if (isSSO) {
-      await fetch("/api/auth/logout");
-      window.location.href = "/";
+    try {
+      // Handle wallet disconnect
+      if (isConnected) {
+        disconnect();
+      }
+      
+      // Handle SSO logout
+      if (isSSO) {
+        const success = await logoutSSO();
+        if (success) {
+          // Redirect to home page after successful logout
+          window.location.href = "/";
+        } else {
+          // Fallback: force reload if logout had issues
+          window.location.reload();
+        }
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Fallback: reload the page anyway
+      window.location.reload();
     }
   }
 
@@ -39,18 +56,11 @@ export default function Account() {
       {isLoggedIn && (
         <div className="pointer-events-none flex flex-col items-center">
           <div className="text-sm text-hover-dark">
+            {isSSO ? (user?.institutionName || user?.affiliation || user?.name) : (user?.name || ensName)}
+          </div>
+          <div className="text-sm text-secondary">
             {isSSO ? (user?.email || user?.id || "SSO User") : formatAddress(address)}
           </div>
-          {(user?.name || ensName) && (
-            <div className="text-[14px] text-text-secondary">
-              {user?.name ? user.name : ensName }
-            </div>
-          )}
-          {isSSO && user?.affiliation && (
-            <div className="text-[12px] text-text-secondary opacity-75">
-              {user.affiliation}
-            </div>
-          )}
         </div>
       )}
       <button onClick={handleLogout}>

@@ -22,6 +22,19 @@ import { createOptimizedContext } from '@/utils/optimizedContext'
 const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOptimizedContext('UserContext');
 
 /**
+ * Get the institution display name from SAML attributes
+ * @param {Object} userData - User data from SAML assertion
+ * @returns {string} Institution identifier in uppercase (e.g., "uned.es" -> "UNED")
+ */
+function getInstitutionName(userData) {
+    if (userData.affiliation) {
+        return userData.affiliation.split('.')[0].toUpperCase();
+    }
+    
+    return null;
+}
+
+/**
  * Core user data provider component with React Query integration
  * Manages user state, SSO authentication, and provider status
  * @param {Object} props
@@ -123,6 +136,8 @@ function UserDataCore({ children }) {
                 updatedUser = {
                     ...updatedUser,
                     ...ssoData.user,
+                    // Use the best available institution name from SAML attributes
+                    institutionName: getInstitutionName(ssoData.user),
                     address: address || updatedUser.address
                 };
                 shouldUpdate = true;
@@ -159,6 +174,8 @@ function UserDataCore({ children }) {
         if (ssoData?.user && !address) {
             updatedUser = {
                 ...ssoData.user,
+                // Use the best available institution name from SAML attributes
+                institutionName: getInstitutionName(ssoData.user),
                 isProvider: false, // SSO users without wallet can't be providers
             };
             shouldUpdate = true;
@@ -214,6 +231,34 @@ function UserDataCore({ children }) {
         }
     }, [address, refreshProviderStatusMutation, handleError]);
 
+    // SSO logout function
+    const logoutSSO = useCallback(async () => {
+        try {
+            // Call logout endpoint
+            const response = await fetch("/api/auth/logout", {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                console.error('Logout endpoint failed:', response.status);
+            }
+            
+            // Clear local state immediately
+            setIsSSO(false);
+            setUser(null);
+            
+            // Clear React Query cache
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            
+            return true;
+        } catch (error) {
+            handleError(error, { context: 'SSO logout' });
+            return false;
+        }
+    }, [queryClient, handleError]);
+
     const value = {
         // User state
         user,
@@ -227,8 +272,9 @@ function UserDataCore({ children }) {
         isLoading,
         isWalletLoading,
         
-        // Refresh function
+        // Actions
         refreshProviderStatus,
+        logoutSSO,
         
         // Error handling
         handleError,
