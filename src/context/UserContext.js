@@ -60,6 +60,20 @@ function UserDataCore({ children }) {
         enabled: !isWalletLoading // Fetch SSO session regardless of wallet connection
     });
 
+    // Handle SSO login callback - invalidate cache when returning from IdP
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('sso_login') === '1') {
+            // Clear the URL parameter
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.delete('sso_login');
+            window.history.replaceState({}, '', newUrl);
+            
+            // Force refresh of SSO session data
+            queryClient.invalidateQueries({ queryKey: userQueryKeys.ssoSession() });
+        }
+    }, [queryClient]);
+
     const { 
         data: providerStatus, 
         isLoading: isProviderLoading,
