@@ -47,6 +47,7 @@ function UserDataCore({ children }) {
     const { handleError: originalHandleError } = useErrorHandler();
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -139,6 +140,9 @@ function UserDataCore({ children }) {
 
     // Combined effect to handle both SSO and provider data with proper name priority
     useEffect(() => {
+        // Don't update state during logout process
+        if (isLoggingOut) return;
+        
         let updatedUser = {};
         let shouldUpdate = false;
 
@@ -202,7 +206,7 @@ function UserDataCore({ children }) {
                 ...updatedUser
             }));
         }
-    }, [ssoData, address, providerStatus, providersData]);
+    }, [ssoData, address, providerStatus, providersData, isLoggingOut]);
 
     // Handle connection changes - only clear wallet-related data, preserve SSO
     useEffect(() => {
@@ -250,15 +254,22 @@ function UserDataCore({ children }) {
     // SSO logout function
     const logoutSSO = useCallback(async () => {
         try {
-            // Clear local state first
+            // Set logout flag to prevent useEffect from reestablishing state
+            setIsLoggingOut(true);
+            
+            // Clear local state immediately
             setIsSSO(false);
             setUser(null);
             
-            // Clear React Query cache immediately to prevent refetch during logout
+            // Cancel any ongoing queries to prevent race conditions
+            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
+            
+            // Clear React Query cache completely
             queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
             queryClient.removeQueries({ queryKey: userQueryKeys.all() });
             
-            // Call logout endpoint
+            // Call logout endpoint to clear server-side session
             const response = await fetch("/api/auth/logout", {
                 method: 'GET',
                 credentials: 'include'
@@ -266,14 +277,23 @@ function UserDataCore({ children }) {
             
             if (!response.ok) {
                 console.error('Logout endpoint failed:', response.status);
-                // Even if endpoint fails, we've already cleared local state
             }
+            
+            // Keep logout flag active briefly to ensure clean state
+            setTimeout(() => {
+                setIsLoggingOut(false);
+            }, 500);
             
             return true;
         } catch (error) {
             handleError(error, { context: 'SSO logout' });
-            // Even if there's an error, we've cleared local state
-            return true; // Return true to prevent reload loops
+            // Even if there's an error, still clear local state
+            setIsSSO(false);
+            setUser(null);
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            setIsLoggingOut(false);
+            return true;
         }
     }, [queryClient, handleError]);
 
