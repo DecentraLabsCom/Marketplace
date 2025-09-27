@@ -59,7 +59,10 @@ function UserDataCore({ children }) {
         error: ssoError,
         refetch: refetchSSO
     } = useSSOSessionQuery({
-        enabled: !isWalletLoading // Fetch SSO session regardless of wallet connection
+        enabled: !isWalletLoading && !isLoggingOut, // Disable completely during logout
+        refetchOnWindowFocus: !isLoggingOut, // Disable window focus refetch during logout
+        refetchInterval: isLoggingOut ? false : 30000, // Disable interval during logout
+        retry: isLoggingOut ? false : 1, // Disable retries during logout
     });
 
     // Handle SSO login callback - force immediate refetch when returning from IdP
@@ -271,12 +274,16 @@ function UserDataCore({ children }) {
 
     // SSO logout function
     const logoutSSO = useCallback(async () => {
+        console.log('🚪 SSO LOGOUT STARTED');
+        
+        // Set logout flag IMMEDIATELY to prevent any queries from running
+        setIsLoggingOut(true);
+        console.log('🔒 Logout flag set - ALL SSO queries now disabled');
+        
+        // Small delay to ensure state propagates and disables queries
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         try {
-            console.log('🚪 SSO LOGOUT STARTED');
-            
-            // Set logout flag to prevent useEffect from reestablishing state
-            setIsLoggingOut(true);
-            console.log('✅ Logout flag set to true');
             
             // Clear local state immediately
             setIsSSO(false);
