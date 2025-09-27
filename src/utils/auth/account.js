@@ -32,27 +32,25 @@ export default function Account() {
       // Handle SSO logout first (it includes both SSO and wallet disconnect logic)
       if (isSSO) {
         await logoutSSO();
-        // Give a small delay to let state updates propagate
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 100);
+        // For SSO, don't force refresh - let the logout process handle UI updates
+        // The UserContext will automatically update the UI when session is cleared
         return;
       }
       
       // Handle wallet disconnect only
       if (isConnected) {
         disconnect();
-        // For wallet-only users, redirect after disconnect
+        // For wallet-only users, small delay then redirect
         setTimeout(() => {
           window.location.href = "/";
         }, 100);
       }
     } catch (error) {
       devLog.log('Error during logout:', error);
-      // Only reload if really necessary
+      // Only for critical errors, redirect to home
       setTimeout(() => {
         window.location.href = "/";
-      }, 200);
+      }, 500);
     }
   }
 

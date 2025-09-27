@@ -11,6 +11,34 @@ import { cookies } from 'next/headers'
  */
 export async function GET() {
     const cookieStore = await cookies();
-    cookieStore.set("user_session", "", { maxAge: 0, path: "/" });
-    return NextResponse.json({ });
+    
+    // Clear the main user session cookie with multiple approaches
+    cookieStore.set("user_session", "", { 
+        maxAge: 0, 
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict"
+    });
+    
+    // Also try to clear with expires in the past
+    cookieStore.set("user_session", "", {
+        expires: new Date(0),
+        path: "/",
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict"
+    });
+    
+    // Clear any potential session variants
+    cookieStore.delete("user_session");
+    
+    // Add a small delay to ensure cookie clearing is processed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    return NextResponse.json({ 
+        success: true,
+        message: "Session cleared successfully",
+        timestamp: new Date().toISOString()
+    });
 }

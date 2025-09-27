@@ -319,16 +319,36 @@ function UserDataCore({ children }) {
             if (!response.ok) {
                 devLog.log('❌ Logout endpoint failed:', response.status);
             } else {
-                devLog.log('✅ Server session cleared');
+                const data = await response.json();
+                devLog.log('✅ Server session cleared:', data);
             }
             
-            // Wait a bit more to ensure server-side cleanup is complete
+            // Wait longer to ensure server-side cleanup is complete
             devLog.log('⏰ Waiting for server cleanup to complete...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Double-check: force empty data again after server cleanup
-            devLog.log('🔒 Final cache cleanup...');
+            // Verify session is actually cleared by making a test call
+            devLog.log('🔍 Verifying session is cleared...');
+            try {
+                const verifyResponse = await fetch('/api/auth/sso/session', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const sessionData = await verifyResponse.json();
+                if (sessionData.user || sessionData.isSSO) {
+                    devLog.log('⚠️ Session still active after logout, forcing additional cleanup');
+                } else {
+                    devLog.log('✅ Session verification: successfully cleared');
+                }
+            } catch (verifyError) {
+                devLog.log('ℹ️ Session verification failed (likely good - no session):', verifyError.message);
+            }
+            
+            // Triple-clear cache to ensure any background refetches are overridden
+            devLog.log('🔒 Final aggressive cache cleanup...');
             queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
             
             // Keep logout flag active for longer to ensure no race conditions
             setTimeout(() => {
