@@ -7,6 +7,7 @@ import Link from 'next/link';
 import PropTypes from 'prop-types';
 import Carrousel from '@/components/ui/Carrousel';
 import LabAccess from '@/components/home/LabAccess';
+import devLog from '@/utils/dev/logger';
 
 /**
  * Renders an active or upcoming lab card with details and access
@@ -28,7 +29,7 @@ export default function ActiveLabCard({
   bookingTimes = { start: null, end: null } 
 }) {
   // Debug log to see what lab data is being passed
-  console.log('🔍 ActiveLabCard received lab data:', {
+  devLog.log('🔍 ActiveLabCard received lab data:', {
     lab,
     hasLab: !!lab,
     labImages: lab?.images,

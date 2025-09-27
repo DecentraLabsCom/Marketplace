@@ -3,6 +3,7 @@ import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Format wallet address for display purposes
@@ -47,7 +48,7 @@ export default function Account() {
         }, 100);
       }
     } catch (error) {
-      console.error('Error during logout:', error);
+      devLog.log('Error during logout:', error);
       // Only reload if really necessary
       setTimeout(() => {
         window.location.href = "/";
