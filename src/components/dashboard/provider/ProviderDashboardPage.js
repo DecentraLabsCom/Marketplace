@@ -407,49 +407,10 @@ export default function ProviderDashboard() {
     return message.trim() || 'Operation failed';
   };
 
-  // Handle wallet disconnection (redirect will handle it)
-  if (!isLoading && !isProviderLoading && !address) {
-    return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
-        <Container padding="sm" className="text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
-            <span>Redirecting to home...</span>
-          </div>
-        </Container>
-      </AccessControl>
-    );
-  }
-
-  // Show loading state while determining provider status
-  if (isLoading || isProviderLoading) {
-    return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
-        <Container padding="sm" className="text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
-            <span>Loading provider data...</span>
-          </div>
-        </Container>
-      </AccessControl>
-    );
-  }
-
-  // Don't render anything if user is not a provider (redirect will handle it)
-  if (!isProvider) {
-    return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
-        <Container padding="sm" className="text-center">
-          <p>Redirecting to home page...</p>
-        </Container>
-      </AccessControl>
-    );
-  }
-
   // ❌ Error handling for React Query
   if (labsError) {
     return (
-      <AccessControl requireWallet message="Please log in to manage your labs.">
+      <AccessControl requireProvider message="Please log in to manage your labs.">
         <Container padding="sm">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
@@ -469,7 +430,7 @@ export default function ProviderDashboard() {
   }
 
   return (
-    <AccessControl requireWallet message="Please log in to manage your labs.">
+    <AccessControl requireProvider message="Please log in to manage your labs.">{" "}
       <Container padding="sm">
         {/* Dashboard header */}
         <DashboardHeader title="Lab Panel" />
