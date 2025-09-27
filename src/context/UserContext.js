@@ -56,12 +56,13 @@ function UserDataCore({ children }) {
     const { 
         data: ssoData, 
         isLoading: ssoLoading,
-        error: ssoError 
+        error: ssoError,
+        refetch: refetchSSO
     } = useSSOSessionQuery({
         enabled: !isWalletLoading // Fetch SSO session regardless of wallet connection
     });
 
-    // Handle SSO login callback - invalidate cache when returning from IdP
+    // Handle SSO login callback - force immediate refetch when returning from IdP
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('sso_login') === '1') {
@@ -70,10 +71,10 @@ function UserDataCore({ children }) {
             newUrl.searchParams.delete('sso_login');
             window.history.replaceState({}, '', newUrl);
             
-            // Force refresh of SSO session data
-            queryClient.invalidateQueries({ queryKey: userQueryKeys.ssoSession() });
+            // Force immediate refetch of SSO session data
+            refetchSSO();
         }
-    }, [queryClient]);
+    }, [queryClient, refetchSSO]);
 
     const { 
         data: providerStatus, 
@@ -159,6 +160,11 @@ function UserDataCore({ children }) {
                     address: address || updatedUser.address
                 };
                 shouldUpdate = true;
+            } else if (ssoData.isSSO === false || ssoData.user === null) {
+                // Explicitly handle logout case
+                setIsSSO(false);
+                setUser(null);
+                return;
             }
         }
 
@@ -261,15 +267,7 @@ function UserDataCore({ children }) {
             setIsSSO(false);
             setUser(null);
             
-            // Cancel any ongoing queries to prevent race conditions
-            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
-            
-            // Clear React Query cache completely
-            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
-            
-            // Call logout endpoint to clear server-side session
+            // Call logout endpoint FIRST to clear server-side session
             const response = await fetch("/api/auth/logout", {
                 method: 'GET',
                 credentials: 'include'
@@ -279,10 +277,21 @@ function UserDataCore({ children }) {
                 console.error('Logout endpoint failed:', response.status);
             }
             
+            // Cancel any ongoing queries to prevent race conditions
+            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
+            
+            // Force set empty data to prevent any cached data from being used
+            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
+            
+            // Also remove queries completely
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            
             // Keep logout flag active briefly to ensure clean state
             setTimeout(() => {
                 setIsLoggingOut(false);
-            }, 500);
+            }, 1000); // Increased to 1 second for more robust cleanup
             
             return true;
         } catch (error) {
@@ -290,6 +299,7 @@ function UserDataCore({ children }) {
             // Even if there's an error, still clear local state
             setIsSSO(false);
             setUser(null);
+            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
             queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
             queryClient.removeQueries({ queryKey: userQueryKeys.all() });
             setIsLoggingOut(false);
