@@ -283,7 +283,21 @@ function UserDataCore({ children }) {
             setUser(null);
             console.log('✅ Local state cleared (isSSO=false, user=null)');
             
-            // Call logout endpoint FIRST to clear server-side session
+            // Cancel any ongoing queries FIRST to prevent race conditions
+            console.log('🚫 Canceling queries...');
+            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
+            
+            // Force set empty data to prevent any cached data from being used
+            console.log('💾 Setting empty query data...');
+            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
+            
+            // Remove queries completely
+            console.log('🗑️ Removing queries from cache...');
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            
+            // Call logout endpoint and wait for completion
             console.log('🌐 Calling logout endpoint...');
             const response = await fetch("/api/auth/logout", {
                 method: 'GET',
@@ -296,26 +310,19 @@ function UserDataCore({ children }) {
                 console.log('✅ Server session cleared');
             }
             
-            // Cancel any ongoing queries to prevent race conditions
-            console.log('🚫 Canceling queries...');
-            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
+            // Wait a bit more to ensure server-side cleanup is complete
+            console.log('⏰ Waiting for server cleanup to complete...');
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Force set empty data to prevent any cached data from being used
-            console.log('💾 Setting empty query data...');
+            // Double-check: force empty data again after server cleanup
+            console.log('🔒 Final cache cleanup...');
             queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
             
-            // Also remove queries completely
-            console.log('🗑️ Removing queries from cache...');
-            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
-            
-            console.log('⏰ Setting timeout to re-enable queries...');
-            // Keep logout flag active briefly to ensure clean state
+            // Keep logout flag active for longer to ensure no race conditions
             setTimeout(() => {
                 console.log('🔄 Re-enabling queries after logout cleanup');
                 setIsLoggingOut(false);
-            }, 2000); // Increased to 2 seconds for more robust cleanup
+            }, 3000); // 3 seconds total to ensure complete cleanup
             
             console.log('✅ SSO LOGOUT COMPLETED');
             return true;
@@ -328,7 +335,7 @@ function UserDataCore({ children }) {
             queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
             queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
             queryClient.removeQueries({ queryKey: userQueryKeys.all() });
-            setIsLoggingOut(false);
+            setTimeout(() => setIsLoggingOut(false), 3000);
             return true;
         }
     }, [queryClient, handleError]);
