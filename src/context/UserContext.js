@@ -160,11 +160,6 @@ function UserDataCore({ children }) {
                     address: address || updatedUser.address
                 };
                 shouldUpdate = true;
-            } else if (ssoData.isSSO === false || ssoData.user === null) {
-                // Explicitly handle logout case
-                setIsSSO(false);
-                setUser(null);
-                return;
             }
         }
 
