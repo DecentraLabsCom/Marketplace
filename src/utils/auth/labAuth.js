@@ -19,7 +19,7 @@ export const authenticateLabAccessSSO = async (userData, labId) => {
     devLog.log('🔐 Starting JWT-based lab authentication for user:', userData.email);
 
     // Step 1: Check if JWT service is configured
-    if (!marketplaceJwtService.isConfigured()) {
+    if (!(await marketplaceJwtService.isConfigured())) {
       throw new Error('JWT service is not properly configured');
     }
 

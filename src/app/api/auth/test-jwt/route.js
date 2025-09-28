@@ -23,7 +23,7 @@ export async function POST(request) {
     }
 
     // Verify configuration
-    if (!marketplaceJwtService.isConfigured()) {
+    if (!(await marketplaceJwtService.isConfigured())) {
       return Response.json({
         success: false,
         error: 'JWT service is not properly configured. Check private key path.'
@@ -116,7 +116,7 @@ export async function GET() {
       jwt_test: '/api/auth/test-jwt'
     },
     status: {
-      jwt_service_configured: marketplaceJwtService.isConfigured(),
+      jwt_service_configured: await marketplaceJwtService.isConfigured(),
       auth_service_mode: 'dynamic (per-lab from smart contract)',
       note: 'Auth-service URL is now obtained dynamically from each lab\'s contract data (base.accessURI)'
     }

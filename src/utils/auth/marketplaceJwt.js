@@ -11,8 +11,6 @@
  */
 
 import jwt from 'jsonwebtoken';
-import fs from 'fs';
-import path from 'path';
 import devLog from '@/utils/dev/logger';
 
 class MarketplaceJwtService {
@@ -26,7 +24,7 @@ class MarketplaceJwtService {
    * Load and cache the RSA private key for JWT signing
    * @private
    */
-  loadPrivateKey() {
+  async loadPrivateKey() {
     // Avoid multiple load attempts
     if (this.keyLoadAttempted) {
       return;
@@ -41,6 +39,15 @@ class MarketplaceJwtService {
         devLog.log('✅ JWT private key loaded from environment variable');
         return;
       }
+
+      // Only use file system in server environment
+      if (typeof window !== 'undefined') {
+        throw new Error('File system access not available in browser environment. Use JWT_PRIVATE_KEY environment variable.');
+      }
+
+      // Dynamic import for server-only modules
+      const fs = (await import('fs')).default;
+      const path = (await import('path')).default;
 
       // Fallback to file system (for local development)
       const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
@@ -80,11 +87,11 @@ class MarketplaceJwtService {
    * @returns {string} Signed JWT token
    * @throws {Error} If JWT generation fails
    */
-  generateJwtForUser(samlAttributes) {
+  async generateJwtForUser(samlAttributes) {
     try {
       // Load private key if not already loaded
       if (!this.privateKey) {
-        this.loadPrivateKey();
+        await this.loadPrivateKey();
       }
 
       // Check if key is available after loading attempt
@@ -151,27 +158,13 @@ class MarketplaceJwtService {
 
   /**
    * Check if the JWT service is properly configured
-   * @returns {boolean} True if service is ready to generate JWTs
+   * @returns {Promise<boolean>} True if service is ready to generate JWTs
    */
-  isConfigured() {
+  async isConfigured() {
     try {
       // If key is already loaded, return true
       if (this.privateKey !== null) {
         return true;
-      }
-
-      // If we haven't attempted to load yet, try now (but don't throw)
-      if (!this.keyLoadAttempted) {
-        try {
-          this.loadPrivateKey();
-          // Return true if loading succeeded
-          if (this.privateKey !== null) {
-            return true;
-          }
-        } catch (loadError) {
-          // Key loading failed during configuration check, but continue checking other options
-          devLog.warn('Key loading failed during configuration check:', loadError.message);
-        }
       }
 
       // Check environment variable (without loading)
@@ -179,8 +172,16 @@ class MarketplaceJwtService {
         return true;
       }
 
+      // Only check file system in server environment
+      if (typeof window !== 'undefined') {
+        return false; // Client-side, need env variable
+      }
+
       // Check file system (local development)
       try {
+        const fs = (await import('fs')).default;
+        const path = (await import('path')).default;
+        
         const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
           path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
         
