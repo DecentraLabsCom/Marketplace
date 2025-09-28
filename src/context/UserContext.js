@@ -181,10 +181,15 @@ function UserDataCore({ children }) {
                 shouldUpdate = true;
                 devLog.log('👤 Will update user with SSO data');
             } else if (ssoData.isSSO === false || ssoData.user === null) {
-                devLog.log('🚪 SSO data indicates logout - clearing state');
+                devLog.log('🚪 SSO data indicates logout or no SSO session');
                 setIsSSO(false);
-                setUser(null);
-                return;
+                // Only clear user data if we don't have a wallet connected
+                // If wallet is connected, let the wallet data processing handle the user state
+                if (!address) {
+                    devLog.log('🚪 No wallet connected, clearing user state');
+                    setUser(null);
+                    return;
+                }
             }
         }
 
