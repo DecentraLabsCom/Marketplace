@@ -106,15 +106,14 @@ class MarketplaceJwtService {
         schacHomeOrganization: samlAttributes.schacHomeOrganization || '', // Home organization
         eduPersonAffiliation: samlAttributes.eduPersonAffiliation || '', // Institutional role
         eduPersonScopedAffiliation: samlAttributes.eduPersonScopedAffiliation || '', // Scoped role
-        iss: process.env.JWT_ISSUER || 'marketplace',                   // Issuer
         iat: Math.floor(Date.now() / 1000),                            // Issued at
         exp: Math.floor(Date.now() / 1000) + parseInt(process.env.JWT_EXPIRATION_MS || '300000') / 1000 // Expires in
       };
 
-      // Generate signed JWT
+      // Generate signed JWT with issuer in options (not payload)
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
-        issuer: payload.iss
+        issuer: process.env.JWT_ISSUER || 'marketplace'
       });
 
       devLog.log('✅ JWT generated successfully for user:', samlAttributes.username);

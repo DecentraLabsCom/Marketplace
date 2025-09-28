@@ -13,53 +13,100 @@ import devLog from '@/utils/dev/logger';
 
 class AuthServiceClient {
   constructor() {
-    this.authServiceUrl = process.env.AUTH_SERVICE_URL || 'https://sarlab.dia.uned.es/auth';
-    
-    // Remove trailing slash if present
-    this.authServiceUrl = this.authServiceUrl.replace(/\/$/, '');
-    
-    devLog.log('AuthServiceClient initialized with URL:', this.authServiceUrl);
+    // No longer store a fixed URL - it will be dynamic per lab
+    devLog.log('AuthServiceClient initialized for dynamic auth-service URLs');
+  }
+
+  /**
+   * Extract auth-service URL from lab contract data
+   * @param {Object} labContractData - Lab data from smart contract (from /api/contract/lab/getLab)
+   * @returns {string|null} Auth service URL or null if not found
+   */
+  getAuthServiceUrlFromLab(labContractData) {
+    try {
+      // Lab contract data structure: { labId, base: { uri, price, auth, accessURI, accessKey } }
+      if (!labContractData?.base?.auth) {
+        devLog.warn('Lab contract data has no base.auth (auth-service URL)');
+        return null;
+      }
+
+      let authServiceUrl = labContractData.base.auth;
+      
+      // Validate URL format
+      if (!authServiceUrl.startsWith('http://') && !authServiceUrl.startsWith('https://')) {
+        devLog.warn('Invalid Lab Gateway\'s auth-service URL format:', authServiceUrl);
+        return null;
+      }
+      
+      // Remove trailing slash if present
+      authServiceUrl = authServiceUrl.replace(/\/$/, '');
+      
+      // The auth-service is typically at /auth endpoint of the Lab Gateway
+      if (!authServiceUrl.endsWith('/auth')) {
+        authServiceUrl += '/auth';
+      }
+      
+      devLog.log('🌐 Found Lab Gateway auth-service URL:', authServiceUrl);
+      return authServiceUrl;
+      
+    } catch (error) {
+      devLog.error('Error extracting auth-service URL from lab contract data:', error.message);
+      return null;
+    }
   }
 
   /**
    * Request authentication token from auth-service (authentication only)
    * 
    * @param {string} marketplaceJwt - Signed JWT from marketplace
+   * @param {Object} labContractData - Lab data from smart contract (from /api/contract/lab/getLab)
    * @param {string} labId - Lab identifier (optional for auth-only)
    * @returns {Promise<Object>} Auth service response
    */
-  async requestAuthToken(marketplaceJwt, labId = null) {
-    return this.makeAuthRequest('/marketplace-auth', marketplaceJwt, labId, false);
+  async requestAuthToken(marketplaceJwt, labContractData, labId = null) {
+    const authServiceUrl = this.getAuthServiceUrlFromLab(labContractData);
+    if (!authServiceUrl) {
+      throw new Error('Lab does not have a configured Lab Gateway auth-service URL in contract');
+    }
+    
+    return this.makeAuthRequest(authServiceUrl, '/marketplace-auth', marketplaceJwt, labId, false);
   }
 
   /**
    * Request authentication + authorization token from auth-service
    * 
    * @param {string} marketplaceJwt - Signed JWT from marketplace
+   * @param {Object} labContractData - Lab data from smart contract (from /api/contract/lab/getLab)
    * @param {string} labId - Lab identifier (required for authorization)
    * @returns {Promise<Object>} Auth service response with lab access
    */
-  async requestAuthWithAuthorization(marketplaceJwt, labId) {
+  async requestAuthWithAuthorization(marketplaceJwt, labContractData, labId) {
     if (!labId) {
       throw new Error('Lab ID is required for authorization requests');
     }
     
-    return this.makeAuthRequest('/marketplace-auth2', marketplaceJwt, labId, true);
+    const authServiceUrl = this.getAuthServiceUrlFromLab(labContractData);
+    if (!authServiceUrl) {
+      throw new Error('Lab does not have a configured Lab Gateway auth-service URL in contract');
+    }
+    
+    return this.makeAuthRequest(authServiceUrl, '/marketplace-auth2', marketplaceJwt, labId, true);
   }
 
   /**
    * Make request to auth-service
    * 
    * @private
+   * @param {string} authServiceUrl - Base URL of the auth-service
    * @param {string} endpoint - Auth service endpoint path
    * @param {string} marketplaceJwt - Signed JWT from marketplace
    * @param {string} labId - Lab identifier
    * @param {boolean} includeAuthorization - Whether this is an authorization request
    * @returns {Promise<Object>} Auth service response
    */
-  async makeAuthRequest(endpoint, marketplaceJwt, labId, includeAuthorization) {
+  async makeAuthRequest(authServiceUrl, endpoint, marketplaceJwt, labId, includeAuthorization) {
     try {
-      const url = `${this.authServiceUrl}${endpoint}`;
+      const url = `${authServiceUrl}${endpoint}`;
       
       // Prepare request payload
       const requestBody = {
@@ -122,33 +169,31 @@ class AuthServiceClient {
   /**
    * Health check for auth-service connectivity
    * 
+   * @param {Object} labContractData - Lab data from smart contract (from /api/contract/lab/getLab)
    * @returns {Promise<boolean>} True if auth-service is reachable
    */
-  async healthCheck() {
+  async healthCheck(labContractData) {
     try {
-      const response = await fetch(`${this.authServiceUrl}/health`, {
+      const authServiceUrl = this.getAuthServiceUrlFromLab(labContractData);
+      if (!authServiceUrl) {
+        devLog.warn('⚠️ Cannot perform health check: no Lab Gateway auth-service URL in contract data');
+        return false;
+      }
+
+      const response = await fetch(`${authServiceUrl}/health`, {
         method: 'GET',
         timeout: 5000 // 5 second timeout
       });
       
       const isHealthy = response.ok;
-      devLog.log(`Auth service health check: ${isHealthy ? '✅ OK' : '❌ FAILED'}`);
+      devLog.log(`Lab Gateway auth-service health check for ${authServiceUrl}: ${isHealthy ? '✅ OK' : '❌ FAILED'}`);
       
       return isHealthy;
       
     } catch (error) {
-      devLog.warn('⚠️ Auth service health check failed:', error.message);
+      devLog.warn('⚠️ Lab Gateway auth-service health check failed:', error.message);
       return false;
     }
-  }
-
-  /**
-   * Get the configured auth-service URL
-   * 
-   * @returns {string} Auth service base URL
-   */
-  getAuthServiceUrl() {
-    return this.authServiceUrl;
   }
 }
 

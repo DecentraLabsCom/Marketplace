@@ -65,19 +65,30 @@ export async function POST(request) {
     // If labId is provided, also test communication with auth-service
     if (labId) {
       try {
-        // Test auth-service connectivity
-        const healthCheck = await authServiceClient.healthCheck();
-        response.data.auth_service_health = healthCheck;
+        // First, get lab data from contract to obtain Lab Gateway URL
+        const labResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/contract/lab/getLab?labId=${labId}`);
+        
+        if (!labResponse.ok) {
+          response.data.auth_service_error = `Failed to fetch lab ${labId} from contract`;
+        } else {
+          const labContractData = await labResponse.json();
+          response.data.lab_gateway_url = labContractData.base?.accessURI || 'not configured';
+          response.data.auth_service_url = labContractData.base?.auth || 'not configured';
+          
+          // Test auth-service connectivity using contract data
+          const healthCheck = await authServiceClient.healthCheck(labContractData);
+          response.data.auth_service_health = healthCheck;
 
-        if (healthCheck) {
-          // Attempt to make test request (may fail due to test JWT)
-          try {
-            const authResponse = await authServiceClient.requestAuthToken(jwt, labId);
-            response.data.auth_service_response = 'success';
-            response.data.auth_service_data = authResponse;
-          } catch (authError) {
-            response.data.auth_service_response = 'error';
-            response.data.auth_service_error = authError.message;
+          if (healthCheck) {
+            // Attempt to make test request (may fail due to test JWT)
+            try {
+              const authResponse = await authServiceClient.requestAuthToken(jwt, labContractData, labId);
+              response.data.auth_service_response = 'success';
+              response.data.auth_service_data = authResponse;
+            } catch (authError) {
+              response.data.auth_service_response = 'error';
+              response.data.auth_service_error = authError.message;
+            }
           }
         }
       } catch (serviceError) {
@@ -106,7 +117,8 @@ export async function GET() {
     },
     status: {
       jwt_service_configured: marketplaceJwtService.isConfigured(),
-      auth_service_url: authServiceClient.getAuthServiceUrl()
+      auth_service_mode: 'dynamic (per-lab from smart contract)',
+      note: 'Auth-service URL is now obtained dynamically from each lab\'s contract data (base.accessURI)'
     }
   });
 }
