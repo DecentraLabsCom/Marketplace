@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "next lint",
     "generate-jwt-keys": "node scripts/generate-jwt-keys.js",
+    "rotate-jwt-keys": "node scripts/rotate-jwt-keys.js",
     "show-vercel-keys": "node scripts/show-keys-for-vercel.js"
   },
   "dependencies": {

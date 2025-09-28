@@ -1,11 +1,48 @@
 /**
  * Lab authentication utilities
- * Handles the authentication flow for lab access
+ * Handles the authentication flow for lab access (JWT-based and wallet-based)
  */
 import devLog from '@/utils/dev/logger'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import authServiceClient from '@/utils/auth/authServiceClient'
 
 /**
- * Authenticates user for lab access through a multi-step process
+ * Authenticates SSO user for lab access using JWT flow
+ * Generates JWT from user session and exchanges it with auth-service
+ * @param {Object} userData - User data from SSO session
+ * @param {string|number} labId - Lab ID to access
+ * @returns {Promise<Object>} Authentication result with token and labURL or error
+ * @throws {Error} If any step of the JWT authentication process fails
+ */
+export const authenticateLabAccessSSO = async (userData, labId) => {
+  try {
+    devLog.log('🔐 Starting JWT-based lab authentication for user:', userData.email);
+
+    // Step 1: Check if JWT service is configured
+    if (!marketplaceJwtService.isConfigured()) {
+      throw new Error('JWT service is not properly configured');
+    }
+
+    // Step 2: Generate JWT for the authenticated user
+    const marketplaceJwt = marketplaceJwtService.generateJwtForUser(userData);
+    devLog.log('📝 Marketplace JWT generated successfully');
+
+    // Step 3: Exchange JWT with auth-service for lab access token
+    devLog.log('🔑 Exchanging JWT with auth-service for lab access...');
+    
+    const authResult = await authServiceClient.exchangeJwtForToken(marketplaceJwt, userData.affiliation, labId);
+    devLog.log('✅ Lab access token received successfully');
+
+    return authResult;
+
+  } catch (error) {
+    devLog.error('❌ SSO lab authentication failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Authenticates user for lab access through wallet signature (WALLET FLOW)
  * @param {string} authEndpoint - Base authentication endpoint URL
  * @param {string} userWallet - User's wallet address
  * @param {string|number} labId - Lab ID to access
@@ -70,16 +107,31 @@ export const authenticateLabAccess = async (authEndpoint, userWallet, labId, sig
 /**
  * Handles authentication errors and returns user-friendly messages
  * @param {Error} error - The error object from authentication process
+ * @param {boolean} isJwtFlow - Whether this is from JWT flow or wallet flow
  * @returns {string} User-friendly error message
  */
-export const getAuthErrorMessage = (error) => {
-  if (error.message.includes('User rejected')) {
-    return 'Signature was cancelled. Please try again.';
-  } else if (error.message.includes('Failed to get authentication message')) {
-    return 'Failed to get the message to sign. Please try again.';
-  } else if (error.message.includes('Authentication service error')) {
-    return 'An error has occurred in the authentication service.';
+export const getAuthErrorMessage = (error, isJwtFlow = false) => {
+  if (isJwtFlow) {
+    // JWT flow specific errors
+    if (error.message.includes('JWT service is not properly configured')) {
+      return 'Authentication system is not configured. Please contact support.';
+    } else if (error.message.includes('Lab does not have a configured Lab Gateway')) {
+      return 'This lab does not support SSO access. Please use wallet authentication.';
+    } else if (error.message.includes('Failed to exchange JWT')) {
+      return 'Failed to authenticate with lab service. Please try again.';
+    } else {
+      return 'There was an error with SSO authentication. Please try again or use wallet authentication.';
+    }
   } else {
-    return 'There was an error verifying your booking. Try again.';
+    // Wallet flow specific errors
+    if (error.message.includes('User rejected')) {
+      return 'Signature was cancelled. Please try again.';
+    } else if (error.message.includes('Failed to get authentication message')) {
+      return 'Failed to get the message to sign. Please try again.';
+    } else if (error.message.includes('Authentication service error')) {
+      return 'An error has occurred in the authentication service.';
+    } else {
+      return 'There was an error verifying your booking. Try again.';
+    }
   }
 };
