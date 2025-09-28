@@ -18,7 +18,8 @@ import devLog from '@/utils/dev/logger';
 class MarketplaceJwtService {
   constructor() {
     this.privateKey = null;
-    this.loadPrivateKey();
+    this.keyLoadAttempted = false;
+    // Don't load the key in constructor - wait until it's actually needed
   }
 
   /**
@@ -26,6 +27,13 @@ class MarketplaceJwtService {
    * @private
    */
   loadPrivateKey() {
+    // Avoid multiple load attempts
+    if (this.keyLoadAttempted) {
+      return;
+    }
+    
+    this.keyLoadAttempted = true;
+
     try {
       // Try environment variable first (for Vercel deployment)
       if (process.env.JWT_PRIVATE_KEY) {
@@ -49,11 +57,12 @@ class MarketplaceJwtService {
         throw new Error('Invalid private key format. Expected PEM format.');
       }
 
-      devLog.success('JWT private key loaded successfully');
+      devLog.success('JWT private key loaded from file system');
       
     } catch (error) {
       devLog.error('❌ Failed to load JWT private key:', error.message);
-      throw error;
+      // Don't throw error here - let it be handled when actually needed
+      this.privateKey = null;
     }
   }
 
@@ -73,8 +82,14 @@ class MarketplaceJwtService {
    */
   generateJwtForUser(samlAttributes) {
     try {
+      // Load private key if not already loaded
       if (!this.privateKey) {
         this.loadPrivateKey();
+      }
+
+      // Check if key is available after loading attempt
+      if (!this.privateKey) {
+        throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
       }
 
       // Validate required attributes
@@ -141,21 +156,34 @@ class MarketplaceJwtService {
    */
   isConfigured() {
     try {
-      // Check if private key is available (from env var or file)
+      // If key is already loaded, return true
       if (this.privateKey !== null) {
         return true;
       }
 
-      // Check environment variable
+      // If we haven't attempted to load yet, try now (but don't throw)
+      if (!this.keyLoadAttempted) {
+        this.loadPrivateKey();
+        // Return true if loading succeeded
+        if (this.privateKey !== null) {
+          return true;
+        }
+      }
+
+      // Check environment variable (without loading)
       if (process.env.JWT_PRIVATE_KEY) {
         return true;
       }
 
       // Check file system (local development)
-      const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
-        path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
-      
-      return fs.existsSync(privateKeyPath);
+      try {
+        const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
+          path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
+        
+        return fs.existsSync(privateKeyPath);
+      } catch {
+        return false;
+      }
     } catch {
       return false;
     }
