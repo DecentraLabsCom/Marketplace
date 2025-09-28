@@ -38,7 +38,7 @@ class MarketplaceJwtService {
       // Try environment variable first (for Vercel deployment)
       if (process.env.JWT_PRIVATE_KEY) {
         this.privateKey = process.env.JWT_PRIVATE_KEY;
-        devLog.success('JWT private key loaded from environment variable');
+        devLog.log('✅ JWT private key loaded from environment variable');
         return;
       }
 
@@ -57,7 +57,7 @@ class MarketplaceJwtService {
         throw new Error('Invalid private key format. Expected PEM format.');
       }
 
-      devLog.success('JWT private key loaded from file system');
+      devLog.log('✅ JWT private key loaded from file system');
       
     } catch (error) {
       devLog.error('❌ Failed to load JWT private key:', error.message);
@@ -117,7 +117,7 @@ class MarketplaceJwtService {
         issuer: payload.iss
       });
 
-      devLog.success('JWT generated successfully for user:', samlAttributes.username);
+      devLog.log('✅ JWT generated successfully for user:', samlAttributes.username);
       devLog.log('JWT payload (sanitized):', {
         sub: payload.sub,
         email: payload.email ? '***@***.***' : '',
@@ -163,10 +163,15 @@ class MarketplaceJwtService {
 
       // If we haven't attempted to load yet, try now (but don't throw)
       if (!this.keyLoadAttempted) {
-        this.loadPrivateKey();
-        // Return true if loading succeeded
-        if (this.privateKey !== null) {
-          return true;
+        try {
+          this.loadPrivateKey();
+          // Return true if loading succeeded
+          if (this.privateKey !== null) {
+            return true;
+          }
+        } catch (loadError) {
+          // Key loading failed during configuration check, but continue checking other options
+          devLog.warn('Key loading failed during configuration check:', loadError.message);
         }
       }
 
