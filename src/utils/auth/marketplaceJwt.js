@@ -27,11 +27,19 @@ class MarketplaceJwtService {
    */
   loadPrivateKey() {
     try {
+      // Try environment variable first (for Vercel deployment)
+      if (process.env.JWT_PRIVATE_KEY) {
+        this.privateKey = process.env.JWT_PRIVATE_KEY;
+        devLog.success('JWT private key loaded from environment variable');
+        return;
+      }
+
+      // Fallback to file system (for local development)
       const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
         path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
       
       if (!fs.existsSync(privateKeyPath)) {
-        throw new Error(`Private key file not found: ${privateKeyPath}`);
+        throw new Error(`Private key not found. Set JWT_PRIVATE_KEY environment variable or place file at: ${privateKeyPath}`);
       }
 
       this.privateKey = fs.readFileSync(privateKeyPath, 'utf8');
@@ -133,9 +141,21 @@ class MarketplaceJwtService {
    */
   isConfigured() {
     try {
-      return this.privateKey !== null && 
-             fs.existsSync(process.env.JWT_PRIVATE_KEY_PATH || 
-               path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem'));
+      // Check if private key is available (from env var or file)
+      if (this.privateKey !== null) {
+        return true;
+      }
+
+      // Check environment variable
+      if (process.env.JWT_PRIVATE_KEY) {
+        return true;
+      }
+
+      // Check file system (local development)
+      const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
+        path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
+      
+      return fs.existsSync(privateKeyPath);
     } catch {
       return false;
     }

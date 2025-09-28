@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate-jwt-keys": "node scripts/generate-jwt-keys.js"
+    "generate-jwt-keys": "node scripts/generate-jwt-keys.js",
+    "show-vercel-keys": "node scripts/show-keys-for-vercel.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
