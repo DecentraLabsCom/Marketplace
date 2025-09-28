@@ -48,8 +48,4 @@ next-env.d.ts
 /certificates
 
 # development documentation
-ARCHITECTURE.md
-CUSTODIAL_WALLET_SYSTEM.md
-LAB_PAYMENT_SYSTEM.md
-AUTH_FOR_ENDPOINTS.md
-OPTIMISTIC_UPDATES_STRATEGY.md
+dev/
