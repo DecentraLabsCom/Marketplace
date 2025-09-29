@@ -15,7 +15,6 @@ import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSecti
 import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
 import devLog from '@/utils/dev/logger'
-import isBookingActive from '@/utils/booking/isBookingActive'
 
 export default function UserDashboard() {
   const { isLoggedIn, address, user, isSSO, isConnected } = useUser();
@@ -48,7 +47,7 @@ export default function UserDashboard() {
 
   // Debug: Log booking data from React Query
   useEffect(() => {
-    console.log('UserDashboard: Received user bookings data:', {
+    devLog.log('UserDashboard: Received user bookings data:', {
       userBookingsCount: userBookings.length,
       address,
       userBookings: userBookings.slice(0, 3).map(booking => ({

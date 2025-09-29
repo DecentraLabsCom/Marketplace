@@ -17,9 +17,23 @@ import {
   ErrorCategory 
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
+import devLog from '@/utils/dev/logger'
 
 // Create optimized context with automatic memoization
 const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOptimizedContext('UserContext');
+
+/**
+ * Get the institution display name from SAML attributes
+ * @param {Object} userData - User data from SAML assertion
+ * @returns {string} Institution identifier in uppercase (e.g., "uned.es" -> "UNED")
+ */
+function getInstitutionName(userData) {
+    if (userData.affiliation) {
+        return userData.affiliation.split('.')[0].toUpperCase();
+    }
+    
+    return null;
+}
 
 /**
  * Core user data provider component with React Query integration
@@ -34,6 +48,7 @@ function UserDataCore({ children }) {
     const { handleError: originalHandleError } = useErrorHandler();
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -42,10 +57,28 @@ function UserDataCore({ children }) {
     const { 
         data: ssoData, 
         isLoading: ssoLoading,
-        error: ssoError 
+        error: ssoError,
+        refetch: refetchSSO
     } = useSSOSessionQuery({
-        enabled: isConnected && !isWalletLoading // Only fetch when wallet connection is stable
+        enabled: !isWalletLoading && !isLoggingOut, // Disable completely during logout
+        refetchOnWindowFocus: !isLoggingOut, // Disable window focus refetch during logout
+        refetchInterval: isLoggingOut ? false : 30000, // Disable interval during logout
+        retry: isLoggingOut ? false : 1, // Disable retries during logout
     });
+
+    // Handle SSO login callback - force immediate refetch when returning from IdP
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('sso_login') === '1') {
+            // Clear the URL parameter
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.delete('sso_login');
+            window.history.replaceState({}, '', newUrl);
+            
+            // Force immediate refetch of SSO session data
+            refetchSSO();
+        }
+    }, [queryClient, refetchSSO]);
 
     const { 
         data: providerStatus, 
@@ -104,7 +137,7 @@ function UserDataCore({ children }) {
 
     // Computed values
     const isProvider = Boolean(providerStatus?.isLabProvider);
-    const isLoggedIn = isConnected && Boolean(address) && !isWalletLoading;
+    const isLoggedIn = (isConnected && Boolean(address) && !isWalletLoading) || (isSSO && Boolean(user));
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
     // Combined loading state - don't wait for providers list for basic functionality
@@ -112,24 +145,55 @@ function UserDataCore({ children }) {
 
     // Combined effect to handle both SSO and provider data with proper name priority
     useEffect(() => {
+        // Only log during important state changes for cleaner debugging
+        const hasSSO = ssoData && (ssoData.user || ssoData.isSSO === false);
+        if (isLoggingOut || hasSSO) {
+            devLog.log('📊 UserContext useEffect triggered:', {
+                isLoggingOut,
+                ssoData: ssoData ? { hasUser: !!ssoData.user, isSSO: ssoData.isSSO } : null,
+                address,
+                hasProviderStatus: !!providerStatus
+            });
+        }
+        
+        // Don't update state during logout process
+        if (isLoggingOut) {
+            devLog.log('🚫 Skipping useEffect - logout in progress');
+            return;
+        }
+        
         let updatedUser = {};
         let shouldUpdate = false;
 
-        // Handle SSO session data
+        // Handle SSO session data - this should work even without wallet connection
         if (ssoData) {
+            devLog.log('🔑 Processing SSO data:', ssoData);
             setIsSSO(Boolean(ssoData.isSSO));
             
             if (ssoData.user) {
                 updatedUser = {
                     ...updatedUser,
                     ...ssoData.user,
+                    // Use the best available institution name from SAML attributes
+                    institutionName: getInstitutionName(ssoData.user),
                     address: address || updatedUser.address
                 };
                 shouldUpdate = true;
+                devLog.log('👤 Will update user with SSO data');
+            } else if (ssoData.isSSO === false || ssoData.user === null) {
+                devLog.log('🚪 SSO data indicates logout or no SSO session');
+                setIsSSO(false);
+                // Only clear user data if we don't have a wallet connected
+                // If wallet is connected, let the wallet data processing handle the user state
+                if (!address) {
+                    devLog.log('🚪 No wallet connected, clearing user state');
+                    setUser(null);
+                    return;
+                }
             }
         }
 
-        // Handle provider data
+        // Handle provider data only when wallet is connected
         if (address && providerStatus) {
             updatedUser = {
                 ...updatedUser,
@@ -155,6 +219,17 @@ function UserDataCore({ children }) {
             shouldUpdate = true;
         }
 
+        // If we have SSO data but no wallet connection, still update the user
+        if (ssoData?.user && !address) {
+            updatedUser = {
+                ...ssoData.user,
+                // Use the best available institution name from SAML attributes
+                institutionName: getInstitutionName(ssoData.user),
+                isProvider: false, // SSO users without wallet can't be providers
+            };
+            shouldUpdate = true;
+        }
+
         // Update user state only if there are changes
         if (shouldUpdate) {
             setUser(prev => ({
@@ -162,24 +237,26 @@ function UserDataCore({ children }) {
                 ...updatedUser
             }));
         }
-    }, [ssoData, address, providerStatus, providersData]);
+    }, [ssoData, address, providerStatus, providersData, isLoggingOut]);
 
-    // Handle connection changes
+    // Handle connection changes - only clear wallet-related data, preserve SSO
     useEffect(() => {
-        if (!isConnected) {
-            setIsSSO(false);
-            setUser(null);
-            // Only clear user-specific cache when disconnecting, not all provider data
-            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+        if (!isConnected && address) {
+            // Wallet disconnected - only clear wallet-related data if we had an address
+            // Don't clear SSO state here as it's managed separately
             queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(address) });
+            
+            // Only clear user state if it was wallet-based (not SSO)
+            if (!isSSO) {
+                setUser(null);
+            }
         } else if (isConnected && address) {
             // Invalidate provider status cache when wallet connects
-            // Invalidate provider status cache using the correct query key for useIsLabProviderQuery
             queryClient.invalidateQueries({ 
                 queryKey: providerQueryKeys.isLabProvider(address) 
             });
         }
-    }, [isConnected, address, queryClient]);
+    }, [isConnected, address, queryClient, isSSO]);
 
     // Handle errors
     useEffect(() => {
@@ -205,6 +282,101 @@ function UserDataCore({ children }) {
         }
     }, [address, refreshProviderStatusMutation, handleError]);
 
+    // SSO logout function
+    const logoutSSO = useCallback(async () => {
+        devLog.log('🚪 SSO LOGOUT STARTED');
+        
+        // Set logout flag IMMEDIATELY to prevent any queries from running
+        setIsLoggingOut(true);
+        devLog.log('🔒 Logout flag set - ALL SSO queries now disabled');
+        
+        // Small delay to ensure state propagates and disables queries
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        try {
+            
+            // Clear local state immediately
+            setIsSSO(false);
+            setUser(null);
+            devLog.log('✅ Local state cleared (isSSO=false, user=null)');
+            
+            // Cancel any ongoing queries FIRST to prevent race conditions
+            devLog.log('🚫 Canceling queries...');
+            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
+            
+            // Force set empty data to prevent any cached data from being used
+            devLog.log('💾 Setting empty query data...');
+            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
+            
+            // Remove queries completely
+            devLog.log('🗑️ Removing queries from cache...');
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            
+            // Call logout endpoint and wait for completion
+            devLog.log('🌐 Calling logout endpoint...');
+            const response = await fetch("/api/auth/logout", {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                devLog.log('❌ Logout endpoint failed:', response.status);
+            } else {
+                const data = await response.json();
+                devLog.log('✅ Server session cleared:', data);
+            }
+            
+            // Wait longer to ensure server-side cleanup is complete
+            devLog.log('⏰ Waiting for server cleanup to complete...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Verify session is actually cleared by making a test call
+            devLog.log('🔍 Verifying session is cleared...');
+            try {
+                const verifyResponse = await fetch('/api/auth/sso/session', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                const sessionData = await verifyResponse.json();
+                if (sessionData.user || sessionData.isSSO) {
+                    devLog.log('⚠️ Session still active after logout, forcing additional cleanup');
+                } else {
+                    devLog.log('✅ Session verification: successfully cleared');
+                }
+            } catch (verifyError) {
+                devLog.log('ℹ️ Session verification failed (likely good - no session):', verifyError.message);
+            }
+            
+            // Triple-clear cache to ensure any background refetches are overridden
+            devLog.log('🔒 Final aggressive cache cleanup...');
+            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            
+            // Keep logout flag active for longer to ensure no race conditions
+            setTimeout(() => {
+                devLog.log('🔄 Re-enabling queries after logout cleanup');
+                setIsLoggingOut(false);
+            }, 3000); // 3 seconds total to ensure complete cleanup
+
+            devLog.log('✅ SSO LOGOUT COMPLETED');
+            return true;
+        } catch (error) {
+            devLog.log('❌ SSO LOGOUT ERROR:', error);
+            handleError(error, { context: 'SSO logout' });
+            // Even if there's an error, still clear local state
+            setIsSSO(false);
+            setUser(null);
+            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
+            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
+            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            setTimeout(() => setIsLoggingOut(false), 3000);
+            return true;
+        }
+    }, [queryClient, handleError]);
+
     const value = {
         // User state
         user,
@@ -218,8 +390,9 @@ function UserDataCore({ children }) {
         isLoading,
         isWalletLoading,
         
-        // Refresh function
+        // Actions
         refreshProviderStatus,
+        logoutSSO,
         
         // Error handling
         handleError,

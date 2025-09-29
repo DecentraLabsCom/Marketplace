@@ -4,6 +4,7 @@ import { walletConnect, metaMask} from 'wagmi/connectors'
 import { defaultNetworks, alchemyNetworks, moralisNetworks, ankrNetworks, 
         quicknodeNetworks, chainstackNetworks, infuraNetworks } from '@/utils/blockchain/networkConfig'
 import { getWalletConnectMetadata } from '@/utils/env/baseUrl'
+import devLog from '@/utils/dev/logger'
 
 let alchemyProjectId = process.env.NEXT_PUBLIC_ALCHEMY_ID;
 let moralisProjectId = process.env.NEXT_PUBLIC_MORALIS_ID;
@@ -21,7 +22,7 @@ let _cachedConfig = null;
 
 // Debug function to reset cache (useful during development)
 export const resetWagmiCache = () => {
-  console.log('[wagmiConfig] Resetting cache...');
+  devLog.log('[wagmiConfig] Resetting cache...');
   _cachedTransports = null;
   _cachedConfig = null;
 };
@@ -35,7 +36,7 @@ const createTransports = () => {
   // Helper function to create a validated HTTP transport
   const createValidatedTransport = (url, key) => {
     if (!url || url === 'undefined' || url.includes('undefined')) {
-      console.warn(`[wagmiConfig] Invalid URL for ${key}:`, url);
+      devLog.warn(`[wagmiConfig] Invalid URL for ${key}:`, url);
       return null;
     }
     
@@ -120,16 +121,14 @@ const createTransports = () => {
   
   // Ensure we have at least one valid transport for sepolia
   if (fallbackProviders.length === 0) {
-    console.error('[wagmiConfig] No valid transports configured! Using public RPC as last resort');
+    devLog.error('[wagmiConfig] No valid transports configured! Using public RPC as last resort');
     fallbackProviders.push(http('https://ethereum-sepolia-rpc.publicnode.com', {
       key: 'public-fallback',
       retryCount: 1,
     }));
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[wagmiConfig] Created ${fallbackProviders.length} valid transports for sepolia`);
-  }
+  devLog.log(`[wagmiConfig] Created ${fallbackProviders.length} valid transports for sepolia`);
 
   const fallbackSepoliaTransport = fallback(fallbackProviders);
 

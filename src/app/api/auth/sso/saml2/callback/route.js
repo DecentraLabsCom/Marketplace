@@ -25,7 +25,7 @@ export async function POST(request) {
 
     // Step 2: Create a session for the authenticated user and redirect to dashboard
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
-    const response = NextResponse.redirect(`${baseUrl}/userdashboard`, 303);
+    const response = NextResponse.redirect(`${baseUrl}/userdashboard?sso_login=1`, 303);
     await createSession(response, userData);
     return response;
   } catch (error) {

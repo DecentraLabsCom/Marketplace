@@ -20,14 +20,22 @@ export default function Navbar() {
 
   // More tolerant approach - show buttons if we're logged in, even if loading provider data
   const showMenuButtons = isLoggedIn;
-  
-  // Only hide provider-specific buttons if we're still determining provider status
-  const showProviderButton = isProvider && !isProviderLoading;
+
+  // Check if user has faculty role (professor)
+  const isFaculty = () => {
+    if (!isSSO || !user) return false;
+    const userRole = (user.role || '').toLowerCase().trim();
+    const userScopedRole = (user.scopedRole || '').toLowerCase().trim();
+    return userRole.includes('faculty') || userScopedRole.includes('faculty');
+  };
 
   // Check if user can see and access the "Register as Provider" option
   const showRegisterButton = () => {
     // Don't show if not logged in, already a provider, or currently loading provider status
     if (!isLoggedIn || isProvider || isProviderLoading) return false;
+    
+    // Don't show for faculty (they get Lab Panel directly)
+    if (isFaculty()) return false;
     
     // For wallet users, always show (they can register manually via form)
     if (!isSSO) return true;
@@ -36,6 +44,17 @@ export default function Navbar() {
     if (!user) return false;
     const roleValidation = validateProviderRole(user.role, user.scopedRole);
     return roleValidation.isValid;
+  };
+
+  // Check if user should see Lab Panel button
+  const showProviderButton = () => {
+    // Show if already a confirmed provider
+    if (isProvider && !isProviderLoading) return true;
+    
+    // Show for faculty (professors) even if not yet registered as provider
+    if (isFaculty()) return true;
+    
+    return false;
   };
 
   const menuButton = (href, label) => (
@@ -64,7 +83,7 @@ export default function Navbar() {
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
             {showRegisterButton() && menuButton("/register", "Register as a Provider")}
-            {showProviderButton && menuButton("/providerdashboard", "Lab Panel")}
+            {showProviderButton() && menuButton("/providerdashboard", "Lab Panel")}
           </div>
           )}
           <div className="hidden md:block">
@@ -98,7 +117,7 @@ export default function Navbar() {
                     Register as a Provider
                   </Link>
                 )}
-                {showProviderButton && (
+                {showProviderButton() && (
                   <Link href="/providerdashboard" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                     Lab Panel
                   </Link>

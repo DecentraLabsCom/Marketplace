@@ -3,6 +3,7 @@ import { useDisconnect, useEnsAvatar, useEnsName } from 'wagmi'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSignOutAlt } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Format wallet address for display purposes
@@ -21,16 +22,35 @@ function formatAddress(address) {
  * @returns {JSX.Element} Account display and logout interface
  */
 export default function Account() {
-  const { isConnected, isSSO, isLoggedIn, address, user } = useUser();
+  const { isConnected, isSSO, isLoggedIn, address, user, logoutSSO } = useUser();
   const { disconnect } = useDisconnect();
   const { data: ensName } = useEnsName({ address });
   const { data: ensAvatar } = useEnsAvatar({ name: ensName });
 
   const handleLogout = async () => {
-    if (isConnected) disconnect();
-    if (isSSO) {
-      await fetch("/api/auth/logout");
-      window.location.href = "/";
+    try {
+      // Handle SSO logout first (it includes both SSO and wallet disconnect logic)
+      if (isSSO) {
+        await logoutSSO();
+        // For SSO, don't force refresh - let the logout process handle UI updates
+        // The UserContext will automatically update the UI when session is cleared
+        return;
+      }
+      
+      // Handle wallet disconnect only
+      if (isConnected) {
+        disconnect();
+        // For wallet-only users, small delay then redirect
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 100);
+      }
+    } catch (error) {
+      devLog.log('Error during logout:', error);
+      // Only for critical errors, redirect to home
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 500);
     }
   }
 
@@ -38,12 +58,12 @@ export default function Account() {
     <div className="flex items-center space-x-6 ml-auto font-bold">
       {isLoggedIn && (
         <div className="pointer-events-none flex flex-col items-center">
-          <div className="text-sm text-hover-dark">{user?.email || formatAddress(address)}</div>
-          {(user?.name || ensName) && (
-            <div className="text-[14px] text-text-secondary">
-              {user?.name ? user.name : ensName }
-            </div>
-          )}
+          <div className="text-sm text-hover-dark">
+            {isSSO ? (user?.institutionName || user?.affiliation || user?.name) : (user?.name || ensName)}
+          </div>
+          <div className="text-sm text-text-secondary">
+            {isSSO ? (user?.email || user?.id || "SSO User") : formatAddress(address)}
+          </div>
         </div>
       )}
       <button onClick={handleLogout}>

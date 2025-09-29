@@ -1,0 +1,130 @@
+name: JWT Key Rotation
+
+on:
+  # Ejecutar cada 3 meses (el 1 de enero, abril, julio, octubre a las 2 AM UTC)
+  schedule:
+    - cron: '0 2 1 1,4,7,10 *'  # 2 AM UTC on Jan 1, Apr 1, Jul 1, Oct 1
+  
+  # También permitir ejecución manual
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force rotation even if not needed'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  rotate-jwt-keys:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Check if rotation is needed
+        id: check-rotation
+        run: |
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "needs_rotation=true" >> $GITHUB_OUTPUT
+            echo "Forced rotation requested"
+          else
+            # Check if current keys are older than 85 days (5 days before 90-day target)
+            if [ -f "certificates/jwt/rotation-metadata.json" ]; then
+              last_rotation=$(jq -r '.lastRotation' certificates/jwt/rotation-metadata.json)
+              if [ "$last_rotation" != "null" ]; then
+                # Calculate days since last rotation
+                days_since=$(( ($(date +%s) - $(date -d "$last_rotation" +%s)) / 86400 ))
+                echo "Days since last rotation: $days_since"
+                
+                if [ $days_since -gt 85 ]; then
+                  echo "needs_rotation=true" >> $GITHUB_OUTPUT
+                  echo "Rotation needed - $days_since days since last rotation"
+                else
+                  echo "needs_rotation=false" >> $GITHUB_OUTPUT
+                  echo "Rotation not needed - only $days_since days since last rotation"
+                fi
+              else
+                echo "needs_rotation=true" >> $GITHUB_OUTPUT
+                echo "No valid last rotation date found"
+              fi
+            else
+              echo "needs_rotation=true" >> $GITHUB_OUTPUT
+              echo "No rotation metadata found - first rotation"
+            fi
+          fi
+        
+      - name: Rotate JWT Keys
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        run: |
+          # Create backup suffix with current date
+          backup_suffix=$(date +%Y-%m-%d)-automated
+          
+          # Run key rotation
+          npm run rotate-jwt-keys -- --force --backup-suffix=$backup_suffix
+          
+          # Verify new keys were generated
+          if [ ! -f "certificates/jwt/marketplace-private-key.pem" ]; then
+            echo "Error: Private key not found after rotation"
+            exit 1
+          fi
+          
+          if [ ! -f "certificates/jwt/marketplace-public-key.pem" ]; then
+            echo "Error: Public key not found after rotation"
+            exit 1
+          fi
+          
+          echo "Key rotation completed successfully"
+        
+      - name: Create Pull Request
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "🔄 Automated JWT key rotation - $(date +%Y-%m-%d)"
+          title: "🔄 Automated JWT Key Rotation - $(date +%Y-%m-%d)"
+          body: |
+            ## 🔄 Automated JWT Key Rotation
+            
+            This PR contains an automated JWT key rotation performed on $(date +%Y-%m-%d).
+            
+            ### Changes:
+            - ✅ New RSA key pair generated and validated
+            - ✅ Previous keys backed up to `certificates/jwt/backups/`
+            - ✅ Rotation metadata updated
+            
+            ### Next Steps:
+            1. Review and merge this PR
+            2. Deploy to production (will trigger Vercel deployment)
+            3. Monitor auth-services for new key fetch (up to 1 hour)
+            4. Verify lab access functionality
+            
+            ### Files Changed:
+            - `certificates/jwt/marketplace-private-key.pem` (new private key)
+            - `certificates/jwt/marketplace-public-key.pem` (new public key)  
+            - `certificates/jwt/rotation-metadata.json` (updated metadata)
+            - `certificates/jwt/backups/` (backup files)
+            
+            **⚠️ Important**: After merging, monitor the marketplace logs and auth-service logs for any JWT validation errors.
+          branch: automated/jwt-key-rotation-$(date +%Y-%m-%d)
+          delete-branch: true
+          
+      - name: Notify team (optional)
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        run: |
+          echo "JWT key rotation completed and PR created"
+          echo "Next steps: Review PR, merge, and monitor deployment"
+          # You could add Slack/Teams notification here

@@ -116,11 +116,30 @@ useIsLabProviderQuery.queryFn = getIsLabProviderQueryFn;
 // ===== SSO SESSION QUERIES =====
 
 // Define queryFn first for reuse
-const getSSOSessionQueryFn = async () => {
-  // Placeholder for SSO session logic
-  // This would typically check server session or local storage
-  return null;
-};
+const getSSOSessionQueryFn = createSSRSafeQuery(async () => {
+  const response = await fetch('/api/auth/sso/session', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Include cookies for session authentication
+  });
+  
+  if (!response.ok) {
+    // If session doesn't exist or expired, return null instead of throwing
+    if (response.status === 401 || response.status === 404) {
+      return { user: null, isSSO: false };
+    }
+    throw new Error(`Failed to fetch SSO session: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('getSSOSessionQueryFn:', data);
+  
+  // Return consistent format
+  return {
+    user: data.user,
+    isSSO: Boolean(data.user)
+  };
+}, { user: null, isSSO: false }); // Return null user during SSR
 
 /**
  * SSO Session Query Hook
