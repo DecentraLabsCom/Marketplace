@@ -41,7 +41,7 @@ const ReactQueryLabImage = ({
   style = {},
   autoCache = true,
   showCacheStatus = false,
-  fallbackSrc = '/labs/lab_placeholder.jpg',
+  fallbackSrc = '/labs/lab_placeholder.png',
   onLoad,
   onError,
   ...props

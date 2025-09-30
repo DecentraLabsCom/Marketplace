@@ -22,9 +22,15 @@ class MarketplaceJwtService {
 
   /**
    * Load and cache the RSA private key for JWT signing
+   * Only works on server-side (Node.js environment)
    * @private
    */
   async loadPrivateKey() {
+    // Browser-side guard - immediately return
+    if (typeof window !== 'undefined') {
+      throw new Error('JWT key loading is not available in browser environment');
+    }
+
     // Avoid multiple load attempts
     if (this.keyLoadAttempted) {
       return;
@@ -40,16 +46,11 @@ class MarketplaceJwtService {
         return;
       }
 
-      // Only use file system in server environment
-      if (typeof window !== 'undefined') {
-        throw new Error('File system access not available in browser environment. Use JWT_PRIVATE_KEY environment variable.');
-      }
-
-      // Dynamic import for server-only modules
-      const fs = (await import('fs')).default;
-      const path = (await import('path')).default;
-
       // Fallback to file system (for local development)
+      // Use eval to prevent webpack from bundling these modules
+      const fs = eval('require')('fs');
+      const path = eval('require')('path');
+
       const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
         path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
       
@@ -162,6 +163,11 @@ class MarketplaceJwtService {
    */
   async isConfigured() {
     try {
+      // Browser-side guard
+      if (typeof window !== 'undefined') {
+        return false; // Client-side, JWT service not available
+      }
+
       // If key is already loaded, return true
       if (this.privateKey !== null) {
         return true;
@@ -172,15 +178,10 @@ class MarketplaceJwtService {
         return true;
       }
 
-      // Only check file system in server environment
-      if (typeof window !== 'undefined') {
-        return false; // Client-side, need env variable
-      }
-
       // Check file system (local development)
       try {
-        const fs = (await import('fs')).default;
-        const path = (await import('path')).default;
+        const fs = eval('require')('fs');
+        const path = eval('require')('path');
         
         const privateKeyPath = process.env.JWT_PRIVATE_KEY_PATH || 
           path.join(process.cwd(), 'certificates', 'jwt', 'marketplace-private-key.pem');
