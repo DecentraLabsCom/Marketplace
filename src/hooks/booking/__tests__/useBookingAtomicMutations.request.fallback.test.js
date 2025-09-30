@@ -13,18 +13,18 @@
  */
 
 jest.mock('@/hooks/contract/useContractWriteFunction', () =>
-  require('../../test-utils/mocks/hooks/useContractWriteFunction')
+  require('../../../test-utils/mocks/hooks/useContractWriteFunction')
 );
-jest.mock('./useBookingCacheUpdates', () =>
-  require('../../test-utils/mocks/hooks/useBookingCacheUpdates')
+jest.mock('../useBookingCacheUpdates', () =>
+  require('../../../test-utils/mocks/hooks/useBookingCacheUpdates')
 );
 
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useReservationRequestWallet } from './useBookingAtomicMutations';
+import { useReservationRequestWallet } from '../useBookingAtomicMutations';
 
-const mockContractWriteFactory = require('../../test-utils/mocks/hooks/useContractWriteFunction');
-const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../test-utils/mocks/hooks/useBookingCacheUpdates');
+const mockContractWriteFactory = require('../../../test-utils/mocks/hooks/useContractWriteFunction');
+const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../../test-utils/mocks/hooks/useBookingCacheUpdates');
 
 /* Shared QueryClient wrapper that disables retries for deterministic tests */
 function createWrapper() {

@@ -12,10 +12,10 @@
  */
 
 jest.mock('@/hooks/contract/useContractWriteFunction', () =>
-  require('../../test-utils/mocks/hooks/useContractWriteFunction')
+  require('../../../test-utils/mocks/hooks/useContractWriteFunction')
 );
-jest.mock('./useBookingCacheUpdates', () =>
-  require('../../test-utils/mocks/hooks/useBookingCacheUpdates')
+jest.mock('../useBookingCacheUpdates', () =>
+  require('../../../test-utils/mocks/hooks/useBookingCacheUpdates')
 );
 jest.mock('@/context/UserContext', () => ({
   useUser: jest.fn(() => ({ isSSO: true })),
@@ -23,10 +23,10 @@ jest.mock('@/context/UserContext', () => ({
 
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useReservationRequest } from './useBookingAtomicMutations';
+import { useReservationRequest } from '../useBookingAtomicMutations';
 
-const mockContractWriteFactory = require('../../test-utils/mocks/hooks/useContractWriteFunction');
-const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../test-utils/mocks/hooks/useBookingCacheUpdates');
+const mockContractWriteFactory = require('../../../test-utils/mocks/hooks/useContractWriteFunction');
+const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../../test-utils/mocks/hooks/useBookingCacheUpdates');
 
 /* Shared QueryClient wrapper */
 function createWrapper() {

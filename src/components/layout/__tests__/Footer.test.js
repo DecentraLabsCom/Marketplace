@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import Footer from './Footer'
+import Footer from '../Footer'
 
 // Mock next/image: expose only src and alt to avoid passing unsupported props to <img>
 jest.mock('next/image', () => ({ src, alt }) => (
@@ -13,7 +13,7 @@ jest.mock('next/link', () => ({ href, children, ...rest }) => (
 ))
 
 // Mock Container component: simplify layout rendering and provide a test identifier
-jest.mock('../ui/Layout', () => ({
+jest.mock('../../ui/Layout', () => ({
   Container: ({ children }) => <div data-testid="container">{children}</div>
 }))
 

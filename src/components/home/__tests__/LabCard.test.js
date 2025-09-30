@@ -1,8 +1,7 @@
-// src/components/home/LabCard.test.js
 import React from 'react'
 import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import LabCard from './LabCard'
+import LabCard from '../LabCard'
 
 // Mock next/link -> use a simple anchor so href is testable
 jest.mock('next/link', () => {

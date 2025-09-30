@@ -9,7 +9,7 @@ import {
   RadioGroup,
   FormField,
   FormGroup
-} from './Form'
+} from '../Form'
 
 //
 // INPUT

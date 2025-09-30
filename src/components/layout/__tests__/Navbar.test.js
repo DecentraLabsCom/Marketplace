@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import Navbar from './Navbar';
+import Navbar from '../Navbar';
 
 // Mock Next.js <Link> to behave like a simple <a> element.
 // This avoids Next.js routing internals interfering with tests.

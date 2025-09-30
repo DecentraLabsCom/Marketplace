@@ -13,10 +13,10 @@
 
 // Centralized mocks for contract hooks
 jest.mock('@/hooks/contract/useDefaultReadContract', () =>
-  require('../test-utils/mocks/hooks/useDefaultReadContract')
+  require('../../test-utils/mocks/hooks/useDefaultReadContract')
 );
 jest.mock('@/hooks/contract/useContractWriteFunction', () =>
-  require('../test-utils/mocks/hooks/useContractWriteFunction')
+  require('../../test-utils/mocks/hooks/useContractWriteFunction')
 );
 
 // wagmi mocks (account, tx receipts, etc.)
@@ -32,11 +32,11 @@ jest.mock('@/utils/blockchain/selectChain', () => ({
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useLabTokenHook as useLabToken } from './useLabToken';
+import { useLabTokenHook as useLabToken } from '../useLabToken';
 
 // Mock factories
-const mockReadFactory = require('../test-utils/mocks/hooks/useDefaultReadContract');
-const mockWriteFactory = require('../test-utils/mocks/hooks/useContractWriteFunction');
+const mockReadFactory = require('../../test-utils/mocks/hooks/useDefaultReadContract');
+const mockWriteFactory = require('../../test-utils/mocks/hooks/useContractWriteFunction');
 const wagmi = require('wagmi');
 
 // React Query wrapper for hooks
