@@ -1,11 +1,13 @@
 "use client";
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useRef } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import { useConfirmReservationRequestSSO } from '@/hooks/booking/useBookingAtomicMutations'
+import { useUser } from '@/context/UserContext'
+import { useNotifications } from '@/context/NotificationContext'
 import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
 
@@ -18,16 +20,46 @@ const BookingEventContext = createContext();
  * @param {React.ReactNode} props.children - Child components
  */
 export function BookingEventProvider({ children }) {
-    const { chain } = useAccount();
+    const { chain, address } = useAccount();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const queryClient = useQueryClient();
     // Use SSO mutation for server-side confirmation (no wallet popup)
     const confirmReservationMutation = useConfirmReservationRequestSSO();
+    
+    // User context and notifications for smart user targeting
+    const { address: userAddress, isSSO } = useUser();
+    const { addTemporaryNotification } = useNotifications();
+
+    // DEDUPLICATION: Track processed reservations to prevent duplicates from multiple RPC providers
+    const processedReservations = useRef(new Set());
 
     // Helper function to validate and auto-confirm reservation requests using SSO server wallet
     const validateAndConfirmReservation = async (reservationKey, tokenId, requester, start, end) => {
+        // Determine if this reservation belongs to the current user
+        const currentUserAddress = address || userAddress;
+        const isCurrentUserReservation = requester && currentUserAddress && 
+            requester.toLowerCase() === currentUserAddress.toLowerCase();
+    
         try {
+            // DEDUPLICATION: Check if this unique reservation was already processed
+            if (processedReservations.current.has(reservationKey)) {
+                devLog.warn(`🔄 [BookingEventContext] Reservation ${reservationKey} already processed. Skipping duplicate.`);
+                return;
+            }
+            
+            // Mark as being processed
+            processedReservations.current.add(reservationKey);
+            
+            // Clean up old entries (keep only last 10 when we exceed 20)
+            if (processedReservations.current.size > 20) {
+                const entries = Array.from(processedReservations.current);
+                // Remove oldest entries, keep only the most recent 10
+                entries.slice(0, entries.length - 10).forEach(key => {
+                    processedReservations.current.delete(key);
+                });
+            }
+
             // Validate that reservation is in a valid period (not in the past)
             const now = Math.floor(Date.now() / 1000);
             const startTime = parseInt(start);
@@ -54,9 +86,18 @@ export function BookingEventProvider({ children }) {
             
             const result = await confirmReservationMutation.mutateAsync(reservationKey);
             
+            if (isCurrentUserReservation) {
+                addTemporaryNotification('success', '✅ Reservation confirmed and ready!');
+            }
+            
             devLog.log(`✅ [BookingEventContext] Successfully auto-confirmed reservation ${reservationKey} via server wallet`, result);
         } catch (error) {
             devLog.error(`❌ [BookingEventContext] Failed to auto-confirm reservation ${reservationKey} via server wallet:`, error);
+            
+            // Show error notification only to the user who made the reservation
+            if (isCurrentUserReservation) {
+                addTemporaryNotification('error', '❌ Reservation denied. Try again later.');
+            }
         }
     };
 

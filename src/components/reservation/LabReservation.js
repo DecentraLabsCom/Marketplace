@@ -398,15 +398,15 @@ export default function LabReservation({ id }) {
     addTemporaryNotification('pending', '⏳ Processing your reservation...');
 
     try {
-      // 🚀 Use React Query mutation for SSO booking creation
+      // 🚀 Use React Query mutation for booking creation
       await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
         end: start + timeslot
       });
 
-      // Show success notification
-      addTemporaryNotification('success', '✅ Reservation created!');
+      // Show initial success notification
+      addTemporaryNotification('success', '✅ Reservation request sent! Processing confirmation...');
       await handleBookingSuccess();
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ');
