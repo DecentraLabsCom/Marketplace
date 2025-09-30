@@ -53,11 +53,13 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         )}
         
         {/* Active Booking Badge */}
-        {activeBooking && (
-          <div className="absolute top-2 right-2">
-            <Badge variant="success" size="sm">Active</Badge>
+        {/*{activeBooking && (
+          <div className="absolute top-0 right-0 text-brand border-l-2 border-brand px-3 py-2 rounded-bl-lg shadow-lg backdrop-blur-sm">
+            <span className="text-xs font-semibold uppercase tracking-wide">
+              Active
+            </span>
           </div>
-        )}
+        )}*/}
         
         {/* Unlisted Badge */}
         {!isListed && (

@@ -319,7 +319,7 @@ export const useUserActiveBookings = (userAddress, options = {}) => {
           status: activeReservation.status,
           start: activeReservation.start,
           end: activeReservation.end,
-          date: new Date(parseInt(activeReservation.start) * 1000).toISOString()
+          date: new Date(parseInt(activeReservation.start) * 1000).toLocaleDateString('en-CA')
         };
       }
 
@@ -343,7 +343,7 @@ export const useUserActiveBookings = (userAddress, options = {}) => {
             status: nextReservation.status,
             start: nextReservation.start,
             end: nextReservation.end,
-            date: new Date(parseInt(nextReservation.start) * 1000).toISOString()
+            date: new Date(parseInt(nextReservation.start) * 1000).toLocaleDateString('en-CA')
           };
         }
       }

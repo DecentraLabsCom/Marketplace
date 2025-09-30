@@ -22,6 +22,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
   const router = useRouter();
   const { signMessageAsync } = useSignMessage();
 
+  devLog.log(`🔐 LabAccess component - Lab ${id} auth endpoint:`, auth);
+
   const handleAccess = async () => {
     setLoading(true);
     setErrorMessage(null);

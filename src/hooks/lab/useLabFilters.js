@@ -3,7 +3,6 @@
  * Centralizes search state, filtering logic, and debounced search
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import isBookingActive from '@/utils/booking/isBookingActive'
 
 /**
  * Custom hook for lab filtering and search

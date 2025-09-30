@@ -50,12 +50,26 @@ export const authenticateLabAccessSSO = async (userData, labId) => {
  * @returns {Promise<Object>} Authentication result with token and labURL or error
  * @throws {Error} If any step of the authentication process fails
  */
+/**
+ * Helper function to properly construct auth endpoint URLs
+ * Ensures proper URL formatting with correct slashes
+ */
+const buildAuthUrl = (baseUrl, endpoint) => {
+  if (!baseUrl || typeof baseUrl !== 'string') {
+    throw new Error(`Invalid auth endpoint: ${baseUrl}. Expected a valid URL string.`);
+  }
+  
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  return `${cleanBase}/${endpoint}`;
+};
+
 export const authenticateLabAccess = async (authEndpoint, userWallet, labId, signMessageAsync) => {
   try {
     // Step 1: Request message to sign from authentication service
-    devLog.log('🔐 Requesting authentication message from:', authEndpoint + "message");
+    const messageUrl = buildAuthUrl(authEndpoint, "message");
+    devLog.log('🔐 Requesting authentication message from:', messageUrl);
     
-    const responseMessage = await fetch(authEndpoint + "message", {
+    const responseMessage = await fetch(messageUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -77,7 +91,8 @@ export const authenticateLabAccess = async (authEndpoint, userWallet, labId, sig
     // Step 3: Send authentication data to verify signature and get access token
     devLog.log('🔑 Verifying signature and requesting lab access token...');
     
-    const responseAuth = await fetch(authEndpoint + "auth2", {
+    const auth2Url = buildAuthUrl(authEndpoint, "auth2");
+    const responseAuth = await fetch(auth2Url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

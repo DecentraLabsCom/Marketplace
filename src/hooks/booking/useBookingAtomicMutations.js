@@ -290,11 +290,32 @@ export const useConfirmReservationRequestSSO = (options = {}) => {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to confirm reservation request: ${response.status}`);
+        // Try to get the error details from the response
+        let errorDetails = 'Unknown error';
+        try {
+          const errorData = await response.json();
+          errorDetails = errorData.details || errorData.error || 'Unknown error';
+        } catch (parseError) {
+          errorDetails = `Status: ${response.status}`;
+        }
+        
+        devLog.error(`❌ Reservation confirmation failed with status ${response.status}:`, errorDetails);
+        throw new Error(`Failed to confirm reservation request: ${response.status} - ${errorDetails}`);
       }
 
       const data = await response.json();
-      devLog.log('🔍 useConfirmReservationRequestSSO:', data);
+      
+      // Log different types of successful responses
+      if (data.note) {
+        devLog.log('⚠️ useConfirmReservationRequestSSO - Transaction already processed:', {
+          reservationKey,
+          transactionHash: data.transactionHash,
+          note: data.note
+        });
+      } else {
+        devLog.log('✅ useConfirmReservationRequestSSO - New transaction sent:', data);
+      }
+      
       return data;
     },
     onSuccess: (data, reservationKey) => {
