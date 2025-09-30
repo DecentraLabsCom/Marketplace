@@ -24,7 +24,7 @@ const customJestConfig = {
   
   transformIgnorePatterns: [
      // Allow transformation of ESM packages that Jest can't handle directly
-    '/node_modules/(?!(wagmi|viem)/)', 
+  '/node_modules/(?!(wagmi|viem|next)/)',
   ],
 };
 
