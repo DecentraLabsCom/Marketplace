@@ -7,8 +7,7 @@ import { faSearch } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
 import LabAccess from '@/components/home/LabAccess'
-import { LabCardImage } from '@/components/ui/ReactQueryLabImage'
-import { Card, Badge, cn } from '@/components/ui'
+import { Card, Badge, cn, LabCardImage } from '@/components/ui'
 
 /**
  * Individual lab card component for displaying lab information in grid/list views
@@ -45,7 +44,6 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
             src={image}
             alt={name}
             labId={id}
-            showCacheStatus={process.env.NODE_ENV === 'development'}
             priority={false}
           />
         ) : (
@@ -80,7 +78,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
         </div>
       </div>
 
-      <Link href={`/lab/${id}`}>
+      <Link href={`/lab/${id}/${provider}`}>
         <div className="absolute inset-0 flex items-center justify-center opacity-0
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
           text-white text-lg font-bold">

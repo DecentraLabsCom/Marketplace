@@ -20,7 +20,7 @@ const IMAGE_CACHE_CONFIG = {
   refetchOnReconnect: true,
   // Retry failed image downloads
   retry: 1,
-  retryDelay: 500,
+  retryDelay: 250,
 }
 
 /**
@@ -177,7 +177,6 @@ export function useLabImage(imageUrl, options = {}) {
     cachedImageData,
     isLoading: isLoading && autoCache,
     isCached: isSuccess && !!cachedImageData,
-    // Always provide error information but don't let it block rendering
     error: error || null,
     
     // Image metadata

@@ -41,5 +41,8 @@ export {
   EmptyState
 } from './Feedback'
 
+// Image components
+export { default as LabImage, LabCardImage } from './LabImage'
+
 // Utility
 export { cn } from '@/utils/cn'
