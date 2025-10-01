@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
-import { useConfirmReservationRequestSSO } from '@/hooks/booking/useBookingAtomicMutations'
+import { useConfirmReservationRequest } from '@/hooks/booking/useBookingAtomicMutations'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import devLog from '@/utils/dev/logger'
@@ -24,8 +24,8 @@ export function BookingEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const queryClient = useQueryClient();
-    // Use SSO mutation for server-side confirmation (no wallet popup)
-    const confirmReservationMutation = useConfirmReservationRequestSSO();
+    // Use mutation for server-side confirmation
+    const confirmReservationMutation = useConfirmReservationRequest();
     
     // User context and notifications for smart user targeting
     const { address: userAddress, isSSO } = useUser();
@@ -113,11 +113,6 @@ export function BookingEventProvider({ children }) {
                 contractAddress,
                 chainId: safeChain.id,
                 chainName: safeChain.name
-            });
-            
-            // Simple invalidation - let React Query handle the rest
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
             });
             
             // Process each reservation request

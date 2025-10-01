@@ -25,9 +25,15 @@ const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOp
 /**
  * Get the institution display name from SAML attributes
  * @param {Object} userData - User data from SAML assertion
- * @returns {string} Institution identifier in uppercase (e.g., "uned.es" -> "UNED")
+ * @returns {string} Institution identifier (e.g., "UNED" from organizationName or "uned.es" -> "UNED" from affiliation)
  */
 function getInstitutionName(userData) {
+    // First priority: use organizationName if available (more direct)
+    if (userData.organizationName) {
+        return userData.organizationName.toUpperCase();
+    }
+    
+    // Fallback: extract from affiliation domain
     if (userData.affiliation) {
         return userData.affiliation.split('.')[0].toUpperCase();
     }

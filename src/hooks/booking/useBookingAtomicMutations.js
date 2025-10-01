@@ -273,12 +273,12 @@ export const useCancelReservationRequest = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/confirmReservationRequest endpoint using server wallet (SSO users)
- * Confirms a reservation request using server wallet for SSO users (provider action)
+ * Hook for /api/contract/reservation/confirmReservationRequest endpoint using server wallet
+ * Confirms a reservation request using server wallet
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
-export const useConfirmReservationRequestSSO = (options = {}) => {
+export const useConfirmReservationRequest = (options = {}) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -307,13 +307,13 @@ export const useConfirmReservationRequestSSO = (options = {}) => {
       
       // Log different types of successful responses
       if (data.note) {
-        devLog.log('⚠️ useConfirmReservationRequestSSO - Transaction already processed:', {
+        devLog.log('⚠️ useConfirmReservationRequest - Transaction already processed:', {
           reservationKey,
           transactionHash: data.transactionHash,
           note: data.note
         });
       } else {
-        devLog.log('✅ useConfirmReservationRequestSSO - New transaction sent:', data);
+        devLog.log('✅ useConfirmReservationRequest - New transaction sent:', data);
       }
       
       return data;
@@ -329,22 +329,6 @@ export const useConfirmReservationRequestSSO = (options = {}) => {
     },
     ...options,
   });
-};
-
-/**
- * Unified Hook for confirming reservation requests (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useConfirmReservationRequest = (options = {}) => {
-  const { isSSO } = useUser();
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useConfirmReservationRequestSSO(options);
-  const walletMutation = useConfirmReservationRequestWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**
