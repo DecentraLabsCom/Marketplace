@@ -107,7 +107,7 @@ export async function parseSAMLResponse(samlResponse) {
       };
 
       // Debug log for new SAML2 attributes
-      devLog.log("SAML2 User Data:", {
+      console.log("SAML2 User Data:", {
         organizationType: userData.organizationType,
         organizationName: userData.organizationName,
         hasOrganizationName: !!userData.organizationName
