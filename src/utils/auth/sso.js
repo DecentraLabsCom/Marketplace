@@ -98,6 +98,12 @@ export async function parseSAMLResponse(samlResponse) {
               attrs.eduPersonAffiliation[0] : attrs.eduPersonAffiliation,
         scopedRole: Array.isArray(attrs.eduPersonScopedAffiliation) ? 
                     attrs.eduPersonScopedAffiliation[0] : attrs.eduPersonScopedAffiliation,
+        // New SAML2 attributes
+        organizationType: Array.isArray(attrs.schacHomeOrganizationType) ? 
+                         attrs.schacHomeOrganizationType[0] : attrs.schacHomeOrganizationType,
+        organizationName: attrs.organizationName ? 
+                         (Array.isArray(attrs.organizationName) ? attrs.organizationName[0] : attrs.organizationName) 
+                         : null, // Optional - not all IdPs provide this
       };
 
       resolve(userData);

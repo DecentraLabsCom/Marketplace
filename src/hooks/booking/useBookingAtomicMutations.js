@@ -273,12 +273,12 @@ export const useCancelReservationRequest = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/confirmReservationRequest endpoint using server wallet (SSO users)
- * Confirms a reservation request using server wallet for SSO users (provider action)
+ * Hook for /api/contract/reservation/confirmReservationRequest endpoint using server wallet
+ * Confirms a reservation request using server wallet
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
-export const useConfirmReservationRequestSSO = (options = {}) => {
+export const useConfirmReservationRequest = (options = {}) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -307,13 +307,13 @@ export const useConfirmReservationRequestSSO = (options = {}) => {
       
       // Log different types of successful responses
       if (data.note) {
-        devLog.log('⚠️ useConfirmReservationRequestSSO - Transaction already processed:', {
+        devLog.log('⚠️ useConfirmReservationRequest - Transaction already processed:', {
           reservationKey,
           transactionHash: data.transactionHash,
           note: data.note
         });
       } else {
-        devLog.log('✅ useConfirmReservationRequestSSO - New transaction sent:', data);
+        devLog.log('✅ useConfirmReservationRequest - New transaction sent:', data);
       }
       
       return data;
@@ -322,59 +322,13 @@ export const useConfirmReservationRequestSSO = (options = {}) => {
       // Update reservation status in cache
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Reservation request confirmed successfully via SSO, cache updated');
+      devLog.log('✅ Reservation request confirmed successfully, cache updated');
     },
     onError: (error) => {
-      devLog.error('❌ Failed to confirm reservation request via SSO:', error);
+      devLog.error('❌ Failed to confirm reservation request:', error);
     },
     ...options,
   });
-};
-
-/**
- * Hook for wallet-based confirmReservationRequest using useContractWriteFunction
- * Confirms a reservation request using user's wallet (provider action)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useConfirmReservationRequestWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: confirmReservationRequest } = useContractWriteFunction('confirmReservationRequest');
-
-  return useMutation({
-    mutationFn: async (reservationKey) => {
-      const txHash = await confirmReservationRequest([reservationKey]);
-      
-      devLog.log('🔍 useConfirmReservationRequestWallet - Transaction Hash:', txHash);
-      return { hash: txHash };
-    },
-    onSuccess: (result, reservationKey) => {
-      // Update reservation status in cache
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Reservation request confirmed successfully via wallet, cache updated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to confirm reservation request via wallet:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for confirming reservation requests (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useConfirmReservationRequest = (options = {}) => {
-  const { isSSO } = useUser();
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useConfirmReservationRequestSSO(options);
-  const walletMutation = useConfirmReservationRequestWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
 };
 
 /**

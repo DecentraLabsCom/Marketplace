@@ -30,6 +30,7 @@ export async function POST(request) {
     
     // Execute blockchain transaction
     const tx = await contract.confirmReservationRequest(reservationKey);
+    await tx.wait(); // Wait for transaction to be mined
     
     console.log(`✅ Reservation confirmed: ${reservationKey}`);
 

@@ -230,8 +230,8 @@ export default function LabReservation({ id }) {
   // Handle transaction confirmation and errors
   useEffect(() => {
     if (isReceiptSuccess && receipt && lastTxHash) {
-      // Show confirmation message when transaction is actually confirmed on-chain
-      addTemporaryNotification('success', '✅ Transaction confirmed on-chain! Your reservation is now being processed.');
+      // Show confirmation message when transaction is actually stored on-chain
+      addTemporaryNotification('success', '✅ Reservation request registered on-chain! Waiting for final confirmation...');
       
       setIsBooking(false);
       
@@ -250,7 +250,7 @@ export default function LabReservation({ id }) {
 
       // The BookingEventContext will handle updating bookings automatically via blockchain events
       // No manual cache invalidation needed - our granular cache strategy handles this
-      devLog.log('✅ Transaction confirmed on blockchain - BookingEventContext will process the ReservationRequested event');
+      devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the ReservationRequested event');
     }
   }, [isReceiptSuccess, receipt, lastTxHash, addTemporaryNotification, isSSO, refreshTokenData]);
 
@@ -394,19 +394,16 @@ export default function LabReservation({ id }) {
 
     setIsBooking(true);
     
-    // Show pending notification
-    addTemporaryNotification('pending', '⏳ Processing your reservation...');
-
     try {
-      // 🚀 Use React Query mutation for SSO booking creation
+      // 🚀 Use React Query mutation for booking creation
       await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
         end: start + timeslot
       });
 
-      // Show success notification
-      addTemporaryNotification('success', '✅ Reservation created!');
+      // Show initial success notification
+      addTemporaryNotification('pending', '⏳ Reservation request sent! Processing...');
       await handleBookingSuccess();
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ');
@@ -434,7 +431,6 @@ export default function LabReservation({ id }) {
     if (!bookingData) return;
 
     const { labId, start, timeslot } = bookingData;
-    const end = start + timeslot; // Wallet booking needs end time
 
     // Calculate cost and validate payment using improved function
     const cost = totalCost;
@@ -473,11 +469,8 @@ export default function LabReservation({ id }) {
           return;
         }
       }
-
-      // Step 2: Make the reservation with payment using React Query mutation
-      addTemporaryNotification('pending', '⏳ Sending reservation request with payment...');
       
-      // Final validation: check if the time slot is still available right before transaction
+      // Step 2: check if the time slot is still available right before transaction
       const finalAvailableTimes = generateTimeOptions({
         date,
         interval: time,
@@ -494,26 +487,23 @@ export default function LabReservation({ id }) {
         return;
       }
       
+      // Step 3: Make the reservation with payment using React Query mutation
+
       // 🚀 Use React Query mutation for booking creation and capture transaction hash
       const result = await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
         end: start + timeslot
       });
+
+      // Show initial success notification (transaction sent)
+      addTemporaryNotification('pending', '⏳ Reservation request sent! Processing...');
       
       // Capture transaction hash for receipt monitoring
       if (result?.hash) {
         setLastTxHash(result.hash);
         setTxType('reservation');
         setPendingData({ labId, start, timeslot, cost });
-        
-        // Show initial success notification (transaction sent)
-        addTemporaryNotification('pending', '⏳ Reservation transaction sent. Waiting for blockchain confirmation...');
-      } else {
-        // Fallback success notification if no hash (shouldn't happen with wallet transactions)
-        addTemporaryNotification('success', 
-          `✅ Reservation created successfully! Payment of ${formatBalance(cost)} LAB processed.`);
-        await handleBookingSuccess();
       }
     } catch (error) {
       devLog.error('Error making booking request:', error);
