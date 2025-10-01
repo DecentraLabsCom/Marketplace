@@ -1,124 +1,177 @@
-import React from 'react'
-import { render, screen, cleanup } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import LabCard from '../LabCard'
+/**
+ *
+ * Unit tests for the LabCard component.
+ *
+ * - External dependencies are mocked to isolate component behavior.
+ * - Accessible queries (getByRole, getByText, getByAltText) are used to reflect user interaction.
+ * - Tests focus on observable behavior and common edge cases.
+ *
+ */
 
-// Mock next/link -> use a simple anchor so href is testable
-jest.mock('next/link', () => {
-  return ({ href, children, ...rest }) => <a href={href} {...rest}>{children}</a>
-})
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import LabCard from '../LabCard';
 
-// Mock contexts
+// External dependency mocks
 jest.mock('@/context/UserContext', () => ({
   useUser: jest.fn()
-}))
-
+}));
 jest.mock('@/context/LabTokenContext', () => ({
-  useLabToken: () => ({ formatPrice: (p) => `$${p}` })
-}))
+  useLabToken: jest.fn()
+}));
 
-// Mock LabAccess as a stub
-jest.mock('@/components/home/LabAccess', () => () => (
-  <div data-testid="lab-access">LabAccess</div>
-))
+// Minimal stub for LabAccess to expose the forwarded id for assertions.
+jest.mock('@/components/home/LabAccess', () => (props) => {
+  return <div>LabAccess - {props.id}</div>;
+});
 
-// Mock image component but DO NOT pass non-DOM props through
-jest.mock('@/components/ui/ReactQueryLabImage', () => ({
-  LabCardImage: ({ src, alt }) => <img data-testid="lab-image" src={src} alt={alt} />
-}))
+// Minimal, deterministic UI primitives used by LabCard.
+// - Card is rendered as a <div> so className assertions are straightforward.
+// - cn implements a small class-combiner that supports strings, arrays and objects.
+// - LabCardImage is a plain <img> so we can query by alt text.
+jest.mock('@/components/ui', () => ({
+  Card: ({ children, className }) => <div className={className}>{children}</div>,
+  Badge: ({ children }) => <span>{children}</span>,
+  cn: (...args) => {
+    return args
+      .flat()
+      .filter(Boolean)
+      .map(arg => {
+        if (typeof arg === 'string') return arg;
+        if (Array.isArray(arg)) return arg.join(' ');
+        if (typeof arg === 'object' && arg !== null) {
+          return Object.keys(arg).filter(k => arg[k]).join(' ');
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join(' ');
+  },
+  LabCardImage: ({ src, alt, labId }) => <img src={src} alt={alt} data-labid={labId} />
+}));
 
-import { useUser } from '@/context/UserContext'
+// Render next/link as a plain anchor so href assertions are deterministic.
+jest.mock('next/link', () => {
+  return ({ href, children }) => <a href={href}>{children}</a>;
+});
 
-describe('LabCard component', () => {
-  const baseProps = {
-    id: 'lab-1',
-    name: 'Electronics Lab',
-    provider: 'ProviderX',
-    price: 10,
-    auth: null,
-    activeBooking: false,
-    image: '/lab.png'
-  }
+// References to the jest-generated mocks for per-test customization.
+const mockUseUser = require('@/context/UserContext').useUser;
+const mockUseLabToken = require('@/context/LabTokenContext').useLabToken;
 
-  beforeEach(() => {
-    jest.clearAllMocks()
-  })
+/* Fixture: typical props used across tests */
+const baseProps = {
+  id: 'lab-1',
+  name: 'Test Lab',
+  provider: 'ProviderA',
+  price: 12.5,
+  auth: null,
+  activeBooking: false,
+  isListed: true,
+  image: 'https://example.com/img.jpg'
+};
 
-  test('renders lab name, provider, and formatted price', () => {
-    useUser.mockReturnValue({ address: null, isConnected: false })
+/* Helper: render the SUT with base props and allow overrides */
+const createSut = (props = {}) => {
+  return render(<LabCard {...baseProps} {...props} />);
+};
 
-    render(<LabCard {...baseProps} />)
+/* Test lifecycle: configure default mock returns and clear mocks per test */
+beforeEach(() => {
+  mockUseUser.mockReturnValue({ address: '0xABC', isConnected: true });
+  mockUseLabToken.mockReturnValue({ formatPrice: (p) => `€${Number(p).toFixed(2)}` });
+});
 
-    expect(screen.getByText(baseProps.name)).toBeInTheDocument()
-    expect(screen.getByText(baseProps.provider)).toBeInTheDocument()
-    expect(screen.getByText('$10 $LAB / hour')).toBeInTheDocument()
-  })
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
-  test('renders image when provided; shows fallback otherwise', () => {
-    useUser.mockReturnValue({ address: null, isConnected: false })
+/* Test suite */
+describe('LabCard - unit tests', () => {
+  test('renders heading (h2), provider and formatted price', () => {
+    createSut();
 
-    const { rerender } = render(<LabCard {...baseProps} />)
-    const img = screen.getByTestId('lab-image')
-    expect(img).toHaveAttribute('src', baseProps.image)
-    expect(img).toHaveAttribute('alt', baseProps.name)
+    // The lab name must be rendered as an h2 heading.
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading).toHaveTextContent('Test Lab');
 
-    rerender(<LabCard {...baseProps} image="" />)
-    expect(screen.getByText(/No image/i)).toBeInTheDocument()
-  })
+    // Provider label is rendered as visible text.
+    expect(screen.getByText('ProviderA')).toBeInTheDocument();
 
-  test('shows Active badge and applies activeBooking classes on Card root', () => {
-    useUser.mockReturnValue({ address: null, isConnected: false })
+    // Price is produced by the mocked formatter and suffixed by the component.
+    expect(screen.getByText('€12.50 $LAB / hour')).toBeInTheDocument();
+  });
 
-    const { container } = render(<LabCard {...baseProps} activeBooking />)
-    expect(screen.getByText(/Active/i)).toBeInTheDocument()
-    expect(container.firstChild).toHaveClass('border-4', 'border-brand', 'animate-glow')
-  })
+  test('renders image when a valid image string is provided (query by alt)', () => {
+    createSut();
 
-    test('renders Explore Lab overlay link with correct href', () => {
-  useUser.mockReturnValue({ address: null, isConnected: false })
+    const img = screen.getByAltText(baseProps.name);
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', baseProps.image);
 
-  render(<LabCard {...baseProps} />)
+    // Verify the mock LabCardImage received the labId via the data attribute.
+    expect(img).toHaveAttribute('data-labid', baseProps.id);
+  });
 
-  const link = screen.getByRole('link', { name: /Explore Lab/i })
-  expect(link).toHaveAttribute('href', `/lab/${baseProps.id}`)
-  expect(screen.getByText(/Explore Lab/i)).toBeInTheDocument()
-})
+  test('renders fallback "No image" when image is blank or whitespace', () => {
+    createSut({ image: '   ' });
 
+    // Fallback content must be present and no image with the expected alt should exist.
+    expect(screen.getByText(/No image/i)).toBeInTheDocument();
+    expect(screen.queryByAltText(baseProps.name)).not.toBeInTheDocument();
+  });
 
-  test('overlay carries Tailwind classes for hover (opacity-0 and group-hover:opacity-100)', () => {
-    useUser.mockReturnValue({ address: null, isConnected: false })
+  test('displays "Unlisted" badge when isListed is false', () => {
+    createSut({ isListed: false });
+    expect(screen.getByText(/Unlisted/i)).toBeInTheDocument();
+  });
 
-    render(<LabCard {...baseProps} />)
+  test('does not render LabAccess when user is not connected', () => {
+    // Simulate disconnected user
+    mockUseUser.mockReturnValue({ address: null, isConnected: false });
+    createSut();
 
-    // The overlay element is the DIV inside the anchor Link wrapper
-    const link = screen.getByRole('link', { name: /Explore Lab/i })
-    const overlayDiv = link.firstElementChild // the absolute inset-0 container
-    expect(overlayDiv).toBeTruthy()
-    expect(overlayDiv).toHaveClass('opacity-0')
-    expect(overlayDiv.className).toMatch(/group-hover:opacity-100/)
-  })
+    // The LabAccess stub should not be present for unauthenticated users.
+    expect(screen.queryByText(/LabAccess/)).not.toBeInTheDocument();
 
-  test('renders LabAccess only when user is connected', () => {
-    // Case 1: connected
-    useUser.mockReturnValue({ address: '0x123', isConnected: true })
-    const { unmount } = render(<LabCard {...baseProps} />)
-    expect(screen.getByTestId('lab-access')).toBeInTheDocument()
+    // Explore link remains available regardless of authentication.
+    expect(screen.getByRole('link', { name: /Explore Lab/i })).toBeInTheDocument();
+  });
 
-    // Case 2: not connected — remount to avoid memo/context caching
-    unmount()
-    cleanup()
-    useUser.mockReturnValue({ address: null, isConnected: false })
-    render(<LabCard {...baseProps} />)
-    expect(screen.queryByTestId('lab-access')).not.toBeInTheDocument()
-  })
+  test('renders LabAccess when user is connected and forwards id prop', () => {
+    createSut();
+    expect(screen.getByText(/LabAccess - lab-1/i)).toBeInTheDocument();
+  });
 
-  test('supports different prices through formatPrice', () => {
-    useUser.mockReturnValue({ address: null, isConnected: false })
+  test('Explore Lab link builds correct href using id and provider', () => {
+    createSut();
 
-    const { rerender } = render(<LabCard {...baseProps} price={0.5} />)
-    expect(screen.getByText('$0.5 $LAB / hour')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Explore Lab/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', `/lab/${baseProps.id}/${baseProps.provider}`);
+  });
 
-    rerender(<LabCard {...baseProps} price={42} />)
-    expect(screen.getByText('$42 $LAB / hour')).toBeInTheDocument()
-  })
-})
+  test('applies visual classes when activeBooking is true (minimal observable assertion)', () => {
+    // Use container for class assertions and rerender support.
+    const { container, rerender } = render(<LabCard {...baseProps} activeBooking={false} />);
+
+    // Initially, active-booking classes should not be present.
+    expect(container.firstChild.className).not.toMatch(/border-4/);
+
+    // Rerender with activeBooking enabled and assert that classes appear.
+    rerender(<LabCard {...baseProps} activeBooking={true} />);
+    expect(container.firstChild.className).toMatch(/border-4/);
+    expect(container.firstChild.className).toMatch(/animate-glow/);
+  });
+
+  test('handles price = 0 correctly (edge case)', () => {
+    createSut({ price: 0 });
+    expect(screen.getByText('€0.00 $LAB / hour')).toBeInTheDocument();
+  });
+
+  test('accepts numeric id and builds href accordingly', () => {
+    createSut({ id: 1234 });
+    const link = screen.getByRole('link', { name: /Explore Lab/i });
+    expect(link).toHaveAttribute('href', `/lab/1234/${baseProps.provider}`);
+  });
+});
