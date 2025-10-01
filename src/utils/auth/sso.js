@@ -106,13 +106,6 @@ export async function parseSAMLResponse(samlResponse) {
                          : null, // Optional - not all IdPs provide this
       };
 
-      // Debug log for new SAML2 attributes
-      console.log("SAML2 User Data:", {
-        organizationType: userData.organizationType,
-        organizationName: userData.organizationName,
-        hasOrganizationName: !!userData.organizationName
-      });
-
       resolve(userData);
     });
   });
