@@ -48,5 +48,8 @@ next-env.d.ts
 # certificates
 /certificates
 
+# contracts
+/contracts
+
 # development documentation
 dev/
