@@ -12,7 +12,10 @@
 
 # testing
 /coverage
-/scripts
+/scripts/*
+
+#But allow the rotate-jwt-keys script
+!scripts/rotate-jwt-keys.js
 
 # next.js
 /.next/
