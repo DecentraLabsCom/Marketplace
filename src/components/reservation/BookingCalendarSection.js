@@ -43,13 +43,13 @@ export default function BookingCalendarSection({
   isSSO,
   formatPrice
 }) {
-  if (!lab) return null
-
   // Filter out cancelled bookings for calendar display
   const activeBookings = useMemo(() => 
     (bookings || []).filter(booking => !isCancelledBooking(booking)),
     [bookings]
   )
+
+  if (!lab) return null
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
