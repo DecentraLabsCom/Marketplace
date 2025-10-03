@@ -115,9 +115,8 @@ export function BookingEventProvider({ children }) {
             devLog.log(`✅ [BookingEventContext] Successfully auto-confirmed reservation ${reservationKey} via server wallet`, result);
             
             // Show success notification to current user
-            // Note: Only show if result indicates new transaction (not already confirmed)
             // Use setTimeout to avoid setState during render
-            if (isCurrentUserReservation && result && !result.note) {
+            if (isCurrentUserReservation) {
                 setTimeout(() => {
                     addTemporaryNotification('success', '✅ Reservation confirmed and ready!');
                 }, 0);
