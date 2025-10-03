@@ -42,9 +42,6 @@ export {
   useAddProvider,
   useUpdateProvider,
   useRemoveProvider,
-  
-  // Refresh/Validation Mutations
-  useRefreshProviderStatusMutation,
 } from './useUserAtomicMutations'
 
 // ===== COMPOSED QUERY HOOKS =====

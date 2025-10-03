@@ -6,13 +6,80 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
+import { useIsLabProviderQuery } from './useUserAtomicQueries'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Hook providing user-specific cache update functions
  * @returns {Object} Cache update functions for users
+ * @returns {Function} returns.refreshProviderStatus - Refresh provider status from blockchain
+ * @returns {Function} returns.clearSSOSession - Clear SSO session from cache
+ * @returns {Function} returns.addProvider - Add new provider to cache
+ * @returns {Function} returns.updateProvider - Update existing provider in cache
+ * @returns {Function} returns.removeProvider - Remove provider from cache
+ * @returns {Function} returns.updateUser - Update user data in cache
+ * @returns {Function} returns.invalidateAllUsers - Invalidate all user queries
+ * @returns {Function} returns.invalidateAllProviders - Invalidate all provider queries
  */
 export function useUserCacheUpdates() {
   const queryClient = useQueryClient()
+
+  /**
+   * Refresh provider status from blockchain and update cache
+   * This is a cache utility that fetches fresh data without using useMutation
+   * @param {string} userAddress - User's wallet address
+   * @returns {Promise<Object>} Provider status data
+   */
+  const refreshProviderStatus = useCallback(async (userAddress) => {
+    if (!userAddress) {
+      throw new Error('userAddress is required')
+    }
+
+    try {
+      // Fetch fresh provider status using the atomic query's queryFn
+      const data = await useIsLabProviderQuery.queryFn({ userAddress })
+      
+      // Update cache with fresh data
+      queryClient.setQueryData(
+        providerQueryKeys.isLabProvider(userAddress),
+        {
+          isLabProvider: data.isLabProvider,
+          isProvider: data.isLabProvider // Alias for backward compatibility
+        }
+      )
+      
+      devLog.success('Provider status refreshed successfully for', userAddress)
+      return {
+        isLabProvider: data.isLabProvider,
+        isProvider: data.isLabProvider,
+        address: userAddress
+      }
+    } catch (error) {
+      devLog.error('Failed to refresh provider status for', userAddress, ':', error.message)
+      throw error
+    }
+  }, [queryClient])
+
+  /**
+   * Clear SSO session from cache
+   * Used during logout to ensure clean state
+   */
+  const clearSSOSession = useCallback(() => {
+    // Cancel any ongoing SSO queries
+    queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() })
+    
+    // Set empty session data
+    queryClient.setQueryData(userQueryKeys.ssoSession(), {
+      user: null,
+      isSSO: false
+    })
+    
+    // Remove SSO queries from cache
+    queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() })
+    queryClient.removeQueries({ queryKey: userQueryKeys.all() })
+    
+    devLog.log('🧹 SSO session cleared from cache')
+  }, [queryClient])
 
   // Add new provider to cache
   const addProvider = useCallback((newProvider) => {
@@ -130,6 +197,12 @@ export function useUserCacheUpdates() {
   }, [queryClient])
 
   return {
+    // Provider status operations
+    refreshProviderStatus,
+    
+    // SSO operations
+    clearSSOSession,
+    
     // Basic operations
     addProvider,
     updateProvider,

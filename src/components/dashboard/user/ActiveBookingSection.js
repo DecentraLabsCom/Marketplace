@@ -4,7 +4,7 @@
  */
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { useUserBookingsDashboard } from '@/hooks/booking/useBookingComposedQueries';
+import { useUserBookingsDashboard } from '@/hooks/booking/useBookings';
 import ActiveLabCard from './ActiveLabCard';
 
 /**

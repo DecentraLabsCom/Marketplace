@@ -6,10 +6,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
   useIsLabProviderQuery, 
-  useGetLabProvidersQuery, 
-  useRefreshProviderStatusMutation 
+  useGetLabProvidersQuery,
+  useUserCacheUpdates
 } from '@/hooks/user/useUsers'
-import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
+import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
   ErrorBoundary, 
   useErrorHandler, 
@@ -104,8 +104,8 @@ function UserDataCore({ children }) {
         staleTime: 10 * 60 * 1000, // 10 minutes for provider list
     });
 
-    // Debug logging for provider status
-    const refreshProviderStatusMutation = useRefreshProviderStatusMutation();
+    // Cache update utilities
+    const { refreshProviderStatus: refreshProviderStatusFromCache, clearSSOSession } = useUserCacheUpdates();
 
     // Safe error handler wrapper
     const handleError = useCallback((error, context = {}) => {
@@ -279,14 +279,11 @@ function UserDataCore({ children }) {
         if (!address) return;
         
         try {
-            await refreshProviderStatusMutation.mutateAsync({ 
-                identifier: address, 
-                isEmail: false 
-            });
+            await refreshProviderStatusFromCache(address);
         } catch (error) {
             handleError(error, { context: 'Refresh provider status' });
         }
-    }, [address, refreshProviderStatusMutation, handleError]);
+    }, [address, refreshProviderStatusFromCache, handleError]);
 
     // SSO logout function
     const logoutSSO = useCallback(async () => {
@@ -306,19 +303,8 @@ function UserDataCore({ children }) {
             setUser(null);
             devLog.log('✅ Local state cleared (isSSO=false, user=null)');
             
-            // Cancel any ongoing queries FIRST to prevent race conditions
-            devLog.log('🚫 Canceling queries...');
-            queryClient.cancelQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.cancelQueries({ queryKey: userQueryKeys.all() });
-            
-            // Force set empty data to prevent any cached data from being used
-            devLog.log('💾 Setting empty query data...');
-            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
-            
-            // Remove queries completely
-            devLog.log('🗑️ Removing queries from cache...');
-            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            // Use cache update utility to clear SSO session
+            clearSSOSession();
             
             // Call logout endpoint and wait for completion
             devLog.log('🌐 Calling logout endpoint...');
@@ -357,9 +343,7 @@ function UserDataCore({ children }) {
             
             // Triple-clear cache to ensure any background refetches are overridden
             devLog.log('🔒 Final aggressive cache cleanup...');
-            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
-            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            clearSSOSession();
             
             // Keep logout flag active for longer to ensure no race conditions
             setTimeout(() => {
@@ -375,13 +359,11 @@ function UserDataCore({ children }) {
             // Even if there's an error, still clear local state
             setIsSSO(false);
             setUser(null);
-            queryClient.setQueryData(userQueryKeys.ssoSession(), { user: null, isSSO: false });
-            queryClient.removeQueries({ queryKey: userQueryKeys.ssoSession() });
-            queryClient.removeQueries({ queryKey: userQueryKeys.all() });
+            clearSSOSession();
             setTimeout(() => setIsLoggingOut(false), 3000);
             return true;
         }
-    }, [queryClient, handleError]);
+    }, [queryClient, handleError, clearSSOSession]);
 
     const value = {
         // User state

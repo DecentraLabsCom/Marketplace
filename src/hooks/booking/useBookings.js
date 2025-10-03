@@ -17,3 +17,6 @@ export * from './useBookingSpecializedQueries'
 
 // Export cache update utilities
 export * from './useBookingCacheUpdates'
+
+// Export utility hooks
+export * from './useBookingFilter'

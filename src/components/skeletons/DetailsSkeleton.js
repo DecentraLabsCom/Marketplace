@@ -1,5 +1,10 @@
 import { Skeleton, SkeletonCard } from './Skeleton'
 
+/**
+ * Calendar skeleton placeholder
+ * Displays a loading skeleton matching the calendar layout with header and day grid
+ * @returns {JSX.Element} Calendar skeleton with navigation arrows, month/year header, weekday headers, and day cells
+ */
 export function CalendarSkeleton() {
   return (
     <SkeletonCard className="flex justify-center items-center h-80">
@@ -33,7 +38,11 @@ export function CalendarSkeleton() {
   );
 }
 
-// Lab detail hero section skeleton
+/**
+ * Lab detail hero section skeleton
+ * Displays a loading skeleton matching the lab details hero section layout
+ * @returns {JSX.Element} Lab hero skeleton with title, provider, description, tags, and image carousel
+ */
 export function LabHeroSkeleton() {
   return (
     <SkeletonCard className="flex md:flex-row flex-col gap-4 p-6">

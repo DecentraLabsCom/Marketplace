@@ -18,6 +18,8 @@ const providerSchema = z.object({
 
 /**
  * Form for manual provider registration (non-SSO flow)
+ * Collects provider details and submits to backend for validation and registration
+ * @returns {JSX.Element} Provider registration form with validation and submission handling
  */
 export default function ProviderRegisterForm() {
   const { user, isSSO, isProvider, address, isLoading } = useUser()

@@ -1,6 +1,11 @@
 import PropTypes from 'prop-types'
 import { Skeleton, SkeletonCard, SkeletonText, SkeletonImage, SkeletonButton } from './Skeleton'
 
+/**
+ * Lab card skeleton placeholder
+ * Displays a loading skeleton matching the lab card layout
+ * @returns {JSX.Element} Lab card skeleton with image, title, tags, description, provider, and action button
+ */
 export function LabCardSkeleton() {
   return (
     <SkeletonCard className="overflow-hidden">
@@ -37,7 +42,13 @@ export function LabCardSkeleton() {
   );
 }
 
-// Grid of lab cards
+/**
+ * Grid of lab card skeletons
+ * Displays multiple lab card skeletons in a responsive grid layout
+ * @param {Object} props - Component props
+ * @param {number} [props.count=6] - Number of skeleton cards to display
+ * @returns {JSX.Element} Grid of lab card skeletons
+ */
 export function LabCardGridSkeleton({ count = 6 }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

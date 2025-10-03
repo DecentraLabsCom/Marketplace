@@ -2,7 +2,7 @@
  * Utility hook for provider mapping functionality
  * Provides reusable provider mapping logic across different hooks
  */
-import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUserAtomicQueries'
+import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 /**

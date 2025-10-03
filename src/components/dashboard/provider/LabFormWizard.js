@@ -4,7 +4,7 @@
  */
 import React, { useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { useLabValidation } from '@/hooks/lab/useLabValidation'
+import { useLabValidation } from '@/hooks/lab/useLabs'
 import { useUploadFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'

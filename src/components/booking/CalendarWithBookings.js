@@ -2,7 +2,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import DatePicker from 'react-datepicker'
-import { useBookingFilter } from '@/hooks/booking/useBookingFilter'
+import { useBookingFilter } from '@/hooks/booking/useBookings'
 import { renderDayContents } from '@/utils/booking/labBookingCalendar'
 
 /**
