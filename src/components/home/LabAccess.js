@@ -28,6 +28,15 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
     setLoading(true);
     setErrorMessage(null);
     
+    // Validate auth endpoint before attempting authentication
+    if (!auth || auth === '') {
+      devLog.error('❌ Missing auth endpoint for lab:', id);
+      setErrorMessage('This lab does not have authentication configured. Please contact the lab provider.');
+      setTimeout(() => setErrorMessage(null), 3000);
+      setLoading(false);
+      return;
+    }
+    
     try {
       // Use helper function to handle the complete authentication flow
       const authResult = await authenticateLabAccess(auth, userWallet, id, signMessageAsync);

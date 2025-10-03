@@ -44,8 +44,22 @@ export async function POST(request) {
       reservationKey,
       errorMessage: error.message,
       errorStack: error.stack,
-      errorCode: error.code
+      errorCode: error.code,
+      errorReason: error.reason
     });
+    
+    // Check if the error is due to already confirmed reservation (transaction reverted)
+    // This happens when the reservation is already in CONFIRMED state
+    if (error.message?.includes('transaction execution reverted') || 
+        error.code === 'CALL_EXCEPTION' ||
+        error.receipt?.status === 0) {
+      console.log('ℹ️ Reservation likely already confirmed:', reservationKey);
+      return Response.json({ 
+        note: 'Reservation already confirmed',
+        reservationKey,
+        alreadyProcessed: true
+      }, {status: 200}); // Return success since reservation is confirmed
+    }
     
     return Response.json({ 
       error: 'Failed to confirm reservation',

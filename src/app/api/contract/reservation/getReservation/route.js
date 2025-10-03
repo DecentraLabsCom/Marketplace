@@ -103,6 +103,38 @@ export async function GET(request) {
   } catch (error) {
     console.error('❌ Error fetching reservation:', error);
     
+    // Handle contract revert gracefully - treat as non-existent reservation
+    if (error.code === 'CALL_EXCEPTION' || 
+        error.message?.includes('reverted') ||
+        error.message?.includes('execution reverted')) {
+      console.log(`⚠️ Reservation not found or reverted: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+      
+      // Return a valid response indicating the reservation doesn't exist
+      return Response.json({ 
+        reservation: {
+          labId: null,
+          renter: '0x0000000000000000000000000000000000000000',
+          price: null,
+          start: null,
+          end: null,
+          status: null,
+          reservationState: 'Not Found',
+          isPending: false,
+          isBooked: false,
+          isUsed: false,
+          isCollected: false,
+          isCanceled: false,
+          isActive: false,
+          isCompleted: false,
+          isConfirmed: false,
+          exists: false
+        },
+        reservationKey,
+        notFound: true
+      }, {status: 200}); // Return 200 with notFound flag instead of 500
+    }
+    
+    // For other errors, return 500
     return Response.json({ 
       error: 'Failed to fetch reservation',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,

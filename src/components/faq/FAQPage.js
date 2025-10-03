@@ -1,5 +1,9 @@
 import { Container } from '@/components/ui'
 
+/**
+ * FAQ page component displaying frequently asked questions
+ * @returns {JSX.Element} FAQ page with accordion-style questions and answers
+ */
 export default function FAQ() {
   const faqData = [
     {

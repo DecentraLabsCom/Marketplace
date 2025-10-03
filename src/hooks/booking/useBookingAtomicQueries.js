@@ -27,49 +27,6 @@ export const BOOKING_QUERY_CONFIG = {
 }
 
 // Define queryFn first for reuse
-const getAllReservationsQueryFn = createSSRSafeQuery(async () => {
-  const response = await fetch('/api/contract/reservation/getAllReservations', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch all reservations: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useAllReservations:', data);
-  return data;
-}, []); // Return empty array during SSR
-
-/**
- * Hook for /api/contract/reservation/getAllReservations endpoint
- * Gets all reservations from the smart contract
- * @param {Object} [options={}] - Additional react-query options
- * @param {boolean} [options.enabled] - Whether the query should be enabled
- * @param {Function} [options.onSuccess] - Success callback function
- * @param {Function} [options.onError] - Error callback function
- * @param {Object} [options.meta] - Metadata for the query
- * @returns {Object} React Query result with all reservations data
- * @returns {Array} returns.data - Array of all reservations from the contract
- * @returns {boolean} returns.isLoading - Whether the query is loading
- * @returns {boolean} returns.isError - Whether the query has an error
- * @returns {Error|null} returns.error - Error object if query failed
- * @returns {Function} returns.refetch - Function to manually refetch
- */
-export const useAllReservations = (options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.all(),
-    queryFn: () => getAllReservationsQueryFn(), // ✅ Reuse the queryFn (already SSR-safe)
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useAllReservations.queryFn = getAllReservationsQueryFn;
-
-// Define queryFn first for reuse
 const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
   if (!reservationKey) throw new Error('Reservation key is required');
   
@@ -78,13 +35,15 @@ const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
     headers: { 'Content-Type': 'application/json' }
   });
   
-  if (!response.ok) {
-    throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+  // Handle 200 responses (including "not found" cases)
+  if (response.ok) {
+    const data = await response.json();
+    devLog.log('🔍 useReservation:', reservationKey, data);
+    return data;
   }
   
-  const data = await response.json();
-  devLog.log('🔍 useReservation:', reservationKey, data);
-  return data;
+  // Only throw for actual server errors (500, etc.)
+  throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
 }, null); // Return null during SSR
 
 /**

@@ -1,6 +1,11 @@
 import PropTypes from 'prop-types'
 import { Skeleton, SkeletonCard, SkeletonButton } from './Skeleton'
 
+/**
+ * Booking item skeleton placeholder
+ * Displays a loading skeleton matching the booking item layout
+ * @returns {JSX.Element} Booking item skeleton with lab image, details, status badge, and action button
+ */
 export function BookingItemSkeleton() {
   return (
     <SkeletonCard className="flex items-center justify-between p-4">
@@ -37,6 +42,13 @@ export function BookingItemSkeleton() {
   );
 }
 
+/**
+ * List of booking item skeletons
+ * Displays multiple booking item skeletons stacked vertically
+ * @param {Object} props - Component props
+ * @param {number} [props.count=3] - Number of skeleton items to display
+ * @returns {JSX.Element} Vertical list of booking item skeletons
+ */
 export function BookingListSkeleton({ count = 3 }) {
   return (
     <div className="space-y-4">
@@ -47,7 +59,13 @@ export function BookingListSkeleton({ count = 3 }) {
   );
 }
 
-// Dashboard section skeleton
+/**
+ * Dashboard section skeleton
+ * Displays a complete dashboard section skeleton with optional title and booking list
+ * @param {Object} props - Component props
+ * @param {boolean} [props.title=true] - Whether to show the title skeleton
+ * @returns {JSX.Element} Dashboard section skeleton with title and booking list
+ */
 export function DashboardSectionSkeleton({ title = true }) {
   return (
     <div className="space-y-4">

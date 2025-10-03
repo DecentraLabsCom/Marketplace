@@ -8,6 +8,8 @@ import { useUser } from '@/context/UserContext'
 
 /**
  * Top-level page component for provider registration
+ * Routes users to registration form or access denied based on role validation
+ * @returns {JSX.Element} Provider registration page with role-based access control
  */
 export default function RegisterProviderPage() {
   const { isSSO, user, isLoading, isWalletLoading } = useUser()

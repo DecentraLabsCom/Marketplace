@@ -1,6 +1,14 @@
 import { Container } from '@/components/ui'
 
+/**
+ * Contact page component with email form
+ * @returns {JSX.Element} Contact page with email form for inquiries
+ */
 export default function Contact() {
+  /**
+   * Sends email via mailto protocol
+   * @param {Event} event - Form submit event
+   */
   function sendEmail(event) {
     event.preventDefault();
 

@@ -1,5 +1,9 @@
 import { Container } from '@/components/ui'
 
+/**
+ * About page component displaying information about Nebsyst and DecentraLabs
+ * @returns {JSX.Element} About page with company and project descriptions
+ */
 export default function About() {
   return (
     <Container padding="sm">

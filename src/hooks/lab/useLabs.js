@@ -14,3 +14,7 @@ export * from './useLabSpecializedQueries'
 
 // Export cache update utilities
 export * from './useLabCacheUpdates'
+
+// Export utility hooks
+export * from './useLabFilters'
+export * from './useLabValidation'

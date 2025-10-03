@@ -24,6 +24,11 @@ import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCa
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * Provider dashboard page component
+ * Displays provider's labs, reservations calendar, and provides lab management tools
+ * @returns {JSX.Element} Complete provider dashboard with access control, lab list, calendar, and management actions
+ */
 export default function ProviderDashboard() {
   const { address, user, isSSO, isProvider, isProviderLoading, isLoading } = useUser();  
   const router = useRouter();

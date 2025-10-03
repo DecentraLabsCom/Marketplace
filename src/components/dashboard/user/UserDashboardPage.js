@@ -16,6 +16,11 @@ import BookingSummarySection from '@/components/dashboard/user/BookingSummarySec
 import BookingsList from '@/components/dashboard/user/BookingsList'
 import devLog from '@/utils/dev/logger'
 
+/**
+ * User dashboard page component
+ * Displays user's bookings, active labs, calendar, and provides booking management
+ * @returns {JSX.Element} Complete user dashboard with access control, bookings list, calendar, and actions
+ */
 export default function UserDashboard() {
   const { isLoggedIn, address, user, isSSO, isConnected } = useUser();
   
