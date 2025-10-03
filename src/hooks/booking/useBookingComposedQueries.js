@@ -7,7 +7,7 @@
  * - useUserBookingsDashboard: User bookings with enriched details, analytics, and optional features for user dashboard
  * - useLabBookingsDashboard: Lab bookings with enriched details and analytics for provider dashboard  
  */
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
   useReservationsOf,
@@ -302,6 +302,17 @@ export const useUserBookingsDashboard = (userAddress, {
           queryFn: () => useReservation.queryFn(key), // ✅ Using atomic hook queryFn
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
+          // Don't retry on 404/not found - these are valid responses
+          retry: (failureCount, error) => {
+            // Don't retry if the error message indicates a not found or client error
+            if (error?.message?.includes('404') || 
+                error?.message?.includes('not found') ||
+                error?.message?.includes('400')) {
+              return false;
+            }
+            // Retry once for other errors (network, 500, etc.)
+            return failureCount < 1;
+          },
         }))
       : [],
     combine: (results) => results
@@ -309,7 +320,24 @@ export const useUserBookingsDashboard = (userAddress, {
 
   // Extract raw booking API payloads
   const rawBookingPayloads = bookingDetailsResults
-    .filter(result => result.isSuccess && result.data)
+    .filter(result => {
+      // Filter out failed queries and non-existent reservations
+      if (!result.isSuccess || !result.data) return false;
+      
+      // Filter out reservations marked as notFound by the API
+      if (result.data.notFound === true) {
+        devLog.warn('🚫 Filtering out non-existent reservation:', result.data.reservationKey);
+        return false;
+      }
+      
+      // Filter out reservations with no renter (doesn't exist on-chain)
+      if (result.data.reservation?.exists === false) {
+        devLog.warn('🚫 Filtering out reservation with no renter:', result.data.reservationKey);
+        return false;
+      }
+      
+      return true;
+    })
     .map(result => {
       const data = result.data;
       // Ensure we have reservationKey in the payload
@@ -428,13 +456,16 @@ export const useUserBookingsDashboard = (userAddress, {
   });
 
   // Process and combine all results
-  const isLoading = reservationCountResult.isLoading || 
-                   reservationKeyResults.some(result => result.isLoading) ||
-                   bookingDetailsResults.some(result => result.isLoading) ||
-                   (includeLabDetails && labDetailsResults.some(result => result.isLoading)) ||
-                   (includeLabDetails && labMetadataResults.some(result => result.isLoading)) ||
-                   (includeLabDetails && labOwnerResults.some(result => result.isLoading)) ||
-                   (includeLabDetails && providerMapping.isLoading);
+  // Only block UI if the initial reservation count is loading
+  // Allow partial rendering if some individual bookings are still loading
+  const isLoading = reservationCountResult.isLoading ||
+                   (reservationCountResult.isSuccess && reservationCount > 0 && bookingDetailsResults.length === 0 && reservationKeyResults.some(result => result.isLoading));
+  
+  // Track if we're loading additional details (don't block UI for this)
+  const isLoadingDetails = (includeLabDetails && labDetailsResults.some(result => result.isLoading)) ||
+                          (includeLabDetails && labMetadataResults.some(result => result.isLoading)) ||
+                          (includeLabDetails && labOwnerResults.some(result => result.isLoading)) ||
+                          (includeLabDetails && providerMapping.isLoading);
 
   const baseErrors = reservationCountResult.error ? [reservationCountResult.error] : [];
   const keyErrors = reservationKeyResults.filter(result => result.error)
@@ -467,6 +498,8 @@ export const useUserBookingsDashboard = (userAddress, {
         // Combine lab data with metadata for enriched experience
         const enrichedLabDetails = {
           ...labData,
+          // Extract auth from base object (comes from smart contract)
+          auth: labData?.base?.auth || '',
           // Add metadata fields if available
           name: metadataData?.name || labData?.name || `Lab ${booking.labId}`,
           description: metadataData?.description || labData?.description,
@@ -620,6 +653,7 @@ export const useUserBookingsDashboard = (userAddress, {
     
     // Status
     isLoading,
+    isLoadingDetails, // Track loading state of additional details separately
     isSuccess: !hasErrors && reservationCountResult.isSuccess,
     isError: hasErrors,
     error: baseErrors[0] || null,
@@ -743,6 +777,21 @@ export const useLabBookingsDashboard = (labId, {
   // Process reservation data and determine statuses
   const now = Math.floor(Date.now() / 1000);
   
+  // Get optimistic bookings from cache for this lab
+  const queryClient = useQueryClient();
+  const optimisticBookings = queryClient.getQueryData(bookingQueryKeys.byLab(labId)) || [];
+  const optimisticOnly = optimisticBookings.filter(booking => booking.isOptimistic === true);
+  
+  devLog.log('🔄 Optimistic bookings for lab:', {
+    labId,
+    optimisticCount: optimisticOnly.length,
+    optimisticBookings: optimisticOnly.map(b => ({
+      id: b.id,
+      start: b.start,
+      isPending: b.isPending
+    }))
+  });
+  
   const processedBookings = reservationDetailResults
     .filter(result => result.isSuccess && result.data)
     .map(result => {
@@ -831,6 +880,30 @@ export const useLabBookingsDashboard = (labId, {
   // Combine standard and lab-specific aggregates
   const combinedAggregates = { ...aggregates, ...labSpecificAggregates };
 
+  // Merge optimistic bookings with processed bookings (following granular cache pattern)
+  const allBookings = useMemo(() => {
+    // Filter out optimistic bookings that have been replaced by real ones
+    const filteredOptimistic = optimisticOnly.filter(optBooking => {
+      const isDuplicate = processedBookings.some(realBooking => {
+        const realStart = parseInt(realBooking.start);
+        const optStart = parseInt(optBooking.start);
+        return realBooking.labId?.toString() === optBooking.labId?.toString() &&
+               Math.abs(realStart - optStart) < 60; // Within 1 minute tolerance
+      });
+      return !isDuplicate;
+    });
+    
+    if (filteredOptimistic.length > 0) {
+      devLog.log('✨ Including optimistic bookings in lab bookings:', {
+        labId,
+        optimisticCount: filteredOptimistic.length,
+        totalCount: processedBookings.length + filteredOptimistic.length
+      });
+    }
+    
+    return [...processedBookings, ...filteredOptimistic];
+  }, [processedBookings, optimisticOnly, labId]);
+
   // Status calculation
   const isLoading = reservationCountResult.isLoading || 
                    reservationKeyResults.some(r => r.isLoading) ||
@@ -848,7 +921,7 @@ export const useLabBookingsDashboard = (labId, {
     // Data
     data: {
       labId,
-      bookings: processedBookings,
+      bookings: allBookings,
       ...combinedAggregates,
     },
     

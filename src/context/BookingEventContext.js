@@ -33,31 +33,57 @@ export function BookingEventProvider({ children }) {
 
     // DEDUPLICATION: Track processed reservations to prevent duplicates from multiple RPC providers
     const processedReservations = useRef(new Set());
+    const processingReservations = useRef(new Map()); // Track in-flight confirmations
 
     // Helper function to validate and auto-confirm reservation requests using SSO server wallet
     const validateAndConfirmReservation = async (reservationKey, tokenId, requester, start, end) => {
+        // DEDUPLICATION: Check FIRST if this unique reservation was already processed
+        if (processedReservations.current.has(reservationKey)) {
+            devLog.warn(`🔄 [BookingEventContext] Reservation ${reservationKey} already processed. Skipping duplicate.`);
+            return;
+        }
+        
+        // Check if currently being processed (race condition from multiple providers)
+        if (processingReservations.current.has(reservationKey)) {
+            devLog.warn(`⏳ [BookingEventContext] Reservation ${reservationKey} is currently being processed. Skipping duplicate.`);
+            return;
+        }
+        
+        // Mark as being processed IMMEDIATELY to prevent race conditions
+        processingReservations.current.set(reservationKey, Date.now());
+        
+        // Add small delay to allow multiple duplicate events to arrive and be filtered
+        await new Promise(resolve => setTimeout(resolve, 80));
+        
         // Determine if this reservation belongs to the current user
         const currentUserAddress = address || userAddress;
         const isCurrentUserReservation = requester && currentUserAddress && 
             requester.toLowerCase() === currentUserAddress.toLowerCase();
+        
+        devLog.log(`� [BookingEventContext] Checking user match:`, {
+            requester,
+            currentUserAddress,
+            isMatch: isCurrentUserReservation
+        });
     
         try {
-            // DEDUPLICATION: Check if this unique reservation was already processed
-            if (processedReservations.current.has(reservationKey)) {
-                devLog.warn(`🔄 [BookingEventContext] Reservation ${reservationKey} already processed. Skipping duplicate.`);
-                return;
-            }
             
-            // Mark as being processed
-            processedReservations.current.add(reservationKey);
-            
-            // Clean up old entries (keep only last 10 when we exceed 20)
+            // Clean up old entries from processed set (keep only last 10 when we exceed 20)
             if (processedReservations.current.size > 20) {
                 const entries = Array.from(processedReservations.current);
                 // Remove oldest entries, keep only the most recent 10
                 entries.slice(0, entries.length - 10).forEach(key => {
                     processedReservations.current.delete(key);
                 });
+            }
+            
+            // Clean up stale processing entries (older than 30 seconds)
+            const nowMs = Date.now();
+            for (const [key, timestamp] of processingReservations.current.entries()) {
+                if (nowMs - timestamp > 30000) {
+                    processingReservations.current.delete(key);
+                    devLog.warn(`🧹 [BookingEventContext] Cleaned up stale processing entry for ${key}`);
+                }
             }
 
             // Validate that reservation is in a valid period (not in the past)
@@ -86,17 +112,58 @@ export function BookingEventProvider({ children }) {
             
             const result = await confirmReservationMutation.mutateAsync(reservationKey);
             
-            if (isCurrentUserReservation) {
-                addTemporaryNotification('success', '✅ Reservation confirmed and ready!');
+            devLog.log(`✅ [BookingEventContext] Successfully auto-confirmed reservation ${reservationKey} via server wallet`, result);
+            
+            // Show success notification to current user
+            // Note: Only show if result indicates new transaction (not already confirmed)
+            // Use setTimeout to avoid setState during render
+            if (isCurrentUserReservation && result && !result.note) {
+                setTimeout(() => {
+                    addTemporaryNotification('success', '✅ Reservation confirmed and ready!');
+                }, 0);
+            }
+
+            // Mark as successfully processed
+            processedReservations.current.add(reservationKey);
+            processingReservations.current.delete(reservationKey);
+            
+            // Immediately fetch updated reservation data to update cache (granular update pattern)
+            // This ensures the UI updates instantly without waiting for invalidation
+            if (reservationKey) {
+                queryClient.fetchQuery({
+                    queryKey: bookingQueryKeys.byReservationKey(reservationKey)
+                }).catch(err => {
+                    devLog.warn('Could not fetch updated reservation:', err);
+                });
             }
             
-            devLog.log(`✅ [BookingEventContext] Successfully auto-confirmed reservation ${reservationKey} via server wallet`, result);
+            // Also fetch lab bookings to update the calendar immediately
+            if (tokenId) {
+                queryClient.fetchQuery({
+                    queryKey: bookingQueryKeys.getReservationsOfToken(tokenId)
+                }).catch(err => {
+                    devLog.warn('Could not fetch lab bookings:', err);
+                });
+            }
         } catch (error) {
             devLog.error(`❌ [BookingEventContext] Failed to auto-confirm reservation ${reservationKey} via server wallet:`, error);
             
+            // Remove from processing (allow retry on next event if it was a transient error)
+            processingReservations.current.delete(reservationKey);
+            
+            // Only mark as processed if it's already confirmed (not a transient network error)
+            if (error.message?.includes('already confirmed') || error.message?.includes('Reservation already confirmed')) {
+                processedReservations.current.add(reservationKey);
+                devLog.log(`ℹ️ [BookingEventContext] Reservation ${reservationKey} already confirmed, marked as processed`);
+            }
+            
             // Show error notification only to the user who made the reservation
-            if (isCurrentUserReservation) {
-                addTemporaryNotification('error', '❌ Reservation denied. Try again later.');
+            // Use setTimeout to avoid setState during render
+            // Only show if it's NOT an "already confirmed" situation
+            if (isCurrentUserReservation && !error.message?.includes('already confirmed')) {
+                setTimeout(() => {
+                    addTemporaryNotification('error', '❌ Reservation denied. Try again later.');
+                }, 0);
             }
         }
     };
@@ -166,29 +233,45 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('✅ [BookingEventContext] ReservationConfirmed events detected:', logs.length);
             
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-            
             logs.forEach(log => {
                 const { _reservationKey, _tokenId } = log.args;
                 const reservationKey = _reservationKey?.toString();
                 const tokenId = _tokenId?.toString();
                 
+                // Use fetchQuery for immediate cache update (granular pattern)
                 if (reservationKey) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+                    queryClient.fetchQuery({
+                        queryKey: bookingQueryKeys.byReservationKey(reservationKey)
+                    }).catch(err => {
+                        devLog.warn('Could not fetch confirmed reservation:', err);
+                        // Fallback to invalidation if fetch fails
+                        queryClient.invalidateQueries({ 
+                            queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+                        });
                     });
                 }
                 
                 if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
+                    // Fetch lab bookings immediately for instant calendar update
+                    queryClient.fetchQuery({
+                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId)
+                    }).catch(err => {
+                        devLog.warn('Could not fetch lab bookings:', err);
+                        // Fallback to invalidation if fetch fails
+                        queryClient.invalidateQueries({ 
+                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
+                        });
                     });
+                    
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
                     });
                 }
+            });
+            
+            // Invalidate all bookings for good measure
+            queryClient.invalidateQueries({ 
+                queryKey: bookingQueryKeys.all() 
             });
         }
     });

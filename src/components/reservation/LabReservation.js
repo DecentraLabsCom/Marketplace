@@ -55,7 +55,6 @@ export default function LabReservation({ id }) {
   
   // Transaction state management (modernized pattern)
   const [lastTxHash, setLastTxHash] = useState(null);
-  const [txType, setTxType] = useState(null); // 'reservation', 'approval'
   const [pendingData, setPendingData] = useState(null);
   
   // 🚀 React Query for lab bookings
@@ -245,14 +244,46 @@ export default function LabReservation({ id }) {
       
       // Reset transaction state
       setLastTxHash(null);
-      setTxType(null);
-      setPendingData(null);
 
       // The BookingEventContext will handle updating bookings automatically via blockchain events
-      // No manual cache invalidation needed - our granular cache strategy handles this
-      devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the ReservationRequested event');
+      // It will either replace the optimistic booking or add the real one (React Query handles deduplication)
+      devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the ReservationRequested event and update cache');
     }
   }, [isReceiptSuccess, receipt, lastTxHash, addTemporaryNotification, isSSO, refreshTokenData]);
+
+  // Clean up optimistic booking when real booking appears from blockchain
+  useEffect(() => {
+    if (!pendingData?.optimisticId) return;
+    
+    // Check if a real (non-optimistic) booking matching our pending reservation exists
+    const matchingRealBooking = labBookings.find(booking => {
+      if (booking.isOptimistic) return false; // Skip other optimistic bookings
+      
+      const bookingStart = parseInt(booking.start);
+      const pendingStart = parseInt(pendingData.start);
+      
+      // Match by labId, date, and time (within 1 minute tolerance)
+      return booking.labId?.toString() === pendingData.labId?.toString() &&
+             Math.abs(bookingStart - pendingStart) < 60;
+    });
+    
+    if (matchingRealBooking) {
+      devLog.log('✅ Real booking found, removing optimistic booking:', {
+        optimisticId: pendingData.optimisticId,
+        realBookingKey: matchingRealBooking.reservationKey,
+        realStatus: matchingRealBooking.status
+      });
+      
+      // Remove optimistic booking from cache
+      bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
+      
+      // Clear pending data
+      setPendingData(null);
+      
+      // Force refresh to update UI
+      setForceRefresh(prev => prev + 1);
+    }
+  }, [labBookings, pendingData, bookingCacheUpdates]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -263,12 +294,17 @@ export default function LabReservation({ id }) {
       // Reset booking state
       setIsBooking(false);
       
+      // Remove optimistic booking on transaction error
+      if (pendingData?.optimisticId) {
+        devLog.log('❌ Transaction error, removing optimistic booking:', pendingData.optimisticId);
+        bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
+      }
+      
       // Reset transaction state
       setLastTxHash(null);
-      setTxType(null);
       setPendingData(null);
     }
-  }, [isReceiptError, receiptError, lastTxHash, addErrorNotification]);
+  }, [isReceiptError, receiptError, lastTxHash, addErrorNotification, pendingData, bookingCacheUpdates]);
 
   if (!isClient) return null;
 
@@ -307,42 +343,6 @@ export default function LabReservation({ id }) {
     devLog.log('✅ Booking success - relying on BookingEventContext for cache updates');
   };
 
-  // Optimistic cache update for immediate UI feedback
-  const addOptimisticBooking = (bookingData) => {
-    const { labId, start, timeslot, cost, optimisticBookingId } = bookingData;
-    const userAddr = address || userAddress || 'current_user';
-
-    // Use the granular cache updates for optimistic updates
-    try {
-      const optimisticBookingData = {
-        id: optimisticBookingId,
-        labId,
-        userAddress: userAddr,
-        startTime: start.toISOString(),
-        endTime: new Date(start.getTime() + (timeslot * 60 * 1000)).toISOString(),
-        cost,
-        status: 'pending',
-        timestamp: new Date().toISOString(),
-        isOptimistic: true
-      };
-
-      // Add to user's bookings cache
-      bookingCacheUpdates.addBookingToUserCache(optimisticBookingData, userAddr);
-      
-      // Add to lab's bookings cache
-      if (labId) {
-        bookingCacheUpdates.addBookingToLabCache(optimisticBookingData, labId);
-      }
-
-      // Force UI refresh for immediate calendar update
-      setForceRefresh(prev => prev + 1);
-      
-      return optimisticBookingData;
-    } catch (error) {
-      devLog.warn('Optimistic cache update failed:', error);
-      return null;
-    }
-  };
 
   // Common validation and calculation logic
   const validateAndCalculateBooking = () => {
@@ -499,11 +499,46 @@ export default function LabReservation({ id }) {
       // Show initial success notification (transaction sent)
       addTemporaryNotification('pending', '⏳ Reservation request sent! Processing...');
       
-      // Capture transaction hash for receipt monitoring
+      // Add optimistic booking to React Query cache for immediate UI feedback
       if (result?.hash) {
+        const userAddr = address || userAddress;
+        const startDate = new Date(start * 1000);
+        const endDate = new Date((start + timeslot) * 1000);
+        
+        // Create optimistic booking data matching the expected format
+        const optimisticBookingData = {
+          labId: selectedLab?.id, // Use same ID type as composed hook's query key
+          userAddress: userAddr,
+          start: start.toString(), // Unix timestamp in seconds as string (blockchain format)
+          end: (start + timeslot).toString(),
+          startTime: start, // Unix timestamp in seconds as number (for processing)
+          endTime: start + timeslot,
+          cost: cost.toString(),
+          status: 0, // PENDING status
+          statusCategory: 'pending',
+          date: startDate.toLocaleDateString('en-CA'),
+          labName: selectedLab?.name,
+          isPending: true,
+          isOptimistic: true,
+          transactionHash: result.hash
+        };
+        
+        // Add to React Query cache using granular cache updates
+        const optimisticBooking = bookingCacheUpdates.addOptimisticBooking(optimisticBookingData);
+        
+        devLog.log('📅 Added optimistic booking to cache:', {
+          id: optimisticBooking.id,
+          labId,
+          start: startDate.toISOString(),
+          hash: result.hash
+        });
+        
+        // Track transaction and optimistic booking ID for cleanup
         setLastTxHash(result.hash);
-        setTxType('reservation');
-        setPendingData({ labId, start, timeslot, cost });
+        setPendingData({ 
+          ...optimisticBookingData,
+          optimisticId: optimisticBooking.id // Store for later cleanup/replacement
+        });
       }
     } catch (error) {
       devLog.error('Error making booking request:', error);

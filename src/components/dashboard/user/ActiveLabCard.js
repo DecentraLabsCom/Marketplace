@@ -85,6 +85,7 @@ export default function ActiveLabCard({
           
           {isActive && (
             <LabAccess 
+              id={lab.id}
               userWallet={userAddress} 
               hasActiveBooking={!!booking} 
               auth={lab.auth} 
