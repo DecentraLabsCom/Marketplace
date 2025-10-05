@@ -109,8 +109,8 @@ export default function ProviderRegisterForm() {
   if (isLoading) {
     return (
       <Container padding="sm" className="text-center">
-        <div className="flex items-center justify-center space-x-2">
-          <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
+        <div className="flex-center space-x-2">
+          <div className="spinner-md border-blue-600"></div>
           <span>Loading...</span>
         </div>
       </Container>
@@ -138,7 +138,7 @@ export default function ProviderRegisterForm() {
           
           {/* Success Modal */}
           {isSuccess && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="overlay-full overlay flex-center">
               <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-4">
                 <h3 className="text-lg font-semibold text-success mb-2">Registration Submitted!</h3>
                 <p className="text-gray-600 mb-4">

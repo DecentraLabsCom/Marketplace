@@ -18,8 +18,8 @@ export default function RegisterProviderPage() {
   if (isLoading || isWalletLoading) {
     return (
       <Container padding="sm" className="text-center">
-        <div className="flex items-center justify-center space-x-2">
-          <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
+        <div className="flex-center space-x-2">
+          <div className="spinner-md border-blue-600"></div>
           <span>Loading...</span>
         </div>
       </Container>
@@ -32,8 +32,8 @@ export default function RegisterProviderPage() {
     if (!user) {
       return (
         <Container padding="sm" className="text-center">
-          <div className="flex items-center justify-center space-x-2">
-            <div className="animate-spin rounded-full size-6 border-b-2 border-blue-600"></div>
+          <div className="flex-center space-x-2">
+            <div className="spinner-md border-blue-600"></div>
             <span>Validating permissions...</span>
           </div>
         </Container>

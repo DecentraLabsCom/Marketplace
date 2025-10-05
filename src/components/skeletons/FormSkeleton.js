@@ -59,8 +59,8 @@ export function ButtonLoadingSkeleton({ children, isLoading = false }) {
     return (
       <div className="relative">
         {children}
-        <div className="absolute inset-0 bg-gray-900/50 rounded flex items-center justify-center">
-          <div className="animate-spin rounded-full size-4 border-b-2 border-white"></div>
+        <div className="absolute inset-0 bg-gray-900/50 rounded flex-center">
+          <div className="spinner-sm border-white"></div>
         </div>
       </div>
     );

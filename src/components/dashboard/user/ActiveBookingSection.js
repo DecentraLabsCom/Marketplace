@@ -70,8 +70,8 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
   if (activeBookingLoading) {
     return (
       <div className="border shadow text-white rounded p-6 mb-1 h-full">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full size-8 border-b-2 border-white"></div>
+        <div className="flex-center">
+          <div className="spinner-lg border-white"></div>
           <span className="ml-2">Loading active booking...</span>
         </div>
       </div>

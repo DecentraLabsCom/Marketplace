@@ -56,8 +56,8 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
         </div>
 
         {/* Move to previous doc */}
-        <button onClick={handlePrev} className="absolute inset-y-0 left-0 z-20 flex w-[15%] items-center 
-          justify-center border-0 bg-none p-0 text-slate-600 opacity-100 hover:opacity-90 duration-150 
+        <button onClick={handlePrev} className="absolute inset-y-0 left-0 z-20 flex-center w-[15%] 
+          border-0 bg-none p-0 text-slate-600 opacity-100 hover:opacity-90 duration-150 
           transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1.0)] pointer-events-auto group" type="button">
           <span className="inline-block size-8">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" 
@@ -66,15 +66,14 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </span>
-          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 
-            ![clip:rect(0,0,0,0)]">
+          <span className="sr-only">
             Previous
           </span>
         </button>
 
         {/* Move to next doc */}
-        <button onClick={handleNext} className="absolute inset-y-0 right-0 z-20 flex w-[15%] items-center 
-          justify-center border-0 bg-none p-0 text-slate-600 opacity-100 hover:opacity-90 duration-150 
+        <button onClick={handleNext} className="absolute inset-y-0 right-0 z-20 flex-center w-[15%] 
+          border-0 bg-none p-0 text-slate-600 opacity-100 hover:opacity-90 duration-150 
           transition-opacity ease-[cubic-bezier(0.25,0.1,0.25,1.0)] pointer-events-auto group" type="button">
           <span className="inline-block size-8">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" 
@@ -83,8 +82,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
           </span>
-          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 
-              ![clip:rect(0,0,0,0)]">Next</span>
+          <span className="sr-only">Next</span>
         </button>
       </>
       )}
