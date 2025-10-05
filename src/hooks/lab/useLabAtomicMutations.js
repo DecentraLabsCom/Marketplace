@@ -4,11 +4,10 @@
  * Handles mutations (create, update, delete operations)
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { parseUnits } from 'viem'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useUser } from '@/context/UserContext'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
-import { labQueryKeys, bookingQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
+import { labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
 
