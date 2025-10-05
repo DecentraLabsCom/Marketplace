@@ -74,10 +74,10 @@ export function LabEventProvider({ children }) {
         eventName: 'LabListed',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
-            devLog.log('📋 [LabEventContext] LabListed events detected:', logs.length);
+            devLog.log('📋 [LabEventContext] LabListed events detected:', logs.length, logs);
             
             logs.forEach(log => {
-                const labId = log.args._labId?.toString();
+                const labId = log.args.tokenId?.toString();
                 if (labId) {
                     // Clear optimistic state - blockchain has confirmed the change
                     clearOptimisticListingState(labId);
@@ -101,10 +101,10 @@ export function LabEventProvider({ children }) {
         eventName: 'LabUnlisted',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
         onLogs: (logs) => {
-            devLog.log('📋 [LabEventContext] LabUnlisted events detected:', logs.length);
+            devLog.log('📋 [LabEventContext] LabUnlisted events detected:', logs.length, logs);
             
             logs.forEach(log => {
-                const labId = log.args._labId?.toString();
+                const labId = log.args.tokenId?.toString();
                 if (labId) {
                     // Clear optimistic state - blockchain has confirmed the change
                     clearOptimisticListingState(labId);
