@@ -237,40 +237,21 @@ export function BookingEventProvider({ children }) {
                 const reservationKey = _reservationKey?.toString();
                 const tokenId = _tokenId?.toString();
                 
-                // Use fetchQuery for immediate cache update (granular pattern)
+                // Invalidate specific queries that changed
                 if (reservationKey) {
-                    queryClient.fetchQuery({
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey)
-                    }).catch(err => {
-                        devLog.warn('Could not fetch confirmed reservation:', err);
-                        // Fallback to invalidation if fetch fails
-                        queryClient.invalidateQueries({ 
-                            queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
-                        });
+                    queryClient.invalidateQueries({ 
+                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
                     });
                 }
                 
                 if (tokenId) {
-                    // Fetch lab bookings immediately for instant calendar update
-                    queryClient.fetchQuery({
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId)
-                    }).catch(err => {
-                        devLog.warn('Could not fetch lab bookings:', err);
-                        // Fallback to invalidation if fetch fails
-                        queryClient.invalidateQueries({ 
-                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
-                        });
+                    queryClient.invalidateQueries({ 
+                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
                     });
-                    
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
                     });
                 }
-            });
-            
-            // Invalidate all bookings for good measure
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
             });
         }
     });
@@ -284,15 +265,12 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] ReservationCanceled events detected:', logs.length);
             
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-            
             logs.forEach(log => {
                 const { _reservationKey, _tokenId } = log.args;
                 const reservationKey = _reservationKey?.toString();
                 const tokenId = _tokenId?.toString();
                 
+                // Invalidate only specific queries that changed
                 if (reservationKey) {
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
@@ -320,15 +298,12 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] BookingCanceled events detected:', logs.length);
             
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-            
             logs.forEach(log => {
                 const { _reservationKey, _tokenId } = log.args;
                 const reservationKey = _reservationKey?.toString();
                 const tokenId = _tokenId?.toString();
                 
+                // Invalidate only specific queries that changed
                 if (reservationKey) {
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
@@ -356,15 +331,12 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🚫 [BookingEventContext] ReservationRequestCanceled events detected:', logs.length);
             
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-            
             logs.forEach(log => {
                 const { _reservationKey, _tokenId } = log.args;
                 const reservationKey = _reservationKey?.toString();
                 const tokenId = _tokenId?.toString();
                 
+                // Invalidate only specific queries that changed
                 if (reservationKey) {
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
@@ -392,15 +364,12 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('⛔ [BookingEventContext] ReservationRequestDenied events detected:', logs.length);
             
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.all() 
-            });
-            
             logs.forEach(log => {
                 const { _reservationKey, _tokenId } = log.args;
                 const reservationKey = _reservationKey?.toString();
                 const tokenId = _tokenId?.toString();
                 
+                // Invalidate only specific queries that changed
                 if (reservationKey) {
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.byReservationKey(reservationKey) 

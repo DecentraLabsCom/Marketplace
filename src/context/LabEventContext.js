@@ -27,7 +27,7 @@ export function LabEventProvider({ children }) {
     // Debug log for enabled state
     const isEnabled = !!contractAddress && !!safeChain.id;
 
-    // LabAdded event listener - simple cache invalidation
+    // LabAdded event listener
     useWatchContractEvent({
         address: contractAddress,
         abi: contractABI,
@@ -36,22 +36,9 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🏗️ [LabEventContext] LabAdded events detected:', logs.length);
             
-            // Simple invalidation - let React Query handle the rest
+            // Invalidate specific lab queries that would change with a new addition
             queryClient.invalidateQueries({ 
                 queryKey: labQueryKeys.getAllLabs() 
-            });
-            
-            // Invalidate specific lab queries if we have labId
-            logs.forEach(log => {
-                const labId = log.args._labId?.toString();
-                if (labId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.getLab(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.isTokenListed(labId) 
-                    });
-                }
             });
         }
     });
@@ -68,6 +55,7 @@ export function LabEventProvider({ children }) {
             logs.forEach(log => {
                 const labId = log.args._labId?.toString();
                 if (labId) {
+                    // Invalidate specific lab queries that would change with an update
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });
@@ -75,11 +63,6 @@ export function LabEventProvider({ children }) {
                         queryKey: labQueryKeys.tokenURI(labId) 
                     });
                 }
-            });
-            
-            // Also invalidate the list in case lab data affects listing
-            queryClient.invalidateQueries({ 
-                queryKey: labQueryKeys.getAllLabs() 
             });
         }
     });
@@ -99,6 +82,7 @@ export function LabEventProvider({ children }) {
                     // Clear optimistic state - blockchain has confirmed the change
                     clearOptimisticListingState(labId);
                     
+                    // Invalidate specific queries that changed when listing
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });
@@ -106,10 +90,6 @@ export function LabEventProvider({ children }) {
                         queryKey: labQueryKeys.isTokenListed(labId) 
                     });
                 }
-            });
-            
-            queryClient.invalidateQueries({ 
-                queryKey: labQueryKeys.getAllLabs() 
             });
         }
     });
@@ -129,6 +109,7 @@ export function LabEventProvider({ children }) {
                     // Clear optimistic state - blockchain has confirmed the change
                     clearOptimisticListingState(labId);
                     
+                    // Invalidate specific queries that changed when unlisting
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });
@@ -136,10 +117,6 @@ export function LabEventProvider({ children }) {
                         queryKey: labQueryKeys.isTokenListed(labId) 
                     });
                 }
-            });
-            
-            queryClient.invalidateQueries({ 
-                queryKey: labQueryKeys.getAllLabs() 
             });
         }
     });
@@ -156,7 +133,8 @@ export function LabEventProvider({ children }) {
             logs.forEach(log => {
                 const labId = log.args._labId?.toString();
                 if (labId) {
-                    // For deleted labs, invalidate all related queries
+                    // Invalidate all queries related to the deleted lab
+                    // These will error on refetch (lab doesn't exist anymore), which is expected
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });
@@ -172,6 +150,7 @@ export function LabEventProvider({ children }) {
                 }
             });
             
+            // Invalidate list - lab ID was removed from array
             queryClient.invalidateQueries({ 
                 queryKey: labQueryKeys.getAllLabs() 
             });
@@ -190,6 +169,7 @@ export function LabEventProvider({ children }) {
             logs.forEach(log => {
                 const labId = log.args._labId?.toString();
                 if (labId) {
+                    // Invalidate queries affected by URI change
                     queryClient.invalidateQueries({ 
                         queryKey: labQueryKeys.getLab(labId) 
                     });
@@ -197,11 +177,6 @@ export function LabEventProvider({ children }) {
                         queryKey: labQueryKeys.tokenURI(labId) 
                     });
                 }
-            });
-            
-            // URI changes might affect lab display in lists
-            queryClient.invalidateQueries({ 
-                queryKey: labQueryKeys.getAllLabs() 
             });
         }
     });
