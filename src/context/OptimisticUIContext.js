@@ -90,6 +90,7 @@ export function OptimisticUIProvider({ children }) {
     
     if (optimisticState) {
       // Use optimistic state
+      devLog.log(`🎯 [OptimisticUI] Using optimistic state for lab ${labId}:`, optimisticState);
       return {
         isListed: optimisticState.isListed,
         isPending: optimisticState.isPending,
@@ -98,6 +99,7 @@ export function OptimisticUIProvider({ children }) {
     }
     
     // Use server state
+    devLog.log(`📡 [OptimisticUI] Using server state for lab ${labId}: isListed=${serverIsListed}`);
     return {
       isListed: serverIsListed || false,
       isPending: false,

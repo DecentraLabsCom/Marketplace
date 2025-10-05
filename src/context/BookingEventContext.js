@@ -256,39 +256,6 @@ export function BookingEventProvider({ children }) {
         }
     });
 
-    // ReservationCanceled event listener
-    useWatchContractEvent({
-        address: contractAddress,
-        abi: contractABI,
-        eventName: 'ReservationCanceled',
-        enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
-        onLogs: (logs) => {
-            devLog.log('❌ [BookingEventContext] ReservationCanceled events detected:', logs.length);
-            
-            logs.forEach(log => {
-                const { _reservationKey, _tokenId } = log.args;
-                const reservationKey = _reservationKey?.toString();
-                const tokenId = _tokenId?.toString();
-                
-                // Invalidate only specific queries that changed
-                if (reservationKey) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
-                    });
-                }
-                
-                if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
-                    });
-                }
-            });
-        }
-    });
-
     // BookingCanceled event listener
     useWatchContractEvent({
         address: contractAddress,
