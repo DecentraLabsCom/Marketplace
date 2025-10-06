@@ -4,7 +4,7 @@ Any lab that meets the requirements outlined in the previous section can be made
 
 At DecentraLabs, we enable secure and controlled remote access to labs by allowing users to interact with the same desktop application that the institution already uses to operate the lab. This is done through a VPN-secured remote desktop session that is tightly controlled (restricted only to the lab application) and time-limited.
 
-To simplify deployment, DecentraLabs provides a complete, ready-to-use solution packaged as a Docker container: [DecentraLabsCom/lite-lab-gateway](https://github.com/DecentraLabsCom/lite-lab-gateway). This solution can be installed easily on any operating system (Windows, Linux, macOS) and includes:
+To simplify deployment, DecentraLabs provides a complete, ready-to-use **Lab Gateway** packaged as a Docker container: [DecentraLabsCom/lite-lab-gateway](https://github.com/DecentraLabsCom/lite-lab-gateway). This solution can be installed easily on any operating system (Windows, Linux, macOS) and includes:
 
 1. **Reverse Proxy Server**\
    Handles secure routing of incoming remote connections and ensures proper integration with the blockchain-based access management system.
