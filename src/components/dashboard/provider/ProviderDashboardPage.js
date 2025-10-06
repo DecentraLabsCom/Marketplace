@@ -461,7 +461,6 @@ export default function ProviderDashboard() {
               onDateChange={(newDate) => setDate(newDate)}
               bookingInfo={bookingInfo}
               minDate={today}
-              filterDate={() => false}
             />
 
             {/* Provider actions */}
