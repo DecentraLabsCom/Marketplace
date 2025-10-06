@@ -58,12 +58,14 @@ export default function CalendarWithBookings({
   return (
     <>
       {isReadOnlyMode && (
-        <style jsx global>{`
-          .readonly-calendar .react-datepicker__day {
-            cursor: default !important;
-            user-select: none;
-          }
-        `}</style>
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            .readonly-calendar .react-datepicker__day {
+              cursor: default !important;
+              user-select: none;
+            }
+          `
+        }} />
       )}
       <DatePicker
         calendarClassName={calendarClasses}
