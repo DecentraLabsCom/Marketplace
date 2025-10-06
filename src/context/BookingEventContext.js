@@ -67,7 +67,6 @@ export function BookingEventProvider({ children }) {
         });
     
         try {
-            
             // Clean up old entries from processed set (keep only last 10 when we exceed 20)
             if (processedReservations.current.size > 20) {
                 const entries = Array.from(processedReservations.current);
@@ -126,24 +125,8 @@ export function BookingEventProvider({ children }) {
             processedReservations.current.add(reservationKey);
             processingReservations.current.delete(reservationKey);
             
-            // Immediately fetch updated reservation data to update cache (granular update pattern)
-            // This ensures the UI updates instantly without waiting for invalidation
-            if (reservationKey) {
-                queryClient.fetchQuery({
-                    queryKey: bookingQueryKeys.byReservationKey(reservationKey)
-                }).catch(err => {
-                    devLog.warn('Could not fetch updated reservation:', err);
-                });
-            }
-            
-            // Also fetch lab bookings to update the calendar immediately
-            if (tokenId) {
-                queryClient.fetchQuery({
-                    queryKey: bookingQueryKeys.getReservationsOfToken(tokenId)
-                }).catch(err => {
-                    devLog.warn('Could not fetch lab bookings:', err);
-                });
-            }
+            // Don't refetch here - the blockchain transaction hasn't been mined yet
+            // The ReservationConfirmed event will handle the refetch when the transaction is confirmed
         } catch (error) {
             devLog.error(`❌ [BookingEventContext] Failed to auto-confirm reservation ${reservationKey} via server wallet:`, error);
             
@@ -190,30 +173,18 @@ export function BookingEventProvider({ children }) {
                 const startStr = start?.toString();
                 const endStr = end?.toString();
                 
-                // Invalidate specific booking queries
-                if (reservationKeyStr) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
-                    });
-                }
+                devLog.log(`📝 [BookingEventContext] Processing ReservationRequested #${index + 1}:`, {
+                    reservationKey: reservationKeyStr,
+                    tokenId: tokenIdStr,
+                    renter: requester,
+                    start: startStr,
+                    end: endStr,
+                    rawArgs: log.args
+                });
                 
-                if (tokenIdStr) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
-                    });
-                }
-                
-                if (requester) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.reservationsOf(requester) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBooking(requester) 
-                    });
-                }
+                // NOTE: No refetch here - ReservationRequested is just a request, not a confirmation
+                // The actual state change happens in ReservationConfirmed event
+                // We only auto-confirm the reservation via server wallet
                 
                 // Auto-confirm reservation if valid
                 if (reservationKeyStr && tokenIdStr && startStr && endStr) {
@@ -232,24 +203,24 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('✅ [BookingEventContext] ReservationConfirmed events detected:', logs.length);
             
-            logs.forEach(log => {
-                const { _reservationKey, _tokenId } = log.args;
-                const reservationKey = _reservationKey?.toString();
-                const tokenId = _tokenId?.toString();
+            logs.forEach(async (log, index) => {
+                const { reservationKey, tokenId } = log.args;
+                const reservationKeyStr = reservationKey?.toString();
+                const tokenIdStr = tokenId?.toString();
                 
-                // Invalidate specific queries that changed
-                if (reservationKey) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
-                    });
-                }
+                devLog.log(`✅ [BookingEventContext] Processing ReservationConfirmed #${index + 1}:`, {
+                    reservationKey: reservationKeyStr,
+                    tokenId: tokenIdStr,
+                    rawArgs: log.args
+                });
                 
-                if (tokenId) {
+                // Invalidate all booking queries
+                if (reservationKeyStr) {
+                    devLog.log('🔄 Invalidating all booking queries for confirmed reservation:', reservationKeyStr);
+                    
+                    // Invalidate the main bookings cache (this includes optimistic bookings)
                     queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
+                        queryKey: bookingQueryKeys.all() 
                     });
                 }
             });
@@ -265,25 +236,26 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] BookingCanceled events detected:', logs.length);
             
-            logs.forEach(log => {
-                const { _reservationKey, _tokenId } = log.args;
-                const reservationKey = _reservationKey?.toString();
-                const tokenId = _tokenId?.toString();
+            logs.forEach(async (log) => {
+                const { reservationKey, tokenId } = log.args;
+                const reservationKeyStr = reservationKey?.toString();
+                const tokenIdStr = tokenId?.toString();
                 
-                // Invalidate only specific queries that changed
-                if (reservationKey) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+                // Refetch queries to force immediate update
+                if (reservationKeyStr) {
+                    queryClient.refetchQueries({ 
+                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
                     });
-                }
-                
-                if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
-                    });
+                    
+                    // Refetch specific lab bookings queries using tokenId
+                    if (tokenIdStr) {
+                        queryClient.refetchQueries({ 
+                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
+                        });
+                        queryClient.refetchQueries({ 
+                            queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
+                        });
+                    }
                 }
             });
         }
@@ -298,25 +270,26 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🚫 [BookingEventContext] ReservationRequestCanceled events detected:', logs.length);
             
-            logs.forEach(log => {
-                const { _reservationKey, _tokenId } = log.args;
-                const reservationKey = _reservationKey?.toString();
-                const tokenId = _tokenId?.toString();
+            logs.forEach(async (log) => {
+                const { reservationKey, tokenId } = log.args;
+                const reservationKeyStr = reservationKey?.toString();
+                const tokenIdStr = tokenId?.toString();
                 
-                // Invalidate only specific queries that changed
-                if (reservationKey) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+                // Refetch queries to force immediate update
+                if (reservationKeyStr) {
+                    queryClient.refetchQueries({ 
+                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
                     });
-                }
-                
-                if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
-                    });
+                    
+                    // Refetch specific lab bookings queries using tokenId
+                    if (tokenIdStr) {
+                        queryClient.refetchQueries({ 
+                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
+                        });
+                        queryClient.refetchQueries({ 
+                            queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
+                        });
+                    }
                 }
             });
         }
@@ -331,25 +304,26 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('⛔ [BookingEventContext] ReservationRequestDenied events detected:', logs.length);
             
-            logs.forEach(log => {
-                const { _reservationKey, _tokenId } = log.args;
-                const reservationKey = _reservationKey?.toString();
-                const tokenId = _tokenId?.toString();
+            logs.forEach(async (log) => {
+                const { reservationKey, tokenId } = log.args;
+                const reservationKeyStr = reservationKey?.toString();
+                const tokenIdStr = tokenId?.toString();
                 
-                // Invalidate only specific queries that changed
-                if (reservationKey) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+                // Refetch queries to force immediate update
+                if (reservationKeyStr) {
+                    queryClient.refetchQueries({ 
+                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
                     });
-                }
-                
-                if (tokenId) {
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
-                    });
+                    
+                    // Refetch specific lab bookings queries using tokenId
+                    if (tokenIdStr) {
+                        queryClient.refetchQueries({ 
+                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
+                        });
+                        queryClient.refetchQueries({ 
+                            queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
+                        });
+                    }
                 }
             });
         }

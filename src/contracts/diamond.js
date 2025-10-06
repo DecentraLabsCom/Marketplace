@@ -1397,6 +1397,12 @@ export const contractABI = [
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
     "name": "BookingCanceled",
@@ -1410,6 +1416,12 @@ export const contractABI = [
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
     "name": "ReservationConfirmed",
@@ -1423,6 +1435,12 @@ export const contractABI = [
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
     "name": "ReservationRequestCanceled",
@@ -1436,6 +1454,12 @@ export const contractABI = [
         "internalType": "bytes32",
         "name": "reservationKey",
         "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
       }
     ],
     "name": "ReservationRequestDenied",
