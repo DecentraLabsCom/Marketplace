@@ -2,7 +2,7 @@
  * Optimized component for displaying active booking status
  * Uses useUserBookingsDashboard for enriched lab data with metadata and provider names
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useUserBookingsDashboard } from '@/hooks/booking/useBookings';
 import ActiveLabCard from './ActiveLabCard';
@@ -15,6 +15,17 @@ import ActiveLabCard from './ActiveLabCard';
  * @returns {JSX.Element} Active booking section
  */
 export default function ActiveBookingSection({ userAddress, options = {} }) {
+  // Force re-render every minute to check if booking status changed
+  const [, setTick] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(tick => tick + 1);
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, []);
+
   // ✅ Use composed hook for enriched lab data with metadata and provider names
   const { 
     data: userBookingsData, 
@@ -70,8 +81,8 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
   if (activeBookingLoading) {
     return (
       <div className="border shadow text-white rounded p-6 mb-1 h-full">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full size-8 border-b-2 border-white"></div>
+        <div className="flex-center">
+          <div className="spinner-lg border-white"></div>
           <span className="ml-2">Loading active booking...</span>
         </div>
       </div>

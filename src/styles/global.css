@@ -300,6 +300,68 @@ body::-webkit-scrollbar-thumb:hover {
     0 3px 6px rgba(113, 92, 140, 0.2);
 }
 
+/* ========================================
+   COMPONENT UTILITIES - Phase 1
+   High-impact, zero-risk optimizations
+   Date: October 4, 2025
+   ======================================== */
+
+@layer components {
+  /* Flex centering - 100+ uses across codebase */
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
+  
+  /* Loading spinners - 15+ uses, ensures consistency */
+  .spinner {
+    @apply animate-spin rounded-full border-b-2;
+  }
+  
+  .spinner-sm {
+    @apply spinner size-4;
+  }
+  
+  .spinner-md {
+    @apply spinner size-6;
+  }
+  
+  .spinner-lg {
+    @apply spinner size-8;
+  }
+  
+  .spinner-xl {
+    @apply spinner size-12;
+  }
+  
+  /* Screen reader only - Accessibility standard (WCAG) */
+  .sr-only {
+    @apply absolute -m-px h-px w-px overflow-hidden whitespace-nowrap 
+           border-0 p-0 [clip:rect(0,0,0,0)];
+  }
+  
+  /* Overlays - 20+ uses, semantic naming */
+  .overlay {
+    @apply bg-black/50;
+  }
+  
+  .overlay-light {
+    @apply bg-black/20;
+  }
+  
+  .overlay-dark {
+    @apply bg-black/70;
+  }
+  
+  .overlay-full {
+    @apply fixed inset-0 z-50;
+  }
+  
+  /* List items - Common pattern in file managers and lists */
+  .list-item {
+    @apply flex items-center justify-between bg-neutral-50 p-2 rounded;
+  }
+}
+
 /* Modal Animations */
 @keyframes fadeIn {
   from {

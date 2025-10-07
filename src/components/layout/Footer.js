@@ -15,7 +15,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
           <div className="flex justify-center">
-              <div className="flex space-x-4 md:justify-center h-10 w-full relative">
+              <div className="flex space-x-4 md:justify-center size-full relative">
                 <div className="relative w-1/2 h-full">
                   <Image src="/eu_funded_en.jpg" alt="EU Funded" fill priority sizes="10vw"
                                           className="!relative" />

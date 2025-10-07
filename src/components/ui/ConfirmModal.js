@@ -24,7 +24,7 @@ export default function ConfirmModal({ isOpen, onClose, onContinue }) {
     if (!isOpen) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/20 flex justify-center items-center z-50"
+      <div className="overlay-full overlay-light flex-center"
         onClick={onClose}
       >
         <div className="bg-white rounded-lg shadow-lg p-6 w-96"

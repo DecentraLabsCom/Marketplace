@@ -38,10 +38,10 @@ export default function WalletLogin({ setIsModalOpen }) {
       {/* Wallet Login Button */}
       <button 
         onClick={handleWalletLogin}
-        className="group w-full p-4 text-left rounded-xl border bg-brand border-brand hover:bg-hover-dark hover:shadow-lg text-white transition-all duration-300 transform hover:scale-[1.02]"
+        className="group w-full p-4 text-left rounded-xl border bg-brand border-brand hover:bg-hover-dark hover:shadow-lg text-white transition-all duration-300 hover:scale-[1.02]"
       >
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm">
+          <div className="size-12 bg-white rounded-lg flex items-center justify-center shadow-sm">
             <FontAwesomeIcon icon={faWallet} className="text-brand text-lg" />
           </div>
           <div className="flex-1">
@@ -53,7 +53,7 @@ export default function WalletLogin({ setIsModalOpen }) {
             </p>
           </div>
           <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -64,7 +64,7 @@ export default function WalletLogin({ setIsModalOpen }) {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 animate-fadeIn"
           onClick={closeModal}>
-          <div className="bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl shadow-2xl p-8 w-[420px] border border-gray-100 transform transition-all duration-300 scale-100 animate-slideIn" 
+          <div className="bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl shadow-2xl p-8 w-[420px] border border-gray-100 transition-all duration-300 scale-100 animate-slideIn" 
                onClick={(e) => e.stopPropagation()}>
             
             {/* Header with Close Button */}
@@ -77,7 +77,7 @@ export default function WalletLogin({ setIsModalOpen }) {
                 onClick={closeModal}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors duration-200"
               >
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="size-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -126,44 +126,44 @@ function WalletOption({ connector, onClick }) {
     
     if (walletName.includes('metamask')) {
       return (
-        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
+        <div className="size-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
           <Image
             src="/wallets/MetaMask.svg"
             alt="MetaMask"
             width={32}
             height={32}
-            className="w-8 h-8"
+            className="size-8"
           />
         </div>
       );
     } else if (walletName.includes('walletconnect')) {
       return (
-        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
+        <div className="size-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
           <Image
             src="/wallets/WalletConnect.svg"
             alt="WalletConnect"
             width={32}
             height={32}
-            className="w-8 h-8"
+            className="size-8"
           />
         </div>
       );
     } else if (walletName.includes('solana') || walletName.includes('phantom')) {
       return (
-        <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
+        <div className="size-12 bg-white rounded-lg flex items-center justify-center shadow-sm p-2">
           <Image
             src="/wallets/Phantom.svg"
             alt="Phantom"
             width={32}
             height={32}
-            className="w-8 h-8"
+            className="size-8"
           />
         </div>
       );
     } else {
       // Default wallet icon usando colores del brand
       return (
-        <div className="w-12 h-12 bg-gradient-to-br from-brand to-purple-700 rounded-lg flex items-center justify-center shadow-sm">
+        <div className="size-12 bg-gradient-to-br from-brand to-purple-700 rounded-lg flex items-center justify-center shadow-sm">
           <FontAwesomeIcon icon={faWallet} className="text-white text-lg" />
         </div>
       );
@@ -180,7 +180,7 @@ function WalletOption({ connector, onClick }) {
     <button 
       disabled={!ready} 
       onClick={onClick}
-      className={`group w-full p-4 text-left rounded-xl border transition-all duration-300 transform hover:scale-[1.02] ${
+      className={`group w-full p-4 text-left rounded-xl border transition-all duration-300 hover:scale-[1.02] ${
         ready 
           ? 'bg-brand border-brand hover:bg-hover-dark hover:shadow-lg text-white' 
           : 'bg-gray-300 border-gray-300 text-gray-500 cursor-not-allowed opacity-50'
@@ -198,7 +198,7 @@ function WalletOption({ connector, onClick }) {
         </div>
         {ready && (
           <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>

@@ -49,8 +49,8 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
   if (summaryLoading) {
     return (
       <div className="text-white p-6 mb-1 h-full">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full size-6 border-b-2 border-white"></div>
+        <div className="flex-center">
+          <div className="spinner-md border-white"></div>
           <span className="ml-2 text-sm">Loading summary...</span>
         </div>
       </div>
@@ -74,13 +74,13 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
       
       <div className="2xl:p-2 p-1 2xl:block flex gap-4 items-center">
         {/* Total Statistics */}
-        <div className="2xl:text-center 2xl:mb-3 flex-shrink-0 text-center">
+        <div className="2xl:text-center 2xl:mb-3 shrink-0 text-center">
           <div className="text-2xl font-bold text-blue-300">{totalBookings || 0}</div>
           <div className="text-gray-300 text-sm">Total Bookings</div>
         </div>
 
         {/* Divider: vertical on horizontal layout, horizontal centered 30% on vertical layout */}
-        <div className="2xl:p-0 2xl:w-[30%] mx-auto border-t border-gray-600 pt-0.5 2xl:h-0 h-16 w-px bg-gray-600"/>
+        <div className="2xl:p-0 2xl:w-[30%] mx-auto border-t border-gray-600 pt-0.5 2xl:h-0 size-px bg-gray-600"/>
 
         {/* Status Breakdown */}
         <div className="2xl:space-y-1 2xl:text-sm flex-1 space-y-1 text-[0.78rem]">

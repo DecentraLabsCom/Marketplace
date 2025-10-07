@@ -47,6 +47,7 @@ export const authenticateLabAccessSSO = async (userData, labId) => {
  * @param {string} userWallet - User's wallet address
  * @param {string|number} labId - Lab ID to access
  * @param {Function} signMessageAsync - Function to sign the authentication message
+ * @param {string} [reservationKey] - Optional reservation key for optimized validation
  * @returns {Promise<Object>} Authentication result with token and labURL or error
  * @throws {Error} If any step of the authentication process fails
  */
@@ -63,7 +64,7 @@ const buildAuthUrl = (baseUrl, endpoint) => {
   return `${cleanBase}/${endpoint}`;
 };
 
-export const authenticateLabAccess = async (authEndpoint, userWallet, labId, signMessageAsync) => {
+export const authenticateLabAccess = async (authEndpoint, userWallet, labId, signMessageAsync, reservationKey = null) => {
   try {
     // Step 1: Request message to sign from authentication service
     const messageUrl = buildAuthUrl(authEndpoint, "message");
@@ -91,17 +92,25 @@ export const authenticateLabAccess = async (authEndpoint, userWallet, labId, sig
     // Step 3: Send authentication data to verify signature and get access token
     devLog.log('🔑 Verifying signature and requesting lab access token...');
     
+    const auth2Payload = {
+      wallet: userWallet,
+      signature: signature,
+      labId: labId
+    };
+    
+    // Include reservationKey if available for optimized validation
+    if (reservationKey) {
+      auth2Payload.reservationKey = reservationKey;
+      devLog.log('📋 Including reservationKey in auth2:', reservationKey);
+    }
+    
     const auth2Url = buildAuthUrl(authEndpoint, "auth2");
     const responseAuth = await fetch(auth2Url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        wallet: userWallet,
-        signature: signature,
-        labId: labId
-      }),
+      body: JSON.stringify(auth2Payload),
     });
 
     if (!responseAuth.ok) {

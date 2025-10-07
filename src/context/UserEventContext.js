@@ -31,15 +31,12 @@ export function UserEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🏢 [UserEventContext] ProviderAdded events detected:', logs.length);
             
-            // Simple invalidation - let React Query handle the rest
-            queryClient.invalidateQueries({ 
-                queryKey: providerQueryKeys.all() 
-            });
+            // Invalidate provider list (new provider added to array)
             queryClient.invalidateQueries({ 
                 queryKey: providerQueryKeys.list() 
             });
             
-            // Invalidate specific provider queries if we have address
+            // Invalidate specific provider queries for each added provider
             logs.forEach(log => {
                 const providerAddress = log.args._account;
                 if (providerAddress) {
@@ -66,13 +63,12 @@ export function UserEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🗑️ [UserEventContext] ProviderRemoved events detected:', logs.length);
             
-            queryClient.invalidateQueries({ 
-                queryKey: providerQueryKeys.all() 
-            });
+            // Invalidate provider list (provider removed from array)
             queryClient.invalidateQueries({ 
                 queryKey: providerQueryKeys.list() 
             });
             
+            // Invalidate specific provider queries for each removed provider
             logs.forEach(log => {
                 const providerAddress = log.args._account;
                 if (providerAddress) {
@@ -102,6 +98,7 @@ export function UserEventProvider({ children }) {
             logs.forEach(log => {
                 const providerAddress = log.args._account;
                 if (providerAddress) {
+                    // Invalidate specific provider data that changed
                     queryClient.invalidateQueries({ 
                         queryKey: providerQueryKeys.byAddress(providerAddress) 
                     });
@@ -112,14 +109,6 @@ export function UserEventProvider({ children }) {
                         queryKey: userQueryKeys.byAddress(providerAddress) 
                     });
                 }
-            });
-            
-            // Also invalidate the list in case provider data affects listing
-            queryClient.invalidateQueries({ 
-                queryKey: providerQueryKeys.all() 
-            });
-            queryClient.invalidateQueries({ 
-                queryKey: providerQueryKeys.list() 
             });
         }
     });

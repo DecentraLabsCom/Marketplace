@@ -22,8 +22,10 @@ This project follows a set of coding standards and best practices to ensure code
 
    **Event Context Architecture**:
    - **Domain-Specific Contexts**: Each context should be responsible for a specific domain (e.g., `UserEventContext`, `LabEventContext`, `BookingEventContext`).
-   - **Event-Driven Cache Updates**: Blockchain events should trigger granular cache updates through helper functions with `queryClient.fetchQuery` on event listeners to keep React Query cache consistent (e.g., `queryClient.fetchQuery(bookingQueryKeys.byReservationKey(reservationKey))`). Always use the centralized `queryKeys.js` file instead of hardcoding query keys.
-   - **Cache Validation**: Event contexts should validate cache data against blockchain state and update only when necessary.
+   - **Event-Driven Cache Updates**: Blockchain events should trigger **specific** cache invalidations using `queryClient.invalidateQueries` with precise query keys (e.g., `queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) })`). Always use the centralized `queryKeys.js` file instead of hardcoding query keys.
+   - **Avoid Redundant Invalidations**: Never use global patterns (e.g., `all()`, `['lab']`, `['bookings']`) when specific invalidations are already being used. Global patterns match ALL queries in that domain, making specific invalidations redundant.
+   - **Lazy Refetch Strategy**: Use `invalidateQueries` (not `fetchQuery`) in event listeners because it's lazy - only refetches queries that are currently active in components. This prevents unnecessary network requests for data that's not being displayed.
+   - **Cache Validation**: Event contexts should only invalidate queries that actually changed based on the event data.
 
    **Optimistic Updates Strategy**:
    - **OptimisticUIContext**: Use the `OptimisticUIContext` to manage local UI state independently from React Query cache. This provides clean separation between server state (React Query) and optimistic UI state (local context).
@@ -34,14 +36,29 @@ This project follows a set of coding standards and best practices to ensure code
      * The context automatically cleans up stale states (1 minute for pending, 10 minutes for completed)
 
    **Cache Management Strategies**:
-   - **Granular Cache Updates**: When data changes, add, update, or remove specific records from cache without invalidating everything. Use domain-specific cache update utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`, `useUserCacheUpdates`).
-   - **Fallback Invalidation**: Only fall back to full cache invalidation (`queryClient.invalidateQueries`) when granular updates fail, data is considered stale, or complex data relationships make granular updates impractical.
+   - **Event Listeners (Blockchain Events)**: Use `invalidateQueries` with specific query keys. This is lazy and efficient - only refetches queries that are currently active.
+   - **Manual Cache Updates (Cache Utilities)**: When you know the exact new state, use `setQueryData` for immediate updates without network requests. Use domain-specific cache update utilities (e.g., `useBookingCacheUpdates`, `useLabCacheUpdates`, `useUserCacheUpdates`).
+     ```javascript
+     // ✅ PREFERRED - Immediate update, no network request
+     queryClient.setQueryData(key, (oldData) => ({ ...oldData, status: 4 }));
+     // ✅ ACCEPTABLE - When you don't know the exact new state
+     queryClient.invalidateQueries({ queryKey: key });
+     ```
+   - **Query Key Hierarchy**: Understand that parent patterns match all children:
+     ```javascript
+     // ['bookings'] matches ALL of:
+     // - ['bookings', 'reservation', key]
+     // - ['bookings', 'list']
+     // - ['bookings', 'reservationsOf', address]
+     // Therefore, invalidating ['bookings'] along with specific keys is 100% redundant
+     ```
+   - **When to Invalidate Array Queries**: Only invalidate list/array queries when the array itself changes (items added/removed), not when individual item data changes:
    - **Cache Update Flow**: 
-     * Manual UI Actions → OptimisticUIContext for immediate feedback + granular cache manipulation for server state
-     * Transaction Success → Complete optimistic state (keep new state, mark as non-pending) + update relevant cache keys
-     * Blockchain Events → Cache validation + clear optimistic state
-     * Error Recovery → Clear optimistic state + targeted invalidation or full fallback
-   - **Performance Optimization**: Prefer OptimisticUIContext for UI state and granular cache updates for server state to maintain UI responsiveness and minimize unnecessary re-fetches.
+     * Manual UI Actions → OptimisticUIContext for immediate feedback + `setQueryData` for server state (if known) or `invalidateQueries` (if unknown)
+     * Transaction Success → Complete optimistic state + invalidate relevant specific cache keys
+     * Blockchain Events → Clear optimistic state + invalidate only specific queries that changed (never use global patterns redundantly)
+     * Error Recovery → Clear optimistic state + targeted invalidation
+   - **Performance Optimization**: Prefer OptimisticUIContext for UI state, `setQueryData` for known updates, and specific `invalidateQueries` (never global patterns) for lazy refetching. This minimizes unnecessary re-fetches and network requests.
 
 5. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities. In particular, use the `useContractWriteFunction` hook for all contract write operations, and `useDefaultReadContract` for read operations.
 

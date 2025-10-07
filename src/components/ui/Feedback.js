@@ -164,7 +164,7 @@ export function Badge({
       {removable && (
         <button
           type="button"
-          className="shrink-0 ml-1 size-4 rounded-full inline-flex items-center justify-center hover:bg-black/20 focus:outline-none focus:bg-black/20"
+          className="shrink-0 ml-1 size-4 rounded-full flex-center hover:bg-black/20 focus:outline-none focus:bg-black/20"
           onClick={onRemove}
         >
           <span className="sr-only">Remove badge</span>
@@ -204,7 +204,7 @@ export function Spinner({
   )
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex-center">
       <svg
         className={classes}
         fill="none"

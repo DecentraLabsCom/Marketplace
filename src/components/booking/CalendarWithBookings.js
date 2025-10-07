@@ -50,18 +50,36 @@ export default function CalendarWithBookings({
       bookingInfo: filteredBookings
     })
 
+  // For user-dashboard and provider-dashboard modes, make calendar read-only (no date selection)
+  const isReadOnlyMode = displayMode === 'user-dashboard' || displayMode === 'provider-dashboard';
+  const handleDateChange = isReadOnlyMode ? () => {} : onDateChange;
+  const calendarClasses = `${calendarClassName} ${isReadOnlyMode ? 'readonly-calendar' : ''}`;
+
   return (
-    <DatePicker
-      calendarClassName={calendarClassName}
-      selected={selectedDate}
-      onChange={onDateChange}
-      minDate={minDate}
-      maxDate={maxDate}
-      inline={inline}
-      filterDate={filterDate}
-      dayClassName={dayClassName}
-      renderDayContents={dayContents}
-    />
+    <>
+      {isReadOnlyMode && (
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            .readonly-calendar .react-datepicker__day {
+              cursor: default !important;
+              user-select: none;
+            }
+          `
+        }} />
+      )}
+      <DatePicker
+        calendarClassName={calendarClasses}
+        selected={selectedDate}
+        onChange={handleDateChange}
+        onSelect={(e) => isReadOnlyMode ? null : handleDateChange(e)}
+        minDate={minDate}
+        maxDate={maxDate}
+        inline={inline}
+        filterDate={filterDate}
+        dayClassName={dayClassName}
+        renderDayContents={dayContents}
+      />
+    </>
   )
 }
 

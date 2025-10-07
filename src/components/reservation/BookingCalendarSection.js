@@ -48,6 +48,14 @@ export default function BookingCalendarSection({
     (bookings || []).filter(booking => !isCancelledBooking(booking)),
     [bookings]
   )
+  
+  // Create a stable key that includes booking statuses to force re-render on status changes
+  const calendarKey = useMemo(() => {
+    const bookingSignature = activeBookings
+      .map(b => `${b.reservationKey}-${b.status}`)
+      .join('|');
+    return `calendar-${lab?.id}-${forceRefresh}-${date.getTime()}-${bookingSignature}`;
+  }, [lab?.id, activeBookings, forceRefresh, date]);
 
   if (!lab) return null
 
@@ -58,7 +66,7 @@ export default function BookingCalendarSection({
         <label className="block text-lg font-semibold mb-2">Select the date:</label>
         <div className="w-fit">
           <CalendarWithBookings
-            key={`calendar-${lab?.id}-${activeBookings?.length || 0}-${forceRefresh}-${date.getTime()}-${JSON.stringify(activeBookings?.map(b => b.reservationKey) || [])}`}
+            key={calendarKey}
             selectedDate={date}
             onDateChange={onDateChange}
             bookingInfo={activeBookings.map(booking => ({

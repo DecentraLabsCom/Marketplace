@@ -118,7 +118,7 @@ export default function FileUploadManager({
         </h4>
         <div className="space-y-2">
           {urls.map((url, index) => (
-            <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+            <div key={index} className="list-item">
               <span className="text-sm text-gray-600 truncate flex-1 mr-2">
                 {url}
               </span>
@@ -150,7 +150,7 @@ export default function FileUploadManager({
         </h4>
         <div className="space-y-2">
           {files.map((file, index) => (
-            <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+            <div key={index} className="list-item">
               <div className="flex items-center flex-1">
                 {isImage && file.type.startsWith('image/') && (
                   <Image

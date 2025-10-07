@@ -3,7 +3,7 @@
  * Orchestrates the booking creation flow using extracted components and hooks
  */
 "use client"
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount } from 'wagmi'
 import { Container } from '@/components/ui'
@@ -40,6 +40,21 @@ export default function LabReservation({ id }) {
   
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
+  
+  // Auto-select lab when labId is provided from URL
+  useEffect(() => {
+    devLog.log('🔍 [LabReservation] useEffect triggered:', { labId, labsCount: labs.length, selectedLab: selectedLab?.id })
+    
+    if (labId && labs.length > 0 && !selectedLab) {
+      const lab = labs.find((lab) => String(lab.id) === labId)
+      if (lab) {
+        devLog.log('🎯 [LabReservation] Auto-selecting lab from URL:', { labId, labName: lab.name })
+        setSelectedLab(lab)
+      } else {
+        devLog.warn('⚠️ [LabReservation] Lab not found for ID:', labId, 'Available labs:', labs.map(l => l.id))
+      }
+    }
+  }, [labId, labs, selectedLab])
   
   // Lab bookings data
   const { data: labBookingsData } = useLabBookingsDashboard(selectedLab?.id, {
