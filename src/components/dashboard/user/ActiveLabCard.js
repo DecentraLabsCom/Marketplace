@@ -88,7 +88,8 @@ export default function ActiveLabCard({
               id={lab.id}
               userWallet={userAddress} 
               hasActiveBooking={!!booking} 
-              auth={lab.auth} 
+              auth={lab.auth}
+              reservationKey={booking?.reservationKey}
             />
           )}
         </div>

@@ -14,9 +14,10 @@ import devLog from '@/utils/dev/logger'
  * @param {string} props.userWallet - User's wallet address
  * @param {boolean} props.hasActiveBooking - Whether user has an active booking
  * @param {string} props.auth - Authentication method required for access
+ * @param {string} [props.reservationKey] - Optional reservation key for optimized validation
  * @returns {JSX.Element} Lab access interface with validation and entry controls
  */
-export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
+export default function LabAccess({ id, userWallet, hasActiveBooking, auth, reservationKey }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const router = useRouter();
@@ -39,7 +40,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth }) {
     
     try {
       // Use helper function to handle the complete authentication flow
-      const authResult = await authenticateLabAccess(auth, userWallet, id, signMessageAsync);
+      // Pass reservationKey if available for optimized validation
+      const authResult = await authenticateLabAccess(auth, userWallet, id, signMessageAsync, reservationKey);
 
       // Handle successful authentication
       if (authResult.token && authResult.labURL) {
@@ -97,9 +99,11 @@ LabAccess.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   userWallet: PropTypes.string.isRequired,
   hasActiveBooking: PropTypes.bool.isRequired,
-  auth: PropTypes.string
+  auth: PropTypes.string,
+  reservationKey: PropTypes.string
 }
 
 LabAccess.defaultProps = {
-  auth: ''
+  auth: '',
+  reservationKey: null
 }
