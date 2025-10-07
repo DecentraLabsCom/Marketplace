@@ -257,7 +257,7 @@ describe('RadioGroup', () => {
   ];
 
   test('should render legend and all radio options', () => {
-    render(<RadioGroup label="Size" name="size" options={options} />);
+    render(<RadioGroup label="Size" name="size" options={options} onChange={() => {}} />);
     
     expect(screen.getByText('Size')).toBeInTheDocument();
     expect(screen.getByLabelText('Small')).toBeInTheDocument();
@@ -292,7 +292,7 @@ describe('RadioGroup', () => {
 
   test('should use fieldset and legend for proper semantics', () => {
     const { container } = render(
-      <RadioGroup label="Size" name="size" options={options} />
+      <RadioGroup label="Size" name="size" options={options} onChange={() => {}} />
     );
     
     // Ensures proper accessibility structure
