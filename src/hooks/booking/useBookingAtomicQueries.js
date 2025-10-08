@@ -448,8 +448,46 @@ export const useHasActiveBookingByToken = (labId, options = {}) => {
 // Export queryFn for use in composed hooks
 useHasActiveBookingByToken.queryFn = getHasActiveBookingByTokenQueryFn;
 
-// Note: useIsTokenListed has been moved to useLabAtomicQueries 
-// since token listing is a lab property, not a booking property
+// Define queryFn first for reuse
+const getActiveReservationKeyForUserQueryFn = createSSRSafeQuery(async (labId, userAddress) => {
+  if (!labId || !userAddress) {
+    throw new Error('Lab ID and user address are required');
+  }
+  
+  const response = await fetch(`/api/contract/reservation/getActiveReservationKeyForUser?labId=${encodeURIComponent(labId)}&userAddress=${encodeURIComponent(userAddress)}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch active reservation key for user ${userAddress} in lab ${labId}: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useActiveReservationKeyForUser:', labId, userAddress, data);
+  return data;
+}, { reservationKey: '0x0000000000000000000000000000000000000000000000000000000000000000' }); // Return zero bytes32 during SSR
+
+/**
+ * Hook for /api/contract/reservation/getActiveReservationKeyForUser endpoint
+ * Gets the active reservation key for a user in a specific lab using O(1) contract lookup
+ * @param {string|number} labId - Lab ID to check
+ * @param {string} userAddress - User address to check
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
+ */
+export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
+  return useQuery({
+    queryKey: bookingQueryKeys.activeReservationKeyForUser(labId, userAddress),
+    queryFn: () => getActiveReservationKeyForUserQueryFn(labId, userAddress), // ✅ Reuse the SSR-safe queryFn
+    enabled: !!labId && !!userAddress,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+// Export queryFn for use in composed hooks
+useActiveReservationKeyForUser.queryFn = getActiveReservationKeyForUserQueryFn;
 
 // Define queryFn first for reuse
 const getLabTokenAddressQueryFn = createSSRSafeQuery(async () => {
