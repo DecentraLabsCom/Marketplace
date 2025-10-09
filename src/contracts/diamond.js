@@ -1,7 +1,10 @@
+/**
+ * Diamond Contract Addresses
+*/
 export const contractAddresses = {
-  ethereum: "0x...",
-  polygon: "0x...",
-  sepolia: "0x2048e91F9d12F8F933Da52A66b6aEe66c34B741F"
+  ethereum: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_ETHEREUM || "0x...",
+  polygon: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_POLYGON || "0x...",
+  sepolia: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_SEPOLIA || "0xC332F296d698bb05Fbad7863131F36085F6ce66dC"
 };
 
 export const contractABI = [
@@ -1822,6 +1825,30 @@ export const contractABI = [
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      }
+    ],
+    "name": "getActiveReservationKeyForUser",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",

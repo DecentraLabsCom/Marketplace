@@ -140,11 +140,14 @@ export default function ProviderDashboard() {
       : 0;
     labData.uri = labData.uri || `Lab-${user?.name || 'Provider'}-${maxId + 1}.json`;
 
+    // Store the original human-readable price before blockchain conversion
+    const originalPrice = labData.price;
+
     try {
       addTemporaryNotification('pending', '⏳ Adding lab...');
       
-      // 🚀 Use React Query mutation for lab creation
-      await addLabMutation.mutateAsync({
+      // 🚀 Use React Query mutation for lab creation (blockchain transaction)
+      const result = await addLabMutation.mutateAsync({
         ...labData,
         providerId: address, // Add provider info
         isSSO,
@@ -152,6 +155,28 @@ export default function ProviderDashboard() {
       });
       
       addTemporaryNotification('success', '✅ Lab added!');
+      
+      // Save metadata JSON file for locally-managed URIs
+      if (labData.uri.startsWith('Lab-')) {
+        try {
+          devLog.log('📝 Saving lab metadata JSON after blockchain creation...');
+          await saveLabDataMutation.mutateAsync({
+            ...labData,
+            id: result.labId || result.id || (maxId + 1), // Use the lab ID from blockchain or fallback
+            price: originalPrice // Save with human-readable price for JSON consistency
+          });
+          
+          // Add a small delay to ensure cache propagation in production
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
+          devLog.log('✅ Lab metadata JSON saved successfully');
+        } catch (error) {
+          devLog.error('❌ Failed to save lab metadata JSON:', error);
+          addTemporaryNotification('warning', `⚠️ Lab created but metadata failed to save: ${formatErrorMessage(error)}`);
+          // Don't return - lab was created successfully, just metadata save failed
+        }
+      }
+      
       setTimeout(() => setIsModalOpen(false), 0);
       
     } catch (error) {
@@ -159,7 +184,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
     }
   }, [
-    ownedLabs, user?.name, addLabMutation, address, isSSO, user?.email, addTemporaryNotification
+    ownedLabs, user?.name, addLabMutation, saveLabDataMutation, address, isSSO, user?.email, addTemporaryNotification
   ]);
 
   // Redirect non-providers to home page

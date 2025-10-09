@@ -113,23 +113,30 @@ export async function POST(req) {
     }
 
     const localFilePath = path.join(`./public/${labId || 'temp'}`, destinationFolder, sanitizedFileName);
-    const filePath = `/${labId || 'temp'}/${destinationFolder}/${sanitizedFileName}`;
+    const relativePath = `/${labId || 'temp'}/${destinationFolder}/${sanitizedFileName}`;
 
     try {
       const buffer = await file.arrayBuffer();
+      let filePath; // This will be the URL returned to the client
       
       if (!isVercel) {
+        // Local development: save to public folder and return relative path
         await fs.mkdir(path.dirname(localFilePath), { recursive: true });
         await fs.writeFile(localFilePath, Buffer.from(buffer));
+        filePath = relativePath; // For local, use relative path
       } else {
-        await put(`data${filePath}`, Buffer.from(buffer), 
+        // Production: upload to Vercel Blob and return full blob URL
+        const blobPath = `data${relativePath}`;
+        const blob = await put(blobPath, Buffer.from(buffer), 
                   { contentType: detectedContentType, allowOverwrite: true, access: 'public' });
+        filePath = blob.url; // ✅ Return the full blob URL for production
+        devLog.info(`📤 File uploaded to blob: ${blob.url}`);
       }
 
       return NextResponse.json(
         { 
           message: 'File uploaded successfully',
-          filePath: filePath,
+          filePath: filePath, // ✅ Now returns full blob URL in production, relative path locally
           originalName: file.name,
           sanitizedName: sanitizedFileName,
           size: file.size,
