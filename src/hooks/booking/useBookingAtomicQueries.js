@@ -161,7 +161,7 @@ const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
   const data = await response.json();
   devLog.log('🔍 useReservationsOf:', userAddress, data);
   return data;
-}, []); // Return empty array during SSR
+}, { count: 0 }); // Return count object during SSR
 
 /**
  * Hook for /api/contract/reservation/reservationsOf endpoint
