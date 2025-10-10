@@ -122,6 +122,21 @@ export function useLabTokenHook() {
     setCachedDecimalsState(newCachedDecimals);
   }, [chainName]);
 
+  // Force refetch balance and allowance when wallet address changes
+  // This ensures fresh data when user switches wallets in MetaMask
+  useEffect(() => {
+    if (address) {
+      devLog.log('🔄 Wallet address changed, refetching balance and allowance:', address);
+      // Small delay to ensure Wagmi has updated its internal query cache with new address
+      const timeoutId = setTimeout(() => {
+        refetchBalance();
+        refetchAllowance();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [address, refetchBalance, refetchAllowance]);
+
   // Use cached decimals if available, otherwise fall back to contract data
   const decimals = cachedDecimals !== null ? cachedDecimals : contractDecimals;
 
