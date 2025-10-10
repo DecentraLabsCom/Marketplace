@@ -2,82 +2,113 @@
  * Specialized Booking Hooks - Optimized for specific use cases
  * These hooks use atomic queries + React Query 'select' for maximum performance
  */
+import { useQueries } from '@tanstack/react-query'
 import { 
-  useReservationsOf, 
+  useReservationsOf,
+  useReservationKeyOfUserByIndex,
+  useReservation,
   BOOKING_QUERY_CONFIG 
 } from './useBookingAtomicQueries'
+import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 /**
  * Specialized hook for Market component
- * Uses only the atomic reservationsOf query with select optimization
- * Only returns basic booking info needed for lab filtering (active bookings detection)
+ * Uses composed queries to get user reservations and extract active/upcoming lab IDs
  * @param {string} userAddress - User wallet address
  * @param {Object} options - Configuration options
- * @returns {Object} Minimal booking data for market filtering
+ * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
-  return useReservationsOf(userAddress, {
+  // Step 1: Get user reservation count
+  const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
-    ...options.queryOptions,
-    enabled: !!userAddress && (options.enabled !== false) && (options.queryOptions?.enabled !== false),
-    
-    // ✅ Use React Query 'select' to transform data at query level (no re-renders)
-    select: (rawReservations) => {
-      devLog.log('🏪 useUserBookingsForMarket - Processing reservations:', {
-        userAddress,
-        reservationCount: rawReservations?.length || 0
-      });
+    enabled: !!userAddress && (options.enabled !== false),
+  });
 
-      if (!rawReservations?.length) {
-        return {
-          userLabsWithActiveBookings: new Set(), // ✅ Set for O(1) lab marking
-          activeBookingsCount: 0,
-          upcomingBookingsCount: 0,
-          hasBookingInLab: () => false
-        };
-      }
+  const totalReservationCount = reservationCountResult.data?.count || 0;
+  const hasReservations = totalReservationCount > 0;
 
-      const now = Math.floor(Date.now() / 1000);
-      const userLabsWithActiveBookings = new Set();
-      let activeBookingsCount = 0;
-      let upcomingBookingsCount = 0;
+  // Step 2: Get reservation keys for each index
+  const reservationKeyResults = useQueries({
+    queries: hasReservations 
+      ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => ({
+          queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
+          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index),
+          enabled: !!userAddress && hasReservations,
+          ...BOOKING_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
 
-      // ✅ Only extract lab IDs for active/upcoming bookings (for halo marking)
-      rawReservations.forEach(reservation => {
-        const start = parseInt(reservation.start);
-        const end = parseInt(reservation.end);
-        const status = parseInt(reservation.status);
-        
-        // Skip cancelled bookings
-        if (status === 4) return;
-        
-        if (start <= now && now <= end && status === 1) {
-          // Active booking
-          userLabsWithActiveBookings.add(reservation.labId);
-          activeBookingsCount++;
-        } else if (start > now && (status === 0 || status === 1)) {
-          // Upcoming booking
-          userLabsWithActiveBookings.add(reservation.labId);
-          upcomingBookingsCount++;
-        }
-      });
+  const reservationKeys = reservationKeyResults
+    .filter(result => result.isSuccess && result.data)
+    .map(result => result.data.reservationKey || result.data);
 
-      devLog.log('🏪 useUserBookingsForMarket - Result:', {
-        activeBookingsCount,
-        upcomingBookingsCount,
-        labsWithBookings: Array.from(userLabsWithActiveBookings)
-      });
+  // Step 3: Get reservation details
+  const bookingDetailsResults = useQueries({
+    queries: reservationKeys.length > 0
+      ? reservationKeys.map(key => ({
+          queryKey: bookingQueryKeys.byReservationKey(key),
+          queryFn: () => useReservation.queryFn(key),
+          enabled: !!key,
+          ...BOOKING_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
 
-      return {
-        userLabsWithActiveBookings, // ✅ Set of lab IDs for O(1) checking in Market
-        activeBookingsCount,
-        upcomingBookingsCount,
-        // ✅ Helper method for easy checking in components
-        hasBookingInLab: (labId) => userLabsWithActiveBookings.has(labId?.toString())
-      };
+  // Step 4: Process reservations to extract ONLY ACTIVE lab IDs (not upcoming)
+  const now = Math.floor(Date.now() / 1000);
+  const userLabsWithActiveBookings = new Set();
+  let activeBookingsCount = 0;
+
+  bookingDetailsResults.forEach(result => {
+    if (!result.isSuccess || !result.data?.reservation) return;
+
+    const r = result.data.reservation;
+    const start = parseInt(r.start);
+    const end = parseInt(r.end);
+    const status = parseInt(r.status);
+    const labId = r.labId != null ? String(r.labId) : undefined;
+
+    if (!labId) return;
+
+    // Skip cancelled bookings
+    if (status === 4) return;
+
+    if (start <= now && now <= end && status === 1) {
+      // Add active bookings to Set
+      userLabsWithActiveBookings.add(labId);
+      activeBookingsCount++;
     }
   });
+
+  // Determine loading state
+  const isLoading = reservationCountResult.isLoading || 
+                    reservationKeyResults.some(r => r.isLoading) ||
+                    bookingDetailsResults.some(r => r.isLoading);
+
+  const isFetching = reservationCountResult.isFetching || 
+                     reservationKeyResults.some(r => r.isFetching) ||
+                     bookingDetailsResults.some(r => r.isFetching);
+
+  return {
+    data: {
+      userLabsWithActiveBookings,
+      activeBookingsCount,
+      hasBookingInLab: (labId) => {
+        if (!labId && labId !== 0) return false;
+        const labIdStr = String(labId);
+        const hasBooking = userLabsWithActiveBookings.has(labIdStr);       
+        return hasBooking;
+      }
+    },
+    isLoading,
+    isFetching,
+    isSuccess: !isLoading && reservationCountResult.isSuccess
+  };
 };
 
 /**

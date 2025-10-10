@@ -107,9 +107,19 @@ export default function UserDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
   
-  // Initialize time on client side only
+  // Initialize time on client side and update every minute to auto-move bookings from upcoming to past
   useEffect(() => {
+    // Set initial time
     setNow(new Date());
+    
+    // Update time every minute (60000ms) to automatically refresh booking lists
+    const intervalId = setInterval(() => {
+      setNow(new Date());
+      devLog.log('🕐 UserDashboard: Time updated for automatic booking list refresh');
+    }, 60000);
+    
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
       
   const openModal = (type, labId, booking = null) => {
