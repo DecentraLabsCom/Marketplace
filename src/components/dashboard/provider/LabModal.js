@@ -79,7 +79,7 @@ function reducer(state, action) {
  * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  * @returns {JSX.Element} Lab creation/editing modal component
  */
-export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId, onFilesUploaded }) {
   const { decimals, formatPrice } = useLabToken();
   const uploadFileMutation = useUploadFile();
   const deleteFileMutation = useDeleteFile();
@@ -118,7 +118,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
   const docUploadRef = useRef(null);
   const lastInitializedLabId = useRef(null);
 
-  const currentLabId = lab?.id || (maxId || 0) + 1;
+  // For EDITING: use the blockchain labId
+  // For CREATING: use 'temp' folder until we get the real labId after mint
+  const currentLabId = lab?.id || 'temp';
   const jsonFileRegex = useMemo(() => new RegExp(/^[\w\-._/]+\.json$/i), []);
 
   const uploadFile = async (file, destinationFolder, labId) => {
@@ -604,6 +606,13 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId }) {
       if (Object.keys(currentErrors).length === 0) {
         // Normalize dates to MM/DD/YYYY format before submitting
         const normalizedLabData = normalizeLabDates(localLab);
+        
+        // Pass uploaded temp files to parent for moving after mint
+        if (onFilesUploaded && uploadedTempFiles.current.length > 0) {
+          normalizedLabData._tempFiles = [...uploadedTempFiles.current];
+          devLog.log('📎 Passing temp files to parent:', uploadedTempFiles.current);
+        }
+        
         await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
         // If onSubmit is successful, the files are no longer temporary and mustn't be deleted when closing
         // the modal
@@ -695,6 +704,7 @@ LabModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
+  onFilesUploaded: PropTypes.func,
   lab: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     name: PropTypes.string,
@@ -709,5 +719,6 @@ LabModal.propTypes = {
 
 LabModal.defaultProps = {
   lab: null,
-  maxId: 0
+  maxId: 0,
+  onFilesUploaded: null
 }
