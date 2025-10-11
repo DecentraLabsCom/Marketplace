@@ -30,7 +30,8 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
   
   // Get active reservation key for this lab when user has an active booking
   // This is required for the auth service to validate the booking efficiently
-  const { data: reservationKeyData } = useActiveReservationKeyForUser(
+  // TODO: CURRENTLY DISABLED DUE TO A BUG IN THE SMART CONTRACT FUNCTION
+  /*const { data: reservationKeyData } = useActiveReservationKeyForUser(
     id, 
     address, 
     {
@@ -39,7 +40,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
     }
   );
   
-  const reservationKey = reservationKeyData?.reservationKey;
+  const reservationKey = reservationKeyData?.reservationKey;*/
  
   return (
     <Card 
@@ -108,7 +109,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
           userWallet={address} 
           hasActiveBooking={activeBooking} 
           auth={auth}
-          reservationKey={reservationKey}
+          //reservationKey={reservationKey} // TODO
         />
       )}
     </Card>
