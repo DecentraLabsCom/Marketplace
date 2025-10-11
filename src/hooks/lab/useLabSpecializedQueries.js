@@ -4,9 +4,12 @@
  * Following the same pattern as useBookingSpecializedQueries
  */
 import { 
-  useAllLabs, 
+  useAllLabs,
+  useLab,
   useLabSSO,
+  useLabOwner,
   useLabOwnerSSO,
+  useIsTokenListed,
   useIsTokenListedSSO,
   LAB_QUERY_CONFIG 
 } from './useLabAtomicQueries'
@@ -69,8 +72,11 @@ export const useLabsForMarket = (options = {}) => {
     ...LAB_QUERY_CONFIG,
     enabled: queryOptions.enabled !== false,
     
-    // ✅ Use select to just return the IDs array
-    select: (data) => data || []
+    // ✅ Convert BigInt IDs to numbers in select to prevent serialization errors
+    select: (data) => {
+      if (!data || !Array.isArray(data)) return [];
+      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
+    }
   });
 
   const labIds = labIdsResult.data || [];
@@ -133,10 +139,10 @@ export const useLabsForMarket = (options = {}) => {
           // Determine if we should fetch metadata based on listing state and options
           const shouldFetchMetadata = includeUnlisted 
             ? !!metadataUri && result.isSuccess  // Fetch for all labs if includeUnlisted is true
-            : effectiveState.isListed; // Only for listed labs if includeUnlisted is false
+            : effectiveState.isListed && !!metadataUri; // Only for listed labs with valid URI
           
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
             queryFn: () => useMetadata.queryFn(metadataUri),
             enabled: shouldFetchMetadata,
             ...METADATA_QUERY_CONFIG,
@@ -328,6 +334,7 @@ export const useLabsForMarket = (options = {}) => {
             account: providerInfo.account
           };
         } else {
+          // Provider not found - use formatted wallet address as fallback
           enrichedLab.provider = formatWalletAddress(ownerAddress);
         }
       }
@@ -350,11 +357,6 @@ export const useLabsForMarket = (options = {}) => {
 
       return enrichedLab;
     });
-
-  devLog.log('🏪 useLabsForMarket - Result:', {
-    totalLabs: labs.length,
-    sampleProviders: labs.slice(0, 3).map(lab => lab.provider)
-  });
 
   return {
     data: { labs, totalLabs: labs.length },
@@ -390,7 +392,7 @@ export const useLabById = (labId, options = {}) => {
   });
 
   // Get owner data
-  const ownerResult = useOwnerOf(normalizedLabId, {
+  const ownerResult = useLabOwner(normalizedLabId, {
     ...LAB_QUERY_CONFIG,
     enabled: !!normalizedLabId && (options.enabled !== false),
   });
@@ -606,6 +608,11 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const labIdsResult = useAllLabs({
     ...LAB_QUERY_CONFIG,
     enabled: !!ownerAddress && (options.enabled !== false),
+    // Convert BigInt IDs to numbers in select to prevent serialization errors
+    select: (data) => {
+      if (!data || !Array.isArray(data)) return [];
+      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
+    }
   });
 
   const labIds = labIdsResult.data || [];
@@ -666,7 +673,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
           const lab = result.data;
           const metadataUri = lab?.base?.uri;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
             queryFn: () => useMetadata.queryFn(metadataUri),
             enabled: !!metadataUri && result.isSuccess,
             ...METADATA_QUERY_CONFIG,
@@ -866,7 +873,11 @@ export const useLabsForReservation = (options = {}) => {
   const labIdsResult = useAllLabs({
     ...LAB_QUERY_CONFIG,
     enabled: options.enabled !== false,
-    select: (data) => data || []
+    // Convert BigInt IDs to numbers in select to prevent serialization errors
+    select: (data) => {
+      if (!data || !Array.isArray(data)) return [];
+      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
+    }
   });
 
   const labIds = labIdsResult.data || [];
@@ -911,7 +922,7 @@ export const useLabsForReservation = (options = {}) => {
       ? labsWithDetails.map(lab => {
           const metadataUri = lab?.base?.uri;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
             queryFn: () => useMetadata.queryFn(metadataUri),
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG,

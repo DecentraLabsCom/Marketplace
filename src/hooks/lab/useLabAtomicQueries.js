@@ -17,7 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
-import { useUser } from '@/context/UserContext'
+import { getIsSSO } from '@/utils/hooks/getIsSSO'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -87,13 +87,14 @@ export const useAllLabsWallet = (options = {}) => {
  * Hook for getAllLabs (Router - selects SSO or Wallet)
  * Gets all lab IDs from the contract - routes to API or Wagmi based on user type
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with all labs data
  */
 export const useAllLabs = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
-  const ssoQuery = useAllLabsSSO({ ...options, enabled: isSSO });
-  const walletQuery = useAllLabsWallet({ ...options, enabled: !isSSO });
+  const ssoQuery = useAllLabsSSO({ ...options, enabled: isSSO && options.enabled !== false });
+  const walletQuery = useAllLabsWallet({ ...options, enabled: !isSSO && options.enabled !== false });
   
   devLog.log(`🔀 useAllLabs → ${isSSO ? 'SSO' : 'Wallet'} mode`);
   
@@ -145,14 +146,35 @@ useLabSSO.queryFn = getLabQueryFn;
  * Gets specific lab data by lab ID directly from blockchain via Wagmi
  * @param {string|number} labId - Lab ID to fetch
  * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with lab data
+ * @returns {Object} Wagmi query result with lab data normalized to match SSO structure
  */
 export const useLabWallet = (labId, options = {}) => {
-  return useDefaultReadContract('getLab', [labId], {
+  const result = useDefaultReadContract('getLab', [labId], {
       enabled: !!labId,
       ...LAB_QUERY_CONFIG,
       ...options,
     });
+  
+  // Normalize the data after it's fetched
+  return {
+    ...result,
+    data: result.data ? (() => {
+      const data = result.data;
+      
+      // Wagmi already returns data as object: { labId: BigInt, base: { uri, price, auth, accessURI, accessKey } }
+      // We just need to normalize BigInt values to numbers/strings
+      return {
+        labId: typeof data.labId === 'bigint' ? Number(data.labId) : Number(data.labId || labId),
+        base: {
+          uri: String(data.base?.uri || ''),
+          price: data.base?.price ? (typeof data.base.price === 'bigint' ? data.base.price.toString() : String(data.base.price)) : '0',
+          auth: String(data.base?.auth || ''),
+          accessURI: String(data.base?.accessURI || ''),
+          accessKey: String(data.base?.accessKey || '')
+        }
+      };
+    })() : null
+  };
 };
 
 /**
@@ -160,10 +182,11 @@ export const useLabWallet = (labId, options = {}) => {
  * Gets specific lab data by lab ID - routes to API or Wagmi based on user type
  * @param {string|number} labId - Lab ID to fetch
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with lab data
  */
 export const useLab = (labId, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useLabSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useLabWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -233,10 +256,11 @@ export const useLabBalanceWallet = (ownerAddress, options = {}) => {
  * Gets the number of labs owned by an address - routes to API or Wagmi based on user type
  * @param {string} ownerAddress - Owner address to check
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with balance count
  */
 export const useLabBalance = (ownerAddress, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useLabBalanceSSO(ownerAddress, { ...options, enabled: isSSO && !!ownerAddress });
   const walletQuery = useLabBalanceWallet(ownerAddress, { ...options, enabled: !isSSO && !!ownerAddress });
@@ -306,10 +330,11 @@ export const useLabOwnerWallet = (labId, options = {}) => {
  * Gets the owner address of a specific lab - routes to API or Wagmi based on user type
  * @param {string|number} labId - Lab ID to get owner for
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with owner address
  */
 export const useLabOwner = (labId, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useLabOwnerSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useLabOwnerWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -384,10 +409,11 @@ export const useTokenOfOwnerByIndexWallet = (ownerAddress, index, options = {}) 
  * @param {string} ownerAddress - Owner address
  * @param {number} index - Index of the token to get
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with token ID
  */
 export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const enabled = !!ownerAddress && (index !== undefined && index !== null);
   const ssoQuery = useTokenOfOwnerByIndexSSO(ownerAddress, index, { ...options, enabled: isSSO && enabled });
@@ -458,10 +484,11 @@ export const useTokenURIWallet = (labId, options = {}) => {
  * Gets the metadata URI for a specific lab token - routes to API or Wagmi based on user type
  * @param {string|number} labId - Lab ID to get URI for
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with token URI
  */
 export const useTokenURI = (labId, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useTokenURISSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useTokenURIWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -531,10 +558,11 @@ export const useIsTokenListedWallet = (labId, options = {}) => {
  * Checks if a specific lab token is listed in the marketplace - routes to API or Wagmi based on user type
  * @param {string|number} labId - Lab ID to check listing status for
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with listing status
  */
 export const useIsTokenListed = (labId, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useIsTokenListedSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useIsTokenListedWallet(labId, { ...options, enabled: !isSSO && !!labId });

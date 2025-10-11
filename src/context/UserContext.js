@@ -5,8 +5,8 @@ import { useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
-  useIsLabProviderQuery, 
-  useGetLabProvidersQuery,
+  useIsLabProvider, 
+  useGetLabProviders,
   useUserCacheUpdates
 } from '@/hooks/user/useUsers'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
@@ -86,11 +86,16 @@ function UserDataCore({ children }) {
         }
     }, [queryClient, refetchSSO]);
 
+    // Determine current isSSO state based on ssoData
+    // This needs to be calculated BEFORE using the router hooks
+    const currentIsSSO = Boolean(ssoData?.isSSO);
+
     const { 
         data: providerStatus, 
         isLoading: isProviderLoading,
         error: providerError 
-    } = useIsLabProviderQuery(address, {
+    } = useIsLabProvider(address, {
+        isSSO: currentIsSSO, // Pass explicitly to avoid context dependency
         enabled: Boolean(address) && !isWalletLoading, // Only fetch when wallet connection is stable
         retry: false, // Don't retry failed provider status queries
     });
@@ -99,7 +104,8 @@ function UserDataCore({ children }) {
     const { 
         data: providersData,
         isLoading: isProvidersLoading 
-    } = useGetLabProvidersQuery({
+    } = useGetLabProviders({
+        isSSO: currentIsSSO, // Pass explicitly to avoid context dependency
         enabled: Boolean(providerStatus?.isLabProvider), // Only fetch if user is confirmed provider
         staleTime: 10 * 60 * 1000, // 10 minutes for provider list
     });
@@ -174,7 +180,12 @@ function UserDataCore({ children }) {
         // Handle SSO session data - this should work even without wallet connection
         if (ssoData) {
             devLog.log('🔑 Processing SSO data:', ssoData);
-            setIsSSO(Boolean(ssoData.isSSO));
+            
+            // Only update isSSO if it has changed to prevent infinite loops
+            const newIsSSO = Boolean(ssoData.isSSO);
+            if (isSSO !== newIsSSO) {
+                setIsSSO(newIsSSO);
+            }
             
             if (ssoData.user) {
                 updatedUser = {
@@ -188,7 +199,12 @@ function UserDataCore({ children }) {
                 devLog.log('👤 Will update user with SSO data');
             } else if (ssoData.isSSO === false || ssoData.user === null) {
                 devLog.log('🚪 SSO data indicates logout or no SSO session');
-                setIsSSO(false);
+                
+                // Only update isSSO if it has changed
+                if (isSSO !== false) {
+                    setIsSSO(false);
+                }
+                
                 // Only clear user data if we don't have a wallet connected
                 // If wallet is connected, let the wallet data processing handle the user state
                 if (!address) {
@@ -238,12 +254,16 @@ function UserDataCore({ children }) {
 
         // Update user state only if there are changes
         if (shouldUpdate) {
-            setUser(prev => ({
-                ...prev,
-                ...updatedUser
-            }));
+            setUser(prev => {
+                // Deep comparison to avoid unnecessary updates
+                const hasChanged = JSON.stringify(prev) !== JSON.stringify({ ...prev, ...updatedUser });
+                if (hasChanged) {
+                    return { ...prev, ...updatedUser };
+                }
+                return prev;
+            });
         }
-    }, [ssoData, address, providerStatus, providersData, isLoggingOut]);
+    }, [ssoData, address, providerStatus, providersData?.providers, isLoggingOut, isSSO]);
 
     // Handle connection changes - only clear wallet-related data, preserve SSO
     useEffect(() => {

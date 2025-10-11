@@ -7,7 +7,7 @@
  */
 import { useQueries } from '@tanstack/react-query'
 import { 
-  useGetLabProvidersQuery,
+  useGetLabProviders,
   useIsLabProviderSSO,
   USER_QUERY_CONFIG,
 } from './useUserAtomicQueries'
@@ -23,7 +23,7 @@ import devLog from '@/utils/dev/logger'
  * @returns {Object} React Query result with formatted provider data
  */
 export const useProvidersWithNames = (options = {}) => {
-  const providersQuery = useGetLabProvidersQuery({
+  const providersQuery = useGetLabProviders({
     ...USER_QUERY_CONFIG, // Use user/provider configuration
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: options.enabled,
@@ -82,11 +82,11 @@ export const useBatchProviderCheck = (addresses = [], options = {}) => {
  * @returns {Object} React Query result with provider status and details
  */
 export const useProviderDetails = (address, options = {}) => {
-  const statusQuery = useIsLabProviderQuery(address, {
+  const statusQuery = useIsLabProvider(address, {
     enabled: !!address && options.enabled !== false
   });
   
-  const detailsQuery = useGetLabProvidersQuery({
+  const detailsQuery = useGetLabProviders({
     enabled: statusQuery.data?.isProvider && options.enabled !== false
   });
 
@@ -116,7 +116,7 @@ export const useProviderDetails = (address, options = {}) => {
 export const useAllUsersComposed = ({ queryOptions = {} } = {}) => {
   
   // Use atomic hook for base data
-  const providersResult = useGetLabProvidersQuery(queryOptions);
+  const providersResult = useGetLabProviders(queryOptions);
 
   // Get providers from the atomic hook result
   const providers = providersResult.data?.providers || [];
@@ -164,14 +164,14 @@ export const useAllUsersComposed = ({ queryOptions = {} } = {}) => {
 export const useProviderStatusComposed = (providerAddress, { queryOptions = {} } = {}) => {
   
   // Use atomic hook for isProvider check
-  const isProviderResult = useIsLabProviderQuery(providerAddress, {
+  const isProviderResult = useIsLabProvider(providerAddress, {
     // Use atomic hook's default configuration, only allow specific overrides
     enabled: queryOptions.enabled !== undefined ? queryOptions.enabled : !!providerAddress,
     meta: queryOptions.meta,
   });
   
   // Get all providers to extract name and details
-  const providersResult = useGetLabProvidersQuery({
+  const providersResult = useGetLabProviders({
     // Use atomic hook's default configuration, only allow specific overrides
     enabled: queryOptions.enabled !== undefined ? queryOptions.enabled : !!providerAddress,
     meta: queryOptions.meta,

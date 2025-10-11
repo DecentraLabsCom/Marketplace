@@ -6,25 +6,21 @@
  * from this file rather than individual hook files to maintain consistency.
  * 
  * Architecture:
- * - Atomic Query Hooks: Single useQuery calls (1:1 with API endpoints)
- * - Atomic Mutation Hooks: Single mutations with Wallet/SSO/Router variants
- * - Composed Query Hooks: Complex orchestration using useQueries
+ * - Atomic Query Hooks: Three variants (SSO/Wallet/Router) for each query
+ * - Atomic Mutation Hooks: Three variants (SSO/Wallet/Router) for each mutation
+ * - Composed Query Hooks: Complex orchestration using useQueries (SSO-only)
  * - Cache Update Utilities: Granular cache management
  * - Cache Extraction Helpers: Performance-optimized data extraction
  * 
  * Usage:
  * ```javascript
- * import { useGetLabProvidersQuery, useAddProvider, useAllUsersComposed } from '@/hooks/user/useUsers'
+ * import { useGetLabProviders, useAddProvider, useAllUsersComposed } from '@/hooks/user/useUsers'
  * ```
  */
 
 // ===== ATOMIC QUERY HOOKS =====
-export {
-  useGetLabProvidersQuery,
-  useIsLabProviderQuery,
-  useSSOSessionQuery,
-  USER_QUERY_CONFIG,
-} from './useUserAtomicQueries'
+// Export all variants (SSO, Wallet, Router) from atomic queries
+export * from './useUserAtomicQueries'
 
 // ===== ATOMIC MUTATION HOOKS =====
 export {

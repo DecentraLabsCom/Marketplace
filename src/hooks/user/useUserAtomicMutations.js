@@ -11,7 +11,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useUser } from '@/context/UserContext'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
-import { useIsLabProviderQuery } from './useUserAtomicQueries'
+import { useIsLabProvider, USER_QUERY_CONFIG } from './useUsers'
 import devLog from '@/utils/dev/logger'
 
 // ===== PROVIDER MUTATION HOOKS =====

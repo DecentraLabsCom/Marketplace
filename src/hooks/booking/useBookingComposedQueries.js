@@ -10,8 +10,10 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
+  useReservationsOf,
   useReservationsOfSSO,
   useReservationSSO,
+  useReservationsOfToken,
   useReservationsOfTokenSSO,
   useReservationOfTokenByIndexSSO,
   useReservationKeyOfUserByIndexSSO,
@@ -427,7 +429,7 @@ export const useUserBookingsDashboard = (userAddress, {
           const labData = labResult?.data;
           const metadataUri = labData?.base?.uri;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
             queryFn: () => useMetadata.queryFn(metadataUri), // ✅ Using atomic hook queryFn
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration

@@ -5,7 +5,7 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { createSerializedJsonResponse } from '@/app/api/contract/utils/bigIntSerializer'
+import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
 
 /**
  * Retrieves basic lab list from contract
@@ -20,9 +20,12 @@ export async function GET() {
     // Single contract call for lab list
     const labList = await contract.getAllLabs();
     
-    console.log(`✅ Successfully fetched ${labList.length} labs from contract`);
+    // Convert all BigInt lab IDs to numbers for JSON serialization
+    const convertedLabList = labList.map(labId => Number(labId));
     
-    return createSerializedJsonResponse(labList, { 
+    console.log(`✅ Successfully fetched ${convertedLabList.length} labs from contract`);
+    
+    return createSerializedJsonResponse(convertedLabList, { 
       status: 200
     });
 

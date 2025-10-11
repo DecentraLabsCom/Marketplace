@@ -17,7 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
-import { useUser } from '@/context/UserContext'
+import { getIsSSO } from '@/utils/hooks/getIsSSO'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -78,14 +78,82 @@ useReservationSSO.queryFn = getReservationQueryFn;
  * Gets specific reservation data directly from blockchain via Wagmi
  * @param {string} reservationKey - Reservation key to fetch
  * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with reservation data
+ * @returns {Object} Wagmi query result with reservation data normalized to match SSO structure
  */
 export const useReservationWallet = (reservationKey, options = {}) => {
-  return useDefaultReadContract('getReservation', [reservationKey], {
+  const result = useDefaultReadContract('getReservation', [reservationKey], {
       enabled: !!reservationKey,
       ...BOOKING_QUERY_CONFIG,
       ...options,
     });
+  
+  // Normalize the data after it's fetched
+  return {
+    ...result,
+    data: result.data ? (() => {
+      const data = result.data;
+      
+      // Contract returns: { labId, renter, price, start, end, status }
+      const status = Number(data.status);
+      const renterAddress = data.renter || '0x0000000000000000000000000000000000000000';
+      const exists = renterAddress !== '0x0000000000000000000000000000000000000000';
+
+      // Determine reservation state (matching SSO logic)
+      let reservationState = 'Unknown';
+      let isConfirmed = false;
+      
+      if (!exists) {
+        reservationState = 'Not Found';
+      } else {
+        switch (status) {
+          case 0:
+            reservationState = 'Pending';
+            isConfirmed = false;
+            break;
+          case 1:
+            reservationState = 'Booked/Confirmed';
+            isConfirmed = true;
+            break;
+          case 2:
+            reservationState = 'Used';
+            isConfirmed = true;
+            break;
+          case 3:
+            reservationState = 'Collected';
+            isConfirmed = true;
+            break;
+          case 4:
+            reservationState = 'Cancelled';
+            isConfirmed = false;
+            break;
+          default:
+            reservationState = 'Unknown Status';
+        }
+      }
+
+      return {
+        reservation: {
+          labId: data.labId?.toString() || null,
+          renter: renterAddress,
+          price: data.price?.toString() || null,
+          start: data.start?.toString() || null,
+          end: data.end?.toString() || null,
+          status: status,
+          reservationState: reservationState,
+          isPending: status === 0,
+          isBooked: status === 1,
+          isUsed: status === 2,
+          isCollected: status === 3,
+          isCanceled: status === 4,
+          isActive: status === 1,
+          isCompleted: status === 2 || status === 3,
+          isConfirmed: isConfirmed,
+          exists: exists
+        },
+        reservationKey
+      };
+    })() : null
+  };
 };
 
 /**
@@ -93,10 +161,11 @@ export const useReservationWallet = (reservationKey, options = {}) => {
  * Gets specific reservation data - routes to API or Wagmi based on user type
  * @param {string} reservationKey - Reservation key to fetch
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with reservation data
  */
 export const useReservation = (reservationKey, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
   const walletQuery = useReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
@@ -166,10 +235,11 @@ export const useReservationsOfTokenWallet = (labId, options = {}) => {
  * Gets all reservations for a specific lab token - routes to API or Wagmi based on user type
  * @param {string|number} labId - Lab ID to get reservations for
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with lab reservations
  */
 export const useReservationsOfToken = (labId, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useReservationsOfTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useReservationsOfTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -244,10 +314,11 @@ export const useReservationOfTokenByIndexWallet = (labId, index, options = {}) =
  * @param {string|number} labId - Lab ID
  * @param {number} index - Index of the reservation
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with reservation data
  */
 export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const enabled = !!labId && (index !== undefined && index !== null);
   const ssoQuery = useReservationOfTokenByIndexSSO(labId, index, { ...options, enabled: isSSO && enabled });
@@ -318,10 +389,11 @@ export const useReservationsOfWallet = (userAddress, options = {}) => {
  * Gets all reservations made by a specific user - routes to API or Wagmi based on user type
  * @param {string} userAddress - User address to get reservations for
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with user reservations
  */
 export const useReservationsOf = (userAddress, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useReservationsOfSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
   const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
@@ -390,10 +462,11 @@ export const useReservationKeyByIndexWallet = (index, options = {}) => {
  * Gets reservation key at specific global index - routes to API or Wagmi based on user type
  * @param {number} index - Global index of the reservation
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with reservation key
  */
 export const useReservationKeyByIndex = (index, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const enabled = (index !== undefined && index !== null);
   const ssoQuery = useReservationKeyByIndexSSO(index, { ...options, enabled: isSSO && enabled });
@@ -469,10 +542,11 @@ export const useReservationKeyOfUserByIndexWallet = (userAddress, index, options
  * @param {string} userAddress - User address
  * @param {number} index - User's reservation index
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with reservation key
  */
 export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const enabled = !!userAddress && (index !== undefined && index !== null);
   const ssoQuery = useReservationKeyOfUserByIndexSSO(userAddress, index, { ...options, enabled: isSSO && enabled });
@@ -536,10 +610,11 @@ export const useTotalReservationsWallet = (options = {}) => {
  * Hook for totalReservations (Router - selects SSO or Wallet)
  * Gets the total count of all reservations - routes to API or Wagmi based on user type
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with total count
  */
 export const useTotalReservations = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useTotalReservationsSSO({ ...options, enabled: isSSO });
   const walletQuery = useTotalReservationsWallet({ ...options, enabled: !isSSO });
@@ -606,10 +681,11 @@ export const useUserOfReservationWallet = (reservationKey, options = {}) => {
  * Gets the user address that made a specific reservation - routes to API or Wagmi based on user type
  * @param {string} reservationKey - Reservation key
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with user address
  */
 export const useUserOfReservation = (reservationKey, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useUserOfReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
   const walletQuery = useUserOfReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
@@ -687,10 +763,11 @@ export const useCheckAvailableWallet = (labId, start, duration, options = {}) =>
  * @param {number} start - Start timestamp
  * @param {number} duration - Duration in seconds
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with availability status
  */
 export const useCheckAvailable = (labId, start, duration, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const enabled = !!(labId && start && duration);
   const ssoQuery = useCheckAvailableSSO(labId, start, duration, { ...options, enabled: isSSO && enabled });
@@ -762,10 +839,11 @@ export const useHasActiveBookingWallet = (userAddress, options = {}) => {
  * Checks if a user has any active booking - routes to API or Wagmi based on user type
  * @param {string} userAddress - User address to check
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with active booking status
  */
 export const useHasActiveBooking = (userAddress, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useHasActiveBookingSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
   const walletQuery = useHasActiveBookingWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
@@ -836,10 +914,11 @@ export const useHasActiveBookingByTokenWallet = (labId, options = {}) => {
  * Checks if a specific lab token has any active booking - routes to API or Wagmi based on user type
  * @param {string|number} labId - Lab ID to check
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with active booking status for the lab
  */
 export const useHasActiveBookingByToken = (labId, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useHasActiveBookingByTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useHasActiveBookingByTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -914,10 +993,11 @@ export const useActiveReservationKeyForUserWallet = (labId, userAddress, options
  * @param {string|number} labId - Lab ID to check
  * @param {string} userAddress - User address to check
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
  */
 export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const enabled = !!labId && !!userAddress;
   const ssoQuery = useActiveReservationKeyForUserSSO(labId, userAddress, { ...options, enabled: isSSO && enabled });
@@ -981,10 +1061,11 @@ export const useLabTokenAddressWallet = (options = {}) => {
  * Hook for getLabTokenAddress (Router - selects SSO or Wallet)
  * Gets the token contract address for lab tokens - routes to API or Wagmi based on user type
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with token contract address
  */
 export const useLabTokenAddress = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useLabTokenAddressSSO({ ...options, enabled: isSSO });
   const walletQuery = useLabTokenAddressWallet({ ...options, enabled: !isSSO });
@@ -1055,10 +1136,11 @@ export const useSafeBalanceWallet = (userAddress, options = {}) => {
  * Gets the safe balance for a specific user - routes to API or Wagmi based on user type
  * @param {string} userAddress - User address to get balance for
  * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with safe balance
  */
 export const useSafeBalance = (userAddress, options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = getIsSSO(options);
   
   const ssoQuery = useSafeBalanceSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
   const walletQuery = useSafeBalanceWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
