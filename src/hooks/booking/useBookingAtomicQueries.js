@@ -1,7 +1,10 @@
 /**
  * Atomic React Query Hooks for Booking-related Read Operations
- * Each hook maps 1:1 to a specific API endpoint in /api/contract/reservation/
- * Handles queries (read operations)
+ * Each hook has 3 variants following the same pattern as mutations:
+ * - useXSSO: Server-side query via API + Ethers (for SSO users)
+ *   * Each hook maps 1:1 to a specific API endpoint in /api/contract/reservation
+ * - useXWallet: Client-side query via Wagmi (for wallet users)
+ * - useX: Router that selects SSO or Wallet based on user.loginType
  * 
  * Configuration:
  * - staleTime: 15 minutes (900,000ms)
@@ -14,6 +17,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import { useUser } from '@/context/UserContext'
+import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for all booking/reservation hooks
@@ -25,6 +30,8 @@ export const BOOKING_QUERY_CONFIG = {
   refetchOnReconnect: true,
   retry: 1,
 }
+
+// ===== useReservation Hook Family =====
 
 // Define queryFn first for reuse
 const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
@@ -38,7 +45,7 @@ const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
   // Handle 200 responses (including "not found" cases)
   if (response.ok) {
     const data = await response.json();
-    devLog.log('🔍 useReservation:', reservationKey, data);
+    devLog.log('🔍 useReservationSSO:', reservationKey, data);
     return data;
   }
   
@@ -47,16 +54,16 @@ const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
 }, null); // Return null during SSR
 
 /**
- * Hook for /api/contract/reservation/getReservation endpoint
- * Gets specific reservation data by reservation key
+ * Hook for /api/contract/reservation/getReservation endpoint (SSO users)
+ * Gets specific reservation data by reservation key via API + Ethers
  * @param {string} reservationKey - Reservation key to fetch
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with reservation data
  */
-export const useReservation = (reservationKey, options = {}) => {
+export const useReservationSSO = (reservationKey, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.byReservationKey(reservationKey),
-    queryFn: () => getReservationQueryFn(reservationKey), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getReservationQueryFn(reservationKey),
     enabled: !!reservationKey,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -64,7 +71,42 @@ export const useReservation = (reservationKey, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useReservation.queryFn = getReservationQueryFn;
+useReservationSSO.queryFn = getReservationQueryFn;
+
+/**
+ * Hook for getReservation contract read (Wallet users)
+ * Gets specific reservation data directly from blockchain via Wagmi
+ * @param {string} reservationKey - Reservation key to fetch
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with reservation data
+ */
+export const useReservationWallet = (reservationKey, options = {}) => {
+  return useDefaultReadContract('getReservation', [reservationKey], {
+      enabled: !!reservationKey,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getReservation (Router - selects SSO or Wallet)
+ * Gets specific reservation data - routes to API or Wagmi based on user type
+ * @param {string} reservationKey - Reservation key to fetch
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with reservation data
+ */
+export const useReservation = (reservationKey, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
+  const walletQuery = useReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
+  
+  devLog.log(`🔀 useReservation [${reservationKey}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useReservationsOfToken Hook Family =====
 
 // Define queryFn first for reuse
 const getReservationsOfTokenQueryFn = createSSRSafeQuery(async (labId) => {
@@ -80,21 +122,21 @@ const getReservationsOfTokenQueryFn = createSSRSafeQuery(async (labId) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useReservationsOfToken:', labId, data);
+  devLog.log('🔍 useReservationsOfTokenSSO:', labId, data);
   return data;
 }, []); // Return empty array during SSR
 
 /**
- * Hook for /api/contract/reservation/getReservationsOfToken endpoint
- * Gets all reservations for a specific lab token
+ * Hook for /api/contract/reservation/getReservationsOfToken endpoint (SSO users)
+ * Gets all reservations for a specific lab token via API + Ethers
  * @param {string|number} labId - Lab ID to get reservations for
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with lab reservations
  */
-export const useReservationsOfToken = (labId, options = {}) => {
+export const useReservationsOfTokenSSO = (labId, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.getReservationsOfToken(labId),
-    queryFn: () => getReservationsOfTokenQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getReservationsOfTokenQueryFn(labId),
     enabled: !!labId,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -102,7 +144,42 @@ export const useReservationsOfToken = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useReservationsOfToken.queryFn = getReservationsOfTokenQueryFn;
+useReservationsOfTokenSSO.queryFn = getReservationsOfTokenQueryFn;
+
+/**
+ * Hook for getReservationsOfToken contract read (Wallet users)
+ * Gets all reservations for a specific lab token directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to get reservations for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with lab reservations
+ */
+export const useReservationsOfTokenWallet = (labId, options = {}) => {
+  return useDefaultReadContract('getReservationsOfToken', [labId], {
+      enabled: !!labId,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getReservationsOfToken (Router - selects SSO or Wallet)
+ * Gets all reservations for a specific lab token - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to get reservations for
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with lab reservations
+ */
+export const useReservationsOfToken = (labId, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useReservationsOfTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useReservationsOfTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  
+  devLog.log(`🔀 useReservationsOfToken [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useReservationOfTokenByIndex Hook Family =====
 
 // Define queryFn first for reuse
 const getReservationOfTokenByIndexQueryFn = createSSRSafeQuery(async (labId, index) => {
@@ -120,22 +197,22 @@ const getReservationOfTokenByIndexQueryFn = createSSRSafeQuery(async (labId, ind
   }
   
   const data = await response.json();
-  devLog.log('🔍 useReservationOfTokenByIndex:', labId, index, data);
+  devLog.log('🔍 useReservationOfTokenByIndexSSO:', labId, index, data);
   return data;
 }, null); // Return null during SSR 
 
 /**
- * Hook for /api/contract/reservation/getReservationOfTokenByIndex endpoint
- * Gets reservation at specific index for a lab token
+ * Hook for /api/contract/reservation/getReservationOfTokenByIndex endpoint (SSO users)
+ * Gets reservation at specific index for a lab token via API + Ethers
  * @param {string|number} labId - Lab ID
  * @param {number} index - Index of the reservation
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with reservation data
  */
-export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
+export const useReservationOfTokenByIndexSSO = (labId, index, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.getReservationOfTokenByIndex(labId, index),
-    queryFn: () => getReservationOfTokenByIndexQueryFn(labId, index), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getReservationOfTokenByIndexQueryFn(labId, index),
     enabled: !!labId && (index !== undefined && index !== null),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -143,7 +220,45 @@ export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useReservationOfTokenByIndex.queryFn = getReservationOfTokenByIndexQueryFn;
+useReservationOfTokenByIndexSSO.queryFn = getReservationOfTokenByIndexQueryFn;
+
+/**
+ * Hook for getReservationOfTokenByIndex contract read (Wallet users)
+ * Gets reservation at specific index for a lab token directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID
+ * @param {number} index - Index of the reservation
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with reservation data
+ */
+export const useReservationOfTokenByIndexWallet = (labId, index, options = {}) => {
+  return useDefaultReadContract('getReservationOfTokenByIndex', [labId, index], {
+      enabled: !!labId && (index !== undefined && index !== null),
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getReservationOfTokenByIndex (Router - selects SSO or Wallet)
+ * Gets reservation at specific index for a lab token - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID
+ * @param {number} index - Index of the reservation
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with reservation data
+ */
+export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const enabled = !!labId && (index !== undefined && index !== null);
+  const ssoQuery = useReservationOfTokenByIndexSSO(labId, index, { ...options, enabled: isSSO && enabled });
+  const walletQuery = useReservationOfTokenByIndexWallet(labId, index, { ...options, enabled: !isSSO && enabled });
+  
+  devLog.log(`🔀 useReservationOfTokenByIndex [${labId}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useReservationsOf Hook Family =====
 
 // Define queryFn first for reuse
 const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
@@ -159,21 +274,21 @@ const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useReservationsOf:', userAddress, data);
+  devLog.log('🔍 useReservationsOfSSO:', userAddress, data);
   return data;
 }, { count: 0 }); // Return count object during SSR
 
 /**
- * Hook for /api/contract/reservation/reservationsOf endpoint
- * Gets all reservations made by a specific user
+ * Hook for /api/contract/reservation/reservationsOf endpoint (SSO users)
+ * Gets all reservations made by a specific user via API + Ethers
  * @param {string} userAddress - User address to get reservations for
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with user reservations
  */
-export const useReservationsOf = (userAddress, options = {}) => {
+export const useReservationsOfSSO = (userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.reservationsOf(userAddress),
-    queryFn: () => getReservationsOfQueryFn(userAddress), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getReservationsOfQueryFn(userAddress),
     enabled: !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -181,7 +296,42 @@ export const useReservationsOf = (userAddress, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useReservationsOf.queryFn = getReservationsOfQueryFn;
+useReservationsOfSSO.queryFn = getReservationsOfQueryFn;
+
+/**
+ * Hook for reservationsOf contract read (Wallet users)
+ * Gets all reservations made by a specific user directly from blockchain via Wagmi
+ * @param {string} userAddress - User address to get reservations for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with user reservations
+ */
+export const useReservationsOfWallet = (userAddress, options = {}) => {
+  return useDefaultReadContract('reservationsOf', [userAddress], {
+      enabled: !!userAddress,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for reservationsOf (Router - selects SSO or Wallet)
+ * Gets all reservations made by a specific user - routes to API or Wagmi based on user type
+ * @param {string} userAddress - User address to get reservations for
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with user reservations
+ */
+export const useReservationsOf = (userAddress, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useReservationsOfSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
+  const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
+  
+  devLog.log(`🔀 useReservationsOf [${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useReservationKeyByIndex Hook Family =====
 
 // Define queryFn first for reuse
 const getReservationKeyByIndexQueryFn = createSSRSafeQuery(async (index) => {
@@ -196,21 +346,21 @@ const getReservationKeyByIndexQueryFn = createSSRSafeQuery(async (index) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useReservationKeyByIndex:', index, data);
+  devLog.log('🔍 useReservationKeyByIndexSSO:', index, data);
   return data;
 }, { reservationKey: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/reservation/reservationKeyByIndex endpoint
- * Gets reservation key at specific global index
+ * Hook for /api/contract/reservation/reservationKeyByIndex endpoint (SSO users)
+ * Gets reservation key at specific global index via API + Ethers
  * @param {number} index - Global index of the reservation
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with reservation key
  */
-export const useReservationKeyByIndex = (index, options = {}) => {
+export const useReservationKeyByIndexSSO = (index, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.reservationKeyByIndex(index),
-    queryFn: () => getReservationKeyByIndexQueryFn(index), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getReservationKeyByIndexQueryFn(index),
     enabled: (index !== undefined && index !== null),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -218,7 +368,43 @@ export const useReservationKeyByIndex = (index, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useReservationKeyByIndex.queryFn = getReservationKeyByIndexQueryFn;
+useReservationKeyByIndexSSO.queryFn = getReservationKeyByIndexQueryFn;
+
+/**
+ * Hook for reservationKeyByIndex contract read (Wallet users)
+ * Gets reservation key at specific global index directly from blockchain via Wagmi
+ * @param {number} index - Global index of the reservation
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with reservation key
+ */
+export const useReservationKeyByIndexWallet = (index, options = {}) => {
+  return useDefaultReadContract('reservationKeyByIndex', [index], {
+      enabled: (index !== undefined && index !== null),
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for reservationKeyByIndex (Router - selects SSO or Wallet)
+ * Gets reservation key at specific global index - routes to API or Wagmi based on user type
+ * @param {number} index - Global index of the reservation
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with reservation key
+ */
+export const useReservationKeyByIndex = (index, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const enabled = (index !== undefined && index !== null);
+  const ssoQuery = useReservationKeyByIndexSSO(index, { ...options, enabled: isSSO && enabled });
+  const walletQuery = useReservationKeyByIndexWallet(index, { ...options, enabled: !isSSO && enabled });
+  
+  devLog.log(`🔀 useReservationKeyByIndex [${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useReservationKeyOfUserByIndex Hook Family =====
 
 // Define queryFn first for reuse
 const getReservationKeyOfUserByIndexQueryFn = createSSRSafeQuery(async (userAddress, index) => {
@@ -236,22 +422,22 @@ const getReservationKeyOfUserByIndexQueryFn = createSSRSafeQuery(async (userAddr
   }
   
   const data = await response.json();
-  devLog.log('🔍 useReservationKeyOfUserByIndex:', userAddress, index, data);
+  devLog.log('🔍 useReservationKeyOfUserByIndexSSO:', userAddress, index, data);
   return data;
 }, { reservationKey: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/reservation/reservationKeyOfUserByIndex endpoint
- * Gets reservation key at specific index for a user
+ * Hook for /api/contract/reservation/reservationKeyOfUserByIndex endpoint (SSO users)
+ * Gets reservation key at specific index for a user via API + Ethers
  * @param {string} userAddress - User address
  * @param {number} index - User's reservation index
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with reservation key
  */
-export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
+export const useReservationKeyOfUserByIndexSSO = (userAddress, index, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-    queryFn: () => getReservationKeyOfUserByIndexQueryFn(userAddress, index), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getReservationKeyOfUserByIndexQueryFn(userAddress, index),
     enabled: !!userAddress && (index !== undefined && index !== null),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -259,7 +445,45 @@ export const useReservationKeyOfUserByIndex = (userAddress, index, options = {})
 };
 
 // Export queryFn for use in composed hooks
-useReservationKeyOfUserByIndex.queryFn = getReservationKeyOfUserByIndexQueryFn;
+useReservationKeyOfUserByIndexSSO.queryFn = getReservationKeyOfUserByIndexQueryFn;
+
+/**
+ * Hook for reservationKeyOfUserByIndex contract read (Wallet users)
+ * Gets reservation key at specific index for a user directly from blockchain via Wagmi
+ * @param {string} userAddress - User address
+ * @param {number} index - User's reservation index
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with reservation key
+ */
+export const useReservationKeyOfUserByIndexWallet = (userAddress, index, options = {}) => {
+  return useDefaultReadContract('reservationKeyOfUserByIndex', [userAddress, index], {
+      enabled: !!userAddress && (index !== undefined && index !== null),
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for reservationKeyOfUserByIndex (Router - selects SSO or Wallet)
+ * Gets reservation key at specific index for a user - routes to API or Wagmi based on user type
+ * @param {string} userAddress - User address
+ * @param {number} index - User's reservation index
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with reservation key
+ */
+export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const enabled = !!userAddress && (index !== undefined && index !== null);
+  const ssoQuery = useReservationKeyOfUserByIndexSSO(userAddress, index, { ...options, enabled: isSSO && enabled });
+  const walletQuery = useReservationKeyOfUserByIndexWallet(userAddress, index, { ...options, enabled: !isSSO && enabled });
+  
+  devLog.log(`🔀 useReservationKeyOfUserByIndex [${userAddress}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useTotalReservations Hook Family =====
 
 // Define queryFn first for reuse
 const getTotalReservationsQueryFn = createSSRSafeQuery(async () => {
@@ -273,27 +497,59 @@ const getTotalReservationsQueryFn = createSSRSafeQuery(async () => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useTotalReservations:', data);
+  devLog.log('🔍 useTotalReservationsSSO:', data);
   return data;
 }, { total: '0' }); // Return '0' during SSR
 
 /**
- * Hook for /api/contract/reservation/totalReservations endpoint
- * Gets the total count of all reservations
+ * Hook for /api/contract/reservation/totalReservations endpoint (SSO users)
+ * Gets the total count of all reservations via API + Ethers
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with total count
  */
-export const useTotalReservations = (options = {}) => {
+export const useTotalReservationsSSO = (options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.totalReservations(),
-    queryFn: () => getTotalReservationsQueryFn(), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getTotalReservationsQueryFn(),
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
 };
 
 // Export queryFn for use in composed hooks
-useTotalReservations.queryFn = getTotalReservationsQueryFn;
+useTotalReservationsSSO.queryFn = getTotalReservationsQueryFn;
+
+/**
+ * Hook for totalReservations contract read (Wallet users)
+ * Gets the total count of all reservations directly from blockchain via Wagmi
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with total count
+ */
+export const useTotalReservationsWallet = (options = {}) => {
+  return useDefaultReadContract('totalReservations', [], {
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for totalReservations (Router - selects SSO or Wallet)
+ * Gets the total count of all reservations - routes to API or Wagmi based on user type
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with total count
+ */
+export const useTotalReservations = (options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useTotalReservationsSSO({ ...options, enabled: isSSO });
+  const walletQuery = useTotalReservationsWallet({ ...options, enabled: !isSSO });
+  
+  devLog.log(`🔀 useTotalReservations → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useUserOfReservation Hook Family =====
 
 // Define queryFn first for reuse
 const getUserOfReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
@@ -306,21 +562,21 @@ const getUserOfReservationQueryFn = createSSRSafeQuery(async (reservationKey) =>
   }
   
   const data = await response.json();
-  devLog.log('🔍 useUserOfReservation:', reservationKey, data);
+  devLog.log('🔍 useUserOfReservationSSO:', reservationKey, data);
   return data;
 }, { user: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/reservation/userOfReservation endpoint
- * Gets the user address that made a specific reservation
+ * Hook for /api/contract/reservation/userOfReservation endpoint (SSO users)
+ * Gets the user address that made a specific reservation via API + Ethers
  * @param {string} reservationKey - Reservation key
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with user address
  */
-export const useUserOfReservation = (reservationKey, options = {}) => {
+export const useUserOfReservationSSO = (reservationKey, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.userOfReservation(reservationKey),
-    queryFn: () => getUserOfReservationQueryFn(reservationKey), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getUserOfReservationQueryFn(reservationKey),
     enabled: !!reservationKey,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -328,7 +584,42 @@ export const useUserOfReservation = (reservationKey, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useUserOfReservation.queryFn = getUserOfReservationQueryFn;
+useUserOfReservationSSO.queryFn = getUserOfReservationQueryFn;
+
+/**
+ * Hook for userOfReservation contract read (Wallet users)
+ * Gets the user address that made a specific reservation directly from blockchain via Wagmi
+ * @param {string} reservationKey - Reservation key
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with user address
+ */
+export const useUserOfReservationWallet = (reservationKey, options = {}) => {
+  return useDefaultReadContract('userOfReservation', [reservationKey], {
+      enabled: !!reservationKey,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for userOfReservation (Router - selects SSO or Wallet)
+ * Gets the user address that made a specific reservation - routes to API or Wagmi based on user type
+ * @param {string} reservationKey - Reservation key
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with user address
+ */
+export const useUserOfReservation = (reservationKey, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useUserOfReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
+  const walletQuery = useUserOfReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
+  
+  devLog.log(`🔀 useUserOfReservation [${reservationKey}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useCheckAvailable Hook Family =====
 
 // Define queryFn first for reuse
 const getCheckAvailableQueryFn = createSSRSafeQuery(async (labId, start, duration) => {
@@ -344,23 +635,23 @@ const getCheckAvailableQueryFn = createSSRSafeQuery(async (labId, start, duratio
   }
   
   const data = await response.json();
-  devLog.log('🔍 useCheckAvailable:', labId, start, duration, data);
+  devLog.log('🔍 useCheckAvailableSSO:', labId, start, duration, data);
   return data;
 }, { available: false }); // Return false during SSR
 
 /**
- * Hook for /api/contract/reservation/checkAvailable endpoint
- * Checks if a lab is available for booking at specified time
+ * Hook for /api/contract/reservation/checkAvailable endpoint (SSO users)
+ * Checks if a lab is available for booking at specified time via API + Ethers
  * @param {string|number} labId - Lab ID
  * @param {number} start - Start timestamp
  * @param {number} duration - Duration in seconds
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with availability status
  */
-export const useCheckAvailable = (labId, start, duration, options = {}) => {
+export const useCheckAvailableSSO = (labId, start, duration, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.checkAvailable(labId, start, duration),
-    queryFn: () => getCheckAvailableQueryFn(labId, start, duration), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getCheckAvailableQueryFn(labId, start, duration),
     enabled: !!(labId && start && duration),
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -368,7 +659,49 @@ export const useCheckAvailable = (labId, start, duration, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useCheckAvailable.queryFn = getCheckAvailableQueryFn;
+useCheckAvailableSSO.queryFn = getCheckAvailableQueryFn;
+
+/**
+ * Hook for checkAvailable contract read (Wallet users)
+ * Checks if a lab is available for booking at specified time directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID
+ * @param {number} start - Start timestamp
+ * @param {number} duration - Duration in seconds
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with availability status
+ */
+export const useCheckAvailableWallet = (labId, start, duration, options = {}) => {
+  const end = start && duration ? parseInt(start) + parseInt(duration) : undefined;
+  
+  return useDefaultReadContract('checkAvailable', [labId, start, end], {
+      enabled: !!(labId && start && duration),
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for checkAvailable (Router - selects SSO or Wallet)
+ * Checks if a lab is available for booking at specified time - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID
+ * @param {number} start - Start timestamp
+ * @param {number} duration - Duration in seconds
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with availability status
+ */
+export const useCheckAvailable = (labId, start, duration, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const enabled = !!(labId && start && duration);
+  const ssoQuery = useCheckAvailableSSO(labId, start, duration, { ...options, enabled: isSSO && enabled });
+  const walletQuery = useCheckAvailableWallet(labId, start, duration, { ...options, enabled: !isSSO && enabled });
+  
+  devLog.log(`🔀 useCheckAvailable [${labId}, ${start}, ${duration}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useHasActiveBooking Hook Family =====
 
 // Define queryFn first for reuse
 const getHasActiveBookingQueryFn = createSSRSafeQuery(async (userAddress) => {
@@ -385,21 +718,21 @@ const getHasActiveBookingQueryFn = createSSRSafeQuery(async (userAddress) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useHasActiveBooking:', userAddress, data);
+  devLog.log('🔍 useHasActiveBookingSSO:', userAddress, data);
   return data;
 }, { hasActiveBooking: false }); // Return false during SSR
 
 /**
- * Hook for /api/contract/reservation/hasActiveBooking endpoint
- * Checks if a user has any active booking
+ * Hook for /api/contract/reservation/hasActiveBooking endpoint (SSO users)
+ * Checks if a user has any active booking via API + Ethers
  * @param {string} userAddress - User address to check
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with active booking status
  */
-export const useHasActiveBooking = (userAddress, options = {}) => {
+export const useHasActiveBookingSSO = (userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.hasActiveBooking(userAddress),
-    queryFn: () => getHasActiveBookingQueryFn(userAddress), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getHasActiveBookingQueryFn(userAddress),
     enabled: !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -407,7 +740,42 @@ export const useHasActiveBooking = (userAddress, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useHasActiveBooking.queryFn = getHasActiveBookingQueryFn;
+useHasActiveBookingSSO.queryFn = getHasActiveBookingQueryFn;
+
+/**
+ * Hook for hasActiveBooking contract read (Wallet users)
+ * Checks if a user has any active booking directly from blockchain via Wagmi
+ * @param {string} userAddress - User address to check
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with active booking status
+ */
+export const useHasActiveBookingWallet = (userAddress, options = {}) => {
+  return useDefaultReadContract('hasActiveBooking', [userAddress], {
+      enabled: !!userAddress,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for hasActiveBooking (Router - selects SSO or Wallet)
+ * Checks if a user has any active booking - routes to API or Wagmi based on user type
+ * @param {string} userAddress - User address to check
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with active booking status
+ */
+export const useHasActiveBooking = (userAddress, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useHasActiveBookingSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
+  const walletQuery = useHasActiveBookingWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
+  
+  devLog.log(`🔀 useHasActiveBooking [${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useHasActiveBookingByToken Hook Family =====
 
 // Define queryFn first for reuse
 const getHasActiveBookingByTokenQueryFn = createSSRSafeQuery(async (labId) => {
@@ -424,21 +792,21 @@ const getHasActiveBookingByTokenQueryFn = createSSRSafeQuery(async (labId) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useHasActiveBookingByToken:', labId, data);
+  devLog.log('🔍 useHasActiveBookingByTokenSSO:', labId, data);
   return data;
 }, { hasActiveBooking: false }); // Return false during SSR
 
 /**
- * Hook for /api/contract/reservation/hasActiveBookingByToken endpoint
- * Checks if a specific lab token has any active booking
+ * Hook for /api/contract/reservation/hasActiveBookingByToken endpoint (SSO users)
+ * Checks if a specific lab token has any active booking via API + Ethers
  * @param {string|number} labId - Lab ID to check
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with active booking status for the lab
  */
-export const useHasActiveBookingByToken = (labId, options = {}) => {
+export const useHasActiveBookingByTokenSSO = (labId, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.hasActiveBookingByToken(labId),
-    queryFn: () => getHasActiveBookingByTokenQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getHasActiveBookingByTokenQueryFn(labId),
     enabled: !!labId,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -446,7 +814,42 @@ export const useHasActiveBookingByToken = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useHasActiveBookingByToken.queryFn = getHasActiveBookingByTokenQueryFn;
+useHasActiveBookingByTokenSSO.queryFn = getHasActiveBookingByTokenQueryFn;
+
+/**
+ * Hook for hasActiveBookingByToken contract read (Wallet users)
+ * Checks if a specific lab token has any active booking directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to check
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with active booking status for the lab
+ */
+export const useHasActiveBookingByTokenWallet = (labId, options = {}) => {
+  return useDefaultReadContract('hasActiveBookingByToken', [labId], {
+      enabled: !!labId,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for hasActiveBookingByToken (Router - selects SSO or Wallet)
+ * Checks if a specific lab token has any active booking - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to check
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with active booking status for the lab
+ */
+export const useHasActiveBookingByToken = (labId, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useHasActiveBookingByTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useHasActiveBookingByTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  
+  devLog.log(`🔀 useHasActiveBookingByToken [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useActiveReservationKeyForUser Hook Family =====
 
 // Define queryFn first for reuse
 const getActiveReservationKeyForUserQueryFn = createSSRSafeQuery(async (labId, userAddress) => {
@@ -464,22 +867,22 @@ const getActiveReservationKeyForUserQueryFn = createSSRSafeQuery(async (labId, u
   }
   
   const data = await response.json();
-  devLog.log('🔍 useActiveReservationKeyForUser:', labId, userAddress, data);
+  devLog.log('🔍 useActiveReservationKeyForUserSSO:', labId, userAddress, data);
   return data;
 }, { reservationKey: '0x0000000000000000000000000000000000000000000000000000000000000000' }); // Return zero bytes32 during SSR
 
 /**
- * Hook for /api/contract/reservation/getActiveReservationKeyForUser endpoint
- * Gets the active reservation key for a user in a specific lab using O(1) contract lookup
+ * Hook for /api/contract/reservation/getActiveReservationKeyForUser endpoint (SSO users)
+ * Gets the active reservation key for a user in a specific lab using O(1) contract lookup via API + Ethers
  * @param {string|number} labId - Lab ID to check
  * @param {string} userAddress - User address to check
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
  */
-export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
+export const useActiveReservationKeyForUserSSO = (labId, userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.activeReservationKeyForUser(labId, userAddress),
-    queryFn: () => getActiveReservationKeyForUserQueryFn(labId, userAddress), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getActiveReservationKeyForUserQueryFn(labId, userAddress),
     enabled: !!labId && !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -487,7 +890,45 @@ export const useActiveReservationKeyForUser = (labId, userAddress, options = {})
 };
 
 // Export queryFn for use in composed hooks
-useActiveReservationKeyForUser.queryFn = getActiveReservationKeyForUserQueryFn;
+useActiveReservationKeyForUserSSO.queryFn = getActiveReservationKeyForUserQueryFn;
+
+/**
+ * Hook for getActiveReservationKeyForUser contract read (Wallet users)
+ * Gets the active reservation key for a user in a specific lab directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to check
+ * @param {string} userAddress - User address to check
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with reservation key (or 0x0 if no active booking)
+ */
+export const useActiveReservationKeyForUserWallet = (labId, userAddress, options = {}) => {
+  return useDefaultReadContract('getActiveReservationKeyForUser', [labId, userAddress], {
+      enabled: !!labId && !!userAddress,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getActiveReservationKeyForUser (Router - selects SSO or Wallet)
+ * Gets the active reservation key for a user in a specific lab - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to check
+ * @param {string} userAddress - User address to check
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
+ */
+export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const enabled = !!labId && !!userAddress;
+  const ssoQuery = useActiveReservationKeyForUserSSO(labId, userAddress, { ...options, enabled: isSSO && enabled });
+  const walletQuery = useActiveReservationKeyForUserWallet(labId, userAddress, { ...options, enabled: !isSSO && enabled });
+  
+  devLog.log(`🔀 useActiveReservationKeyForUser [${labId}, ${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useLabTokenAddress Hook Family =====
 
 // Define queryFn first for reuse
 const getLabTokenAddressQueryFn = createSSRSafeQuery(async () => {
@@ -501,27 +942,59 @@ const getLabTokenAddressQueryFn = createSSRSafeQuery(async () => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useLabTokenAddress:', data);
+  devLog.log('🔍 useLabTokenAddressSSO:', data);
   return data;
 }, { tokenAddress: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/reservation/getLabTokenAddress endpoint
- * Gets the token contract address for lab tokens
+ * Hook for /api/contract/reservation/getLabTokenAddress endpoint (SSO users)
+ * Gets the token contract address for lab tokens via API + Ethers
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with token contract address
  */
-export const useLabTokenAddress = (options = {}) => {
+export const useLabTokenAddressSSO = (options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.labTokenAddress(),
-    queryFn: () => getLabTokenAddressQueryFn(), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getLabTokenAddressQueryFn(),
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
 };
 
 // Export queryFn for use in composed hooks
-useLabTokenAddress.queryFn = getLabTokenAddressQueryFn;
+useLabTokenAddressSSO.queryFn = getLabTokenAddressQueryFn;
+
+/**
+ * Hook for getLabTokenAddress contract read (Wallet users)
+ * Gets the token contract address for lab tokens directly from blockchain via Wagmi
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with token contract address
+ */
+export const useLabTokenAddressWallet = (options = {}) => {
+  return useDefaultReadContract('getLabTokenAddress', [], {
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getLabTokenAddress (Router - selects SSO or Wallet)
+ * Gets the token contract address for lab tokens - routes to API or Wagmi based on user type
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with token contract address
+ */
+export const useLabTokenAddress = (options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useLabTokenAddressSSO({ ...options, enabled: isSSO });
+  const walletQuery = useLabTokenAddressWallet({ ...options, enabled: !isSSO });
+  
+  devLog.log(`🔀 useLabTokenAddress → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useSafeBalance Hook Family =====
 
 // Define queryFn first for reuse
 const getSafeBalanceQueryFn = createSSRSafeQuery(async (userAddress) => {
@@ -538,21 +1011,21 @@ const getSafeBalanceQueryFn = createSSRSafeQuery(async (userAddress) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useSafeBalance:', userAddress, data);
+  devLog.log('🔍 useSafeBalanceSSO:', userAddress, data);
   return data;
 }, { balance: '0' }); // Return '0' during SSR
 
 /**
- * Hook for /api/contract/reservation/getSafeBalance endpoint
- * Gets the safe balance for a specific user
+ * Hook for /api/contract/reservation/getSafeBalance endpoint (SSO users)
+ * Gets the safe balance for a specific user via API + Ethers
  * @param {string} userAddress - User address to get balance for
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with safe balance
  */
-export const useSafeBalance = (userAddress, options = {}) => {
+export const useSafeBalanceSSO = (userAddress, options = {}) => {
   return useQuery({
     queryKey: bookingQueryKeys.safeBalance(userAddress),
-    queryFn: () => getSafeBalanceQueryFn(userAddress), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getSafeBalanceQueryFn(userAddress),
     enabled: !!userAddress,
     ...BOOKING_QUERY_CONFIG,
     ...options,
@@ -560,4 +1033,37 @@ export const useSafeBalance = (userAddress, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useSafeBalance.queryFn = getSafeBalanceQueryFn;
+useSafeBalanceSSO.queryFn = getSafeBalanceQueryFn;
+
+/**
+ * Hook for getSafeBalance contract read (Wallet users)
+ * Gets the safe balance for a specific user directly from blockchain via Wagmi
+ * @param {string} userAddress - User address to get balance for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with safe balance
+ */
+export const useSafeBalanceWallet = (userAddress, options = {}) => {
+  return useDefaultReadContract('getSafeBalance', [userAddress], {
+      enabled: !!userAddress,
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getSafeBalance (Router - selects SSO or Wallet)
+ * Gets the safe balance for a specific user - routes to API or Wagmi based on user type
+ * @param {string} userAddress - User address to get balance for
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with safe balance
+ */
+export const useSafeBalance = (userAddress, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useSafeBalanceSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
+  const walletQuery = useSafeBalanceWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
+  
+  devLog.log(`🔀 useSafeBalance [${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};

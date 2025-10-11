@@ -10,14 +10,14 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
-  useReservationsOf,
-  useReservation,
-  useReservationsOfToken,
-  useReservationOfTokenByIndex,
-  useReservationKeyOfUserByIndex,
+  useReservationsOfSSO,
+  useReservationSSO,
+  useReservationsOfTokenSSO,
+  useReservationOfTokenByIndexSSO,
+  useReservationKeyOfUserByIndexSSO,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useLab, useOwnerOf, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
+import { useLabSSO, useLabOwnerSSO, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab SSO hooks
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
@@ -280,7 +280,7 @@ export const useUserBookingsDashboard = (userAddress, {
           
           return {
             queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-            queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index), // ✅ Using atomic hook queryFn
+            queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(userAddress, index), // ✅ Using SSO atomic hook queryFn
             enabled: !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
             ...BOOKING_QUERY_CONFIG,
           };
@@ -299,7 +299,7 @@ export const useUserBookingsDashboard = (userAddress, {
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
-          queryFn: () => useReservation.queryFn(key), // ✅ Using atomic hook queryFn
+          queryFn: () => useReservationSSO.queryFn(key), // ✅ Using atomic hook queryFn
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
           // Don't retry on 404/not found - these are valid responses
@@ -411,7 +411,7 @@ export const useUserBookingsDashboard = (userAddress, {
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
           queryKey: labQueryKeys.getLab(booking.labId),
-          queryFn: () => useLab.queryFn(booking.labId), // ✅ Using atomic hook queryFn
+          queryFn: () => useLabSSO.queryFn(booking.labId), // ✅ Using atomic hook queryFn
           enabled: !!booking.labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
           // Note: queryOptions not spread here as LAB_QUERY_CONFIG is optimized for lab data
@@ -442,7 +442,7 @@ export const useUserBookingsDashboard = (userAddress, {
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
           queryKey: labQueryKeys.ownerOf(booking.labId),
-          queryFn: () => useOwnerOf.queryFn(booking.labId), // ✅ Using atomic hook queryFn
+          queryFn: () => useLabOwnerSSO.queryFn(booking.labId), // ✅ Using atomic hook queryFn
           enabled: !!booking.labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
         }))
@@ -736,7 +736,7 @@ export const useLabBookingsDashboard = (labId, {
     queries: reservationCount > 0 
       ? Array.from({ length: reservationCount }, (_, index) => ({
           queryKey: bookingQueryKeys.getReservationOfTokenByIndex(labId, index),
-          queryFn: () => useReservationOfTokenByIndex.queryFn(labId, index),
+          queryFn: () => useReservationOfTokenByIndexSSO.queryFn(labId, index),
           enabled: !!labId && reservationCount > 0,
           ...BOOKING_QUERY_CONFIG,
         }))
@@ -766,7 +766,7 @@ export const useLabBookingsDashboard = (labId, {
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(reservationKey => ({
           queryKey: bookingQueryKeys.byReservationKey(reservationKey),
-          queryFn: () => useReservation.queryFn(reservationKey),
+          queryFn: () => useReservationSSO.queryFn(reservationKey),
           enabled: !!reservationKey,
           ...BOOKING_QUERY_CONFIG,
         }))

@@ -5,9 +5,9 @@
  */
 import { 
   useAllLabs, 
-  useLab,
-  useOwnerOf,
-  useIsTokenListed,
+  useLabSSO,
+  useLabOwnerSSO,
+  useIsTokenListedSSO,
   LAB_QUERY_CONFIG 
 } from './useLabAtomicQueries'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
@@ -85,7 +85,7 @@ export const useLabsForMarket = (options = {}) => {
     queries: labIds.length > 0 
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.getLab(labId),
-          queryFn: () => useLab.queryFn(labId),
+          queryFn: () => useLabSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -98,7 +98,7 @@ export const useLabsForMarket = (options = {}) => {
     queries: labIds.length > 0
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.ownerOf(labId),
-          queryFn: () => useOwnerOf.queryFn(labId),
+          queryFn: () => useLabOwnerSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -111,7 +111,7 @@ export const useLabsForMarket = (options = {}) => {
     queries: labIds.length > 0
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.isTokenListed(labId),
-          queryFn: () => useIsTokenListed.queryFn(labId),
+          queryFn: () => useIsTokenListedSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -615,7 +615,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     queries: labIds.length > 0
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.ownerOf(labId),
-          queryFn: () => useOwnerOf.queryFn(labId),
+          queryFn: () => useLabOwnerSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -638,7 +638,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     queries: ownedLabIds.length > 0 
       ? ownedLabIds.map(labId => ({
           queryKey: labQueryKeys.getLab(labId),
-          queryFn: () => useLab.queryFn(labId),
+          queryFn: () => useLabSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -651,7 +651,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     queries: ownedLabIds.length > 0
       ? ownedLabIds.map(labId => ({
           queryKey: labQueryKeys.isTokenListed(labId),
-          queryFn: () => useIsTokenListed.queryFn(labId),
+          queryFn: () => useIsTokenListedSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -876,7 +876,7 @@ export const useLabsForReservation = (options = {}) => {
     queries: labIds.length > 0 
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.getLab(labId),
-          queryFn: () => useLab.queryFn(labId),
+          queryFn: () => useLabSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -889,7 +889,7 @@ export const useLabsForReservation = (options = {}) => {
     queries: labIds.length > 0
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.isTokenListed(labId),
-          queryFn: () => useIsTokenListed.queryFn(labId),
+          queryFn: () => useIsTokenListedSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))

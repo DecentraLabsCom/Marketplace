@@ -5,8 +5,8 @@
 import { useQueries } from '@tanstack/react-query'
 import { 
   useReservationsOf,
-  useReservationKeyOfUserByIndex,
-  useReservation,
+  useReservationKeyOfUserByIndexSSO,
+  useReservationSSO,
   BOOKING_QUERY_CONFIG 
 } from './useBookingAtomicQueries'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
@@ -34,7 +34,7 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     queries: hasReservations 
       ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => ({
           queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index),
+          queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(userAddress, index),
           enabled: !!userAddress && hasReservations,
           ...BOOKING_QUERY_CONFIG,
         }))
@@ -51,7 +51,7 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     queries: reservationKeys.length > 0
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
-          queryFn: () => useReservation.queryFn(key),
+          queryFn: () => useReservationSSO.queryFn(key),
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
         }))

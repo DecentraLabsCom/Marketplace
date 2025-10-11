@@ -1,7 +1,10 @@
 /**
  * Atomic React Query Hooks for Lab-related Read Operations
- * Each hook maps 1:1 to a specific API endpoint in /api/contract/lab/
- * Handles queries (read operations)
+ * Each hook has 3 variants following the same pattern as mutations:
+ * - useXSSO: Server-side query via API + Ethers (for SSO users)
+ *   * Each hook maps 1:1 to a specific API endpoint in /api/contract/lab
+ * - useXWallet: Client-side query via Wagmi (for wallet users)
+ * - useX: Router that selects SSO or Wallet based on user.loginType
  * 
  * Configuration:
  * - staleTime: 12 hours (43,200,000ms)
@@ -14,6 +17,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
+import { useUser } from '@/context/UserContext'
+import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for all lab hooks
@@ -29,21 +34,8 @@ const LAB_QUERY_CONFIG = {
 // Export configuration for use in composed hooks
 export { LAB_QUERY_CONFIG };
 
-/**
- * Hook for /api/contract/lab/getAllLabs endpoint
- * Gets all labs from the smart contract
- * @param {Object} [options={}] - Additional react-query options
- * @param {boolean} [options.enabled] - Whether the query should be enabled
- * @param {Function} [options.onSuccess] - Success callback function
- * @param {Function} [options.onError] - Error callback function
- * @param {Object} [options.meta] - Metadata for the query
- * @returns {Object} React Query result with all labs data
- * @returns {Array} returns.data - Array of lab IDs from the contract
- * @returns {boolean} returns.isLoading - Whether the query is loading
- * @returns {boolean} returns.isError - Whether the query has an error
- * @returns {Error|null} returns.error - Error object if query failed
- * @returns {Function} returns.refetch - Function to manually refetch
- */
+// ===== useAllLabs Hook Family =====
+
 // Define queryFn first for reuse
 const getAllLabsQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/lab/getAllLabs', {
@@ -56,36 +48,59 @@ const getAllLabsQueryFn = createSSRSafeQuery(async () => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useAllLabs:', data);
+  devLog.log('🔍 useAllLabsSSO:', data);
   return data;
 }, []); // Return empty array during SSR
 
 /**
- * Hook for /api/contract/lab/getAllLabs endpoint
- * Gets all lab IDs from the contract
+ * Hook for /api/contract/lab/getAllLabs endpoint (SSO users)
+ * Gets all lab IDs from the contract via API + Ethers
  * @param {Object} [options={}] - Additional react-query options
- * @param {boolean} [options.enabled] - Whether the query should be enabled
- * @param {Function} [options.onSuccess] - Success callback function
- * @param {Function} [options.onError] - Error callback function
- * @param {Object} [options.meta] - Metadata for the query
  * @returns {Object} React Query result with all labs data
- * @returns {Array} returns.data - Array of lab IDs from the contract
- * @returns {boolean} returns.isLoading - Whether the query is loading
- * @returns {boolean} returns.isError - Whether the query has an error
- * @returns {Error|null} returns.error - Error object if query failed
- * @returns {Function} returns.refetch - Function to manually refetch
  */
-export const useAllLabs = (options = {}) => {
+export const useAllLabsSSO = (options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.getAllLabs(),
-    queryFn: getAllLabsQueryFn, // ✅ Reuse the SSR-safe queryFn
+    queryFn: getAllLabsQueryFn,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
 };
 
 // Export queryFn for use in composed hooks
-useAllLabs.queryFn = getAllLabsQueryFn;
+useAllLabsSSO.queryFn = getAllLabsQueryFn;
+
+/**
+ * Hook for getAllLabs contract read (Wallet users)
+ * Gets all lab IDs from the contract directly from blockchain via Wagmi
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with all labs data
+ */
+export const useAllLabsWallet = (options = {}) => {
+  return useDefaultReadContract('getAllLabs', [], {
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getAllLabs (Router - selects SSO or Wallet)
+ * Gets all lab IDs from the contract - routes to API or Wagmi based on user type
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with all labs data
+ */
+export const useAllLabs = (options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useAllLabsSSO({ ...options, enabled: isSSO });
+  const walletQuery = useAllLabsWallet({ ...options, enabled: !isSSO });
+  
+  devLog.log(`🔀 useAllLabs → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useLab Hook Family =====
 
 // Define queryFn first for reuse
 const getLabQueryFn = createSSRSafeQuery(async (labId) => {
@@ -101,21 +116,21 @@ const getLabQueryFn = createSSRSafeQuery(async (labId) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useLab:', labId, data);
+  devLog.log('🔍 useLabSSO:', labId, data);
   return data;
 }, null); // Return null during SSR
 
 /**
- * Hook for /api/contract/lab/getLab endpoint
- * Gets specific lab data by lab ID
+ * Hook for /api/contract/lab/getLab endpoint (SSO users)
+ * Gets specific lab data by lab ID via API + Ethers
  * @param {string|number} labId - Lab ID to fetch
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with lab data
  */
-export const useLab = (labId, options = {}) => {
+export const useLabSSO = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.getLab(labId),
-    queryFn: () => getLabQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getLabQueryFn(labId),
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -123,7 +138,42 @@ export const useLab = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useLab.queryFn = getLabQueryFn;
+useLabSSO.queryFn = getLabQueryFn;
+
+/**
+ * Hook for getLab contract read (Wallet users)
+ * Gets specific lab data by lab ID directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to fetch
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with lab data
+ */
+export const useLabWallet = (labId, options = {}) => {
+  return useDefaultReadContract('getLab', [labId], {
+      enabled: !!labId,
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for getLab (Router - selects SSO or Wallet)
+ * Gets specific lab data by lab ID - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to fetch
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with lab data
+ */
+export const useLab = (labId, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useLabSSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useLabWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  
+  devLog.log(`🔀 useLab [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useLabBalance Hook Family (renamed from useBalanceOf for clarity) =====
 
 // Define queryFn first for reuse
 const getBalanceOfQueryFn = createSSRSafeQuery(async (ownerAddress) => {
@@ -139,21 +189,21 @@ const getBalanceOfQueryFn = createSSRSafeQuery(async (ownerAddress) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useBalanceOf:', ownerAddress, data);
+  devLog.log('🔍 useLabBalanceSSO:', ownerAddress, data);
   return data;
 }, { balance: '0' }); // Return '0' during SSR
 
 /**
- * Hook for /api/contract/lab/balanceOf endpoint
- * Gets the number of labs owned by an address
+ * Hook for /api/contract/lab/balanceOf endpoint (SSO users)
+ * Gets the number of labs owned by an address via API + Ethers
  * @param {string} ownerAddress - Owner address to check
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with balance count
  */
-export const useBalanceOf = (ownerAddress, options = {}) => {
+export const useLabBalanceSSO = (ownerAddress, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.balanceOf(ownerAddress),
-    queryFn: () => getBalanceOfQueryFn(ownerAddress), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getBalanceOfQueryFn(ownerAddress),
     enabled: !!ownerAddress,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -161,7 +211,42 @@ export const useBalanceOf = (ownerAddress, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useBalanceOf.queryFn = getBalanceOfQueryFn;
+useLabBalanceSSO.queryFn = getBalanceOfQueryFn;
+
+/**
+ * Hook for balanceOf contract read (Wallet users)
+ * Gets the number of labs owned by an address directly from blockchain via Wagmi
+ * @param {string} ownerAddress - Owner address to check
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with balance count
+ */
+export const useLabBalanceWallet = (ownerAddress, options = {}) => {
+  return useDefaultReadContract('balanceOf', [ownerAddress], {
+      enabled: !!ownerAddress,
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for balanceOf (Router - selects SSO or Wallet)
+ * Gets the number of labs owned by an address - routes to API or Wagmi based on user type
+ * @param {string} ownerAddress - Owner address to check
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with balance count
+ */
+export const useLabBalance = (ownerAddress, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useLabBalanceSSO(ownerAddress, { ...options, enabled: isSSO && !!ownerAddress });
+  const walletQuery = useLabBalanceWallet(ownerAddress, { ...options, enabled: !isSSO && !!ownerAddress });
+  
+  devLog.log(`🔀 useLabBalance [${ownerAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useLabOwner Hook Family (renamed from useOwnerOf for clarity) =====
 
 // Define queryFn first for reuse
 const getOwnerOfQueryFn = createSSRSafeQuery(async (labId) => {
@@ -177,21 +262,21 @@ const getOwnerOfQueryFn = createSSRSafeQuery(async (labId) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useOwnerOf:', labId, data);
+  devLog.log('🔍 useLabOwnerSSO:', labId, data);
   return data;
 }, { owner: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/lab/ownerOf endpoint
- * Gets the owner address of a specific lab
+ * Hook for /api/contract/lab/ownerOf endpoint (SSO users)
+ * Gets the owner address of a specific lab via API + Ethers
  * @param {string|number} labId - Lab ID to get owner for
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with owner address
  */
-export const useOwnerOf = (labId, options = {}) => {
+export const useLabOwnerSSO = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.ownerOf(labId),
-    queryFn: () => getOwnerOfQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getOwnerOfQueryFn(labId),
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -199,7 +284,42 @@ export const useOwnerOf = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useOwnerOf.queryFn = getOwnerOfQueryFn;
+useLabOwnerSSO.queryFn = getOwnerOfQueryFn;
+
+/**
+ * Hook for ownerOf contract read (Wallet users)
+ * Gets the owner address of a specific lab directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to get owner for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with owner address
+ */
+export const useLabOwnerWallet = (labId, options = {}) => {
+  return useDefaultReadContract('ownerOf', [labId], {
+      enabled: !!labId,
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for ownerOf (Router - selects SSO or Wallet)
+ * Gets the owner address of a specific lab - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to get owner for
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with owner address
+ */
+export const useLabOwner = (labId, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useLabOwnerSSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useLabOwnerWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  
+  devLog.log(`🔀 useLabOwner [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useTokenOfOwnerByIndex Hook Family =====
 
 // Define queryFn first for reuse
 const getTokenOfOwnerByIndexQueryFn = createSSRSafeQuery(async (ownerAddress, index) => {
@@ -217,22 +337,22 @@ const getTokenOfOwnerByIndexQueryFn = createSSRSafeQuery(async (ownerAddress, in
   }
   
   const data = await response.json();
-  devLog.log('🔍 useTokenOfOwnerByIndex:', ownerAddress, index, data);
+  devLog.log('🔍 useTokenOfOwnerByIndexSSO:', ownerAddress, index, data);
   return data;
 }, { tokenId: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/lab/tokenOfOwnerByIndex endpoint
- * Gets the token ID owned by an address at a specific index
+ * Hook for /api/contract/lab/tokenOfOwnerByIndex endpoint (SSO users)
+ * Gets the token ID owned by an address at a specific index via API + Ethers
  * @param {string} ownerAddress - Owner address
  * @param {number} index - Index of the token to get
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with token ID
  */
-export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
+export const useTokenOfOwnerByIndexSSO = (ownerAddress, index, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.tokenOfOwnerByIndex(ownerAddress, index),
-    queryFn: () => getTokenOfOwnerByIndexQueryFn(ownerAddress, index), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getTokenOfOwnerByIndexQueryFn(ownerAddress, index),
     enabled: !!ownerAddress && (index !== undefined && index !== null),
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -240,7 +360,45 @@ export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useTokenOfOwnerByIndex.queryFn = getTokenOfOwnerByIndexQueryFn;
+useTokenOfOwnerByIndexSSO.queryFn = getTokenOfOwnerByIndexQueryFn;
+
+/**
+ * Hook for tokenOfOwnerByIndex contract read (Wallet users)
+ * Gets the token ID owned by an address at a specific index directly from blockchain via Wagmi
+ * @param {string} ownerAddress - Owner address
+ * @param {number} index - Index of the token to get
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with token ID
+ */
+export const useTokenOfOwnerByIndexWallet = (ownerAddress, index, options = {}) => {
+  return useDefaultReadContract('tokenOfOwnerByIndex', [ownerAddress, index], {
+      enabled: !!ownerAddress && (index !== undefined && index !== null),
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for tokenOfOwnerByIndex (Router - selects SSO or Wallet)
+ * Gets the token ID owned by an address at a specific index - routes to API or Wagmi based on user type
+ * @param {string} ownerAddress - Owner address
+ * @param {number} index - Index of the token to get
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with token ID
+ */
+export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const enabled = !!ownerAddress && (index !== undefined && index !== null);
+  const ssoQuery = useTokenOfOwnerByIndexSSO(ownerAddress, index, { ...options, enabled: isSSO && enabled });
+  const walletQuery = useTokenOfOwnerByIndexWallet(ownerAddress, index, { ...options, enabled: !isSSO && enabled });
+  
+  devLog.log(`🔀 useTokenOfOwnerByIndex [${ownerAddress}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useTokenURI Hook Family =====
 
 // Define queryFn first for reuse
 const getTokenURIQueryFn = createSSRSafeQuery(async (labId) => {
@@ -256,21 +414,21 @@ const getTokenURIQueryFn = createSSRSafeQuery(async (labId) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useTokenURI:', labId, data);
+  devLog.log('🔍 useTokenURISSO:', labId, data);
   return data;
 }, { uri: '' }); // Return empty string during SSR
 
 /**
- * Hook for /api/contract/lab/tokenURI endpoint
- * Gets the metadata URI for a specific lab token
+ * Hook for /api/contract/lab/tokenURI endpoint (SSO users)
+ * Gets the metadata URI for a specific lab token via API + Ethers
  * @param {string|number} labId - Lab ID to get URI for
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with token URI
  */
-export const useTokenURI = (labId, options = {}) => {
+export const useTokenURISSO = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.tokenURI(labId),
-    queryFn: () => getTokenURIQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getTokenURIQueryFn(labId),
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -278,7 +436,42 @@ export const useTokenURI = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useTokenURI.queryFn = getTokenURIQueryFn;
+useTokenURISSO.queryFn = getTokenURIQueryFn;
+
+/**
+ * Hook for tokenURI contract read (Wallet users)
+ * Gets the metadata URI for a specific lab token directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to get URI for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with token URI
+ */
+export const useTokenURIWallet = (labId, options = {}) => {
+  return useDefaultReadContract('tokenURI', [labId], {
+      enabled: !!labId,
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for tokenURI (Router - selects SSO or Wallet)
+ * Gets the metadata URI for a specific lab token - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to get URI for
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with token URI
+ */
+export const useTokenURI = (labId, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useTokenURISSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useTokenURIWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  
+  devLog.log(`🔀 useTokenURI [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useIsTokenListed Hook Family =====
 
 // Define queryFn first for reuse
 const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
@@ -294,21 +487,21 @@ const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useIsTokenListed:', labId, data);
+  devLog.log('🔍 useIsTokenListedSSO:', labId, data);
   return data;
 }, { isListed: false }); // Return false during SSR
 
 /**
- * Hook for /api/contract/reservation/isTokenListed endpoint
- * Checks if a specific lab token is listed in the marketplace
+ * Hook for /api/contract/reservation/isTokenListed endpoint (SSO users)
+ * Checks if a specific lab token is listed in the marketplace via API + Ethers
  * @param {string|number} labId - Lab ID to check listing status for
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with listing status
  */
-export const useIsTokenListed = (labId, options = {}) => {
+export const useIsTokenListedSSO = (labId, options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.isTokenListed(labId),
-    queryFn: () => getIsTokenListedQueryFn(labId), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getIsTokenListedQueryFn(labId),
     enabled: !!labId,
     ...LAB_QUERY_CONFIG,
     ...options,
@@ -316,4 +509,37 @@ export const useIsTokenListed = (labId, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks
-useIsTokenListed.queryFn = getIsTokenListedQueryFn;
+useIsTokenListedSSO.queryFn = getIsTokenListedQueryFn;
+
+/**
+ * Hook for isTokenListed contract read (Wallet users)
+ * Checks if a specific lab token is listed in the marketplace directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to check listing status for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with listing status
+ */
+export const useIsTokenListedWallet = (labId, options = {}) => {
+  return useDefaultReadContract('isTokenListed', [labId], {
+      enabled: !!labId,
+      ...LAB_QUERY_CONFIG,
+      ...options,
+    });
+};
+
+/**
+ * Hook for isTokenListed (Router - selects SSO or Wallet)
+ * Checks if a specific lab token is listed in the marketplace - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to check listing status for
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with listing status
+ */
+export const useIsTokenListed = (labId, options = {}) => {
+  const { isSSO } = useUser();
+  
+  const ssoQuery = useIsTokenListedSSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useIsTokenListedWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  
+  devLog.log(`🔀 useIsTokenListed [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  
+  return isSSO ? ssoQuery : walletQuery;
+};

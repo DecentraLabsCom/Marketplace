@@ -8,7 +8,7 @@
 import { useQueries } from '@tanstack/react-query'
 import { 
   useGetLabProvidersQuery,
-  useIsLabProviderQuery,
+  useIsLabProviderSSO,
   USER_QUERY_CONFIG,
 } from './useUserAtomicQueries'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
@@ -57,7 +57,7 @@ export const useBatchProviderCheck = (addresses = [], options = {}) => {
   return useQueries({
     queries: addresses.map((address) => ({
       queryKey: providerQueryKeys.isLabProvider(address),
-      queryFn: () => useIsLabProviderQuery.queryFn({ userAddress: address }),
+      queryFn: () => useIsLabProviderSSO.queryFn({ userAddress: address }),
       enabled: !!address && options.enabled !== false,
       ...USER_QUERY_CONFIG,
     })),
