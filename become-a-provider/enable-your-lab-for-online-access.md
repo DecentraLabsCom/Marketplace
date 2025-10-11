@@ -11,6 +11,8 @@ To simplify deployment, DecentraLabs provides a complete, ready-to-use **Lab Gat
 2. **Remote Desktop Access Control**\
    Provides users with restricted access to the lab control software through a secure remote desktop session. Each session is isolated, authenticated, and limited to the duration of the booking.
 
+Head to the Lab Gateway documentation to learn how to set up your lab to enable online access and operation.
+
 In addition, an optional service is available ([DecentraLabsCom/lab-app-control](https://github.com/DecentraLabsCom/lab-app-control)) to automatically launch and close the lab control software based on the start and end of each remote session. This ensures a clean and controlled experience for every user, without requiring manual intervention from lab administrators.
 
 With this setup, your lab becomes a fully functional dOL (decentralized Online Lab), ready to be shared with the world.
