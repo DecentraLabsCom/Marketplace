@@ -11,15 +11,13 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
   useReservationsOf,
-  useReservationsOfSSO,
   useReservationSSO,
   useReservationsOfToken,
-  useReservationsOfTokenSSO,
   useReservationOfTokenByIndexSSO,
   useReservationKeyOfUserByIndexSSO,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useLabSSO, useLabOwnerSSO, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab SSO hooks
+import { useLabSSO, useLabOwnerSSO, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
@@ -246,14 +244,6 @@ export const useUserBookingsDashboard = (userAddress, {
   // Step 2: Get reservation keys for each index (limited if specified)
   // SAFETY: Additional validation to prevent out-of-range queries
   const safeReservationCount = Math.max(0, Math.min(reservationCount, 100)); // Cap at 100 for safety
-  
-  devLog.log(`🔍 [useUserBookingsDashboard] SAFETY CHECK:`, {
-    originalReservationCount: reservationCount,
-    safeReservationCount,
-    totalReservationCount,
-    willCreateQueries: safeReservationCount > 0,
-    userAddress: userAddress?.slice(0, 6) + '...' + userAddress?.slice(-4)
-  });
 
   const reservationKeyResults = useQueries({
     queries: hasReservations && safeReservationCount > 0
