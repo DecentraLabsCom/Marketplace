@@ -52,6 +52,9 @@ export const useProvidersWithNames = (options = {}) => {
  * @param {Object} [options={}] - Configuration options
  * @param {boolean} [options.enabled] - Whether the queries should be enabled
  * @returns {Object} React Query result with batch provider check data
+ * 
+ * ⚠️ ARCHITECTURAL NOTE: Uses SSO path (API) for all users
+ * API endpoints are read-only blockchain queries that work for any address
  */
 export const useBatchProviderCheck = (addresses = [], options = {}) => {
   return useQueries({

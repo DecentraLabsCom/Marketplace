@@ -20,10 +20,15 @@ import devLog from '@/utils/dev/logger'
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
-  // Step 1: Get user reservation count
+  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
+  // Force SSO mode for ALL users - API endpoints work for any address
+  const forceSSO = true;
+  
+  // Step 1: Get user reservation count (forced SSO mode)
   const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
     enabled: !!userAddress && (options.enabled !== false),
+    isSSO: forceSSO, // ✅ Force SSO mode
   });
 
   const totalReservationCount = reservationCountResult.data?.count || 0;

@@ -60,6 +60,11 @@ const processLabImages = (metadataData) => {
  * @param {boolean} [options.enabled=true] - Whether the query should be enabled
  * @returns {Object} Lab data optimized for market display (includes isListed property when includeUnlisted=true)
  */
+/**
+ * ⚠️ ARCHITECTURAL NOTE: This specialized hook uses useQueries with SSO .queryFn
+ * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * This is the correct pattern for composed/specialized hooks per project architecture
+ */
 export const useLabsForMarket = (options = {}) => {
   // Extract includeUnlisted option
   const { includeUnlisted = false, ...queryOptions } = options;
@@ -602,6 +607,9 @@ export const useLabById = (labId, options = {}) => {
  * @param {string} ownerAddress - Owner address to filter by
  * @param {Object} options - Configuration options
  * @returns {Object} Labs owned by the address
+ * 
+ * ⚠️ ARCHITECTURAL NOTE: Uses useQueries with SSO .queryFn
+ * API endpoints work for both SSO and Wallet users - correct pattern for composed hooks
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
   // Get all lab IDs first - always call hooks, use enabled to control execution

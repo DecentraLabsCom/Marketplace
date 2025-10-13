@@ -15,10 +15,13 @@ import {
   useReservationsOfToken,
   useReservationOfTokenByIndexSSO,
   useReservationKeyOfUserByIndexSSO,
+  useReservationKeyOfUserByIndex,
+  useReservation,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useLabSSO, useLabOwnerSSO, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
+import { useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
+import { getIsSSO } from '@/utils/hooks/getIsSSO' // ✅ Import SSO detection utility
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import devLog from '@/utils/dev/logger'
@@ -219,12 +222,23 @@ export const useUserBookingsDashboard = (userAddress, {
   includeRecentActivity = false,
   limit,
   queryOptions = {} 
-} = {}) => {  // Step 1: Get user reservation count using atomic hook
+} = {}) => {
+  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
+  // Reason: Wagmi hooks cannot be extracted as queryFn for useQueries
+  // Solution: Force SSO mode (API + Ethers.js) for ALL users in composed hooks
+  // This is safe because API endpoints are read-only blockchain queries that work for any address
+  const isSSO = getIsSSO(queryOptions);
+  
+  // FORCE SSO MODE for composed hooks - API endpoints work for both SSO and Wallet users
+  const forceSSO = true;
+  
+  // Step 1: Get user reservation count using atomic hook (forced SSO mode for consistency)
   const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: queryOptions.enabled,
     meta: queryOptions.meta,
+    isSSO: forceSSO, // ✅ Force SSO mode - API works for all users
   });
   
   // Extract reservation count and apply limit if specified
@@ -697,18 +711,26 @@ export const useLabBookingsDashboard = (labId, {
   queryOptions = {} 
 } = {}) => {
   
+  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
+  // Force SSO mode for ALL users - API endpoints work for any address
+  const isSSO = getIsSSO(queryOptions);
+  const forceSSO = true;
+  
   // Debug log for input parameters
   devLog.log('📅 useLabBookingsDashboard called with:', {
     labId,
     includeUserDetails,
-    queryOptions
+    userType: isSSO ? 'SSO' : 'Wallet',
+    queryMode: 'API (forced for composed hooks)',
+    reason: 'useQueries requires extractable queryFn'
   });
   
-  // Step 1: Get reservation count for lab
+  // Step 1: Get reservation count for lab (forced SSO mode)
   const reservationCountResult = useReservationsOfToken(labId, {
     ...BOOKING_QUERY_CONFIG,
     enabled: !!labId && (queryOptions.enabled !== false),
     meta: queryOptions.meta,
+    isSSO: forceSSO, // ✅ Force SSO mode
   });
   
   const reservationCount = reservationCountResult.data?.count || 0;

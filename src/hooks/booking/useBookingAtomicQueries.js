@@ -374,14 +374,24 @@ useReservationsOfSSO.queryFn = getReservationsOfQueryFn;
  * Gets all reservations made by a specific user directly from blockchain via Wagmi
  * @param {string} userAddress - User address to get reservations for
  * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with user reservations
+ * @returns {Object} Wagmi query result with user reservations (normalized format)
  */
 export const useReservationsOfWallet = (userAddress, options = {}) => {
-  return useDefaultReadContract('reservationsOf', [userAddress], {
+  const result = useDefaultReadContract('reservationsOf', [userAddress], {
       enabled: !!userAddress,
       ...BOOKING_QUERY_CONFIG,
       ...options,
     });
+  
+  // Transform Wagmi data to match SSO format
+  const transformedData = result.data !== undefined ? {
+    count: typeof result.data === 'bigint' ? Number(result.data) : result.data
+  } : undefined;
+  
+  return {
+    ...result,
+    data: transformedData
+  };
 };
 
 /**
@@ -526,14 +536,24 @@ useReservationKeyOfUserByIndexSSO.queryFn = getReservationKeyOfUserByIndexQueryF
  * @param {string} userAddress - User address
  * @param {number} index - User's reservation index
  * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with reservation key
+ * @returns {Object} Wagmi query result with reservation key (normalized format)
  */
 export const useReservationKeyOfUserByIndexWallet = (userAddress, index, options = {}) => {
-  return useDefaultReadContract('reservationKeyOfUserByIndex', [userAddress, index], {
+  const result = useDefaultReadContract('reservationKeyOfUserByIndex', [userAddress, index], {
       enabled: !!userAddress && (index !== undefined && index !== null),
       ...BOOKING_QUERY_CONFIG,
       ...options,
     });
+  
+  // Transform Wagmi data to match SSO format
+  const transformedData = result.data !== undefined ? {
+    reservationKey: result.data // Wagmi returns the key directly
+  } : undefined;
+  
+  return {
+    ...result,
+    data: transformedData
+  };
 };
 
 /**

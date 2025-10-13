@@ -25,6 +25,9 @@ export default function UserDashboard() {
   const { isLoggedIn, address, user, isSSO, isConnected } = useUser();
   
   // 🚀 React Query for user bookings with lab details
+  // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
+  // It forces API mode (Ethers.js backend) because useQueries cannot extract Wagmi hooks as queryFn
+  // API endpoints are read-only blockchain queries that work for any wallet address
   const { 
     data: userBookingsData, 
     isLoading: bookingsLoading, 
@@ -35,6 +38,7 @@ export default function UserDashboard() {
     queryOptions: {
       enabled: !!address && isLoggedIn,
       staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
+      // No need to pass isSSO - hook forces API mode internally for architectural reasons
     }
   });
 
@@ -280,6 +284,8 @@ export default function UserDashboard() {
 
   // ❌ Error handling for React Query
   if (bookingsError) {
+    devLog.error('Dashboard booking error:', bookingsErrorDetails);
+    
     return (
       <AccessControl message="Please log in to view and make reservations.">
         <Container padding="sm">
