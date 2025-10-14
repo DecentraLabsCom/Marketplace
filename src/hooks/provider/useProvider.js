@@ -190,6 +190,47 @@ export const useUploadFile = (options = {}) => {
 };
 
 /**
+ * Hook for moving files from temp folder to lab-specific folder
+ * POST /api/provider/moveFiles
+ * 
+ * @param {Object} options - React Query mutation options
+ * @returns {Object} React Query mutation result
+ */
+export const useMoveFiles = (options = {}) => {
+  return useMutation({
+    mutationFn: async ({ filePaths, labId }) => {
+      try {
+        if (!filePaths || !Array.isArray(filePaths)) {
+          throw new Error('File paths array is required');
+        }
+        if (!labId) {
+          throw new Error('Lab ID is required');
+        }
+
+        const response = await fetch('/api/provider/moveFiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePaths, labId })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to move files: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        devLog.info(`Files moved successfully to lab ${labId}:`, data.movedFiles?.length || 0);
+        return data;
+      } catch (error) {
+        devLog.error('Failed to move files:', error);
+        throw error;
+      }
+    },
+    ...options,
+  });
+};
+
+/**
  * Hook for deleting files
  * POST /api/provider/deleteFile
  * 

@@ -14,7 +14,7 @@ import {
 } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
 import { useRequestFunds } from '@/hooks/booking/useBookings'
-import { useSaveLabData, useDeleteLabData } from '@/hooks/provider/useProvider'
+import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
@@ -76,6 +76,7 @@ export default function ProviderDashboard() {
   // 🚀 React Query mutations for provider data management
   const saveLabDataMutation = useSaveLabData();
   const deleteLabDataMutation = useDeleteLabData();
+  const moveFilesMutation = useMoveFiles();
   
   // State declarations
   const [selectedLabId, setSelectedLabId] = useState("");
@@ -142,6 +143,10 @@ export default function ProviderDashboard() {
 
     // Store the original human-readable price before blockchain conversion
     const originalPrice = labData.price;
+    
+    // Extract temp files if they exist
+    const tempFiles = labData._tempFiles || [];
+    delete labData._tempFiles; // Remove from labData to avoid sending to blockchain
 
     try {
       addTemporaryNotification('pending', '⏳ Adding lab...');
@@ -154,7 +159,51 @@ export default function ProviderDashboard() {
         userEmail: user.email
       });
       
+      const blockchainLabId = result.labId || result.id;
+      
+      if (!blockchainLabId) {
+        throw new Error('Lab ID not returned from blockchain');
+      }
+      
       addTemporaryNotification('success', '✅ Lab added!');
+      
+      // Move temp files to correct labId folder
+      if (tempFiles.length > 0) {
+        try {
+          devLog.log(`📁 Moving ${tempFiles.length} temp files to lab ${blockchainLabId}...`);
+          const moveResult = await moveFilesMutation.mutateAsync({
+            filePaths: tempFiles,
+            labId: blockchainLabId
+          });
+          
+          devLog.log('✅ Files moved successfully:', moveResult);
+          
+          // Update labData with new file paths
+          if (moveResult.movedFiles) {
+            const newImages = [];
+            const newDocs = [];
+            
+            moveResult.movedFiles.forEach(movedFile => {
+              if (movedFile.original.includes('/images/')) {
+                newImages.push(movedFile.new);
+              } else if (movedFile.original.includes('/docs/')) {
+                newDocs.push(movedFile.new);
+              }
+            });
+            
+            if (newImages.length > 0) {
+              labData.images = newImages;
+            }
+            if (newDocs.length > 0) {
+              labData.docs = newDocs;
+            }
+          }
+        } catch (moveError) {
+          devLog.error('❌ Failed to move temp files:', moveError);
+          addTemporaryNotification('warning', `⚠️ Lab created but some files failed to move: ${formatErrorMessage(moveError)}`);
+          // Continue - lab was created, file move is not critical
+        }
+      }
       
       // Save metadata JSON file for locally-managed URIs
       if (labData.uri.startsWith('Lab-')) {
@@ -162,7 +211,7 @@ export default function ProviderDashboard() {
           devLog.log('📝 Saving lab metadata JSON after blockchain creation...');
           await saveLabDataMutation.mutateAsync({
             ...labData,
-            id: result.labId || result.id || (maxId + 1), // Use the lab ID from blockchain or fallback
+            id: blockchainLabId, // Use the blockchain labId
             price: originalPrice // Save with human-readable price for JSON consistency
           });
           
@@ -184,7 +233,7 @@ export default function ProviderDashboard() {
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
     }
   }, [
-    ownedLabs, user?.name, addLabMutation, saveLabDataMutation, address, isSSO, user?.email, addTemporaryNotification
+    ownedLabs, user?.name, addLabMutation, saveLabDataMutation, moveFilesMutation, address, isSSO, user?.email, addTemporaryNotification
   ]);
 
   // Redirect non-providers to home page
@@ -238,8 +287,11 @@ export default function ProviderDashboard() {
 
   // Handle editing/updating a lab
   async function handleEditLab({ labData, originalPrice }) {
-    labData.uri = labData.uri || `Lab-${user.name}-${labData.id}.json`;
     const originalLab = ownedLabs.find(lab => lab.id == labData.id);
+    
+    // Use original lab's URI to preserve consistency, regardless of provider name changes
+    // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
+    labData.uri = labData.uri || originalLab?.uri || `Lab-${user.name}-${labData.id}.json`;
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
     const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 
