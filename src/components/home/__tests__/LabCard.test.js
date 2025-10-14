@@ -1,16 +1,19 @@
 /**
- *
- * Unit tests for the LabCard component.
- *
- * - External dependencies are mocked to isolate component behavior.
- * - Accessible queries (getByRole, getByText, getByAltText) are used to reflect user interaction.
- * - Tests focus on observable behavior and common edge cases.
+ * Unit tests for LabCard component.
+ * Purpose: verify rendering based on props, conditional UI (badges, LabAccess), 
+ *          link generation, and edge cases (empty strings, zero price).
+ * Notes: external dependencies (contexts, hooks, UI components) are mocked for isolation;
+ *        tests focus on observable behavior, not implementation details.
  *
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import LabCard from '../LabCard';
+
+jest.mock('@/hooks/booking/useBookings', () => ({
+  useActiveReservationKeyForUser: jest.fn(() => ({ data: null }))
+}));
 
 // External dependency mocks
 jest.mock('@/context/UserContext', () => ({

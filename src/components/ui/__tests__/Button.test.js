@@ -2,7 +2,6 @@
  * Button Component Unit Tests
  * 
  * Tests core functionality of Button, IconButton, and ButtonGroup components.
- * These components use Tailwind CSS for styling.
  * 
  * Coverage:
  * - User interactions (clicks, keyboard navigation)
