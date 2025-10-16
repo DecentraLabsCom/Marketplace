@@ -86,11 +86,11 @@ describe('LabBookingItem', () => {
 
   test('renders lab information with link and provider', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking()} 
-        startTime="09:00" 
-        endTime="11:00" 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking()}
+        startTime="09:00"
+        endTime="11:00"
       />
     );
 
@@ -103,25 +103,25 @@ describe('LabBookingItem', () => {
 
   test('renders "Time not available" when time props are missing', () => {
     render(<LabBookingItem lab={mockLab} booking={createBooking()} />);
-    
+
     expect(screen.getByText(/Time not available/i)).toBeInTheDocument();
   });
 
   test('renders status badge correctly', () => {
     render(<LabBookingItem lab={mockLab} booking={createBooking()} />);
-    
+
     expect(screen.getByText('✓')).toBeInTheDocument();
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
   });
 
   test('renders with empty lab or missing date gracefully', () => {
     render(
-      <LabBookingItem 
-        lab={{}} 
-        booking={createBooking({ date: undefined })} 
+      <LabBookingItem
+        lab={{}}
+        booking={createBooking({ date: undefined })}
       />
     );
-    
+
     // Should not crash and still render status
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
   });
@@ -139,7 +139,7 @@ describe('LabBookingItem', () => {
 
     const cancelButton = screen.getByRole('button', { name: /Cancel Booking/i });
     await user.click(cancelButton);
-    
+
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
@@ -153,16 +153,16 @@ describe('LabBookingItem', () => {
 
     const cancelButton = screen.getByRole('button', { name: /Cancel Request/i });
     await user.click(cancelButton);
-    
+
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
 
   test('hides cancel button for canceled booking (status 4)', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking({ status: '4' })} 
-        onCancel={jest.fn()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({ status: '4' })}
+        onCancel={jest.fn()}
       />
     );
 
@@ -177,10 +177,10 @@ describe('LabBookingItem', () => {
 
   test('handles numeric status values correctly', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking({ status: 1 })} 
-        onCancel={jest.fn()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({ status: 1 })}
+        onCancel={jest.fn()}
       />
     );
 
@@ -200,17 +200,17 @@ describe('LabBookingItem', () => {
 
     const refundButton = screen.getByRole('button', { name: /Apply for Refund/i });
     await user.click(refundButton);
-    
+
     expect(onRefund).toHaveBeenCalledTimes(1);
     expect(onRefund).toHaveBeenCalledWith(mockLab.id, booking);
   });
 
   test('hides refund button for canceled booking', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking({ status: '4' })} 
-        onRefund={jest.fn()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({ status: '4' })}
+        onRefund={jest.fn()}
       />
     );
 
@@ -219,10 +219,10 @@ describe('LabBookingItem', () => {
 
   test('hides refund button when reservationKey is missing', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking({ reservationKey: null })} 
-        onRefund={jest.fn()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({ reservationKey: null })}
+        onRefund={jest.fn()}
       />
     );
 
@@ -235,8 +235,8 @@ describe('LabBookingItem', () => {
 
   test('displays error banner and applies error styling when hasCancellationError is true', () => {
     const { container } = render(
-      <LabBookingItem 
-        lab={mockLab} 
+      <LabBookingItem
+        lab={mockLab}
         booking={createBooking({ hasCancellationError: true })}
       />
     );
@@ -251,24 +251,24 @@ describe('LabBookingItem', () => {
     const booking = createBooking({ hasCancellationError: true });
 
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={booking} 
-        onClearError={onClearError} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={booking}
+        onClearError={onClearError}
       />
     );
 
     const clearButton = screen.getByTitle('Clear error');
     await user.click(clearButton);
-    
+
     expect(onClearError).toHaveBeenCalledTimes(1);
     expect(onClearError).toHaveBeenCalledWith(booking.reservationKey);
   });
 
   test('hides clear error button when onClearError is not provided', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
+      <LabBookingItem
+        lab={mockLab}
         booking={createBooking({ hasCancellationError: true })}
       />
     );
@@ -286,9 +286,9 @@ describe('LabBookingItem', () => {
     const closeModal = jest.fn();
 
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking()}
         isModalOpen={true}
         closeModal={closeModal}
         onConfirmRefund={onConfirmRefund}
@@ -309,9 +309,9 @@ describe('LabBookingItem', () => {
 
   test('does not render modal when isModalOpen is false', () => {
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking()}
         isModalOpen={false}
       />
     );
@@ -323,9 +323,9 @@ describe('LabBookingItem', () => {
     const user = userEvent.setup();
 
     render(
-      <LabBookingItem 
-        lab={mockLab} 
-        booking={createBooking()} 
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking()}
         isModalOpen={true}
         closeModal={jest.fn()}
         onConfirmRefund={null}
