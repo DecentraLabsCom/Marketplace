@@ -10,9 +10,9 @@
  *
  */
 
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import '@testing-library/jest-dom';
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import "@testing-library/jest-dom";
 
 // Mock data
 const mockOnClose = jest.fn();
@@ -23,77 +23,77 @@ const mockDeleteFile = jest.fn();
 
 let mockLabTokenData = {
   decimals: 18,
-  formatPrice: mockFormatPrice
+  formatPrice: mockFormatPrice,
 };
 
 // External dependencies
-jest.mock('@/context/LabTokenContext', () => ({
-  useLabToken: () => mockLabTokenData
+jest.mock("@/context/LabTokenContext", () => ({
+  useLabToken: () => mockLabTokenData,
 }));
 
-jest.mock('@/hooks/provider/useProvider', () => ({
+jest.mock("@/hooks/provider/useProvider", () => ({
   useUploadFile: () => ({
-    mutateAsync: mockUploadFile
+    mutateAsync: mockUploadFile,
   }),
   useDeleteFile: () => ({
     mutateAsync: mockDeleteFile,
-    mutate: jest.fn()
-  })
+    mutate: jest.fn(),
+  }),
 }));
 
-jest.mock('@/utils/labValidation', () => ({
+jest.mock("@/utils/labValidation", () => ({
   validateLabFull: jest.fn(() => ({})),
-  validateLabQuick: jest.fn(() => ({}))
+  validateLabQuick: jest.fn(() => ({})),
 }));
 
-jest.mock('@/utils/dates/dateFormatter', () => ({
-  normalizeLabDates: jest.fn((lab) => lab)
+jest.mock("@/utils/dates/dateFormatter", () => ({
+  normalizeLabDates: jest.fn((lab) => lab),
 }));
 
-jest.mock('@/utils/dev/logger', () => ({
+jest.mock("@/utils/dev/logger", () => ({
   __esModule: true,
   default: {
     log: jest.fn(),
     error: jest.fn(),
-    warn: jest.fn()
-  }
+    warn: jest.fn(),
+  },
 }));
 
 // Child components mocked with functional stubs
-jest.mock('@/components/dashboard/provider/LabFormFullSetup', () => ({
+jest.mock("@/components/dashboard/provider/LabFormFullSetup", () => ({
   __esModule: true,
   default: ({ onSubmit, onCancel }) => (
     <div data-testid="full-setup-form">
       <button onClick={onSubmit}>Submit Full</button>
       <button onClick={onCancel}>Cancel</button>
     </div>
-  )
+  ),
 }));
 
-jest.mock('@/components/dashboard/provider/LabFormQuickSetup', () => ({
+jest.mock("@/components/dashboard/provider/LabFormQuickSetup", () => ({
   __esModule: true,
   default: ({ onSubmit, onCancel }) => (
     <div data-testid="quick-setup-form">
       <button onClick={onSubmit}>Submit Quick</button>
       <button onClick={onCancel}>Cancel</button>
     </div>
-  )
+  ),
 }));
 
-import LabModal from '@/components/dashboard/provider/LabModal';
+import LabModal from "@/components/dashboard/provider/LabModal";
 
-describe('LabModal - Unit Tests', () => {
+describe("LabModal - Unit Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     mockLabTokenData = {
       decimals: 18,
-      formatPrice: mockFormatPrice
+      formatPrice: mockFormatPrice,
     };
   });
 
-  describe('Modal Visibility', () => {
-    test('renders modal when isOpen is true', () => {
+  describe("Modal Visibility", () => {
+    test("renders modal when isOpen is true", () => {
       render(
         <LabModal
           isOpen={true}
@@ -104,10 +104,10 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.getByText('Add New Lab')).toBeInTheDocument();
+      expect(screen.getByText("Add New Lab")).toBeInTheDocument();
     });
 
-    test('does not render modal when isOpen is false', () => {
+    test("does not render modal when isOpen is false", () => {
       render(
         <LabModal
           isOpen={false}
@@ -118,11 +118,11 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.queryByText('Add New Lab')).not.toBeInTheDocument();
+      expect(screen.queryByText("Add New Lab")).not.toBeInTheDocument();
     });
 
-    test('shows Edit Lab title when lab prop has id', () => {
-      const existingLab = { id: '123', name: 'Test Lab', price: '100' };
+    test("shows Edit Lab title when lab prop has id", () => {
+      const existingLab = { id: "123", name: "Test Lab", price: "100" };
 
       render(
         <LabModal
@@ -134,12 +134,12 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.getByText('Edit Lab')).toBeInTheDocument();
+      expect(screen.getByText("Edit Lab")).toBeInTheDocument();
     });
   });
 
-  describe('Tab Switching', () => {
-    test('renders Full Setup tab by default', () => {
+  describe("Tab Switching", () => {
+    test("renders Full Setup tab by default", () => {
       render(
         <LabModal
           isOpen={true}
@@ -150,11 +150,11 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.getByTestId('full-setup-form')).toBeInTheDocument();
-      expect(screen.queryByTestId('quick-setup-form')).not.toBeInTheDocument();
+      expect(screen.getByTestId("full-setup-form")).toBeInTheDocument();
+      expect(screen.queryByTestId("quick-setup-form")).not.toBeInTheDocument();
     });
 
-    test('switches to Quick Setup when tab clicked', async () => {
+    test("switches to Quick Setup when tab clicked", async () => {
       const user = userEvent.setup();
 
       render(
@@ -167,14 +167,16 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      const quickSetupTab = screen.getByRole('button', { name: /Quick Setup/i });
+      const quickSetupTab = screen.getByRole("button", {
+        name: /Quick Setup/i,
+      });
       await user.click(quickSetupTab);
 
-      expect(screen.getByTestId('quick-setup-form')).toBeInTheDocument();
-      expect(screen.queryByTestId('full-setup-form')).not.toBeInTheDocument();
+      expect(screen.getByTestId("quick-setup-form")).toBeInTheDocument();
+      expect(screen.queryByTestId("full-setup-form")).not.toBeInTheDocument();
     });
 
-    test('switches back to Full Setup from Quick Setup', async () => {
+    test("switches back to Full Setup from Quick Setup", async () => {
       const user = userEvent.setup();
 
       render(
@@ -187,19 +189,20 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      const quickSetupTab = screen.getByRole('button', { name: /Quick Setup/i });
+      const quickSetupTab = screen.getByRole("button", {
+        name: /Quick Setup/i,
+      });
       await user.click(quickSetupTab);
 
-      const fullSetupTab = screen.getByRole('button', { name: /Full Setup/i });
+      const fullSetupTab = screen.getByRole("button", { name: /Full Setup/i });
       await user.click(fullSetupTab);
 
-      expect(screen.getByTestId('full-setup-form')).toBeInTheDocument();
+      expect(screen.getByTestId("full-setup-form")).toBeInTheDocument();
     });
   });
 
-  describe('Close Handlers', () => {
-    
-    test('closes modal when Cancel button clicked', async () => {
+  describe("Close Handlers", () => {
+    test("closes modal when Cancel button clicked", async () => {
       const user = userEvent.setup();
 
       render(
@@ -212,13 +215,13 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      const cancelButton = screen.getByText('Cancel');
+      const cancelButton = screen.getByText("Cancel");
       await user.click(cancelButton);
 
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    test('closes modal when ESC key pressed', async () => {
+    test("closes modal when ESC key pressed", async () => {
       render(
         <LabModal
           isOpen={true}
@@ -229,14 +232,14 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      fireEvent.keyDown(window, { key: 'Escape' });
+      fireEvent.keyDown(window, { key: "Escape" });
 
       await waitFor(() => {
         expect(mockOnClose).toHaveBeenCalled();
       });
     });
 
-    test('does not close when clicking inside modal content', async () => {
+    test("does not close when clicking inside modal content", async () => {
       const user = userEvent.setup();
 
       render(
@@ -249,15 +252,15 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      const modalContent = screen.getByText('Add New Lab');
+      const modalContent = screen.getByText("Add New Lab");
       await user.click(modalContent);
 
       expect(mockOnClose).not.toHaveBeenCalled();
     });
   });
 
-  describe('Lab Initialization', () => {
-    test('initializes with empty form for new lab', () => {
+  describe("Lab Initialization", () => {
+    test("initializes with empty form for new lab", () => {
       render(
         <LabModal
           isOpen={true}
@@ -268,16 +271,16 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.getByText('Add New Lab')).toBeInTheDocument();
-      expect(screen.getByTestId('full-setup-form')).toBeInTheDocument();
+      expect(screen.getByText("Add New Lab")).toBeInTheDocument();
+      expect(screen.getByTestId("full-setup-form")).toBeInTheDocument();
     });
 
-    test('initializes with lab data when editing', async () => {
+    test("initializes with lab data when editing", async () => {
       const existingLab = {
-        id: '123',
-        name: 'Existing Lab',
-        price: '100',
-        category: 'Biology'
+        id: "123",
+        name: "Existing Lab",
+        price: "100",
+        category: "Biology",
       };
 
       render(
@@ -291,17 +294,17 @@ describe('LabModal - Unit Tests', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Edit Lab')).toBeInTheDocument();
+        expect(screen.getByText("Edit Lab")).toBeInTheDocument();
       });
     });
 
-    test('converts price format when lab has price', async () => {
-      mockFormatPrice.mockReturnValue('150');
-      
+    test("converts price format when lab has price", async () => {
+      mockFormatPrice.mockReturnValue("150");
+
       const labWithPrice = {
-        id: '123',
-        name: 'Lab',
-        price: '100'
+        id: "123",
+        name: "Lab",
+        price: "100",
       };
 
       render(
@@ -315,13 +318,13 @@ describe('LabModal - Unit Tests', () => {
       );
 
       await waitFor(() => {
-        expect(mockFormatPrice).toHaveBeenCalledWith('100');
+        expect(mockFormatPrice).toHaveBeenCalledWith("100");
       });
     });
   });
 
-  describe('Form Submission', () => {
-    test('calls onSubmit when Full Setup form submitted', async () => {
+  describe("Form Submission", () => {
+    test("calls onSubmit when Full Setup form submitted", async () => {
       const user = userEvent.setup();
       mockOnSubmit.mockResolvedValue();
 
@@ -335,7 +338,7 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      const submitButton = screen.getByText('Submit Full');
+      const submitButton = screen.getByText("Submit Full");
       await user.click(submitButton);
 
       await waitFor(() => {
@@ -343,7 +346,7 @@ describe('LabModal - Unit Tests', () => {
       });
     });
 
-    test('calls onSubmit when Quick Setup form submitted', async () => {
+    test("calls onSubmit when Quick Setup form submitted", async () => {
       const user = userEvent.setup();
       mockOnSubmit.mockResolvedValue();
 
@@ -357,10 +360,12 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      const quickSetupTab = screen.getByRole('button', { name: /Quick Setup/i });
+      const quickSetupTab = screen.getByRole("button", {
+        name: /Quick Setup/i,
+      });
       await user.click(quickSetupTab);
 
-      const submitButton = screen.getByText('Submit Quick');
+      const submitButton = screen.getByText("Submit Quick");
       await user.click(submitButton);
 
       await waitFor(() => {
@@ -369,8 +374,8 @@ describe('LabModal - Unit Tests', () => {
     });
   });
 
-  describe('Edge Cases', () => {
-    test('handles null lab prop without crashing', () => {
+  describe("Edge Cases", () => {
+    test("handles null lab prop without crashing", () => {
       render(
         <LabModal
           isOpen={true}
@@ -381,10 +386,10 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.getByText('Add New Lab')).toBeInTheDocument();
+      expect(screen.getByText("Add New Lab")).toBeInTheDocument();
     });
 
-    test('handles undefined decimals in context', () => {
+    test("handles undefined decimals in context", () => {
       mockLabTokenData.decimals = undefined;
 
       render(
@@ -392,16 +397,16 @@ describe('LabModal - Unit Tests', () => {
           isOpen={true}
           onClose={mockOnClose}
           onSubmit={mockOnSubmit}
-          lab={{ id: '1', price: '100' }}
+          lab={{ id: "1", price: "100" }}
           maxId={0}
         />
       );
 
-      expect(screen.getByText('Edit Lab')).toBeInTheDocument();
+      expect(screen.getByText("Edit Lab")).toBeInTheDocument();
     });
 
-    test('handles lab without id as new lab', () => {
-      const labWithoutId = { name: 'Lab', price: '100' };
+    test("handles lab without id as new lab", () => {
+      const labWithoutId = { name: "Lab", price: "100" };
 
       render(
         <LabModal
@@ -413,7 +418,7 @@ describe('LabModal - Unit Tests', () => {
         />
       );
 
-      expect(screen.getByText('Add New Lab')).toBeInTheDocument();
+      expect(screen.getByText("Add New Lab")).toBeInTheDocument();
     });
   });
 });
