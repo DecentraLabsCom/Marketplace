@@ -14,8 +14,6 @@
  * - SSO Conditional: Shows/hides payment info based on authentication type
  * - Calendar Key: Regenerates on booking status or refresh changes
  * - Edge Cases: Empty arrays, formatPrice callback handling
- * - Styling: Applies correct styles when no available times are present
- * - Option Styling: Disabled options have reserved styling
  */
 
 import React from "react";
