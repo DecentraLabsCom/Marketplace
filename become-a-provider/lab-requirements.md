@@ -11,6 +11,6 @@ To be eligible for listing on DecentraLabs, a laboratory must meet the following
 4. **Reliable Visual Feedback**\
    If live video or visual monitoring is required for the experiment, the lab must have consistent and sufficient lighting at all times (or automatically enable proper illumination upon remote access) to ensure users can clearly observe the experiment.
 5. **Lab Gateway**\
-   A Linux OS is recommended, but is not required. The most critical requirement for this proxy system is that it must have two ethernet cards: one with a public/valid IP and one connected to your private institutional network with a private IP.
+   A Linux OS is recommended, but is not required. The most critical requirement is that a proxy system is needed to enable secure remote access, connecting public and private networks while managing routing.
 6. **Lab Computer(s)**\
    A Windows 10 or Windows 11 OS is required. Each lab computer must control just one lab setup.
