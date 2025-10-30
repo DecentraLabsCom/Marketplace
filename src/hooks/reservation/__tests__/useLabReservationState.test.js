@@ -90,7 +90,7 @@ describe("useLabReservationState", () => {
     useReservationRequest.mockReturnValue(mockReservationRequest);
     useBookingCacheUpdates.mockReturnValue(mockCacheUpdates);
 
-    wagmi.useWaitForTransactionReceipt = jest.fn().mockReturnValue({
+    jest.spyOn(wagmi, "useWaitForTransactionReceipt").mockReturnValue({
       data: null,
       isLoading: false,
       isSuccess: false,
