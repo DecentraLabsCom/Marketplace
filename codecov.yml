@@ -1,0 +1,41 @@
+codecov:
+  require_ci_to_pass: yes
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...90"
+
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 5%
+        base: auto
+        if_ci_failed: error
+
+    patch:
+      default:
+        target: 60%
+        threshold: 10%
+        base: auto
+
+parsers:
+  javascript:
+    enable_partials: yes
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+ignore:
+  - "**/*.test.js"
+  - "**/*.spec.js"
+  - "**/*.stories.js"
+  - "**/test-utils/**"
+  - "scripts/**"
+  - "**/*.config.js"
+  - "**/node_modules/**"
