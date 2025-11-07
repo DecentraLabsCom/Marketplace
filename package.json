@@ -16,7 +16,9 @@
     "lint": "next lint",
     "generate-jwt-keys": "node scripts/generate-jwt-keys.js",
     "rotate-jwt-keys": "node scripts/rotate-jwt-keys.js",
-    "show-vercel-keys": "node scripts/show-keys-for-vercel.js"
+    "show-vercel-keys": "node scripts/show-keys-for-vercel.js",
+    "pre-commit": "node scripts/pre-commit-check.js",
+    "coverage:report": "node scripts/coverage-report.js"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
