@@ -21,7 +21,8 @@ export default function LabDetail({ id }) {
     data: lab,
     isLoading: loading, 
     isError: labsError,
-    error: labsErrorDetails 
+    error: labsErrorDetails,
+    metadataError 
   } = useLabById(id);
   const { formatPrice } = useLabToken();
   const router = useRouter();
@@ -125,7 +126,18 @@ export default function LabDetail({ id }) {
               <hr className="mb-2 separator-width w-1/2" />
             </div>
           </header>
-          <p className="text-sm text-justify">{lab?.description}</p>
+          
+          {/* Metadata warning banner - shown instead of description when metadata is missing */}
+          {metadataError ? (
+            <div className="bg-warning-bg border border-warning-border rounded-lg p-4 mb-4">
+              <p className="text-warning-text text-sm">
+                ⚠️ <strong>Information Unavailable:</strong> Additional details for this laboratory are currently missing. 
+                Basic information and booking functionality remain accessible.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-justify">{lab?.description}</p>
+          )}
 
           <div className="mt-4">
             {/* Category */}

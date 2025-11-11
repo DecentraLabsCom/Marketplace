@@ -476,7 +476,11 @@ export const useLabById = (labId, options = {}) => {
   });
 
   const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
-  const hasErrors = labResult.error || ownerResult.error || listingResult.error || metadataResult.error;
+  
+  // Only critical errors (lab, owner, listing) should fail the entire query
+  // Metadata errors should be gracefully handled with fallbacks
+  const hasCriticalErrors = labResult.error || ownerResult.error || listingResult.error;
+  const hasMetadataError = metadataResult.error;
 
   // Check if lab is listed
   const isListed = listingResult.data?.isListed;
@@ -573,15 +577,17 @@ export const useLabById = (labId, options = {}) => {
     labId: normalizedLabId,
     found: !!lab,
     labName: lab?.name,
-    provider: lab?.provider
+    provider: lab?.provider,
+    hasMetadataError
   });
 
   return {
     data: lab,
     isLoading,
-    isSuccess: !hasErrors && !!lab,
-    isError: hasErrors,
-    error: labResult.error || ownerResult.error || metadataResult.error,
+    isSuccess: !hasCriticalErrors && !!lab,
+    isError: hasCriticalErrors,
+    error: labResult.error || ownerResult.error || listingResult.error,
+    metadataError: hasMetadataError ? metadataResult.error : null, // Separate metadata errors
     refetch: () => {
       labResult.refetch();
       ownerResult.refetch();

@@ -62,9 +62,12 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, a
             priority={false}
           />
         ) : (
-          <div className="size-full bg-gray-300 flex items-center justify-center">
-            <span className="text-gray-500">No image</span>
-          </div>
+          <LabCardImage 
+            src={'/labs/lab_placeholder.png'}
+            alt={name}
+            labId={id}
+            priority={false}
+          />
         )}
         
         {/* Active Booking Badge */}

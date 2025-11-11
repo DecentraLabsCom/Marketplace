@@ -7,6 +7,18 @@ import path from 'path'
 import getIsVercel from '@/utils/isVercel'
 import { NextResponse } from 'next/server'
 
+// Timeout for metadata fetches (2 seconds for fast failure)
+const METADATA_FETCH_TIMEOUT = 2000;
+
+/**
+ * Creates a promise that rejects after the specified timeout
+ * @param {number} ms - Timeout in milliseconds
+ * @returns {Promise} Promise that rejects on timeout
+ */
+const timeoutPromise = (ms) => new Promise((_, reject) => 
+  setTimeout(() => reject(new Error('Request timeout')), ms)
+);
+
 /**
  * Retrieves metadata files from local storage or cloud blob storage
  * @param {Request} request - HTTP request with query parameters
@@ -49,7 +61,11 @@ export async function GET(request) {
       if (!isVercel) {
         try {
           const filePath = path.join(process.cwd(), 'data', metadataUri);
-          const fileContent = await fs.readFile(filePath, 'utf-8');
+          // Race between file read and timeout
+          const fileContent = await Promise.race([
+            fs.readFile(filePath, 'utf-8'),
+            timeoutPromise(METADATA_FETCH_TIMEOUT)
+          ]);
           metadata = JSON.parse(fileContent);
         } catch (error) {
           if (error.code === 'ENOENT') {
@@ -61,6 +77,15 @@ export async function GET(request) {
               { status: 404 }
             );
           }
+          if (error.message === 'Request timeout') {
+            return NextResponse.json(
+              { 
+                error: `Metadata fetch timeout: ${metadataUri}`,
+                code: 'TIMEOUT'
+              },
+              { status: 408 } // Request Timeout
+            );
+          }
           throw error; // Re-throw for main catch block
         }
       } else {
@@ -70,12 +95,16 @@ export async function GET(request) {
           const cacheBuster = searchParams.get('t');
           const fetchUrl = cacheBuster ? `${blobUrl}?t=${cacheBuster}` : blobUrl;
           
-          const response = await fetch(fetchUrl, {
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
-          });
+          // Race between fetch and timeout
+          const response = await Promise.race([
+            fetch(fetchUrl, {
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+              }
+            }),
+            timeoutPromise(METADATA_FETCH_TIMEOUT)
+          ]);
           
           if (!response.ok) {
             if (response.status === 404) {
@@ -91,6 +120,15 @@ export async function GET(request) {
           }
           metadata = await response.json();
         } catch (error) {
+          if (error.message === 'Request timeout') {
+            return NextResponse.json(
+              { 
+                error: `Metadata fetch timeout: ${metadataUri}`,
+                code: 'TIMEOUT'
+              },
+              { status: 408 } // Request Timeout
+            );
+          }
           if (error.message.includes('404')) {
             return NextResponse.json(
               { 
@@ -106,7 +144,12 @@ export async function GET(request) {
     } else {
       // External URI - proxy the request
       try {
-        const response = await fetch(metadataUri);
+        // Race between external fetch and timeout
+        const response = await Promise.race([
+          fetch(metadataUri),
+          timeoutPromise(METADATA_FETCH_TIMEOUT)
+        ]);
+        
         if (!response.ok) {
           if (response.status === 404) {
             return NextResponse.json(
@@ -121,6 +164,15 @@ export async function GET(request) {
         }
         metadata = await response.json();
       } catch (error) {
+        if (error.message === 'Request timeout') {
+          return NextResponse.json(
+            { 
+              error: `External metadata fetch timeout: ${metadataUri}`,
+              code: 'TIMEOUT'
+            },
+            { status: 408 } // Request Timeout
+          );
+        }
         return NextResponse.json(
           { 
             error: `Failed to fetch external metadata: ${error.message}`,
