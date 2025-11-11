@@ -41,7 +41,6 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
   // URI state
   const [isExternalURI, setIsExternalURI] = useState(false)
   const [isLocalURI, setIsLocalURI] = useState(false)
-  const [clickedToEditUri, setClickedToEditUri] = useState(false)
 
   // Form refs
   const refs = {
@@ -54,8 +53,11 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
     accessURI: useRef(null),
     accessKey: useRef(null),
     timeSlots: useRef(null),
-    opens: useRef(null),
-    closes: useRef(null),
+    availableHoursStart: useRef(null),
+    availableHoursEnd: useRef(null),
+    maxConcurrentUsers: useRef(null),
+    termsUrl: useRef(null),
+    termsSha: useRef(null),
     uri: useRef(null)
   }
 
@@ -156,6 +158,10 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
       id: currentLabId
     }
 
+    if (!labData.maxConcurrentUsers || Number(labData.maxConcurrentUsers) <= 0) {
+      labData.maxConcurrentUsers = 1
+    }
+
     const validation = validateLab(labData, activeTab)
     
     if (!validation.isValid) {
@@ -186,7 +192,6 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
     setLocalDocs([])
     setIsExternalURI(false)
     setIsLocalURI(false)
-    setClickedToEditUri(false)
   }, [lab])
 
   if (!isOpen) return null
@@ -250,16 +255,25 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
               docInputType={docInputType}
               setImageInputType={setImageInputType}
               setDocInputType={setDocInputType}
-              setIsExternalURI={setIsExternalURI}
-              isLocalURI={isLocalURI}
-              setIsLocalURI={setIsLocalURI}
-              clickedToEditUri={clickedToEditUri}
-              setClickedToEditUri={setClickedToEditUri}
               imageUrls={imageUrls}
               docUrls={docUrls}
               localImages={localImages}
               localDocs={localDocs}
-              refs={refs}
+              nameRef={refs.name}
+              categoryRef={refs.category}
+              keywordsRef={refs.keywords}
+              descriptionRef={refs.description}
+              priceRef={refs.price}
+              authRef={refs.auth}
+              accessURIRef={refs.accessURI}
+              accessKeyRef={refs.accessKey}
+              timeSlotsRef={refs.timeSlots}
+              availableHoursStartRef={refs.availableHoursStart}
+              availableHoursEndRef={refs.availableHoursEnd}
+              maxConcurrentUsersRef={refs.maxConcurrentUsers}
+              termsUrlRef={refs.termsUrl}
+              termsShaRef={refs.termsSha}
+              showMediaSections={false}
             />
           ) : (
             <LabFormQuickSetup

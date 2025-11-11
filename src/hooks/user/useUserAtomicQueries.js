@@ -19,7 +19,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
-import { getIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -112,7 +112,7 @@ export const useGetLabProvidersWallet = (options = {}) => {
  * @returns {Object} React Query result with providers data
  */
 export const useGetLabProviders = (options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useGetLabProvidersSSO({ ...options, enabled: isSSO && options.enabled !== false });
   const walletQuery = useGetLabProvidersWallet({ ...options, enabled: !isSSO && options.enabled !== false });
@@ -193,7 +193,7 @@ export const useIsLabProviderWallet = (address, options = {}) => {
  * @returns {Object} React Query result with provider status
  */
 export const useIsLabProvider = (address, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useIsLabProviderSSO(address, { ...options, enabled: isSSO && options.enabled !== false });
   const walletQuery = useIsLabProviderWallet(address, { ...options, enabled: !isSSO && options.enabled !== false });

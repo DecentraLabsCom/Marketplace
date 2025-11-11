@@ -51,6 +51,35 @@ const processLabImages = (metadataData) => {
   return Array.isArray(images) ? images : [];
 };
 
+const buildAttributeMap = (metadata) => {
+  if (!metadata?.attributes) return {}
+  return metadata.attributes.reduce((acc, attr) => {
+    if (attr?.trait_type) {
+      acc[attr.trait_type] = attr.value
+    }
+    return acc
+  }, {})
+}
+
+const applyMetadataAttributes = (lab, metadata) => {
+  if (!metadata) return {}
+  const attributeMap = buildAttributeMap(metadata)
+
+  if (attributeMap.category !== undefined) lab.category = attributeMap.category
+  if (attributeMap.keywords !== undefined) lab.keywords = attributeMap.keywords
+  if (attributeMap.timeSlots !== undefined) lab.timeSlots = attributeMap.timeSlots
+  if (attributeMap.opens !== undefined) lab.opens = attributeMap.opens
+  if (attributeMap.closes !== undefined) lab.closes = attributeMap.closes
+  if (attributeMap.docs !== undefined) lab.docs = attributeMap.docs
+  if (attributeMap.availableDays !== undefined) lab.availableDays = attributeMap.availableDays
+  if (attributeMap.availableHours !== undefined) lab.availableHours = attributeMap.availableHours
+  if (attributeMap.maxConcurrentUsers !== undefined) lab.maxConcurrentUsers = attributeMap.maxConcurrentUsers
+  if (attributeMap.unavailableWindows !== undefined) lab.unavailableWindows = attributeMap.unavailableWindows
+  if (attributeMap.termsOfUse !== undefined) lab.termsOfUse = attributeMap.termsOfUse
+
+  return attributeMap
+}
+
 /**
  * Specialized hook for Market component
  * Gets all labs with provider mapping but minimal data transformation
@@ -177,11 +206,10 @@ export const useLabsForMarket = (options = {}) => {
         
         // Extract images from attributes
         if (metadata.attributes) {
-          const additionalImagesAttr = metadata.attributes.find(
-            attr => attr.trait_type === 'additionalImages'
-          );
-          if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
-            labImages.push(...additionalImagesAttr.value.filter(Boolean));
+          const attributeMap = buildAttributeMap(metadata);
+          const additionalImagesAttr = attributeMap.additionalImages;
+          if (Array.isArray(additionalImagesAttr)) {
+            labImages.push(...additionalImagesAttr.filter(Boolean));
           }
         }
         
@@ -272,26 +300,7 @@ export const useLabsForMarket = (options = {}) => {
         if (metadata.category) enrichedLab.category = metadata.category;
         if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
 
-        // Extract additional data from attributes
-        if (metadata.attributes) {
-          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
-          if (categoryAttr) enrichedLab.category = categoryAttr.value;
-          
-          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
-          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
-          
-          const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
-          if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
-          
-          const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
-          if (opensAttr) enrichedLab.opens = opensAttr.value;
-          
-          const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
-          if (closesAttr) enrichedLab.closes = closesAttr.value;
-          
-          const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
-          if (docsAttr) enrichedLab.docs = docsAttr.value;
-        }
+        applyMetadataAttributes(enrichedLab, metadata);
         
         // Normalize images array: combine all available images
         const allImages = [];
@@ -306,9 +315,10 @@ export const useLabsForMarket = (options = {}) => {
         
         // Add additional images from attributes if exists
         if (metadata.attributes) {
-          const additionalImagesAttr = metadata.attributes.find(attr => attr.trait_type === 'additionalImages');
-          if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
-            allImages.push(...additionalImagesAttr.value.filter(Boolean));
+          const attributeMap = buildAttributeMap(metadata);
+          const additionalImagesAttr = attributeMap.additionalImages;
+          if (Array.isArray(additionalImagesAttr)) {
+            allImages.push(...additionalImagesAttr.filter(Boolean));
           }
         }
         
@@ -437,11 +447,10 @@ export const useLabById = (labId, options = {}) => {
     
     // Extract images from attributes
     if (metadata.attributes) {
-      const additionalImagesAttr = metadata.attributes.find(
-        attr => attr.trait_type === 'additionalImages'
-      );
-      if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
-        labImages.push(...additionalImagesAttr.value.filter(Boolean));
+      const attributeMap = buildAttributeMap(metadata);
+      const additionalImagesAttr = attributeMap.additionalImages;
+      if (Array.isArray(additionalImagesAttr)) {
+        labImages.push(...additionalImagesAttr.filter(Boolean));
       }
     }
     
@@ -494,26 +503,7 @@ export const useLabById = (labId, options = {}) => {
       if (metadata.image) enrichedLab.image = metadata.image;
       if (metadata.category) enrichedLab.category = metadata.category;
       if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
-      if (metadata.attributes) {
-        // Extract category from attributes if not set directly
-        if (!enrichedLab.category) {
-          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
-          if (categoryAttr) enrichedLab.category = categoryAttr.value;
-        }
-        
-        // Extract keywords from attributes if not set directly
-        if (!enrichedLab.keywords) {
-          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
-          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
-        }
-        
-        // Extract timeSlots, docs, etc. from attributes
-        const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
-        if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
-        
-        const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
-        if (docsAttr) enrichedLab.docs = docsAttr.value;
-      }
+      applyMetadataAttributes(enrichedLab, metadata);
 
       // Normalize images array: combine all available images
       const allImages = [];
@@ -528,9 +518,10 @@ export const useLabById = (labId, options = {}) => {
       
       // Add additional images from attributes if exists
       if (metadata.attributes) {
-        const additionalImagesAttr = metadata.attributes.find(attr => attr.trait_type === 'additionalImages');
-        if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
-          allImages.push(...additionalImagesAttr.value.filter(Boolean));
+        const attributeMap = buildAttributeMap(metadata);
+        const additionalImagesAttr = attributeMap.additionalImages;
+        if (Array.isArray(additionalImagesAttr)) {
+          allImages.push(...additionalImagesAttr.filter(Boolean));
         }
       }
       
@@ -782,25 +773,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
         if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
         if (metadata.provider) enrichedLab.provider = metadata.provider;
 
-        if (metadata.attributes) {
-          const categoryAttr = metadata.attributes.find(attr => attr.trait_type === 'category');
-          if (categoryAttr) enrichedLab.category = categoryAttr.value;
-          
-          const keywordsAttr = metadata.attributes.find(attr => attr.trait_type === 'keywords');
-          if (keywordsAttr) enrichedLab.keywords = keywordsAttr.value;
-          
-          const timeSlotsAttr = metadata.attributes.find(attr => attr.trait_type === 'timeSlots');
-          if (timeSlotsAttr) enrichedLab.timeSlots = timeSlotsAttr.value;
-          
-          const opensAttr = metadata.attributes.find(attr => attr.trait_type === 'opens');
-          if (opensAttr) enrichedLab.opens = opensAttr.value;
-          
-          const closesAttr = metadata.attributes.find(attr => attr.trait_type === 'closes');
-          if (closesAttr) enrichedLab.closes = closesAttr.value;
-          
-          const docsAttr = metadata.attributes.find(attr => attr.trait_type === 'docs');
-          if (docsAttr) enrichedLab.docs = docsAttr.value;
-        }
+        applyMetadataAttributes(enrichedLab, metadata);
 
         // Normalize images array: combine all available images
         const allImages = [];
@@ -815,9 +788,10 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
         
         // Add additional images from attributes if exists
         if (metadata.attributes) {
-          const additionalImagesAttr = metadata.attributes.find(attr => attr.trait_type === 'additionalImages');
-          if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
-            allImages.push(...additionalImagesAttr.value.filter(Boolean));
+          const attributeMap = buildAttributeMap(metadata);
+          const additionalImagesAttr = attributeMap.additionalImages;
+          if (Array.isArray(additionalImagesAttr)) {
+            allImages.push(...additionalImagesAttr.filter(Boolean));
           }
         }
         

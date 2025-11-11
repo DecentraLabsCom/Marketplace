@@ -17,7 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
-import { getIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -91,7 +91,7 @@ export const useAllLabsWallet = (options = {}) => {
  * @returns {Object} React Query result with all labs data
  */
 export const useAllLabs = (options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useAllLabsSSO({ ...options, enabled: isSSO && options.enabled !== false });
   const walletQuery = useAllLabsWallet({ ...options, enabled: !isSSO && options.enabled !== false });
@@ -186,7 +186,7 @@ export const useLabWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with lab data
  */
 export const useLab = (labId, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useLabSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useLabWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -260,7 +260,7 @@ export const useLabBalanceWallet = (ownerAddress, options = {}) => {
  * @returns {Object} React Query result with balance count
  */
 export const useLabBalance = (ownerAddress, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useLabBalanceSSO(ownerAddress, { ...options, enabled: isSSO && !!ownerAddress });
   const walletQuery = useLabBalanceWallet(ownerAddress, { ...options, enabled: !isSSO && !!ownerAddress });
@@ -334,7 +334,7 @@ export const useLabOwnerWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with owner address
  */
 export const useLabOwner = (labId, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useLabOwnerSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useLabOwnerWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -413,7 +413,7 @@ export const useTokenOfOwnerByIndexWallet = (ownerAddress, index, options = {}) 
  * @returns {Object} React Query result with token ID
  */
 export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const enabled = !!ownerAddress && (index !== undefined && index !== null);
   const ssoQuery = useTokenOfOwnerByIndexSSO(ownerAddress, index, { ...options, enabled: isSSO && enabled });
@@ -488,7 +488,7 @@ export const useTokenURIWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with token URI
  */
 export const useTokenURI = (labId, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useTokenURISSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useTokenURIWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -562,7 +562,7 @@ export const useIsTokenListedWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with listing status
  */
 export const useIsTokenListed = (labId, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useIsTokenListedSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useIsTokenListedWallet(labId, { ...options, enabled: !isSSO && !!labId });

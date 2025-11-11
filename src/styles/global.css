@@ -390,3 +390,46 @@ body::-webkit-scrollbar-thumb:hover {
 .animate-slideIn {
   animation: slideIn 0.3s ease-out;
 }
+
+/* Datepicker availability layout */
+.availability-picker {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.availability-picker .react-datepicker {
+  display: flex;
+  flex-direction: row;
+}
+
+.availability-picker .react-datepicker__month-container,
+.availability-picker .react-datepicker__time-container {
+  float: none;
+}
+
+.availability-picker .react-datepicker__time-container {
+  position: static;
+  width: 110px;
+}
+
+.availability-picker .react-datepicker__time {
+  width: 110px;
+}
+
+.availability-picker .react-datepicker__triangle {
+  display: none;
+}
+
+.availability-picker .react-datepicker__time-list {
+  padding: 0;
+  height: 220px !important;
+}
+
+.availability-picker--start {
+  margin-left: 0.5rem;
+}
+
+.availability-picker--end {
+  margin-right: 0.5rem;
+}

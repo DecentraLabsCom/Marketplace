@@ -17,7 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
-import { getIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -165,7 +165,7 @@ export const useReservationWallet = (reservationKey, options = {}) => {
  * @returns {Object} React Query result with reservation data
  */
 export const useReservation = (reservationKey, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
   const walletQuery = useReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
@@ -239,7 +239,7 @@ export const useReservationsOfTokenWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with lab reservations
  */
 export const useReservationsOfToken = (labId, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useReservationsOfTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useReservationsOfTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -318,7 +318,7 @@ export const useReservationOfTokenByIndexWallet = (labId, index, options = {}) =
  * @returns {Object} React Query result with reservation data
  */
 export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const enabled = !!labId && (index !== undefined && index !== null);
   const ssoQuery = useReservationOfTokenByIndexSSO(labId, index, { ...options, enabled: isSSO && enabled });
@@ -403,7 +403,7 @@ export const useReservationsOfWallet = (userAddress, options = {}) => {
  * @returns {Object} React Query result with user reservations
  */
 export const useReservationsOf = (userAddress, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useReservationsOfSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
   const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
@@ -476,7 +476,7 @@ export const useReservationKeyByIndexWallet = (index, options = {}) => {
  * @returns {Object} React Query result with reservation key
  */
 export const useReservationKeyByIndex = (index, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const enabled = (index !== undefined && index !== null);
   const ssoQuery = useReservationKeyByIndexSSO(index, { ...options, enabled: isSSO && enabled });
@@ -566,7 +566,7 @@ export const useReservationKeyOfUserByIndexWallet = (userAddress, index, options
  * @returns {Object} React Query result with reservation key
  */
 export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const enabled = !!userAddress && (index !== undefined && index !== null);
   const ssoQuery = useReservationKeyOfUserByIndexSSO(userAddress, index, { ...options, enabled: isSSO && enabled });
@@ -634,7 +634,7 @@ export const useTotalReservationsWallet = (options = {}) => {
  * @returns {Object} React Query result with total count
  */
 export const useTotalReservations = (options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useTotalReservationsSSO({ ...options, enabled: isSSO });
   const walletQuery = useTotalReservationsWallet({ ...options, enabled: !isSSO });
@@ -705,7 +705,7 @@ export const useUserOfReservationWallet = (reservationKey, options = {}) => {
  * @returns {Object} React Query result with user address
  */
 export const useUserOfReservation = (reservationKey, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useUserOfReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
   const walletQuery = useUserOfReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
@@ -787,7 +787,7 @@ export const useCheckAvailableWallet = (labId, start, duration, options = {}) =>
  * @returns {Object} React Query result with availability status
  */
 export const useCheckAvailable = (labId, start, duration, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const enabled = !!(labId && start && duration);
   const ssoQuery = useCheckAvailableSSO(labId, start, duration, { ...options, enabled: isSSO && enabled });
@@ -863,7 +863,7 @@ export const useHasActiveBookingWallet = (userAddress, options = {}) => {
  * @returns {Object} React Query result with active booking status
  */
 export const useHasActiveBooking = (userAddress, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useHasActiveBookingSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
   const walletQuery = useHasActiveBookingWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
@@ -938,7 +938,7 @@ export const useHasActiveBookingByTokenWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with active booking status for the lab
  */
 export const useHasActiveBookingByToken = (labId, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useHasActiveBookingByTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
   const walletQuery = useHasActiveBookingByTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
@@ -1017,7 +1017,7 @@ export const useActiveReservationKeyForUserWallet = (labId, userAddress, options
  * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
  */
 export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const enabled = !!labId && !!userAddress;
   const ssoQuery = useActiveReservationKeyForUserSSO(labId, userAddress, { ...options, enabled: isSSO && enabled });
@@ -1085,7 +1085,7 @@ export const useLabTokenAddressWallet = (options = {}) => {
  * @returns {Object} React Query result with token contract address
  */
 export const useLabTokenAddress = (options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useLabTokenAddressSSO({ ...options, enabled: isSSO });
   const walletQuery = useLabTokenAddressWallet({ ...options, enabled: !isSSO });
@@ -1160,7 +1160,7 @@ export const useSafeBalanceWallet = (userAddress, options = {}) => {
  * @returns {Object} React Query result with safe balance
  */
 export const useSafeBalance = (userAddress, options = {}) => {
-  const isSSO = getIsSSO(options);
+  const isSSO = useGetIsSSO(options);
   
   const ssoQuery = useSafeBalanceSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
   const walletQuery = useSafeBalanceWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });

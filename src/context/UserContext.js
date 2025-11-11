@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useContext } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
@@ -20,7 +20,8 @@ import { createOptimizedContext } from '@/utils/optimizedContext'
 import devLog from '@/utils/dev/logger'
 
 // Create optimized context with automatic memoization
-const { Provider: OptimizedUserProvider, useContext: useUserContext } = createOptimizedContext('UserContext');
+const { Context: UserContextInternal, Provider: OptimizedUserProvider, useContext: useUserContext } =
+  createOptimizedContext('UserContext');
 
 /**
  * Get the institution display name from SAML attributes
@@ -452,6 +453,16 @@ export function useUser() {
         throw new Error('useUser must be used within a UserData provider');
     }
     return context;
+}
+
+/**
+ * Optional user hook for utilities that can work without the provider being mounted.
+ * Use this in helpers that can gracefully fall back (e.g., analytics, routing helpers) and
+ * keep `useUser` for components that require the presence of the provider.
+ * Returns null when the context isn't available instead of throwing.
+ */
+export function useOptionalUser() {
+    return useContext(UserContextInternal) || null;
 }
 
 // PropTypes

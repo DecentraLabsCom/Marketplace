@@ -9,6 +9,7 @@ import { useQueries } from '@tanstack/react-query'
 import { 
   useGetLabProviders,
   useIsLabProviderSSO,
+  useIsLabProvider,
   USER_QUERY_CONFIG,
 } from './useUserAtomicQueries'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'

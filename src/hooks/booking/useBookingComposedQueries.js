@@ -21,7 +21,7 @@ import {
 } from './useBookingAtomicQueries'
 import { useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
-import { getIsSSO } from '@/utils/hooks/getIsSSO' // ✅ Import SSO detection utility
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import devLog from '@/utils/dev/logger'
@@ -227,7 +227,7 @@ export const useUserBookingsDashboard = (userAddress, {
   // Reason: Wagmi hooks cannot be extracted as queryFn for useQueries
   // Solution: Force SSO mode (API + Ethers.js) for ALL users in composed hooks
   // This is safe because API endpoints are read-only blockchain queries that work for any address
-  const isSSO = getIsSSO(queryOptions);
+  const isSSO = useGetIsSSO(queryOptions);
   
   // FORCE SSO MODE for composed hooks - API endpoints work for both SSO and Wallet users
   const forceSSO = true;
@@ -713,7 +713,7 @@ export const useLabBookingsDashboard = (labId, {
   
   // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
   // Force SSO mode for ALL users - API endpoints work for any address
-  const isSSO = getIsSSO(queryOptions);
+  const isSSO = useGetIsSSO(queryOptions);
   const forceSSO = true;
   
   // Debug log for input parameters
