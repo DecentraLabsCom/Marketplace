@@ -396,11 +396,13 @@ body::-webkit-scrollbar-thumb:hover {
   display: flex;
   gap: 0.5rem;
   padding: 0.5rem;
+  margin-left: -32px;
 }
 
 .availability-picker .react-datepicker {
   display: flex;
   flex-direction: row;
+  max-width: min(320px, calc(100vw - 64px));
 }
 
 .availability-picker .react-datepicker__month-container,
@@ -410,11 +412,11 @@ body::-webkit-scrollbar-thumb:hover {
 
 .availability-picker .react-datepicker__time-container {
   position: static;
-  width: 110px;
+  width: 88px;
 }
 
 .availability-picker .react-datepicker__time {
-  width: 110px;
+  width: 88px;
 }
 
 .availability-picker .react-datepicker__triangle {
@@ -424,12 +426,5 @@ body::-webkit-scrollbar-thumb:hover {
 .availability-picker .react-datepicker__time-list {
   padding: 0;
   height: 220px !important;
-}
-
-.availability-picker--start {
-  margin-left: 0.5rem;
-}
-
-.availability-picker--end {
-  margin-right: 0.5rem;
+  width: 100%;
 }

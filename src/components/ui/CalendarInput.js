@@ -65,6 +65,8 @@ export default function CalendarInput({
   name,
   calendarClassName,
   popperClassName,
+  popperPlacement,
+  popperModifiers,
   inline = false,
   containerClassName,
   labelClassName,
@@ -74,6 +76,23 @@ export default function CalendarInput({
     () => parseDateValue(value, { withTime }),
     [value, withTime]
   )
+
+  const mergedPopperModifiers = useMemo(() => {
+    const baseModifiers = [
+      {
+        name: 'preventOverflow',
+        options: {
+          padding: 12,
+          tether: true,
+          boundary: 'viewport'
+        }
+      }
+    ]
+    if (Array.isArray(popperModifiers)) {
+      return [...baseModifiers, ...popperModifiers]
+    }
+    return baseModifiers
+  }, [popperModifiers])
 
   const handleChange = (date) => {
     if (!date) {
@@ -105,7 +124,7 @@ export default function CalendarInput({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
             aria-label="Limpiar fecha"
             disabled={disabled}
           >
@@ -133,6 +152,8 @@ export default function CalendarInput({
           calendarClassName={calendarClassName}
           inline={inline}
           popperClassName={popperClassName}
+          popperPlacement={popperPlacement}
+          popperModifiers={mergedPopperModifiers}
         />
       </div>
       {error ? (
@@ -161,6 +182,8 @@ CalendarInput.propTypes = {
   name: PropTypes.string,
   calendarClassName: PropTypes.string,
   popperClassName: PropTypes.string,
+  popperPlacement: PropTypes.string,
+  popperModifiers: PropTypes.array,
   inline: PropTypes.bool,
   containerClassName: PropTypes.string,
   labelClassName: PropTypes.string,

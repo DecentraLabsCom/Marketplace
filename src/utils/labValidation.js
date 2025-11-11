@@ -152,10 +152,10 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     }
 
     const termsOfUse = normalizeObject(localLab.termsOfUse);
-    if (!termsOfUse.url?.trim()) {
-        errors.termsOfUseUrl = 'Terms of use URL is required';
-    } else if (!urlRegex.test(termsOfUse.url.trim())) {
-        errors.termsOfUseUrl = 'Invalid terms of use URL format';
+    if (termsOfUse.url?.trim()) {
+        if (!urlRegex.test(termsOfUse.url.trim())) {
+            errors.termsOfUseUrl = 'Invalid terms of use URL format';
+        }
     }
     if (!termsOfUse.effectiveDate?.trim()) {
         errors.termsOfUseEffectiveDate = 'Effective date is required';

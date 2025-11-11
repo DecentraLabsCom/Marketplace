@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { UploadCloud, Link, XCircle, Plus, Trash2, Loader2 } from 'lucide-react'
 import { CalendarInput } from '@/components/ui'
@@ -250,11 +250,15 @@ export default function LabFormFullSetup({
     }
   }, [])
 
-  const triggerTimePicker = (event) => {
-    if (event.currentTarget.showPicker) {
-      event.currentTarget.showPicker()
+  const handleTimeFieldClick = useCallback((event) => {
+    if (typeof event.currentTarget.showPicker === 'function') {
+      try {
+        event.currentTarget.showPicker()
+      } catch (error) {
+        // Ignore browsers that restrict programmatic access without gesture
+      }
     }
-  }
+  }, [])
 
 
   return (
@@ -375,8 +379,8 @@ export default function LabFormFullSetup({
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Availability & Scheduling</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="md:flex md:justify-start">
+        <div className="flex flex-col md:flex-row md:gap-6">
+          <div className="w-full md:flex-1">
             <CalendarInput
               label="Opens"
               value={localLab?.opens || ''}
@@ -387,16 +391,15 @@ export default function LabFormFullSetup({
             />
             {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
           </div>
-          <div className="md:flex md:justify-end">
-            <div className="w-full md:max-w-sm md:ml-auto">
-              <CalendarInput
-                label="Closes"
-                value={localLab?.closes || ''}
-                onChange={(value) => handleBasicChange('closes', value)}
-                disabled={disabled}
-              />
-              {errors.closes && <p className="text-red-500 text-sm !mt-1 text-right">{errors.closes}</p>}
-            </div>
+          <div className="w-full md:flex-1">
+            <CalendarInput
+              label="Closes"
+              value={localLab?.closes || ''}
+              onChange={(value) => handleBasicChange('closes', value)}
+              disabled={disabled}
+              containerClassName="w-full"
+            />
+            {errors.closes && <p className="text-red-500 text-sm !mt-1 text-right">{errors.closes}</p>}
           </div>
         </div>
 
@@ -423,32 +426,30 @@ export default function LabFormFullSetup({
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="block text-sm font-medium text-gray-900 mb-1">Daily Start Time</label>
-          <input
-            type="time"
-            value={availableHours.start || ''}
-            onChange={(e) => handleAvailableHourChange('start', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-            disabled={disabled}
-            onFocus={triggerTimePicker}
-            onClick={triggerTimePicker}
-            ref={availableHoursStartRef}
-          />
+            <input
+              type="time"
+              value={availableHours.start || ''}
+              onChange={(e) => handleAvailableHourChange('start', e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              onClick={handleTimeFieldClick}
+              ref={availableHoursStartRef}
+            />
             {errors.availableHoursStart && (
               <p className="text-red-500 text-sm !mt-1">{errors.availableHoursStart}</p>
             )}
           </div>
           <div>
           <label className="block text-sm font-medium text-gray-900 mb-1">Daily End Time</label>
-          <input
-            type="time"
-            value={availableHours.end || ''}
-            onChange={(e) => handleAvailableHourChange('end', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-            disabled={disabled}
-            onFocus={triggerTimePicker}
-            onClick={triggerTimePicker}
-            ref={availableHoursEndRef}
-          />
+            <input
+              type="time"
+              value={availableHours.end || ''}
+              onChange={(e) => handleAvailableHourChange('end', e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              onClick={handleTimeFieldClick}
+              ref={availableHoursEndRef}
+            />
             {errors.availableHoursEnd && (
               <p className="text-red-500 text-sm !mt-1">{errors.availableHoursEnd}</p>
             )}
@@ -505,23 +506,37 @@ export default function LabFormFullSetup({
         <div className="space-y-4">
           {unavailableWindows.map((window, index) => (
             <div key={window.clientId || `${window.start}-${index}`} className="border rounded-md p-4 space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <CalendarInput
-                  label="Starts"
-                  value={window.start || ''}
-                  onChange={(value) => handleWindowChange(index, { start: value })}
-                  withTime
-                  disabled={disabled}
-                  popperClassName="availability-picker availability-picker--start"
-                />
-                <CalendarInput
-                  label="Ends"
-                  value={window.end || ''}
-                  onChange={(value) => handleWindowChange(index, { end: value })}
-                  withTime
-                  disabled={disabled}
-                  popperClassName="availability-picker availability-picker--end"
-                />
+              <div className="flex flex-col md:flex-row md:gap-6">
+                <div className="w-full md:flex-1">
+                  <CalendarInput
+                    label="Starts"
+                    value={window.start || ''}
+                    onChange={(value) => handleWindowChange(index, { start: value })}
+                    withTime
+                    disabled={disabled}
+                    popperClassName="availability-picker"
+                    popperPlacement="bottom-start"
+                    popperModifiers={[
+                      { name: 'offset', options: { offset: [12, 10] } }
+                    ]}
+                    containerClassName="w-full"
+                  />
+                </div>
+                <div className="w-full md:flex-1">
+                  <CalendarInput
+                    label="Ends"
+                    value={window.end || ''}
+                    onChange={(value) => handleWindowChange(index, { end: value })}
+                    withTime
+                    disabled={disabled}
+                    popperClassName="availability-picker"
+                    popperPlacement="bottom-end"
+                    popperModifiers={[
+                      { name: 'offset', options: { offset: [-16, 10] } }
+                    ]}
+                    containerClassName="w-full"
+                  />
+                </div>
               </div>
               <input
                 type="text"
