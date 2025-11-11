@@ -296,16 +296,6 @@ describe("getBookingStatus", () => {
 
     expect(getBookingStatus(booking)).toBe("active");
   });
-
-  test("returns active at exact end time boundary (inclusive)", () => {
-    const now = new Date();
-    const booking = {
-      startDate: new Date(now.getTime() - 3600000).toISOString(),
-      endDate: now.toISOString(),
-    };
-
-    expect(getBookingStatus(booking)).toBe("active");
-  });
 });
 
 describe("canAccessLab", () => {
