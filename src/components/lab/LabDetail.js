@@ -58,7 +58,7 @@ export default function LabDetail({ id }) {
   }
 
   if (!lab) {
-    return <div className="text-center">Lab not found.</div>
+    return <div className="text-center text-neutral-200">Lab not found.</div>
   }
 
   return (
@@ -70,9 +70,9 @@ export default function LabDetail({ id }) {
             <Carrousel lab={lab} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-center text-text-secondary font-semibold mt-4 mb-2">
-              <span>{formatPrice(lab?.price)} $LAB / hour</span>
+              <span className="text-text-secondary">{formatPrice(lab?.price)} $LAB / hour</span>
               {lab?.provider && (
-                <span className="truncate max-w-[50%]" title={lab.provider}>
+                <span className="truncate max-w-[50%] text-text-secondary" title={lab.provider}>
                   Provider: {lab.provider}
                 </span>
               )}
@@ -136,7 +136,7 @@ export default function LabDetail({ id }) {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-justify">{lab?.description}</p>
+            <p className="text-sm text-justify text-neutral-200">{lab?.description}</p>
           )}
 
           <div className="mt-4">
@@ -169,7 +169,7 @@ export default function LabDetail({ id }) {
                 {Array.isArray(lab.docs) && lab.docs.length > 0 ? (
                   <DocsCarrousel docs={lab.docs} />
                 ) : (
-                  <span className="text-center p-2">No documents available</span>
+                  <span className="text-center text-neutral-300 p-2">No documents available</span>
                 )}
               </div>
             </div>
