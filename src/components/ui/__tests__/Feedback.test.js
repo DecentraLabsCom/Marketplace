@@ -9,7 +9,6 @@
  * - Skeleton loader handles multiple variants and line counts
  * - EmptyState displays icon, title, description and actions
  *
-
  */
 
 import React from "react";
@@ -23,13 +22,12 @@ import {
   EmptyState,
 } from "../Feedback";
 
-describe("UI Component Library - Feedback Components", () => {
+describe("Feedback Components", () => {
   describe("Alert", () => {
     test("renders info alert by default", () => {
       render(<Alert>Test message</Alert>);
 
       expect(screen.getByText("Test message")).toBeInTheDocument();
-      // No verificamos role="alert" ya que el componente no lo tiene
       const alertDiv = document.querySelector(".rounded-md.border.p-4");
       expect(alertDiv).toBeInTheDocument();
     });
@@ -43,7 +41,6 @@ describe("UI Component Library - Feedback Components", () => {
         );
         expect(screen.getByText(`${variant} alert`)).toBeInTheDocument();
 
-        // Verificamos que tenga las clases correctas según la variante
         const alertElement = container.querySelector(".rounded-md.border.p-4");
         expect(alertElement).toHaveClass(
           `bg-${variant}-light`,
@@ -149,10 +146,10 @@ describe("UI Component Library - Feedback Components", () => {
     test("renders spinner with default props", () => {
       render(<Spinner />);
 
-      // Verificamos que el SVG esté presente y tenga la clase correcta
+      // SVG is present and has the correct class.
       const svg = document.querySelector("svg.animate-spin");
       expect(svg).toBeInTheDocument();
-      expect(svg).toHaveClass("size-8"); // tamaño por defecto 'md'
+      expect(svg).toHaveClass("size-8"); // default size 'md'
       expect(screen.getByLabelText("Loading...")).toBeInTheDocument();
     });
 
