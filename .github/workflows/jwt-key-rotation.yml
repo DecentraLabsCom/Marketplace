@@ -88,6 +88,67 @@ jobs:
           fi
           
           echo "Key rotation completed successfully"
+      
+      - name: Update Vercel Environment Variables
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          echo "🔄 Updating JWT keys in Vercel environment variables..."
+          node scripts/update-vercel-env.js
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Vercel environment variables updated successfully"
+          else
+            echo "❌ Failed to update Vercel environment variables"
+            echo "⚠️  Manual update required - see PR description for details"
+            # Don't fail the workflow - PR will still be created
+          fi
+      
+      - name: Trigger Vercel Deployment
+        if: steps.check-rotation.outputs.needs_rotation == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        run: |
+          echo "🚀 Triggering Vercel production deployment..."
+          
+          # Build deployment payload
+          TEAM_PARAM=""
+          if [ ! -z "$VERCEL_TEAM_ID" ]; then
+            TEAM_PARAM="?teamId=$VERCEL_TEAM_ID"
+          fi
+          
+          # Trigger deployment via Vercel API
+          DEPLOY_RESPONSE=$(curl -s -X POST \
+            "https://api.vercel.com/v13/deployments${TEAM_PARAM}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"${VERCEL_PROJECT_ID}\",
+              \"gitSource\": {
+                \"type\": \"github\",
+                \"ref\": \"main\",
+                \"repoId\": \"${{ github.repository_id }}\"
+              },
+              \"target\": \"production\"
+            }")
+          
+          # Extract deployment URL
+          DEPLOY_URL=$(echo $DEPLOY_RESPONSE | jq -r '.url // empty')
+          
+          if [ ! -z "$DEPLOY_URL" ]; then
+            echo "✅ Deployment triggered successfully"
+            echo "🌐 Deployment URL: https://$DEPLOY_URL"
+            echo "deployment_url=https://$DEPLOY_URL" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Deployment trigger may have failed"
+            echo "📋 Response: $DEPLOY_RESPONSE"
+            echo "💡 You may need to manually deploy from Vercel dashboard"
+          fi
         
       - name: Create Pull Request
         if: steps.check-rotation.outputs.needs_rotation == 'true'
@@ -101,24 +162,52 @@ jobs:
             
             This PR contains an automated JWT key rotation performed on $(date +%Y-%m-%d).
             
-            ### Changes:
-            - ✅ New RSA key pair generated and validated
-            - ✅ Previous keys backed up to `certificates/jwt/backups/`
-            - ✅ Rotation metadata updated
+            ### ✅ Changes Applied:
+            - 🔑 New RSA key pair generated and validated
+            - 💾 Previous keys backed up to `certificates/jwt/backups/`
+            - 📊 Rotation metadata updated
+            - 🚀 **Vercel environment variables updated automatically**
+            - 🌐 **Production deployment triggered**
             
-            ### Next Steps:
-            1. Review and merge this PR
-            2. Deploy to production (will trigger Vercel deployment)
-            3. Monitor auth-services for new key fetch (up to 1 hour)
-            4. Verify lab access functionality
+            ### 🎯 Vercel Integration:
+            The following environment variables have been automatically updated in Vercel:
+            - `JWT_PRIVATE_KEY` - New private key for JWT signing
+            - `JWT_PUBLIC_KEY` - New public key for JWT verification
             
-            ### Files Changed:
+            A production deployment has been triggered to apply the new keys.
+            
+            ### ⚠️ Post-Merge Checklist:
+            1. ✅ Review this PR for any issues
+            2. ✅ Merge to main branch
+            3. 🧪 Verify deployment completed successfully in Vercel dashboard
+            4. 🔍 Test authentication flow:
+               - SSO login via eduGAIN/RedIRIS
+               - JWT token generation
+               - Lab access with new tokens
+            5. 📊 Monitor logs for JWT validation:
+               - Marketplace logs (Vercel)
+               - Auth-service logs (up to 1 hour for public key cache refresh)
+            6. 🌐 Verify public key endpoint: `curl https://your-domain/.well-known/public-key.pem`
+            
+            ### 📁 Files Changed:
             - `certificates/jwt/marketplace-private-key.pem` (new private key)
             - `certificates/jwt/marketplace-public-key.pem` (new public key)  
             - `certificates/jwt/rotation-metadata.json` (updated metadata)
             - `certificates/jwt/backups/` (backup files)
             
-            **⚠️ Important**: After merging, monitor the marketplace logs and auth-service logs for any JWT validation errors.
+            ### 🔧 Troubleshooting:
+            If authentication issues occur after deployment:
+            1. Check Vercel environment variables are correctly set
+            2. Verify deployment completed without errors
+            3. Wait up to 1 hour for auth-service public key cache to refresh
+            4. If needed, manually trigger auth-service key refresh
+            5. Check logs for JWT signature validation errors
+            
+            **🚨 Emergency Rollback**: If critical issues occur, restore previous keys from backups using:
+            ```bash
+            npm run show-keys-for-vercel
+            # Copy backup keys to Vercel environment variables manually
+            ```
           branch: automated/jwt-key-rotation-$(date +%Y-%m-%d)
           delete-branch: true
           
