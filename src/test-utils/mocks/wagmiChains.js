@@ -2,7 +2,7 @@
  * Mock for 'wagmi/chains' module used in tests.
  * ------------------------------------------------
  * Provides mock chain configurations for testing without real network connections.
- * Includes mainnet and common test networks.
+ * Includes mainnet, polygon, and common test networks.
  */
 
 module.exports = {
@@ -14,6 +14,16 @@ module.exports = {
     rpcUrls: {
       default: { http: ['https://eth.public-rpc.com'] },
       public: { http: ['https://eth.public-rpc.com'] },
+    },
+  },
+  polygon: {
+    id: 137,
+    name: 'Polygon',
+    network: 'matic',
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+    rpcUrls: {
+      default: { http: ['https://polygon-rpc.com'] },
+      public: { http: ['https://polygon-rpc.com'] },
     },
   },
   sepolia: {

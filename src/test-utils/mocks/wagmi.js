@@ -8,10 +8,14 @@
  *  - useWaitForTransactionReceipt: returns default loading/success state
  *  - useBalance: returns mock balance data
  *  - WagmiProvider: mock provider component that passes through children
- *  - createConfig: mock function for creating wagmi config
+ *  - createConfig: mock function for creating wagmi config with chains array
  *  - http: mock function for HTTP transport
+ *  - fallback: mock function for fallback transport
  * Useful to simulate blockchain interactions without real network calls.
  */
+
+// Import mock chains for consistent chain data across tests
+const { mainnet, sepolia } = require('./wagmiChains');
 
 module.exports = {
   // Hooks
@@ -25,6 +29,11 @@ module.exports = {
   WagmiProvider: ({ children }) => children,
 
   // Utilities
-  createConfig: jest.fn(() => ({})),
+  createConfig: jest.fn((config) => ({
+    chains: config?.chains || [mainnet, sepolia],
+    transports: config?.transports || {},
+    connectors: config?.connectors || [],
+  })),
   http: jest.fn(() => ({})),
+  fallback: jest.fn((providers) => providers[0] || {}),
 };
