@@ -17,6 +17,8 @@ const KEYS_DIR = path.join(process.cwd(), 'certificates', 'jwt');
 const PRIVATE_KEY_FILE = 'marketplace-private-key.pem';
 const PUBLIC_KEY_FILE = 'marketplace-public-key.pem';
 const BACKUP_DIR = path.join(KEYS_DIR, 'backups');
+const WELL_KNOWN_DIR = path.join(process.cwd(), 'public', '.well-known');
+const WELL_KNOWN_PUBLIC_KEY = path.join(WELL_KNOWN_DIR, 'public-key.pem');
 
 // Command line arguments
 const args = process.argv.slice(2);
@@ -127,6 +129,32 @@ function validateNewKeys() {
 }
 
 /**
+ * Copy public key to public/.well-known for static serving
+ */
+function syncPublicKeyToWellKnown() {
+  console.log('🌐 Syncing public key to public/.well-known/public-key.pem...');
+
+  try {
+    const sourcePath = path.join(KEYS_DIR, PUBLIC_KEY_FILE);
+
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error('Public key not found at ' + sourcePath);
+    }
+
+    if (!fs.existsSync(WELL_KNOWN_DIR)) {
+      fs.mkdirSync(WELL_KNOWN_DIR, { recursive: true });
+      console.log('📁 Created directory: ' + WELL_KNOWN_DIR);
+    }
+
+    fs.copyFileSync(sourcePath, WELL_KNOWN_PUBLIC_KEY);
+    console.log('✅ Public key copied to ' + WELL_KNOWN_PUBLIC_KEY);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to sync public key to /.well-known:', error.message);
+    return false;
+  }
+}
+/**
  * Update rotation metadata
  */
 function updateRotationMetadata() {
@@ -192,9 +220,10 @@ async function rotateKeys() {
   console.log('1. ✅ Backup current keys');
   console.log('2. ✅ Generate new RSA key pair');
   console.log('3. ✅ Validate new keys');  
-  console.log('4. ✅ Update rotation metadata');
-  console.log('5. 🔄 Deploy marketplace (manual)');
-  console.log('6. ⏱️  Auth-services auto-fetch new public key (1h cache)\n');
+  console.log('4. 🌐 Sync public key to /.well-known/public-key.pem');
+  console.log('5. ✅ Update rotation metadata');
+  console.log('6. 🔄 Deploy marketplace (manual)');
+  console.log('7. ⏱️  Auth-services auto-fetch new public key (1h cache)\n');
   
   // Step 2: Backup current keys
   backupCurrentKeys();
@@ -213,7 +242,14 @@ async function rotateKeys() {
     process.exit(1);
   }
   
-  // Step 5: Update metadata
+  // Step 5: Sync public key to .well-known
+  const publicKeySynced = syncPublicKeyToWellKnown();
+  if (!publicKeySynced) {
+    console.error('❌ Key rotation failed - could not sync public key to /.well-known');
+    process.exit(1);
+  }
+  
+  // Step 6: Update metadata
   updateRotationMetadata();
   
   console.log('\n🎉 JWT Key Rotation Completed Successfully!');
