@@ -11,14 +11,17 @@ import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
   useReservationsOf,
-  useReservation,
+  useReservationSSO,
   useReservationsOfToken,
-  useReservationOfTokenByIndex,
+  useReservationOfTokenByIndexSSO,
+  useReservationKeyOfUserByIndexSSO,
   useReservationKeyOfUserByIndex,
+  useReservation,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useLab, useOwnerOf, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabs' // ✅ Import lab hooks
+import { useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import devLog from '@/utils/dev/logger'
@@ -219,12 +222,23 @@ export const useUserBookingsDashboard = (userAddress, {
   includeRecentActivity = false,
   limit,
   queryOptions = {} 
-} = {}) => {  // Step 1: Get user reservation count using atomic hook
+} = {}) => {
+  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
+  // Reason: Wagmi hooks cannot be extracted as queryFn for useQueries
+  // Solution: Force SSO mode (API + Ethers.js) for ALL users in composed hooks
+  // This is safe because API endpoints are read-only blockchain queries that work for any address
+  const isSSO = useGetIsSSO(queryOptions);
+  
+  // FORCE SSO MODE for composed hooks - API endpoints work for both SSO and Wallet users
+  const forceSSO = true;
+  
+  // Step 1: Get user reservation count using atomic hook (forced SSO mode for consistency)
   const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: queryOptions.enabled,
     meta: queryOptions.meta,
+    isSSO: forceSSO, // ✅ Force SSO mode - API works for all users
   });
   
   // Extract reservation count and apply limit if specified
@@ -244,14 +258,6 @@ export const useUserBookingsDashboard = (userAddress, {
   // Step 2: Get reservation keys for each index (limited if specified)
   // SAFETY: Additional validation to prevent out-of-range queries
   const safeReservationCount = Math.max(0, Math.min(reservationCount, 100)); // Cap at 100 for safety
-  
-  devLog.log(`🔍 [useUserBookingsDashboard] SAFETY CHECK:`, {
-    originalReservationCount: reservationCount,
-    safeReservationCount,
-    totalReservationCount,
-    willCreateQueries: safeReservationCount > 0,
-    userAddress: userAddress?.slice(0, 6) + '...' + userAddress?.slice(-4)
-  });
 
   const reservationKeyResults = useQueries({
     queries: hasReservations && safeReservationCount > 0
@@ -280,7 +286,7 @@ export const useUserBookingsDashboard = (userAddress, {
           
           return {
             queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-            queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index), // ✅ Using atomic hook queryFn
+            queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(userAddress, index), // ✅ Using SSO atomic hook queryFn
             enabled: !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
             ...BOOKING_QUERY_CONFIG,
           };
@@ -299,7 +305,7 @@ export const useUserBookingsDashboard = (userAddress, {
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
-          queryFn: () => useReservation.queryFn(key), // ✅ Using atomic hook queryFn
+          queryFn: () => useReservationSSO.queryFn(key), // ✅ Using atomic hook queryFn
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
           // Don't retry on 404/not found - these are valid responses
@@ -411,7 +417,7 @@ export const useUserBookingsDashboard = (userAddress, {
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
           queryKey: labQueryKeys.getLab(booking.labId),
-          queryFn: () => useLab.queryFn(booking.labId), // ✅ Using atomic hook queryFn
+          queryFn: () => useLabSSO.queryFn(booking.labId), // ✅ Using atomic hook queryFn
           enabled: !!booking.labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
           // Note: queryOptions not spread here as LAB_QUERY_CONFIG is optimized for lab data
@@ -427,7 +433,7 @@ export const useUserBookingsDashboard = (userAddress, {
           const labData = labResult?.data;
           const metadataUri = labData?.base?.uri;
           return {
-            queryKey: metadataQueryKeys.byUri(metadataUri),
+            queryKey: metadataQueryKeys.byUri(metadataUri || 'placeholder'),
             queryFn: () => useMetadata.queryFn(metadataUri), // ✅ Using atomic hook queryFn
             enabled: !!metadataUri,
             ...METADATA_QUERY_CONFIG, // ✅ Using shared configuration
@@ -442,7 +448,7 @@ export const useUserBookingsDashboard = (userAddress, {
     queries: (includeLabDetails && bookingsWithLabIds.length > 0) 
       ? bookingsWithLabIds.map(booking => ({
           queryKey: labQueryKeys.ownerOf(booking.labId),
-          queryFn: () => useOwnerOf.queryFn(booking.labId), // ✅ Using atomic hook queryFn
+          queryFn: () => useLabOwnerSSO.queryFn(booking.labId), // ✅ Using atomic hook queryFn
           enabled: !!booking.labId,
           ...LAB_QUERY_CONFIG, // ✅ Lab-specific configuration
         }))
@@ -705,18 +711,26 @@ export const useLabBookingsDashboard = (labId, {
   queryOptions = {} 
 } = {}) => {
   
+  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
+  // Force SSO mode for ALL users - API endpoints work for any address
+  const isSSO = useGetIsSSO(queryOptions);
+  const forceSSO = true;
+  
   // Debug log for input parameters
   devLog.log('📅 useLabBookingsDashboard called with:', {
     labId,
     includeUserDetails,
-    queryOptions
+    userType: isSSO ? 'SSO' : 'Wallet',
+    queryMode: 'API (forced for composed hooks)',
+    reason: 'useQueries requires extractable queryFn'
   });
   
-  // Step 1: Get reservation count for lab
+  // Step 1: Get reservation count for lab (forced SSO mode)
   const reservationCountResult = useReservationsOfToken(labId, {
     ...BOOKING_QUERY_CONFIG,
     enabled: !!labId && (queryOptions.enabled !== false),
     meta: queryOptions.meta,
+    isSSO: forceSSO, // ✅ Force SSO mode
   });
   
   const reservationCount = reservationCountResult.data?.count || 0;
@@ -736,7 +750,7 @@ export const useLabBookingsDashboard = (labId, {
     queries: reservationCount > 0 
       ? Array.from({ length: reservationCount }, (_, index) => ({
           queryKey: bookingQueryKeys.getReservationOfTokenByIndex(labId, index),
-          queryFn: () => useReservationOfTokenByIndex.queryFn(labId, index),
+          queryFn: () => useReservationOfTokenByIndexSSO.queryFn(labId, index),
           enabled: !!labId && reservationCount > 0,
           ...BOOKING_QUERY_CONFIG,
         }))
@@ -766,7 +780,7 @@ export const useLabBookingsDashboard = (labId, {
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(reservationKey => ({
           queryKey: bookingQueryKeys.byReservationKey(reservationKey),
-          queryFn: () => useReservation.queryFn(reservationKey),
+          queryFn: () => useReservationSSO.queryFn(reservationKey),
           enabled: !!reservationKey,
           ...BOOKING_QUERY_CONFIG,
         }))

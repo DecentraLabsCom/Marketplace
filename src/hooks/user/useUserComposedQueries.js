@@ -7,8 +7,9 @@
  */
 import { useQueries } from '@tanstack/react-query'
 import { 
-  useGetLabProvidersQuery,
-  useIsLabProviderQuery,
+  useGetLabProviders,
+  useIsLabProviderSSO,
+  useIsLabProvider,
   USER_QUERY_CONFIG,
 } from './useUserAtomicQueries'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
@@ -23,7 +24,7 @@ import devLog from '@/utils/dev/logger'
  * @returns {Object} React Query result with formatted provider data
  */
 export const useProvidersWithNames = (options = {}) => {
-  const providersQuery = useGetLabProvidersQuery({
+  const providersQuery = useGetLabProviders({
     ...USER_QUERY_CONFIG, // Use user/provider configuration
     // Only allow override of non-critical options like enabled, meta, etc.
     enabled: options.enabled,
@@ -52,12 +53,15 @@ export const useProvidersWithNames = (options = {}) => {
  * @param {Object} [options={}] - Configuration options
  * @param {boolean} [options.enabled] - Whether the queries should be enabled
  * @returns {Object} React Query result with batch provider check data
+ * 
+ * ⚠️ ARCHITECTURAL NOTE: Uses SSO path (API) for all users
+ * API endpoints are read-only blockchain queries that work for any address
  */
 export const useBatchProviderCheck = (addresses = [], options = {}) => {
   return useQueries({
     queries: addresses.map((address) => ({
       queryKey: providerQueryKeys.isLabProvider(address),
-      queryFn: () => useIsLabProviderQuery.queryFn({ userAddress: address }),
+      queryFn: () => useIsLabProviderSSO.queryFn({ userAddress: address }),
       enabled: !!address && options.enabled !== false,
       ...USER_QUERY_CONFIG,
     })),
@@ -82,11 +86,11 @@ export const useBatchProviderCheck = (addresses = [], options = {}) => {
  * @returns {Object} React Query result with provider status and details
  */
 export const useProviderDetails = (address, options = {}) => {
-  const statusQuery = useIsLabProviderQuery(address, {
+  const statusQuery = useIsLabProvider(address, {
     enabled: !!address && options.enabled !== false
   });
   
-  const detailsQuery = useGetLabProvidersQuery({
+  const detailsQuery = useGetLabProviders({
     enabled: statusQuery.data?.isProvider && options.enabled !== false
   });
 
@@ -116,7 +120,7 @@ export const useProviderDetails = (address, options = {}) => {
 export const useAllUsersComposed = ({ queryOptions = {} } = {}) => {
   
   // Use atomic hook for base data
-  const providersResult = useGetLabProvidersQuery(queryOptions);
+  const providersResult = useGetLabProviders(queryOptions);
 
   // Get providers from the atomic hook result
   const providers = providersResult.data?.providers || [];
@@ -164,14 +168,14 @@ export const useAllUsersComposed = ({ queryOptions = {} } = {}) => {
 export const useProviderStatusComposed = (providerAddress, { queryOptions = {} } = {}) => {
   
   // Use atomic hook for isProvider check
-  const isProviderResult = useIsLabProviderQuery(providerAddress, {
+  const isProviderResult = useIsLabProvider(providerAddress, {
     // Use atomic hook's default configuration, only allow specific overrides
     enabled: queryOptions.enabled !== undefined ? queryOptions.enabled : !!providerAddress,
     meta: queryOptions.meta,
   });
   
   // Get all providers to extract name and details
-  const providersResult = useGetLabProvidersQuery({
+  const providersResult = useGetLabProviders({
     // Use atomic hook's default configuration, only allow specific overrides
     enabled: queryOptions.enabled !== undefined ? queryOptions.enabled : !!providerAddress,
     meta: queryOptions.meta,

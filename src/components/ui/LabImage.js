@@ -76,6 +76,7 @@ const LabImage = ({
     onLoad: handleLoad,
     onError: handleError,
     style,
+    unoptimized: displayImageUrl.includes('lab_placeholder.png'), // Disable optimization for tiny placeholder
     ...props
   }
 

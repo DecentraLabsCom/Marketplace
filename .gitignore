@@ -28,6 +28,9 @@
 .DS_Store
 *.pem
 
+# Allow public keys in .well-known directory (for JWT/SAML public verification)
+!public/.well-known/*.pem
+
 # debug
 npm-debug.log*
 yarn-debug.log*

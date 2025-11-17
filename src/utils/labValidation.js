@@ -18,11 +18,31 @@
  */
 
 import { validateDateString, validateDateRange } from './dates/dateValidation'
+
+const WEEKDAY_VALUES = [
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+  'SUNDAY'
+]
+
+const timeToMinutes = (time) => {
+  const [hours, minutes] = time.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+const normalizeArray = (value) => Array.isArray(value) ? value : []
+const normalizeObject = (value) => (value && typeof value === 'object') ? value : {}
 export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
     const imageExtensionRegex = /\.(jpeg|jpg|gif|png|webp|svg|bmp|tiff|tif)$/i;
     const pdfExtensionRegex = /\.pdf$/i;
+    const shaRegex = /^[a-f0-9]{64}$/i;
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
     if (!localLab.name?.trim()) errors.name = 'Lab name is required';
     if (!localLab.category?.trim()) errors.category = 'Category is required';
@@ -77,6 +97,76 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
 
     if (!localLab.keywords || localLab.keywords.length === 0 || localLab.keywords.every(k => !k.trim())) {
         errors.keywords = 'At least one keyword must be added';
+    }
+
+    const availableDays = normalizeArray(localLab.availableDays);
+    if (availableDays.length === 0) {
+        errors.availableDays = 'Select at least one available day';
+    } else if (!availableDays.every(day => WEEKDAY_VALUES.includes(day))) {
+        errors.availableDays = 'One or more selected days are invalid';
+    }
+
+    const availableHours = normalizeObject(localLab.availableHours);
+    if (!availableHours.start?.trim()) {
+        errors.availableHoursStart = 'Daily start time is required';
+    } else if (!timeRegex.test(availableHours.start.trim())) {
+        errors.availableHoursStart = 'Start time must use HH:MM (24h) format';
+    }
+    if (!availableHours.end?.trim()) {
+        errors.availableHoursEnd = 'Daily end time is required';
+    } else if (!timeRegex.test(availableHours.end.trim())) {
+        errors.availableHoursEnd = 'End time must use HH:MM (24h) format';
+    }
+    if (!errors.availableHoursStart && !errors.availableHoursEnd) {
+        const startMinutes = timeToMinutes(availableHours.start.trim());
+        const endMinutes = timeToMinutes(availableHours.end.trim());
+        if (startMinutes >= endMinutes) {
+            errors.availableHoursEnd = 'End time must be later than the start time';
+        }
+    }
+
+    if (localLab.maxConcurrentUsers === '' || localLab.maxConcurrentUsers === undefined || localLab.maxConcurrentUsers === null) {
+        errors.maxConcurrentUsers = 'Concurrent user limit is required';
+    } else {
+        const maxUsers = parseInt(localLab.maxConcurrentUsers, 10);
+        if (isNaN(maxUsers) || maxUsers <= 0) {
+            errors.maxConcurrentUsers = 'Concurrent user limit must be a positive integer';
+        }
+    }
+
+    const unavailableWindows = normalizeArray(localLab.unavailableWindows);
+    const hasInvalidWindow = unavailableWindows.some((window) => {
+        if (!window) return false;
+        const { start, end, reason } = window;
+        const hasAnyValue = Boolean(start || end || (reason && reason.trim()));
+        if (!hasAnyValue) return false;
+        if (!start || !end || !reason?.trim()) {
+            return true;
+        }
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        return isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate >= endDate;
+    });
+    if (hasInvalidWindow) {
+        errors.unavailableWindows = 'Every maintenance window must include valid start/end timestamps and a reason';
+    }
+
+    const termsOfUse = normalizeObject(localLab.termsOfUse);
+    if (termsOfUse.url?.trim()) {
+        if (!urlRegex.test(termsOfUse.url.trim())) {
+            errors.termsOfUseUrl = 'Invalid terms of use URL format';
+        }
+    }
+    if (!termsOfUse.effectiveDate?.trim()) {
+        errors.termsOfUseEffectiveDate = 'Effective date is required';
+    } else {
+        const effectiveDateValidation = validateDateString(termsOfUse.effectiveDate);
+        if (!effectiveDateValidation.isValid) {
+            errors.termsOfUseEffectiveDate = effectiveDateValidation.error;
+        }
+    }
+    if (termsOfUse.sha256?.trim() && !shaRegex.test(termsOfUse.sha256.trim())) {
+        errors.termsOfUseSha = 'SHA256 must be a 64-character hexadecimal string';
     }
 
     // Enhanced date range validation

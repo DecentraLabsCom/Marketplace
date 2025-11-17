@@ -8,7 +8,7 @@ import { selectChain } from '@/utils/blockchain/selectChain'
  * Provides a configured wagmi useReadContract with default settings and error handling
  * @param {string} contractFunctionName - Name of the contract function to call
  * @param {Array} args - Arguments to pass to the contract function
- * @param {boolean} hasFetched - Whether the data has already been fetched (disables auto-fetch)
+ * @param {Object} [options={}] - Additional query options to override defaults
  * @param {string} [contractType='diamond'] - Type of contract ('diamond' or 'lab')
  * @returns {Object} React Query result with contract read data
  * @returns {any} returns.data - Data returned from the contract function
@@ -17,7 +17,7 @@ import { selectChain } from '@/utils/blockchain/selectChain'
  * @returns {Error|null} returns.error - Error object if query failed
  * @returns {Function} returns.refetch - Function to manually refetch the data
  */
-export default function useDefaultReadContract(contractFunctionName, args = [], hasFetched = false, contractType = 'diamond') {
+export default function useDefaultReadContract(contractFunctionName, args = [], options = {}, contractType = 'diamond') {
   const { chain: currentChain } = useAccount();
   const safeChain = selectChain(currentChain);
   const chainKey = safeChain.name.toLowerCase();
@@ -40,10 +40,11 @@ export default function useDefaultReadContract(contractFunctionName, args = [], 
     args: args || [],
     chainId: safeChain.id,
     query: {
-      enabled: !hasFetched && !!address,
+      enabled: !!address,
       retry: 2,
       retryOnMount: true,
       refetchOnReconnect: true,
+      ...options, // Allow overriding defaults
     },
   });
 }

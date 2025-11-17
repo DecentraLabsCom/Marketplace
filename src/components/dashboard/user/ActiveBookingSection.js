@@ -83,7 +83,7 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
       <div className="border shadow text-white rounded p-6 mb-1 h-full">
         <div className="flex-center">
           <div className="spinner-lg border-white"></div>
-          <span className="ml-2">Loading active booking...</span>
+          <span className="ml-2 text-neutral-200">Loading active booking...</span>
         </div>
       </div>
     );

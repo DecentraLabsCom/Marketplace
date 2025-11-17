@@ -1,7 +1,6 @@
 ---
 description: >-
-  World-first decentralized marketplace to list, browser and access online lab
-  resources
+  World-first decentralized marketplace to list, browser and access online lab resources
 ---
 
 # Marketplace dApp
@@ -88,3 +87,10 @@ To learn more about Next.js, take a look at the following resources:
 ### Deploy on Vercel
 
 The easiest way to deploy an Next.js app like this is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template\&filter=next.js\&utm_source=create-next-app\&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+### JWT Key Rotation & Public Key Availability
+
+- RSA keys for JWT signing live under certificates/jwt/ (ignored from git). The public verification key is committed at public/.well-known/public-key.pem so Vercel serves it automatically at /.well-known/public-key.pem.
+- The quarterly workflow .github/workflows/jwt-key-rotation.yml runs npm run rotate-jwt-keys, backs up the previous pair, pushes the new private key to Vercel env vars and **auto-syncs the regenerated public key** into public/.well-known/public-key.pem.
+- For manual rotations run npm run rotate-jwt-keys --force. The script copies the freshly generated public key to the .well-known folder, so committing that file keeps the hosted endpoint aligned with whatever private key you deploy.
+- After any rotation trigger a deployment (or let the workflow do it), then verify both /api/auth/test-jwt and /.well-known/public-key.pem to ensure auth-service caches the new key.

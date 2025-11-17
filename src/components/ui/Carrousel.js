@@ -17,8 +17,11 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
 
   // Memoize the images processing to prevent re-calculation on every render
   const images = useMemo(() => {
-    if (!Array.isArray(lab?.images)) return [];
-    return lab.images.filter(image => !!image);
+    if (!Array.isArray(lab?.images)) {
+      return ['/labs/lab_placeholder.png']; // Use placeholder if no images array
+    }
+    const validImages = lab.images.filter(image => image && image.trim());
+    return validImages.length > 0 ? validImages : ['/labs/lab_placeholder.png']; // Use placeholder if no valid images
   }, [lab?.images]);
 
   const hasImages = images.length > 0;
@@ -40,16 +43,6 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
       setCurrentIndex(0);
     }
   }, [hasImages, images.length, currentIndex]);
-
-  // If no images, show placeholder
-  if (!hasImages) {
-    return (
-      <div className="relative w-full overflow-hidden flex-center bg-gray-200" 
-        style={{ height: maxHeight ? `${maxHeight}px` : '400px' }}>
-        <p className="text-gray-500">No images available</p>
-      </div>
-    );
-  }
 
   // Reset interval when using the handles to move between images
   const resetInterval = () => {

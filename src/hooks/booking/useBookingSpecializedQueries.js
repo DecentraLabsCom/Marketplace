@@ -5,8 +5,8 @@
 import { useQueries } from '@tanstack/react-query'
 import { 
   useReservationsOf,
-  useReservationKeyOfUserByIndex,
-  useReservation,
+  useReservationKeyOfUserByIndexSSO,
+  useReservationSSO,
   BOOKING_QUERY_CONFIG 
 } from './useBookingAtomicQueries'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
@@ -20,10 +20,15 @@ import devLog from '@/utils/dev/logger'
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
-  // Step 1: Get user reservation count
+  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
+  // Force SSO mode for ALL users - API endpoints work for any address
+  const forceSSO = true;
+  
+  // Step 1: Get user reservation count (forced SSO mode)
   const reservationCountResult = useReservationsOf(userAddress, {
     ...BOOKING_QUERY_CONFIG,
     enabled: !!userAddress && (options.enabled !== false),
+    isSSO: forceSSO, // ✅ Force SSO mode
   });
 
   const totalReservationCount = reservationCountResult.data?.count || 0;
@@ -34,7 +39,7 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     queries: hasReservations 
       ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => ({
           queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-          queryFn: () => useReservationKeyOfUserByIndex.queryFn(userAddress, index),
+          queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(userAddress, index),
           enabled: !!userAddress && hasReservations,
           ...BOOKING_QUERY_CONFIG,
         }))
@@ -51,7 +56,7 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     queries: reservationKeys.length > 0
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
-          queryFn: () => useReservation.queryFn(key),
+          queryFn: () => useReservationSSO.queryFn(key),
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
         }))

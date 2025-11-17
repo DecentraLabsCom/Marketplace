@@ -16,6 +16,7 @@ export {
   FormField,
   FormGroup 
 } from './Form'
+export { default as CalendarInput } from './CalendarInput'
 
 // Layout components
 export {

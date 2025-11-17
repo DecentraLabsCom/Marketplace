@@ -34,6 +34,16 @@ const initialState = (lab) => ({
     images: lab?.images || [],
     docs: lab?.docs || [],
     uri: lab?.uri || '',
+    availableDays: lab?.availableDays || [],
+    availableHours: lab?.availableHours || { start: '', end: '' },
+    maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
+    unavailableWindows: lab?.unavailableWindows || [],
+    termsOfUse: lab?.termsOfUse || {
+      url: '',
+      version: '',
+      effectiveDate: '',
+      sha256: ''
+    },
     // Spread the rest of the lab properties after ensuring required fields have defaults
     ...lab
   },
@@ -108,8 +118,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId, onFile
   const accessURIRef = useRef(null);
   const accessKeyRef = useRef(null);
   const timeSlotsRef = useRef(null);
-  const opensRef = useRef(null);
-  const closesRef = useRef(null);
+  const availableHoursStartRef = useRef(null);
+  const availableHoursEndRef = useRef(null);
+  const maxConcurrentUsersRef = useRef(null);
+  const termsUrlRef = useRef(null);
+  const termsShaRef = useRef(null);
   const uriRef = useRef(null);
   const imageLinkRef = useRef(null);
   const docLinkRef = useRef(null);
@@ -574,8 +587,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId, onFile
             { name: 'accessURI', ref: accessURIRef },
             { name: 'accessKey', ref: accessKeyRef },
             { name: 'timeSlots', ref: timeSlotsRef },
-            { name: 'opens', ref: opensRef },
-            { name: 'closes', ref: closesRef },
+            { name: 'availableHoursStart', ref: availableHoursStartRef },
+            { name: 'availableHoursEnd', ref: availableHoursEndRef },
+            { name: 'maxConcurrentUsers', ref: maxConcurrentUsersRef },
+            { name: 'termsOfUseUrl', ref: termsUrlRef },
+            { name: 'termsOfUseSha', ref: termsShaRef },
             { name: 'uri', ref: uriRef },
             { name: 'images', ref: imageLinkRef },
             { name: 'docs', ref: docLinkRef },
@@ -682,7 +698,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId, onFile
                 handleDocChange={handleDocChange} removeDoc={removeDoc} localDocs={localDocs} nameRef={nameRef}
                 categoryRef={categoryRef} keywordsRef={keywordsRef} descriptionRef={descriptionRef} 
                 priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef} accessKeyRef={accessKeyRef}
-                timeSlotsRef={timeSlotsRef} opensRef={opensRef} closesRef={closesRef} onSubmit={handleSubmitFull}
+                timeSlotsRef={timeSlotsRef}
+                availableHoursStartRef={availableHoursStartRef} availableHoursEndRef={availableHoursEndRef}
+                maxConcurrentUsersRef={maxConcurrentUsersRef} termsUrlRef={termsUrlRef} termsShaRef={termsShaRef}
+                onSubmit={handleSubmitFull}
               />
             )}
             {activeTab === 'quick' && (

@@ -6,7 +6,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
-import { useIsLabProviderQuery } from './useUserAtomicQueries'
+import { useIsLabProviderSSO } from './useUserAtomicQueries'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -37,7 +37,7 @@ export function useUserCacheUpdates() {
 
     try {
       // Fetch fresh provider status using the atomic query's queryFn
-      const data = await useIsLabProviderQuery.queryFn({ userAddress })
+      const data = await useIsLabProviderSSO.queryFn({ userAddress })
       
       // Update cache with fresh data
       queryClient.setQueryData(

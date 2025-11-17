@@ -48,6 +48,7 @@ export default async function getProvider(network) {
     const options = {
         batchMaxCount: 3,        // Limited to 3 for free tier compatibility
         timeout: 3000,           // 3 second timeout per provider
+        staticNetwork: true,     // Skip network detection to avoid startup errors
     };
 
     const providers = [];
@@ -93,7 +94,10 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     alchemyUrl,
-                    chainId,
+                    {
+                        chainId: chainId,
+                        name: network.name
+                    },
                     options
                 ),
                 priority: 2,
@@ -112,7 +116,10 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     ankrUrl,
-                    chainId,
+                    {
+                        chainId: chainId,
+                        name: network.name
+                    },
                     options
                 ),
                 priority: 2,
@@ -131,7 +138,10 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     quicknodeUrl,
-                    chainId,
+                    {
+                        chainId: chainId,
+                        name: network.name
+                    },
                     options
                 ),
                 priority: 2,
@@ -150,7 +160,10 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     chainstackUrl,
-                    chainId,
+                    {
+                        chainId: chainId,
+                        name: network.name
+                    },
                     options
                 ),
                 priority: 2,
@@ -167,7 +180,14 @@ export default async function getProvider(network) {
     if (rpcUrl) {
         try {
             providers.push({
-                provider: new ethers.JsonRpcProvider(rpcUrl, chainId, options),
+                provider: new ethers.JsonRpcProvider(
+                    rpcUrl,
+                    {
+                        chainId: chainId,
+                        name: network.name
+                    },
+                    options
+                ),
                 priority: 3,
                 weight: 1,
                 stallTimeout: 2000
@@ -185,7 +205,10 @@ export default async function getProvider(network) {
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     defaultUrl,
-                    chainId,
+                    {
+                        chainId: chainId,
+                        name: network.name
+                    },
                     options
                 ),
                 priority: 4,

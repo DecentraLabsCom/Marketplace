@@ -95,9 +95,31 @@ export default function ProviderDashboard() {
   const labBookings = labBookingsData?.bookings || [];
 
   const newLabStructure = {
-    name: '', category: '', keywords: [], price: '', description: '',
-    provider: '', auth: '', accessURI: '', accessKey: '', timeSlots: [],
-    opens: '', closes: '', docs: [], images: [], uri: ''
+    name: '',
+    category: '',
+    keywords: [],
+    price: '',
+    description: '',
+    provider: '',
+    auth: '',
+    accessURI: '',
+    accessKey: '',
+    timeSlots: [],
+    opens: '',
+    closes: '',
+    docs: [],
+    images: [],
+    uri: '',
+    availableDays: [],
+    availableHours: { start: '', end: '' },
+    maxConcurrentUsers: 1,
+    unavailableWindows: [],
+    termsOfUse: {
+      url: '',
+      version: '',
+      effectiveDate: '',
+      sha256: ''
+    }
   };
   const [newLab, setNewLab] = useState(newLabStructure);
   

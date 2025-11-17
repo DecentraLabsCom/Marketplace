@@ -46,7 +46,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth, rese
       // Handle successful authentication
       if (authResult.token && authResult.labURL) {
         devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
-        router.push(authResult.labURL + `?jwt=${authResult.token}`);
+        //router.push(authResult.labURL + `?jwt=${authResult.token}`);
+        window.location.href = authResult.labURL + `?jwt=${authResult.token}`;
       } else if (authResult.error) {
         // Handle authentication errors returned by the service
         setErrorMessage(authResult.error);

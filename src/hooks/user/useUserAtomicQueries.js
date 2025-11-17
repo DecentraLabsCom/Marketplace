@@ -1,9 +1,12 @@
 /**
  * Atomic React Query Hooks for User/Provider-related queries
- * Each hook maps 1:1 to a specific API endpoint
+ * Each hook has 3 variants following the same pattern as mutations:
+ * - useXSSO: Server-side query via API + Ethers (for SSO users)
+ *   * Each hook maps 1:1 to a specific API endpoint in /api/contract/user
+ * - useXWallet: Client-side query via Wagmi (for wallet users)
+ * - useX: Router that selects SSO or Wallet based on user.loginType
  * 
- * These hooks are the building blocks for composed hooks and should be used
- * when you need specific data pieces. They export .queryFn for reuse in mutations.
+ * Note: useSSOSessionQuery is SSO-only by nature (no Wallet variant)
  * 
  * Configuration:
  * - staleTime: 2 hours (7,200,000ms)
@@ -16,6 +19,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for all user/provider hooks
@@ -28,25 +33,8 @@ export const USER_QUERY_CONFIG = {
   retry: 1,
 }
 
-// ===== PROVIDER ATOMIC QUERIES =====
+// ===== useGetLabProviders Hook Family =====
 
-/**
- * Hook for /api/contract/provider/getLabProviders endpoint
- * Gets all registered lab providers from the smart contract
- * @param {Object} [options={}] - Additional react-query options
- * @param {boolean} [options.enabled] - Whether the query should be enabled
- * @param {Function} [options.onSuccess] - Success callback function
- * @param {Function} [options.onError] - Error callback function
- * @param {Object} [options.meta] - Metadata for the query
- * @returns {Object} React Query result with providers data
- * @returns {Object} returns.data - Providers data with count and providers array
- * @returns {number} returns.data.count - Number of registered providers
- * @returns {Array} returns.data.providers - Array of provider objects
- * @returns {boolean} returns.isLoading - Whether the query is loading
- * @returns {boolean} returns.isError - Whether the query has an error
- * @returns {Error|null} returns.error - Error object if query failed
- * @returns {Function} returns.refetch - Function to manually refetch
- */
 // Define queryFn first for reuse
 const getLabProvidersQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/provider/getLabProviders', {
@@ -59,21 +47,80 @@ const getLabProvidersQueryFn = createSSRSafeQuery(async () => {
   }
   
   const data = await response.json();
-  devLog.log('useGetLabProvidersQuery:', data);
   return data;
 }, []); // Return empty array during SSR
 
-export const useGetLabProvidersQuery = (options = {}) => {
+/**
+ * Hook for /api/contract/provider/getLabProviders endpoint (SSO users)
+ * Gets all registered lab providers from the smart contract via API + Ethers
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with providers data
+ */
+export const useGetLabProvidersSSO = (options = {}) => {
   return useQuery({
     queryKey: providerQueryKeys.getLabProviders(),
-    queryFn: () => getLabProvidersQueryFn(), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getLabProvidersQueryFn(),
     ...USER_QUERY_CONFIG,
     ...options,
   });
 };
 
 // Export queryFn for use in composed hooks and mutations
-useGetLabProvidersQuery.queryFn = getLabProvidersQueryFn;
+useGetLabProvidersSSO.queryFn = getLabProvidersQueryFn;
+
+/**
+ * Hook for getLabProviders contract read (Wallet users)
+ * Gets all registered lab providers directly from blockchain via Wagmi
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with providers data normalized to match SSO structure
+ */
+export const useGetLabProvidersWallet = (options = {}) => {
+  const result = useDefaultReadContract('getLabProviders', [], {
+      ...USER_QUERY_CONFIG,
+      ...options,
+    });
+  
+  // Normalize the data after it's fetched
+  return {
+    ...result,
+    data: result.data ? (() => {
+      const data = result.data;
+      if (!data || !Array.isArray(data)) return { providers: [], count: 0 };
+      
+      // Transform blockchain data to match API format
+      const providers = data.map(provider => ({
+        account: provider.account,
+        name: provider.base?.name || provider.name,
+        email: provider.base?.email || provider.email,
+        country: provider.base?.country || provider.country
+      }));
+      
+      return {
+        providers,
+        count: providers.length,
+        timestamp: new Date().toISOString()
+      };
+    })() : null
+  };
+};
+
+/**
+ * Hook for getLabProviders (Router - selects SSO or Wallet)
+ * Gets all registered lab providers - routes to API or Wagmi based on user type
+ * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
+ * @returns {Object} React Query result with providers data
+ */
+export const useGetLabProviders = (options = {}) => {
+  const isSSO = useGetIsSSO(options);
+  
+  const ssoQuery = useGetLabProvidersSSO({ ...options, enabled: isSSO && options.enabled !== false });
+  const walletQuery = useGetLabProvidersWallet({ ...options, enabled: !isSSO && options.enabled !== false });
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useIsLabProvider Hook Family =====
 
 // Define queryFn first for reuse
 const getIsLabProviderQueryFn = createSSRSafeQuery(async ({ userAddress }) => {
@@ -89,21 +136,20 @@ const getIsLabProviderQueryFn = createSSRSafeQuery(async ({ userAddress }) => {
   }
   
   const data = await response.json();
-  devLog.log('useIsLabProviderQuery:', userAddress, data);
   return data;
 }, { isProvider: false }); // Return false during SSR
 
 /**
- * Hook for /api/contract/provider/isLabProvider endpoint
- * Checks if an address is a registered lab provider
+ * Hook for /api/contract/provider/isLabProvider endpoint (SSO users)
+ * Checks if an address is a registered lab provider via API + Ethers
  * @param {string} address - Address to check
  * @param {Object} [options={}] - Additional react-query options
  * @returns {Object} React Query result with provider status
  */
-export const useIsLabProviderQuery = (address, options = {}) => {
+export const useIsLabProviderSSO = (address, options = {}) => {
   return useQuery({
     queryKey: providerQueryKeys.isLabProvider(address),
-    queryFn: () => getIsLabProviderQueryFn({ userAddress: address }), // ✅ Reuse the SSR-safe queryFn
+    queryFn: () => getIsLabProviderQueryFn({ userAddress: address }),
     enabled: !!address,
     ...USER_QUERY_CONFIG,
     ...options,
@@ -111,7 +157,49 @@ export const useIsLabProviderQuery = (address, options = {}) => {
 };
 
 // Export queryFn for use in composed hooks and mutations
-useIsLabProviderQuery.queryFn = getIsLabProviderQueryFn;
+useIsLabProviderSSO.queryFn = getIsLabProviderQueryFn;
+
+/**
+ * Hook for isLabProvider contract read (Wallet users)
+ * Checks if an address is a registered lab provider directly from blockchain via Wagmi
+ * @param {string} address - Address to check
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with provider status normalized to match SSO structure
+ */
+export const useIsLabProviderWallet = (address, options = {}) => {
+  const result = useDefaultReadContract('isLabProvider', [address], {
+      enabled: !!address,
+      ...USER_QUERY_CONFIG,
+      ...options,
+    });
+  
+  // Normalize the data after it's fetched
+  return {
+    ...result,
+    data: result.data !== undefined ? {
+      wallet: address?.toLowerCase(),
+      isLabProvider: Boolean(result.data),
+      checked: true
+    } : null
+  };
+};
+
+/**
+ * Hook for isLabProvider (Router - selects SSO or Wallet)
+ * Checks if an address is a registered lab provider - routes to API or Wagmi based on user type
+ * @param {string} address - Address to check
+ * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
+ * @returns {Object} React Query result with provider status
+ */
+export const useIsLabProvider = (address, options = {}) => {
+  const isSSO = useGetIsSSO(options);
+  
+  const ssoQuery = useIsLabProviderSSO(address, { ...options, enabled: isSSO && options.enabled !== false });
+  const walletQuery = useIsLabProviderWallet(address, { ...options, enabled: !isSSO && options.enabled !== false });
+  
+  return isSSO ? ssoQuery : walletQuery;
+};
 
 // ===== SSO SESSION QUERIES =====
 

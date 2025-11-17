@@ -2,7 +2,7 @@
  * Utility hook for provider mapping functionality
  * Provides reusable provider mapping logic across different hooks
  */
-import { useGetLabProvidersQuery, USER_QUERY_CONFIG } from '@/hooks/user/useUsers'
+import { useGetLabProviders, USER_QUERY_CONFIG } from '@/hooks/user/useUsers'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -18,7 +18,7 @@ export const useProviderMapping = ({
 } = {}) => {
   
   // Get providers data
-  const providersResult = useGetLabProvidersQuery({
+  const providersResult = useGetLabProviders({
     ...USER_QUERY_CONFIG,
     enabled,
     ...queryOptions
@@ -34,8 +34,9 @@ export const useProviderMapping = ({
       return null;
     }
 
+    const normalizedOwner = ownerAddress.toLowerCase();
     const matchingProvider = providersResult.data.providers.find(
-      provider => provider.account?.toLowerCase() === ownerAddress.toLowerCase()
+      provider => provider.account?.toLowerCase() === normalizedOwner
     );
 
     if (matchingProvider) {

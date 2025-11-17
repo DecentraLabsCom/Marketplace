@@ -99,5 +99,12 @@ export function normalizeLabDates(labData) {
     normalized.closes = convertToMMDDYYYY(normalized.closes);
   }
 
+  if (normalized.termsOfUse?.effectiveDate) {
+    normalized.termsOfUse = {
+      ...normalized.termsOfUse,
+      effectiveDate: convertToMMDDYYYY(normalized.termsOfUse.effectiveDate)
+    };
+  }
+
   return normalized;
 }

@@ -25,7 +25,7 @@ export async function getContractInstance(contractType = 'diamond', readOnly = t
     address = contractAddressesLAB[chainKey];
     abi = labTokenABI;
     if (!address) {
-      throw new Error(`No LAB token address defined for network "${chainKey}"`);
+      throw new Error(`No $LAB token address defined for network "${chainKey}"`);
     }
   } else {
     // Default: diamond contract
@@ -40,8 +40,15 @@ export async function getContractInstance(contractType = 'diamond', readOnly = t
     // For read-only operations, no signer needed (faster and more efficient)
     return new ethers.Contract(address, abi, provider);
   } else {
-    // For write operations, use signer
-    const signer = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+    // For write operations, use server wallet signer (for SSO users)
+    const privateKey = process.env.WALLET_PRIVATE_KEY;
+    
+    if (!privateKey) {
+      throw new Error('Server wallet private key not found in environment');
+    }
+    
+    const signer = new ethers.Wallet(privateKey, provider);
+    
     return new ethers.Contract(address, abi, signer);
   }
 }

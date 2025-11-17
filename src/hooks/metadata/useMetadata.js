@@ -14,7 +14,8 @@ const METADATA_QUERY_CONFIG = {
   gcTime: 24 * 60 * 60 * 1000,      // 24 hours
   refetchOnWindowFocus: false,
   refetchOnReconnect: true,
-  retry: 2,
+  retry: 1,
+  networkMode: 'online',             // Only fetch when online
 }
 
 // Export configuration for use in composed hooks
@@ -29,21 +30,39 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
 
     devLog.log(`🔍 getMetadataQueryFn: Fetching metadata for ${metadataUri}`);
 
-    const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(`Metadata not found: ${metadataUri}`);
+    // Add timeout to fetch using AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+    try {
+      const response = await fetch(`/api/metadata?uri=${encodeURIComponent(metadataUri)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Metadata not found: ${metadataUri}`);
+        }
+        if (response.status === 408) {
+          throw new Error(`Metadata fetch timeout: ${metadataUri}`);
+        }
+        throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
       }
-      throw new Error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
+      
+      const data = await response.json();
+      devLog.info(`✅ getMetadataQueryFn: Metadata fetched successfully for URI: ${metadataUri}`);
+      return data;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error(`Metadata fetch timeout: ${metadataUri}`);
+      }
+      throw fetchError;
     }
-    
-    const data = await response.json();
-    devLog.info(`✅ getMetadataQueryFn: Metadata fetched successfully for URI: ${metadataUri}`);
-    return data;
   } catch (error) {
     devLog.error('Failed to fetch metadata:', error);
     throw error;

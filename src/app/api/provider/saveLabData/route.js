@@ -6,8 +6,90 @@ import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
-import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
+
+const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+
+const sanitizeAvailableDays = (days) => {
+  if (!Array.isArray(days)) return []
+  return days
+    .map(day => (typeof day === 'string' ? day.toUpperCase() : null))
+    .filter(day => WEEKDAY_VALUES.includes(day))
+}
+
+const sanitizeTime = (time) => {
+  if (!time || typeof time !== 'string') return ''
+  const trimmed = time.trim()
+  if (!/^\d{1,2}:\d{2}$/.test(trimmed)) return ''
+  const [hours, minutes] = trimmed.split(':').map(Number)
+  if (hours > 23 || minutes > 59) return ''
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+}
+
+const timeStringToSeconds = (time) => {
+  if (!time) return null
+  const [hours, minutes] = time.split(':').map(Number)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+  return hours * 3600 + minutes * 60
+}
+
+const sanitizeAvailableHours = (hours) => {
+  const safeHours = hours && typeof hours === 'object' ? hours : {}
+  const start = sanitizeTime(safeHours.start)
+  const end = sanitizeTime(safeHours.end)
+  if (!start || !end) {
+    return {}
+  }
+  const startSeconds = timeStringToSeconds(start)
+  const endSeconds = timeStringToSeconds(end)
+  return {
+    start,
+    end,
+    startSeconds,
+    endSeconds
+  }
+}
+
+const sanitizeDateTime = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (isNaN(date.getTime())) return String(value)
+  return date.toISOString()
+}
+
+const sanitizeUnavailableWindows = (windows) => {
+  if (!Array.isArray(windows)) return []
+  return windows
+    .map(window => {
+      if (!window) return null
+      const start = sanitizeDateTime(window.start)
+      const end = sanitizeDateTime(window.end)
+      const reason = typeof window.reason === 'string' ? window.reason.trim() : ''
+      if (!start || !end || !reason) return null
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      if (startDate >= endDate) return null
+      return {
+        start,
+        end,
+        startUnix: Math.floor(startDate.getTime() / 1000),
+        endUnix: Math.floor(endDate.getTime() / 1000),
+        timezoneOffsetMinutes: startDate.getTimezoneOffset(),
+        reason
+      }
+    })
+    .filter(Boolean)
+}
+
+const sanitizeTermsOfUse = (terms) => {
+  const safeTerms = terms && typeof terms === 'object' ? terms : {}
+  const sanitized = {}
+  if (safeTerms.url) sanitized.url = safeTerms.url
+  if (safeTerms.version) sanitized.version = safeTerms.version
+  if (safeTerms.effectiveDate) sanitized.effectiveDate = safeTerms.effectiveDate
+  if (safeTerms.sha256) sanitized.sha256 = safeTerms.sha256.toLowerCase()
+  return sanitized
+}
 
 /**
  * Saves lab data to file system (local) or cloud storage (Vercel)
@@ -41,8 +123,23 @@ export async function POST(req) {
       );
     }
 
-    const { name, description, category, keywords, opens, closes, docs, images, timeSlots, uri } = 
-      labData || {};
+    const {
+      name,
+      description,
+      category,
+      keywords,
+      opens,
+      closes,
+      docs,
+      images,
+      timeSlots,
+      uri,
+      availableDays,
+      availableHours,
+      maxConcurrentUsers,
+      unavailableWindows,
+      termsOfUse
+    } = labData || {};
 
     // Validate required fields
     if (!uri) {
@@ -110,6 +207,15 @@ export async function POST(req) {
       }
     }
 
+    const normalizedAvailableDays = sanitizeAvailableDays(availableDays)
+    const normalizedAvailableHours = sanitizeAvailableHours(availableHours)
+    const parsedMaxUsers = parseInt(maxConcurrentUsers, 10)
+    const normalizedMaxUsers = Number.isFinite(parsedMaxUsers) && parsedMaxUsers > 0
+      ? parsedMaxUsers
+      : 1
+    const normalizedUnavailableWindows = sanitizeUnavailableWindows(unavailableWindows)
+    const normalizedTerms = sanitizeTermsOfUse(termsOfUse)
+
     // Prepare new data structure
     const newData = {
       name: name || "",
@@ -127,6 +233,11 @@ export async function POST(req) {
         { trait_type: "additionalImages", value: images && images.length > 1 ? images.slice(1) : [] },
         { trait_type: "docs", value: Array.isArray(docs) ? 
           docs : (docs ? docs.split(',').map(d => d.trim()) : []) },
+        { trait_type: "availableDays", value: normalizedAvailableDays },
+        { trait_type: "availableHours", value: normalizedAvailableHours },
+        { trait_type: "maxConcurrentUsers", value: normalizedMaxUsers },
+        { trait_type: "unavailableWindows", value: normalizedUnavailableWindows },
+        { trait_type: "termsOfUse", value: normalizedTerms }
       ],
       _meta: {
         lastUpdated: timestamp,
