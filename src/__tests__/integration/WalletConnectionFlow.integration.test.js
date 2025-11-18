@@ -140,6 +140,23 @@ jest.mock("@/hooks/user/useUsers", () => ({
 }));
 
 /**
+ * Mock User Context
+ */
+const mockUseUserDefault = {
+  isLoggedIn: false,
+  isSSO: false,
+  address: null,
+  isAuthenticated: false,
+  isProvider: false,
+  isProviderLoading: false,
+};
+
+jest.mock("@/context/UserContext", () => ({
+  UserData: ({ children }) => children,
+  useUser: jest.fn(() => mockUseUserDefault),
+}));
+
+/**
  * Mock Notification Context
  */
 jest.mock("@/context/NotificationContext", () => ({
@@ -199,6 +216,10 @@ describe("Wallet Connection Flow Integration", () => {
       isLoading: false,
       pendingConnector: null,
     });
+
+    // Reset UserContext mock to default
+    const { useUser } = require("@/context/UserContext");
+    useUser.mockReturnValue(mockUseUserDefault);
   });
 
   /**
@@ -310,6 +331,17 @@ describe("Wallet Connection Flow Integration", () => {
       isConnected: true,
       isReconnecting: false,
       isConnecting: false,
+    });
+
+    // Update UserContext mock to reflect logged in state
+    const { useUser } = require("@/context/UserContext");
+    useUser.mockReturnValue({
+      isLoggedIn: true,
+      isSSO: false,
+      address: mockUser.address,
+      isAuthenticated: true,
+      isProvider: false,
+      isProviderLoading: false,
     });
 
     const { rerender } = renderWithAllProviders(<Login />);
