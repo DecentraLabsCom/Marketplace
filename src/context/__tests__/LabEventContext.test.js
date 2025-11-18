@@ -13,8 +13,11 @@
  * - Hook validation
  */
 
-import { renderHook, act } from '@testing-library/react';
-import { LabEventProvider, useLabEventContext } from '@/context/LabEventContext';
+import { renderHook, act } from "@testing-library/react";
+import {
+  LabEventProvider,
+  useLabEventContext,
+} from "@/context/LabEventContext";
 
 // Mock dependencies
 const mockInvalidateQueries = jest.fn();
@@ -22,52 +25,52 @@ const mockQueryClient = {
   invalidateQueries: mockInvalidateQueries,
 };
 
-jest.mock('@tanstack/react-query', () => ({
+jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => mockQueryClient,
 }));
 
 // Mock wagmi hooks
 const mockWatchContractEventHandlers = {};
-jest.mock('wagmi', () => ({
+jest.mock("wagmi", () => ({
   useAccount: jest.fn(() => ({
-    chain: { id: 11155111, name: 'Sepolia' },
+    chain: { id: 11155111, name: "Sepolia" },
   })),
+  usePublicClient: jest.fn(() => ({})),
   useWatchContractEvent: jest.fn((config) => {
-    // Store the onLogs handler for each event type so we can trigger it in tests
     mockWatchContractEventHandlers[config.eventName] = config.onLogs;
     return {};
   }),
 }));
 
 // Mock blockchain utilities
-jest.mock('@/utils/blockchain/selectChain', () => ({
+jest.mock("@/utils/blockchain/selectChain", () => ({
   selectChain: jest.fn((chain) => ({
     id: 11155111,
-    name: 'Sepolia',
+    name: "Sepolia",
   })),
 }));
 
 // Mock contract addresses
-jest.mock('@/contracts/diamond', () => ({
+jest.mock("@/contracts/diamond", () => ({
   contractABI: [],
   contractAddresses: {
-    sepolia: '0xMockDiamondAddress',
+    sepolia: "0xMockDiamondAddress",
   },
 }));
 
 // Mock query keys
-jest.mock('@/utils/hooks/queryKeys', () => ({
+jest.mock("@/utils/hooks/queryKeys", () => ({
   labQueryKeys: {
-    getAllLabs: jest.fn(() => ['lab', 'getAllLabs']),
-    getLab: jest.fn((labId) => ['lab', 'getLab', labId]),
-    tokenURI: jest.fn((labId) => ['lab', 'tokenURI', labId]),
-    isTokenListed: jest.fn((labId) => ['lab', 'isTokenListed', labId]),
-    ownerOf: jest.fn((labId) => ['lab', 'ownerOf', labId]),
+    getAllLabs: jest.fn(() => ["lab", "getAllLabs"]),
+    getLab: jest.fn((labId) => ["lab", "getLab", labId]),
+    tokenURI: jest.fn((labId) => ["lab", "tokenURI", labId]),
+    isTokenListed: jest.fn((labId) => ["lab", "isTokenListed", labId]),
+    ownerOf: jest.fn((labId) => ["lab", "ownerOf", labId]),
   },
 }));
 
 // Mock logger
-jest.mock('@/utils/dev/logger', () => ({
+jest.mock("@/utils/dev/logger", () => ({
   __esModule: true,
   default: {
     log: jest.fn(),
@@ -76,7 +79,7 @@ jest.mock('@/utils/dev/logger', () => ({
   },
 }));
 
-describe('LabEventContext', () => {
+describe("LabEventContext", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset the handlers
@@ -85,8 +88,8 @@ describe('LabEventContext', () => {
     });
   });
 
-  describe('Provider Functionality', () => {
-    test('renders and provides context without errors', () => {
+  describe("Provider Functionality", () => {
+    test("renders and provides context without errors", () => {
       // This test verifies that the provider can be rendered and used successfully
       const { result } = renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -96,7 +99,7 @@ describe('LabEventContext', () => {
       expect(result.current).toBeDefined();
     });
 
-    test('provides empty context value', () => {
+    test("provides empty context value", () => {
       const { result } = renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -105,21 +108,21 @@ describe('LabEventContext', () => {
       expect(result.current).toEqual({});
     });
 
-    test('throws error when used outside provider', () => {
+    test("throws error when used outside provider", () => {
       // Suppress console.error for this test
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
       expect(() => {
         renderHook(() => useLabEventContext());
-      }).toThrow('useLabEventContext must be used within a LabEventProvider');
+      }).toThrow("useLabEventContext must be used within a LabEventProvider");
 
       consoleSpy.mockRestore();
     });
   });
 
-  describe('Event Listener Setup', () => {
-    test('sets up LabAdded event listener', () => {
-      const { useWatchContractEvent } = require('wagmi');
+  describe("Event Listener Setup", () => {
+    test("sets up LabAdded event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -127,17 +130,17 @@ describe('LabEventContext', () => {
 
       // Verify useWatchContractEvent was called for LabAdded
       const labAddedCall = useWatchContractEvent.mock.calls.find(
-        (call) => call[0].eventName === 'LabAdded'
+        (call) => call[0].eventName === "LabAdded"
       );
 
       expect(labAddedCall).toBeDefined();
-      expect(labAddedCall[0].address).toBe('0xMockDiamondAddress');
-      expect(labAddedCall[0].eventName).toBe('LabAdded');
+      expect(labAddedCall[0].address).toBe("0xMockDiamondAddress");
+      expect(labAddedCall[0].eventName).toBe("LabAdded");
       expect(labAddedCall[0].enabled).toBe(true);
     });
 
-    test('sets up LabUpdated event listener', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("sets up LabUpdated event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -145,17 +148,17 @@ describe('LabEventContext', () => {
 
       // Verify useWatchContractEvent was called for LabUpdated
       const labUpdatedCall = useWatchContractEvent.mock.calls.find(
-        (call) => call[0].eventName === 'LabUpdated'
+        (call) => call[0].eventName === "LabUpdated"
       );
 
       expect(labUpdatedCall).toBeDefined();
-      expect(labUpdatedCall[0].address).toBe('0xMockDiamondAddress');
-      expect(labUpdatedCall[0].eventName).toBe('LabUpdated');
+      expect(labUpdatedCall[0].address).toBe("0xMockDiamondAddress");
+      expect(labUpdatedCall[0].eventName).toBe("LabUpdated");
       expect(labUpdatedCall[0].enabled).toBe(true);
     });
 
-    test('sets up LabListed event listener', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("sets up LabListed event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -163,17 +166,17 @@ describe('LabEventContext', () => {
 
       // Verify useWatchContractEvent was called for LabListed
       const labListedCall = useWatchContractEvent.mock.calls.find(
-        (call) => call[0].eventName === 'LabListed'
+        (call) => call[0].eventName === "LabListed"
       );
 
       expect(labListedCall).toBeDefined();
-      expect(labListedCall[0].address).toBe('0xMockDiamondAddress');
-      expect(labListedCall[0].eventName).toBe('LabListed');
+      expect(labListedCall[0].address).toBe("0xMockDiamondAddress");
+      expect(labListedCall[0].eventName).toBe("LabListed");
       expect(labListedCall[0].enabled).toBe(true);
     });
 
-    test('sets up LabUnlisted event listener', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("sets up LabUnlisted event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -181,17 +184,17 @@ describe('LabEventContext', () => {
 
       // Verify useWatchContractEvent was called for LabUnlisted
       const labUnlistedCall = useWatchContractEvent.mock.calls.find(
-        (call) => call[0].eventName === 'LabUnlisted'
+        (call) => call[0].eventName === "LabUnlisted"
       );
 
       expect(labUnlistedCall).toBeDefined();
-      expect(labUnlistedCall[0].address).toBe('0xMockDiamondAddress');
-      expect(labUnlistedCall[0].eventName).toBe('LabUnlisted');
+      expect(labUnlistedCall[0].address).toBe("0xMockDiamondAddress");
+      expect(labUnlistedCall[0].eventName).toBe("LabUnlisted");
       expect(labUnlistedCall[0].enabled).toBe(true);
     });
 
-    test('sets up LabDeleted event listener', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("sets up LabDeleted event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -199,17 +202,17 @@ describe('LabEventContext', () => {
 
       // Verify useWatchContractEvent was called for LabDeleted
       const labDeletedCall = useWatchContractEvent.mock.calls.find(
-        (call) => call[0].eventName === 'LabDeleted'
+        (call) => call[0].eventName === "LabDeleted"
       );
 
       expect(labDeletedCall).toBeDefined();
-      expect(labDeletedCall[0].address).toBe('0xMockDiamondAddress');
-      expect(labDeletedCall[0].eventName).toBe('LabDeleted');
+      expect(labDeletedCall[0].address).toBe("0xMockDiamondAddress");
+      expect(labDeletedCall[0].eventName).toBe("LabDeleted");
       expect(labDeletedCall[0].enabled).toBe(true);
     });
 
-    test('sets up LabURISet event listener', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("sets up LabURISet event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -217,18 +220,18 @@ describe('LabEventContext', () => {
 
       // Verify useWatchContractEvent was called for LabURISet
       const labURISetCall = useWatchContractEvent.mock.calls.find(
-        (call) => call[0].eventName === 'LabURISet'
+        (call) => call[0].eventName === "LabURISet"
       );
 
       expect(labURISetCall).toBeDefined();
-      expect(labURISetCall[0].address).toBe('0xMockDiamondAddress');
-      expect(labURISetCall[0].eventName).toBe('LabURISet');
+      expect(labURISetCall[0].address).toBe("0xMockDiamondAddress");
+      expect(labURISetCall[0].eventName).toBe("LabURISet");
       expect(labURISetCall[0].enabled).toBe(true);
     });
   });
 
-  describe('LabAdded Event Handling', () => {
-    test('invalidates getAllLabs cache on LabAdded', () => {
+  describe("LabAdded Event Handling", () => {
+    test("invalidates getAllLabs cache on LabAdded", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -248,11 +251,11 @@ describe('LabEventContext', () => {
 
       // Verify getAllLabs was invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getAllLabs'],
+        queryKey: ["lab", "getAllLabs"],
       });
     });
 
-    test('handles multiple LabAdded events in one batch', () => {
+    test("handles multiple LabAdded events in one batch", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -270,13 +273,13 @@ describe('LabEventContext', () => {
 
       // Verify getAllLabs was invalidated once
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getAllLabs'],
+        queryKey: ["lab", "getAllLabs"],
       });
     });
   });
 
-  describe('LabUpdated Event Handling', () => {
-    test('invalidates specific lab queries on LabUpdated', () => {
+  describe("LabUpdated Event Handling", () => {
+    test("invalidates specific lab queries on LabUpdated", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -297,14 +300,14 @@ describe('LabEventContext', () => {
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', '1'],
+        queryKey: ["lab", "getLab", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'tokenURI', '1'],
+        queryKey: ["lab", "tokenURI", "1"],
       });
     });
 
-    test('handles multiple LabUpdated events in one batch', () => {
+    test("handles multiple LabUpdated events in one batch", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -324,15 +327,15 @@ describe('LabEventContext', () => {
       mockLogs.forEach((log) => {
         const labId = log.args._labId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'getLab', labId],
+          queryKey: ["lab", "getLab", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'tokenURI', labId],
+          queryKey: ["lab", "tokenURI", labId],
         });
       });
     });
 
-    test('handles LabUpdated event with missing labId gracefully', () => {
+    test("handles LabUpdated event with missing labId gracefully", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -355,13 +358,13 @@ describe('LabEventContext', () => {
 
       // Should not try to invalidate queries for null labId
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', null],
+        queryKey: ["lab", "getLab", null],
       });
     });
   });
 
-  describe('LabListed Event Handling', () => {
-    test('invalidates specific lab queries on LabListed', () => {
+  describe("LabListed Event Handling", () => {
+    test("invalidates specific lab queries on LabListed", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -382,14 +385,14 @@ describe('LabEventContext', () => {
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', '1'],
+        queryKey: ["lab", "getLab", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'isTokenListed', '1'],
+        queryKey: ["lab", "isTokenListed", "1"],
       });
     });
 
-    test('handles multiple LabListed events in one batch', () => {
+    test("handles multiple LabListed events in one batch", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -409,15 +412,15 @@ describe('LabEventContext', () => {
       mockLogs.forEach((log) => {
         const labId = log.args.tokenId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'getLab', labId],
+          queryKey: ["lab", "getLab", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'isTokenListed', labId],
+          queryKey: ["lab", "isTokenListed", labId],
         });
       });
     });
 
-    test('handles LabListed event with missing tokenId gracefully', () => {
+    test("handles LabListed event with missing tokenId gracefully", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -440,13 +443,13 @@ describe('LabEventContext', () => {
 
       // Should not try to invalidate queries for null tokenId
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', null],
+        queryKey: ["lab", "getLab", null],
       });
     });
   });
 
-  describe('LabUnlisted Event Handling', () => {
-    test('invalidates specific lab queries on LabUnlisted', () => {
+  describe("LabUnlisted Event Handling", () => {
+    test("invalidates specific lab queries on LabUnlisted", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -467,22 +470,19 @@ describe('LabEventContext', () => {
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', '1'],
+        queryKey: ["lab", "getLab", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'isTokenListed', '1'],
+        queryKey: ["lab", "isTokenListed", "1"],
       });
     });
 
-    test('handles multiple LabUnlisted events in one batch', () => {
+    test("handles multiple LabUnlisted events in one batch", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
 
-      const mockLogs = [
-        { args: { tokenId: 1n } },
-        { args: { tokenId: 2n } },
-      ];
+      const mockLogs = [{ args: { tokenId: 1n } }, { args: { tokenId: 2n } }];
 
       // Trigger the LabUnlisted event with multiple logs
       act(() => {
@@ -493,17 +493,17 @@ describe('LabEventContext', () => {
       mockLogs.forEach((log) => {
         const labId = log.args.tokenId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'getLab', labId],
+          queryKey: ["lab", "getLab", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'isTokenListed', labId],
+          queryKey: ["lab", "isTokenListed", labId],
         });
       });
     });
   });
 
-  describe('LabDeleted Event Handling', () => {
-    test('invalidates all related queries on LabDeleted', () => {
+  describe("LabDeleted Event Handling", () => {
+    test("invalidates all related queries on LabDeleted", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -524,32 +524,29 @@ describe('LabEventContext', () => {
 
       // Verify all lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', '1'],
+        queryKey: ["lab", "getLab", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'tokenURI', '1'],
+        queryKey: ["lab", "tokenURI", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'isTokenListed', '1'],
+        queryKey: ["lab", "isTokenListed", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'ownerOf', '1'],
+        queryKey: ["lab", "ownerOf", "1"],
       });
       // Verify getAllLabs was also invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getAllLabs'],
+        queryKey: ["lab", "getAllLabs"],
       });
     });
 
-    test('handles multiple LabDeleted events in one batch', () => {
+    test("handles multiple LabDeleted events in one batch", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
 
-      const mockLogs = [
-        { args: { _labId: 1n } },
-        { args: { _labId: 2n } },
-      ];
+      const mockLogs = [{ args: { _labId: 1n } }, { args: { _labId: 2n } }];
 
       // Trigger the LabDeleted event with multiple logs
       act(() => {
@@ -560,26 +557,26 @@ describe('LabEventContext', () => {
       mockLogs.forEach((log) => {
         const labId = log.args._labId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'getLab', labId],
+          queryKey: ["lab", "getLab", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'tokenURI', labId],
+          queryKey: ["lab", "tokenURI", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'isTokenListed', labId],
+          queryKey: ["lab", "isTokenListed", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'ownerOf', labId],
+          queryKey: ["lab", "ownerOf", labId],
         });
       });
 
       // Verify getAllLabs was invalidated once
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getAllLabs'],
+        queryKey: ["lab", "getAllLabs"],
       });
     });
 
-    test('handles LabDeleted event with missing labId gracefully', () => {
+    test("handles LabDeleted event with missing labId gracefully", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -599,18 +596,18 @@ describe('LabEventContext', () => {
 
       // Should invalidate getAllLabs but not specific lab queries
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getAllLabs'],
+        queryKey: ["lab", "getAllLabs"],
       });
 
       // Should not try to invalidate queries for null labId
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', null],
+        queryKey: ["lab", "getLab", null],
       });
     });
   });
 
-  describe('LabURISet Event Handling', () => {
-    test('invalidates specific lab queries on LabURISet', () => {
+  describe("LabURISet Event Handling", () => {
+    test("invalidates specific lab queries on LabURISet", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -631,14 +628,14 @@ describe('LabEventContext', () => {
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', '1'],
+        queryKey: ["lab", "getLab", "1"],
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['lab', 'tokenURI', '1'],
+        queryKey: ["lab", "tokenURI", "1"],
       });
     });
 
-    test('handles multiple LabURISet events in one batch', () => {
+    test("handles multiple LabURISet events in one batch", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -658,15 +655,15 @@ describe('LabEventContext', () => {
       mockLogs.forEach((log) => {
         const labId = log.args._labId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'getLab', labId],
+          queryKey: ["lab", "getLab", labId],
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
-          queryKey: ['lab', 'tokenURI', labId],
+          queryKey: ["lab", "tokenURI", labId],
         });
       });
     });
 
-    test('handles LabURISet event with missing labId gracefully', () => {
+    test("handles LabURISet event with missing labId gracefully", () => {
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
       });
@@ -689,14 +686,14 @@ describe('LabEventContext', () => {
 
       // Should not try to invalidate queries for null labId
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
-        queryKey: ['lab', 'getLab', null],
+        queryKey: ["lab", "getLab", null],
       });
     });
   });
 
-  describe('Event Listener Configuration', () => {
-    test('event listeners are enabled when contract address and chain are valid', () => {
-      const { useWatchContractEvent } = require('wagmi');
+  describe("Event Listener Configuration", () => {
+    test("event listeners are enabled when contract address and chain are valid", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -708,8 +705,8 @@ describe('LabEventContext', () => {
       });
     });
 
-    test('event listeners use correct contract address', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("event listeners use correct contract address", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
@@ -717,12 +714,12 @@ describe('LabEventContext', () => {
 
       // All event listeners should use the correct contract address
       useWatchContractEvent.mock.calls.forEach((call) => {
-        expect(call[0].address).toBe('0xMockDiamondAddress');
+        expect(call[0].address).toBe("0xMockDiamondAddress");
       });
     });
 
-    test('event listeners use correct ABI', () => {
-      const { useWatchContractEvent } = require('wagmi');
+    test("event listeners use correct ABI", () => {
+      const { useWatchContractEvent } = require("wagmi");
 
       renderHook(() => useLabEventContext(), {
         wrapper: LabEventProvider,
