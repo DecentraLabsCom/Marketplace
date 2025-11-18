@@ -29,8 +29,8 @@ jest.mock("wagmi", () => ({
 
 jest.mock("@/hooks/user/useUsers", () => ({
   useSSOSessionQuery: jest.fn(),
-  useIsLabProviderQuery: jest.fn(),
-  useGetLabProvidersQuery: jest.fn(),
+  useIsLabProvider: jest.fn(),
+  useGetLabProviders: jest.fn(),
   useUserCacheUpdates: jest.fn(),
 }));
 
@@ -117,13 +117,13 @@ describe("UserData Context", () => {
       refetch: jest.fn(),
     });
 
-    userHooks.useIsLabProviderQuery.mockReturnValue({
+    userHooks.useIsLabProvider.mockReturnValue({
       data: null,
       isLoading: false,
       error: null,
     });
 
-    userHooks.useGetLabProvidersQuery.mockReturnValue({
+    userHooks.useGetLabProviders.mockReturnValue({
       data: null,
       isLoading: false,
     });
@@ -283,7 +283,7 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: false },
         isLoading: false,
         error: null,
@@ -312,7 +312,7 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: false },
         isLoading: false,
         error: null,
@@ -398,7 +398,7 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: true },
         isLoading: false,
         error: null,
@@ -425,13 +425,13 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: true },
         isLoading: false,
         error: null,
       });
 
-      userHooks.useGetLabProvidersQuery.mockReturnValue({
+      userHooks.useGetLabProviders.mockReturnValue({
         data: {
           providers: [{ account: testAddress, name: "Provider Lab Inc" }],
         },
@@ -486,7 +486,7 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: false },
         isLoading: false,
         error: null,
@@ -496,7 +496,7 @@ describe("UserData Context", () => {
         data: null,
         isLoading: false,
       });
-      userHooks.useGetLabProvidersQuery.mockImplementation(providersQuerySpy);
+      userHooks.useGetLabProviders.mockImplementation(providersQuerySpy);
 
       const queryClient = createTestQueryClient();
       renderHook(() => useUser(), {
@@ -593,7 +593,7 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: null,
         isLoading: true,
         error: null,
@@ -629,7 +629,7 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: true },
         isLoading: false,
         error: null,
@@ -673,13 +673,13 @@ describe("UserData Context", () => {
         isConnecting: false,
       });
 
-      userHooks.useIsLabProviderQuery.mockReturnValue({
+      userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: true },
         isLoading: false,
         error: null,
       });
 
-      userHooks.useGetLabProvidersQuery.mockReturnValue({
+      userHooks.useGetLabProviders.mockReturnValue({
         data: {
           providers: [{ account: testAddress, name: "Official Provider Name" }],
         },
@@ -709,7 +709,7 @@ describe("UserData Context", () => {
         isLoading: false,
         error: null,
       });
-      userHooks.useIsLabProviderQuery.mockImplementation(providerQuerySpy);
+      userHooks.useIsLabProvider.mockImplementation(providerQuerySpy);
 
       const queryClient = createTestQueryClient();
       renderHook(() => useUser(), {
