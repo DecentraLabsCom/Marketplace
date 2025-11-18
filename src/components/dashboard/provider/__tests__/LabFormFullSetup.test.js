@@ -19,7 +19,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
-// Polyfill for jsdom environment (form.requestSubmit not available in jest)
+// Polyfill for jsdom environment
 if (!HTMLFormElement.prototype.requestSubmit) {
   HTMLFormElement.prototype.requestSubmit = function () {
     this.dispatchEvent(
@@ -34,10 +34,26 @@ jest.mock("lucide-react", () => ({
   UploadCloud: () => <span data-testid="upload-icon">Upload</span>,
   Link: () => <span data-testid="link-icon">Link</span>,
   XCircle: () => <span data-testid="x-icon">X</span>,
+  Plus: () => <span data-testid="plus-icon">Plus</span>,
+  Trash2: () => <span data-testid="trash-icon">Trash</span>,
+  Loader2: () => <span data-testid="loader-icon">Loader</span>,
+}));
+
+// Mock CalendarInput component
+jest.mock("@/components/ui", () => ({
+  CalendarInput: ({ value, onChange, disabled, placeholder }) => (
+    <input
+      type="text"
+      value={value || ""}
+      onChange={(e) => onChange?.(e.target.value)}
+      disabled={disabled}
+      placeholder={placeholder}
+      data-testid="calendar-input"
+    />
+  ),
 }));
 
 // Mock ImagePreviewList component
-// Simplified version for testing - only tests the contract/interface
 jest.mock("@/components/ui/media/ImagePreviewList.js", () => ({
   __esModule: true,
   default: ({ imageUrls, removeImage }) => (
@@ -72,9 +88,9 @@ jest.mock("@/components/ui/media/DocPreviewList.js", () => ({
 }));
 
 // Component under test
-import LabFormFullSetup from "@/components/dashboard/provider/LabFormFullSetup";
+import LabFormFullSetup from "../LabFormFullSetup";
 
-// Test fixtures - represents typical lab data
+// Test fixtures
 const mockLab = {
   id: "1",
   name: "Test Lab",
@@ -85,9 +101,18 @@ const mockLab = {
   auth: "https://auth.test.com",
   accessURI: "https://access.test.com",
   accessKey: "key123",
-  timeSlots: ["9-12", "14-17"],
   opens: "01/15/2024",
   closes: "12/31/2024",
+  availableDays: [],
+  availableHours: { start: "", end: "" },
+  unavailableWindows: [],
+  maxConcurrentUsers: "",
+  termsOfUse: {
+    url: "",
+    version: "",
+    effectiveDate: "",
+    sha256: "",
+  },
   images: [],
   docs: [],
 };
@@ -139,9 +164,11 @@ const renderForm = (overrides = {}) => {
     authRef: { current: null },
     accessURIRef: { current: null },
     accessKeyRef: { current: null },
-    timeSlotsRef: { current: null },
-    opensRef: { current: null },
-    closesRef: { current: null },
+    availableHoursStartRef: { current: null },
+    availableHoursEndRef: { current: null },
+    maxConcurrentUsersRef: { current: null },
+    termsUrlRef: { current: null },
+    termsShaRef: { current: null },
     onSubmit: mockHandlers.onSubmit,
     onCancel: mockHandlers.onCancel,
     ...overrides,
@@ -163,12 +190,10 @@ describe("LabFormFullSetup", () => {
       expect(screen.getByDisplayValue("Biology")).toBeInTheDocument();
       expect(screen.getByDisplayValue("Test description")).toBeInTheDocument();
       expect(screen.getByDisplayValue("100")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("bio,lab")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("9-12,14-17")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("bio, lab")).toBeInTheDocument();
     });
 
     test("displays correct button text based on lab id", () => {
-      // New lab (no id) shows "Add Lab"
       const { unmount } = renderForm({
         localLab: { ...mockLab, id: undefined },
       });
@@ -186,7 +211,6 @@ describe("LabFormFullSetup", () => {
       renderForm();
 
       // Test a few representative text inputs
-      // Pattern is the same for all, no need to test every single one
       const nameInput = screen.getByPlaceholderText("Lab Name");
       fireEvent.change(nameInput, { target: { value: "New Lab Name" } });
 
@@ -220,15 +244,14 @@ describe("LabFormFullSetup", () => {
         keywords: ["physics", "chemistry", "biology"],
       });
 
-      // Test timeSlots splitting (same pattern, verify it works)
-      const slotsInput = screen.getByPlaceholderText(
-        "Time Slots (comma-separated)"
-      );
-      fireEvent.change(slotsInput, { target: { value: "8-10,10-12" } });
+      // Additional test for keywords with spaces
+      fireEvent.change(keywordsInput, {
+        target: { value: "physics, chemistry, biology" },
+      });
 
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
-        timeSlots: ["8-10", "10-12"],
+        keywords: ["physics", "chemistry", "biology"],
       });
     });
   });
@@ -247,10 +270,9 @@ describe("LabFormFullSetup", () => {
     });
 
     test("displays appropriate input for selected mode", () => {
-      // Link mode shows URL input
       const { unmount } = renderForm({ imageInputType: "link" });
       expect(
-        screen.getByPlaceholderText("Image URLs (comma-separated)")
+        screen.getByPlaceholderText("Images URLs (comma-separated)")
       ).toBeInTheDocument();
       unmount();
 
@@ -262,7 +284,9 @@ describe("LabFormFullSetup", () => {
     test("updates image URLs when in link mode", () => {
       renderForm({ imageInputType: "link" });
 
-      const input = screen.getByPlaceholderText("Image URLs (comma-separated)");
+      const input = screen.getByPlaceholderText(
+        "Images URLs (comma-separated)"
+      );
       fireEvent.change(input, {
         target: { value: "http://img1.jpg,http://img2.jpg" },
       });
@@ -367,7 +391,7 @@ describe("LabFormFullSetup", () => {
       // Check that key inputs are disabled
       expect(screen.getByPlaceholderText("Lab Name")).toBeDisabled();
       expect(screen.getByPlaceholderText("Category")).toBeDisabled();
-      expect(screen.getByPlaceholderText("Price")).toBeDisabled();
+      expect(screen.getByPlaceholderText("Price per hour")).toBeDisabled();
       expect(screen.getByText("Save Changes")).toBeDisabled();
 
       // Check that toggle buttons are disabled
@@ -448,19 +472,16 @@ describe("LabFormFullSetup", () => {
 
       expect(screen.getByPlaceholderText("Lab Name")).toHaveValue("");
       expect(screen.getByPlaceholderText("Category")).toHaveValue("");
-      expect(screen.getByPlaceholderText("Price")).toHaveValue(null);
+      expect(screen.getByPlaceholderText("Price per hour")).toHaveValue(null);
     });
 
     test("handles null and undefined array values", () => {
       renderForm({
-        localLab: { ...mockLab, keywords: null, timeSlots: undefined },
+        localLab: { ...mockLab, keywords: null },
       });
 
       expect(
         screen.getByPlaceholderText("Keywords (comma-separated)")
-      ).toHaveValue("");
-      expect(
-        screen.getByPlaceholderText("Time Slots (comma-separated)")
       ).toHaveValue("");
     });
 
@@ -469,7 +490,6 @@ describe("LabFormFullSetup", () => {
         localLab: {
           ...mockLab,
           keywords: [],
-          timeSlots: [],
           images: [],
           docs: [],
         },
@@ -477,9 +497,6 @@ describe("LabFormFullSetup", () => {
 
       expect(
         screen.getByPlaceholderText("Keywords (comma-separated)")
-      ).toHaveValue("");
-      expect(
-        screen.getByPlaceholderText("Time Slots (comma-separated)")
       ).toHaveValue("");
     });
   });
