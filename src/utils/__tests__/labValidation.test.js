@@ -36,6 +36,16 @@ describe("validateLabFull", () => {
     keywords: ["ai"],
     images: [],
     docs: [],
+    availableDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+    availableHours: {
+      start: "09:00",
+      end: "17:00",
+    },
+    maxConcurrentUsers: 10,
+    termsOfUse: {
+      effectiveDate: "01/01/2024",
+    },
+    unavailableWindows: [],
   };
 
   const validOptions = { imageInputType: "file", docInputType: "file" };
