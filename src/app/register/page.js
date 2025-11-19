@@ -1,2 +1,2 @@
 "use client";
-export { default } from '@/components/register/RegisterProviderPage'
+export { default } from '@/components/register/RegisterPage'

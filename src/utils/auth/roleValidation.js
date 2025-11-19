@@ -14,14 +14,13 @@
  * - library-walk-in: Walk-in library users
  */
 
-// Define roles that are allowed to register as providers
+// Define roles that are allowed to register as providers (SSO context)
 // Based on eduPersonAffiliation standard values
+// For SSO-based institution and provider flows we align this with ADMIN_ALLOWED_ROLES
 export const PROVIDER_ALLOWED_ROLES = [
   'faculty',
   'staff',
-  'employee', 
-  'member',
-  'affiliate'
+  'employee'
 ];
 
 // Define roles that are explicitly denied (students, etc.)
@@ -30,6 +29,15 @@ export const PROVIDER_DENIED_ROLES = [
   'student',
   'alum',
   'library-walk-in'  // Walk-in library users should not be providers
+];
+
+// Define roles that are treated as having institutional administrative privileges
+// for operations such as generating institution invite tokens.
+// This is intentionally stricter than PROVIDER_ALLOWED_ROLES.
+export const ADMIN_ALLOWED_ROLES = [
+  'staff',
+  'employee',
+  'faculty',
 ];
 
 /**
@@ -79,12 +87,10 @@ export function validateProviderRole(role, scopedRole = '') {
  * @returns {boolean}
  */
 export function hasAdminRole(role, scopedRole = '') {
-  // Using standard eduPersonAffiliation values for admin roles
-  const adminRoles = ['staff'];
-  const userRole = (role || '').toLowerCase();
-  const userScopedRole = (scopedRole || '').toLowerCase();
-  
-  return adminRoles.some(adminRole => 
+  const userRole = (role || '').toLowerCase().trim();
+  const userScopedRole = (scopedRole || '').toLowerCase().trim();
+
+  return ADMIN_ALLOWED_ROLES.some(adminRole =>
     userRole.includes(adminRole) || userScopedRole.includes(adminRole)
   );
 }

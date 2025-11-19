@@ -7,7 +7,7 @@ import { faBars } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import Login from '@/components/auth/Login'
-import { validateProviderRole } from '@/utils/auth/roleValidation'
+import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
 
 /**
  * Main navigation bar component with responsive design and authentication-aware menu
@@ -29,22 +29,21 @@ export default function Navbar() {
     return userRole.includes('faculty') || userScopedRole.includes('faculty');
   };
 
-  // Check if user can see and access the "Register as Provider" option
+  // Check if user can see and access the registration option
   const showRegisterButton = () => {
     // Don't show if not logged in, already a provider, or currently loading provider status
     if (!isLoggedIn || isProvider || isProviderLoading) return false;
     
-    // Don't show for faculty (they get Lab Panel directly)
-    if (isFaculty()) return false;
-    
     // For wallet users, always show (they can register manually via form)
     if (!isSSO) return true;
     
-    // For SSO users, only show if they have valid SAML2 role
+    // For SSO users, only show if they have institutional admin-level role
     if (!user) return false;
-    const roleValidation = validateProviderRole(user.role, user.scopedRole);
-    return roleValidation.isValid;
+    return hasAdminRole(user.role, user.scopedRole);
   };
+
+  const isInstitutionAdmin =
+    isSSO && user && hasAdminRole(user.role, user.scopedRole);
 
   // Check if user should see Lab Panel button
   const showProviderButton = () => {
@@ -82,7 +81,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 font-bold">
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
-            {showRegisterButton() && menuButton("/register", "Register as a Provider")}
+            {showRegisterButton() && menuButton("/register", isInstitutionAdmin ? "Register my Institution" : "Register as a Provider")}
             {showProviderButton() && menuButton("/providerdashboard", "Lab Panel")}
           </div>
           )}
@@ -114,7 +113,7 @@ export default function Navbar() {
                 </Link>
                 {showRegisterButton() && (
                   <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
-                    Register as a Provider
+                    {isInstitutionAdmin ? "Register my Institution" : "Register as a Provider"}
                   </Link>
                 )}
                 {showProviderButton() && (

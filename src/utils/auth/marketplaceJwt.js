@@ -194,6 +194,140 @@ class MarketplaceJwtService {
       return false;
     }
   }
+
+  /**
+   * Normalize schacHomeOrganization-style domains using the same rules
+   * as LibInstitutionalOrg.normalizeOrganization (lowercase + charset)
+   * @param {string} domain
+   * @returns {string}
+   * @throws {Error} If domain is invalid
+   */
+  normalizeOrganizationDomain(domain) {
+    if (!domain || typeof domain !== 'string') {
+      throw new Error('Organization domain is required');
+    }
+
+    const input = domain.trim();
+    if (input.length < 3 || input.length > 255) {
+      throw new Error('Invalid organization domain length');
+    }
+
+    let normalized = '';
+    for (let i = 0; i < input.length; i += 1) {
+      let code = input.charCodeAt(i);
+
+      // Uppercase A-Z -> lowercase a-z
+      if (code >= 0x41 && code <= 0x5a) {
+        code += 32;
+      }
+
+      const ch = String.fromCharCode(code);
+
+      const isLower = code >= 0x61 && code <= 0x7a;
+      const isDigit = code >= 0x30 && code <= 0x39;
+      const isDash = ch === '-';
+      const isDot = ch === '.';
+
+      if (!isLower && !isDigit && !isDash && !isDot) {
+        throw new Error('Invalid character in organization domain');
+      }
+
+      normalized += ch;
+    }
+
+    return normalized;
+  }
+
+  /**
+   * Generate a signed JWT invite token for institutional onboarding
+   * @param {Object} params
+   * @param {Object} params.samlUser - User object from SAML session (src/utils/auth/sso.js)
+   * @param {string[]} params.domains - Candidate organization domains (schacHomeOrganization-style)
+   * @param {string} [params.expectedWallet] - Optional pre-approved wallet address
+   * @returns {Promise<{ token: string, payload: Object }>}
+   */
+  async generateInstitutionInviteToken({ samlUser, domains, expectedWallet }) {
+    try {
+      if (!samlUser) {
+        throw new Error('SAML user is required for invite token');
+      }
+
+      if (!Array.isArray(domains) || domains.length === 0) {
+        throw new Error('At least one organization domain is required for invite token');
+      }
+
+      // Load signing key
+      if (!this.privateKey) {
+        await this.loadPrivateKey();
+      }
+      if (!this.privateKey) {
+        throw new Error('JWT private key is not available for invite token');
+      }
+
+      // Normalize and deduplicate domains
+      const normalizedDomains = Array.from(new Set(
+        domains
+          .filter((d) => typeof d === 'string' && d.trim().length > 0)
+          .map((d) => this.normalizeOrganizationDomain(d))
+      ));
+
+      if (normalizedDomains.length === 0) {
+        throw new Error('No valid organization domains after normalization');
+      }
+
+      // Optional wallet sanity check
+      let wallet = undefined;
+      if (expectedWallet) {
+        const trimmed = expectedWallet.trim();
+        if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+          throw new Error('Invalid expected wallet address format');
+        }
+        wallet = trimmed;
+      }
+
+      // Basic issuer identity from SAML user
+      const issuerId =
+        samlUser.id ||
+        samlUser.uid ||
+        samlUser.username ||
+        samlUser.email ||
+        'unknown';
+
+      const issuerEmail = samlUser.email || '';
+      const primaryOrg =
+        samlUser.affiliation ||
+        samlUser.schacHomeOrganization ||
+        normalizedDomains[0];
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const ttlSeconds = parseInt(process.env.INSTITUTION_INVITE_EXPIRATION_SECONDS || '259200', 10); // 3 days
+
+      const payload = {
+        type: 'institution_invite',
+        organizationDomains: normalizedDomains,
+        issuerUserId: issuerId,
+        issuerEmail,
+        issuerInstitution: primaryOrg,
+        expectedWallet: wallet,
+        nonce: `${issuerId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        iat: nowSec,
+        exp: nowSec + ttlSeconds,
+        aud: process.env.INSTITUTION_INVITE_AUDIENCE || 'blockchain-services',
+      };
+
+      const token = jwt.sign(payload, this.privateKey, {
+        algorithm: 'RS256',
+        issuer: process.env.JWT_ISSUER || 'marketplace',
+      });
+
+      devLog.log('? Institution invite token generated for:', issuerId, 'domains:', normalizedDomains);
+
+      return { token, payload };
+    } catch (error) {
+      devLog.error('? Failed to generate institution invite token:', error.message);
+      throw new Error(`Institution invite token generation failed: ${error.message}`);
+    }
+  }
 }
 
 // Create singleton instance

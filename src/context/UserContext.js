@@ -148,9 +148,14 @@ function UserDataCore({ children }) {
         originalHandleError(error, context);
     }, [originalHandleError]);
 
-    // Computed values
-    const isProvider = Boolean(providerStatus?.isLabProvider);
-    const isLoggedIn = (isConnected && Boolean(address) && !isWalletLoading) || (isSSO && Boolean(user));
+      // Computed values
+      const isProvider = Boolean(providerStatus?.isLabProvider);
+      // Consider user logged in if either:
+      // - Wallet is connected and stable, or
+      // - We have any user object (SSO session)
+      const isLoggedIn =
+        (isConnected && Boolean(address) && !isWalletLoading) ||
+        Boolean(user);
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
     // Combined loading state - don't wait for providers list for basic functionality
