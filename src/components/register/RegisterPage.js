@@ -125,7 +125,7 @@ export default function RegisterPage() {
                 <div
                   className={`
                     relative bg-white rounded-2xl shadow-xl p-8
-                    transform transition-all duration-500 ease-out
+                    transition-all duration-500 ease-out
                     hover:shadow-2xl hover:-translate-y-2
                     ${hoveredCard === 'consumer' ? 'scale-105 z-10' : hoveredCard ? 'scale-95 opacity-75' : 'scale-100'}
                     border-2 border-transparent hover:border-header-bg
@@ -145,7 +145,7 @@ export default function RegisterPage() {
                         Consumer
                       </h2>
                       <div className={`
-                        w-6 h-6 rounded-full border-2 flex items-center justify-center
+                        size-6 rounded-full border-2 flex items-center justify-center
                         transition-all duration-300
                         ${hoveredCard === 'consumer' ? 'border-header-bg bg-header-bg' : 'border-gray-300'}
                       `}>
@@ -163,9 +163,9 @@ export default function RegisterPage() {
                     {/* Icon */}
                     <div className="flex justify-center my-8">
                       <div className={`
-                        w-24 h-24 rounded-full flex items-center justify-center
+                        size-24 rounded-full flex items-center justify-center
                         bg-gradient-to-br from-header-bg/50 to-header-bg/20
-                        transform transition-all duration-500
+                        transition-all duration-500
                         ${hoveredCard === 'consumer' ? 'scale-110 rotate-6' : 'scale-100'}
                         group-hover:shadow-lg
                       `}>
@@ -197,7 +197,7 @@ export default function RegisterPage() {
                       variant="primary"
                       size="lg"
                       width="full"
-                      className="transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg !bg-[#8ab4d4] hover:!bg-[#7aa3c4]"
+                      className="transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg !bg-[#8ab4d4] hover:!bg-[#7aa3c4]"
                       onClick={(e) => {
                         e.stopPropagation()
                         setInstitutionMode('consumer')
@@ -212,7 +212,7 @@ export default function RegisterPage() {
                 <div
                   className={`
                     relative bg-white rounded-2xl shadow-xl p-8
-                    transform transition-all duration-500 ease-out
+                    transition-all duration-500 ease-out
                     hover:shadow-2xl hover:-translate-y-2
                     ${hoveredCard === 'provider' ? 'scale-105 z-10' : hoveredCard ? 'scale-95 opacity-75' : 'scale-100'}
                     border-2 border-transparent hover:border-text-secondary
@@ -232,7 +232,7 @@ export default function RegisterPage() {
                         Provider
                       </h2>
                       <div className={`
-                        w-6 h-6 rounded-full border-2 flex items-center justify-center
+                        size-6 rounded-full border-2 flex items-center justify-center
                         transition-all duration-300
                         ${hoveredCard === 'provider' ? 'border-text-secondary bg-text-secondary' : 'border-gray-300'}
                       `}>
@@ -244,15 +244,15 @@ export default function RegisterPage() {
 
                     {/* Description */}
                     <p className="text-gray-600 mb-6 leading-relaxed min-h-[80px]">
-                      List and share your institution's labs in the marketplace. Receive payouts for external reservations and expand your reach worldwide.
+                      List and share your institution&rsquo;s labs in the marketplace. Receive payouts for external reservations and expand your reach worldwide.
                     </p>
 
                     {/* Icon */}
                     <div className="flex justify-center my-8">
                       <div className={`
-                        w-24 h-24 rounded-full flex items-center justify-center
+                        size-24 rounded-full flex items-center justify-center
                         bg-gradient-to-br from-text-secondary/20 to-text-secondary/5
-                        transform transition-all duration-500
+                        transition-all duration-500
                         ${hoveredCard === 'provider' ? 'scale-110 -rotate-6' : 'scale-100'}
                         group-hover:shadow-lg
                       `}>
@@ -284,7 +284,7 @@ export default function RegisterPage() {
                       variant="primary"
                       size="lg"
                       width="full"
-                      className="transform transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg !bg-text-secondary hover:!bg-text-secondary/90"
+                      className="transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg !bg-text-secondary hover:!bg-text-secondary/90"
                       onClick={(e) => {
                         e.stopPropagation()
                         setInstitutionMode('provider')
