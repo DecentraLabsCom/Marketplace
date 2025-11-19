@@ -108,7 +108,7 @@ export default function ProviderRegisterForm() {
   // Show loading state while checking user status
   if (isLoading) {
     return (
-      <Container padding="sm" className="text-center">
+      <Container padding="sm" className="text-center mt-6">
         <div className="flex-center space-x-2">
           <div className="spinner-md border-blue-600"></div>
           <span>Loading...</span>
@@ -120,7 +120,7 @@ export default function ProviderRegisterForm() {
   if (isProvider) {
     return (
       <Container padding="sm" className="text-center">
-        <div className="bg-success-bg border border-success-border rounded-lg p-6 max-w-md mx-auto">
+        <div className="bg-success-bg border border-success-border rounded-lg p-6 max-w-md mx-auto mt-6">
           <h2 className="text-success-text text-xl font-semibold mb-2">Already Registered</h2>
           <p className="text-success">You are already registered as a provider.</p>
         </div>

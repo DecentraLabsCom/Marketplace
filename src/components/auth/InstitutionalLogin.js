@@ -16,7 +16,13 @@ export default function InstitutionalLogin({ setIsModalOpen }) {
 
   const handleInstitutionalLogin = () => {
     setIsModalOpen(false);
-    router.push("/api/auth/sso/saml2/login");
+    // In development, allow optional mock SSO flow for local testing
+    const useMockSSO = process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === 'true';
+    if (useMockSSO) {
+      router.push("/api/auth/dev/mock-sso");
+    } else {
+      router.push("/api/auth/sso/saml2/login");
+    }
   }
 
   return (

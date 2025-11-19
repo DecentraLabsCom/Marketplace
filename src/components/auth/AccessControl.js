@@ -76,7 +76,7 @@ export default function AccessControl({
   // Show loading state while wallet connection is being determined
   if (isWalletLoading || isLoading) {
     return (
-      <Container padding="sm" className="text-white text-center">
+      <Container padding="sm" className="text-white text-center mt-6">
         <div className="flex items-center justify-center space-x-2">
           <div className="animate-spin rounded-full size-6 border-b-2 border-white"></div>
           <span>Connecting...</span>
@@ -110,7 +110,7 @@ export default function AccessControl({
     
     // Standard access denied message
     return (
-      <Container padding="sm" className="text-white text-center">
+      <Container padding="sm" className="text-white text-center mt-6">
         {accessMessage}
       </Container>
     );
