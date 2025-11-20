@@ -37,6 +37,7 @@ export function BookingEventProvider({ children }) {
 
     // Helper function to validate and auto-confirm reservation requests using SSO server wallet
     const validateAndConfirmReservation = async (reservationKey, tokenId, requester, start, end) => {
+        devLog.log(`🔍 [BookingEventContext] Starting validateAndConfirmReservation for ${reservationKey}`);
         // DEDUPLICATION: Check FIRST if this unique reservation was already processed
         if (processedReservations.current.has(reservationKey)) {
             devLog.warn(`🔄 [BookingEventContext] Reservation ${reservationKey} already processed. Skipping duplicate.`);
@@ -103,8 +104,11 @@ export function BookingEventProvider({ children }) {
             // Check if SSO mutation is available
             if (!confirmReservationMutation) {
                 devLog.error(`❌ [BookingEventContext] confirmReservationMutation (SSO) is not available for reservation ${reservationKey}`);
+                devLog.error(`❌ [BookingEventContext] This indicates the hook useConfirmReservationRequest may not be mounted or failed to initialize`);
                 return;
             }
+            
+            devLog.log(`🚀 [BookingEventContext] About to call mutateAsync for reservation ${reservationKey}`);
             
             // Auto-confirm the reservation using SSO server wallet (transparent to user)
             devLog.log(`🔄 [BookingEventContext] Auto-confirming reservation ${reservationKey} for lab ${tokenId} via SSO server wallet`);
@@ -156,12 +160,14 @@ export function BookingEventProvider({ children }) {
         abi: contractABI,
         eventName: 'ReservationRequested',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
+        chainId: safeChain.id,
         onLogs: (logs) => {
             devLog.log('📝 [BookingEventContext] ReservationRequested events detected:', {
                 eventCount: logs.length,
                 contractAddress,
                 chainId: safeChain.id,
-                chainName: safeChain.name
+                chainName: safeChain.name,
+                currentUserAddress: address || userAddress
             });
             
             // Process each reservation request
@@ -200,6 +206,7 @@ export function BookingEventProvider({ children }) {
         abi: contractABI,
         eventName: 'ReservationConfirmed',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
+        chainId: safeChain.id,
         onLogs: (logs) => {
             devLog.log('✅ [BookingEventContext] ReservationConfirmed events detected:', logs.length);
             
@@ -233,6 +240,7 @@ export function BookingEventProvider({ children }) {
         abi: contractABI,
         eventName: 'BookingCanceled',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
+        chainId: safeChain.id,
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] BookingCanceled events detected:', logs.length);
             
@@ -267,6 +275,7 @@ export function BookingEventProvider({ children }) {
         abi: contractABI,
         eventName: 'ReservationRequestCanceled',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
+        chainId: safeChain.id,
         onLogs: (logs) => {
             devLog.log('🚫 [BookingEventContext] ReservationRequestCanceled events detected:', logs.length);
             
@@ -301,6 +310,7 @@ export function BookingEventProvider({ children }) {
         abi: contractABI,
         eventName: 'ReservationRequestDenied',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
+        chainId: safeChain.id,
         onLogs: (logs) => {
             devLog.log('⛔ [BookingEventContext] ReservationRequestDenied events detected:', logs.length);
             
