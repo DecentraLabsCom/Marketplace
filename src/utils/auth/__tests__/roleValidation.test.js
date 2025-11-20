@@ -27,8 +27,6 @@ describe("validateProviderRole", () => {
       ["faculty", "Faculty members can register"],
       ["staff", "Staff members can register"],
       ["employee", "Employees can register"],
-      ["member", "Members can register"],
-      ["affiliate", "Affiliates can register"],
     ])("accepts %s as valid provider role", (role) => {
       const result = validateProviderRole(role);
 
@@ -86,7 +84,6 @@ describe("validateProviderRole", () => {
     });
 
     test("denied roles take precedence over allowed roles", () => {
-      // If somehow a role contains both allowed and denied keywords
       const result = validateProviderRole("student-staff");
 
       expect(result.isValid).toBe(false);
@@ -189,11 +186,20 @@ describe("hasAdminRole", () => {
     expect(hasAdminRole("admin-staff")).toBe(true);
   });
 
+  test("returns true for faculty role", () => {
+    expect(hasAdminRole("faculty")).toBe(true);
+  });
+
+  test("returns true for employee role", () => {
+    expect(hasAdminRole("employee")).toBe(true);
+  });
+
   test.each([
-    ["faculty", "Faculty is not admin"],
-    ["student", "Student is not admin"],
-    ["employee", "Employee is not admin"],
-    ["member", "Member is not admin"],
+    ["student"],
+    ["member"],
+    ["affiliate"],
+    ["alum"],
+    ["library-walk-in"],
   ])("returns false for non-admin role: %s", (role) => {
     expect(hasAdminRole(role)).toBe(false);
   });
@@ -222,8 +228,6 @@ describe("getRoleDisplayName", () => {
       ["staff", "Staff"],
       ["employee", "Employee"],
       ["student", "Student"],
-      ["member", "Member"],
-      ["affiliate", "Affiliate"],
       ["alum", "Alumni"],
       ["library-walk-in", "Library Walk-in User"],
     ])("maps %s to %s", (role, expected) => {
@@ -251,7 +255,6 @@ describe("getRoleDisplayName", () => {
     });
 
     test("finds first matching keyword", () => {
-      // If role contains multiple keywords, returns first match
       expect(getRoleDisplayName("staff-student")).toBe("Staff");
     });
   });
@@ -291,13 +294,7 @@ describe("getRoleDisplayName", () => {
 
 describe("Role Constants", () => {
   test("PROVIDER_ALLOWED_ROLES contains expected roles", () => {
-    expect(PROVIDER_ALLOWED_ROLES).toEqual([
-      "faculty",
-      "staff",
-      "employee",
-      "member",
-      "affiliate",
-    ]);
+    expect(PROVIDER_ALLOWED_ROLES).toEqual(["faculty", "staff", "employee"]);
   });
 
   test("PROVIDER_DENIED_ROLES contains expected roles", () => {
