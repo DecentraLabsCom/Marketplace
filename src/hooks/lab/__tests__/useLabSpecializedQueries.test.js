@@ -1,7 +1,7 @@
 /**
- * Unit Tests: useLabSpecializedQueries
+ * Unit Tests for useLabSpecializedQueries hook
  *
- * Tests specialized lab query hooks including:
+ * Test Behaviors:
  * - useLabsForMarket (with/without unlisted labs)
  * - useLabById (single lab details)
  * - useLabsForProvider (provider's owned labs)
@@ -70,8 +70,11 @@ const mockProviderInfo = {
 jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useAllLabs: jest.fn(),
   useLab: jest.fn(),
-  useOwnerOf: jest.fn(),
+  useLabOwner: jest.fn(),
+  useLabOwnerSSO: { queryFn: jest.fn() },
+  useLabSSO: { queryFn: jest.fn() },
   useIsTokenListed: jest.fn(),
+  useIsTokenListedSSO: { queryFn: jest.fn() },
   LAB_QUERY_CONFIG: {
     staleTime: 30000,
     gcTime: 300000,
@@ -147,7 +150,7 @@ const createWrapper = () => {
 describe("useLabSpecializedQueries", () => {
   let mockUseAllLabs;
   let mockUseLab;
-  let mockUseOwnerOf;
+  let mockUseLabOwner;
   let mockUseIsTokenListed;
   let mockUseMetadata;
   let mockUseProviderMapping;
@@ -166,7 +169,7 @@ describe("useLabSpecializedQueries", () => {
 
     mockUseAllLabs = labAtomicQueries.useAllLabs;
     mockUseLab = labAtomicQueries.useLab;
-    mockUseOwnerOf = labAtomicQueries.useOwnerOf;
+    mockUseLabOwner = labAtomicQueries.useLabOwner;
     mockUseIsTokenListed = labAtomicQueries.useIsTokenListed;
     mockUseMetadata = metadataModule.useMetadata;
     mockUseProviderMapping = providerMappingModule.useProviderMapping;
@@ -192,7 +195,7 @@ describe("useLabSpecializedQueries", () => {
 
     mockUseLab.queryFn = jest.fn(() => Promise.resolve(mockLabData));
 
-    mockUseOwnerOf.mockReturnValue({
+    mockUseLabOwner.mockReturnValue({
       data: { owner: mockOwnerAddress },
       isLoading: false,
       isSuccess: true,
@@ -200,8 +203,12 @@ describe("useLabSpecializedQueries", () => {
       refetch: jest.fn(),
     });
 
-    mockUseOwnerOf.queryFn = jest.fn(() =>
+    labAtomicQueries.useLabOwnerSSO.queryFn = jest.fn(() =>
       Promise.resolve({ owner: mockOwnerAddress })
+    );
+
+    labAtomicQueries.useLabSSO.queryFn = jest.fn(() =>
+      Promise.resolve(mockLabData)
     );
 
     mockUseIsTokenListed.mockReturnValue({
@@ -212,7 +219,7 @@ describe("useLabSpecializedQueries", () => {
       refetch: jest.fn(),
     });
 
-    mockUseIsTokenListed.queryFn = jest.fn(() =>
+    labAtomicQueries.useIsTokenListedSSO.queryFn = jest.fn(() =>
       Promise.resolve({ isListed: true })
     );
 
@@ -534,7 +541,7 @@ describe("useLabSpecializedQueries", () => {
         expect(result.current.isSuccess).toBe(true);
       });
 
-      expect(mockUseOwnerOf).toHaveBeenCalled();
+      expect(mockUseLabOwner).toHaveBeenCalled();
       expect(mockUseProviderMapping).toHaveBeenCalled();
     });
 
@@ -565,7 +572,7 @@ describe("useLabSpecializedQueries", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.error).toBeTruthy();
+      expect(result.current.metadataError).toBeTruthy();
     });
 
     test("respects enabled option", () => {
@@ -906,7 +913,7 @@ describe("useLabSpecializedQueries", () => {
         expect(result.current.isLoading).toBe(false);
       });
 
-      expect(result.current.error).toBeTruthy();
+      expect(result.current.metadataError).toBeTruthy();
     });
   });
 
@@ -932,7 +939,7 @@ describe("useLabSpecializedQueries", () => {
     });
 
     test("handles labs without owners", async () => {
-      mockUseOwnerOf.mockReturnValue({
+      mockUseLabOwner.mockReturnValue({
         data: null,
         isLoading: false,
         isSuccess: true,
