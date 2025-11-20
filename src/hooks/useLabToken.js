@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAccount, useWaitForTransactionReceipt, useBalance } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
@@ -93,11 +93,13 @@ export function useLabTokenHook() {
     watch: shouldFetchBalance,
     query: {
       enabled: shouldFetchBalance,
-      staleTime: 10_000,
-      refetchInterval: shouldFetchBalance ? 12_000 : false,
+      gcTime: 0,
+      staleTime: 0,
+      refetchInterval: shouldFetchBalance ? 6_000 : false,
+      refetchIntervalInBackground: true,
       refetchOnReconnect: true,
-      refetchOnWindowFocus: false,
-      refetchOnMount: shouldFetchBalance,
+      refetchOnWindowFocus: true,
+      refetchOnMount: 'always',
     },
   });
   const balance = erc20Balance?.value;
@@ -109,6 +111,17 @@ export function useLabTokenHook() {
     false, 
     'lab'
   );
+
+  const previousShouldFetchRef = useRef(shouldFetchBalance);
+
+  useEffect(() => {
+    if (shouldFetchBalance && !previousShouldFetchRef.current) {
+      devLog.log('🔁 Balance tracking re-enabled. Forcing immediate refetch.');
+      refetchBalance();
+      refetchAllowance();
+    }
+    previousShouldFetchRef.current = shouldFetchBalance;
+  }, [shouldFetchBalance, refetchBalance, refetchAllowance]);
 
   // Read token decimals only if not cached using the updated hook
   const { data: contractDecimals } = useDefaultReadContract(
