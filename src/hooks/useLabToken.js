@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useAccount, useWaitForTransactionReceipt } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt, useBalance } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
@@ -35,6 +35,8 @@ const setCachedDecimals = (chainName, decimals) => {
     devLog.warn('Failed to cache decimals:', error);
   }
 };
+
+const isValidAddress = (addr) => typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr);
 
 /**
  * Clear decimals cache (useful for debugging or network switches)
@@ -76,18 +78,26 @@ export function useLabTokenHook() {
   const chainName = safeChain.name.toLowerCase();
   const labTokenAddress = contractAddressesLAB[chainName];
   const diamondContractAddress = contractAddresses[chainName];
+  const normalizedLabTokenAddress = isValidAddress(labTokenAddress) ? labTokenAddress : undefined;
+  const shouldFetchBalance = Boolean(address && normalizedLabTokenAddress);
   
   const [lastTxHash, setLastTxHash] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [cachedDecimals, setCachedDecimalsState] = useState(() => getCachedDecimals(chainName));
 
-  // Read user balance using the updated hook
-  const { data: balance, refetch: refetchBalance } = useDefaultReadContract(
-    'balanceOf', 
-    [address], 
-    false, 
-    'lab'
-  );
+  // Read user token balance via wagmi useBalance for better reliability
+  const { data: erc20Balance, refetch: refetchBalance } = useBalance({
+    address,
+    token: normalizedLabTokenAddress,
+    chainId: safeChain.id,
+    query: {
+      enabled: shouldFetchBalance,
+      staleTime: 15_000,
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: false,
+    },
+  });
+  const balance = erc20Balance?.value;
 
   // Read allowance for diamond contract using the updated hook
   const { data: allowance, refetch: refetchAllowance } = useDefaultReadContract(

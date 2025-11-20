@@ -33,6 +33,9 @@ export default function useDefaultReadContract(contractFunctionName, args = [], 
     abi = contractABI;
   }
 
+  // Validate that all required arguments are defined and not null/undefined
+  const hasValidArgs = args.every(arg => arg !== undefined && arg !== null);
+
   return useReadContract({
     abi,
     address,
@@ -40,7 +43,7 @@ export default function useDefaultReadContract(contractFunctionName, args = [], 
     args: args || [],
     chainId: safeChain.id,
     query: {
-      enabled: !!address,
+      enabled: !!address && hasValidArgs,
       retry: 2,
       retryOnMount: true,
       refetchOnReconnect: true,
