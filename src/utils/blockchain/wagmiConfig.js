@@ -47,6 +47,8 @@ const createTransports = () => {
         wait: 200,
         batchSize: 3,  // Limit batch size for free tier compatibility
       },
+      // Enable polling for events with reasonable interval
+      pollingInterval: 4_000, // 4 seconds - balance between responsiveness and rate limits
     });
   };
 
@@ -125,6 +127,7 @@ const createTransports = () => {
     fallbackProviders.push(http('https://ethereum-sepolia-rpc.publicnode.com', {
       key: 'public-fallback',
       retryCount: 1,
+      pollingInterval: 4_000,
     }));
   }
 
@@ -137,11 +140,13 @@ const createTransports = () => {
   const mainnetTransport = http('https://ethereum-rpc.publicnode.com', {
     key: 'mainnet-public',
     batch: { batchSize: 3 },
+    pollingInterval: 4_000,
   });
   
   const polygonTransport = http('https://polygon-rpc.com', {
     key: 'polygon-public', 
     batch: { batchSize: 3 },
+    pollingInterval: 4_000,
   });
 
   _cachedTransports = {
