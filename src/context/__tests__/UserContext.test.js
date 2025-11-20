@@ -302,8 +302,14 @@ describe("UserData Context", () => {
       });
     });
 
-    test("clears user data when wallet is disconnected", async () => {
+    test("clears user data and logs out when wallet is disconnected AND no SSO session exists", async () => {
       const testAddress = "0x1234567890abcdef";
+
+      // SSO session is false
+      userHooks.useSSOSessionQuery.mockReturnValue({
+        data: { user: null, isSSO: false },
+        isLoading: false,
+      });
 
       wagmiHooks.useAccount.mockReturnValue({
         address: testAddress,
@@ -315,7 +321,6 @@ describe("UserData Context", () => {
       userHooks.useIsLabProvider.mockReturnValue({
         data: { isLabProvider: false },
         isLoading: false,
-        error: null,
       });
 
       const queryClient = createTestQueryClient();
@@ -323,10 +328,9 @@ describe("UserData Context", () => {
         wrapper: createWrapper(queryClient),
       });
 
-      await waitFor(() => {
-        expect(result.current.isConnected).toBe(true);
-      });
+      await waitFor(() => expect(result.current.isConnected).toBe(true));
 
+      // Disconnect wallet
       wagmiHooks.useAccount.mockReturnValue({
         address: null,
         isConnected: false,
@@ -339,6 +343,7 @@ describe("UserData Context", () => {
       await waitFor(() => {
         expect(result.current.isConnected).toBe(false);
         expect(result.current.isLoggedIn).toBe(false);
+        expect(result.current.user).toBeNull();
       });
     });
 
