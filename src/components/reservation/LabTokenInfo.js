@@ -14,6 +14,7 @@ import { useLabToken } from '@/context/LabTokenContext'
 export default function LabTokenInfo({ labPrice, durationMinutes, className = '' }) {
   const { 
     balance, 
+    allowance,
     decimals, 
     calculateReservationCost, 
     checkBalanceAndAllowance, 
@@ -31,7 +32,14 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
       hasSufficientBalance,
       hasSufficientAllowance
     };
-  }, [labPrice, durationMinutes, calculateReservationCost, checkBalanceAndAllowance]);
+  }, [
+    labPrice,
+    durationMinutes,
+    calculateReservationCost,
+    checkBalanceAndAllowance,
+    balance,
+    allowance
+  ]);
 
   const { reservationCost, hasSufficientBalance, hasSufficientAllowance } = calculations;
 
