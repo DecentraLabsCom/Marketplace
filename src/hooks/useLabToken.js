@@ -90,11 +90,14 @@ export function useLabTokenHook() {
     address,
     token: normalizedLabTokenAddress,
     chainId: safeChain.id,
+    watch: shouldFetchBalance,
     query: {
       enabled: shouldFetchBalance,
-      staleTime: 15_000,
+      staleTime: 10_000,
+      refetchInterval: shouldFetchBalance ? 12_000 : false,
       refetchOnReconnect: true,
       refetchOnWindowFocus: false,
+      refetchOnMount: shouldFetchBalance,
     },
   });
   const balance = erc20Balance?.value;
@@ -135,17 +138,21 @@ export function useLabTokenHook() {
   // Force refetch balance and allowance when wallet address changes
   // This ensures fresh data when user switches wallets in MetaMask
   useEffect(() => {
-    if (address) {
-      devLog.log('🔄 Wallet address changed, refetching balance and allowance:', address);
-      // Small delay to ensure Wagmi has updated its internal query cache with new address
+    if (address && shouldFetchBalance) {
+      devLog.log('🔄 Wallet or chain changed, refetching balance and allowance:', {
+        address,
+        chainId: safeChain.id
+      });
+
+      // Small delay to ensure Wagmi has updated its internal query cache with new address/chain
       const timeoutId = setTimeout(() => {
         refetchBalance();
         refetchAllowance();
-      }, 100);
+      }, 120);
       
       return () => clearTimeout(timeoutId);
     }
-  }, [address, refetchBalance, refetchAllowance]);
+  }, [address, safeChain.id, shouldFetchBalance, refetchBalance, refetchAllowance]);
 
   // Use cached decimals if available, otherwise fall back to contract data
   const decimals = cachedDecimals !== null ? cachedDecimals : contractDecimals;

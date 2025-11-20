@@ -160,6 +160,7 @@ export function BookingEventProvider({ children }) {
         abi: contractABI,
         eventName: 'ReservationRequested',
         enabled: !!contractAddress && !!safeChain.id, // Only enable when we have valid address
+        chainId: safeChain.id,
         onLogs: (logs) => {
             devLog.log('📝 [BookingEventContext] ReservationRequested events detected:', {
                 eventCount: logs.length,
