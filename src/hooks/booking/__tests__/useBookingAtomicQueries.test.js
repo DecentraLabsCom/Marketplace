@@ -33,7 +33,7 @@ jest.mock("@/utils/dev/logger", () => ({
     log: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
-    moduleLoaded: jest.fn(), // Essential to prevent crash
+    moduleLoaded: jest.fn(),
   },
 }));
 
