@@ -37,7 +37,7 @@ jest.mock("@/utils/dev/logger", () => ({
     log: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
-    moduleLoaded: jest.fn(), // Fixes the crash
+    moduleLoaded: jest.fn(),
   },
 }));
 
