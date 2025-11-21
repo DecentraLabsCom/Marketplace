@@ -18,7 +18,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useUserCacheUpdates } from "../useUserCacheUpdates";
 import { userQueryKeys, providerQueryKeys } from "@/utils/hooks/queryKeys";
-import { useIsLabProviderQuery } from "../useUserAtomicQueries";
+import { useIsLabProviderSSO } from "../useUserAtomicQueries";
 import devLog from "@/utils/dev/logger";
 
 // Mock query keys to isolate tests from actual implementation details
@@ -42,7 +42,7 @@ jest.mock("@/utils/hooks/queryKeys", () => ({
 
 // Mock the blockchain query to avoid real network calls during tests
 jest.mock("../useUserAtomicQueries", () => ({
-  useIsLabProviderQuery: {
+  useIsLabProviderSSO: {
     queryFn: jest.fn(),
   },
 }));
@@ -90,7 +90,7 @@ describe("useUserCacheUpdates hook", () => {
     devLog.error = jest.fn();
 
     // Default mock implementation for successful provider status check
-    useIsLabProviderQuery.queryFn.mockResolvedValue({
+    useIsLabProviderSSO.queryFn.mockResolvedValue({
       isLabProvider: true,
     });
   });
@@ -294,7 +294,7 @@ describe("useUserCacheUpdates hook", () => {
         "0xProvider123"
       );
 
-      expect(useIsLabProviderQuery.queryFn).toHaveBeenCalledWith({
+      expect(useIsLabProviderSSO.queryFn).toHaveBeenCalledWith({
         userAddress: "0xProvider123",
       });
       expect(status.isLabProvider).toBe(true);
@@ -326,7 +326,7 @@ describe("useUserCacheUpdates hook", () => {
 
     // Network failure scenario: tests error propagation from blockchain call
     test("handles fetch errors gracefully", async () => {
-      useIsLabProviderQuery.queryFn.mockRejectedValue(
+      useIsLabProviderSSO.queryFn.mockRejectedValue(
         new Error("Blockchain error")
       );
       const { result } = renderHook(() => useUserCacheUpdates(), { wrapper });
