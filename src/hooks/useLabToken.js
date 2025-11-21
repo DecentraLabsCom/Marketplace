@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAccount, useWaitForTransactionReceipt, useBalance } from 'wagmi'
 import { parseUnits, formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
@@ -90,11 +90,16 @@ export function useLabTokenHook() {
     address,
     token: normalizedLabTokenAddress,
     chainId: safeChain.id,
+    watch: shouldFetchBalance,
     query: {
       enabled: shouldFetchBalance,
-      staleTime: 15_000,
+      gcTime: 0,
+      staleTime: 0,
+      refetchInterval: shouldFetchBalance ? 6_000 : false,
+      refetchIntervalInBackground: true,
       refetchOnReconnect: true,
-      refetchOnWindowFocus: false,
+      refetchOnWindowFocus: true,
+      refetchOnMount: 'always',
     },
   });
   const balance = erc20Balance?.value;
@@ -106,6 +111,17 @@ export function useLabTokenHook() {
     false, 
     'lab'
   );
+
+  const previousShouldFetchRef = useRef(shouldFetchBalance);
+
+  useEffect(() => {
+    if (shouldFetchBalance && !previousShouldFetchRef.current) {
+      devLog.log('🔁 Balance tracking re-enabled. Forcing immediate refetch.');
+      refetchBalance();
+      refetchAllowance();
+    }
+    previousShouldFetchRef.current = shouldFetchBalance;
+  }, [shouldFetchBalance, refetchBalance, refetchAllowance]);
 
   // Read token decimals only if not cached using the updated hook
   const { data: contractDecimals } = useDefaultReadContract(
@@ -135,17 +151,21 @@ export function useLabTokenHook() {
   // Force refetch balance and allowance when wallet address changes
   // This ensures fresh data when user switches wallets in MetaMask
   useEffect(() => {
-    if (address) {
-      devLog.log('🔄 Wallet address changed, refetching balance and allowance:', address);
-      // Small delay to ensure Wagmi has updated its internal query cache with new address
+    if (address && shouldFetchBalance) {
+      devLog.log('🔄 Wallet or chain changed, refetching balance and allowance:', {
+        address,
+        chainId: safeChain.id
+      });
+
+      // Small delay to ensure Wagmi has updated its internal query cache with new address/chain
       const timeoutId = setTimeout(() => {
         refetchBalance();
         refetchAllowance();
-      }, 100);
+      }, 120);
       
       return () => clearTimeout(timeoutId);
     }
-  }, [address, refetchBalance, refetchAllowance]);
+  }, [address, safeChain.id, shouldFetchBalance, refetchBalance, refetchAllowance]);
 
   // Use cached decimals if available, otherwise fall back to contract data
   const decimals = cachedDecimals !== null ? cachedDecimals : contractDecimals;
