@@ -64,6 +64,37 @@ const buildAuthUrl = (baseUrl, endpoint) => {
   return `${cleanBase}/${endpoint}`;
 };
 
+/**
+ * Extracts timestamp (ms) from auth-service /message response.
+ * Backend returns both the message ("Login request: <timestampMs>") and timestampMs.
+ */
+const extractTimestampMs = (messageData) => {
+  const rawTimestamp = messageData.timestamp ?? messageData.timestampMs;
+  if (rawTimestamp !== undefined && rawTimestamp !== null) {
+    const numeric = Number(rawTimestamp);
+    if (!Number.isNaN(numeric)) {
+      return numeric;
+    }
+  }
+
+  if (typeof messageData.message === 'string') {
+    const match = messageData.message.match(/(\d+)\s*$/);
+    if (match && match[1]) {
+      const numeric = Number(match[1]);
+      if (!Number.isNaN(numeric)) {
+        return numeric;
+      }
+    }
+  }
+
+  throw new Error('Authentication message missing timestamp');
+};
+
+// Build the 13-char hex suffix expected by backend (no 0x prefix)
+const buildTimestampHex = (timestampMs) => {
+  return BigInt(timestampMs).toString(16).padStart(13, '0');
+};
+
 export const authenticateLabAccess = async (authEndpoint, userWallet, labId, signMessageAsync, reservationKey = null) => {
   try {
     // Step 1: Request message to sign from authentication service
@@ -71,30 +102,31 @@ export const authenticateLabAccess = async (authEndpoint, userWallet, labId, sig
     devLog.log('🔐 Requesting authentication message from:', messageUrl);
     
     const responseMessage = await fetch(messageUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ wallet: userWallet }),
+      method: "GET",
     });
 
     if (!responseMessage.ok) {
       throw new Error(`Failed to get authentication message. Status: ${responseMessage.status}`);
     }
 
-    const { message } = await responseMessage.json();
+    const messageData = await responseMessage.json();
+    const { message } = messageData;
+    const timestampMs = extractTimestampMs(messageData);
+    const timestampHex = buildTimestampHex(timestampMs);
     devLog.log('📝 Authentication message received, requesting signature...');
 
-    // Step 2: Sign the message using the user's wallet
+    // Step 2: Sign the message using the user's wallet (personal_sign)
     const signature = await signMessageAsync({ message });
+    const fullSignature = `${signature}${timestampHex}`; // backend expects signature + timestampHex suffix
     devLog.log('✅ Message signed successfully');
+    devLog.log('⏱️ Appended timestamp hex to signature for auth:', { timestampHex, timestampMs });
 
     // Step 3: Send authentication data to verify signature and get access token
     devLog.log('🔑 Verifying signature and requesting lab access token...');
     
     const auth2Payload = {
       wallet: userWallet,
-      signature: signature,
+      signature: fullSignature,
       labId: labId
     };
     
@@ -104,7 +136,7 @@ export const authenticateLabAccess = async (authEndpoint, userWallet, labId, sig
       devLog.log('📋 Including reservationKey in auth2:', reservationKey);
     }
     
-    const auth2Url = buildAuthUrl(authEndpoint, "auth2");
+    const auth2Url = buildAuthUrl(authEndpoint, "wallet-auth2");
     const responseAuth = await fetch(auth2Url, {
       method: "POST",
       headers: {
