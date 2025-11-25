@@ -149,10 +149,14 @@ describe("Lab Authentication Utilities", () => {
     });
 
     test("successfully authenticates with wallet signature", async () => {
+      const mockTimestamp = 1700000000000;
       // Mock message endpoint
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ message: "Sign this message" }),
+        json: async () => ({ 
+          message: "Sign this message", 
+          timestampMs: mockTimestamp 
+        }),
       });
 
       // Mock signature
@@ -189,7 +193,7 @@ describe("Lab Authentication Utilities", () => {
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ message: "Sign this" }),
+        json: async () => ({ message: "Sign this 1700000000000", timestampMs: 1700000000000 }),
       });
 
       mockSignMessageAsync.mockResolvedValue("0xSig");
@@ -219,7 +223,7 @@ describe("Lab Authentication Utilities", () => {
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ message: "Sign" }),
+        json: async () => ({ message: "Sign 1700000000000", timestampMs: 1700000000000 }),
       });
       mockSignMessageAsync.mockResolvedValue("0xSig");
       global.fetch.mockResolvedValueOnce({
@@ -239,7 +243,7 @@ describe("Lab Authentication Utilities", () => {
         "https://auth.example.com/message"
       );
       expect(global.fetch.mock.calls[1][0]).toBe(
-        "https://auth.example.com/auth2"
+        "https://auth.example.com/wallet-auth2"
       );
     });
 
@@ -262,7 +266,7 @@ describe("Lab Authentication Utilities", () => {
     test("throws error when auth2 request fails", async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ message: "Sign" }),
+        json: async () => ({ message: "Sign 1700000000000", timestampMs: 1700000000000 }),
       });
       mockSignMessageAsync.mockResolvedValue("0xSig");
       global.fetch.mockResolvedValueOnce({
@@ -283,7 +287,7 @@ describe("Lab Authentication Utilities", () => {
     test("throws error when signature is rejected", async () => {
       global.fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ message: "Sign" }),
+        json: async () => ({ message: "Sign 1700000000000", timestampMs: 1700000000000 }),
       });
       mockSignMessageAsync.mockRejectedValue(new Error("User rejected"));
 

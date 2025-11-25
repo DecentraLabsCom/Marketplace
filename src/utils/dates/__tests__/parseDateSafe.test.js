@@ -187,7 +187,8 @@ describe("isSameCalendarDay", () => {
     });
 
     test("returns true for different input types (same day)", () => {
-      const dateObj = new Date("2025-01-15");
+      // Use local constructor to avoid timezone-dependent UTC shifts
+      const dateObj = new Date(2025, 0, 15, 12, 0, 0);
       const dateStr = "2025-01-15";
       const timestamp = dateObj.getTime();
 
@@ -254,7 +255,7 @@ describe("isSameCalendarDay", () => {
     });
 
     test("handles leap year dates", () => {
-      const feb29 = new Date("2024-02-29");
+      const feb29 = new Date(2024, 1, 29, 12, 0, 0);
       const sameFeb29 = "2024-02-29";
 
       expect(isSameCalendarDay(feb29, sameFeb29)).toBe(true);

@@ -4,7 +4,6 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
-import { ethers } from 'ethers'
 import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
 
 /**
