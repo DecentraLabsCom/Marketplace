@@ -1,0 +1,52 @@
+# Dependabot configuration for automatic dependency updates
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Monitor npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 5
+    assignees:
+      - "DecentraLabsCom"
+    labels:
+      - "dependencies"
+      - "npm"
+    versioning-strategy: increase
+    # Group non-major updates together
+    groups:
+      development-dependencies:
+        patterns:
+          - "@testing-library/*"
+          - "jest*"
+          - "eslint*"
+          - "cypress"
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        patterns:
+          - "next"
+          - "react*"
+          - "wagmi"
+          - "@tanstack/*"
+        update-types:
+          - "patch"
+
+  # Monitor GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
