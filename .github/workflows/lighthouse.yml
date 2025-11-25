@@ -5,10 +5,7 @@ name: Lighthouse CI
 
 on:
   pull_request:
-    branches:
-      - main
-      - dual-query-architecture
-      - quality-assurance
+    branches: ['**']
 
 jobs:
   lighthouse:

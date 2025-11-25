@@ -2,9 +2,9 @@ name: Test Suite
 
 on:
   push:
-    branches: [main, quality-assurance, dual-query-architecture]
+    branches: ['**']
   pull_request:
-    branches: [main]
+    branches: ['**']
 
 jobs:
   test:

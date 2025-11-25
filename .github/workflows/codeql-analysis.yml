@@ -5,15 +5,9 @@ name: "CodeQL Analysis"
 
 on:
   push:
-    branches: 
-      - main
-      - dual-query-architecture
-      - quality-assurance
+    branches: ['**']
   pull_request:
-    branches: 
-      - main
-      - dual-query-architecture
-      - quality-assurance
+    branches: ['**']
   schedule:
     # Run every Monday at 6 AM UTC
     - cron: '0 6 * * 1'
