@@ -24,6 +24,16 @@ import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCa
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import devLog from '@/utils/dev/logger'
 
+const sanitizeProviderNameForUri = (name) => {
+  const base = (name || 'Provider').toString().trim()
+  const sanitized = base
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return sanitized || 'Provider'
+}
+
 /**
  * Provider dashboard page component
  * Displays provider's labs, reservations calendar, and provides lab management tools
@@ -161,7 +171,8 @@ export default function ProviderDashboard() {
     const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
       ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
-    labData.uri = labData.uri || `Lab-${user?.name || 'Provider'}-${maxId + 1}.json`;
+    const providerSegment = sanitizeProviderNameForUri(user?.name);
+    labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
 
     // Store the original human-readable price before blockchain conversion
     const originalPrice = labData.price;
@@ -313,7 +324,8 @@ export default function ProviderDashboard() {
     
     // Use original lab's URI to preserve consistency, regardless of provider name changes
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
-    labData.uri = labData.uri || originalLab?.uri || `Lab-${user.name}-${labData.id}.json`;
+    const providerSegment = sanitizeProviderNameForUri(user?.name);
+    labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
     const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 

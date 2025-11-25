@@ -29,6 +29,14 @@ const formatWalletAddress = (address) => {
   return `${address.substring(0, 3)}...${address.substring(address.length - 3)}`;
 };
 
+const extractProviderFromUri = (uri) => {
+  if (!uri || typeof uri !== 'string') return null;
+  const match = uri.match(/Lab-([A-Za-z0-9-]+)-\d+/);
+  if (!match) return null;
+  const provider = match[1].replace(/-/g, ' ').trim();
+  return provider || match[1];
+};
+
 /**
  * Helper function to extract images from metadata attributes
  * @param {Object} metadataData - Metadata object from API
@@ -356,12 +364,8 @@ export const useLabsForMarket = (options = {}) => {
 
       // Fallbacks
       if (!enrichedLab.provider) {
-        if (lab.base?.uri) {
-          const uriMatch = lab.base.uri.match(/Lab-([A-Z]+)-\d+/);
-          enrichedLab.provider = uriMatch ? uriMatch[1] : 'Unknown Provider';
-        } else {
-          enrichedLab.provider = 'Unknown Provider';
-        }
+        const providerFromUri = extractProviderFromUri(lab.base?.uri);
+        enrichedLab.provider = providerFromUri || 'Unknown Provider';
       }
 
       if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
@@ -556,12 +560,8 @@ export const useLabById = (labId, options = {}) => {
 
     // Fallbacks
     if (!enrichedLab.provider) {
-      if (lab.base?.uri) {
-        const uriMatch = lab.base.uri.match(/Lab-([A-Z]+)-\d+/);
-        enrichedLab.provider = uriMatch ? uriMatch[1] : 'Unknown Provider';
-      } else {
-        enrichedLab.provider = 'Unknown Provider';
-      }
+      const providerFromUri = extractProviderFromUri(lab.base?.uri);
+      enrichedLab.provider = providerFromUri || 'Unknown Provider';
     }
 
     if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;

@@ -153,7 +153,7 @@ export async function POST(req) {
     }
 
     // Validate URI format for local files
-    if (uri.startsWith('Lab-') && !/^Lab-\w+-\d+\.json$/.test(uri)) {
+    if (uri.startsWith('Lab-') && !/^Lab-[\w-]+-\d+\.json$/.test(uri)) {
       return NextResponse.json(
         { 
           error: 'Invalid lab URI format. Expected: Lab-{provider}-{id}.json',
