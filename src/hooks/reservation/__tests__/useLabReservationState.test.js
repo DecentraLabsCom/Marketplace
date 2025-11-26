@@ -231,6 +231,7 @@ describe("useLabReservationState", () => {
       expect(generateTimeOptions).toHaveBeenCalledWith({
         date: expect.any(Date),
         interval: 15,
+        lab: mockLab,
         bookingInfo: expect.any(Array),
       });
       expect(result.current.availableTimes).toHaveLength(2);
@@ -456,7 +457,7 @@ describe("useLabReservationState", () => {
 
       expect(result.current.availableTimes).toBeDefined();
       expect(generateTimeOptions).toHaveBeenCalledWith(
-        expect.objectContaining({ bookingInfo: [] })
+        expect.objectContaining({ bookingInfo: [], lab: mockLab })
       );
     });
 

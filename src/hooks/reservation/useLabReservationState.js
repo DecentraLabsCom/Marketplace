@@ -128,6 +128,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     return generateTimeOptions({
       date,
       interval: duration,
+      lab: selectedLab,
       bookingInfo: (labBookings || []).filter(booking => 
         !isCancelledBooking(booking)
       )

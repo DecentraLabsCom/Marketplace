@@ -143,6 +143,79 @@ describe("generateTimeOptions", () => {
     });
   });
 
+  describe("Availability metadata", () => {
+    test("disables slots on days outside availableDays", () => {
+      dateFns.isToday.mockReturnValue(false);
+      const date = new Date("2025-06-15T00:00:00"); // Sunday
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [],
+        lab: {
+          availableDays: ["MONDAY", "TUESDAY"],
+        },
+      });
+
+      const allDisabled = result.every((slot) => slot.disabled);
+      expect(allDisabled).toBe(true);
+    });
+
+    test("disables slots outside availableHours window", () => {
+      dateFns.isToday.mockReturnValue(false);
+      const date = new Date("2025-06-16T00:00:00"); // Monday
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [],
+        lab: {
+          availableDays: ["MONDAY"],
+          availableHours: { start: "09:00", end: "17:00" },
+        },
+      });
+
+      const eightAM = result.find((slot) => slot.value === "08:00");
+      const noon = result.find((slot) => slot.value === "12:00");
+      const sixPM = result.find((slot) => slot.value === "18:00");
+
+      expect(eightAM.disabled).toBe(true);
+      expect(noon.disabled).toBe(false);
+      expect(sixPM.disabled).toBe(true);
+    });
+
+    test("disables slots overlapping maintenance windows", () => {
+      dateFns.isToday.mockReturnValue(false);
+      const date = new Date("2025-06-16T00:00:00"); // Monday
+      const maintenanceStart = Math.floor(
+        new Date("2025-06-16T10:00:00").getTime() / 1000
+      );
+      const maintenanceEnd = Math.floor(
+        new Date("2025-06-16T12:00:00").getTime() / 1000
+      );
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [],
+        lab: {
+          availableDays: ["MONDAY"],
+          unavailableWindows: [
+            { startUnix: maintenanceStart, endUnix: maintenanceEnd },
+          ],
+        },
+      });
+
+      const tenAM = result.find((slot) => slot.value === "10:00");
+      const elevenAM = result.find((slot) => slot.value === "11:00");
+      const nineAM = result.find((slot) => slot.value === "09:00");
+
+      expect(tenAM.disabled).toBe(true);
+      expect(elevenAM.disabled).toBe(true);
+      expect(nineAM.disabled).toBe(false);
+    });
+  });
+
   describe("Booking overlap detection", () => {
     test("blocks slots that overlap with booking", () => {
       dateFns.isToday.mockReturnValue(false);

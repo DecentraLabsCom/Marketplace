@@ -213,6 +213,7 @@ export default function LabReservation({ id }) {
       const finalAvailableTimes = generateTimeOptions({
         date,
         interval: duration,
+        lab: selectedLab,
         bookingInfo: (labBookings || []).filter(booking => 
           !isCancelledBooking(booking)
         )
