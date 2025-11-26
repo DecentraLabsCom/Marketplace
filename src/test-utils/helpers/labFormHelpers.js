@@ -41,18 +41,8 @@ export const fillFullSetupForm = async (labData) => {
   try {
     const dateInputs = screen.queryAllByTestId('mock-date-picker');
     if (dateInputs.length >= 2) {
-      // Convert MM/DD/YYYY to YYYY-MM-DD for input[type="date"]
-      const opensDate = labData.opens; // "01/01/2025"
-      const closesDate = labData.closes; // "12/31/2025"
-
-      const [openMonth, openDay, openYear] = opensDate.split('/');
-      const [closeMonth, closeDay, closeYear] = closesDate.split('/');
-
-      const opensFormatted = `${openYear}-${openMonth.padStart(2, '0')}-${openDay.padStart(2, '0')}`;
-      const closesFormatted = `${closeYear}-${closeMonth.padStart(2, '0')}-${closeDay.padStart(2, '0')}`;
-
-      fireEvent.change(dateInputs[0], { target: { value: opensFormatted } });
-      fireEvent.change(dateInputs[1], { target: { value: closesFormatted } });
+      fireEvent.change(dateInputs[0], { target: { value: labData.opens } });
+      fireEvent.change(dateInputs[1], { target: { value: labData.closes } });
     }
   } catch (e) {
     console.warn('Could not fill date inputs:', e.message);

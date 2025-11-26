@@ -84,6 +84,7 @@ const applyMetadataAttributes = (lab, metadata) => {
   if (attributeMap.maxConcurrentUsers !== undefined) lab.maxConcurrentUsers = attributeMap.maxConcurrentUsers
   if (attributeMap.unavailableWindows !== undefined) lab.unavailableWindows = attributeMap.unavailableWindows
   if (attributeMap.termsOfUse !== undefined) lab.termsOfUse = attributeMap.termsOfUse
+  if (attributeMap.timezone !== undefined) lab.timezone = attributeMap.timezone
 
   return attributeMap
 }

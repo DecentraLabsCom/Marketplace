@@ -7,8 +7,8 @@
  * @param {string} localLab.description - Lab description (required)
  * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
  * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL format)
- * @param {string} localLab.opens - Lab opening date (MM/DD/YYYY format)
- * @param {string} localLab.closes - Lab closing date (MM/DD/YYYY format)
+ * @param {number} localLab.opens - Lab opening date (Unix seconds)
+ * @param {number} localLab.closes - Lab closing date (Unix seconds)
  * @param {Array} localLab.images - Array of image URLs/files
  * @param {Array} localLab.docs - Array of document URLs/files
  * @param {Object} options - Validation options
@@ -16,8 +16,6 @@
  * @param {string} options.docInputType - Type of document input ('file' or 'url')
  * @returns {Object} Object containing validation errors (empty if all valid)
  */
-
-import { validateDateString, validateDateRange } from './dates/dateValidation'
 
 const WEEKDAY_VALUES = [
   'MONDAY',
@@ -36,6 +34,10 @@ const timeToMinutes = (time) => {
 
 const normalizeArray = (value) => Array.isArray(value) ? value : []
 const normalizeObject = (value) => (value && typeof value === 'object') ? value : {}
+const toUnixSeconds = (value) => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : null
+}
 export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
@@ -71,23 +73,17 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
 
     if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
 
-    // Enhanced date validation
-    if (!localLab.opens?.trim()) {
-        errors.opens = 'Opening date is required';
-    } else {
-        const opensValidation = validateDateString(localLab.opens);
-        if (!opensValidation.isValid) {
-            errors.opens = opensValidation.error;
-        }
+    // Enhanced date validation (Unix seconds)
+    const opensUnix = toUnixSeconds(localLab.opens);
+    const closesUnix = toUnixSeconds(localLab.closes);
+    if (!opensUnix) {
+        errors.opens = 'Opening date (Unix seconds) is required';
     }
-
-    if (!localLab.closes?.trim()) {
-        errors.closes = 'Closing date is required';
-    } else {
-        const closesValidation = validateDateString(localLab.closes);
-        if (!closesValidation.isValid) {
-            errors.closes = closesValidation.error;
-        }
+    if (!closesUnix) {
+        errors.closes = 'Closing date (Unix seconds) is required';
+    }
+    if (!errors.opens && !errors.closes && opensUnix && closesUnix && closesUnix < opensUnix) {
+        errors.closes = 'Closing date must be after or equal to opening date';
     }
 
     if (!localLab.timeSlots || localLab.timeSlots.length === 0 ||
@@ -137,18 +133,16 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const unavailableWindows = normalizeArray(localLab.unavailableWindows);
     const hasInvalidWindow = unavailableWindows.some((window) => {
         if (!window) return false;
-        const { start, end, reason } = window;
-        const hasAnyValue = Boolean(start || end || (reason && reason.trim()));
+        const { startUnix, endUnix, reason } = window;
+        const hasAnyValue = Boolean(startUnix || endUnix || (reason && reason.trim()));
         if (!hasAnyValue) return false;
-        if (!start || !end || !reason?.trim()) {
+        if (!startUnix || !endUnix || !reason?.trim()) {
             return true;
         }
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        return isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate >= endDate;
+        return startUnix >= endUnix;
     });
     if (hasInvalidWindow) {
-        errors.unavailableWindows = 'Every maintenance window must include valid start/end timestamps and a reason';
+        errors.unavailableWindows = 'Every maintenance window must include valid start/end Unix timestamps and a reason';
     }
 
     const termsOfUse = normalizeObject(localLab.termsOfUse);
@@ -157,24 +151,12 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
             errors.termsOfUseUrl = 'Invalid terms of use URL format';
         }
     }
-    if (!termsOfUse.effectiveDate?.trim()) {
-        errors.termsOfUseEffectiveDate = 'Effective date is required';
-    } else {
-        const effectiveDateValidation = validateDateString(termsOfUse.effectiveDate);
-        if (!effectiveDateValidation.isValid) {
-            errors.termsOfUseEffectiveDate = effectiveDateValidation.error;
-        }
+    const effectiveDateUnix = toUnixSeconds(termsOfUse.effectiveDate);
+    if (!effectiveDateUnix) {
+        errors.termsOfUseEffectiveDate = 'Effective date (Unix seconds) is required';
     }
     if (termsOfUse.sha256?.trim() && !shaRegex.test(termsOfUse.sha256.trim())) {
         errors.termsOfUseSha = 'SHA256 must be a 64-character hexadecimal string';
-    }
-
-    // Enhanced date range validation
-    if (!errors.opens && !errors.closes && localLab.opens?.trim() && localLab.closes?.trim()) {
-        const rangeValidation = validateDateRange(localLab.opens, localLab.closes);
-        if (!rangeValidation.isValid) {
-            errors.closes = rangeValidation.error;
-        }
     }
 
     // Image and Document link validations

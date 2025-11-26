@@ -115,8 +115,8 @@ export default function ProviderDashboard() {
     accessURI: '',
     accessKey: '',
     timeSlots: [],
-    opens: '',
-    closes: '',
+    opens: null,
+    closes: null,
     docs: [],
     images: [],
     uri: '',
@@ -127,7 +127,7 @@ export default function ProviderDashboard() {
     termsOfUse: {
       url: '',
       version: '',
-      effectiveDate: '',
+      effectiveDate: null,
       sha256: ''
     }
   };

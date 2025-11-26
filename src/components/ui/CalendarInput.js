@@ -10,10 +10,16 @@ const DISPLAY_FORMAT_DATETIME = 'MMM d, yyyy h:mm aa'
 const OUTPUT_FORMAT_DATE = 'MM/dd/yyyy'
 
 const parseDateValue = (value, { withTime }) => {
-  if (!value) return null
+  if (!value && value !== 0) return null
 
   if (value instanceof Date) {
     return isValid(value) ? value : null
+  }
+
+  const numericValue = Number(value)
+  if (Number.isFinite(numericValue)) {
+    // Interpret numeric values as Unix seconds
+    return new Date(numericValue * 1000)
   }
 
   if (withTime) {
@@ -21,11 +27,11 @@ const parseDateValue = (value, { withTime }) => {
     return isNaN(parsed.getTime()) ? null : parsed
   }
 
-  const normalizedValue = value.replace(/-/g, '/')
+  const normalizedValue = String(value).replace(/-/g, '/')
   const triedFormats = [
     () => parse(normalizedValue, OUTPUT_FORMAT_DATE, new Date()),
     () => parse(normalizedValue, 'dd/MM/yyyy', new Date()),
-    () => parseISO(value),
+    () => parseISO(String(value)),
     () => new Date(value)
   ]
 
@@ -41,8 +47,9 @@ const parseDateValue = (value, { withTime }) => {
   return null
 }
 
-const formatDateValue = (date, { withTime, outputFormat }) => {
-  if (!date || !isValid(date)) return ''
+const formatDateValue = (date, { withTime, outputFormat, outputAsUnix }) => {
+  if (!date || !isValid(date)) return outputAsUnix ? null : ''
+  if (outputAsUnix) return Math.floor(date.getTime() / 1000)
   if (withTime) return date.toISOString()
   const targetFormat = outputFormat || OUTPUT_FORMAT_DATE
   return format(date, targetFormat)
@@ -70,7 +77,8 @@ export default function CalendarInput({
   inline = false,
   containerClassName,
   labelClassName,
-  inputClassName
+  inputClassName,
+  outputAsUnix = true
 }) {
   const selectedDate = useMemo(
     () => parseDateValue(value, { withTime }),
@@ -96,15 +104,15 @@ export default function CalendarInput({
 
   const handleChange = (date) => {
     if (!date) {
-      onChange('')
+      onChange(outputAsUnix ? null : '')
       return
     }
-    onChange(formatDateValue(date, { withTime, outputFormat }))
+    onChange(formatDateValue(date, { withTime, outputFormat, outputAsUnix }))
   }
 
   const handleClear = () => {
     if (!disabled) {
-      onChange('')
+      onChange(outputAsUnix ? null : '')
     }
   }
 
@@ -167,7 +175,7 @@ export default function CalendarInput({
 
 CalendarInput.propTypes = {
   label: PropTypes.string,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
   onChange: PropTypes.func.isRequired,
   placeholder: PropTypes.string,
   helperText: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
@@ -187,5 +195,6 @@ CalendarInput.propTypes = {
   inline: PropTypes.bool,
   containerClassName: PropTypes.string,
   labelClassName: PropTypes.string,
-  inputClassName: PropTypes.string
+  inputClassName: PropTypes.string,
+  outputAsUnix: PropTypes.bool
 }

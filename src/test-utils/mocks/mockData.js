@@ -13,8 +13,8 @@ export const mockLabs = [
     auth: "https://auth.example.com/lab1",
     accessURI: "https://lab1.example.com",
     accessKey: "access-key-lab1",
-    opens: "01/01/2024",
-    closes: "12/31/2025",
+    opens: 1704067200,
+    closes: 1767139200,
     timeSlots: ["30", "60", "120"],
     availableDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
     availableHours: {
@@ -23,7 +23,7 @@ export const mockLabs = [
     },
     maxConcurrentUsers: 10,
     termsOfUse: {
-      effectiveDate: "01/01/2024",
+      effectiveDate: 1704067200,
       url: "https://example.com/terms-lab1.pdf",
       version: "1.0",
       sha256: "",
@@ -46,8 +46,8 @@ export const mockLabs = [
     auth: "https://auth.example.com/lab2",
     accessURI: "https://lab2.example.com",
     accessKey: "access-key-lab2",
-    opens: "02/01/2024",
-    closes: "12/31/2025",
+    opens: 1706745600,
+    closes: 1767139200,
     timeSlots: ["60", "120"],
     availableDays: ["MONDAY", "WEDNESDAY", "FRIDAY"],
     availableHours: {
@@ -56,7 +56,7 @@ export const mockLabs = [
     },
     maxConcurrentUsers: 5,
     termsOfUse: {
-      effectiveDate: "02/01/2024",
+      effectiveDate: 1706745600,
       url: "https://example.com/terms-lab2.pdf",
       version: "1.0",
       sha256: "",

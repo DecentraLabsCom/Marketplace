@@ -43,9 +43,9 @@ jest.mock("lucide-react", () => ({
 jest.mock("@/components/ui", () => ({
   CalendarInput: ({ value, onChange, disabled, placeholder }) => (
     <input
-      type="text"
-      value={value || ""}
-      onChange={(e) => onChange?.(e.target.value)}
+      type="number"
+      value={value ?? ""}
+      onChange={(e) => onChange?.(e.target.value ? Number(e.target.value) : null)}
       disabled={disabled}
       placeholder={placeholder}
       data-testid="calendar-input"
@@ -101,8 +101,8 @@ const mockLab = {
   auth: "https://auth.test.com",
   accessURI: "https://access.test.com",
   accessKey: "key123",
-  opens: "01/15/2024",
-  closes: "12/31/2024",
+  opens: 1705276800,
+  closes: 1735603200,
   availableDays: [],
   availableHours: { start: "", end: "" },
   unavailableWindows: [],

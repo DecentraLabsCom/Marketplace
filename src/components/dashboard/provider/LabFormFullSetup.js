@@ -115,8 +115,8 @@ export default function LabFormFullSetup({
   const handleAddWindow = () => {
     if (disabled) return
     const newWindow = { 
-      start: '', 
-      end: '', 
+      startUnix: null, 
+      endUnix: null, 
       reason: '', 
       clientId: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}` 
     }
@@ -383,7 +383,7 @@ export default function LabFormFullSetup({
           <div className="w-full md:flex-1">
             <CalendarInput
               label="Opens"
-              value={localLab?.opens || ''}
+              value={localLab?.opens ?? null}
               onChange={(value) => handleBasicChange('opens', value)}
               disabled={disabled}
               containerClassName="w-full"
@@ -394,7 +394,7 @@ export default function LabFormFullSetup({
           <div className="w-full md:flex-1">
             <CalendarInput
               label="Closes"
-              value={localLab?.closes || ''}
+              value={localLab?.closes ?? null}
               onChange={(value) => handleBasicChange('closes', value)}
               disabled={disabled}
               containerClassName="w-full"
@@ -505,13 +505,13 @@ export default function LabFormFullSetup({
 
         <div className="space-y-4">
           {unavailableWindows.map((window, index) => (
-            <div key={window.clientId || `${window.start}-${index}`} className="border rounded-md p-4 space-y-4">
+            <div key={window.clientId || `${window.startUnix}-${index}`} className="border rounded-md p-4 space-y-4">
               <div className="flex flex-col md:flex-row md:gap-6">
                 <div className="w-full md:flex-1">
                   <CalendarInput
                     label="Starts"
-                    value={window.start || ''}
-                    onChange={(value) => handleWindowChange(index, { start: value })}
+                    value={window.startUnix}
+                    onChange={(value) => handleWindowChange(index, { startUnix: value })}
                     withTime
                     disabled={disabled}
                     popperClassName="availability-picker"
@@ -525,8 +525,8 @@ export default function LabFormFullSetup({
                 <div className="w-full md:flex-1">
                   <CalendarInput
                     label="Ends"
-                    value={window.end || ''}
-                    onChange={(value) => handleWindowChange(index, { end: value })}
+                    value={window.endUnix}
+                    onChange={(value) => handleWindowChange(index, { endUnix: value })}
                     withTime
                     disabled={disabled}
                     popperClassName="availability-picker"

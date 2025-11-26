@@ -73,8 +73,8 @@ describe("useLabReservationState", () => {
     name: "AI Lab",
     price: 100,
     timeSlots: [15, 30, 60],
-    opens: "2025-01-01",
-    closes: "2025-12-31",
+    opens: 1735689600, // 2025-01-01
+    closes: 1767139200, // 2025-12-31
   };
 
   const mockBookings = [
@@ -156,7 +156,7 @@ describe("useLabReservationState", () => {
 
   describe("Date Calculations", () => {
     test("sets minDate to today when lab opens in the past", () => {
-      const pastLab = { ...mockLab, opens: "2020-01-01" };
+      const pastLab = { ...mockLab, opens: 1577836800 }; // 2020-01-01
 
       const { result } = renderHook(() =>
         useLabReservationState({
@@ -177,7 +177,7 @@ describe("useLabReservationState", () => {
     test("sets minDate to opens date when lab opens in the future", () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 10);
-      const futureLab = { ...mockLab, opens: futureDate.toISOString() };
+      const futureLab = { ...mockLab, opens: Math.floor(futureDate.getTime() / 1000) };
 
       const { result } = renderHook(() =>
         useLabReservationState({

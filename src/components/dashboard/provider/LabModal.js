@@ -29,8 +29,8 @@ const initialState = (lab) => ({
     accessURI: lab?.accessURI || '',
     accessKey: lab?.accessKey || '',
     timeSlots: lab?.timeSlots || [],
-    opens: lab?.opens || '',
-    closes: lab?.closes || '',
+    opens: lab?.opens ?? null,
+    closes: lab?.closes ?? null,
     images: lab?.images || [],
     docs: lab?.docs || [],
     uri: lab?.uri || '',
@@ -41,7 +41,7 @@ const initialState = (lab) => ({
     termsOfUse: lab?.termsOfUse || {
       url: '',
       version: '',
-      effectiveDate: '',
+      effectiveDate: null,
       sha256: ''
     },
     // Spread the rest of the lab properties after ensuring required fields have defaults

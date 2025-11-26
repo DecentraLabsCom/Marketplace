@@ -59,8 +59,8 @@ LabManagementActions.propTypes = {
     accessURI: PropTypes.string,
     accessKey: PropTypes.string,
     timeSlots: PropTypes.array,
-    opens: PropTypes.string,
-    closes: PropTypes.string,
+    opens: PropTypes.number,
+    closes: PropTypes.number,
     docs: PropTypes.array,
     images: PropTypes.array,
     uri: PropTypes.string

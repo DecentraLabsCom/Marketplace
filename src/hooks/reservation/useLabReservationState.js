@@ -21,8 +21,13 @@ import devLog from '@/utils/dev/logger'
  * @returns {Date} Parsed date or fallback
  */
 const safeParseDate = (value, fallback = new Date()) => {
-  if (!value) return fallback
+  if (value === undefined || value === null) return fallback
   if (value instanceof Date && !isNaN(value)) return value
+
+  const numericValue = Number(value)
+  if (Number.isFinite(numericValue) && numericValue > 0) {
+    return new Date(numericValue * 1000)
+  }
   
   try {
     const parsed = new Date(value)

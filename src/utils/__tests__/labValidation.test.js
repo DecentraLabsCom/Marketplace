@@ -14,12 +14,6 @@
  */
 
 import { validateLabFull, validateLabQuick } from "../labValidation";
-import { validateDateString, validateDateRange } from "../dates/dateValidation";
-
-jest.mock("../dates/dateValidation", () => ({
-  validateDateString: jest.fn(),
-  validateDateRange: jest.fn(),
-}));
 
 describe("validateLabFull", () => {
   const validLab = {
@@ -30,8 +24,8 @@ describe("validateLabFull", () => {
     auth: "https://auth.example.com",
     accessURI: "https://lab.example.com",
     accessKey: "key123",
-    opens: "01/01/2024",
-    closes: "12/31/2024",
+    opens: 1704067200,
+    closes: 1735603200,
     timeSlots: [60],
     keywords: ["ai"],
     images: [],
@@ -43,18 +37,12 @@ describe("validateLabFull", () => {
     },
     maxConcurrentUsers: 10,
     termsOfUse: {
-      effectiveDate: "01/01/2024",
+      effectiveDate: 1704067200,
     },
     unavailableWindows: [],
   };
 
   const validOptions = { imageInputType: "file", docInputType: "file" };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    validateDateString.mockReturnValue({ isValid: true });
-    validateDateRange.mockReturnValue({ isValid: true });
-  });
 
   describe("Required Fields", () => {
     test.each([
@@ -129,47 +117,20 @@ describe("validateLabFull", () => {
   });
 
   describe("Date Validation", () => {
-    test("validates dates using external utility", () => {
-      validateLabFull(validLab, validOptions);
-
-      expect(validateDateString).toHaveBeenCalledWith("01/01/2024");
-      expect(validateDateString).toHaveBeenCalledWith("12/31/2024");
-      expect(validateDateRange).toHaveBeenCalledWith(
-        "01/01/2024",
-        "12/31/2024"
-      );
-    });
-
     test("returns error when opening date invalid", () => {
-      validateDateString.mockReturnValue({
-        isValid: false,
-        error: "Invalid date",
-      });
       const lab = { ...validLab, opens: "invalid" };
 
       const errors = validateLabFull(lab, validOptions);
 
-      expect(errors.opens).toBe("Invalid date");
+      expect(errors.opens).toBe("Opening date (Unix seconds) is required");
     });
 
     test("returns error when date range invalid", () => {
-      validateDateRange.mockReturnValue({
-        isValid: false,
-        error: "Invalid range",
-      });
+      const lab = { ...validLab, closes: validLab.opens - 100 };
 
-      const errors = validateLabFull(validLab, validOptions);
+      const errors = validateLabFull(lab, validOptions);
 
-      expect(errors.closes).toBe("Invalid range");
-    });
-
-    test("skips range validation when individual dates invalid", () => {
-      validateDateString.mockReturnValue({ isValid: false, error: "Invalid" });
-      const lab = { ...validLab, opens: "bad" };
-
-      validateLabFull(lab, validOptions);
-
-      expect(validateDateRange).not.toHaveBeenCalled();
+      expect(errors.closes).toBe("Closing date must be after or equal to opening date");
     });
   });
 

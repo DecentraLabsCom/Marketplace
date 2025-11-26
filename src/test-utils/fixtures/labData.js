@@ -19,8 +19,8 @@ export const createValidLabFormData = (overrides = {}) => ({
   auth: "https://auth.example.com",
   accessURI: "https://lab.example.com",
   accessKey: "secret-key-123",
-  opens: "01/01/2025",
-  closes: "12/31/2025",
+  opens: 1735689600,
+  closes: 1767139200,
   timeSlots: ["60", "120"],
   availableDays: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
   availableHours: {

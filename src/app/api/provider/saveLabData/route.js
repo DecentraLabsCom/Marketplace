@@ -26,13 +26,6 @@ const sanitizeTime = (time) => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
 }
 
-const timeStringToSeconds = (time) => {
-  if (!time) return null
-  const [hours, minutes] = time.split(':').map(Number)
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
-  return hours * 3600 + minutes * 60
-}
-
 const sanitizeAvailableHours = (hours) => {
   const safeHours = hours && typeof hours === 'object' ? hours : {}
   const start = sanitizeTime(safeHours.start)
@@ -40,21 +33,10 @@ const sanitizeAvailableHours = (hours) => {
   if (!start || !end) {
     return {}
   }
-  const startSeconds = timeStringToSeconds(start)
-  const endSeconds = timeStringToSeconds(end)
   return {
     start,
-    end,
-    startSeconds,
-    endSeconds
+    end
   }
-}
-
-const sanitizeDateTime = (value) => {
-  if (!value) return ''
-  const date = new Date(value)
-  if (isNaN(date.getTime())) return String(value)
-  return date.toISOString()
 }
 
 const sanitizeUnavailableWindows = (windows) => {
@@ -62,19 +44,17 @@ const sanitizeUnavailableWindows = (windows) => {
   return windows
     .map(window => {
       if (!window) return null
-      const start = sanitizeDateTime(window.start)
-      const end = sanitizeDateTime(window.end)
+      const startUnix = Number(window.startUnix || window.start || 0)
+      const endUnix = Number(window.endUnix || window.end || 0)
       const reason = typeof window.reason === 'string' ? window.reason.trim() : ''
-      if (!start || !end || !reason) return null
-      const startDate = new Date(start)
-      const endDate = new Date(end)
-      if (startDate >= endDate) return null
+      if (!Number.isFinite(startUnix) || !Number.isFinite(endUnix) || startUnix <= 0 || endUnix <= 0) return null
+      if (!reason) return null
+      if (startUnix >= endUnix) return null
+      const startDate = new Date(startUnix * 1000)
+      const endDate = new Date(endUnix * 1000)
       return {
-        start,
-        end,
         startUnix: Math.floor(startDate.getTime() / 1000),
         endUnix: Math.floor(endDate.getTime() / 1000),
-        timezoneOffsetMinutes: startDate.getTimezoneOffset(),
         reason
       }
     })
@@ -91,6 +71,15 @@ const sanitizeTermsOfUse = (terms) => {
   return sanitized
 }
 
+const sanitizeUnixDate = (value) => {
+  if (value === undefined || value === null) return null
+  const asNumber = Number(value)
+  if (Number.isFinite(asNumber) && asNumber > 0) return Math.floor(asNumber)
+  const parsed = new Date(value)
+  if (isNaN(parsed.getTime())) return null
+  return Math.floor(parsed.getTime() / 1000)
+}
+
 /**
  * Saves lab data to file system (local) or cloud storage (Vercel)
  * @param {Request} req - HTTP request with lab data
@@ -99,8 +88,8 @@ const sanitizeTermsOfUse = (terms) => {
  * @param {string} req.body.labData.description - Lab description
  * @param {string} req.body.labData.category - Lab category
  * @param {Array} req.body.labData.keywords - Lab keywords
- * @param {string} req.body.labData.opens - Opening date
- * @param {string} req.body.labData.closes - Closing date
+ * @param {number|string|Date} req.body.labData.opens - Opening date (Unix seconds preferred)
+ * @param {number|string|Date} req.body.labData.closes - Closing date (Unix seconds preferred)
  * @param {Array} req.body.labData.docs - Document URLs
  * @param {Array} req.body.labData.images - Image URLs
  * @param {Array} req.body.labData.timeSlots - Available time slots
@@ -138,7 +127,8 @@ export async function POST(req) {
       availableHours,
       maxConcurrentUsers,
       unavailableWindows,
-      termsOfUse
+      termsOfUse,
+      timezone
     } = labData || {};
 
     // Validate required fields
@@ -209,12 +199,15 @@ export async function POST(req) {
 
     const normalizedAvailableDays = sanitizeAvailableDays(availableDays)
     const normalizedAvailableHours = sanitizeAvailableHours(availableHours)
+    const normalizedOpens = sanitizeUnixDate(opens)
+    const normalizedCloses = sanitizeUnixDate(closes)
     const parsedMaxUsers = parseInt(maxConcurrentUsers, 10)
     const normalizedMaxUsers = Number.isFinite(parsedMaxUsers) && parsedMaxUsers > 0
       ? parsedMaxUsers
       : 1
     const normalizedUnavailableWindows = sanitizeUnavailableWindows(unavailableWindows)
     const normalizedTerms = sanitizeTermsOfUse(termsOfUse)
+    const normalizedTimezone = typeof timezone === 'string' ? timezone.trim() : ''
 
     // Prepare new data structure
     const newData = {
@@ -228,8 +221,8 @@ export async function POST(req) {
         { trait_type: "timeSlots", value: Array.isArray(timeSlots) ? 
           timeSlots.map(Number).filter(Boolean) 
           : (timeSlots ? timeSlots.split(',').map(Number).filter(Boolean) : []) },
-        { trait_type: "opens", value: opens || "" },
-        { trait_type: "closes", value: closes || "" },
+        { trait_type: "opens", value: normalizedOpens },
+        { trait_type: "closes", value: normalizedCloses },
         { trait_type: "additionalImages", value: images && images.length > 1 ? images.slice(1) : [] },
         { trait_type: "docs", value: Array.isArray(docs) ? 
           docs : (docs ? docs.split(',').map(d => d.trim()) : []) },
@@ -237,7 +230,8 @@ export async function POST(req) {
         { trait_type: "availableHours", value: normalizedAvailableHours },
         { trait_type: "maxConcurrentUsers", value: normalizedMaxUsers },
         { trait_type: "unavailableWindows", value: normalizedUnavailableWindows },
-        { trait_type: "termsOfUse", value: normalizedTerms }
+        { trait_type: "termsOfUse", value: normalizedTerms },
+        { trait_type: "timezone", value: normalizedTimezone }
       ],
       _meta: {
         lastUpdated: timestamp,
