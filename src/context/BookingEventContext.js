@@ -5,7 +5,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
-import { useConfirmReservationRequest } from '@/hooks/booking/useBookings'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import devLog from '@/utils/dev/logger'
@@ -24,142 +23,66 @@ export function BookingEventProvider({ children }) {
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const queryClient = useQueryClient();
-    // Use mutation for server-side confirmation
-    const confirmReservationMutation = useConfirmReservationRequest();
-    
     // User context and notifications for smart user targeting
     const { address: userAddress, isSSO } = useUser();
     const { addTemporaryNotification } = useNotifications();
 
-    // DEDUPLICATION: Track processed reservations to prevent duplicates from multiple RPC providers
-    const processedReservations = useRef(new Set());
-    const processingReservations = useRef(new Map()); // Track in-flight confirmations
-    const pendingConfirmations = useRef(new Map()); // Track reservations waiting for confirmation (backup polling)
+    const pendingConfirmations = useRef(new Map()); // Track reservations waiting for provider action (backup polling)
 
-    // Helper function to validate and auto-confirm reservation requests using SSO server wallet
-    const validateAndConfirmReservation = async (reservationKey, tokenId, requester, start, end) => {
-        devLog.log(`🔍 [BookingEventContext] Starting validateAndConfirmReservation for ${reservationKey}`);
-        // DEDUPLICATION: Check FIRST if this unique reservation was already processed
-        if (processedReservations.current.has(reservationKey)) {
-            devLog.warn(`🔄 [BookingEventContext] Reservation ${reservationKey} already processed. Skipping duplicate.`);
+    const trackPendingConfirmation = (reservationKey, tokenId, requesterAddress) => {
+        if (!reservationKey) {
             return;
         }
-        
-        // Check if currently being processed (race condition from multiple providers)
-        if (processingReservations.current.has(reservationKey)) {
-            devLog.warn(`⏳ [BookingEventContext] Reservation ${reservationKey} is currently being processed. Skipping duplicate.`);
-            return;
-        }
-        
-        // Mark as being processed IMMEDIATELY to prevent race conditions
-        processingReservations.current.set(reservationKey, Date.now());
-        
-        // Add small delay to allow multiple duplicate events to arrive and be filtered
-        await new Promise(resolve => setTimeout(resolve, 80));
-        
-        // Determine if this reservation belongs to the current user
-        const currentUserAddress = address || userAddress;
-        const isCurrentUserReservation = requester && currentUserAddress && 
-            requester.toLowerCase() === currentUserAddress.toLowerCase();
-        
-        devLog.log(`� [BookingEventContext] Checking user match:`, {
-            requester,
-            currentUserAddress,
-            isMatch: isCurrentUserReservation
+
+        pendingConfirmations.current.set(reservationKey, {
+            timestamp: Date.now(),
+            tokenId,
+            requester: requesterAddress?.toLowerCase?.() ?? requesterAddress,
+            attempts: 0
         });
-    
+    };
+
+    const fetchReservationDetails = async (reservationKey) => {
+        if (!reservationKey) {
+            return null;
+        }
+
         try {
-            // Clean up old entries from processed set (keep only last 10 when we exceed 20)
-            if (processedReservations.current.size > 20) {
-                const entries = Array.from(processedReservations.current);
-                // Remove oldest entries, keep only the most recent 10
-                entries.slice(0, entries.length - 10).forEach(key => {
-                    processedReservations.current.delete(key);
-                });
+            const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`);
+            if (!response.ok) {
+                return null;
             }
-            
-            // Clean up stale processing entries (older than 30 seconds)
-            const nowMs = Date.now();
-            for (const [key, timestamp] of processingReservations.current.entries()) {
-                if (nowMs - timestamp > 30000) {
-                    processingReservations.current.delete(key);
-                    devLog.warn(`🧹 [BookingEventContext] Cleaned up stale processing entry for ${key}`);
-                }
-            }
-
-            // Validate that reservation is in a valid period (not in the past)
-            const now = Math.floor(Date.now() / 1000);
-            const startTime = parseInt(start);
-            const endTime = parseInt(end);
-            
-            if (startTime < now) {
-                devLog.warn(`⚠️ [BookingEventContext] Reservation ${reservationKey} start time ${startTime} is in the past (current: ${now}). Not auto-confirming.`);
-                return;
-            }
-            
-            if (endTime <= startTime) {
-                devLog.warn(`⚠️ [BookingEventContext] Reservation ${reservationKey} has invalid time range (end ${endTime} <= start ${startTime}). Not auto-confirming.`);
-                return;
-            }
-            
-            // Check if SSO mutation is available
-            if (!confirmReservationMutation) {
-                devLog.error(`❌ [BookingEventContext] confirmReservationMutation (SSO) is not available for reservation ${reservationKey}`);
-                devLog.error(`❌ [BookingEventContext] This indicates the hook useConfirmReservationRequest may not be mounted or failed to initialize`);
-                return;
-            }
-
-            devLog.log(`🚀 [BookingEventContext] About to call mutateAsync for reservation ${reservationKey}`);
-
-            // Auto-confirm the reservation using SSO server wallet (transparent to user)
-            devLog.log(`🔄 [BookingEventContext] Auto-confirming reservation ${reservationKey} for lab ${tokenId} via SSO server wallet`);
-            
-            const result = await confirmReservationMutation.mutateAsync(reservationKey);
-            
-            devLog.log(`✅ [BookingEventContext] Successfully auto-confirmed reservation ${reservationKey} via server wallet`, result);
-            
-            // Show success notification to current user
-            // Use setTimeout to avoid setState during render
-            if (isCurrentUserReservation) {
-                setTimeout(() => {
-                    addTemporaryNotification('success', '✅ Reservation confirmed and ready!');
-                }, 0);
-            }
-
-            // Mark as successfully processed
-            processedReservations.current.add(reservationKey);
-            processingReservations.current.delete(reservationKey);
-            
-            // Add to pending confirmations for backup polling (in case event is missed)
-            pendingConfirmations.current.set(reservationKey, {
-                timestamp: Date.now(),
-                tokenId,
-                requester,
-                attempts: 0
-            });
-            
-            // Don't refetch here - the blockchain transaction hasn't been mined yet
-            // The ReservationConfirmed event will handle the refetch when the transaction is confirmed
+            return response.json();
         } catch (error) {
-            devLog.error(`❌ [BookingEventContext] Failed to auto-confirm reservation ${reservationKey} via server wallet:`, error);
-            
-            // Remove from processing (allow retry on next event if it was a transient error)
-            processingReservations.current.delete(reservationKey);
-            
-            // Only mark as processed if it's already confirmed (not a transient network error)
-            if (error.message?.includes('already confirmed') || error.message?.includes('Reservation already confirmed')) {
-                processedReservations.current.add(reservationKey);
-                devLog.log(`ℹ️ [BookingEventContext] Reservation ${reservationKey} already confirmed, marked as processed`);
-            }
-            
-            // Show error notification only to the user who made the reservation
-            // Use setTimeout to avoid setState during render
-            // Only show if it's NOT an "already confirmed" situation
-            if (isCurrentUserReservation && !error.message?.includes('already confirmed')) {
-                setTimeout(() => {
-                    addTemporaryNotification('error', '❌ Reservation denied. Try again later.');
-                }, 0);
-            }
+            devLog.error(`❌ [BookingEventContext] Failed to fetch reservation ${reservationKey} details:`, error);
+            return null;
+        }
+    };
+
+    const invalidateReservationCaches = (reservationKey, tokenId) => {
+        if (reservationKey) {
+            queryClient.invalidateQueries({ 
+                queryKey: bookingQueryKeys.byReservationKey(reservationKey) 
+            });
+        }
+
+        if (tokenId) {
+            queryClient.invalidateQueries({ 
+                queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
+            });
+            queryClient.invalidateQueries({ 
+                queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
+            });
+        }
+
+        const normalizedUser = address || userAddress;
+        if (normalizedUser) {
+            queryClient.invalidateQueries({ 
+                queryKey: bookingQueryKeys.reservationsOf(normalizedUser) 
+            });
+            queryClient.invalidateQueries({ 
+                queryKey: bookingQueryKeys.hasActiveBooking(normalizedUser) 
+            });
         }
     };
 
@@ -180,7 +103,7 @@ export function BookingEventProvider({ children }) {
             });
             
             // Process each reservation request
-            logs.forEach(async (log, index) => {                
+            logs.forEach((log, index) => {                
                 const { reservationKey, renter, tokenId, start, end } = log.args;
                 const reservationKeyStr = reservationKey?.toString();
                 const tokenIdStr = tokenId?.toString();
@@ -197,13 +120,17 @@ export function BookingEventProvider({ children }) {
                     rawArgs: log.args
                 });
                 
-                // NOTE: No refetch here - ReservationRequested is just a request, not a confirmation
-                // The actual state change happens in ReservationConfirmed event
-                // We only auto-confirm the reservation via server wallet
-                
-                // Auto-confirm reservation if valid
-                if (reservationKeyStr && tokenIdStr && startStr && endStr) {
-                    await validateAndConfirmReservation(reservationKeyStr, tokenIdStr, requester, startStr, endStr);
+                const currentUserAddress = (address || userAddress)?.toLowerCase?.();
+                const requesterAddress = requester?.toLowerCase?.();
+
+                if (
+                    reservationKeyStr &&
+                    tokenIdStr &&
+                    currentUserAddress &&
+                    requesterAddress === currentUserAddress
+                ) {
+                    devLog.log(`🕒 [BookingEventContext] Tracking reservation ${reservationKeyStr} for fallback polling`);
+                    trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterAddress);
                 }
             });
         }
@@ -232,18 +159,35 @@ export function BookingEventProvider({ children }) {
                 
                 // Invalidate all booking queries
                 if (reservationKeyStr) {
-                    devLog.log('🔄 Invalidating all booking queries for confirmed reservation:', reservationKeyStr);
-                    
+                    devLog.log('🔄 Invalidating booking caches for confirmed reservation:', reservationKeyStr);
+
                     // Remove from pending confirmations (event was detected successfully)
-                    if (pendingConfirmations.current.has(reservationKeyStr)) {
+                    const pendingInfo = pendingConfirmations.current.get(reservationKeyStr);
+                    if (pendingInfo) {
                         devLog.log('✅ Removing from pending confirmations (event detected):', reservationKeyStr);
                         pendingConfirmations.current.delete(reservationKeyStr);
                     }
-                    
-                    // Invalidate the main bookings cache (this includes optimistic bookings)
-                    queryClient.invalidateQueries({ 
-                        queryKey: bookingQueryKeys.all() 
-                    });
+
+                    invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+
+                    const currentUserAddress = (address || userAddress)?.toLowerCase?.();
+                    let shouldNotify = false;
+
+                    if (pendingInfo?.requester && currentUserAddress) {
+                        shouldNotify = pendingInfo.requester === currentUserAddress;
+                    }
+
+                    if (!shouldNotify && currentUserAddress) {
+                        const reservationDetails = await fetchReservationDetails(reservationKeyStr);
+                        const renterAddress = reservationDetails?.reservation?.renter?.toLowerCase?.();
+                        if (renterAddress && renterAddress === currentUserAddress) {
+                            shouldNotify = true;
+                        }
+                    }
+
+                    if (shouldNotify) {
+                        addTemporaryNotification('success', '✅ Reservation confirmed!');
+                    }
                 }
             });
         }
@@ -279,34 +223,31 @@ export function BookingEventProvider({ children }) {
                     // Check if reservation was confirmed by querying the blockchain
                     devLog.log(`🔍 [Backup Polling] Checking status for reservation ${reservationKey} (attempt ${info.attempts + 1})`);
                     
-                    const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        
-                        // Status 1 = CONFIRMED (or BOOKED in deployed contract)
-                        if (data.reservation && Number(data.reservation.status) === 1) {
-                            devLog.log(`✅ [Backup Polling] Reservation ${reservationKey} is confirmed! Invalidating cache...`);
-                            
-                            // Remove from pending and invalidate cache
-                            pendingConfirmations.current.delete(reservationKey);
-                            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-                            
-                            // Show success notification if it's the current user's reservation
-                            const currentUserAddress = address || userAddress;
-                            const isCurrentUserReservation = info.requester && currentUserAddress && 
-                                info.requester.toLowerCase() === currentUserAddress.toLowerCase();
-                            
-                            if (isCurrentUserReservation) {
+                    const data = await fetchReservationDetails(reservationKey);
+                    const statusNumber = Number(data?.reservation?.status);
+
+                    if (Number.isFinite(statusNumber) && statusNumber !== 0) {
+                        const currentUserAddress = (address || userAddress)?.toLowerCase?.();
+                        const isCurrentUserReservation = info.requester && currentUserAddress && 
+                            info.requester === currentUserAddress;
+
+                        pendingConfirmations.current.delete(reservationKey);
+
+                        invalidateReservationCaches(reservationKey, info.tokenId);
+
+                        if (isCurrentUserReservation) {
+                            if (statusNumber === 4) {
+                                addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+                            } else {
                                 addTemporaryNotification('success', '✅ Reservation confirmed!');
                             }
-                        } else {
-                            // Still pending, increment attempt counter
-                            pendingConfirmations.current.set(reservationKey, {
-                                ...info,
-                                attempts: info.attempts + 1
-                            });
                         }
+                    } else {
+                        // Still pending, increment attempt counter
+                        pendingConfirmations.current.set(reservationKey, {
+                            ...info,
+                            attempts: info.attempts + 1
+                        });
                     }
                 } catch (error) {
                     devLog.error(`❌ [Backup Polling] Error checking reservation ${reservationKey}:`, error);
@@ -332,26 +273,14 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('❌ [BookingEventContext] BookingCanceled events detected:', logs.length);
             
-            logs.forEach(async (log) => {
+            logs.forEach((log) => {
                 const { reservationKey, tokenId } = log.args;
                 const reservationKeyStr = reservationKey?.toString();
                 const tokenIdStr = tokenId?.toString();
                 
-                // Refetch queries to force immediate update
                 if (reservationKeyStr) {
-                    queryClient.refetchQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
-                    });
-                    
-                    // Refetch specific lab bookings queries using tokenId
-                    if (tokenIdStr) {
-                        queryClient.refetchQueries({ 
-                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
-                        });
-                        queryClient.refetchQueries({ 
-                            queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
-                        });
-                    }
+                    pendingConfirmations.current.delete(reservationKeyStr);
+                    invalidateReservationCaches(reservationKeyStr, tokenIdStr);
                 }
             });
         }
@@ -367,26 +296,14 @@ export function BookingEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🚫 [BookingEventContext] ReservationRequestCanceled events detected:', logs.length);
             
-            logs.forEach(async (log) => {
+            logs.forEach((log) => {
                 const { reservationKey, tokenId } = log.args;
                 const reservationKeyStr = reservationKey?.toString();
                 const tokenIdStr = tokenId?.toString();
                 
-                // Refetch queries to force immediate update
                 if (reservationKeyStr) {
-                    queryClient.refetchQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
-                    });
-                    
-                    // Refetch specific lab bookings queries using tokenId
-                    if (tokenIdStr) {
-                        queryClient.refetchQueries({ 
-                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
-                        });
-                        queryClient.refetchQueries({ 
-                            queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
-                        });
-                    }
+                    pendingConfirmations.current.delete(reservationKeyStr);
+                    invalidateReservationCaches(reservationKeyStr, tokenIdStr);
                 }
             });
         }
@@ -407,20 +324,31 @@ export function BookingEventProvider({ children }) {
                 const reservationKeyStr = reservationKey?.toString();
                 const tokenIdStr = tokenId?.toString();
                 
-                // Refetch queries to force immediate update
                 if (reservationKeyStr) {
-                    queryClient.refetchQueries({ 
-                        queryKey: bookingQueryKeys.byReservationKey(reservationKeyStr) 
-                    });
-                    
-                    // Refetch specific lab bookings queries using tokenId
-                    if (tokenIdStr) {
-                        queryClient.refetchQueries({ 
-                            queryKey: bookingQueryKeys.getReservationsOfToken(tokenIdStr) 
-                        });
-                        queryClient.refetchQueries({ 
-                            queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenIdStr) 
-                        });
+                    const pendingInfo = pendingConfirmations.current.get(reservationKeyStr);
+                    if (pendingInfo) {
+                        pendingConfirmations.current.delete(reservationKeyStr);
+                    }
+
+                    invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+
+                    const currentUserAddress = (address || userAddress)?.toLowerCase?.();
+                    let shouldNotify = false;
+
+                    if (pendingInfo?.requester && currentUserAddress) {
+                        shouldNotify = pendingInfo.requester === currentUserAddress;
+                    }
+
+                    if (!shouldNotify && currentUserAddress) {
+                        const reservationDetails = await fetchReservationDetails(reservationKeyStr);
+                        const renterAddress = reservationDetails?.reservation?.renter?.toLowerCase?.();
+                        if (renterAddress && renterAddress === currentUserAddress) {
+                            shouldNotify = true;
+                        }
+                    }
+
+                    if (shouldNotify) {
+                        addTemporaryNotification('error', '❌ Reservation denied by the provider.');
                     }
                 }
             });
