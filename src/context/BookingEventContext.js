@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useRef } from 'react'
+import { createContext, useContext, useRef, useEffect } from 'react'
 import { useWatchContractEvent, useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
@@ -34,6 +34,7 @@ export function BookingEventProvider({ children }) {
     // DEDUPLICATION: Track processed reservations to prevent duplicates from multiple RPC providers
     const processedReservations = useRef(new Set());
     const processingReservations = useRef(new Map()); // Track in-flight confirmations
+    const pendingConfirmations = useRef(new Map()); // Track reservations waiting for confirmation (backup polling)
 
     // Helper function to validate and auto-confirm reservation requests using SSO server wallet
     const validateAndConfirmReservation = async (reservationKey, tokenId, requester, start, end) => {
@@ -128,6 +129,14 @@ export function BookingEventProvider({ children }) {
             // Mark as successfully processed
             processedReservations.current.add(reservationKey);
             processingReservations.current.delete(reservationKey);
+            
+            // Add to pending confirmations for backup polling (in case event is missed)
+            pendingConfirmations.current.set(reservationKey, {
+                timestamp: Date.now(),
+                tokenId,
+                requester,
+                attempts: 0
+            });
             
             // Don't refetch here - the blockchain transaction hasn't been mined yet
             // The ReservationConfirmed event will handle the refetch when the transaction is confirmed
@@ -225,6 +234,12 @@ export function BookingEventProvider({ children }) {
                 if (reservationKeyStr) {
                     devLog.log('🔄 Invalidating all booking queries for confirmed reservation:', reservationKeyStr);
                     
+                    // Remove from pending confirmations (event was detected successfully)
+                    if (pendingConfirmations.current.has(reservationKeyStr)) {
+                        devLog.log('✅ Removing from pending confirmations (event detected):', reservationKeyStr);
+                        pendingConfirmations.current.delete(reservationKeyStr);
+                    }
+                    
                     // Invalidate the main bookings cache (this includes optimistic bookings)
                     queryClient.invalidateQueries({ 
                         queryKey: bookingQueryKeys.all() 
@@ -233,6 +248,79 @@ export function BookingEventProvider({ children }) {
             });
         }
     });
+
+    // BACKUP POLLING: Check pending confirmations periodically in case events are missed
+    // This ensures confirmations happen even if blockchain events are not detected
+    useEffect(() => {
+        const pollingInterval = setInterval(() => {
+            const now = Date.now();
+            const pendingArray = Array.from(pendingConfirmations.current.entries());
+            
+            if (pendingArray.length > 0) {
+                devLog.log(`🔍 [Backup Polling] Checking ${pendingArray.length} pending confirmations...`);
+            }
+            
+            pendingArray.forEach(async ([reservationKey, info]) => {
+                const elapsedSeconds = (now - info.timestamp) / 1000;
+                
+                // Poll every 10 seconds for the first 2 minutes, then remove
+                if (elapsedSeconds > 120) {
+                    devLog.warn(`⏱️ [Backup Polling] Timeout for reservation ${reservationKey}, removing from pending`);
+                    pendingConfirmations.current.delete(reservationKey);
+                    return;
+                }
+                
+                // Only check every 10 seconds
+                if (info.attempts > 0 && elapsedSeconds < info.attempts * 10) {
+                    return;
+                }
+                
+                try {
+                    // Check if reservation was confirmed by querying the blockchain
+                    devLog.log(`🔍 [Backup Polling] Checking status for reservation ${reservationKey} (attempt ${info.attempts + 1})`);
+                    
+                    const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        // Status 1 = CONFIRMED (or BOOKED in deployed contract)
+                        if (data.reservation && Number(data.reservation.status) === 1) {
+                            devLog.log(`✅ [Backup Polling] Reservation ${reservationKey} is confirmed! Invalidating cache...`);
+                            
+                            // Remove from pending and invalidate cache
+                            pendingConfirmations.current.delete(reservationKey);
+                            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
+                            
+                            // Show success notification if it's the current user's reservation
+                            const currentUserAddress = address || userAddress;
+                            const isCurrentUserReservation = info.requester && currentUserAddress && 
+                                info.requester.toLowerCase() === currentUserAddress.toLowerCase();
+                            
+                            if (isCurrentUserReservation) {
+                                addTemporaryNotification('success', '✅ Reservation confirmed!');
+                            }
+                        } else {
+                            // Still pending, increment attempt counter
+                            pendingConfirmations.current.set(reservationKey, {
+                                ...info,
+                                attempts: info.attempts + 1
+                            });
+                        }
+                    }
+                } catch (error) {
+                    devLog.error(`❌ [Backup Polling] Error checking reservation ${reservationKey}:`, error);
+                    // Increment attempt counter even on error
+                    pendingConfirmations.current.set(reservationKey, {
+                        ...info,
+                        attempts: info.attempts + 1
+                    });
+                }
+            });
+        }, 10000); // Check every 10 seconds
+        
+        return () => clearInterval(pollingInterval);
+    }, [queryClient, address, userAddress, addTemporaryNotification]);
 
     // BookingCanceled event listener
     useWatchContractEvent({
