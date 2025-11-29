@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAccount, useWaitForTransactionReceipt, useBalance } from 'wagmi'
-import { parseUnits, formatUnits } from 'viem'
+import { formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { contractAddressesLAB } from '@/contracts/lab'
@@ -188,11 +188,12 @@ export function useLabTokenHook() {
 
   /**
    * Calculate the total cost of a reservation
+   * Memoized to prevent unnecessary re-renders in consuming components
    * @param {string} labPrice - Laboratory price per second in contract units (smallest denomination)
    * @param {number} durationMinutes - Duration in minutes
    * @returns {bigint} - Total cost in token wei
    */
-  const calculateReservationCost = (labPrice, durationMinutes) => {
+  const calculateReservationCost = useCallback((labPrice, durationMinutes) => {
     if (!labPrice || !durationMinutes || !decimals) return 0n;
     
     try {
@@ -214,14 +215,15 @@ export function useLabTokenHook() {
       devLog.error('Error calculating reservation cost:', error);
       return 0n;
     }
-  };
+  }, [decimals]);
 
   /**
    * Approve LAB tokens for the diamond contract
+   * Memoized to prevent unnecessary re-renders in consuming components
    * @param {bigint} amount - Amount to approve in wei
    * @returns {Promise<string>} - Transaction hash
    */
-  const approveLabTokens = async (amount) => {
+  const approveLabTokens = useCallback(async (amount) => {
     if (!labTokenAddress || !diamondContractAddress) {
       throw new Error('Contract addresses not available');
     }
@@ -238,14 +240,15 @@ export function useLabTokenHook() {
       setIsLoading(false);
       throw error;
     }
-  };
+  }, [labTokenAddress, diamondContractAddress, labTokenWrite, safeChain.id]);
 
   /**
    * Check if there is sufficient balance and allowance
+   * Memoized to prevent unnecessary re-renders in consuming components
    * @param {bigint} requiredAmount - Required amount in wei
    * @returns {object} - Balance and allowance status
    */
-  const checkBalanceAndAllowance = (requiredAmount) => {
+  const checkBalanceAndAllowance = useCallback((requiredAmount) => {
     const userBalance = balance || 0n;
     const currentAllowance = allowance || 0n;
     
@@ -256,15 +259,16 @@ export function useLabTokenHook() {
       allowance: currentAllowance,
       requiredAmount
     };
-  };
+  }, [balance, allowance]);
 
   /**
    * Check if user has sufficient balance for a specific lab booking
+   * Memoized to prevent unnecessary re-renders in consuming components
    * @param {string} labPrice - Laboratory hourly price (in LAB)
    * @param {number} durationMinutes - Duration in minutes
    * @returns {object} - Balance check result with detailed info
    */
-  const checkSufficientBalance = (labPrice, durationMinutes) => {
+  const checkSufficientBalance = useCallback((labPrice, durationMinutes) => {
     const cost = calculateReservationCost(labPrice, durationMinutes);
     const userBalance = balance || 0n;
     
@@ -274,26 +278,28 @@ export function useLabTokenHook() {
       balance: userBalance,
       shortfall: cost > userBalance ? cost - userBalance : 0n
     };
-  };
+  }, [calculateReservationCost, balance]);
 
   /**
    * Format token amount to a human-readable string rounded to 2 decimals
+   * Memoized to prevent unnecessary re-renders in consuming components
    * @param {bigint} amount - Amount in wei
    * @returns {string} - Formatted amount with 2 decimal places
    */
-  const formatTokenAmount = (amount) => {
+  const formatTokenAmount = useCallback((amount) => {
     if (!amount || !decimals) return '0.00';
     const formatted = parseFloat(formatUnits(amount, decimals));
     const rounded = Math.round(formatted * 100) / 100;
     return rounded.toFixed(2);
-  };
+  }, [decimals]);
 
   /**
    * Format price from contract units to per-hour format for UI display
+   * Memoized to prevent unnecessary re-renders in consuming components
    * @param {string|number|bigint} price - Price per second in contract units (smallest denomination)
    * @returns {string} - Human-readable price per hour rounded to 2 decimals
    */
-  const formatPrice = (price) => {
+  const formatPrice = useCallback((price) => {
     if (!price || price === '0') return '0.00';
     
     // If decimals not loaded yet, return placeholder
@@ -323,16 +329,17 @@ export function useLabTokenHook() {
       devLog.error('Error formatting price:', error, 'Price:', price, 'Decimals:', decimals);
       return '0.00';
     }
-  };
+  }, [decimals]);
 
   /**
    * Manually refresh balance and allowance data
    * Useful for external components to trigger updates
+   * Memoized to prevent unnecessary re-renders in consuming components
    */
-  const refreshTokenData = () => {
+  const refreshTokenData = useCallback(() => {
     refetchBalance();
     refetchAllowance();
-  };
+  }, [refetchBalance, refetchAllowance]);
 
   return {
     // States

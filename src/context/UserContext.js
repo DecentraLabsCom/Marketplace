@@ -298,7 +298,7 @@ function UserDataCore({ children }) {
         if (providerError) {
             handleError(providerError, { context: 'Provider status fetch' });
         }
-    }, [ssoError, providerError]);
+    }, [ssoError, providerError, handleError]);
 
     // Refresh provider status function
     const refreshProviderStatus = useCallback(async () => {

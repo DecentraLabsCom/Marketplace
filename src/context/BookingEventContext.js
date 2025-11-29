@@ -196,7 +196,7 @@ export function BookingEventProvider({ children }) {
     // BACKUP POLLING: Check pending confirmations periodically in case events are missed
     // This ensures confirmations happen even if blockchain events are not detected
     useEffect(() => {
-        const pollingInterval = setInterval(() => {
+        const pollingInterval = setInterval(async () => {
             const now = Date.now();
             const pendingArray = Array.from(pendingConfirmations.current.entries());
             
@@ -204,7 +204,8 @@ export function BookingEventProvider({ children }) {
                 devLog.log(`🔍 [Backup Polling] Checking ${pendingArray.length} pending confirmations...`);
             }
             
-            pendingArray.forEach(async ([reservationKey, info]) => {
+            // Use Promise.allSettled for proper parallel execution of async operations
+            const pollingPromises = pendingArray.map(async ([reservationKey, info]) => {
                 const elapsedSeconds = (now - info.timestamp) / 1000;
                 
                 // Poll every 10 seconds for the first 2 minutes, then remove
@@ -258,6 +259,11 @@ export function BookingEventProvider({ children }) {
                     });
                 }
             });
+            
+            // Wait for all polling operations to settle (success or failure)
+            if (pollingPromises.length > 0) {
+                await Promise.allSettled(pollingPromises);
+            }
         }, 10000); // Check every 10 seconds
         
         return () => clearInterval(pollingInterval);

@@ -1,0 +1,11 @@
+{
+  "user": {
+    "nameID": "test-user@institution.edu",
+    "name": "Test User",
+    "email": "test-user@institution.edu",
+    "institutionName": "Test University",
+    "role": "student"
+  },
+  "isSSO": true,
+  "address": "0x1234567890123456789012345678901234567890"
+}
