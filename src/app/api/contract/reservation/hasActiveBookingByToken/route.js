@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
  * Check if user has active booking by token
  * GET /api/contract/reservation/hasActiveBookingByToken?tokenId=123&user=0x123...
  * 
+ * @security Protected - requires authenticated session
  * Query Parameters:
  * @param {number|string} tokenId - ID of the token
  * @param {string} user - User address to check
@@ -12,6 +14,13 @@ import { getContractInstance } from '../../utils/contractInstance';
  * @returns {Object} Whether the user has an active booking for the token
  */
 export async function GET(request) {
+  try {
+    // Authentication check - booking status is personal data
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const tokenId = searchParams.get('tokenId');

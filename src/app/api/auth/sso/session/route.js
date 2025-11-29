@@ -1,22 +1,24 @@
 /**
  * API endpoint for SSO session management
  * Handles GET requests to retrieve current user session information
+ * Now validates JWT-signed session cookies
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 
 /**
  * Retrieves current user session from cookies
+ * Validates JWT signature before returning session data
  * @returns {Response} JSON response with user session data or null if no session
  */
 export async function GET() {
   const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("user_session")?.value;
+  const user = getSessionFromCookies(cookieStore);
 
-  if (!sessionCookie) {
+  if (!user) {
     return NextResponse.json({ user: null });
   }
 
-  const user = JSON.parse(sessionCookie);
   return NextResponse.json({ user });
 }

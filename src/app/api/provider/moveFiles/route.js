@@ -1,6 +1,8 @@
 /**
  * API endpoint for moving files from temp folder to lab-specific folder
  * Handles POST requests to move files after lab creation (when labId is obtained from blockchain)
+ * 
+ * SECURITY: Requires authentication and lab ownership verification
  */
 import path from 'path'
 import { promises as fs } from 'fs'
@@ -8,6 +10,12 @@ import { NextResponse } from 'next/server'
 import { copy, del, list } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
+import { 
+  requireAuth, 
+  requireLabOwner, 
+  handleGuardError,
+  HttpError 
+} from '@/utils/auth/guards'
 
 /**
  * Moves files from temporary folder to lab-specific folder
@@ -18,6 +26,10 @@ import getIsVercel from '@/utils/isVercel'
  */
 export async function POST(req) {
   try {
+    // ===== AUTHENTICATION =====
+    // Require valid session (works for both SSO and wallet users)
+    const session = await requireAuth();
+    
     const body = await req.json();
     const { filePaths, labId } = body;
 
@@ -41,6 +53,10 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+
+    // ===== AUTHORIZATION =====
+    // Verify the user owns the target lab
+    await requireLabOwner(session, labId);
 
     const isVercel = getIsVercel();
     const movedFiles = [];
@@ -191,6 +207,11 @@ export async function POST(req) {
     );
 
   } catch (error) {
+    // Handle authentication/authorization errors
+    if (error instanceof HttpError) {
+      return handleGuardError(error);
+    }
+    
     console.error('Error in moveFiles endpoint:', error);
     
     return NextResponse.json(

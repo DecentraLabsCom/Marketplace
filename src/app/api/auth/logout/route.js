@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createDestroySessionCookie, SESSION_COOKIE_NAME } from '@/utils/auth/sessionCookie'
 
 /**
  * Logs out the current user by clearing session cookies
@@ -11,18 +12,19 @@ import { cookies } from 'next/headers'
  */
 export async function GET() {
     const cookieStore = await cookies();
+    const destroyCookie = createDestroySessionCookie();
     
-    // Clear the main user session cookie with multiple approaches
-    cookieStore.set("user_session", "", { 
-        maxAge: 0, 
-        path: "/",
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
+    // Clear the main user session cookie with the destroy configuration
+    cookieStore.set(destroyCookie.name, destroyCookie.value, { 
+        maxAge: destroyCookie.maxAge, 
+        path: destroyCookie.path,
+        httpOnly: destroyCookie.httpOnly,
+        secure: destroyCookie.secure,
+        sameSite: destroyCookie.sameSite
     });
     
     // Also try to clear with expires in the past
-    cookieStore.set("user_session", "", {
+    cookieStore.set(SESSION_COOKIE_NAME, "", {
         expires: new Date(0),
         path: "/",
         httpOnly: true,
@@ -31,7 +33,7 @@ export async function GET() {
     });
     
     // Clear any potential session variants
-    cookieStore.delete("user_session");
+    cookieStore.delete(SESSION_COOKIE_NAME);
     
     // Add a small delay to ensure cookie clearing is processed
     await new Promise(resolve => setTimeout(resolve, 100));

@@ -5,6 +5,8 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+
 /**
  * Denies a reservation request
  * @param {Request} request - HTTP request with reservation details
@@ -15,6 +17,10 @@ import { getContractInstance } from '../../utils/contractInstance'
  */
 export async function POST(request) {
   try {
+    // Authentication check - only authenticated users can deny reservations
+    // (on-chain contract verifies the caller is the lab owner/provider)
+    await requireAuth();
+    
     const body = await request.json();
     const { reservationKey, reason = 'Denied by provider' } = body;
     
@@ -39,13 +45,16 @@ export async function POST(request) {
     }, {status: 200});
 
   } catch (error) {
+    // Handle guard errors (401, 403) separately from other errors
+    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
+      return handleGuardError(error);
+    }
+    
     console.error('Error denying reservation:', error);
     
     return Response.json({ 
       error: 'Failed to deny reservation',
       details: error.message
-    }, {status: 500,
-      
-    });
+    }, {status: 500 });
   }
 }

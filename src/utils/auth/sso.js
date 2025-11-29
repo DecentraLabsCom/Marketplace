@@ -1,15 +1,17 @@
 import { ServiceProvider, IdentityProvider } from 'saml2-js'
 import xml2js from 'xml2js'
 import devLog from '@/utils/dev/logger'
+import { createSessionCookie } from './sessionCookie'
 
 export async function createSession(response, userData) {
-  // Create a cookie with the user information
-  response.cookies.set("user_session", JSON.stringify(userData), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-    maxAge: 60 * 60 * 24, // 1 day
+  // Create a signed JWT cookie with the user information
+  const cookieConfig = createSessionCookie(userData);
+  response.cookies.set(cookieConfig.name, cookieConfig.value, {
+    httpOnly: cookieConfig.httpOnly,
+    secure: cookieConfig.secure,
+    sameSite: cookieConfig.sameSite,
+    path: cookieConfig.path,
+    maxAge: cookieConfig.maxAge,
   });
 }
 

@@ -2,9 +2,13 @@
  * API endpoint for retrieving a specific reservation by key
  * Handles GET requests to fetch individual reservation data
  * Optimized for React Query client-side caching - no server-side cache
+ * 
+ * @security Protected - requires authenticated session
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+
 /**
  * Retrieves a specific reservation by its key
  * @param {Request} request - HTTP request with query parameters
@@ -12,6 +16,13 @@ import { getContractInstance } from '../../utils/contractInstance'
  * @returns {Response} JSON response with reservation data or error
  */
 export async function GET(request) {
+  try {
+    // Authentication check - reservation data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   const url = new URL(request.url);
   const reservationKey = url.searchParams.get('reservationKey');
   

@@ -1,6 +1,8 @@
 /**
  * API endpoint for deleting files uploaded by lab providers
  * Handles POST requests to remove files from local storage or cloud storage
+ * 
+ * SECURITY: Requires authentication and lab ownership verification
  */
 import path from 'path'
 import { promises as fs } from 'fs'
@@ -8,6 +10,13 @@ import { NextResponse } from 'next/server'
 import { del } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
+import { 
+  requireAuth, 
+  requireLabOwner, 
+  extractLabIdFromPath,
+  handleGuardError,
+  HttpError 
+} from '@/utils/auth/guards'
 
 /**
  * Deletes files for lab providers with support for local and cloud storage
@@ -18,6 +27,10 @@ import getIsVercel from '@/utils/isVercel'
  */
 export async function POST(req) {
     try {
+        // ===== AUTHENTICATION =====
+        // Require valid session (works for both SSO and wallet users)
+        const session = await requireAuth();
+        
         const formData = await req.formData();
         let filePath = formData.get('filePath'); 
         const deletingLab = formData.get('deletingLab') === 'true';
@@ -43,6 +56,15 @@ export async function POST(req) {
                 { status: 400 }
             );
         }
+
+        // ===== AUTHORIZATION =====
+        // Extract labId from the file path and verify ownership
+        const labIdFromPath = extractLabIdFromPath(filePath);
+        if (labIdFromPath) {
+            await requireLabOwner(session, labIdFromPath);
+        }
+        // Note: temp files can be deleted by any authenticated user
+        // (they're only accessible during the upload session anyway)
 
         const timestamp = new Date().toISOString();
         
@@ -181,6 +203,11 @@ export async function POST(req) {
         return NextResponse.json({ message: 'File deleted successfully' }, { status: 200 });
 
     } catch (error) {
+        // Handle authentication/authorization errors
+        if (error instanceof HttpError) {
+            return handleGuardError(error);
+        }
+        
         console.error('--- Error general en deleteFile endpoint ---', error);
         return NextResponse.json(
             { error: 'Internal server error', details: error.message },

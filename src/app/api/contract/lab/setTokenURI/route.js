@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
-// 
+import { requireAuth, requireLabOwner, handleGuardError } from '@/utils/auth/guards';
+
 /**
  * Set token URI for a lab
  * POST /api/contract/lab/setTokenURI
@@ -22,6 +23,10 @@ export async function POST(request) {
       );
     }
 
+    // Authentication and authorization - only lab owner can set token URI
+    const session = await requireAuth();
+    await requireLabOwner(session, labId);
+
     const contract = getContractInstance();
 
     // Call setTokenURI function
@@ -35,6 +40,10 @@ export async function POST(request) {
     }, {status: 200});
 
   } catch (error) {
+    // Handle guard errors (401, 403) separately from other errors
+    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
+      return handleGuardError(error);
+    }
     console.error('Error setting token URI:', error);
     return NextResponse.json(
       { error: `Failed to set token URI: ${error.message}` }, {status: 500 }

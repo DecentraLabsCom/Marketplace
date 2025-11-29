@@ -1,10 +1,13 @@
 /**
  * ATOMIC API endpoint for getting reservation key by user index
  * 1:1 relationship with contract.reservationKeyOfUserByIndex() call
+ * 
+ * @security Protected - requires authenticated session
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { isAddress } from 'viem'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 
 /**
  * Get reservation key for a user at specific index
@@ -14,6 +17,13 @@ import { isAddress } from 'viem'
  * @returns {Response} JSON response with reservation key
  */
 export async function GET(request) {
+  try {
+    // Authentication check - user reservation data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   const url = new URL(request.url);
   const userAddress = url.searchParams.get('userAddress');
   const index = url.searchParams.get('index');

@@ -17,6 +17,22 @@ function formatAddress(address) {
 }
 
 /**
+ * Destroys the wallet session by calling the logout endpoint
+ * @returns {Promise<void>}
+ */
+async function destroyWalletSession() {
+  try {
+    await fetch('/api/auth/wallet-logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    devLog.log('✅ Wallet session destroyed on logout');
+  } catch (error) {
+    devLog.warn('⚠️ Error destroying wallet session:', error);
+  }
+}
+
+/**
  * Account component for user authentication and logout
  * Displays user information and provides logout functionality for both wallet and SSO users
  * @returns {JSX.Element} Account display and logout interface
@@ -37,8 +53,10 @@ export default function Account() {
         return;
       }
       
-      // Handle wallet disconnect only
+      // Handle wallet disconnect - destroy session first, then disconnect wallet
       if (isConnected) {
+        // Destroy the wallet session cookie before disconnecting
+        await destroyWalletSession();
         disconnect();
         // For wallet-only users, small delay then redirect
         setTimeout(() => {

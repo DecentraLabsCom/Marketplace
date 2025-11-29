@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server'
 import { getContractInstance } from '../../utils/contractInstance'
 import { devLog } from '@/utils/dev/logger'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 
 /**
  * GET /api/contract/reservation/labReservationByIndex
  * Get a lab reservation key by index (atomic endpoint)
  * Returns only the reservation key - use getReservation endpoint for full details
+ * 
+ * @security Protected - requires authenticated session
  */
 export async function GET(request) {
+  try {
+    // Authentication check - reservation data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   let labId, index;
   
   try {

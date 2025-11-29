@@ -4,6 +4,7 @@ import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import devLog from '@/utils/dev/logger';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
+import { getSessionFromCookies } from '@/utils/auth/sessionCookie';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -85,16 +86,14 @@ function normalizeOrganizationDomain(domain) {
 export async function POST(request) {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('user_session')?.value;
+    const samlUser = getSessionFromCookies(cookieStore);
 
-    if (!sessionCookie) {
+    if (!samlUser) {
       return NextResponse.json(
         { error: 'No SSO session found' },
         { status: 401 },
       );
     }
-
-    const samlUser = JSON.parse(sessionCookie);
 
     // Role-based eligibility check (institutional staff, etc.)
     const { role, scopedRole } = samlUser || {};

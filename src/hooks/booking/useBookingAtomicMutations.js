@@ -85,7 +85,7 @@ export const useReservationRequestWallet = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/reservationRequestSSO endpoint using server wallet (SSO users)
+ * Hook for /api/contract/reservation/reservationRequest endpoint using server wallet (SSO users)
  * Creates a new reservation request using server wallet for SSO users
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
@@ -96,7 +96,7 @@ export const useReservationRequestSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async (requestData) => {
-      const response = await fetch('/api/contract/reservation/reservationRequestSSO', {
+      const response = await fetch('/api/contract/reservation/reservationRequest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData)
@@ -416,7 +416,7 @@ export const useDenyReservationRequest = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/cancelBookingSSO endpoint
+ * Hook for /api/contract/reservation/cancelBooking endpoint
  * Cancels an existing booking (SSO users)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
@@ -426,7 +426,7 @@ export const useCancelBookingSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const response = await fetch('/api/contract/reservation/cancelBookingSSO', {
+      const response = await fetch('/api/contract/reservation/cancelBooking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reservationKey })
@@ -522,7 +522,7 @@ export const useCancelBooking = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/requestFundsSSO endpoint
+ * Hook for /api/contract/reservation/requestFunds endpoint
  * Requests funds for SSO users
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
@@ -533,7 +533,7 @@ export const useRequestFundsSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/contract/reservation/requestFundsSSO', {
+      const response = await fetch('/api/contract/reservation/requestFunds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})

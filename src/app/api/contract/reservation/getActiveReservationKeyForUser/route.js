@@ -1,15 +1,24 @@
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 
 /**
  * Retrieves the active reservation key for a user in a specific lab
  * Uses O(1) contract lookup via interval tree
  * 
+ * @security Protected - requires authenticated session
  * @param {Request} request - HTTP request with query parameters
  * @param {string} request.searchParams.labId - Lab ID to check (required)
  * @param {string} request.searchParams.userAddress - User address to check (required)
  * @returns {Response} JSON response with reservation key or 0x0 if no active booking
  */
 export async function GET(request) {
+  try {
+    // Authentication check - user reservation data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   const url = new URL(request.url);
   const labId = url.searchParams.get('labId');
   const userAddress = url.searchParams.get('userAddress');

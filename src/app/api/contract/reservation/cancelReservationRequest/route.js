@@ -7,6 +7,8 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+
 /**
  * Cancels a pending reservation request using server wallet (for SSO users)
  * @param {Request} request - HTTP request with cancellation details
@@ -19,6 +21,9 @@ export async function POST(request) {
   const startTime = Date.now();
   
   try {
+    // Authentication check - only authenticated users can cancel requests
+    await requireAuth();
+    
     // Parse and validate request body
     const body = await request.json();
     const { reservationKey, validateOnly = false } = body;

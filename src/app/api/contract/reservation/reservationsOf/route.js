@@ -1,10 +1,13 @@
 /**
  * ATOMIC API endpoint for getting reservation count for a user
  * 1:1 relationship with contract.reservationsOf() call
+ * 
+ * @security Protected - requires authenticated session
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { isAddress } from 'viem'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 
 /**
  * Get total number of reservations for a user address
@@ -13,6 +16,13 @@ import { isAddress } from 'viem'
  * @returns {Response} JSON response with reservation count
  */
 export async function GET(request) {
+  try {
+    // Authentication check - user reservation data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   const url = new URL(request.url);
   const userAddress = url.searchParams.get('userAddress');
   

@@ -7,6 +7,9 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError, ForbiddenError } from '@/utils/auth/guards'
+import { hasAdminRole } from '@/utils/auth/roleValidation'
+
 /**
  * Registers a new lab provider on the blockchain
  * @param {Request} request - HTTP request with provider details
@@ -22,6 +25,15 @@ export async function POST(request) {
   const startTime = Date.now();
   
   try {
+    // Authentication check - only authenticated users with admin role can add providers
+    const session = await requireAuth();
+    
+    // Admin role check - this operation requires DEFAULT_ADMIN_ROLE on-chain
+    // Only SSO users with institutional admin privileges can perform this
+    if (!hasAdminRole(session.role, session.scopedRole)) {
+      throw new ForbiddenError('Admin privileges required to add providers');
+    }
+    
     // Parse and validate request body
     const body = await request.json();
     const { name, email, wallet, country, validateOnly = false } = body;
@@ -179,6 +191,11 @@ export async function POST(request) {
     });
 
   } catch (error) {
+    // Handle guard errors (401, 403) separately from other errors
+    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
+      return handleGuardError(error);
+    }
+    
     console.error('Unexpected error in addProvider:', error);
     
     const endTime = Date.now();

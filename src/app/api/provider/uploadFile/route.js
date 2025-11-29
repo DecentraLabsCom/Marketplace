@@ -1,6 +1,8 @@
 /**
  * API endpoint for uploading files (images/documents) for lab providers
  * Handles POST requests to upload and store files locally or in cloud storage
+ * 
+ * SECURITY: Requires authentication and lab ownership verification
  */
 import path from 'path'
 import { promises as fs } from 'fs'
@@ -8,6 +10,12 @@ import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
+import { 
+  requireAuth, 
+  requireLabOwner, 
+  handleGuardError,
+  HttpError 
+} from '@/utils/auth/guards'
 
 /**
  * Uploads files for lab providers with support for local and cloud storage
@@ -19,10 +27,30 @@ import getIsVercel from '@/utils/isVercel'
  */
 export async function POST(req) {
   try {
+    // ===== AUTHENTICATION & AUTHORIZATION =====
+    // Require valid session (works for both SSO and wallet users)
+    const session = await requireAuth();
+    
+    // Parse form data to get file and labId
     const formData = await req.formData();
     const file = formData.get('file');
     const destinationFolder = formData.get('destinationFolder');
     const labId = formData.get('labId');
+
+    // Validate labId and authorize ownership (skip for temp folder uploads during lab creation)
+    if (labId && labId !== 'temp') {
+      await requireLabOwner(session, labId);
+    } else if (!labId) {
+      // If no labId provided, this is an error - we need to know where to save
+      return NextResponse.json(
+        { 
+          error: 'Missing required field: labId',
+          code: 'MISSING_LAB_ID'
+        }, 
+        { status: 400 }
+      );
+    }
+    // Note: labId === 'temp' is allowed without ownership check (for new lab creation flow)
 
     // Validate required fields
     if (!file) {
@@ -160,6 +188,11 @@ export async function POST(req) {
     }
 
   } catch (error) {
+    // Handle authentication/authorization errors
+    if (error instanceof HttpError) {
+      return handleGuardError(error);
+    }
+    
     console.error('Error in uploadFile endpoint:', error);
     
     // Handle form data parsing errors

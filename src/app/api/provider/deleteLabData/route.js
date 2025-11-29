@@ -1,6 +1,8 @@
 /**
  * API endpoint for deleting lab data from storage
  * Handles POST requests to remove lab data files from local or cloud storage
+ * 
+ * SECURITY: Requires authentication and lab ownership verification
  */
 import path from 'path'
 import { promises as fs } from 'fs'
@@ -8,6 +10,13 @@ import { NextResponse } from 'next/server'
 import { del } from '@vercel/blob'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
+import { 
+  requireAuth, 
+  requireLabOwner, 
+  handleGuardError,
+  HttpError,
+  BadRequestError
+} from '@/utils/auth/guards'
 
 /**
  * Deletes lab data file from storage
@@ -18,6 +27,10 @@ import getIsVercel from '@/utils/isVercel'
  */
 export async function POST(req) {
   try {
+    // ===== AUTHENTICATION =====
+    // Require valid session (works for both SSO and wallet users)
+    const session = await requireAuth();
+    
     const { labURI } = await req.json();
     
     // Validate required parameters
@@ -29,6 +42,19 @@ export async function POST(req) {
     }
 
     const sanitizedLabURI = labURI.trim();
+    
+    // ===== AUTHORIZATION =====
+    // Extract labId from URI and verify ownership
+    // URI format: "Lab-{provider}-{labId}.json"
+    const labIdMatch = sanitizedLabURI.match(/-(\d+)\.json$/);
+    if (labIdMatch && labIdMatch[1]) {
+      const labId = labIdMatch[1];
+      await requireLabOwner(session, labId);
+    } else {
+      // Can't extract labId - deny access for safety
+      throw new BadRequestError('Unable to determine lab ID from URI');
+    }
+    
     const isVercel = getIsVercel();
 
     devLog('DELETE_LAB_DATA', `Attempting to delete lab data: ${sanitizedLabURI} on ${isVercel ? 'Vercel' : 'local'}`);
@@ -100,6 +126,11 @@ export async function POST(req) {
     }
 
   } catch (parseError) {
+    // Handle authentication/authorization errors
+    if (parseError instanceof HttpError) {
+      return handleGuardError(parseError);
+    }
+    
     console.error('Request parsing error:', parseError);
     
     return NextResponse.json({ 

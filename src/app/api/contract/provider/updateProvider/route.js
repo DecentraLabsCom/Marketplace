@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
  * Update provider information
@@ -15,6 +16,10 @@ import { getContractInstance } from '../../utils/contractInstance';
  */
 export async function POST(request) {
   try {
+    // Authentication check - only authenticated users can update provider info
+    // (on-chain contract verifies the caller is the provider themselves via PROVIDER_ROLE)
+    await requireAuth();
+    
     const { name, email, country, userAddress } = await request.json();
 
     if (!name || !email || !country || !userAddress) {
@@ -34,6 +39,10 @@ export async function POST(request) {
     }, {status: 200});
 
   } catch (error) {
+    // Handle guard errors (401, 403) separately from other errors
+    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
+      return handleGuardError(error);
+    }
     console.error('Error updating provider:', error);
     return NextResponse.json(
       { error: `Failed to update provider: ${error.message}` }, {status: 500 }

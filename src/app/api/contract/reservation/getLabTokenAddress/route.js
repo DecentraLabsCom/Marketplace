@@ -1,13 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
  * Get LAB token contract address
  * GET /api/contract/reservation/getLabTokenAddress
  * 
+ * @security Protected - requires authenticated session
  * @returns {Object} LAB token contract address
  */
 export async function GET(request) {
+  try {
+    // Authentication check - contract technical data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   try {
     const contract = getContractInstance();
 

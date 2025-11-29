@@ -132,7 +132,7 @@ describe('useLabAtomicMutations', () => {
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/contract/lab/addLabSSO',
+        '/api/contract/lab/addLab',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -245,7 +245,7 @@ describe('useLabAtomicMutations', () => {
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/contract/lab/addLabSSO',
+        '/api/contract/lab/addLab',
         expect.any(Object)
       );
     });
@@ -285,7 +285,7 @@ describe('useLabAtomicMutations', () => {
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/contract/lab/updateLabSSO',
+        '/api/contract/lab/updateLab',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify(updateData),
@@ -411,7 +411,7 @@ describe('useLabAtomicMutations', () => {
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/contract/lab/deleteLabSSO',
+        '/api/contract/lab/deleteLab',
         expect.objectContaining({
           body: JSON.stringify({ labId: 1 }),
         })

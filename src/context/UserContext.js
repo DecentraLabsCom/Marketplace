@@ -56,6 +56,7 @@ function UserDataCore({ children }) {
     const [isSSO, setIsSSO] = useState(false);
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [walletSessionCreated, setWalletSessionCreated] = useState(false);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -113,6 +114,58 @@ function UserDataCore({ children }) {
 
     // Cache update utilities
     const { refreshProviderStatus: refreshProviderStatusFromCache, clearSSOSession } = useUserCacheUpdates();
+
+    // Create wallet session when wallet connects (only for non-SSO users)
+    useEffect(() => {
+        const createWalletSession = async () => {
+            // Skip if: logging out, SSO user, no address, already created, or wallet loading
+            if (isLoggingOut || isSSO || !address || walletSessionCreated || isWalletLoading) {
+                return;
+            }
+
+            try {
+                devLog.log('🔐 Creating wallet session for:', address);
+                const response = await fetch('/api/auth/wallet-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ walletAddress: address }),
+                });
+
+                if (response.ok) {
+                    setWalletSessionCreated(true);
+                    devLog.log('✅ Wallet session created successfully');
+                    // Refetch SSO query to pick up the new session
+                    refetchSSO();
+                } else {
+                    devLog.warn('⚠️ Failed to create wallet session:', response.status);
+                }
+            } catch (error) {
+                devLog.error('❌ Error creating wallet session:', error);
+            }
+        };
+
+        if (isConnected && address && !isSSO) {
+            createWalletSession();
+        }
+    }, [isConnected, address, isSSO, walletSessionCreated, isWalletLoading, isLoggingOut, refetchSSO]);
+
+    // Destroy wallet session when wallet disconnects
+    const destroyWalletSession = useCallback(async () => {
+        if (!walletSessionCreated) return;
+        
+        try {
+            devLog.log('🔓 Destroying wallet session...');
+            await fetch('/api/auth/wallet-logout', {
+                method: 'POST',
+                credentials: 'include',
+            });
+            setWalletSessionCreated(false);
+            devLog.log('✅ Wallet session destroyed');
+        } catch (error) {
+            devLog.error('❌ Error destroying wallet session:', error);
+        }
+    }, [walletSessionCreated]);
 
     // Safe error handler wrapper
     const handleError = useCallback((error, context = {}) => {
@@ -278,6 +331,11 @@ function UserDataCore({ children }) {
             // Don't clear SSO state here as it's managed separately
             queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(address) });
             
+            // Destroy wallet session when wallet disconnects (external disconnect from MetaMask)
+            if (walletSessionCreated && !isSSO) {
+                destroyWalletSession();
+            }
+            
             // Only clear user state if it was wallet-based (not SSO)
             if (!isSSO) {
                 setUser(null);
@@ -288,7 +346,7 @@ function UserDataCore({ children }) {
                 queryKey: providerQueryKeys.isLabProvider(address) 
             });
         }
-    }, [isConnected, address, queryClient, isSSO]);
+    }, [isConnected, address, queryClient, isSSO, walletSessionCreated, destroyWalletSession]);
 
     // Handle errors
     useEffect(() => {

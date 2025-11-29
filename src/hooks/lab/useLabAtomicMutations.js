@@ -14,7 +14,7 @@ import devLog from '@/utils/dev/logger'
 // ===== MUTATIONS =====
 
 /**
- * SSO Hook for /api/contract/lab/addLabSSO endpoint
+ * SSO Hook for /api/contract/lab/addLab endpoint
  * Creates a new lab using server wallet (SSO users)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
@@ -31,7 +31,7 @@ export const useAddLabSSO = (options = {}) => {
       try {
         devLog.log('🎯 Optimistic lab added to cache:', optimisticLab.id);
 
-        const response = await fetch('/api/contract/lab/addLabSSO', {
+        const response = await fetch('/api/contract/lab/addLab', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(labData)
@@ -188,7 +188,7 @@ export const useAddLab = (options = {}) => {
 };
 
 /**
- * SSO Hook for /api/contract/lab/updateLabSSO endpoint
+ * SSO Hook for /api/contract/lab/updateLab endpoint
  * Updates a lab using server wallet (SSO users)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
@@ -199,7 +199,7 @@ export const useUpdateLabSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async (updateData) => {
-      const response = await fetch('/api/contract/lab/updateLabSSO', {
+      const response = await fetch('/api/contract/lab/updateLab', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -365,7 +365,7 @@ export const useUpdateLab = (options = {}) => {
 };
 
 /**
- * SSO Hook for /api/contract/lab/deleteLabSSO endpoint
+ * SSO Hook for /api/contract/lab/deleteLab endpoint
  * Deletes a lab using server wallet (SSO users)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
@@ -388,7 +388,7 @@ export const useDeleteLabSSO = (options = {}) => {
       try {
         devLog.log('🎯 Optimistic lab deletion:', labId);
 
-        const response = await fetch('/api/contract/lab/deleteLabSSO', {
+        const response = await fetch('/api/contract/lab/deleteLab', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ labId })
@@ -671,7 +671,7 @@ export const useListLabSSO = (options = {}) => {
       // Set optimistic UI state immediately
       setOptimisticListingState(labId, true, true);
       
-      const response = await fetch('/api/contract/lab/listLabSSO', {
+      const response = await fetch('/api/contract/lab/listLab', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ labId }),
@@ -806,7 +806,7 @@ export const useUnlistLabSSO = (options = {}) => {
       // Set optimistic UI state immediately
       setOptimisticListingState(labId, false, true);
       
-      const response = await fetch('/api/contract/lab/unlistLabSSO', {
+      const response = await fetch('/api/contract/lab/unlistLab', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ labId }),

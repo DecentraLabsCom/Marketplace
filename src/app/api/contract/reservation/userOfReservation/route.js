@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
  * Get user address who owns a reservation
  * GET /api/contract/reservation/userOfReservation?reservationKey=0x123
  * 
+ * @security Protected - requires authenticated session
  * Query Parameters:
  * @param {string} reservationKey - Reservation key (bytes32)
  * 
  * @returns {Object} User address who owns the reservation
  */
 export async function GET(request) {
+  try {
+    // Authentication check - personal data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const reservationKey = searchParams.get('reservationKey');

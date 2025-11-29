@@ -1,12 +1,21 @@
 /**
  * API endpoint for saving lab data to local storage or cloud
  * Handles POST requests to persist lab information and metadata
+ * 
+ * SECURITY: Requires authentication and lab ownership verification
  */
 import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import getIsVercel from '@/utils/isVercel'
+import { 
+  requireAuth, 
+  requireLabOwner, 
+  handleGuardError,
+  HttpError,
+  BadRequestError
+} from '@/utils/auth/guards'
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
@@ -98,6 +107,10 @@ const sanitizeUnixDate = (value) => {
  */
 export async function POST(req) {
   try {
+    // ===== AUTHENTICATION =====
+    // Require valid session (works for both SSO and wallet users)
+    const session = await requireAuth();
+    
     const body = await req.json();
     const { labData } = body;
 
@@ -151,6 +164,18 @@ export async function POST(req) {
         },
         { status: 400 }
       );
+    }
+
+    // ===== AUTHORIZATION =====
+    // Extract labId from URI and verify ownership
+    // URI format: "Lab-{provider}-{labId}.json"
+    const labIdMatch = uri.match(/-(\d+)\.json$/);
+    if (labIdMatch && labIdMatch[1]) {
+      const labId = labIdMatch[1];
+      await requireLabOwner(session, labId);
+    } else {
+      // Can't extract labId - deny access for safety
+      throw new BadRequestError('Unable to determine lab ID from URI');
     }
 
     const isVercel = getIsVercel();
@@ -303,6 +328,11 @@ export async function POST(req) {
     return successResponse;
 
   } catch (error) {
+    // Handle authentication/authorization errors
+    if (error instanceof HttpError) {
+      return handleGuardError(error);
+    }
+    
     console.error('Error in saveLabData endpoint:', error);
     
     // Handle JSON parsing errors

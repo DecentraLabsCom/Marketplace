@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
  * Get reservation key by global index
  * GET /api/contract/reservation/reservationKeyByIndex?index=0
  * 
+ * @security Protected - requires authenticated session
  * Query Parameters:
  * @param {number|string} index - Global index of the reservation
  * 
  * @returns {Object} Reservation key at the specified index
  */
 export async function GET(request) {
+  try {
+    // Authentication check - reservation data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const index = searchParams.get('index');

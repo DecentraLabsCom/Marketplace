@@ -5,6 +5,8 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+
 /**
  * Confirms a reservation request
  * @param {Request} request - HTTP request with reservation details
@@ -16,6 +18,10 @@ export async function POST(request) {
   let reservationKey = null; // Declare here so it's available in catch block
   
   try {
+    // Authentication check - only authenticated users can confirm reservations
+    // (on-chain contract verifies the caller is the lab owner/provider)
+    await requireAuth();
+    
     const body = await request.json();
     reservationKey = body.reservationKey;
     
@@ -40,6 +46,11 @@ export async function POST(request) {
     }, {status: 200});
 
   } catch (error) {
+    // Handle guard errors (401, 403) separately from other errors
+    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
+      return handleGuardError(error);
+    }
+    
     console.error('❌ Error confirming reservation:', {
       reservationKey,
       errorMessage: error.message,

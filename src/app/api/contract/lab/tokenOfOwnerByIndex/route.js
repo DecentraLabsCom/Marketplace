@@ -2,10 +2,14 @@
  * API endpoint for retrieving owned lab ID by owner index
  * Returns a specific lab ID owned by a wallet at a given index (atomic operation)
  * Optimized for React Query client-side caching - no server-side cache
+ * 
+ * @security Protected - requires authenticated session
  */
 
 import { isAddress } from 'viem'
 import { getContractInstance } from '../../utils/contractInstance'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+
 /**
  * Retrieves lab ID owned by a wallet at a specific index
  * @param {Request} request - HTTP request with query parameters
@@ -14,6 +18,13 @@ import { getContractInstance } from '../../utils/contractInstance'
  * @returns {Response} JSON response with lab ID or error
  */
 export async function GET(request) {
+  try {
+    // Authentication check - personal data requires login
+    await requireAuth();
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
   const url = new URL(request.url);
   const wallet = url.searchParams.get('wallet');
   const index = url.searchParams.get('index');

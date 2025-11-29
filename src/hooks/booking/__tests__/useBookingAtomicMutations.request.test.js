@@ -125,7 +125,7 @@ describe('useReservationRequest (minimal unit tests)', () => {
     await act(async () => { out = await result.current.mutateAsync(vars); });
 
     // Key assertions: correct endpoint/payload used, cache updated, and response returned
-    expect(global.fetch).toHaveBeenCalledWith('/api/contract/reservation/reservationRequestSSO', expect.objectContaining({
+    expect(global.fetch).toHaveBeenCalledWith('/api/contract/reservation/reservationRequest', expect.objectContaining({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(vars),
