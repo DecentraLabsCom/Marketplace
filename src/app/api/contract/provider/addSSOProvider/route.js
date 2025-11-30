@@ -22,9 +22,12 @@ export async function POST(request) {
   try {
     // Authentication check - only authenticated SSO users can register providers
     await requireAuth();
-    
-    const body = await request.json();
-    const { name, email, affiliation, role, scopedRole, walletAddress } = body;
+  } catch (error) {
+    return handleGuardError(error);
+  }
+
+  const body = await request.json();
+  const { name, email, affiliation, role, scopedRole, walletAddress } = body;
   
   if (!name || !email) {
     return Response.json({ error: 'Missing required fields (name, email)' }, { status: 400 });
@@ -65,10 +68,6 @@ export async function POST(request) {
       transactionHash: tx.hash 
     }, { status: 200 });
   } catch (error) {
-    // Handle guard errors (401, 403) separately from other errors
-    if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
-      return handleGuardError(error);
-    }
     console.error('Error registering SSO provider:', error);
     return Response.json({ error: 'Failed to register provider' }, { status: 500 });
   }
