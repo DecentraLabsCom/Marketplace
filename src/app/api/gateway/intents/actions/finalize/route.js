@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
-import { isoBase64URL } from '@simplewebauthn/server/helpers/iso/isoBase64URL'
+import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { getOriginFromRequest, getRpId } from '@/utils/webauthn/config'
 import { buildIntentChallenge } from '@/utils/webauthn/challenge'

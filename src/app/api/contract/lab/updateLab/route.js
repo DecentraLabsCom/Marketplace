@@ -38,7 +38,7 @@ export async function POST(request) {
     let priceInContractUnits;
     try {
       priceInContractUnits = BigInt(price.toString());
-    } catch (e) {
+    } catch {
       return Response.json({ error: 'Invalid price format', field: 'price' }, { status: 400 });
     }
 

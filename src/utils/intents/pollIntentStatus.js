@@ -44,7 +44,9 @@ export async function pollIntentStatus(requestId, {
       const status = data?.status;
 
       if (onUpdate) {
-        try { onUpdate(data); } catch {}
+        try { onUpdate(data); } catch {
+          // intentionally left blank
+        }
       }
 
       if (status === 'executed' || status === 'failed' || status === 'rejected') {

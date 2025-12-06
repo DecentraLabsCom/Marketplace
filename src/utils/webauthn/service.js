@@ -2,8 +2,7 @@ import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server'
-import { convertCOSEtoPKCS } from '@simplewebauthn/server/helpers/convertCOSEtoPKCS'
-import { isoBase64URL } from '@simplewebauthn/server/helpers/iso/isoBase64URL'
+import { convertCOSEtoPKCS, isoBase64URL } from '@simplewebauthn/server/helpers'
 import devLog from '@/utils/dev/logger'
 import { getOriginFromRequest, getRpId, getRpName } from './config'
 import {

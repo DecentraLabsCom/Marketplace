@@ -1,4 +1,4 @@
-import { isoBase64URL } from '@simplewebauthn/server/helpers/iso/isoBase64URL'
+import { isoBase64URL } from '@simplewebauthn/server/helpers'
 
 function toPlainString(value) {
   if (value === undefined || value === null) return ''

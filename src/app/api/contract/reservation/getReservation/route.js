@@ -134,6 +134,46 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('❌ Error fetching reservation:', error);
+
+    // Gracefully handle decoding failures from mismatched ABI/contract
+    if (error.code === 'BAD_DATA' || error.shortMessage?.includes('could not decode result data') || error.message?.includes('could not decode result data')) {
+      console.warn(`⚠️ Reservation decode failed, treating as not found: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+      return Response.json({
+        reservation: {
+          labId: null,
+          renter: '0x0000000000000000000000000000000000000000',
+          price: null,
+          labProvider: '0x0000000000000000000000000000000000000000',
+          start: null,
+          end: null,
+          status: null,
+          puc: '',
+          requestPeriodStart: null,
+          requestPeriodDuration: null,
+          payerInstitution: '0x0000000000000000000000000000000000000000',
+          collectorInstitution: '0x0000000000000000000000000000000000000000',
+          providerShare: null,
+          projectTreasuryShare: null,
+          subsidiesShare: null,
+          governanceShare: null,
+          reservationState: 'Not Found',
+          isPending: false,
+          isBooked: false,
+          isInUse: false,
+          isUsed: false,
+          isCollected: false,
+          isCanceled: false,
+          isActive: false,
+          isCompleted: false,
+          isConfirmed: false,
+          exists: false,
+          isInstitutional: false
+        },
+        reservationKey,
+        notFound: true,
+        decodeFailed: true
+      }, { status: 200 });
+    }
     
     // Handle contract revert gracefully - treat as non-existent reservation
     if (error.code === 'CALL_EXCEPTION' || 

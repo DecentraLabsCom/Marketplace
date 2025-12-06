@@ -6,7 +6,7 @@ import { getContractInstance } from '../../utils/contractInstance';
  * 
  * @returns {Object} Array of all lab providers
  */
-export async function GET(request) {
+export async function GET() {
   try {
     console.log('[API] getLabProviders: Fetching all lab providers');
 

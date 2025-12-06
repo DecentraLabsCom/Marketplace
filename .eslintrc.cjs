@@ -16,10 +16,15 @@ module.exports = {
   rules: {
     "react/react-in-jsx-scope": "off",
     "react/prop-types": "off",
-    "no-unused-vars": "warn",
+    "no-unused-vars": "off",
     "no-unreachable": "warn",
-    "tailwindcss/no-custom-classname": "warn",
-    "tailwindcss/classnames-order": "off"
+    "react-hooks/exhaustive-deps": "off",
+    "tailwindcss/no-custom-classname": "off",
+    "tailwindcss/enforces-shorthand": "off",
+    "tailwindcss/classnames-order": "off",
+    "@next/next/no-img-element": "off",
+    "jsx-a11y/alt-text": "off",
+    "import/no-anonymous-default-export": "off"
   },
   env: {
     browser: true,

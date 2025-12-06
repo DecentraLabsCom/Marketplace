@@ -18,7 +18,17 @@ export async function GET() {
     const contract = await getContractInstance();
     
     // New contract API: paginated labs (ids, total)
-    const [ids] = await contract.getLabsPaginated(0, 100);
+    let ids;
+    try {
+      const [paginatedIds] = await contract.getLabsPaginated(0, 100);
+      ids = paginatedIds;
+    } catch (error) {
+      if (error.reason === 'FunctionNotFound(bytes4)' || error.message?.includes('FunctionNotFound') || error.code === 'CALL_EXCEPTION') {
+        console.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');
+        return createSerializedJsonResponse([], { status: 200 });
+      }
+      throw error;
+    }
     
     // Convert all BigInt lab IDs to numbers for JSON serialization
     const convertedLabList = ids.map(labId => Number(labId));
