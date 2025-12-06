@@ -64,28 +64,17 @@ jest.mock("@/context/UserContext", () => ({
 }));
 
 describe("Account Component", () => {
-  const originalLocation = window.location;
   const originalFetch = global.fetch;
 
   beforeEach(() => {
     // Reset all mocks to ensure test isolation
     jest.clearAllMocks();
     jest.useFakeTimers();
-
     // Mock fetch for wallet logout endpoint (destroyWalletSession)
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ success: true }),
     });
-
-    // Mock window.location to test navigation behavior without actual page reloads
-    delete window.location;
-    window.location = {
-      href: "http://localhost/",
-      assign: jest.fn(),
-      replace: jest.fn(),
-      reload: jest.fn(),
-    };
 
     // Reset to default unauthenticated state before each test
     mockUserContext = {
@@ -106,7 +95,6 @@ describe("Account Component", () => {
     // Ensure all pending timers are executed and clean up fake timers
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
-    window.location = originalLocation;
     global.fetch = originalFetch;
   });
 

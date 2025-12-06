@@ -85,15 +85,15 @@ LabDetailsPanel.propTypes = {
   lab: PropTypes.object.isRequired,
   date: PropTypes.instanceOf(Date).isRequired,
   onDateChange: PropTypes.func.isRequired,
-  bookings: PropTypes.array.isRequired,
+  bookings: PropTypes.array, // Can be null initially before data loads
   duration: PropTypes.number.isRequired,
   onDurationChange: PropTypes.func.isRequired,
-  selectedTime: PropTypes.string.isRequired,
+  selectedTime: PropTypes.string, // Can be null initially before user selects
   onTimeChange: PropTypes.func.isRequired,
   availableTimes: PropTypes.array.isRequired,
-  minDate: PropTypes.instanceOf(Date).isRequired,
-  maxDate: PropTypes.instanceOf(Date),
-  forceRefresh: PropTypes.number.isRequired,
+  minDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]).isRequired,
+  maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),
+  forceRefresh: PropTypes.oneOfType([PropTypes.number, PropTypes.bool]).isRequired,
   isSSO: PropTypes.bool.isRequired,
   formatPrice: PropTypes.func.isRequired
 }

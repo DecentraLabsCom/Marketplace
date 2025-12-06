@@ -6,8 +6,7 @@ import devLog from '@/utils/dev/logger'
 
 /**
  * Institutional provider registration flow for SSO users
- * - Registers the institution as a provider on-chain via addSSOProvider
- * - Then generates an institutional invite token bound to the provider wallet
+ * NOTE: On-chain provider registration via marketplace is deprecated; handled in institutional gateway.
  */
 export default function InstitutionProviderRegister() {
   const { user, address, isConnected } = useUser()
@@ -35,38 +34,11 @@ export default function InstitutionProviderRegister() {
     setInviteData(null)
 
     try {
-      // Step 1: register institutional provider on-chain via server-side wallet
-      const registerResponse = await fetch('/api/contract/provider/addSSOProvider', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: user.name || user.organizationName || 'Institutional Provider',
-          email: user.email,
-          affiliation: user.affiliation || user.schacHomeOrganization || 'Unknown',
-          role: user.role,
-          scopedRole: user.scopedRole,
-          walletAddress: address,
-        }),
-      })
-
-      if (!registerResponse.ok) {
-        const errorData = await registerResponse.json().catch(() => ({}))
-        const message = errorData?.error || 'Failed to register institutional provider on-chain'
-        addErrorNotification(message, '')
-        setIsRegistering(false)
-        return
-      }
-
-      const registerResult = await registerResponse.json()
-      const walletAddress = registerResult.walletAddress
-      setTxHash(registerResult.transactionHash || null)
+      // Institutional provider registration is handled in the institutional gateway.
+      const walletAddress = address
       setProviderWallet(walletAddress || null)
 
-      addSuccessNotification('Institution registered as provider on-chain', '')
-      devLog.log('InstitutionProviderRegister: Provider registered', registerResult)
-
-      // Step 2: generate institutional invite token bound to provider wallet
+      // Step 1: generate institutional invite token bound to provider wallet
       const inviteResponse = await fetch('/api/institutions/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

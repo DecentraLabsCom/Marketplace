@@ -49,6 +49,7 @@ describe("LabDetail", () => {
   const mockRouter = {
     push: jest.fn(),
   };
+  const originalConsoleError = console.error;
 
   const mockLabData = {
     id: "lab-123",
@@ -80,6 +81,11 @@ describe("LabDetail", () => {
       formatPrice: jest.fn((price) => price),
     });
     useLabById.mockReturnValue(defaultMockResponse);
+    // Suppress jsdom navigation warnings
+    console.error = (...args) => {
+      if (args[0]?.toString?.().includes('Not implemented: navigation')) return;
+      originalConsoleError.apply(console, args);
+    };
   });
 
   describe("Data Fetching States", () => {
@@ -97,10 +103,6 @@ describe("LabDetail", () => {
     });
 
     test("shows error message with retry button on fetch failure", () => {
-      const reloadSpy = jest.fn();
-      delete window.location;
-      window.location = { reload: reloadSpy };
-
       useLabById.mockReturnValue({
         data: null,
         isLoading: false,
@@ -126,6 +128,10 @@ describe("LabDetail", () => {
 
       expect(screen.getByText("Lab not found.")).toBeInTheDocument();
     });
+  });
+
+  afterEach(() => {
+    console.error = originalConsoleError;
   });
 
   describe("Price Display", () => {

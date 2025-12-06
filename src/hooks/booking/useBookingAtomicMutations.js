@@ -1,3 +1,4 @@
+"use client";
 /**
  * Atomic React Query Hooks for Booking-related Write Operations
  * Each hook maps 1:1 to a specific API endpoint in /api/contract/reservation/
@@ -8,7 +9,75 @@ import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useUser } from '@/context/UserContext'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { useBookingCacheUpdates } from './useBookingCacheUpdates'
+import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import devLog from '@/utils/dev/logger'
+import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
+import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+
+async function runActionIntent(action, payload) {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+    throw new Error('WebAuthn not supported in this environment');
+  }
+
+  const prepareResponse = await fetch('/api/gateway/intents/actions/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ action, payload, gatewayUrl: payload.gatewayUrl }),
+  });
+
+  const prepareData = await prepareResponse.json();
+  if (!prepareResponse.ok) {
+    throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
+  }
+
+  const publicKey = transformAssertionOptions({
+    challenge: prepareData.webauthnChallenge,
+    allowCredentials: prepareData.allowCredentials || [],
+    userVerification: 'required',
+    timeout: 90_000,
+  });
+
+  if (!publicKey) {
+    throw new Error('Unable to build WebAuthn request options');
+  }
+
+  const assertion = await navigator.credentials.get({ publicKey });
+  const assertionPayload = assertionToJSON(assertion);
+
+  const finalizeResponse = await fetch('/api/gateway/intents/actions/finalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      meta: prepareData.intent?.meta,
+      payload: prepareData.intent?.payload,
+      adminSignature: prepareData.adminSignature,
+      webauthnCredentialId: prepareData.webauthnCredentialId,
+      webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
+      webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
+      webauthnSignature: assertionPayload?.response?.signature,
+      gatewayUrl: payload.gatewayUrl,
+    }),
+  });
+
+  const finalizeData = await finalizeResponse.json();
+  if (!finalizeResponse.ok) {
+    throw new Error(finalizeData.error || 'Failed to finalize action intent');
+  }
+
+  const requestId =
+    finalizeData?.intent?.meta?.requestId ||
+    prepareData?.intent?.meta?.requestId ||
+    prepareData?.requestId;
+
+  return {
+    ...finalizeData,
+    requestId,
+    intent: finalizeData.intent || prepareData.intent,
+  };
+}
 
 // ===== MUTATIONS =====
 
@@ -39,9 +108,10 @@ export const useReservationRequestWallet = (options = {}) => {
         devLog.log('🎯 Optimistic booking added to cache:', optimisticBooking.id);
 
         const txHash = await reservationRequest([requestData.tokenId, requestData.start, requestData.end]);
+        const normalizedHash = typeof txHash === 'bigint' ? txHash.toString() : txHash?.toString?.() ?? txHash;
         
-        devLog.log('🔍 useReservationRequestWallet - Transaction Hash:', txHash);
-        return { hash: txHash, optimisticId: optimisticBooking.id };
+        devLog.log('🔍 useReservationRequestWallet - Transaction Hash:', normalizedHash);
+        return { hash: normalizedHash, optimisticId: optimisticBooking.id };
       } catch (error) {
         // Remove optimistic update on error
         removeOptimisticBooking(optimisticBooking.id);
@@ -70,10 +140,19 @@ export const useReservationRequestWallet = (options = {}) => {
         devLog.log('✅ Reservation request transaction sent via wallet, awaiting blockchain confirmation');
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
-        invalidateAllBookings();
+        try {
+          invalidateAllBookings();
+        } catch (invalidateError) {
+          devLog.error('invalidateAllBookings threw, continuing targeted invalidations', invalidateError);
+        }
+
         if (variables.tokenId) {
-          queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) });
-          queryClient.invalidateQueries({ queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId) });
+          try {
+            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) });
+            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId) });
+          } catch (targetedError) {
+            devLog.error('Targeted booking invalidations failed', targetedError);
+          }
         }
       }
     },
@@ -85,65 +164,172 @@ export const useReservationRequestWallet = (options = {}) => {
 };
 
 /**
- * Hook for /api/contract/reservation/reservationRequest endpoint using server wallet (SSO users)
- * Creates a new reservation request using server wallet for SSO users
+ * Hook for /api/contract/reservation/reservationRequest endpoint
+ * Creates a new reservation request for SSO users
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
 export const useReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
-  const { addBooking, invalidateAllBookings } = useBookingCacheUpdates();
+  const { updateBooking, invalidateAllBookings } = useBookingCacheUpdates();
 
   return useMutation({
     mutationFn: async (requestData) => {
-      const response = await fetch('/api/contract/reservation/reservationRequest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to create SSO reservation request: ${response.status}`);
+      if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+        throw new Error('WebAuthn not supported in this environment');
       }
 
-      const data = await response.json();
-      devLog.log('🔍 useReservationRequestSSO:', data);
-      return data;
+      const payload = {
+        labId: requestData.tokenId ?? requestData.labId,
+        start: requestData.start,
+        timeslot: requestData.timeslot ?? requestData.duration ?? requestData.timeslotMinutes,
+        gatewayUrl: requestData.gatewayUrl,
+      }
+
+      const prepareResponse = await fetch('/api/gateway/intents/reservations/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+
+      const prepareData = await prepareResponse.json()
+      if (!prepareResponse.ok) {
+        throw new Error(prepareData.error || `Failed to prepare reservation intent: ${prepareResponse.status}`)
+      }
+
+      const publicKey = transformAssertionOptions({
+        challenge: prepareData.webauthnChallenge,
+        allowCredentials: prepareData.allowCredentials || [],
+        userVerification: 'required',
+        timeout: 90_000,
+      })
+
+      if (!publicKey) {
+        throw new Error('Unable to build WebAuthn request options')
+      }
+
+      const assertion = await navigator.credentials.get({ publicKey })
+      const assertionPayload = assertionToJSON(assertion)
+
+      const finalizeResponse = await fetch('/api/gateway/intents/reservations/finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          meta: prepareData.intent?.meta,
+          payload: prepareData.intent?.payload,
+          adminSignature: prepareData.adminSignature,
+          webauthnCredentialId: prepareData.webauthnCredentialId,
+          webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
+          webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
+          webauthnSignature: assertionPayload?.response?.signature,
+          gatewayUrl: payload.gatewayUrl,
+        }),
+      })
+
+      const finalizeData = await finalizeResponse.json()
+      if (!finalizeResponse.ok) {
+        throw new Error(finalizeData.error || 'Failed to finalize reservation intent')
+      }
+
+      const requestId =
+        finalizeData?.intent?.meta?.requestId ||
+        prepareData?.intent?.meta?.requestId ||
+        prepareData?.requestId
+
+      return {
+        ...finalizeData,
+        requestId,
+        intent: finalizeData.intent || prepareData.intent,
+      }
     },
     onSuccess: (data, variables) => {
-      // Use cache utilities for granular updates
       try {
-        // Create booking data from response and variables
-        const newBooking = {
-          ...data,
-          tokenId: variables.tokenId,
+        const intentId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
+        const reservationKey = intentId || `intent-${Date.now()}`;
+
+        updateBooking(reservationKey, {
+          reservationKey,
           labId: variables.tokenId,
           start: variables.start,
           end: variables.end,
-          userAddress: variables.userAddress || data.userAddress || 'unknown',
-          status: data.status || 'confirmed',
-          timestamp: new Date().toISOString()
-        };
-        
-        addBooking(newBooking);
-        devLog.log('✅ SSO Reservation request created successfully, cache updated granularly');
-      } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
-        // Fallback to invalidation
-        invalidateAllBookings();
-        if (variables.tokenId) {
-          queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) });
-          queryClient.invalidateQueries({ queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId) });
+          isIntentPending: true,
+          intentRequestId: intentId,
+          intentStatus: 'requested',
+          status: 'requested',
+          note: 'Requested to institution',
+          timestamp: new Date().toISOString(),
+        });
+
+        if (intentId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(intentId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+              const finalKey = result?.reservationKey || reservationKey;
+
+              if (status === 'executed') {
+                updateBooking(finalKey, {
+                  reservationKey: finalKey,
+                  labId: variables.tokenId,
+                  start: variables.start,
+                  end: variables.end,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  status: 'pending',
+                  transactionHash: txHash,
+                  note: 'Executed by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateBooking(finalKey, {
+                  reservationKey: finalKey,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('ƒ?O Polling reservation intent failed:', err);
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+              invalidateAllBookings();
+            }
+          })();
         }
+      } catch (error) {
+        devLog.error('Failed to mark reservation intent, falling back to invalidation:', error);
+        invalidateAllBookings();
       }
     },
     onError: (error) => {
-      devLog.error('❌ Failed to create SSO reservation request:', error);
+      devLog.error('ƒ?O Failed to create SSO reservation request:', error);
     },
     ...options,
   });
 };
 
+// Institutional SSO path reuses the same reservation intent flow (SAML + PUC + schacHomeOrganization)
+export const useInstitutionalReservationRequestSSO = (options = {}) =>
+  useReservationRequestSSO(options)
+
+// Router wrapper: SSO path only; wallet path does not apply to institutional flows
+export const useInstitutionalReservationRequest = (options = {}) => {
+  const isSSO = useGetIsSSO(options)
+  return useInstitutionalReservationRequestSSO({
+    ...options,
+    enabled: isSSO && (options.enabled ?? true),
+  })
+}
 /**
  * Unified Hook for creating reservation requests (auto-detects SSO vs Wallet)
  * @param {Object} [options={}] - Additional mutation options
@@ -168,59 +354,83 @@ export const useReservationRequest = (options = {}) => {
  */
 export const useCancelReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
-  const { updateBooking, removeBooking, invalidateAllBookings } = useBookingCacheUpdates();
+  const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
+  const [abortController] = [new AbortController()];
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const response = await fetch('/api/contract/reservation/cancelReservationRequest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reservationKey })
+      const data = await runActionIntent(ACTION_CODES.CANCEL_REQUEST_BOOKING, {
+        reservationKey,
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cancel reservation request: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useCancelReservationRequestSSO:', data);
+      devLog.log('useCancelReservationRequestSSO intent (webauthn):', data);
       return data;
     },
     onSuccess: (data, reservationKey) => {
-      // Use cache utilities for optimistic update
       try {
-        // Update booking to mark as cancelled
-        const updatedBooking = {
+        const intentId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
+        updateBooking(reservationKey, {
           reservationKey,
-          status: '4', // Cancelled status
-          isCancelled: true,
-          timestamp: new Date().toISOString()
-        };
-        
-        updateBooking(reservationKey, updatedBooking);
-        devLog.log('✅ Reservation request marked as cancelled in cache via SSO (granular update)');
+          intentRequestId: intentId,
+          intentStatus: 'requested-cancel',
+          isIntentPending: true,
+          status: 'cancel-requested',
+          note: 'Requested to institution',
+          timestamp: new Date().toISOString(),
+        });
+
+        if (intentId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(intentId, { signal: abortController.signal });
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                updateBooking(reservationKey, {
+                  reservationKey,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  status: 'cancelled',
+                  transactionHash: txHash,
+                  note: 'Cancelled by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateBooking(reservationKey, {
+                  reservationKey,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling cancel intent failed:', err);
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+              invalidateAllBookings();
+            }
+          })();
+        }
       } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
-        // Fallback to invalidation
+        devLog.error('Failed to mark cancel intent in cache, invalidating:', error);
         queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
         invalidateAllBookings();
       }
     },
     onError: (error, reservationKey) => {
-      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      devLog.error('❌ Failed to cancel reservation request via SSO - reverting optimistic update:', error);
+      devLog.error('Failed to cancel reservation request via SSO:', error);
     },
     ...options,
   });
 };
-
-/**
- * Hook for wallet-based cancelReservationRequest using useContractWriteFunction
- * Cancels a reservation request using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
 export const useCancelReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { contractWriteFunction: cancelReservationRequest } = useContractWriteFunction('cancelReservationRequest');
@@ -272,146 +482,127 @@ export const useCancelReservationRequest = (options = {}) => {
   return isSSO ? ssoMutation : walletMutation;
 };
 
-/**
- * Hook for /api/contract/reservation/confirmReservationRequest endpoint using server wallet
- * Confirms a reservation request using server wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useConfirmReservationRequest = (options = {}) => {
+// ===== Institutional cancellation of reservation requests =====
+
+export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
+  const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
+  const [abortController] = [new AbortController()];
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const response = await fetch('/api/contract/reservation/confirmReservationRequest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reservationKey })
+      const data = await runActionIntent(ACTION_CODES.CANCEL_INSTITUTIONAL_REQUEST_BOOKING, {
+        reservationKey,
       });
+      devLog.log('useCancelInstitutionalReservationRequestSSO intent (webauthn):', data);
+      return data;
+    },
+    onSuccess: (data, reservationKey) => {
+      try {
+        const intentId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
 
-      if (!response.ok) {
-        // Try to get the error details from the response
-        let errorDetails = 'Unknown error';
-        try {
-          const errorData = await response.json();
-          errorDetails = errorData.details || errorData.error || 'Unknown error';
-        } catch (parseError) {
-          errorDetails = `Status: ${response.status}`;
-        }
-        
-        devLog.error(`❌ Reservation confirmation failed with status ${response.status}:`, errorDetails);
-        throw new Error(`Failed to confirm reservation request: ${response.status} - ${errorDetails}`);
-      }
-
-      const data = await response.json();
-      
-      // Log different types of successful responses
-      if (data.note) {
-        devLog.log('⚠️ useConfirmReservationRequest - Transaction already processed:', {
+        updateBooking(reservationKey, {
           reservationKey,
-          transactionHash: data.transactionHash,
-          note: data.note
+          intentRequestId: intentId,
+          intentStatus: 'requested-cancel',
+          isIntentPending: true,
+          status: 'cancel-requested',
+          note: 'Requested to institution',
+          timestamp: new Date().toISOString(),
         });
-      } else {
-        devLog.log('✅ useConfirmReservationRequest - New transaction sent:', data);
+
+        if (intentId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(intentId, { signal: abortController.signal });
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                updateBooking(reservationKey, {
+                  reservationKey,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  status: 'cancelled',
+                  transactionHash: txHash,
+                  note: 'Cancelled by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateBooking(reservationKey, {
+                  reservationKey,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling cancel institutional reservation request intent failed:', err);
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+              invalidateAllBookings();
+            }
+          })();
+        }
+      } catch (error) {
+        devLog.error('Failed to mark institutional cancel intent in cache, invalidating:', error);
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+        invalidateAllBookings();
       }
-      
-      return data;
     },
-    onSuccess: (data, reservationKey) => {
-      // Update reservation status in cache
+    onError: (error, reservationKey) => {
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Reservation request confirmed successfully, cache updated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to confirm reservation request:', error);
+      devLog.error('Failed to cancel institutional reservation request via SSO:', error);
     },
     ...options,
   });
 };
 
-/**
- * Hook for /api/contract/reservation/denyReservationRequest endpoint using server wallet (SSO users)
- * Denies a reservation request using server wallet for SSO users (provider action)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useDenyReservationRequestSSO = (options = {}) => {
+export const useCancelInstitutionalReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
+  const { contractWriteFunction: cancelInstitutionalReservationRequest } = useContractWriteFunction('cancelInstitutionalReservationRequest');
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const response = await fetch('/api/contract/reservation/denyReservationRequest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reservationKey })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to deny reservation request: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useDenyReservationRequestSSO:', data);
-      return data;
-    },
-    onSuccess: (data, reservationKey) => {
-      // Remove denied reservation and invalidate queries
-      queryClient.removeQueries(bookingQueryKeys.byReservationKey(reservationKey));
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Reservation request denied successfully via SSO, cache updated');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to deny reservation request via SSO:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Hook for wallet-based denyReservationRequest using useContractWriteFunction
- * Denies a reservation request using user's wallet (provider action)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useDenyReservationRequestWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: denyReservationRequest } = useContractWriteFunction('denyReservationRequest');
-
-  return useMutation({
-    mutationFn: async (reservationKey) => {
-      const txHash = await denyReservationRequest([reservationKey]);
-      
-      devLog.log('🔍 useDenyReservationRequestWallet - Transaction Hash:', txHash);
+      const txHash = await cancelInstitutionalReservationRequest([reservationKey]);
+      devLog.log('🔍 useCancelInstitutionalReservationRequestWallet - Transaction Hash:', txHash);
       return { hash: txHash };
     },
     onSuccess: (result, reservationKey) => {
-      // Remove denied reservation and invalidate queries
-      queryClient.removeQueries(bookingQueryKeys.byReservationKey(reservationKey));
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.all() });
-      devLog.log('✅ Reservation request denied successfully via wallet, cache updated');
+      queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4',
+            isCancelled: true,
+          },
+        };
+      });
+      devLog.log('✅ Institutional reservation request marked as cancelled in cache via wallet');
     },
-    onError: (error) => {
-      devLog.error('❌ Failed to deny reservation request via wallet:', error);
+    onError: (error, reservationKey) => {
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+      devLog.error('❌ Failed to cancel institutional reservation request via wallet - reverting optimistic update:', error);
     },
     ...options,
   });
 };
 
-/**
- * Unified Hook for denying reservation requests (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useDenyReservationRequest = (options = {}) => {
+export const useCancelInstitutionalReservationRequest = (options = {}) => {
   const { isSSO } = useUser();
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useDenyReservationRequestSSO(options);
-  const walletMutation = useDenyReservationRequestWallet(options);
-  
-  // Return the appropriate mutation
+
+  const ssoMutation = useCancelInstitutionalReservationRequestSSO(options);
+  const walletMutation = useCancelInstitutionalReservationRequestWallet(options);
+
   return isSSO ? ssoMutation : walletMutation;
 };
 
@@ -426,22 +617,13 @@ export const useCancelBookingSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async (reservationKey) => {
-      const response = await fetch('/api/contract/reservation/cancelBooking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reservationKey })
+      const data = await runActionIntent(ACTION_CODES.CANCEL_BOOKING, {
+        reservationKey,
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cancel booking: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useCancelBookingSSO:', data);
+      devLog.log('useCancelBookingSSO intent (webauthn):', data);
       return data;
     },
     onSuccess: (data, reservationKey) => {
-      // Optimistic update: mark booking as cancelled in cache to remove from UI immediately
       queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
         if (!oldData) return oldData;
         return {
@@ -453,23 +635,68 @@ export const useCancelBookingSSO = (options = {}) => {
           }
         };
       });
-      devLog.log('✅ Booking marked as cancelled in cache (optimistic update)');
+
+      try {
+        const intentId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
+
+        if (intentId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(intentId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+                  if (!oldData) return oldData;
+                  return {
+                    ...oldData,
+                    reservation: {
+                      ...oldData.reservation,
+                      transactionHash: txHash,
+                      isCancelled: true,
+                      status: '4',
+                    },
+                  };
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+                  if (!oldData) return oldData;
+                  return {
+                    ...oldData,
+                    reservation: {
+                      ...oldData.reservation,
+                      status: oldData.reservation?.status,
+                      intentStatus: status,
+                      intentError: reason,
+                      note: reason || 'Rejected by institution',
+                    },
+                  };
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling cancel booking intent failed:', err);
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+            }
+          })();
+        }
+      } catch (error) {
+        devLog.error('Failed to track cancel booking intent:', error);
+      }
     },
     onError: (error, reservationKey) => {
-      // Revert optimistic update on error
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      devLog.error('❌ Failed to cancel booking via SSO - reverting optimistic update:', error);
+      devLog.error('Failed to cancel booking via SSO - reverting optimistic update:', error);
     },
     ...options,
   });
 };
-
-/**
- * Hook for wallet-based cancelBooking using useContractWriteFunction
- * Cancels an existing booking using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
 export const useCancelBookingWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { contractWriteFunction: cancelBooking } = useContractWriteFunction('cancelBooking');
@@ -521,9 +748,137 @@ export const useCancelBooking = (options = {}) => {
   return isSSO ? ssoMutation : walletMutation;
 };
 
+// ===== Institutional booking cancellation =====
+
+export const useCancelInstitutionalBookingSSO = (options = {}) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const data = await runActionIntent(ACTION_CODES.CANCEL_INSTITUTIONAL_BOOKING, {
+        reservationKey,
+      });
+      devLog.log('useCancelInstitutionalBookingSSO intent (webauthn):', data);
+      return data;
+    },
+    onSuccess: (data, reservationKey) => {
+      queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4',
+            isCancelled: true,
+          },
+        };
+      });
+
+      try {
+        const intentId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
+
+        if (intentId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(intentId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+                  if (!oldData) return oldData;
+                  return {
+                    ...oldData,
+                    reservation: {
+                      ...oldData.reservation,
+                      transactionHash: txHash,
+                      isCancelled: true,
+                      status: '4',
+                    },
+                  };
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+                  if (!oldData) return oldData;
+                  return {
+                    ...oldData,
+                    reservation: {
+                      ...oldData.reservation,
+                      status: oldData.reservation?.status,
+                      intentStatus: status,
+                      intentError: reason,
+                      note: reason || 'Rejected by institution',
+                    },
+                  };
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling cancel institutional booking intent failed:', err);
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+            }
+          })();
+        }
+      } catch (error) {
+        devLog.error('Failed to track cancel institutional booking intent:', error);
+      }
+    },
+    onError: (error, reservationKey) => {
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+      devLog.error('Failed to cancel institutional booking via SSO - reverting optimistic update:', error);
+    },
+    ...options,
+  });
+};
+
+export const useCancelInstitutionalBookingWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const { contractWriteFunction: cancelInstitutionalBooking } = useContractWriteFunction('cancelInstitutionalBooking');
+
+  return useMutation({
+    mutationFn: async (reservationKey) => {
+      const txHash = await cancelInstitutionalBooking([reservationKey]);
+      devLog.log('🔍 useCancelInstitutionalBookingWallet - Transaction Hash:', txHash);
+      return { hash: txHash };
+    },
+    onSuccess: (result, reservationKey) => {
+      queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          reservation: {
+            ...oldData.reservation,
+            status: '4',
+            isCancelled: true,
+          },
+        };
+      });
+      devLog.log('✅ Institutional booking marked as cancelled via wallet (optimistic update)');
+    },
+    onError: (error, reservationKey) => {
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+      devLog.error('❌ Failed to cancel institutional booking via wallet - reverting optimistic update:', error);
+    },
+    ...options,
+  });
+};
+
+export const useCancelInstitutionalBooking = (options = {}) => {
+  const { isSSO } = useUser();
+
+  const ssoMutation = useCancelInstitutionalBookingSSO(options);
+  const walletMutation = useCancelInstitutionalBookingWallet(options);
+
+  return isSSO ? ssoMutation : walletMutation;
+};
+
 /**
- * Hook for /api/contract/reservation/requestFunds endpoint
- * Requests funds for SSO users
+ * Requests funds for SSO users via WebAuthn + gateway action intent
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
@@ -533,27 +888,17 @@ export const useRequestFundsSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/contract/reservation/requestFunds', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to request funds: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useRequestFundsSSO:', data);
+      const data = await runActionIntent(ACTION_CODES.REQUEST_FUNDS, {});
+      devLog.log('useRequestFundsSSO intent (webauthn):', data);
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
-      devLog.log('✅ Funds requested successfully, cache invalidated');
+      devLog.log('Funds requested successfully, cache invalidated');
     },
     onError: (error) => {
-      devLog.error('❌ Failed to request funds:', error);
+      devLog.error('Failed to request funds:', error);
     },
     ...options,
   });
@@ -573,17 +918,16 @@ export const useRequestFundsWallet = (options = {}) => {
   return useMutation({
     mutationFn: async () => {
       const txHash = await requestFunds([]);
-      
-      devLog.log('🔍 useRequestFundsWallet - Transaction Hash:', txHash);
+      devLog.log('useRequestFundsWallet - tx sent:', txHash);
       return { hash: txHash };
     },
     onSuccess: (result) => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
-      devLog.log('✅ Funds requested successfully via wallet, cache invalidated');
+      devLog.log('Funds requested successfully via wallet, cache invalidated');
     },
     onError: (error) => {
-      devLog.error('❌ Failed to request funds via wallet:', error);
+      devLog.error('Failed to request funds via wallet:', error);
     },
     ...options,
   });

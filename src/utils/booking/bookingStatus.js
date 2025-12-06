@@ -10,8 +10,10 @@ import devLog from '@/utils/dev/logger'
 export const BOOKING_STATUS = {
   PENDING: 0,
   CONFIRMED: 1,
-  COMPLETED: 2,
-  CANCELLED: 4
+  IN_USE: 2,
+  COMPLETED: 3,
+  COLLECTED: 4,
+  CANCELLED: 5
 }
 
 /**
@@ -20,7 +22,7 @@ export const BOOKING_STATUS = {
  * @returns {boolean} True if booking is cancelled
  */
 export const isCancelledBooking = (booking) => {
-  return booking.status === 4 || booking.status === "4" || booking.status === BOOKING_STATUS.CANCELLED;
+  return booking.status === 5 || booking.status === "5" || booking.status === BOOKING_STATUS.CANCELLED;
 }
 
 /**
@@ -38,7 +40,7 @@ export const isUsedBooking = (booking) => {
  * @returns {boolean} True if booking is collected
  */
 export const isCollectedBooking = (booking) => {
-  return booking.status === 3 || booking.status === "3";
+  return booking.status === 4 || booking.status === "4";
 }
 
 /**
@@ -50,9 +52,10 @@ export const getBookingStatusText = (booking) => {
   switch (Number(booking.status)) {
     case 0: return 'Pending';
     case 1: return 'Confirmed';
-    case 2: return 'Used';
-    case 3: return 'Collected';
-    case 4: return 'Cancelled';
+    case 2: return 'In Use';
+    case 3: return 'Completed';
+    case 4: return 'Collected';
+    case 5: return 'Cancelled';
     default: return 'Unknown';
   }
 }
@@ -66,9 +69,10 @@ export const getBookingStatusColor = (booking) => {
   switch (Number(booking.status)) {
     case 0: return 'text-warning';         // Pending - warning yellow
     case 1: return 'text-success';         // Confirmed - success green
-    case 2: return 'text-info';            // Used - info blue
-    case 3: return 'text-neutral-600';     // Collected - neutral gray
-    case 4: return 'text-error';           // Cancelled - error red
+    case 2: return 'text-info';            // In use - info blue
+    case 3: return 'text-neutral-600';     // Completed - neutral gray
+    case 4: return 'text-neutral-500';     // Collected - neutral gray
+    case 5: return 'text-error';           // Cancelled - error red
     default: return 'text-neutral-400';    // Unknown - light gray
   }
 }
@@ -91,16 +95,21 @@ export const getBookingStatusDisplay = (booking) => {
       icon: "✓"
     };
     case 2: return {
-      text: "Used",
+      text: "In Use",
       className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
       icon: "✅"
     };
     case 3: return {
-      text: "Collected",
+      text: "Completed",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
       icon: "🎯"
     };
     case 4: return {
+      text: "Collected",
+      className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
+      icon: "🎯"
+    };
+    case 5: return {
       text: "Cancelled",
       className: "bg-booking-cancelled-bg text-booking-cancelled-text border-booking-cancelled-border",
       icon: "❌"

@@ -25,14 +25,14 @@ import devLog from '@/utils/dev/logger'
 export default function MediaDisplayWithFallback({ 
   mediaPath, 
   mediaType, // 'image', 'doc' or 'link'
-  alt, 
-  fill, 
-  className, 
-  style, 
+  alt = '', 
+  fill = false, 
+  className = '', 
+  style = {}, 
   sizes,
   height,
   width,
-  title,
+  title = '',
   priority = false
 }) {
   
@@ -295,16 +295,4 @@ MediaDisplayWithFallback.propTypes = {
   width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   title: PropTypes.string,
   priority: PropTypes.bool
-}
-
-MediaDisplayWithFallback.defaultProps = {
-  alt: '',
-  fill: false,
-  className: '',
-  style: {},
-  sizes: undefined,
-  height: undefined,
-  width: undefined,
-  title: '',
-  priority: false
 }

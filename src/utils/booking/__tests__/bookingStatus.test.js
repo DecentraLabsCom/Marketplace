@@ -35,8 +35,8 @@ jest.mock("@/utils/dev/logger", () => ({
 describe("Status Checking Functions", () => {
   describe("isCancelledBooking", () => {
     test.each([
-      [4, true],
-      ["4", true],
+      [5, true],
+      ["5", true],
       [BOOKING_STATUS.CANCELLED, true],
       [0, false],
       [1, false],
@@ -96,9 +96,10 @@ describe("Display Utilities", () => {
     test.each([
       [0, "Pending"],
       [1, "Confirmed"],
-      [2, "Used"],
-      [3, "Collected"],
-      [4, "Cancelled"],
+      [2, "In Use"],
+      [3, "Completed"],
+      [4, "Collected"],
+      [5, "Cancelled"],
       [99, "Unknown"],
       ["1", "Confirmed"], // string number
     ])("returns correct text for status=%s", (status, expected) => {
@@ -128,7 +129,8 @@ describe("Display Utilities", () => {
         [1, "text-success"],
         [2, "text-info"],
         [3, "text-neutral-600"],
-        [4, "text-error"],
+        [4, "text-neutral-500"],
+        [5, "text-error"],
         [99, "text-neutral-400"],
       ])("returns correct color for status=%s", (status, expected) => {
         expect(getBookingStatusColor({ status })).toBe(expected);
@@ -263,7 +265,7 @@ describe("Filtering by Display Mode", () => {
   describe("Common Rules Across All Modes", () => {
     test("always excludes cancelled bookings", () => {
       const bookings = [
-        createBooking(4, futureTimestamp, futureTimestamp + 3600), // cancelled future
+        createBooking(5, futureTimestamp, futureTimestamp + 3600), // cancelled future
         createBooking(1, futureTimestamp, futureTimestamp + 3600), // confirmed future
       ];
 

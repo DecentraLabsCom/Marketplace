@@ -71,16 +71,24 @@ export const useAllLabsSSO = (options = {}) => {
 useAllLabsSSO.queryFn = getAllLabsQueryFn;
 
 /**
- * Hook for getAllLabs contract read (Wallet users)
- * Gets all lab IDs from the contract directly from blockchain via Wagmi
+ * Hook for getLabsPaginated contract read (Wallet users)
+ * Gets first page of lab IDs from the contract directly from blockchain via Wagmi
  * @param {Object} [options={}] - Additional wagmi options
  * @returns {Object} Wagmi query result with all labs data
  */
 export const useAllLabsWallet = (options = {}) => {
-  return useDefaultReadContract('getAllLabs', [], {
+  const result = useDefaultReadContract('getLabsPaginated', [0, 100], {
       ...LAB_QUERY_CONFIG,
       ...options,
     });
+
+  // Normalize tuple [ids, total] into ids array for backward compatibility
+  return {
+    ...result,
+    data: Array.isArray(result.data?.[0])
+      ? result.data[0].map((id) => Number(id))
+      : result.data,
+  };
 };
 
 /**

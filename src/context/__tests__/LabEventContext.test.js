@@ -228,6 +228,22 @@ describe("LabEventContext", () => {
       expect(labURISetCall[0].eventName).toBe("LabURISet");
       expect(labURISetCall[0].enabled).toBe(true);
     });
+
+    test("disables listeners when chain or address missing", () => {
+      const wagmi = require("wagmi");
+      wagmi.useAccount.mockReturnValueOnce({ chain: null });
+      wagmi.usePublicClient.mockReturnValueOnce(null);
+
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const call = wagmi.useWatchContractEvent.mock.calls.find(
+        (c) => c[0].eventName === "LabAdded"
+      );
+
+      expect(call[0].enabled).toBe(false);
+    });
   });
 
   describe("LabAdded Event Handling", () => {
@@ -360,6 +376,29 @@ describe("LabEventContext", () => {
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", null],
       });
+    });
+
+    test("deduplicates repeated LabUpdated logs for same lab", () => {
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const mockLogs = [
+        { args: { _labId: 7n } },
+        { args: { _labId: 7n } },
+      ];
+
+      mockInvalidateQueries.mockClear();
+
+      act(() => {
+        mockWatchContractEventHandlers.LabUpdated(mockLogs);
+      });
+
+      const calls = mockInvalidateQueries.mock.calls.filter(
+        (call) => call[0]?.queryKey?.includes("7")
+      );
+
+      expect(calls.length).toBe(2); // getLab + tokenURI once each
     });
   });
 
@@ -499,6 +538,40 @@ describe("LabEventContext", () => {
           queryKey: ["lab", "isTokenListed", labId],
         });
       });
+    });
+
+    test("skips invalidation when tokenId is null", () => {
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const mockLogs = [{ args: { tokenId: null } }];
+
+      mockInvalidateQueries.mockClear();
+
+      act(() => {
+        mockWatchContractEventHandlers.LabUnlisted(mockLogs);
+      });
+
+      expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    });
+
+    test("does not invalidate getAllLabs for LabListed", () => {
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const mockLogs = [{ args: { tokenId: 9n } }];
+
+      act(() => {
+        mockWatchContractEventHandlers.LabListed(mockLogs);
+      });
+
+      const callsWithGetAll = mockInvalidateQueries.mock.calls.filter(
+        (call) => call[0]?.queryKey?.[1] === "getAllLabs"
+      );
+
+      expect(callsWithGetAll).toHaveLength(0);
     });
   });
 
@@ -729,6 +802,24 @@ describe("LabEventContext", () => {
       useWatchContractEvent.mock.calls.forEach((call) => {
         expect(call[0].abi).toBeDefined();
       });
+    });
+
+    test("disables listeners when contract address missing for chain", () => {
+      const diamond = require("@/contracts/diamond");
+      const originalAddress = diamond.contractAddresses.sepolia;
+      diamond.contractAddresses.sepolia = undefined;
+
+      const { useWatchContractEvent } = require("wagmi");
+
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      useWatchContractEvent.mock.calls.forEach((call) => {
+        expect(call[0].enabled).toBe(false);
+      });
+
+      diamond.contractAddresses.sepolia = originalAddress;
     });
   });
 });

@@ -126,10 +126,3 @@ AccessControl.propTypes = {
   requireSSO: PropTypes.bool,
   requireProvider: PropTypes.bool
 }
-
-AccessControl.defaultProps = {
-  message: "Please log in to access this page.",
-  requireWallet: false,
-  requireSSO: false,
-  requireProvider: false
-}

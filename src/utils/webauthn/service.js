@@ -1,0 +1,177 @@
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+} from '@simplewebauthn/server'
+import { convertCOSEtoPKCS } from '@simplewebauthn/server/helpers/convertCOSEtoPKCS'
+import { isoBase64URL } from '@simplewebauthn/server/helpers/iso/isoBase64URL'
+import devLog from '@/utils/dev/logger'
+import { getOriginFromRequest, getRpId, getRpName } from './config'
+import {
+  consumeRegistrationChallenge,
+  getCredentialForUser,
+  saveCredential,
+  setRegistrationChallenge,
+} from './store'
+
+/**
+ * Extract PUC from session data.
+ * @param {Object} session
+ * @returns {string}
+ */
+export function getPucFromSession(session) {
+  return (
+    session?.schacPersonalUniqueCode ||
+    session?.personalUniqueCode ||
+    session?.puc ||
+    session?.personal_unique_code ||
+    null
+  )
+}
+
+/**
+ * Build registration options for the authenticated SSO user.
+ * Stores the challenge for later verification.
+ * @param {Object} session
+ * @param {Request} request
+ * @returns {Promise<Object>}
+ */
+export async function buildRegistrationOptions(session, request) {
+  const puc = getPucFromSession(session)
+  if (!puc) {
+    throw new Error('Missing PUC in session for WebAuthn registration')
+  }
+
+  const rpID = getRpId()
+  const origin = getOriginFromRequest(request)
+  const rpName = getRpName()
+
+  const existing = getCredentialForUser(puc)
+
+  const options = await generateRegistrationOptions({
+    rpName,
+    rpID,
+    userName: session?.email || session?.id || puc,
+    userDisplayName: session?.name || session?.email || puc,
+    userID: session?.id || session?.email || puc,
+    attestationType: 'indirect',
+    authenticatorSelection: {
+      userVerification: 'required',
+      residentKey: 'preferred',
+    },
+    excludeCredentials: existing
+      ? [
+          {
+            id: isoBase64URL.toBuffer(existing.credentialId),
+            type: 'public-key',
+            transports: ['hybrid', 'internal', 'usb', 'nfc', 'ble'],
+          },
+        ]
+      : [],
+    supportedAlgorithmIDs: [-7, -257],
+    timeout: 90_000,
+  })
+
+  setRegistrationChallenge(puc, {
+    challenge: options.challenge,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    rpId: rpID,
+    origin,
+  })
+
+  devLog.log('[WebAuthn] Registration options generated for', puc)
+  return options
+}
+
+/**
+ * Verify an attestation response and persist the credential.
+ * @param {Object} session
+ * @param {Object} attestationResponse
+ * @param {Request} request
+ * @returns {Promise<Object>}
+ */
+export async function verifyRegistration(session, attestationResponse, request) {
+  const puc = getPucFromSession(session)
+  if (!puc) {
+    throw new Error('Missing PUC in session for WebAuthn registration')
+  }
+
+  const pending = consumeRegistrationChallenge(puc)
+  if (!pending) {
+    throw new Error('No registration challenge found for this session')
+  }
+  if (pending.expiresAt && pending.expiresAt < Date.now()) {
+    throw new Error('Registration challenge expired, please retry')
+  }
+
+  const expectedOrigin = pending.origin || getOriginFromRequest(request)
+  const expectedRPID = pending.rpId || getRpId()
+
+  const verification = await verifyRegistrationResponse({
+    response: attestationResponse,
+    expectedChallenge: pending.challenge,
+    expectedOrigin: expectedOrigin ? [expectedOrigin] : [],
+    expectedRPID: expectedRPID ? [expectedRPID] : undefined,
+    requireUserVerification: true,
+  })
+
+  if (!verification.verified || !verification.registrationInfo) {
+    throw new Error('WebAuthn attestation could not be verified')
+  }
+
+  const { credential, aaguid, origin, rpID } = verification.registrationInfo
+  const credentialId = credential.id
+  const cosePublicKey = credential.publicKey
+  const spkiDer = convertCOSEtoPKCS(cosePublicKey)
+
+  const credentialRecord = {
+    puc,
+    credentialId,
+    cosePublicKey: isoBase64URL.fromBuffer(cosePublicKey, 'base64'),
+    publicKeySpki: isoBase64URL.fromBuffer(spkiDer, 'base64'),
+    signCount: credential.counter ?? 0,
+    aaguid,
+    status: 'active',
+    rpId: rpID || expectedRPID,
+    registeredAt: new Date().toISOString(),
+    origin,
+  }
+
+  saveCredential(credentialRecord)
+
+  return credentialRecord
+}
+
+/**
+ * Optionally mirror the credential on the gateway.
+ * @param {Object} record
+ * @param {string} gatewayUrl
+ * @returns {Promise<boolean>}
+ */
+export async function registerCredentialInGateway(record, gatewayUrl) {
+  if (!gatewayUrl) return false
+  try {
+    const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/webauthn/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        puc: record.puc,
+        credentialId: record.credentialId,
+        publicKey: record.publicKeySpki,
+        signCount: record.signCount,
+        aaguid: record.aaguid,
+        status: record.status,
+      }),
+    })
+    return res.ok
+  } catch (error) {
+    devLog.warn('[WebAuthn] Failed to register credential in gateway', error)
+    return false
+  }
+}
+
+export default {
+  getPucFromSession,
+  buildRegistrationOptions,
+  verifyRegistration,
+  registerCredentialInGateway,
+}

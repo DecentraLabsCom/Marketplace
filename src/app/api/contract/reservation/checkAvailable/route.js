@@ -25,7 +25,7 @@ export async function GET(request) {
       );
     }
 
-    const contract = getContractInstance();
+    const contract = await getContractInstance();
 
     // Call checkAvailable function
     const result = await contract.checkAvailable(labId, start, end);

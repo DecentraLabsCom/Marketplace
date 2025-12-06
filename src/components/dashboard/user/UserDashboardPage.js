@@ -155,7 +155,7 @@ export default function UserDashboard() {
     }
 
     // Check if already canceled
-    if (booking.status === "4" || booking.status === 4) {
+    if (booking.status === "5" || booking.status === 5) {
       addErrorNotification('This reservation is already canceled', '');
       return;
     }

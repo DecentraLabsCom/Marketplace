@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getContractInstance } from '../../utils/contractInstance';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
@@ -28,15 +27,11 @@ export async function POST(request) {
       );
     }
 
-    const contract = getContractInstance();
-
-    // Call updateProvider function
-    const result = await contract.updateProvider(name, email, country, { from: userAddress });
-
+    // Mutation must be executed by the provider wallet (signer) or via SSO intent flow
     return NextResponse.json({
-      transactionHash: result.hash,
-      message: 'Provider updated successfully'
-    }, {status: 200});
+      error: 'Update must be executed with wallet signature or SSO intent',
+      hint: 'Wallet: call updateProvider on-chain with signer. SSO: use institutional intent flow.',
+    }, {status: 400});
 
   } catch (error) {
     // Handle guard errors (401, 403) separately from other errors

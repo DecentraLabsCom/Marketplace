@@ -20,7 +20,7 @@ export async function GET(request) {
       );
     }
 
-    const contract = getContractInstance();
+    const contract = await getContractInstance();
 
     // Call tokenURI function
     const tokenURI = await contract.tokenURI(labId);

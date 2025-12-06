@@ -181,6 +181,5 @@ export default function LabDetail({ id }) {
 }
 
 LabDetail.propTypes = {
-  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  provider: PropTypes.string.isRequired
+  id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
 }

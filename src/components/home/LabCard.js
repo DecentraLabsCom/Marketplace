@@ -24,7 +24,7 @@ import { Card, Badge, cn, LabCardImage } from '@/components/ui'
  * @param {string} props.image - Lab main image URL
  * @returns {JSX.Element} Lab card with image, details, and action buttons
  */
-const LabCard = React.memo(function LabCard({ id, name, provider, price, auth, activeBooking, isListed = true, image }) {
+const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = null, activeBooking = false, isListed = true, image = '' }) {
   const { address, isConnected } = useUser();
   const { formatPrice } = useLabToken();
   
@@ -128,13 +128,6 @@ LabCard.propTypes = {
   activeBooking: PropTypes.bool,
   isListed: PropTypes.bool,
   image: PropTypes.string
-}
-
-LabCard.defaultProps = {
-  auth: null,
-  activeBooking: false,
-  isListed: true,
-  image: ''
 }
 
 export default LabCard;

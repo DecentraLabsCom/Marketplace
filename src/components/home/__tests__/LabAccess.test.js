@@ -41,6 +41,7 @@ jest.mock("@/utils/dev/logger", () => ({
 describe("LabAccess Component", () => {
   const mockRouter = { push: jest.fn() };
   const mockSignMessageAsync = jest.fn();
+  const originalConsoleError = console.error;
 
   const defaultProps = {
     id: "123",
@@ -58,10 +59,15 @@ describe("LabAccess Component", () => {
     useSignMessage.mockReturnValue({
       signMessageAsync: mockSignMessageAsync,
     });
+    // Suppress jsdom navigation warnings
+    console.error = (...args) => {
+      if (args[0]?.toString?.().includes('Not implemented: navigation')) return;
+      originalConsoleError.apply(console, args);
+    };
+  });
 
-    // Reset window.location
-    delete window.location;
-    window.location = { href: jest.fn() };
+  afterEach(() => {
+    console.error = originalConsoleError;
   });
 
   describe("Rendering", () => {

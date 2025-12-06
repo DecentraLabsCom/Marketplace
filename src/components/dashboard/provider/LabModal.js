@@ -89,7 +89,7 @@ function reducer(state, action) {
  * @param {number} props.maxId - Maximum lab ID for generating new lab IDs
  * @returns {JSX.Element} Lab creation/editing modal component
  */
-export default function LabModal({ isOpen, onClose, onSubmit, lab, maxId, onFilesUploaded }) {
+export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId = 0, onFilesUploaded = null }) {
   const { decimals, formatPrice } = useLabToken();
   const uploadFileMutation = useUploadFile();
   const deleteFileMutation = useDeleteFile();
@@ -734,10 +734,4 @@ LabModal.propTypes = {
     docs: PropTypes.array
   }),
   maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
-}
-
-LabModal.defaultProps = {
-  lab: null,
-  maxId: 0,
-  onFilesUploaded: null
 }

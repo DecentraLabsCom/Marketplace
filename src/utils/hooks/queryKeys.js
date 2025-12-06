@@ -19,9 +19,9 @@ export const bookingQueryKeys = {
   
   // Additional atomic query keys for all booking/reservation endpoints
   getReservationsOfToken: (labId) => ['bookings', 'reservationsOfToken', labId],
+  getReservationsOfTokenByUser: (labId, userAddress, offset = 0, limit = 50) => ['bookings', 'reservationsOfTokenByUser', labId, userAddress, offset, limit],
   getReservationOfTokenByIndex: (labId, index) => ['bookings', 'reservationOfToken', labId, index],
   reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress],
-  reservationKeyByIndex: (index) => ['bookings', 'reservationKey', index],
   reservationKeyOfUserByIndex: (userAddress, index) => ['bookings', 'reservationKeyOfUser', userAddress, index],
   totalReservations: () => ['bookings', 'totalReservations'],
   userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
@@ -29,6 +29,8 @@ export const bookingQueryKeys = {
   hasActiveBooking: (userAddress) => ['bookings', 'hasActiveBooking', userAddress],
   hasActiveBookingByToken: (labId) => ['bookings', 'hasActiveBookingByToken', labId],
   activeReservationKeyForUser: (labId, userAddress) => ['bookings', 'activeReservationKey', labId, userAddress],
+  institutionalHasActiveBooking: () => ['bookings', 'institutional', 'hasActiveBooking', 'session'],
+  institutionalActiveReservationKey: (labId) => ['bookings', 'institutional', 'activeReservationKey', labId],
   labTokenAddress: () => ['bookings', 'labTokenAddress'],
   safeBalance: (userAddress) => ['bookings', 'safeBalance', userAddress],
 };

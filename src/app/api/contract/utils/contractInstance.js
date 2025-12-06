@@ -40,7 +40,7 @@ export async function getContractInstance(contractType = 'diamond', readOnly = t
     // For read-only operations, no signer needed (faster and more efficient)
     return new ethers.Contract(address, abi, provider);
   } else {
-    // For write operations, use server wallet signer (for SSO users)
+    // For write operations, use institutional backend signer (SSO intents executor)
     const privateKey = process.env.WALLET_PRIVATE_KEY;
     
     if (!privateKey) {

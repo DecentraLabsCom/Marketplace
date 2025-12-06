@@ -18,6 +18,7 @@ import {
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
 import devLog from '@/utils/dev/logger'
+import { transformRegistrationOptions, attestationToJSON } from '@/utils/webauthn/client'
 
 // Create optimized context with automatic memoization
 const { Context: UserContextInternal, Provider: OptimizedUserProvider, useContext: useUserContext } =
@@ -57,6 +58,7 @@ function UserDataCore({ children }) {
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [walletSessionCreated, setWalletSessionCreated] = useState(false);
+    const [webAuthnBootstrapDone, setWebAuthnBootstrapDone] = useState(false);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -87,6 +89,74 @@ function UserDataCore({ children }) {
             refetchSSO();
         }
     }, [queryClient, refetchSSO]);
+
+    // Auto-register WebAuthn credential on first SAML login
+    useEffect(() => {
+        if (!isSSO || !user || webAuthnBootstrapDone) {
+            return;
+        }
+        if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+            devLog.log('WebAuthn not supported in this environment, skipping registration');
+            return;
+        }
+
+        let cancelled = false;
+
+        const bootstrapWebAuthn = async () => {
+            try {
+                const statusRes = await fetch('/api/auth/webauthn/status', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+                const statusData = await statusRes.json().catch(() => ({}));
+                if (statusData?.registered) {
+                    setWebAuthnBootstrapDone(true);
+                    return;
+                }
+
+                const optionsRes = await fetch('/api/auth/webauthn/options', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+                const optionsData = await optionsRes.json().catch(() => ({}));
+                if (!optionsRes.ok || optionsData.registered) {
+                    setWebAuthnBootstrapDone(true);
+                    return;
+                }
+
+                const publicKey = transformRegistrationOptions(optionsData.options);
+                if (!publicKey) {
+                    setWebAuthnBootstrapDone(true);
+                    return;
+                }
+
+                const credential = await navigator.credentials.create({ publicKey });
+                if (!credential || cancelled) return;
+                const attestation = attestationToJSON(credential);
+                await fetch('/api/auth/webauthn/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ attestation }),
+                });
+                setWebAuthnBootstrapDone(true);
+            } catch (error) {
+                devLog.warn('WebAuthn bootstrap failed', error);
+                setWebAuthnBootstrapDone(true);
+            }
+        };
+
+        bootstrapWebAuthn();
+        return () => {
+            cancelled = true;
+        };
+    }, [isSSO, user, webAuthnBootstrapDone]);
+
+    useEffect(() => {
+        if (!isSSO || !user) {
+            setWebAuthnBootstrapDone(false);
+        }
+    }, [isSSO, user]);
 
     // Determine current isSSO state based on ssoData
     // This needs to be calculated BEFORE using the router hooks

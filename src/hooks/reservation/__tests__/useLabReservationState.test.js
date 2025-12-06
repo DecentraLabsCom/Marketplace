@@ -203,6 +203,33 @@ describe("useLabReservationState", () => {
       expect(result.current.maxDate.getFullYear()).toBe(2025);
     });
 
+    test("keeps UTC opens date aligned (no local-day drift)", () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 10);
+      const utcOpenSeconds = Math.floor(Date.UTC(
+        futureDate.getUTCFullYear(),
+        futureDate.getUTCMonth(),
+        futureDate.getUTCDate()
+      ) / 1000);
+      const labUtc = { ...mockLab, opens: utcOpenSeconds, closes: utcOpenSeconds + 86400 };
+
+      const { result } = renderHook(() =>
+        useLabReservationState({
+          selectedLab: labUtc,
+          labBookings: [],
+          isSSO: false,
+        })
+      );
+
+      const minIso = result.current.minDate.toISOString().slice(0, 10);
+      const expectedIso = new Date(utcOpenSeconds * 1000).toISOString().slice(0, 10);
+
+      expect(minIso).toBe(expectedIso);
+      expect(result.current.maxDate?.toISOString().slice(0, 10)).toBe(
+        new Date((utcOpenSeconds + 86400) * 1000).toISOString().slice(0, 10)
+      );
+    });
+
     test("handles invalid opens date gracefully", () => {
       const invalidLab = { ...mockLab, opens: "invalid-date" };
 

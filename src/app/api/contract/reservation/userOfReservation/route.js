@@ -30,7 +30,7 @@ export async function GET(request) {
       );
     }
 
-    const contract = getContractInstance();
+    const contract = await getContractInstance();
 
     // Call userOfReservation function
     const userAddress = await contract.userOfReservation(reservationKey);

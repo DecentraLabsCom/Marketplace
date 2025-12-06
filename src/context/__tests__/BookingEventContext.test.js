@@ -4,6 +4,7 @@ import {
   BookingEventProvider,
   useBookingEventContext,
 } from "../BookingEventContext";
+import { bookingQueryKeys } from "@/utils/hooks/queryKeys";
 import * as wagmiHooks from "wagmi";
 import * as userContext from "@/context/UserContext";
 import * as notificationContext from "@/context/NotificationContext";
@@ -216,6 +217,37 @@ describe("BookingEventContext", () => {
     expect(mockAddTemporaryNotification).not.toHaveBeenCalled();
   });
 
+  test("invalidates reservation-related caches on confirmation", async () => {
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = jest.spyOn(queryClient, "invalidateQueries");
+
+    renderHook(() => useBookingEventContext(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await triggerEvent("ReservationConfirmed", [
+      { args: { reservationKey: "reservation-999", tokenId: "7" } },
+    ]);
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookingQueryKeys.byReservationKey("reservation-999"),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookingQueryKeys.getReservationsOfToken("7"),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookingQueryKeys.hasActiveBookingByToken("7"),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookingQueryKeys.reservationsOf(mockUseAccount.address),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookingQueryKeys.hasActiveBooking(mockUseAccount.address),
+      });
+    });
+  });
+
   test("backup polling resolves confirmations when events are missed", async () => {
     jest.useFakeTimers();
     const queryClient = createTestQueryClient();
@@ -245,5 +277,23 @@ describe("BookingEventContext", () => {
         "✅ Reservation confirmed!"
       );
     });
+  });
+
+  test("cleans pending confirmations on denial", async () => {
+    const deleteSpy = jest.spyOn(Map.prototype, "delete");
+    const queryClient = createTestQueryClient();
+
+    renderHook(() => useBookingEventContext(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await triggerEvent("ReservationRequested", [reservationRequestedLog()]);
+    await triggerEvent("ReservationRequestDenied", [
+      { args: { reservationKey: "reservation-123", tokenId: "1" } },
+    ]);
+
+    expect(deleteSpy).toHaveBeenCalledWith("reservation-123");
+
+    deleteSpy.mockRestore();
   });
 });

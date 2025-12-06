@@ -18,7 +18,7 @@ export async function GET(request) {
   }
 
   try {
-    const contract = getContractInstance();
+    const contract = await getContractInstance();
 
     // Call getSafeBalance function
     const result = await contract.getSafeBalance();

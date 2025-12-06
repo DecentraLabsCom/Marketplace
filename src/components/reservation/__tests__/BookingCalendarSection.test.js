@@ -234,6 +234,19 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByLabelText("Starting time:")).toBeDisabled();
     });
 
+    test("uses empty string when selectedTime is null and no options", () => {
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          selectedTime={null}
+          availableTimes={[]}
+        />
+      );
+
+      const select = screen.getByLabelText("Starting time:");
+      expect(select.value ?? "").toBe("");
+    });
+
     test("disables individual reserved time options", () => {
       render(<BookingCalendarSection {...defaultProps} />);
 
@@ -314,6 +327,24 @@ describe("BookingCalendarSection", () => {
 
       expect(formatPrice).toHaveBeenCalledWith("100");
       expect(screen.getByText("100.00 $LAB / hour")).toBeInTheDocument();
+    });
+    
+    test("recalculates price when duration changes", () => {
+      const formatPrice = jest.fn((price) => `${price}-formatted`);
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          isSSO={false}
+          formatPrice={formatPrice}
+        />
+      );
+
+      fireEvent.change(screen.getByLabelText("Duration:"), {
+        target: { value: "60" },
+      });
+
+      expect(formatPrice).toHaveBeenCalledWith("100");
+      expect(screen.getByText(/-formatted \$LAB/)).toBeInTheDocument();
     });
   });
 });

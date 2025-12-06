@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getContractInstance } from '../../utils/contractInstance';
 
 /**
  * Unlist token from reservation system
@@ -21,16 +20,14 @@ export async function POST(request) {
       );
     }
 
-    const contract = getContractInstance();
-
-    // Call unlistToken function
-    const result = await contract.unlistToken(labId, { from: userAddress });
-
-    return NextResponse.json({
-      transactionHash: result.hash,
-      labId: labId,
-      message: 'Token unlisted successfully'
-    }, {status: 200});
+    // This action must be executed by the wallet signer (for providers) or via SSO intent endpoints.
+    return NextResponse.json(
+      {
+        error: 'Unlisting must be executed with a wallet signature or SSO intent',
+        hint: 'Wallet: call contract.unlistToken with signer. SSO: use /api/contract/lab/unlistLab intent endpoint.',
+      },
+      { status: 400 },
+    );
 
   } catch (error) {
     console.error('Error unlisting token:', error);

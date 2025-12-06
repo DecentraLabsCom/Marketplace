@@ -93,42 +93,51 @@ export const useReservationWallet = (reservationKey, options = {}) => {
     data: result.data ? (() => {
       const data = result.data;
       
-      // Contract returns: { labId, renter, price, start, end, status }
+      // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
+      //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
+      //   providerShare, projectTreasuryShare, subsidiesShare, governanceShare }
       const status = Number(data.status);
       const renterAddress = data.renter || '0x0000000000000000000000000000000000000000';
+      const labProviderAddress = data.labProvider || '0x0000000000000000000000000000000000000000';
+      const payerInstitutionAddress = data.payerInstitution || '0x0000000000000000000000000000000000000000';
+      const collectorInstitutionAddress = data.collectorInstitution || '0x0000000000000000000000000000000000000000';
       const exists = renterAddress !== '0x0000000000000000000000000000000000000000';
 
       // Determine reservation state (matching SSO logic)
       let reservationState = 'Unknown';
       let isConfirmed = false;
       
-      if (!exists) {
-        reservationState = 'Not Found';
-      } else {
-        switch (status) {
-          case 0:
-            reservationState = 'Pending';
-            isConfirmed = false;
-            break;
-          case 1:
-            reservationState = 'Booked/Confirmed';
-            isConfirmed = true;
-            break;
-          case 2:
-            reservationState = 'Used';
-            isConfirmed = true;
-            break;
-          case 3:
-            reservationState = 'Collected';
-            isConfirmed = true;
-            break;
-          case 4:
-            reservationState = 'Cancelled';
-            isConfirmed = false;
-            break;
-          default:
-            reservationState = 'Unknown Status';
-        }
+        if (!exists) {
+          reservationState = 'Not Found';
+        } else {
+          switch (status) {
+            case 0:
+              reservationState = 'Pending';
+              isConfirmed = false;
+              break;
+            case 1:
+              reservationState = 'Confirmed';
+              isConfirmed = true;
+              break;
+            case 2:
+              reservationState = 'In Use';
+              isConfirmed = true;
+              break;
+            case 3:
+              reservationState = 'Completed';
+              isConfirmed = true;
+              break;
+            case 4:
+              reservationState = 'Collected';
+              isConfirmed = true;
+              break;
+            case 5:
+              reservationState = 'Cancelled';
+              isConfirmed = false;
+              break;
+            default:
+              reservationState = 'Unknown Status';
+          }
       }
 
       return {
@@ -136,19 +145,31 @@ export const useReservationWallet = (reservationKey, options = {}) => {
           labId: data.labId?.toString() || null,
           renter: renterAddress,
           price: data.price?.toString() || null,
+          labProvider: labProviderAddress,
           start: data.start?.toString() || null,
           end: data.end?.toString() || null,
           status: status,
+          puc: data.puc || '',
+          requestPeriodStart: data.requestPeriodStart?.toString() || null,
+          requestPeriodDuration: data.requestPeriodDuration?.toString() || null,
+          payerInstitution: payerInstitutionAddress,
+          collectorInstitution: collectorInstitutionAddress,
+          providerShare: data.providerShare?.toString() || null,
+          projectTreasuryShare: data.projectTreasuryShare?.toString() || null,
+          subsidiesShare: data.subsidiesShare?.toString() || null,
+          governanceShare: data.governanceShare?.toString() || null,
           reservationState: reservationState,
           isPending: status === 0,
           isBooked: status === 1,
-          isUsed: status === 2,
-          isCollected: status === 3,
-          isCanceled: status === 4,
-          isActive: status === 1,
-          isCompleted: status === 2 || status === 3,
+          isInUse: status === 2,
+          isUsed: status === 2, // backward compatibility alias
+          isCollected: status === 4,
+          isCanceled: status === 5,
+          isActive: status === 1 || status === 2,
+          isCompleted: status === 3 || status === 4,
           isConfirmed: isConfirmed,
-          exists: exists
+          exists: exists,
+          isInstitutional: payerInstitutionAddress !== '0x0000000000000000000000000000000000000000'
         },
         reservationKey
       };
@@ -413,80 +434,6 @@ export const useReservationsOf = (userAddress, options = {}) => {
   return isSSO ? ssoQuery : walletQuery;
 };
 
-// ===== useReservationKeyByIndex Hook Family =====
-
-// Define queryFn first for reuse
-const getReservationKeyByIndexQueryFn = createSSRSafeQuery(async (index) => {
-  if (index === undefined || index === null) {
-    throw new Error('Index is required');
-  }
-  
-  const response = await fetch(`/api/contract/reservation/reservationKeyByIndex?index=${encodeURIComponent(index)}`);
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch reservation key at index ${index}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useReservationKeyByIndexSSO:', index, data);
-  return data;
-}, { reservationKey: null }); // Return null during SSR
-
-/**
- * Hook for /api/contract/reservation/reservationKeyByIndex endpoint (SSO users)
- * Gets reservation key at specific global index via API + Ethers
- * @param {number} index - Global index of the reservation
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with reservation key
- */
-export const useReservationKeyByIndexSSO = (index, options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.reservationKeyByIndex(index),
-    queryFn: () => getReservationKeyByIndexQueryFn(index),
-    enabled: (index !== undefined && index !== null),
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useReservationKeyByIndexSSO.queryFn = getReservationKeyByIndexQueryFn;
-
-/**
- * Hook for reservationKeyByIndex contract read (Wallet users)
- * Gets reservation key at specific global index directly from blockchain via Wagmi
- * @param {number} index - Global index of the reservation
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with reservation key
- */
-export const useReservationKeyByIndexWallet = (index, options = {}) => {
-  return useDefaultReadContract('reservationKeyByIndex', [index], {
-      enabled: (index !== undefined && index !== null),
-      ...BOOKING_QUERY_CONFIG,
-      ...options,
-    });
-};
-
-/**
- * Hook for reservationKeyByIndex (Router - selects SSO or Wallet)
- * Gets reservation key at specific global index - routes to API or Wagmi based on user type
- * @param {number} index - Global index of the reservation
- * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
- * @returns {Object} React Query result with reservation key
- */
-export const useReservationKeyByIndex = (index, options = {}) => {
-  const isSSO = useGetIsSSO(options);
-  
-  const enabled = (index !== undefined && index !== null);
-  const ssoQuery = useReservationKeyByIndexSSO(index, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useReservationKeyByIndexWallet(index, { ...options, enabled: !isSSO && enabled });
-  
-  devLog.log(`🔀 useReservationKeyByIndex [${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
-  
-  return isSSO ? ssoQuery : walletQuery;
-};
-
 // ===== useReservationKeyOfUserByIndex Hook Family =====
 
 // Define queryFn first for reuse
@@ -574,6 +521,74 @@ export const useReservationKeyOfUserByIndex = (userAddress, index, options = {})
   
   devLog.log(`🔀 useReservationKeyOfUserByIndex [${userAddress}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
   
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useReservationsOfTokenByUser Hook Family =====
+
+const getReservationsOfTokenByUserQueryFn = createSSRSafeQuery(async (labId, userAddress, offset = 0, limit = 50) => {
+  if (!labId || !userAddress) {
+    throw new Error('labId and userAddress are required');
+  }
+
+  const response = await fetch(`/api/contract/reservation/getReservationsOfTokenByUser?labId=${labId}&userAddress=${userAddress}&offset=${offset}&limit=${limit}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch reservations of token by user: ${response.status}`);
+  }
+
+  const data = await response.json();
+  devLog.log('🔍 useReservationsOfTokenByUserSSO:', labId, userAddress, data);
+  return data;
+}, { keys: [], total: 0 });
+
+export const useReservationsOfTokenByUserSSO = (labId, userAddress, options = {}) => {
+  const offset = options.offset ?? 0;
+  const limit = options.limit ?? 50;
+  return useQuery({
+    queryKey: bookingQueryKeys.getReservationsOfTokenByUser(labId, userAddress, offset, limit),
+    queryFn: () => getReservationsOfTokenByUserQueryFn(labId, userAddress, offset, limit),
+    enabled: !!labId && !!userAddress && (options.enabled ?? true),
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+useReservationsOfTokenByUserSSO.queryFn = getReservationsOfTokenByUserQueryFn;
+
+export const useReservationsOfTokenByUserWallet = (labId, userAddress, options = {}) => {
+  const offset = options.offset ?? 0;
+  const limit = options.limit ?? 50;
+  const result = useDefaultReadContract('getReservationsOfTokenByUserPaginated', [labId, userAddress, offset, limit], {
+      enabled: !!labId && !!userAddress && (options.enabled ?? true),
+      ...BOOKING_QUERY_CONFIG,
+      ...options,
+    });
+
+  return {
+    ...result,
+    data: result.data ? {
+      labId,
+      userAddress,
+      offset,
+      limit,
+      keys: Array.isArray(result.data[0]) ? result.data[0].map((k) => k.toString()) : [],
+      total: Number(result.data[1] ?? 0),
+    } : null,
+  };
+};
+
+export const useReservationsOfTokenByUser = (labId, userAddress, options = {}) => {
+  const isSSO = useGetIsSSO(options);
+  const enabled = !!labId && !!userAddress && (options.enabled ?? true);
+  const ssoQuery = useReservationsOfTokenByUserSSO(labId, userAddress, { ...options, enabled });
+  const walletQuery = useReservationsOfTokenByUserWallet(labId, userAddress, { ...options, enabled });
+
+  devLog.log(`🔀 useReservationsOfTokenByUser [${labId}, ${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+
   return isSSO ? ssoQuery : walletQuery;
 };
 
@@ -1027,6 +1042,98 @@ export const useActiveReservationKeyForUser = (labId, userAddress, options = {})
   
   return isSSO ? ssoQuery : walletQuery;
 };
+
+// ===== Institutional: useActiveReservationKey Hook (SSO-only) =====
+
+const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+// Define queryFn first for reuse
+const getInstitutionalActiveReservationKeyQueryFn = createSSRSafeQuery(async (labId) => {
+  if (!labId) {
+    throw new Error('Lab ID is required')
+  }
+
+  const url = `/api/contract/institution/getActiveReservationKey?labId=${encodeURIComponent(labId)}`
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch institutional active reservation key: ${response.status}`)
+  }
+
+  const data = await response.json()
+  devLog.log('🔍 useInstitutionalUserActiveReservationKeySSO:', labId, data)
+  return data
+}, { reservationKey: ZERO_BYTES32, hasActiveReservation: false })
+
+/**
+ * Hook for /api/contract/institution/getActiveReservationKey (SSO institutional users)
+ * Gets active reservation key for institutional user by labId
+ */
+export const useInstitutionalUserActiveReservationKeySSO = (labId, options = {}) => {
+  return useQuery({
+    queryKey: bookingQueryKeys.institutionalActiveReservationKey(labId),
+    queryFn: () => getInstitutionalActiveReservationKeyQueryFn(labId),
+    enabled: !!labId,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  })
+}
+
+useInstitutionalUserActiveReservationKeySSO.queryFn = getInstitutionalActiveReservationKeyQueryFn;
+
+// ===== Institutional: useHasActiveBooking Hook (SSO-only) =====
+
+// Define queryFn first for reuse
+const getInstitutionalHasActiveBookingQueryFn = createSSRSafeQuery(async () => {
+  const response = await fetch('/api/contract/institution/hasUserActiveBooking', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to check institutional active booking: ${response.status}`)
+  }
+
+  const data = await response.json()
+  devLog.log('🔍 useHasInstitutionalUserActiveBookingSSO:', data)
+  return data
+}, { hasActiveBooking: false })
+
+/**
+ * Hook for /api/contract/institution/hasUserActiveBooking (SSO institutional users)
+ * Checks if institutional user has any active booking
+ */
+export const useHasInstitutionalUserActiveBookingSSO = (options = {}) => {
+  return useQuery({
+    queryKey: bookingQueryKeys.institutionalHasActiveBooking(),
+    queryFn: () => getInstitutionalHasActiveBookingQueryFn(),
+    enabled: options.enabled ?? true,
+    ...BOOKING_QUERY_CONFIG,
+    ...options,
+  })
+}
+
+useHasInstitutionalUserActiveBookingSSO.queryFn = getInstitutionalHasActiveBookingQueryFn;
+
+// Router-friendly wrappers (Wallet users have no institutional path, so disable when not SSO)
+export const useInstitutionalUserActiveReservationKey = (labId, options = {}) => {
+  const isSSO = useGetIsSSO(options)
+  return useInstitutionalUserActiveReservationKeySSO(labId, {
+    ...options,
+    enabled: isSSO && !!labId && (options.enabled ?? true),
+  })
+}
+
+export const useHasInstitutionalUserActiveBooking = (options = {}) => {
+  const isSSO = useGetIsSSO(options)
+  return useHasInstitutionalUserActiveBookingSSO({
+    ...options,
+    enabled: isSSO && (options.enabled ?? true),
+  })
+}
 
 // ===== useLabTokenAddress Hook Family =====
 

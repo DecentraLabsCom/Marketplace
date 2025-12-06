@@ -32,7 +32,7 @@ export async function GET(request) {
       );
     }
 
-    const contract = getContractInstance();
+    const contract = await getContractInstance();
 
     // Call hasActiveBooking function
     const result = await contract.hasActiveBooking(reservationKey, userAddress);

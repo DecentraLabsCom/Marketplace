@@ -442,6 +442,22 @@ describe("LabFormFullSetup", () => {
       expect(screen.getByText("Category is required")).toBeInTheDocument();
       expect(screen.getByText("Price must be a number")).toBeInTheDocument();
     });
+
+    test("shows error when terms URL is not http/https", async () => {
+      renderForm({
+        localLab: {
+          ...mockLab,
+          termsOfUse: {
+            ...mockLab.termsOfUse,
+            url: "ftp://example.com/terms",
+          },
+        },
+      });
+
+      expect(
+        await screen.findByText("Terms link must be an absolute HTTP(S) URL.")
+      ).toBeInTheDocument();
+    });
   });
 
   describe("Form Actions", () => {

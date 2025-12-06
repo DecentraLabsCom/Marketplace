@@ -151,7 +151,8 @@ export default function ProviderDashboard() {
     [selectedLab, selectedLabId, newLab]
   );
   
-  const shouldShowModal = isModalOpen && modalLab;
+  const shouldShowModal = Boolean(isModalOpen && modalLab);
+  const labForModal = modalLab || newLab;
   
   const bookingInfo = useMemo(() => {
     if (!selectedLab || !labBookings || bookingsError) return [];
@@ -587,7 +588,7 @@ export default function ProviderDashboard() {
         </div>
 
         <LabModal isOpen={shouldShowModal} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
-          lab={modalLab} maxId={maxId} key={modalLab?.id || 'new'} />
+          lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />
       </Container>
     </AccessControl>
   );

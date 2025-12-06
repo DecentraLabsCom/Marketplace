@@ -48,10 +48,15 @@ export async function GET(request) {
     // Get reservation data from contract
     const reservationData = await contract.getReservation(reservationKey);
 
-    // Contract returns: { labId, renter, price, start, end, status }
-    // Status: 0 = PENDING, 1 = BOOKED, 2 = USED, 3 = COLLECTED, 4 = CANCELLED
+    // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
+    //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
+    //   providerShare, projectTreasuryShare, subsidiesShare, governanceShare }
+    // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE, 3=COMPLETED, 4=COLLECTED, 5=CANCELLED
     const status = Number(reservationData.status);
     const renterAddress = reservationData.renter || '0x0000000000000000000000000000000000000000';
+    const labProviderAddress = reservationData.labProvider || '0x0000000000000000000000000000000000000000';
+    const payerInstitutionAddress = reservationData.payerInstitution || '0x0000000000000000000000000000000000000000';
+    const collectorInstitutionAddress = reservationData.collectorInstitution || '0x0000000000000000000000000000000000000000';
     const exists = renterAddress !== '0x0000000000000000000000000000000000000000';
 
     // Determine reservation state
@@ -67,18 +72,22 @@ export async function GET(request) {
           isConfirmed = false;
           break;
         case 1:
-          reservationState = 'Booked/Confirmed';
+          reservationState = 'Confirmed';
           isConfirmed = true;
           break;
         case 2:
-          reservationState = 'Used';
+          reservationState = 'In Use';
           isConfirmed = true;
           break;
         case 3:
-          reservationState = 'Collected';
+          reservationState = 'Completed';
           isConfirmed = true;
           break;
         case 4:
+          reservationState = 'Collected';
+          isConfirmed = true;
+          break;
+        case 5:
           reservationState = 'Cancelled';
           isConfirmed = false;
           break;
@@ -94,19 +103,31 @@ export async function GET(request) {
         labId: reservationData.labId?.toString() || null,
         renter: renterAddress,
         price: reservationData.price?.toString() || null,
+        labProvider: labProviderAddress,
         start: reservationData.start?.toString() || null,
         end: reservationData.end?.toString() || null,
         status: status,
+        puc: reservationData.puc || '',
+        requestPeriodStart: reservationData.requestPeriodStart?.toString() || null,
+        requestPeriodDuration: reservationData.requestPeriodDuration?.toString() || null,
+        payerInstitution: payerInstitutionAddress,
+        collectorInstitution: collectorInstitutionAddress,
+        providerShare: reservationData.providerShare?.toString() || null,
+        projectTreasuryShare: reservationData.projectTreasuryShare?.toString() || null,
+        subsidiesShare: reservationData.subsidiesShare?.toString() || null,
+        governanceShare: reservationData.governanceShare?.toString() || null,
         reservationState: reservationState,
         isPending: status === 0,
         isBooked: status === 1,
-        isUsed: status === 2,
-        isCollected: status === 3,
-        isCanceled: status === 4,
-        isActive: status === 1, // Only BOOKED reservations are considered "active" for cancellation
-        isCompleted: status === 2 || status === 3, // USED or COLLECTED
+        isInUse: status === 2,
+        isUsed: status === 2, // backward compatibility alias
+        isCollected: status === 4,
+        isCanceled: status === 5,
+        isActive: status === 1 || status === 2, // Active when confirmed or in-use
+        isCompleted: status === 3 || status === 4, // Completed or collected
         isConfirmed: isConfirmed,
-        exists: exists
+        exists: exists,
+        isInstitutional: payerInstitutionAddress !== '0x0000000000000000000000000000000000000000'
       },
       reservationKey
     }, {status: 200});
@@ -126,19 +147,31 @@ export async function GET(request) {
           labId: null,
           renter: '0x0000000000000000000000000000000000000000',
           price: null,
+          labProvider: '0x0000000000000000000000000000000000000000',
           start: null,
           end: null,
           status: null,
+          puc: '',
+          requestPeriodStart: null,
+          requestPeriodDuration: null,
+          payerInstitution: '0x0000000000000000000000000000000000000000',
+          collectorInstitution: '0x0000000000000000000000000000000000000000',
+          providerShare: null,
+          projectTreasuryShare: null,
+          subsidiesShare: null,
+          governanceShare: null,
           reservationState: 'Not Found',
           isPending: false,
           isBooked: false,
+          isInUse: false,
           isUsed: false,
           isCollected: false,
           isCanceled: false,
           isActive: false,
           isCompleted: false,
           isConfirmed: false,
-          exists: false
+          exists: false,
+          isInstitutional: false
         },
         reservationKey,
         notFound: true

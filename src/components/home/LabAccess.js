@@ -17,7 +17,7 @@ import devLog from '@/utils/dev/logger'
  * @param {string} [props.reservationKey] - Optional reservation key for optimized validation
  * @returns {JSX.Element} Lab access interface with validation and entry controls
  */
-export default function LabAccess({ id, userWallet, hasActiveBooking, auth, reservationKey }) {
+export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '', reservationKey = null }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const router = useRouter();
@@ -46,8 +46,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth, rese
       // Handle successful authentication
       if (authResult.token && authResult.labURL) {
         devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
-        //router.push(authResult.labURL + `?jwt=${authResult.token}`);
-        window.location.href = authResult.labURL + `?jwt=${authResult.token}`;
+        // Prefer assign to avoid replacing history unexpectedly during tests
+        window.location.assign(authResult.labURL + `?jwt=${authResult.token}`);
       } else if (authResult.error) {
         // Handle authentication errors returned by the service
         setErrorMessage(authResult.error);
@@ -102,9 +102,4 @@ LabAccess.propTypes = {
   hasActiveBooking: PropTypes.bool.isRequired,
   auth: PropTypes.string,
   reservationKey: PropTypes.string
-}
-
-LabAccess.defaultProps = {
-  auth: '',
-  reservationKey: null
 }

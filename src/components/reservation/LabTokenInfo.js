@@ -105,7 +105,3 @@ LabTokenInfo.propTypes = {
   durationMinutes: PropTypes.number.isRequired,
   className: PropTypes.string
 }
-
-LabTokenInfo.defaultProps = {
-  className: ''
-}

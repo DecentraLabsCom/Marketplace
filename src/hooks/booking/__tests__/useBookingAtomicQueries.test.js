@@ -21,7 +21,10 @@ import {
   useReservationSSO,
   useReservationsOfTokenSSO,
   BOOKING_QUERY_CONFIG,
+  useReservation,
 } from "@/hooks/booking/useBookingAtomicQueries";
+import useDefaultReadContract from "@/hooks/contract/useDefaultReadContract";
+import { useGetIsSSO } from "@/utils/hooks/getIsSSO";
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -218,6 +221,83 @@ describe("useBookingAtomicQueries", () => {
 
       // Hook should remain idle when enabled: false
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Router wallet path normalization", () => {
+    test("normalizes BigInt wagmi data to SSO shape and consistent cache key", () => {
+      useGetIsSSO.mockReturnValue(false);
+
+      useDefaultReadContract.mockReturnValue({
+        data: {
+          labId: BigInt(7),
+          renter: "0xabc",
+          price: BigInt("1000000000000000000"),
+          labProvider: "0xprovider",
+          start: BigInt(1700000000),
+          end: BigInt(1700003600),
+          status: BigInt(1),
+          requestPeriodStart: BigInt(0),
+          requestPeriodDuration: BigInt(0),
+          payerInstitution: "0x0000000000000000000000000000000000000000",
+          collectorInstitution: "0x0000000000000000000000000000000000000000",
+          providerShare: BigInt(0),
+          projectTreasuryShare: BigInt(0),
+          subsidiesShare: BigInt(0),
+          governanceShare: BigInt(0),
+        },
+      });
+
+      const { result } = renderHook(() => useReservation("res-key-1"), {
+        wrapper: createWrapper(),
+      });
+
+      expect(useDefaultReadContract).toHaveBeenCalledWith(
+        "getReservation",
+        ["res-key-1"],
+        expect.objectContaining({ enabled: true })
+      );
+
+      const reservation = result.current.data?.reservation;
+      expect(reservation.labId).toBe("7");
+      expect(reservation.price).toBe("1000000000000000000");
+      expect(reservation.start).toBe("1700000000");
+      expect(reservation.end).toBe("1700003600");
+      expect(reservation.isActive).toBe(true);
+    });
+  });
+
+  describe("Network degradation handling", () => {
+    test("retries once on timeout and recovers", async () => {
+      const mockData = { reservation: { status: 1 } };
+      const timeoutError = Object.assign(new Error("timeout"), { name: "TimeoutError" });
+
+      global.fetch
+        .mockRejectedValueOnce(timeoutError)
+        .mockResolvedValueOnce({ ok: true, json: async () => mockData });
+
+      const { result } = renderHook(
+        () => useReservationSSO("retry-key", { retryDelay: 0 }),
+        {
+        wrapper: createWrapper(),
+        }
+      );
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(result.current.data).toEqual(mockData);
+    });
+
+    test("surfaces error after retries exhausted", async () => {
+      global.fetch.mockRejectedValue(new Error("network down"));
+
+      const { result } = renderHook(
+        () => useReservationSSO("fail-key", { retry: 1, retryDelay: 0 }),
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error).toBeDefined();
     });
   });
 });

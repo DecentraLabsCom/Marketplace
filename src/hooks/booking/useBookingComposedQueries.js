@@ -138,16 +138,29 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
       }
     } else {
       // Fallback to manual calculation based on contract status
-      if (status === 4) {
+      if (status === 5) {
         if (includeCancelled) summary.cancelledBookings++;
       } else if (status === 0) {
         // PENDING - always count as pending regardless of timing
         summary.pendingBookings++;
-      } else if (status === 2 || status === 3) {
-        // USED or COLLECTED - always completed
+      } else if (status === 4 || status === 3) {
+        // COLLECTED or COMPLETED - treat as completed
         summary.completedBookings++;
+      } else if (status === 2) {
+        // IN_USE - treat as active if within window, otherwise use timing
+        if (start && end) {
+          if (now >= start && now <= end) {
+            summary.activeBookings++;
+          } else if (now < start) {
+            if (includeUpcoming) summary.upcomingBookings++;
+          } else {
+            summary.completedBookings++;
+          }
+        } else {
+          summary.activeBookings++;
+        }
       } else if (status === 1) {
-        // CONFIRMED/BOOKED - use timing logic
+        // CONFIRMED - use timing logic
         if (start && end) {
           if (now >= start && now <= end) {
             summary.activeBookings++;
@@ -198,9 +211,10 @@ function getReservationStatusText(status) {
   switch (status) {
     case 0: return 'Pending';
     case 1: return 'Confirmed';
-    case 2: return 'Active'; 
+    case 2: return 'In Use'; 
     case 3: return 'Completed';
-    case 4: return 'Cancelled';
+    case 4: return 'Collected';
+    case 5: return 'Cancelled';
     default: return 'Unknown';
   }
 }
@@ -598,10 +612,10 @@ export const useUserBookingsDashboard = (userAddress, {
       // Add to recent activity (for recent 30 days)
       if (start > thirtyDaysAgo) {
         let action = 'Unknown';
-        if (status === 4) action = 'Cancelled';
-        else if (status === 3) action = 'Completed';
-        else if (status === 1 && start <= now && now <= end) action = 'Active';
-        else if (status === 1 && start > now) action = 'Upcoming';
+        if (status === 5) action = 'Cancelled';
+        else if (status === 4 || status === 3) action = 'Completed';
+        else if ((status === 1 || status === 2) && start <= now && now <= end) action = 'Active';
+        else if ((status === 1 || status === 2) && start > now) action = 'Upcoming';
         else if (status === 0) action = 'Pending';
 
         // Safely format date

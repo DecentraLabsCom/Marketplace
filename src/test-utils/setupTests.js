@@ -8,11 +8,55 @@ if (typeof global.TextEncoder === 'undefined') {
   global.TextDecoder = TextDecoder;
 }
 
+// Mock global fetch for JSDOM environment
+// This prevents "fetch is not defined" errors in tests
+if (typeof global.fetch === 'undefined') {
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+      text: () => Promise.resolve(''),
+      blob: () => Promise.resolve(new Blob()),
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      headers: new Headers(),
+    })
+  );
+}
+
+// Mock WebAuthn PublicKeyCredential for SSO tests
+if (typeof window !== 'undefined' && !window.PublicKeyCredential) {
+  window.PublicKeyCredential = class PublicKeyCredential {
+    static isUserVerifyingPlatformAuthenticatorAvailable() {
+      return Promise.resolve(true);
+    }
+  };
+  // Mock navigator.credentials for WebAuthn
+  Object.defineProperty(window.navigator, 'credentials', {
+    value: {
+      get: jest.fn(() => Promise.resolve({
+        id: 'mock-credential-id',
+        rawId: new ArrayBuffer(32),
+        response: {
+          clientDataJSON: new ArrayBuffer(100),
+          authenticatorData: new ArrayBuffer(37),
+          signature: new ArrayBuffer(64),
+        },
+        type: 'public-key',
+      })),
+      create: jest.fn(() => Promise.resolve({})),
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
 // Centralized mocks for complex external libs
 jest.mock('next/router', () => require('./mocks/nextRouter'));
 jest.mock('wagmi', () => require('./mocks/wagmi'));
 jest.mock('wagmi/chains', () => require('./mocks/wagmiChains'));
 jest.mock('viem', () => require('./mocks/viem'));
+jest.mock('@/utils/dev/logger', () => require('./mocks/logger'));
 
 // Mock blockchain configuration modules with proper chain structures
 jest.mock('@/utils/blockchain/wagmiConfig', () => {
@@ -40,6 +84,35 @@ jest.mock('@/utils/blockchain/networkConfig', () => {
     infuraNetworks: {},
   };
 });
+
+// Suppress noisy React warnings that don't indicate real problems in tests
+// These warnings occur with async state updates in integration tests
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  const message = typeof args[0] === 'string' ? args[0] : String(args[0] || '');
+  
+  // Suppress act() warnings - these are common in integration tests with async effects
+  if (message.includes('act(')) {
+    return;
+  }
+  
+  // Suppress jsdom navigation warnings (location.assign, location.reload, etc.)
+  if (message.includes('Not implemented: navigation')) {
+    return;
+  }
+  
+  // Suppress auto-populate terms metadata fetch errors in tests
+  if (message.includes('Failed to auto-populate terms metadata')) {
+    return;
+  }
+  
+  // Suppress Next.js Image boolean attribute warnings (fill, priority)
+  if (message.includes('non-boolean attribute')) {
+    return;
+  }
+  
+  originalConsoleError.apply(console, args);
+};
 
 // Cleanup after each test to avoid cross-test pollution
 afterEach(() => {

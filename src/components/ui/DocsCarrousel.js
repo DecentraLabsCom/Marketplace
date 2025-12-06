@@ -11,7 +11,7 @@ import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFall
  * @param {string} [props.maxHeight] - Maximum height CSS value for the carousel
  * @returns {JSX.Element} Document carousel with navigation controls
  */
-const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
+const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const handleSlide = (index) => {
@@ -93,10 +93,6 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight }) {
 DocsCarrousel.propTypes = {
   docs: PropTypes.arrayOf(PropTypes.string).isRequired,
   maxHeight: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
-}
-
-DocsCarrousel.defaultProps = {
-  maxHeight: 200
 }
 
 export default DocsCarrousel;

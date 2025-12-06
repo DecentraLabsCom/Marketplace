@@ -131,13 +131,6 @@ describe("queryKeys", () => {
       expect(result).toEqual(["bookings", "reservationsOf", "0xabc"]);
     });
 
-    test("reservationKeyByIndex() includes index", () => {
-      const index = 7;
-      const result = bookingQueryKeys.reservationKeyByIndex(index);
-
-      expect(result).toEqual(["bookings", "reservationKey", 7]);
-    });
-
     test("reservationKeyOfUserByIndex() includes userAddress and index", () => {
       const address = "0xdef";
       const index = 3;
@@ -147,6 +140,28 @@ describe("queryKeys", () => {
       );
 
       expect(result).toEqual(["bookings", "reservationKeyOfUser", "0xdef", 3]);
+    });
+
+    test("getReservationsOfTokenByUser() includes labId, user, offset and limit", () => {
+      const labId = "7";
+      const user = "0xabc";
+      const offset = 10;
+      const limit = 20;
+      const result = bookingQueryKeys.getReservationsOfTokenByUser(
+        labId,
+        user,
+        offset,
+        limit
+      );
+
+      expect(result).toEqual([
+        "bookings",
+        "reservationsOfTokenByUser",
+        "7",
+        "0xabc",
+        10,
+        20,
+      ]);
     });
 
     test("totalReservations() returns static key", () => {

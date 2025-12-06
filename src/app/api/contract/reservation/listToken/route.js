@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getContractInstance } from '../../utils/contractInstance';
 
 /**
  * List token for reservation
@@ -21,16 +20,14 @@ export async function POST(request) {
       );
     }
 
-    const contract = getContractInstance();
-
-    // Call listToken function
-    const result = await contract.listToken(labId, { from: userAddress });
-
-    return NextResponse.json({
-      transactionHash: result.hash,
-      labId: labId,
-      message: 'Token listed successfully'
-    }, {status: 200});
+    // This action must be executed by the wallet signer (for providers) or via SSO intent endpoints.
+    return NextResponse.json(
+      {
+        error: 'Listing must be executed with a wallet signature or SSO intent',
+        hint: 'Wallet: call contract.listToken with signer. SSO: use /api/contract/lab/listLab intent endpoint.',
+      },
+      { status: 400 },
+    );
 
   } catch (error) {
     console.error('Error listing token:', error);

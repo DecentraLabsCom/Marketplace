@@ -93,23 +93,11 @@ CalendarWithBookings.propTypes = {
     date: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
     end: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)])
   })),
-  minDate: PropTypes.instanceOf(Date),
-  maxDate: PropTypes.instanceOf(Date),
+  minDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),
+  maxDate: PropTypes.oneOfType([PropTypes.instanceOf(Date), PropTypes.string]),
   inline: PropTypes.bool,
   calendarClassName: PropTypes.string,
   filterDate: PropTypes.func,
   highlightClassName: PropTypes.string,
   displayMode: PropTypes.oneOf(['default', 'lab-reservation', 'user-dashboard', 'provider-dashboard'])
-}
-
-CalendarWithBookings.defaultProps = {
-  selectedDate: null,
-  bookingInfo: [],
-  minDate: null,
-  maxDate: null,
-  inline: true,
-  calendarClassName: "custom-datepicker",
-  filterDate: null,
-  highlightClassName: "bg-[#9fc6f5] text-white",
-  displayMode: 'default'
 }

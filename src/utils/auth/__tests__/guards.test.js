@@ -294,6 +294,54 @@ describe('guards', () => {
     });
   });
 
+  describe('withAuth', () => {
+    const buildRequest = () => ({ headers: new Map(), clone: () => buildRequest() });
+
+    it('returns 401 response when unauthenticated', async () => {
+      const mockCookieStore = { get: jest.fn() };
+      mockCookies.mockResolvedValue(mockCookieStore);
+      mockGetSessionFromCookies.mockReturnValue(null);
+
+      const handler = jest.fn();
+      const wrapped = guards.withAuth(handler);
+
+      const response = await wrapped(buildRequest());
+
+      expect(response.status).toBe(401);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('blocks provider-only route with 403 when role missing', async () => {
+      const mockCookieStore = { get: jest.fn() };
+      const session = { id: 'user123', role: 'student', wallet: null };
+      mockCookies.mockResolvedValue(mockCookieStore);
+      mockGetSessionFromCookies.mockReturnValue(session);
+
+      const handler = jest.fn();
+      const wrapped = guards.withAuth(handler, { requireProvider: true });
+
+      const response = await wrapped(buildRequest());
+
+      expect(response.status).toBe(403);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('passes session to handler when authenticated and authorized', async () => {
+      const mockCookieStore = { get: jest.fn() };
+      const session = { id: 'user123', role: 'provider', wallet: '0x1234567890abcdef1234567890abcdef12345678' };
+      mockCookies.mockResolvedValue(mockCookieStore);
+      mockGetSessionFromCookies.mockReturnValue(session);
+
+      const handler = jest.fn(() => ({ status: 200 }));
+      const wrapped = guards.withAuth(handler, { requireProvider: true });
+
+      const response = await wrapped(buildRequest());
+
+      expect(handler).toHaveBeenCalledWith(session, expect.any(Object));
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe('Error classes', () => {
     it('UnauthorizedError should have correct properties', () => {
       const error = new guards.UnauthorizedError('Custom message');

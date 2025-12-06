@@ -10,6 +10,16 @@ import PropTypes from 'prop-types'
 
 const LabEventContext = createContext();
 
+// Utility to avoid duplicate invalidations in the same log batch
+const uniqueIdsFromLogs = (logs, extractFn) => {
+    const set = new Set();
+    logs.forEach((log) => {
+        const id = extractFn(log);
+        if (id) set.add(id);
+    });
+    return Array.from(set);
+};
+
 /**
  * Simplified Lab Event Provider
  * Only handles blockchain events and validates/updates React Query cache
@@ -55,17 +65,14 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🔄 [LabEventContext] LabUpdated events detected:', logs.length);
             
-            logs.forEach(log => {
-                const labId = log.args._labId?.toString();
-                if (labId) {
-                    // Invalidate specific lab queries that would change with an update
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.getLab(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.tokenURI(labId) 
-                    });
-                }
+            uniqueIdsFromLogs(logs, (log) => log.args._labId?.toString()).forEach((labId) => {
+                // Invalidate specific lab queries that would change with an update
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.getLab(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.tokenURI(labId) 
+                });
             });
         }
     });
@@ -81,17 +88,14 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('📋 [LabEventContext] LabListed events detected:', logs.length, logs);
             
-            logs.forEach(log => {
-                const labId = log.args.tokenId?.toString();
-                if (labId) {
-                    // Invalidate specific queries that changed when listing
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.getLab(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.isTokenListed(labId) 
-                    });
-                }
+            uniqueIdsFromLogs(logs, (log) => log.args.tokenId?.toString()).forEach((labId) => {
+                // Invalidate specific queries that changed when listing
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.getLab(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.isTokenListed(labId) 
+                });
             });
         }
     });
@@ -107,17 +111,14 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('📋 [LabEventContext] LabUnlisted events detected:', logs.length, logs);
             
-            logs.forEach(log => {
-                const labId = log.args.tokenId?.toString();
-                if (labId) {
-                    // Invalidate specific queries that changed when unlisting
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.getLab(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.isTokenListed(labId) 
-                    });
-                }
+            uniqueIdsFromLogs(logs, (log) => log.args.tokenId?.toString()).forEach((labId) => {
+                // Invalidate specific queries that changed when unlisting
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.getLab(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.isTokenListed(labId) 
+                });
             });
         }
     });
@@ -133,24 +134,21 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🗑️ [LabEventContext] LabDeleted events detected:', logs.length);
             
-            logs.forEach(log => {
-                const labId = log.args._labId?.toString();
-                if (labId) {
-                    // Invalidate all queries related to the deleted lab
-                    // These will error on refetch (lab doesn't exist anymore), which is expected
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.getLab(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.tokenURI(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.isTokenListed(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.ownerOf(labId) 
-                    });
-                }
+            uniqueIdsFromLogs(logs, (log) => log.args._labId?.toString()).forEach((labId) => {
+                // Invalidate all queries related to the deleted lab
+                // These will error on refetch (lab doesn't exist anymore), which is expected
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.getLab(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.tokenURI(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.isTokenListed(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.ownerOf(labId) 
+                });
             });
             
             // Invalidate list - lab ID was removed from array
@@ -171,17 +169,14 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🔗 [LabEventContext] LabURISet events detected:', logs.length);
             
-            logs.forEach(log => {
-                const labId = log.args._labId?.toString();
-                if (labId) {
-                    // Invalidate queries affected by URI change
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.getLab(labId) 
-                    });
-                    queryClient.invalidateQueries({ 
-                        queryKey: labQueryKeys.tokenURI(labId) 
-                    });
-                }
+            uniqueIdsFromLogs(logs, (log) => log.args._labId?.toString()).forEach((labId) => {
+                // Invalidate queries affected by URI change
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.getLab(labId) 
+                });
+                queryClient.invalidateQueries({ 
+                    queryKey: labQueryKeys.tokenURI(labId) 
+                });
             });
         }
     });

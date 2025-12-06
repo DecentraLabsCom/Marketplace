@@ -81,9 +81,9 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     if (!labId) return;
 
     // Skip cancelled bookings
-    if (status === 4) return;
+    if (status === 5) return;
 
-    if (start <= now && now <= end && status === 1) {
+    if (start <= now && now <= end && (status === 1 || status === 2)) {
       // Add active bookings to Set
       userLabsWithActiveBookings.add(labId);
       activeBookingsCount++;
@@ -284,12 +284,24 @@ export const useUserBookingSummary = (userAddress, options = {}) => {
         const end = parseInt(reservation.end);
         const status = parseInt(reservation.status);
         
-        if (status === 4) {
+        if (status === 5) {
           summary.cancelledBookings++;
         } else if (status === 0) {
           summary.pendingBookings++;
-        } else if (status === 2 || status === 3) {
+        } else if (status === 3 || status === 4) {
           summary.completedBookings++;
+        } else if (status === 2) {
+          if (start && end) {
+            if (now >= start && now <= end) {
+              summary.activeBookings++;
+            } else if (now < start) {
+              summary.upcomingBookings++;
+            } else {
+              summary.completedBookings++;
+            }
+          } else {
+            summary.activeBookings++;
+          }
         } else if (status === 1) {
           if (start && end) {
             if (now >= start && now <= end) {

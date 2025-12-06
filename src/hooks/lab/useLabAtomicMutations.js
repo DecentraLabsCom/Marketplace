@@ -1,7 +1,7 @@
 /**
- * Atomic React Query Hooks for Lab-related Write Operations  
- * Each hook maps 1:1 to a specific API endpoint in /api/contract/lab/
- * Handles mutations (create, update, delete operations)
+ * Atomic React Query Hooks for Lab-related Write Operations
+ * Each hook maps 1:1 to an API endpoint in /api/contract/lab/
+ * All write operations for authenticated users generate intents to the institutional wallet.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
@@ -10,86 +10,162 @@ import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
+import pollIntentStatus from '@/utils/intents/pollIntentStatus'
+import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
+import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
+
+async function runActionIntent(action, payload) {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+    throw new Error('WebAuthn not supported in this environment');
+  }
+
+  const prepareResponse = await fetch('/api/gateway/intents/actions/prepare', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      action,
+      payload,
+      gatewayUrl: payload.gatewayUrl,
+    }),
+  });
+
+  const prepareData = await prepareResponse.json();
+  if (!prepareResponse.ok) {
+    throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
+  }
+
+  const publicKey = transformAssertionOptions({
+    challenge: prepareData.webauthnChallenge,
+    allowCredentials: prepareData.allowCredentials || [],
+    userVerification: 'required',
+    timeout: 90_000,
+  });
+
+  if (!publicKey) {
+    throw new Error('Unable to build WebAuthn request options');
+  }
+
+  const assertion = await navigator.credentials.get({ publicKey });
+  const assertionPayload = assertionToJSON(assertion);
+
+  const finalizeResponse = await fetch('/api/gateway/intents/actions/finalize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      meta: prepareData.intent?.meta,
+      payload: prepareData.intent?.payload,
+      adminSignature: prepareData.adminSignature,
+      webauthnCredentialId: prepareData.webauthnCredentialId,
+      webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
+      webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
+      webauthnSignature: assertionPayload?.response?.signature,
+      gatewayUrl: payload.gatewayUrl,
+    }),
+  });
+
+  const finalizeData = await finalizeResponse.json();
+  if (!finalizeResponse.ok) {
+    throw new Error(finalizeData.error || 'Failed to finalize action intent');
+  }
+
+  const requestId =
+    finalizeData?.intent?.meta?.requestId ||
+    prepareData?.intent?.meta?.requestId ||
+    prepareData?.requestId;
+
+  return {
+    ...finalizeData,
+    requestId,
+    intent: finalizeData.intent || prepareData.intent,
+  };
+}
 
 // ===== MUTATIONS =====
 
-/**
- * SSO Hook for /api/contract/lab/addLab endpoint
- * Creates a new lab using server wallet (SSO users)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Intent hook for /api/contract/lab/addLab (institutional wallet executes)
 export const useAddLabSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { addOptimisticLab, replaceOptimisticLab, removeOptimisticLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { addOptimisticLab, addLab, removeLab, updateLab } = useLabCacheUpdates();
 
   return useMutation({
     mutationFn: async (labData) => {
-      // Add optimistic lab to cache for immediate UI feedback
-      const optimisticLab = addOptimisticLab(labData);
-
-      try {
-        devLog.log('🎯 Optimistic lab added to cache:', optimisticLab.id);
-
-        const response = await fetch('/api/contract/lab/addLab', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(labData)
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to add lab: ${response.status}`);
-        }
-
-        const data = await response.json();
-        devLog.log('🔍 useAddLabSSO:', data);
-        return { ...data, optimisticId: optimisticLab.id };
-      } catch (error) {
-        // Remove optimistic update on error
-        removeOptimisticLab(optimisticLab.id);
-        throw error;
-      }
+      const data = await runActionIntent(ACTION_CODES.LAB_ADD, {
+        labId: 0,
+        uri: labData.uri,
+        price: labData.price,
+        auth: labData.auth,
+        accessURI: labData.accessURI,
+        accessKey: labData.accessKey,
+        gatewayUrl: labData.gatewayUrl,
+      });
+      devLog.log('useAddLabSSO intent (webauthn)', data);
+      return data;
     },
     onSuccess: (data, variables) => {
-      // Use cache utilities for granular updates
-      try {
-        if (data.labId || data.id) {
-          const realLabId = data.labId || data.id;
-          const updatedLab = {
-            ...variables,
-            ...data,
-            id: realLabId,
-            labId: realLabId,
-            isPending: false,
-            isProcessing: false,
-            timestamp: new Date().toISOString()
-          };
+      const requestId =
+        data?.requestId ||
+        data?.intent?.meta?.requestId ||
+        data?.intent?.requestId ||
+        data?.intent?.request_id ||
+        data?.intent?.requestId?.toString?.();
+      addOptimisticLab({
+        ...variables,
+        id: requestId,
+        labId: requestId,
+        isIntentPending: true,
+        intentRequestId: requestId,
+        intentStatus: 'requested',
+        status: 'requested',
+        note: 'Requested to institution',
+        timestamp: new Date().toISOString(),
+      });
+      devLog.log('Lab intent created; requested to institution', { requestId });
 
-          // Replace optimistic lab with real data
-          replaceOptimisticLab(data.optimisticId, updatedLab);
-          devLog.log('✅ Lab added successfully via SSO, cache updated granularly');
-        } else {
-          devLog.error('No lab ID received, falling back to invalidation');
-          invalidateAllLabs();
-        }
-      } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
-        invalidateAllLabs();
+      if (requestId) {
+        (async () => {
+          try {
+            const result = await pollIntentStatus(requestId);
+            const status = result?.status;
+            const labId = result?.labId || variables?.labId || variables?.id;
+            const txHash = result?.txHash;
+            const reason = result?.error || result?.reason;
+
+            if (status === 'executed' && labId) {
+              removeLab(requestId);
+              addLab({
+                ...variables,
+                id: labId,
+                labId,
+                transactionHash: txHash,
+                isIntentPending: false,
+                intentStatus: 'executed',
+                status: 'listed',
+                note: 'Executed by institution',
+                timestamp: new Date().toISOString(),
+              });
+            } else if (status === 'failed' || status === 'rejected') {
+              updateLab(requestId, {
+                isIntentPending: false,
+                intentStatus: status,
+                note: reason || 'Rejected by institution',
+                intentError: reason,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } catch (err) {
+            devLog.error('Polling intent addLab failed:', err);
+          }
+        })();
       }
     },
     onError: (error) => {
-      devLog.error('❌ Failed to add lab:', error);
+      devLog.error('Failed to create lab intent:', error);
     },
     ...options,
   });
 };
-
-/**
- * Wallet Hook for adding labs using wagmi
- * Creates a new lab using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Wallet hook for adding labs (on-chain tx)
 export const useAddLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { addOptimisticLab, replaceOptimisticLab, removeOptimisticLab, invalidateAllLabs } = useLabCacheUpdates();
@@ -97,56 +173,46 @@ export const useAddLabWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (labData) => {
-      // Add optimistic lab to cache for immediate UI feedback
       const optimisticLab = addOptimisticLab(labData);
 
       try {
-        devLog.log('🎯 Optimistic lab added to cache:', optimisticLab.id);
+        devLog.log('🔍 Optimistic lab added to cache:', optimisticLab.id);
 
-        // Ensure all required parameters are defined before sending to smart contract
         const uri = labData.uri || '';
-        const rawPrice = labData.price || '0'; // Default to 0 if price is undefined
-        
-        // Price is already in correct contract units (converted in ProviderDashboardPage.js)
-        // No additional conversion needed - just ensure it's a valid BigInt
+        const rawPrice = labData.price || '0';
         let priceInContractUnits;
         try {
           priceInContractUnits = BigInt(rawPrice.toString());
         } catch (error) {
           devLog.error('Error converting price to BigInt:', { rawPrice, error });
-          // Fallback to 0 if conversion fails
           priceInContractUnits = BigInt('0');
         }
-        
         const auth = labData.auth || '';
         const accessURI = labData.accessURI || '';
         const accessKey = labData.accessKey || '';
         
         const txHash = await addLab([uri, priceInContractUnits, auth, accessURI, accessKey]);
         
-        devLog.log('🔍 useAddLabWallet - Transaction Hash:', txHash);
+        devLog.log('🔗 useAddLabWallet - Transaction Hash:', txHash);
         return { hash: txHash, optimisticId: optimisticLab.id };
       } catch (error) {
-        // Remove optimistic update on error
         removeOptimisticLab(optimisticLab.id);
         throw error;
       }
     },
     onSuccess: (result, variables) => {
-      // Use cache utilities for optimistic update showing transaction sent
       try {
-        // Replace optimistic lab with transaction-pending version
         const transactionPendingLab = {
           ...variables,
           id: result.optimisticId,
           transactionHash: result.hash,
-          isPending: true, // Still pending blockchain confirmation
-          isProcessing: false, // No longer processing on client side
+          isPending: true,
+          isProcessing: false,
           timestamp: new Date().toISOString()
         };
         
         replaceOptimisticLab(result.optimisticId, transactionPendingLab);
-        devLog.log('✅ Lab transaction sent via wallet, awaiting blockchain confirmation');
+        devLog.log('✅ Lab transaction sent via wallet, awaiting confirmation');
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
         invalidateAllLabs();
@@ -159,26 +225,16 @@ export const useAddLabWallet = (options = {}) => {
   });
 };
 
-/**
- * Unified Hook for adding labs (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Unified add lab hook
 export const useAddLab = (options = {}) => {
   const { isSSO } = useUser();
   const ssoMutation = useAddLabSSO(options);
   const walletMutation = useAddLabWallet(options);
 
   return useMutation({
-    mutationFn: async (labData) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(labData);
-      } else {
-        return walletMutation.mutateAsync(labData);
-      }
-    },
-    onSuccess: (data, variables) => {
-      devLog.log('✅ Lab added successfully via unified hook');
+    mutationFn: async (labData) => (isSSO ? ssoMutation.mutateAsync(labData) : walletMutation.mutateAsync(labData)),
+    onSuccess: () => {
+      devLog.log('✅ Lab add mutation completed');
     },
     onError: (error) => {
       devLog.error('❌ Failed to add lab via unified hook:', error);
@@ -187,78 +243,105 @@ export const useAddLab = (options = {}) => {
   });
 };
 
-/**
- * SSO Hook for /api/contract/lab/updateLab endpoint
- * Updates a lab using server wallet (SSO users)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Intent hook for updating labs (institutional wallet executes)
 export const useUpdateLabSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
 
   return useMutation({
     mutationFn: async (updateData) => {
-      const response = await fetch('/api/contract/lab/updateLab', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update lab: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useUpdateLabSSO:', data);
+      const payload = {
+        labId: updateData.labId,
+        uri: updateData.labData?.uri,
+        price: updateData.labData?.price,
+        auth: updateData.labData?.auth,
+        accessURI: updateData.labData?.accessURI,
+        accessKey: updateData.labData?.accessKey,
+        tokenURI: updateData.labData?.tokenURI,
+        gatewayUrl: updateData.gatewayUrl,
+      };
+      const data = await runActionIntent(ACTION_CODES.LAB_UPDATE, payload);
+      devLog.log('useUpdateLabSSO intent (webauthn):', data);
       return data;
     },
     onSuccess: (data, variables) => {
-      // Use cache utilities for granular updates
       try {
         if (variables.labId && variables.labData) {
+          const requestId =
+            data?.requestId ||
+            data?.intent?.meta?.requestId ||
+            data?.intent?.requestId ||
+            data?.intent?.request_id ||
+            data?.intent?.requestId?.toString?.();
           const updatedLab = {
             ...variables.labData,
             id: variables.labId,
             labId: variables.labId,
+            isIntentPending: true,
+            intentRequestId: requestId,
+            intentStatus: 'requested',
+            note: 'Requested to institution',
             timestamp: new Date().toISOString()
           };
 
           updateLab(variables.labId, updatedLab);
-          
-          // If URI changed, invalidate metadata queries for the new URI
           if (variables.labData.uri) {
-            queryClient.invalidateQueries({ 
+            queryClient.invalidateQueries({
               queryKey: metadataQueryKeys.byUri(variables.labData.uri),
               exact: true,
-              refetchType: 'active' // Force refetch active queries even if not stale
+              refetchType: 'active'
             });
-            devLog.log('✅ URI changed, metadata invalidated for:', variables.labData.uri);
           }
-          
-          devLog.log('✅ Lab updated successfully via SSO, cache updated granularly');
-        } else {
-          devLog.error('No lab ID or data received, falling back to invalidation');
-          invalidateAllLabs();
+        if (requestId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(requestId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                updateLab(variables.labId, {
+                  ...variables.labData,
+                  id: variables.labId,
+                  labId: variables.labId,
+                  transactionHash: txHash,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  note: 'Executed by institution',
+                  timestamp: new Date().toISOString()
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateLab(variables.labId, {
+                  ...variables.labData,
+                  id: variables.labId,
+                  labId: variables.labId,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  note: reason || 'Rejected by institution',
+                  intentError: reason,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling intent updateLab failed:', err);
+              invalidateAllLabs();
+            }
+          })();
+        }
         }
       } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
+        devLog.error('Failed to handle update intent response:', error);
         invalidateAllLabs();
       }
     },
     onError: (error) => {
-      devLog.error('❌ Failed to update lab:', error);
+      devLog.error('Failed to create update intent:', error);
     },
     ...options,
   });
 };
-
-/**
- * Wallet Hook for updating labs using wagmi
- * Updates a lab using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Wallet hook for updating labs
 export const useUpdateLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
@@ -266,36 +349,27 @@ export const useUpdateLabWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (updateData) => {
-      // Handle both flat and nested structures
       const labId = updateData.labId;
       const labDataObj = updateData.labData || updateData;
-      
-      // Ensure all required parameters are defined before sending to smart contract
       const uri = labDataObj.uri || '';
-      const rawPrice = labDataObj.price || '0'; // Default to 0 if price is undefined
-      
-      // Price is already in correct contract units (converted in ProviderDashboardPage.js)
-      // No additional conversion needed - just ensure it's a valid BigInt
+      const rawPrice = labDataObj.price || '0';
       let priceInContractUnits;
       try {
         priceInContractUnits = BigInt(rawPrice.toString());
       } catch (error) {
         devLog.error('Error converting price to BigInt:', { rawPrice, error });
-        // Fallback to 0 if conversion fails
         priceInContractUnits = BigInt('0');
       }
-      
       const auth = labDataObj.auth || '';
       const accessURI = labDataObj.accessURI || '';
       const accessKey = labDataObj.accessKey || '';
       
       const txHash = await updateLabContract([labId, uri, priceInContractUnits, auth, accessURI, accessKey]);
       
-      devLog.log('🔍 useUpdateLabWallet - Transaction Hash:', txHash);
+      devLog.log('🔗 useUpdateLabWallet - Transaction Hash:', txHash);
       return { hash: txHash };
     },
     onSuccess: (result, variables) => {
-      // Use cache utilities for granular updates
       try {
         if (variables.labId && variables.labData) {
           const updatedLab = {
@@ -303,25 +377,19 @@ export const useUpdateLabWallet = (options = {}) => {
             id: variables.labId,
             labId: variables.labId,
             transactionHash: result.hash,
-            isPending: true, // Still pending blockchain confirmation
+            isPending: true,
             timestamp: new Date().toISOString()
           };
 
           updateLab(variables.labId, updatedLab);
-          
-          // If URI changed, invalidate metadata queries for the new URI
           if (variables.labData.uri) {
             queryClient.invalidateQueries({ 
               queryKey: metadataQueryKeys.byUri(variables.labData.uri),
               exact: true,
-              refetchType: 'active' // Force refetch active queries even if not stale
+              refetchType: 'active'
             });
-            devLog.log('✅ URI changed, metadata invalidated for:', variables.labData.uri);
           }
-          
-          devLog.log('✅ Lab updated successfully via wallet, cache updated granularly');
         } else {
-          devLog.error('No lab ID or data received, falling back to invalidation');
           invalidateAllLabs();
         }
       } catch (error) {
@@ -336,26 +404,16 @@ export const useUpdateLabWallet = (options = {}) => {
   });
 };
 
-/**
- * Unified Hook for updating labs (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Unified update lab hook
 export const useUpdateLab = (options = {}) => {
   const { isSSO } = useUser();
   const ssoMutation = useUpdateLabSSO(options);
   const walletMutation = useUpdateLabWallet(options);
 
   return useMutation({
-    mutationFn: async (updateData) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(updateData);
-      } else {
-        return walletMutation.mutateAsync(updateData);
-      }
-    },
-    onSuccess: (data, variables) => {
-      devLog.log('✅ Lab updated successfully via unified hook');
+    mutationFn: async (updateData) => (isSSO ? ssoMutation.mutateAsync(updateData) : walletMutation.mutateAsync(updateData)),
+    onSuccess: () => {
+      devLog.log('✅ Lab update mutation completed');
     },
     onError: (error) => {
       devLog.error('❌ Failed to update lab via unified hook:', error);
@@ -364,72 +422,75 @@ export const useUpdateLab = (options = {}) => {
   });
 };
 
-/**
- * SSO Hook for /api/contract/lab/deleteLab endpoint
- * Deletes a lab using server wallet (SSO users)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Intent hook for deleting labs (institutional wallet executes)
 export const useDeleteLabSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { addOptimisticLab, removeLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { updateLab, invalidateAllLabs, removeLab } = useLabCacheUpdates();
 
   return useMutation({
     mutationFn: async (labId) => {
-      // Create optimistic deletion state for immediate UI feedback
-      const optimisticDeletedLab = addOptimisticLab({
-        id: labId,
-        labId: labId,
-        isDeleted: true,
-        isPending: true,
-        status: 'deleting'
+      const data = await runActionIntent(ACTION_CODES.LAB_DELETE, {
+        labId,
+        gatewayUrl: undefined,
       });
-
+      devLog.log('useDeleteLabSSO intent (webauthn):', data);
+      return data;
+    },
+    onSuccess: (_data, labId) => {
       try {
-        devLog.log('🎯 Optimistic lab deletion:', labId);
-
-        const response = await fetch('/api/contract/lab/deleteLab', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labId })
+        const requestId =
+          _data?.requestId ||
+          _data?.intent?.meta?.requestId ||
+          _data?.intent?.requestId ||
+          _data?.intent?.request_id ||
+          _data?.intent?.requestId?.toString?.();
+        updateLab(labId, {
+          id: labId,
+          labId: labId,
+          isIntentPending: true,
+          intentRequestId: requestId,
+          intentStatus: 'requested',
+          note: 'Requested to institution',
+          status: 'deleting',
+          timestamp: new Date().toISOString(),
         });
 
-        if (!response.ok) {
-          throw new Error(`Failed to delete lab: ${response.status}`);
-        }
+        if (requestId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(requestId);
+              const status = result?.status;
+              const reason = result?.error || result?.reason;
 
-        const data = await response.json();
-        devLog.log('🔍 useDeleteLabSSO:', data);
-        return { ...data, optimisticId: optimisticDeletedLab.id };
+              if (status === 'executed') {
+                removeLab(labId);
+              } else if (status === 'failed' || status === 'rejected') {
+                updateLab(labId, {
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  status: 'delete-failed',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling delete intent failed:', err);
+              invalidateAllLabs();
+            }
+          })();
+        }
       } catch (error) {
-        // Remove optimistic update on error
-        removeLab(optimisticDeletedLab.id);
-        throw error;
-      }
-    },
-    onSuccess: (data, labId) => {
-      // Use cache utilities for complete deletion
-      try {
-        removeLab(labId);
-        devLog.log('✅ Lab deleted successfully, cache updated granularly');
-      } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
+        devLog.error('Failed to mark delete intent:', error);
         invalidateAllLabs();
       }
     },
     onError: (error) => {
-      devLog.error('❌ Failed to delete lab:', error);
+      devLog.error('Failed to create delete intent:', error);
     },
     ...options,
   });
 };
-
-/**
- * Wallet Hook for deleting labs using wagmi
- * Deletes a lab using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Wallet hook for deleting labs
 export const useDeleteLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { addOptimisticLab, removeLab, updateLab, invalidateAllLabs } = useLabCacheUpdates();
@@ -437,42 +498,38 @@ export const useDeleteLabWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (labId) => {
-      // Create optimistic deletion state for immediate UI feedback
       const optimisticDeletingLab = addOptimisticLab({
         id: labId,
         labId: labId,
-        isDeleted: false, // Not deleted yet, just processing
+        isDeleted: false,
         isPending: true,
         status: 'deleting'
       });
 
       try {
-        devLog.log('🎯 Optimistic lab deletion via wallet:', labId);
+        devLog.log('🔍 Optimistic lab deletion via wallet:', labId);
 
         const txHash = await deleteLab([labId]);
         
-        devLog.log('🔍 useDeleteLabWallet - Transaction Hash:', txHash);
+        devLog.log('🔗 useDeleteLabWallet - Transaction Hash:', txHash);
         return { hash: txHash, optimisticId: optimisticDeletingLab.id };
       } catch (error) {
-        // Remove optimistic update on error
         removeLab(optimisticDeletingLab.id);
         throw error;
       }
     },
     onSuccess: (result, labId) => {
-      // Use cache utilities to show transaction sent
       try {
         const transactionPendingLab = {
           id: labId,
           labId: labId,
           transactionHash: result.hash,
-          isPending: true, // Still pending blockchain confirmation
+          isPending: true,
           status: 'pending-deletion',
           timestamp: new Date().toISOString()
         };
 
         updateLab(labId, transactionPendingLab);
-        devLog.log('✅ Lab deletion transaction sent via wallet, awaiting blockchain confirmation');
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
         invalidateAllLabs();
@@ -485,26 +542,16 @@ export const useDeleteLabWallet = (options = {}) => {
   });
 };
 
-/**
- * Unified Hook for deleting labs (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Unified delete lab hook
 export const useDeleteLab = (options = {}) => {
   const { isSSO } = useUser();
   const ssoMutation = useDeleteLabSSO(options);
   const walletMutation = useDeleteLabWallet(options);
 
   return useMutation({
-    mutationFn: async (labId) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(labId);
-      } else {
-        return walletMutation.mutateAsync(labId);
-      }
-    },
-    onSuccess: (data, labId) => {
-      devLog.log('✅ Lab deleted successfully via unified hook');
+    mutationFn: async (labId) => (isSSO ? ssoMutation.mutateAsync(labId) : walletMutation.mutateAsync(labId)),
+    onSuccess: () => {
+      devLog.log('✅ Lab delete mutation completed');
     },
     onError: (error) => {
       devLog.error('❌ Failed to delete lab via unified hook:', error);
@@ -513,110 +560,379 @@ export const useDeleteLab = (options = {}) => {
   });
 };
 
-/**
- * Hook for /api/contract/lab/setTokenURI endpoint using server wallet (SSO users)
- * Sets token URI using server wallet for SSO users (typically admin/owner only)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useSetTokenURISSO = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+// Intent hook for listing labs (institutional wallet executes)
+export const useListLabSSO = (options = {}) => {
+  const { updateLab } = useLabCacheUpdates();
 
   return useMutation({
-    mutationFn: async (uriData) => {
-      const response = await fetch('/api/contract/lab/setTokenURI', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(uriData)
+    mutationFn: async ({ labId, gatewayUrl }) => {
+      const data = await runActionIntent(ACTION_CODES.LAB_LIST, {
+        labId,
+        gatewayUrl,
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to set token URI: ${response.status}`);
-      }
-
-      const data = await response.json();
-      devLog.log('🔍 useSetTokenURISSO:', data);
+      devLog.log('useListLabSSO intent (webauthn):', data);
       return data;
     },
-    onSuccess: (data, variables) => {
-      // Use cache utilities for granular updates
+    onSuccess: (data, { labId }) => {
       try {
-        if (variables.labId) {
-          // Update the lab with the new URI information
-          const updatedLabData = {
-            tokenURI: variables.tokenURI,
-            timestamp: new Date().toISOString()
-          };
+        const requestId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
 
-          updateLab(variables.labId, updatedLabData);
+        updateLab(labId, {
+          id: labId,
+          labId,
+          isIntentPending: true,
+          intentRequestId: requestId,
+          intentStatus: 'requested',
+          note: 'Requested to institution',
+          timestamp: new Date().toISOString(),
+        });
 
-          // Invalidate specific lab's tokenURI query
-          queryClient.invalidateQueries({ queryKey: labQueryKeys.tokenURI(variables.labId) });
-          
-          devLog.log('✅ Token URI set successfully via SSO, cache updated granularly');
-        } else {
-          devLog.error('No lab ID received, falling back to invalidation');
-          invalidateAllLabs();
+        if (requestId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(requestId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                updateLab(labId, {
+                  id: labId,
+                  labId,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  status: 'listed',
+                  transactionHash: txHash,
+                  note: 'Executed by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateLab(labId, {
+                  id: labId,
+                  labId,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling list intent failed:', err);
+            }
+          })();
         }
       } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
-        invalidateAllLabs();
+        devLog.error('Failed to handle list intent response:', error);
       }
     },
     onError: (error) => {
-      devLog.error('❌ Failed to set token URI via SSO:', error);
+      devLog.error('Failed to create list intent:', error);
+    },
+    ...options,
+  });
+};
+// Wallet hook for listing labs
+export const useListLabWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
+  const { contractWriteFunction: listToken } = useContractWriteFunction('listToken');
+  
+  return useMutation({
+    mutationFn: async (labId) => {
+      setOptimisticListingState(labId, true, true);
+      const txHash = await listToken([labId]);
+      devLog.log('🔗 useListLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash, labId };
+    },
+    onSuccess: (result, labId) => {
+      completeOptimisticListingState(labId);
+      try {
+        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), {
+          labId: parseInt(labId),
+          isListed: true,
+          timestamp: new Date().toISOString(),
+          processingTime: 0
+        });        
+        const transactionCompleteLab = {
+          id: labId,
+          labId: labId,
+          transactionHash: result.hash,
+          isPending: false,
+          status: 'listed',
+          timestamp: new Date().toISOString()
+        };
+
+        updateLab(labId, transactionCompleteLab);
+      } catch (error) {
+        devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
+        invalidateAllLabs();
+      }
+    },
+    onError: (error, labId) => {
+      clearOptimisticListingState(labId);
+      devLog.error('❌ Failed to list lab via wallet:', error);
     },
     ...options,
   });
 };
 
-/**
- * Hook for wallet-based setTokenURI using useContractWriteFunction
- * Sets token URI using user's wallet (typically admin/owner only)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Unified list hook
+export const useListLab = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useListLabSSO(options);
+  const walletMutation = useListLabWallet(options);
+  return isSSO ? ssoMutation : walletMutation;
+};
+
+// Intent hook for unlisting labs (institutional wallet executes)
+export const useUnlistLabSSO = (options = {}) => {
+  const { updateLab } = useLabCacheUpdates();
+
+  return useMutation({
+    mutationFn: async ({ labId, gatewayUrl }) => {
+      const data = await runActionIntent(ACTION_CODES.LAB_UNLIST, {
+        labId,
+        gatewayUrl,
+      });
+      devLog.log('useUnlistLabSSO intent (webauthn):', data);
+      return data;
+    },
+    onSuccess: (data, { labId }) => {
+      try {
+        const requestId =
+          data?.requestId ||
+          data?.intent?.meta?.requestId ||
+          data?.intent?.requestId ||
+          data?.intent?.request_id ||
+          data?.intent?.requestId?.toString?.();
+
+        updateLab(labId, {
+          id: labId,
+          labId,
+          isIntentPending: true,
+          intentRequestId: requestId,
+          intentStatus: 'requested',
+          note: 'Requested to institution',
+          timestamp: new Date().toISOString(),
+        });
+
+        if (requestId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(requestId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                updateLab(labId, {
+                  id: labId,
+                  labId,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  status: 'unlisted',
+                  transactionHash: txHash,
+                  note: 'Executed by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateLab(labId, {
+                  id: labId,
+                  labId,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling unlist intent failed:', err);
+            }
+          })();
+        }
+      } catch (error) {
+        devLog.error('Failed to handle unlist intent response:', error);
+      }
+    },
+    onError: (error) => {
+      devLog.error('Failed to create unlist intent:', error);
+    },
+    ...options,
+  });
+};
+// Wallet hook for unlisting labs
+export const useUnlistLabWallet = (options = {}) => {
+  const queryClient = useQueryClient();
+  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
+  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
+  const { contractWriteFunction: unlistToken } = useContractWriteFunction('unlistToken');
+  
+  return useMutation({
+    mutationFn: async (labId) => {
+      setOptimisticListingState(labId, false, true);
+      const txHash = await unlistToken([labId]);
+      devLog.log('🔗 useUnlistLabWallet - Transaction Hash:', txHash);
+      return { hash: txHash, labId };
+    },
+    onSuccess: (result, labId) => {
+      completeOptimisticListingState(labId);
+      try {
+        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), {
+          labId: parseInt(labId),
+          isListed: false,
+          timestamp: new Date().toISOString(),
+          processingTime: 0
+        });        
+        const transactionCompleteLab = {
+          id: labId,
+          labId: labId,
+          transactionHash: result.hash,
+          isPending: false,
+          status: 'unlisted',
+          timestamp: new Date().toISOString()
+        };
+
+        updateLab(labId, transactionCompleteLab);
+      } catch (error) {
+        devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
+        invalidateAllLabs();
+      }
+    },
+    onError: (error, labId) => {
+      clearOptimisticListingState(labId);
+      devLog.error('❌ Failed to unlist lab via wallet:', error);
+    },
+    ...options,
+  });
+};
+
+// Unified unlist hook
+export const useUnlistLab = (options = {}) => {
+  const { isSSO } = useUser();
+  const ssoMutation = useUnlistLabSSO(options);
+  const walletMutation = useUnlistLabWallet(options);
+  return isSSO ? ssoMutation : walletMutation;
+};
+
+// Intent hook for setTokenURI (institutional wallet executes)
+export const useSetTokenURISSO = (options = {}) => {
+  const queryClient = useQueryClient();
+  const { updateLab } = useLabCacheUpdates();
+
+  return useMutation({
+    mutationFn: async ({ labId, tokenURI, gatewayUrl }) => {
+      const data = await runActionIntent(ACTION_CODES.LAB_SET_URI, {
+        labId,
+        tokenURI,
+        gatewayUrl,
+      });
+      devLog.log('useSetTokenURISSO intent (webauthn):', data);
+      return data;
+    },
+    onSuccess: (_data, { labId, tokenURI }) => {
+      try {
+        updateLab(labId, {
+          id: labId,
+          labId,
+          tokenURI,
+          isIntentPending: true,
+          intentStatus: 'requested',
+          note: 'Requested to institution',
+          timestamp: new Date().toISOString(),
+        });
+
+        const requestId =
+          _data?.requestId ||
+          _data?.intent?.meta?.requestId ||
+          _data?.intent?.requestId ||
+          _data?.intent?.request_id ||
+          _data?.intent?.requestId?.toString?.();
+
+        if (requestId) {
+          (async () => {
+            try {
+              const result = await pollIntentStatus(requestId);
+              const status = result?.status;
+              const txHash = result?.txHash;
+              const reason = result?.error || result?.reason;
+
+              if (status === 'executed') {
+                updateLab(labId, {
+                  id: labId,
+                  labId,
+                  tokenURI,
+                  isIntentPending: false,
+                  intentStatus: 'executed',
+                  status: 'listed',
+                  transactionHash: txHash,
+                  note: 'Executed by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              } else if (status === 'failed' || status === 'rejected') {
+                updateLab(labId, {
+                  id: labId,
+                  labId,
+                  tokenURI,
+                  isIntentPending: false,
+                  intentStatus: status,
+                  intentError: reason,
+                  note: reason || 'Rejected by institution',
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            } catch (err) {
+              devLog.error('Polling setTokenURI intent failed:', err);
+            }
+          })();
+        }
+      } catch (error) {
+        devLog.error('Failed to handle setTokenURI intent:', error);
+      }
+    },
+    onError: (error) => {
+      devLog.error('Failed to create setTokenURI intent:', error);
+    },
+    ...options,
+  });
+};
+// Wallet hook for setTokenURI
 export const useSetTokenURIWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
   const { contractWriteFunction: setTokenURI } = useContractWriteFunction('setTokenURI');
 
   return useMutation({
-    mutationFn: async (uriData) => {
-      // Ensure all required parameters are defined before sending to smart contract
-      const labId = uriData.labId;
-      const tokenURI = uriData.tokenURI || '';
-      
+    mutationFn: async (payload) => {
+      const { labId, tokenURI } = payload;
       const txHash = await setTokenURI([labId, tokenURI]);
-      
-      devLog.log('🔍 useSetTokenURIWallet - Transaction Hash:', txHash);
-      return { hash: txHash };
+      return { hash: txHash, labId, tokenURI };
     },
     onSuccess: (result, variables) => {
-      // Use cache utilities for granular updates
       try {
-        if (variables.labId) {
-          // Update the lab with the new URI information and transaction hash
-          const updatedLabData = {
-            tokenURI: variables.tokenURI,
-            transactionHash: result.hash,
-            isPending: true, // Still pending blockchain confirmation
-            timestamp: new Date().toISOString()
-          };
-
-          updateLab(variables.labId, updatedLabData);
-
-          // Invalidate specific lab's tokenURI query
-          queryClient.invalidateQueries({ queryKey: labQueryKeys.tokenURI(variables.labId) });
-          
-          devLog.log('✅ Token URI set successfully via wallet, cache updated granularly');
-        } else {
-          devLog.error('No lab ID received, falling back to invalidation');
-          invalidateAllLabs();
+        updateLab(variables.labId, {
+          tokenURI: variables.tokenURI,
+          transactionHash: result.hash,
+          isPending: true,
+          note: 'Pending confirmation',
+          timestamp: new Date().toISOString(),
+        });
+        if (variables.tokenURI) {
+          queryClient.invalidateQueries({
+            queryKey: metadataQueryKeys.byUri(variables.tokenURI),
+            exact: true,
+            refetchType: 'active'
+          });
         }
       } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
+        devLog.error('Failed cache update on setTokenURI wallet; invalidating:', error);
         invalidateAllLabs();
       }
     },
@@ -627,301 +943,11 @@ export const useSetTokenURIWallet = (options = {}) => {
   });
 };
 
-/**
- * Unified Hook for setting token URI (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
+// Unified hook for setTokenURI
 export const useSetTokenURI = (options = {}) => {
   const { isSSO } = useUser();
   const ssoMutation = useSetTokenURISSO(options);
   const walletMutation = useSetTokenURIWallet(options);
-
-  return useMutation({
-    mutationFn: async (uriData) => {
-      if (isSSO) {
-        return ssoMutation.mutateAsync(uriData);
-      } else {
-        return walletMutation.mutateAsync(uriData);
-      }
-    },
-    onSuccess: (data, variables) => {
-      devLog.log('✅ Token URI set successfully via unified hook');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to set token URI via unified hook:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * List Lab Mutation Hook (SSO)
- * Lists a lab using server wallet for SSO users
- * @param {Object} options - Mutation options
- * @returns {Object} React Query mutation for listing labs
- */
-export const useListLabSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
-  const { setOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
-  
-  return useMutation({
-    mutationFn: async (labId) => {
-      // Set optimistic UI state immediately
-      setOptimisticListingState(labId, true, true);
-      
-      const response = await fetch('/api/contract/lab/listLab', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to list lab');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data, labId) => {
-      // Clear optimistic state and update cache with real data
-      clearOptimisticListingState(labId);
-      
-      try {
-        const confirmedListedLab = {
-          ...data,
-          id: labId,
-          labId: labId,
-          isListed: true,
-          status: 'listed',
-          isPending: false,
-          timestamp: new Date().toISOString()
-        };
-
-        updateLab(labId, confirmedListedLab);
-        devLog.log('✅ Lab listed successfully via SSO, cache updated granularly');
-      } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
-        invalidateAllLabs();
-      }
-    },
-    onError: (error, labId) => {
-      // Clear optimistic state on error
-      clearOptimisticListingState(labId);
-      devLog.error('❌ Failed to list lab:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * List Lab Mutation Hook (Wallet)
- * Lists a lab using user's wallet
- * @param {Object} options - Mutation options  
- * @returns {Object} React Query mutation for listing labs
- */
-export const useListLabWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
-  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
-  const { contractWriteFunction: listToken } = useContractWriteFunction('listToken');
-  
-  return useMutation({
-    mutationFn: async (labId) => {
-      // Set optimistic UI state immediately
-      setOptimisticListingState(labId, true, true);
-      
-      const txHash = await listToken([labId]);
-      
-      devLog.log('🔍 useListLabWallet - Transaction Hash:', txHash);
-      return { hash: txHash, labId };
-    },
-    onSuccess: (result, labId) => {
-      // Transaction sent successfully - complete optimistic state
-      completeOptimisticListingState(labId);
-      
-      try {
-        // Update listing status cache with complete response format
-        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), {
-          labId: parseInt(labId),
-          isListed: true,
-          timestamp: new Date().toISOString(),
-          processingTime: 0 // Optimistic update, no processing time
-        });        
-        const transactionCompleteLab = {
-          id: labId,
-          labId: labId,
-          transactionHash: result.hash,
-          isPending: false, // Transaction sent and completed
-          status: 'listed',
-          timestamp: new Date().toISOString()
-        };
-
-        updateLab(labId, transactionCompleteLab);
-        devLog.log('✅ Lab listing transaction completed successfully');
-      } catch (error) {
-        devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
-        invalidateAllLabs();
-      }
-    },
-    onError: (error, labId) => {
-      // Clear optimistic state on error
-      clearOptimisticListingState(labId);
-      devLog.error('❌ Failed to list lab via wallet:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for listing labs (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useListLab = (options = {}) => {
-  const { isSSO } = useUser();
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useListLabSSO(options);
-  const walletMutation = useListLabWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
-};
-
-/**
- * Unlist Lab Mutation Hook (SSO)
- * Unlists a lab using server wallet for SSO users
- * @param {Object} options - Mutation options
- * @returns {Object} React Query mutation for unlisting labs
- */
-export const useUnlistLabSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
-  const { setOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
-  
-  return useMutation({
-    mutationFn: async (labId) => {
-      // Set optimistic UI state immediately
-      setOptimisticListingState(labId, false, true);
-      
-      const response = await fetch('/api/contract/lab/unlistLab', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labId }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to unlist lab');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data, labId) => {
-      // Clear optimistic state and update cache with real data
-      clearOptimisticListingState(labId);
-      
-      try {
-        const confirmedUnlistedLab = {
-          ...data,
-          id: labId,
-          labId: labId,
-          isListed: false,
-          status: 'unlisted',
-          isPending: false,
-          timestamp: new Date().toISOString()
-        };
-
-        updateLab(labId, confirmedUnlistedLab);
-        devLog.log('✅ Lab unlisted successfully via SSO, cache updated granularly');
-      } catch (error) {
-        devLog.error('Failed granular cache update, falling back to invalidation:', error);
-        invalidateAllLabs();
-      }
-    },
-    onError: (error, labId) => {
-      // Clear optimistic state on error
-      clearOptimisticListingState(labId);
-      devLog.error('❌ Failed to unlist lab:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unlist Lab Mutation Hook (Wallet)
- * Unlists a lab using user's wallet
- * @param {Object} options - Mutation options  
- * @returns {Object} React Query mutation for unlisting labs
- */
-export const useUnlistLabWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { updateLab, invalidateAllLabs } = useLabCacheUpdates();
-  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState } = useOptimisticUI();
-  const { contractWriteFunction: unlistToken } = useContractWriteFunction('unlistToken');
-  
-  return useMutation({
-    mutationFn: async (labId) => {
-      // Set optimistic UI state immediately
-      setOptimisticListingState(labId, false, true);
-      
-      const txHash = await unlistToken([labId]);
-      
-      devLog.log('🔍 useUnlistLabWallet - Transaction Hash:', txHash);
-      return { hash: txHash, labId };
-    },
-    onSuccess: (result, labId) => {
-      // Transaction sent successfully - complete optimistic state
-      completeOptimisticListingState(labId);
-      
-      try {
-        // Update listing status cache with complete response format
-        queryClient.setQueryData(labQueryKeys.isTokenListed(labId), {
-          labId: parseInt(labId),
-          isListed: false,
-          timestamp: new Date().toISOString(),
-          processingTime: 0 // Optimistic update, no processing time
-        });        
-        const transactionCompleteLab = {
-          id: labId,
-          labId: labId,
-          transactionHash: result.hash,
-          isPending: false, // Transaction sent and completed
-          status: 'unlisted',
-          timestamp: new Date().toISOString()
-        };
-
-        updateLab(labId, transactionCompleteLab);
-        devLog.log('✅ Lab unlisting transaction completed successfully');
-      } catch (error) {
-        devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
-        invalidateAllLabs();
-      }
-    },
-    onError: (error, labId) => {
-      // Clear optimistic state on error
-      clearOptimisticListingState(labId);
-      devLog.error('❌ Failed to unlist lab via wallet:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for unlisting labs (auto-detects SSO vs Wallet)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useUnlistLab = (options = {}) => {
-  const { isSSO } = useUser();
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useUnlistLabSSO(options);
-  const walletMutation = useUnlistLabWallet(options);
-  
-  // Return the appropriate mutation
   return isSSO ? ssoMutation : walletMutation;
 };
 

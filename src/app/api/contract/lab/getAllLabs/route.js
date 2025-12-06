@@ -17,11 +17,11 @@ export async function GET() {
     
     const contract = await getContractInstance();
     
-    // Single contract call for lab list
-    const labList = await contract.getAllLabs();
+    // New contract API: paginated labs (ids, total)
+    const [ids] = await contract.getLabsPaginated(0, 100);
     
     // Convert all BigInt lab IDs to numbers for JSON serialization
-    const convertedLabList = labList.map(labId => Number(labId));
+    const convertedLabList = ids.map(labId => Number(labId));
     
     console.log(`✅ Successfully fetched ${convertedLabList.length} labs from contract`);
     

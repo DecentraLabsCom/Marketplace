@@ -11,7 +11,7 @@ import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFall
  * @param {string} [props.maxHeight] - Maximum height CSS value for the carousel
  * @returns {JSX.Element} Image carousel with controls
  */
-const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
+const Carrousel = React.memo(function Carrousel({ lab = null, maxHeight }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const intervalRef = useRef(null);
 
@@ -149,12 +149,8 @@ const Carrousel = React.memo(function Carrousel({ lab, maxHeight }) {
 Carrousel.propTypes = {
   lab: PropTypes.shape({
     images: PropTypes.arrayOf(PropTypes.string)
-  }).isRequired,
+  }),
   maxHeight: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
-}
-
-Carrousel.defaultProps = {
-  maxHeight: undefined
 }
 
 export default Carrousel;

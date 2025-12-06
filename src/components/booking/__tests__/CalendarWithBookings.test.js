@@ -209,6 +209,26 @@ describe("CalendarWithBookings - unit tests", () => {
       expect(mockOnDateChange).not.toHaveBeenCalled();
     });
 
+    test("passes minDate and maxDate to DatePicker", () => {
+      const minDate = new Date("2024-05-01");
+      const maxDate = new Date("2024-07-01");
+
+      render(
+        <CalendarWithBookings
+          {...defaultProps}
+          minDate={minDate}
+          maxDate={maxDate}
+        />
+      );
+
+      expect(screen.getByTestId("min-date")).toHaveTextContent(
+        minDate.toISOString()
+      );
+      expect(screen.getByTestId("max-date")).toHaveTextContent(
+        maxDate.toISOString()
+      );
+    });
+
     test("disables onSelect in dashboard modes", async () => {
       const user = userEvent.setup();
       render(

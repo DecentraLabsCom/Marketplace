@@ -107,6 +107,7 @@ export async function parseSAMLResponse(samlResponse) {
         organizationName: attrs.organizationName ? 
                          (Array.isArray(attrs.organizationName) ? attrs.organizationName[0] : attrs.organizationName) 
                          : null, // Optional - not all IdPs provide this
+        samlAssertion: samlResponse, // Preserve raw Base64 assertion for downstream intents
       };
 
       resolve(userData);

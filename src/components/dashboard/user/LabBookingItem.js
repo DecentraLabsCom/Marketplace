@@ -22,16 +22,16 @@ import devLog from '@/utils/dev/logger'
  * @returns {JSX.Element} Booking item with status display and action buttons
  */
 const LabBookingItem = React.memo(function LabBookingItem({ 
-    lab, 
-    booking, 
-    startTime,
-    endTime,
-    onCancel, 
-    onRefund, 
-    onConfirmRefund,
-    isModalOpen,
-    closeModal,
-    onClearError
+    lab = {},
+    booking = {},
+    startTime = null,
+    endTime = null,
+    onCancel = null,
+    onRefund = null,
+    onConfirmRefund = null,
+    isModalOpen = false,
+    closeModal = null,
+    onClearError = null
 }) {
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
@@ -127,7 +127,7 @@ LabBookingItem.propTypes = {
     }),
     booking: PropTypes.shape({
         id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-        status: PropTypes.string,
+        status: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         hasEnded: PropTypes.bool,
         requestDate: PropTypes.string,
         endTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
@@ -140,19 +140,6 @@ LabBookingItem.propTypes = {
     isModalOpen: PropTypes.bool,
     closeModal: PropTypes.func,
     onClearError: PropTypes.func
-}
-
-LabBookingItem.defaultProps = {
-    lab: {},
-    booking: {},
-    startTime: null,
-    endTime: null,
-    onCancel: null,
-    onRefund: null,
-    onConfirmRefund: null,
-    isModalOpen: false,
-    closeModal: null,
-    onClearError: null
 }
 
 export default LabBookingItem;

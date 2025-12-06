@@ -1,0 +1,39 @@
+import { isoBase64URL } from '@simplewebauthn/server/helpers/iso/isoBase64URL'
+
+function toPlainString(value) {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'bigint') return value.toString()
+  return String(value)
+}
+
+/**
+ * Build the deterministic WebAuthn challenge string for intents:
+ * puc|credentialId|requestId|payloadHash|nonce|requestedAt|expiresAt|action
+ * @param {Object} params
+ * @param {string} params.puc
+ * @param {string} params.credentialId
+ * @param {Object} params.meta
+ * @param {string} params.payloadHash
+ * @returns {{ challengeString: string, challenge: string }}
+ */
+export function buildIntentChallenge({ puc, credentialId, meta, payloadHash }) {
+  const challengeString = [
+    puc,
+    credentialId,
+    meta?.requestId,
+    payloadHash || meta?.payloadHash || '',
+    toPlainString(meta?.nonce),
+    toPlainString(meta?.requestedAt),
+    toPlainString(meta?.expiresAt),
+    toPlainString(meta?.action),
+  ].join('|')
+
+  return {
+    challengeString,
+    challenge: isoBase64URL.fromUTF8String(challengeString),
+  }
+}
+
+export default {
+  buildIntentChallenge,
+}
