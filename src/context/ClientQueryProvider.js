@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 import { QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { labQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
@@ -30,17 +30,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// Create persister for localStorage
-const persister = createAsyncStoragePersister({
+// Create persister for localStorage (sync API, no React Native peer required)
+const persister = createSyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : null,
   key: 'decentralabs-query-cache',
-  throttleTime: 5000, // Save to storage every 5 seconds (reduced frequency)
   serialize: JSON.stringify,
   deserialize: JSON.parse,
-  // Only persist specific query types to avoid storing too much
-  retry: removeOldestQuery => {
-    removeOldestQuery()
-  },
 });
 
 // Track logged query types to avoid spam and initialization state
