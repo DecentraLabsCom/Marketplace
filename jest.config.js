@@ -20,6 +20,7 @@ const customJestConfig = {
     "!src/**/*.test.{js,jsx}",
     "!src/**/*.spec.{js,jsx}",
     "!src/test-utils/**",
+    "!src/contracts/**", // generated ABI bundles, not part of app logic
     "!src/**/*.config.js",
     "!src/app/**/layout.js",
     "!src/app/**/page.js",
