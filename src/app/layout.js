@@ -15,6 +15,7 @@ import Footer from '@/components/layout/Footer'
 import GlobalNotificationStack from '@/components/layout/GlobalNotificationStack'
 import DataRefreshIndicator from '@/components/layout/DataRefreshIndicator'
 import ClientOnly from '@/components/layout/ClientOnly'
+import InstitutionalOnboardingWrapper from '@/components/auth/InstitutionalOnboardingWrapper'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',
@@ -76,6 +77,9 @@ export default function RootLayout({ children }) {
                           <Footer />
                           <GlobalNotificationStack />
                           <DataRefreshIndicator />
+                          <ClientOnly>
+                            <InstitutionalOnboardingWrapper />
+                          </ClientOnly>
                         </BookingEventProvider>
                       </LabEventProvider>
                     </UserEventProvider>

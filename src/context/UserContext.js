@@ -59,6 +59,10 @@ function UserDataCore({ children }) {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [walletSessionCreated, setWalletSessionCreated] = useState(false);
     const [webAuthnBootstrapDone, setWebAuthnBootstrapDone] = useState(false);
+    
+    // Institutional onboarding state (WebAuthn credential at IB)
+    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'no_gateway'
+    const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -155,6 +159,67 @@ function UserDataCore({ children }) {
     useEffect(() => {
         if (!isSSO || !user) {
             setWebAuthnBootstrapDone(false);
+        }
+    }, [isSSO, user]);
+
+    // Check institutional onboarding status after SSO login
+    // This verifies if the user has registered a WebAuthn credential at their IB
+    useEffect(() => {
+        if (!isSSO || !user || institutionalOnboardingStatus !== null) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const checkInstitutionalOnboarding = async () => {
+            try {
+                devLog.log('[InstitutionalOnboarding] Checking status for SSO user...');
+                
+                const response = await fetch('/api/onboarding/init', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+
+                if (cancelled) return;
+
+                const data = await response.json().catch(() => ({}));
+
+                if (data.error?.includes('NO_GATEWAY') || data.noGateway) {
+                    devLog.log('[InstitutionalOnboarding] No gateway configured for institution');
+                    setInstitutionalOnboardingStatus('no_gateway');
+                    return;
+                }
+
+                if (data.isOnboarded) {
+                    devLog.log('[InstitutionalOnboarding] User already onboarded');
+                    setInstitutionalOnboardingStatus('completed');
+                    return;
+                }
+
+                // User needs onboarding - show modal
+                devLog.log('[InstitutionalOnboarding] User needs onboarding');
+                setInstitutionalOnboardingStatus('required');
+                setShowOnboardingModal(true);
+
+            } catch (error) {
+                devLog.warn('[InstitutionalOnboarding] Check failed:', error);
+                // Don't block the user, just mark as checked
+                setInstitutionalOnboardingStatus('error');
+            }
+        };
+
+        checkInstitutionalOnboarding();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isSSO, user, institutionalOnboardingStatus]);
+
+    // Reset institutional onboarding status on logout
+    useEffect(() => {
+        if (!isSSO || !user) {
+            setInstitutionalOnboardingStatus(null);
+            setShowOnboardingModal(false);
         }
     }, [isSSO, user]);
 
@@ -445,6 +510,9 @@ function UserDataCore({ children }) {
         
         // Set logout flag IMMEDIATELY to prevent any queries from running
         setIsLoggingOut(true);
+        // Reset institutional onboarding state on logout
+        setInstitutionalOnboardingStatus(null);
+        setShowOnboardingModal(false);
         devLog.log('🔒 Logout flag set - ALL SSO queries now disabled');
         
         // Small delay to ensure state propagates and disables queries
@@ -519,6 +587,29 @@ function UserDataCore({ children }) {
         }
     }, [queryClient, handleError, clearSSOSession]);
 
+    // Institutional onboarding handlers
+    const handleOnboardingComplete = useCallback(() => {
+        devLog.log('[InstitutionalOnboarding] Onboarding completed successfully');
+        setInstitutionalOnboardingStatus('completed');
+        setShowOnboardingModal(false);
+    }, []);
+
+    const handleOnboardingSkip = useCallback(() => {
+        devLog.log('[InstitutionalOnboarding] User skipped onboarding');
+        setInstitutionalOnboardingStatus('pending');
+        setShowOnboardingModal(false);
+    }, []);
+
+    const openOnboardingModal = useCallback(() => {
+        if (institutionalOnboardingStatus !== 'completed' && institutionalOnboardingStatus !== 'no_gateway') {
+            setShowOnboardingModal(true);
+        }
+    }, [institutionalOnboardingStatus]);
+
+    const closeOnboardingModal = useCallback(() => {
+        setShowOnboardingModal(false);
+    }, []);
+
     const value = {
         // User state
         user,
@@ -532,9 +623,21 @@ function UserDataCore({ children }) {
         isLoading,
         isWalletLoading,
         
+        // Institutional onboarding state
+        institutionalOnboardingStatus,
+        showOnboardingModal,
+        needsInstitutionalOnboarding: institutionalOnboardingStatus === 'required' || institutionalOnboardingStatus === 'pending',
+        isInstitutionallyOnboarded: institutionalOnboardingStatus === 'completed',
+        
         // Actions
         refreshProviderStatus,
         logoutSSO,
+        
+        // Institutional onboarding actions
+        openOnboardingModal,
+        closeOnboardingModal,
+        handleOnboardingComplete,
+        handleOnboardingSkip,
         
         // Error handling
         handleError,
@@ -577,7 +680,15 @@ export function UserData({ children }) {
  * @returns {Object|null} returns.user - User data object
  * @returns {boolean} returns.isLoading - General loading state for user data
  * @returns {boolean} returns.isWalletLoading - Specific loading state for wallet connection/reconnection
+ * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'no_gateway', 'error'
+ * @returns {boolean} returns.showOnboardingModal - Whether to show the onboarding modal
+ * @returns {boolean} returns.needsInstitutionalOnboarding - Whether user needs institutional onboarding
+ * @returns {boolean} returns.isInstitutionallyOnboarded - Whether user has completed institutional onboarding
  * @returns {Function} returns.refreshProviderStatus - Function to refresh provider status
+ * @returns {Function} returns.openOnboardingModal - Function to open the onboarding modal
+ * @returns {Function} returns.closeOnboardingModal - Function to close the onboarding modal
+ * @returns {Function} returns.handleOnboardingComplete - Callback for when onboarding completes
+ * @returns {Function} returns.handleOnboardingSkip - Callback for when user skips onboarding
  * @throws {Error} When used outside of UserData provider
  */
 export function useUser() {

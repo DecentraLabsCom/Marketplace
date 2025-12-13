@@ -61,6 +61,12 @@ export {
   useUserCacheUpdates,
 } from './useUserCacheUpdates'
 
+// ===== INSTITUTIONAL ONBOARDING =====
+export {
+  useInstitutionalOnboarding,
+  OnboardingState,
+} from './useInstitutionalOnboarding'
+
 
 // Log module loading (only logs once even in StrictMode)
 import devLog from '@/utils/dev/logger'
