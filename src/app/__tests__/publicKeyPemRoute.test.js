@@ -33,7 +33,7 @@ describe('/.well-known/public-key.pem route', () => {
   })
 
   test('returns public key from env var when valid PEM', async () => {
-    const { GET } = await import('../.well-known/public-key.pem/route')
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
     process.env.JWT_PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----'
 
     const res = await GET()
@@ -42,7 +42,7 @@ describe('/.well-known/public-key.pem route', () => {
   })
 
   test('returns 500 when env var PEM is invalid', async () => {
-    const { GET } = await import('../.well-known/public-key.pem/route')
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
     process.env.JWT_PUBLIC_KEY = 'not-a-pem'
 
     const res = await GET()
@@ -51,7 +51,7 @@ describe('/.well-known/public-key.pem route', () => {
   })
 
   test('returns 404 when file is missing and env var not set', async () => {
-    const { GET } = await import('../.well-known/public-key.pem/route')
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
     fs.existsSync.mockReturnValue(false)
 
     const res = await GET()
@@ -60,7 +60,7 @@ describe('/.well-known/public-key.pem route', () => {
   })
 
   test('returns key from file when env var not set and file exists', async () => {
-    const { GET } = await import('../.well-known/public-key.pem/route')
+    const { GET } = await import('../.well-known/public-key.pem/route.js')
     fs.existsSync.mockReturnValue(true)
     fs.readFileSync.mockReturnValue('-----BEGIN PUBLIC KEY-----\nDEF\n-----END PUBLIC KEY-----')
 
@@ -69,4 +69,3 @@ describe('/.well-known/public-key.pem route', () => {
     await expect(res.text()).resolves.toContain('DEF')
   })
 })
-
