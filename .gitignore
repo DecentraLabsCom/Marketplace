@@ -30,6 +30,8 @@
 
 # Allow public keys in .well-known directory (for JWT/SAML public verification)
 !public/.well-known/*.pem
+!src/app/.well-known/public-key.pem/
+!src/app/.well-known/public-key.pem/**
 
 # debug
 npm-debug.log*
