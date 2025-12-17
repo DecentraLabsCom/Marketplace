@@ -1,0 +1,119 @@
+import {
+  OnboardingErrorCode,
+  OnboardingStatus,
+  checkOnboardingStatus,
+  extractStableUserId,
+  initiateInstitutionalOnboarding,
+} from '../institutionalOnboarding'
+
+jest.mock('@/utils/dev/logger', () => ({
+  __esModule: true,
+  default: {
+    info: jest.fn(),
+    error: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
+    moduleLoaded: jest.fn(),
+  },
+}))
+
+jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
+  __esModule: true,
+  computeAssertionHash: jest.fn(() => 'hash'),
+}))
+
+jest.mock('../institutionalGateway', () => ({
+  __esModule: true,
+  resolveInstitutionalGatewayUrl: jest.fn(() => 'https://gateway.example'),
+}))
+
+describe('institutionalOnboarding', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn()
+    jest.clearAllMocks()
+  })
+
+  test('extractStableUserId respects priority order', () => {
+    expect(extractStableUserId({ personalUniqueCode: 'puc' })).toBe('puc')
+    expect(extractStableUserId({ schacPersonalUniqueCode: 'spuc' })).toBe('spuc')
+    expect(extractStableUserId({ scopedRole: 'user@uned.es' })).toBe('user@uned.es')
+    expect(extractStableUserId({ id: 'uid', affiliation: 'uned.es' })).toBe('uid@uned.es')
+    expect(extractStableUserId({ email: 'a@uned.es' })).toBe('a@uned.es')
+    expect(extractStableUserId(null)).toBeNull()
+  })
+
+  test('initiateInstitutionalOnboarding validates required inputs', async () => {
+    await expect(initiateInstitutionalOnboarding({ userData: null, callbackUrl: 'cb' })).rejects.toThrow(
+      OnboardingErrorCode.MISSING_USER_DATA,
+    )
+
+    await expect(
+      initiateInstitutionalOnboarding({ userData: { email: 'a@uned.es' }, callbackUrl: 'cb' }),
+    ).rejects.toThrow(/Missing institution affiliation/i)
+  })
+
+  test('initiateInstitutionalOnboarding errors when no gateway configured', async () => {
+    const gateway = await import('../institutionalGateway')
+    gateway.resolveInstitutionalGatewayUrl.mockReturnValueOnce(null)
+
+    await expect(
+      initiateInstitutionalOnboarding({
+        userData: { email: 'a@uned.es', affiliation: 'uned.es' },
+        callbackUrl: 'cb',
+      }),
+    ).rejects.toThrow(OnboardingErrorCode.NO_GATEWAY)
+  })
+
+  test('initiateInstitutionalOnboarding calls gateway and builds ceremonyUrl when missing', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ sessionId: 's1' }),
+    })
+
+    const result = await initiateInstitutionalOnboarding({
+      userData: {
+        email: 'a@uned.es',
+        name: 'Alice',
+        affiliation: 'uned.es',
+        samlAssertion: 'base64-assertion',
+        personalUniqueCode: 'puc',
+      },
+      callbackUrl: 'https://marketplace.example/callback',
+    })
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    const [url, opts] = global.fetch.mock.calls[0]
+    expect(url).toBe('https://gateway.example/onboarding/webauthn/options')
+    expect(opts.method).toBe('POST')
+    const body = JSON.parse(opts.body)
+    expect(body.stableUserId).toBe('puc')
+    expect(body.samlAssertion).toBe('base64-assertion')
+    expect(body.assertionReference).toBe('sha256:hash')
+
+    expect(result.sessionId).toBe('s1')
+    expect(result.ceremonyUrl).toBe('https://gateway.example/onboarding/webauthn/ceremony/s1')
+    expect(result.gatewayUrl).toBe('https://gateway.example')
+    expect(result.institutionId).toBe('uned.es')
+  })
+
+  test('checkOnboardingStatus handles missing params and 404 expired', async () => {
+    await expect(checkOnboardingStatus({ sessionId: '', gatewayUrl: '' })).rejects.toThrow(/Missing sessionId/i)
+
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 404 })
+    const expired = await checkOnboardingStatus({ sessionId: 's1', gatewayUrl: 'https://gateway.example' })
+    expect(expired.status).toBe(OnboardingStatus.EXPIRED)
+  })
+
+  test('checkOnboardingStatus returns payload when ok', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: OnboardingStatus.SUCCESS, credentialId: 'cred' }),
+    })
+
+    const res = await checkOnboardingStatus({ sessionId: 's1', gatewayUrl: 'https://gateway.example' })
+    expect(res.status).toBe(OnboardingStatus.SUCCESS)
+    expect(res.credentialId).toBe('cred')
+  })
+})
+
