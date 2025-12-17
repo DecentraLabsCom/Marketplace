@@ -36,6 +36,7 @@ import {
   getOnboardingResult 
 } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
+import { onboardingEventBus } from '../_eventBus'
 
 /**
  * POST /api/onboarding/callback
@@ -95,6 +96,16 @@ export async function POST(request) {
     if (body.stableUserId && body.institutionId) {
       storeOnboardingResult(`${body.institutionId}:${body.stableUserId}`, result)
     }
+
+    // Notify SSE subscribers (best-effort, instance-local)
+    onboardingEventBus.publish(
+      [
+        body.stableUserId ? `user:${body.stableUserId}` : null,
+        body.sessionId ? `session:${body.sessionId}` : null,
+        body.stableUserId && body.institutionId ? `${body.institutionId}:${body.stableUserId}` : null,
+      ],
+      result,
+    )
 
     // Log completion
     if (isSuccess) {

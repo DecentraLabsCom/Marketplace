@@ -20,6 +20,28 @@ import devLog from '@/utils/dev/logger'
 import { resolveInstitutionalGatewayUrl } from './institutionalGateway'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 
+const getSpApiKey = () =>
+  process.env.INSTITUTIONAL_SP_API_KEY ||
+  process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
+  process.env.SP_API_KEY ||
+  null
+
+const buildSpAuthHeaders = () => {
+  const apiKey = getSpApiKey()
+  const requireKey = String(process.env.INSTITUTIONAL_REQUIRE_SP_API_KEY || '').toLowerCase() === 'true'
+
+  if (!apiKey) {
+    if (requireKey) {
+      throw new Error('Missing SP API key for institutional gateway (INSTITUTIONAL_SP_API_KEY)')
+    }
+    return {}
+  }
+
+  return {
+    'X-SP-Api-Key': apiKey,
+  }
+}
+
 /**
  * Onboarding session status values
  * @readonly
@@ -139,8 +161,7 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // TODO: Add SP authentication header when IB implements it
-        // 'X-SP-Api-Key': process.env.SP_API_KEY,
+        ...buildSpAuthHeaders(),
       },
       body: JSON.stringify(requestPayload),
     })
@@ -200,6 +221,7 @@ export async function checkOnboardingStatus({ sessionId, gatewayUrl }) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...buildSpAuthHeaders(),
       },
     })
 
@@ -319,6 +341,7 @@ export async function checkUserOnboardingStatus({ userData }) {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...buildSpAuthHeaders(),
         },
       }
     )

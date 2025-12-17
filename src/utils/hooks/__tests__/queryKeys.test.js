@@ -325,6 +325,18 @@ describe("queryKeys", () => {
       expect(result).toEqual(["labs", "isTokenListed", "40"]);
     });
 
+    test("derivedByLabId() returns derived keys for lab invalidation", () => {
+      const labId = "42";
+      const result = labQueryKeys.derivedByLabId(labId);
+
+      expect(result).toEqual([
+        ["labs", "getLab", "42"],
+        ["labs", "tokenURI", "42"],
+        ["labs", "isTokenListed", "42"],
+        ["labs", "ownerOf", "42"],
+      ]);
+    });
+
     test("labsForMarket() returns specialized market key", () => {
       const result = labQueryKeys.labsForMarket();
 

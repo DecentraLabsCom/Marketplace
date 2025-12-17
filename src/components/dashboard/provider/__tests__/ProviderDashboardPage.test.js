@@ -69,6 +69,8 @@ let mockBookingsData = {
 // Mock functions
 const mockAddTemporaryNotification = jest.fn();
 const mockAddPersistentNotification = jest.fn();
+const mockAddNotification = jest.fn(() => ({ id: "notif_1" }));
+const mockRemoveNotification = jest.fn();
 const mockAddLabMutate = jest.fn();
 const mockUpdateLabMutate = jest.fn();
 const mockDeleteLabMutate = jest.fn();
@@ -88,6 +90,8 @@ jest.mock("@/context/NotificationContext", () => ({
   useNotifications: () => ({
     addTemporaryNotification: mockAddTemporaryNotification,
     addPersistentNotification: mockAddPersistentNotification,
+    addNotification: mockAddNotification,
+    removeNotification: mockRemoveNotification,
   }),
 }));
 
@@ -464,9 +468,10 @@ describe("ProviderDashboard Component", () => {
 
         await waitFor(() => {
           expect(mockAddLabMutate).toHaveBeenCalled();
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          expect(mockAddNotification).toHaveBeenCalledWith(
             "pending",
-            "⏳ Adding lab..."
+            expect.stringContaining("Confirm"),
+            expect.objectContaining({ autoHide: false, category: "lab-create" })
           );
         });
       });

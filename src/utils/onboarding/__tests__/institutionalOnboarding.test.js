@@ -2,6 +2,7 @@ import {
   OnboardingErrorCode,
   OnboardingStatus,
   checkOnboardingStatus,
+  checkUserOnboardingStatus,
   extractStableUserId,
   initiateInstitutionalOnboarding,
 } from '../institutionalOnboarding'
@@ -28,9 +29,18 @@ jest.mock('../institutionalGateway', () => ({
 }))
 
 describe('institutionalOnboarding', () => {
+  const originalEnv = process.env
+
   beforeEach(() => {
     global.fetch = jest.fn()
     jest.clearAllMocks()
+    process.env = { ...originalEnv }
+    delete process.env.INSTITUTIONAL_SP_API_KEY
+    delete process.env.INSTITUTIONAL_REQUIRE_SP_API_KEY
+  })
+
+  afterAll(() => {
+    process.env = originalEnv
   })
 
   test('extractStableUserId respects priority order', () => {
@@ -65,6 +75,7 @@ describe('institutionalOnboarding', () => {
   })
 
   test('initiateInstitutionalOnboarding calls gateway and builds ceremonyUrl when missing', async () => {
+    process.env.INSTITUTIONAL_SP_API_KEY = 'test-key'
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ sessionId: 's1' }),
@@ -85,6 +96,7 @@ describe('institutionalOnboarding', () => {
     const [url, opts] = global.fetch.mock.calls[0]
     expect(url).toBe('https://gateway.example/onboarding/webauthn/options')
     expect(opts.method).toBe('POST')
+    expect(opts.headers['X-SP-Api-Key']).toBe('test-key')
     const body = JSON.parse(opts.body)
     expect(body.stableUserId).toBe('puc')
     expect(body.samlAssertion).toBe('base64-assertion')
@@ -105,6 +117,7 @@ describe('institutionalOnboarding', () => {
   })
 
   test('checkOnboardingStatus returns payload when ok', async () => {
+    process.env.INSTITUTIONAL_SP_API_KEY = 'test-key'
     global.fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -114,6 +127,36 @@ describe('institutionalOnboarding', () => {
     const res = await checkOnboardingStatus({ sessionId: 's1', gatewayUrl: 'https://gateway.example' })
     expect(res.status).toBe(OnboardingStatus.SUCCESS)
     expect(res.credentialId).toBe('cred')
+
+    const [, opts] = global.fetch.mock.calls[0]
+    expect(opts.headers['X-SP-Api-Key']).toBe('test-key')
+  })
+
+  test('checkUserOnboardingStatus includes SP auth header when configured', async () => {
+    process.env.INSTITUTIONAL_SP_API_KEY = 'test-key'
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ registered: true, credentialId: 'cred-1' }),
+    })
+
+    const res = await checkUserOnboardingStatus({
+      userData: { affiliation: 'uned.es', personalUniqueCode: 'puc' },
+    })
+
+    expect(res.isOnboarded).toBe(true)
+    const [, opts] = global.fetch.mock.calls[0]
+    expect(opts.headers['X-SP-Api-Key']).toBe('test-key')
+  })
+
+  test('initiateInstitutionalOnboarding throws when SP key required but missing', async () => {
+    process.env.INSTITUTIONAL_REQUIRE_SP_API_KEY = 'true'
+
+    await expect(
+      initiateInstitutionalOnboarding({
+        userData: { email: 'a@uned.es', affiliation: 'uned.es', personalUniqueCode: 'puc' },
+        callbackUrl: 'https://marketplace.example/callback',
+      }),
+    ).rejects.toThrow(/Missing SP API key/i)
   })
 })
-

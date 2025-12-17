@@ -70,7 +70,7 @@ export default function ProviderDashboard() {
     [ownedLabs]
   );
 
-  const { addTemporaryNotification, addPersistentNotification } = useNotifications();
+  const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
   const { decimals } = useLabToken();
 
   // 🚀 React Query mutations for lab management
@@ -91,7 +91,41 @@ export default function ProviderDashboard() {
   // State declarations
   const [selectedLabId, setSelectedLabId] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreatingLab, setIsCreatingLab] = useState(false);
   const hasInitialized = useRef(false);
+  const createLabAbortControllerRef = useRef(null);
+  const createLabNotificationIdRef = useRef(null);
+
+  const setCreateLabProgress = useCallback((message, { hash } = {}) => {
+    try {
+      if (createLabNotificationIdRef.current) {
+        removeNotification(createLabNotificationIdRef.current);
+      }
+
+      const notif = addNotification('pending', message, {
+        autoHide: false,
+        category: 'lab-create',
+        priority: 'high',
+        hash: hash || null,
+        allowDuplicates: true,
+      });
+
+      createLabNotificationIdRef.current = notif?.id || null;
+    } catch (err) {
+      devLog.error('Failed to set create-lab progress notification:', err);
+    }
+  }, [addNotification, removeNotification]);
+
+  const clearCreateLabProgress = useCallback(() => {
+    try {
+      if (createLabNotificationIdRef.current) {
+        removeNotification(createLabNotificationIdRef.current);
+        createLabNotificationIdRef.current = null;
+      }
+    } catch (err) {
+      devLog.error('Failed to clear create-lab progress notification:', err);
+    }
+  }, [removeNotification]);
   
   // 🚀 React Query for lab bookings with user details
   const { 
@@ -183,28 +217,39 @@ export default function ProviderDashboard() {
     delete labData._tempFiles; // Remove from labData to avoid sending to blockchain
 
     try {
-      addTemporaryNotification('pending', '⏳ Adding lab...');
+      setIsCreatingLab(true);
+      createLabAbortControllerRef.current = isSSO ? new AbortController() : null;
+      setCreateLabProgress(isSSO ? '⏳ Sending lab to institution for execution...' : '⏳ Confirm the transaction in your wallet...');
       
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
         ...labData,
         providerId: address, // Add provider info
         isSSO,
-        userEmail: user.email
+        userEmail: user.email,
+        abortSignal: createLabAbortControllerRef.current?.signal,
+        // SSO: be more tolerant to gateway propagation delays
+        pollMaxDurationMs: 12 * 60 * 1000,
+        pollInitialDelayMs: 3_000,
+        pollMaxDelayMs: 20_000,
+        postExecutePollMaxDurationMs: 60_000,
+        postExecutePollInitialDelayMs: 2_000,
+        postExecutePollMaxDelayMs: 5_000,
       });
       
-      const blockchainLabId = result.labId || result.id;
+      const blockchainLabId = result?.labId?.toString?.() || result?.id?.toString?.();
       
       if (!blockchainLabId) {
         throw new Error('Lab ID not returned from blockchain');
       }
       
-      addTemporaryNotification('success', '✅ Lab added!');
+      setCreateLabProgress(`✅ Lab created onchain (ID: ${blockchainLabId}). Finalizing...`, { hash: result?.hash || result?.txHash });
       
       // Move temp files to correct labId folder
       if (tempFiles.length > 0) {
         try {
           devLog.log(`📁 Moving ${tempFiles.length} temp files to lab ${blockchainLabId}...`);
+          setCreateLabProgress('📁 Moving uploaded files to the lab folder...');
           const moveResult = await moveFilesMutation.mutateAsync({
             filePaths: tempFiles,
             labId: blockchainLabId
@@ -243,6 +288,7 @@ export default function ProviderDashboard() {
       if (labData.uri.startsWith('Lab-')) {
         try {
           devLog.log('📝 Saving lab metadata JSON after blockchain creation...');
+          setCreateLabProgress('💾 Saving lab metadata (offchain)...');
           await saveLabDataMutation.mutateAsync({
             ...labData,
             id: blockchainLabId, // Use the blockchain labId
@@ -259,16 +305,48 @@ export default function ProviderDashboard() {
           // Don't return - lab was created successfully, just metadata save failed
         }
       }
+
+      clearCreateLabProgress();
+      addTemporaryNotification('success', '✅ Lab added and saved!');
       
       setTimeout(() => setIsModalOpen(false), 0);
       
     } catch (error) {
       devLog.error('Error adding lab:', error);
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
+      clearCreateLabProgress();
+    } finally {
+      setIsCreatingLab(false);
+      createLabAbortControllerRef.current = null;
     }
   }, [
-    ownedLabs, user?.name, addLabMutation, saveLabDataMutation, moveFilesMutation, address, isSSO, user?.email, addTemporaryNotification
+    ownedLabs,
+    user?.name,
+    addLabMutation,
+    saveLabDataMutation,
+    moveFilesMutation,
+    address,
+    isSSO,
+    user?.email,
+    addTemporaryNotification,
+    setCreateLabProgress,
+    clearCreateLabProgress,
   ]);
+
+  const handleCloseModal = useCallback(() => {
+    if (isCreatingLab && isSSO && createLabAbortControllerRef.current) {
+      try {
+        createLabAbortControllerRef.current.abort();
+        addTemporaryNotification('warning', '⚠️ Lab creation cancelled (institution request aborted)');
+      } catch (err) {
+        devLog.error('Failed aborting create-lab request:', err);
+      } finally {
+        clearCreateLabProgress();
+      }
+    }
+
+    setIsModalOpen(false);
+  }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab, isSSO]);
 
   // Redirect non-providers to home page
   useEffect(() => {
@@ -587,7 +665,7 @@ export default function ProviderDashboard() {
           </div>
         </div>
 
-        <LabModal isOpen={shouldShowModal} onClose={() => setIsModalOpen(false)} onSubmit={handleSaveLab}
+        <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
           lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />
       </Container>
     </AccessControl>

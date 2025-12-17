@@ -66,6 +66,12 @@ jest.mock("@/utils/hooks/queryKeys", () => ({
     tokenURI: jest.fn((labId) => ["lab", "tokenURI", labId]),
     isTokenListed: jest.fn((labId) => ["lab", "isTokenListed", labId]),
     ownerOf: jest.fn((labId) => ["lab", "ownerOf", labId]),
+    derivedByLabId: jest.fn((labId) => [
+      ["lab", "getLab", labId],
+      ["lab", "tokenURI", labId],
+      ["lab", "isTokenListed", labId],
+      ["lab", "ownerOf", labId],
+    ]),
   },
 }));
 
@@ -82,10 +88,16 @@ jest.mock("@/utils/dev/logger", () => ({
 describe("LabEventContext", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
     // Reset the handlers
     Object.keys(mockWatchContractEventHandlers).forEach((key) => {
       delete mockWatchContractEventHandlers[key];
     });
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
   describe("Provider Functionality", () => {
@@ -263,11 +275,13 @@ describe("LabEventContext", () => {
       // Trigger the LabAdded event
       act(() => {
         mockWatchContractEventHandlers.LabAdded(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify getAllLabs was invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
+        exact: true,
       });
     });
 
@@ -285,11 +299,13 @@ describe("LabEventContext", () => {
       // Trigger the LabAdded event with multiple logs
       act(() => {
         mockWatchContractEventHandlers.LabAdded(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify getAllLabs was invalidated once
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
+        exact: true,
       });
     });
   });
@@ -312,14 +328,25 @@ describe("LabEventContext", () => {
       // Trigger the LabUpdated event
       act(() => {
         mockWatchContractEventHandlers.LabUpdated(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "tokenURI", "1"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "isTokenListed", "1"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "ownerOf", "1"],
+        exact: true,
       });
     });
 
@@ -337,6 +364,7 @@ describe("LabEventContext", () => {
       // Trigger the LabUpdated event with multiple logs
       act(() => {
         mockWatchContractEventHandlers.LabUpdated(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify each lab's queries were invalidated
@@ -344,9 +372,19 @@ describe("LabEventContext", () => {
         const labId = log.args._labId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "getLab", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "tokenURI", labId],
+          exact: true,
+        });
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+          queryKey: ["lab", "isTokenListed", labId],
+          exact: true,
+        });
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+          queryKey: ["lab", "ownerOf", labId],
+          exact: true,
         });
       });
     });
@@ -370,6 +408,7 @@ describe("LabEventContext", () => {
       // Trigger the LabUpdated event
       act(() => {
         mockWatchContractEventHandlers.LabUpdated(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Should not try to invalidate queries for null labId
@@ -392,13 +431,14 @@ describe("LabEventContext", () => {
 
       act(() => {
         mockWatchContractEventHandlers.LabUpdated(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       const calls = mockInvalidateQueries.mock.calls.filter(
         (call) => call[0]?.queryKey?.includes("7")
       );
 
-      expect(calls.length).toBe(2); // getLab + tokenURI once each
+      expect(calls.length).toBe(4); // derivedByLabId once each
     });
   });
 
@@ -420,14 +460,17 @@ describe("LabEventContext", () => {
       // Trigger the LabListed event
       act(() => {
         mockWatchContractEventHandlers.LabListed(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "isTokenListed", "1"],
+        exact: true,
       });
     });
 
@@ -445,6 +488,7 @@ describe("LabEventContext", () => {
       // Trigger the LabListed event with multiple logs
       act(() => {
         mockWatchContractEventHandlers.LabListed(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify each lab's queries were invalidated
@@ -452,9 +496,11 @@ describe("LabEventContext", () => {
         const labId = log.args.tokenId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "getLab", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "isTokenListed", labId],
+          exact: true,
         });
       });
     });
@@ -478,6 +524,7 @@ describe("LabEventContext", () => {
       // Trigger the LabListed event
       act(() => {
         mockWatchContractEventHandlers.LabListed(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Should not try to invalidate queries for null tokenId
@@ -505,14 +552,17 @@ describe("LabEventContext", () => {
       // Trigger the LabUnlisted event
       act(() => {
         mockWatchContractEventHandlers.LabUnlisted(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "isTokenListed", "1"],
+        exact: true,
       });
     });
 
@@ -526,6 +576,7 @@ describe("LabEventContext", () => {
       // Trigger the LabUnlisted event with multiple logs
       act(() => {
         mockWatchContractEventHandlers.LabUnlisted(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify each lab's queries were invalidated
@@ -533,9 +584,11 @@ describe("LabEventContext", () => {
         const labId = log.args.tokenId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "getLab", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "isTokenListed", labId],
+          exact: true,
         });
       });
     });
@@ -593,24 +646,30 @@ describe("LabEventContext", () => {
       // Trigger the LabDeleted event
       act(() => {
         mockWatchContractEventHandlers.LabDeleted(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify all lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "tokenURI", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "isTokenListed", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "ownerOf", "1"],
+        exact: true,
       });
       // Verify getAllLabs was also invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
+        exact: true,
       });
     });
 
@@ -624,6 +683,7 @@ describe("LabEventContext", () => {
       // Trigger the LabDeleted event with multiple logs
       act(() => {
         mockWatchContractEventHandlers.LabDeleted(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify each lab's queries were invalidated
@@ -631,21 +691,26 @@ describe("LabEventContext", () => {
         const labId = log.args._labId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "getLab", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "tokenURI", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "isTokenListed", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "ownerOf", labId],
+          exact: true,
         });
       });
 
       // Verify getAllLabs was invalidated once
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
+        exact: true,
       });
     });
 
@@ -665,11 +730,13 @@ describe("LabEventContext", () => {
       // Trigger the LabDeleted event
       act(() => {
         mockWatchContractEventHandlers.LabDeleted(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Should invalidate getAllLabs but not specific lab queries
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
+        exact: true,
       });
 
       // Should not try to invalidate queries for null labId
@@ -697,14 +764,17 @@ describe("LabEventContext", () => {
       // Trigger the LabURISet event
       act(() => {
         mockWatchContractEventHandlers.LabURISet(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify lab-specific queries were invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", "1"],
+        exact: true,
       });
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "tokenURI", "1"],
+        exact: true,
       });
     });
 
@@ -722,6 +792,7 @@ describe("LabEventContext", () => {
       // Trigger the LabURISet event with multiple logs
       act(() => {
         mockWatchContractEventHandlers.LabURISet(mockLogs);
+        jest.advanceTimersByTime(60);
       });
 
       // Verify each lab's queries were invalidated
@@ -729,9 +800,11 @@ describe("LabEventContext", () => {
         const labId = log.args._labId.toString();
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "getLab", labId],
+          exact: true,
         });
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "tokenURI", labId],
+          exact: true,
         });
       });
     });

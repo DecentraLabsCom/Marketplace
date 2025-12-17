@@ -205,6 +205,8 @@ jest.mock("@/context/NotificationContext", () => ({
   NotificationProvider: ({ children }) => children,
   useNotifications: () => ({
     addTemporaryNotification: jest.fn(),
+    addNotification: jest.fn(() => ({ id: 'notif_1' })),
+    removeNotification: jest.fn(),
     addErrorNotification: jest.fn(),
     addSuccessNotification: jest.fn(),
   }),

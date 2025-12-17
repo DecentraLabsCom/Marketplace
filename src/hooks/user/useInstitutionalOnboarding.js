@@ -55,6 +55,7 @@ export function useInstitutionalOnboarding({
   
   const pollControllerRef = useRef(null)
   const pollStartTimeRef = useRef(null)
+  const eventSourceRef = useRef(null)
 
   /**
    * Check if user needs onboarding
@@ -242,7 +243,107 @@ export function useInstitutionalOnboarding({
       pollControllerRef.current.abort()
       pollControllerRef.current = null
     }
+
+    if (eventSourceRef.current) {
+      try {
+        eventSourceRef.current.close()
+      } catch {
+        // ignore
+      }
+      eventSourceRef.current = null
+    }
   }, [])
+
+  const listenForCompletionViaSSE = useCallback(async (session) => {
+    if (!session?.sessionId) return null
+    if (typeof window === 'undefined') return null
+    if (typeof EventSource === 'undefined') return null
+
+    return new Promise((resolve, reject) => {
+      try {
+        const url = new URL('/api/onboarding/events', window.location.origin)
+        url.searchParams.set('sessionId', session.sessionId)
+        if (session.stableUserId) url.searchParams.set('stableUserId', session.stableUserId)
+        if (session.institutionId) url.searchParams.set('institutionId', session.institutionId)
+
+        const es = new EventSource(url.toString())
+        eventSourceRef.current = es
+
+        const timeoutHandle = setTimeout(() => {
+          try { es.close() } catch {}
+          eventSourceRef.current = null
+          resolve(null)
+        }, pollTimeout)
+
+        const cleanup = () => {
+          clearTimeout(timeoutHandle)
+        }
+
+        es.addEventListener('onboarding', (evt) => {
+          try {
+            const data = JSON.parse(evt.data || '{}')
+            const status = data?.status
+
+            if (status === 'SUCCESS' || status === 'COMPLETED') {
+              cleanup()
+              try { es.close() } catch {}
+              eventSourceRef.current = null
+              resolve({ success: true, ...data })
+              return
+            }
+
+            if (status === 'FAILED' || status === 'EXPIRED') {
+              cleanup()
+              try { es.close() } catch {}
+              eventSourceRef.current = null
+              resolve({ success: false, ...data })
+              return
+            }
+          } catch (err) {
+            devLog.warn('[useInstitutionalOnboarding] SSE parse error:', err)
+          }
+        })
+
+        es.onerror = (err) => {
+          cleanup()
+          try { es.close() } catch {}
+          eventSourceRef.current = null
+          reject(err)
+        }
+      } catch (err) {
+        reject(err)
+      }
+    })
+  }, [pollTimeout])
+
+  const awaitCompletion = useCallback(async (session = sessionData) => {
+    if (!session?.sessionId || !session?.gatewayUrl) {
+      setError('No session data for polling')
+      return null
+    }
+
+    setState(OnboardingState.POLLING)
+
+    try {
+      const sseResult = await listenForCompletionViaSSE(session)
+      if (sseResult) {
+        if (sseResult.success) {
+          setState(OnboardingState.COMPLETED)
+          setIsOnboarded(true)
+          setSessionData(null)
+          sessionStorage.removeItem('onboarding_session')
+        } else {
+          setState(OnboardingState.FAILED)
+          setError(sseResult.error || 'Onboarding failed')
+        }
+        return sseResult
+      }
+    } catch (err) {
+      devLog.warn('[useInstitutionalOnboarding] SSE unavailable, falling back to polling:', err)
+    }
+
+    return pollForCompletion(session)
+  }, [listenForCompletionViaSSE, pollForCompletion, sessionData])
 
   /**
    * Reset state
@@ -290,13 +391,13 @@ export function useInstitutionalOnboarding({
         setSessionData(session)
         setState(OnboardingState.AWAITING_COMPLETION)
         
-        // Start polling for result
-        pollForCompletion(session)
+        // Prefer SSE for real-time updates; fallback to polling
+        awaitCompletion(session)
       } catch {
         sessionStorage.removeItem('onboarding_session')
       }
     }
-  }, [autoPoll, pollForCompletion])
+  }, [autoPoll, awaitCompletion])
 
   // Auto-check on mount if enabled
   useEffect(() => {

@@ -93,6 +93,96 @@ const resolveRequestId = (data) =>
   data?.intent?.request_id ||
   data?.intent?.requestId?.toString?.();
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const pollExecutedIntentForLabId = async (requestId, {
+  gatewayUrl,
+  signal,
+  maxDurationMs = 60_000,
+  initialDelayMs = 2_000,
+  maxDelayMs = 5_000,
+} = {}) => {
+  if (!gatewayUrl || !requestId) return null;
+
+  const start = Date.now();
+  let delay = initialDelayMs;
+
+  while (true) {
+    if (signal?.aborted) {
+      throw new Error('Intent polling aborted');
+    }
+    if (Date.now() - start > maxDurationMs) {
+      return null;
+    }
+
+    try {
+      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.labId) {
+          return data;
+        }
+      }
+    } catch (err) {
+      devLog.warn('pollExecutedIntentForLabId error:', err?.message || err);
+    }
+
+    await sleep(delay);
+    delay = Math.min(delay * 1.5, maxDelayMs);
+  }
+};
+
+const scanOwnerTokensForUri = async ({
+  publicClient,
+  contractAddress,
+  ownerAddress,
+  uri,
+  lookbackCount = 5,
+}) => {
+  if (!publicClient || !contractAddress || !ownerAddress || !uri) return null;
+
+  try {
+    const balanceRaw = await publicClient.readContract({
+      address: contractAddress,
+      abi: contractABI,
+      functionName: 'balanceOf',
+      args: [ownerAddress],
+    });
+
+    const balance = Number(balanceRaw);
+    if (!Number.isFinite(balance) || balance <= 0) return null;
+
+    const startIndex = Math.max(0, balance - lookbackCount);
+    for (let index = balance - 1; index >= startIndex; index -= 1) {
+      const tokenId = await publicClient.readContract({
+        address: contractAddress,
+        abi: contractABI,
+        functionName: 'tokenOfOwnerByIndex',
+        args: [ownerAddress, BigInt(index)],
+      });
+
+      const tokenUri = await publicClient.readContract({
+        address: contractAddress,
+        abi: contractABI,
+        functionName: 'tokenURI',
+        args: [tokenId],
+      });
+
+      if (tokenUri === uri) {
+        return tokenId?.toString?.();
+      }
+    }
+  } catch (err) {
+    devLog.error('Failed scanning owner tokens for URI match:', err);
+  }
+
+  return null;
+};
+
 const findLabAddedIdFromReceipt = ({ receipt, contractAddress, providerAddress, uri }) => {
   if (!receipt?.logs?.length) return null;
 
@@ -153,6 +243,10 @@ export const useAddLabSSO = (options = {}) => {
       devLog.log('useAddLabSSO intent created; polling status', { requestId });
       const statusResult = await pollIntentStatus(requestId, {
         gatewayUrl: labData.gatewayUrl,
+        signal: labData.abortSignal,
+        maxDurationMs: labData.pollMaxDurationMs,
+        initialDelayMs: labData.pollInitialDelayMs,
+        maxDelayMs: labData.pollMaxDelayMs,
       });
 
       const status = statusResult?.status;
@@ -161,15 +255,29 @@ export const useAddLabSSO = (options = {}) => {
         throw new Error(reason);
       }
 
-      const labId = statusResult?.labId?.toString?.();
+      let labId = statusResult?.labId?.toString?.();
+      let txHash = statusResult?.txHash;
+
+      // Some gateways may mark an intent executed before attaching the labId/txHash fields.
       if (!labId) {
-        throw new Error('Institution intent executed but did not include labId');
+        const followUp = await pollExecutedIntentForLabId(requestId, {
+          gatewayUrl: labData.gatewayUrl,
+          signal: labData.abortSignal,
+          maxDurationMs: labData.postExecutePollMaxDurationMs ?? 60_000,
+          initialDelayMs: labData.postExecutePollInitialDelayMs ?? 2_000,
+          maxDelayMs: labData.postExecutePollMaxDelayMs ?? 5_000,
+        });
+
+        labId = followUp?.labId?.toString?.() || labId;
+        txHash = followUp?.txHash || txHash;
       }
+
+      if (!labId) throw new Error('Institution intent executed but did not include labId');
 
       return {
         requestId,
         labId,
-        txHash: statusResult?.txHash,
+        txHash,
         status,
       };
     },
@@ -222,13 +330,30 @@ export const useAddLabWallet = (options = {}) => {
         
         devLog.log('🔗 useAddLabWallet - Transaction Hash:', txHash);
 
+        // Update optimistic lab immediately with transaction hash so UI can reflect "sent" state
+        try {
+          replaceOptimisticLab(optimisticLab.id, {
+            ...labData,
+            id: optimisticLab.id,
+            labId: optimisticLab.id,
+            transactionHash: txHash,
+            isPending: true,
+            isProcessing: false,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (err) {
+          devLog.error('Failed updating optimistic lab with txHash:', err);
+        }
+
         let labId = null;
         if (publicClient && contractAddress) {
           try {
+            const confirmations = Number(labData.confirmations ?? 1);
+            const timeout = Number(labData.receiptTimeoutMs ?? 600_000);
             const receipt = await publicClient.waitForTransactionReceipt({
               hash: txHash,
-              confirmations: 1,
-              timeout: 600_000,
+              confirmations: Number.isFinite(confirmations) && confirmations > 0 ? confirmations : 1,
+              timeout: Number.isFinite(timeout) && timeout > 0 ? timeout : 600_000,
             });
 
             labId = findLabAddedIdFromReceipt({
@@ -237,8 +362,25 @@ export const useAddLabWallet = (options = {}) => {
               providerAddress: userAddress,
               uri,
             });
+
+            if (!labId) {
+              labId = await scanOwnerTokensForUri({
+                publicClient,
+                contractAddress,
+                ownerAddress: userAddress,
+                uri,
+                lookbackCount: Number(labData.scanLookbackCount ?? 5),
+              });
+            }
           } catch (err) {
-            devLog.error('Failed to wait for tx receipt / decode LabAdded:', err);
+            devLog.error('Failed to wait for tx receipt / resolve labId:', {
+              err,
+              txHash,
+              chainId: safeChain?.id,
+              contractAddress,
+              uri,
+              userAddress,
+            });
           }
         }
 
