@@ -97,7 +97,7 @@ export default function Modal({
         ref={modalRef}
         className={`
           bg-white rounded-xl shadow-2xl w-full ${sizeClass}
-          transform transition-all duration-200 ease-out
+          transition-all duration-200 ease-out
           animate-in fade-in zoom-in-95
           ${className}
         `}

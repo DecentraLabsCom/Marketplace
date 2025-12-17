@@ -270,7 +270,11 @@ export function useInstitutionalOnboarding({
         eventSourceRef.current = es
 
         const timeoutHandle = setTimeout(() => {
-          try { es.close() } catch {}
+          try {
+            es.close()
+          } catch {
+            // ignore
+          }
           eventSourceRef.current = null
           resolve(null)
         }, pollTimeout)
@@ -286,7 +290,11 @@ export function useInstitutionalOnboarding({
 
             if (status === 'SUCCESS' || status === 'COMPLETED') {
               cleanup()
-              try { es.close() } catch {}
+              try {
+                es.close()
+              } catch {
+                // ignore
+              }
               eventSourceRef.current = null
               resolve({ success: true, ...data })
               return
@@ -294,7 +302,11 @@ export function useInstitutionalOnboarding({
 
             if (status === 'FAILED' || status === 'EXPIRED') {
               cleanup()
-              try { es.close() } catch {}
+              try {
+                es.close()
+              } catch {
+                // ignore
+              }
               eventSourceRef.current = null
               resolve({ success: false, ...data })
               return
@@ -306,7 +318,11 @@ export function useInstitutionalOnboarding({
 
         es.onerror = (err) => {
           cleanup()
-          try { es.close() } catch {}
+          try {
+            es.close()
+          } catch {
+            // ignore
+          }
           eventSourceRef.current = null
           reject(err)
         }
