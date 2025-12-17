@@ -16,6 +16,7 @@ import {
   HttpError,
   BadRequestError
 } from '@/utils/auth/guards'
+import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
@@ -167,15 +168,29 @@ export async function POST(req) {
     }
 
     // ===== AUTHORIZATION =====
-    // Extract labId from URI and verify ownership
-    // URI format: "Lab-{provider}-{labId}.json"
-    const labIdMatch = uri.match(/-(\d+)\.json$/);
-    if (labIdMatch && labIdMatch[1]) {
-      const labId = labIdMatch[1];
-      await requireLabOwner(session, labId);
-    } else {
-      // Can't extract labId - deny access for safety
-      throw new BadRequestError('Unable to determine lab ID from URI');
+    // Prefer explicit labId from request/body, fallback to extracting from URI.
+    const resolvedLabId = body?.labId || labData?.labId || labData?.id;
+    const labIdFromUri = uri?.match(/-(\d+)\.json$/)?.[1];
+    const labId = (resolvedLabId || labIdFromUri)?.toString?.();
+
+    if (!labId) {
+      throw new BadRequestError('Missing labId (provide labData.id/labData.labId or include it in the URI)');
+    }
+
+    await requireLabOwner(session, labId);
+
+    // Extra safety: when persisting local "Lab-*.json" metadata, ensure the on-chain URI matches.
+    if (uri.startsWith('Lab-')) {
+      try {
+        const contract = await getContractInstance();
+        const onchainTokenUri = await contract.tokenURI(labId);
+        if (onchainTokenUri !== uri) {
+          throw new BadRequestError('URI does not match the on-chain tokenURI for this lab');
+        }
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        throw new BadRequestError('Unable to validate tokenURI for this lab');
+      }
     }
 
     const isVercel = getIsVercel();

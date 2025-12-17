@@ -13,6 +13,10 @@ import devLog from '@/utils/dev/logger'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
+import { useAccount, usePublicClient } from 'wagmi'
+import { selectChain } from '@/utils/blockchain/selectChain'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
+import { decodeEventLog } from 'viem'
 
 async function runActionIntent(action, payload) {
   if (typeof window === 'undefined' || !window.PublicKeyCredential) {
@@ -82,15 +86,56 @@ async function runActionIntent(action, payload) {
   };
 }
 
+const resolveRequestId = (data) =>
+  data?.requestId ||
+  data?.intent?.meta?.requestId ||
+  data?.intent?.requestId ||
+  data?.intent?.request_id ||
+  data?.intent?.requestId?.toString?.();
+
+const findLabAddedIdFromReceipt = ({ receipt, contractAddress, providerAddress, uri }) => {
+  if (!receipt?.logs?.length) return null;
+
+  for (const log of receipt.logs) {
+    if (!log?.address || log.address.toLowerCase() !== contractAddress?.toLowerCase()) {
+      continue;
+    }
+
+    try {
+      const decoded = decodeEventLog({
+        abi: contractABI,
+        data: log.data,
+        topics: log.topics,
+      });
+
+      if (decoded?.eventName !== 'LabAdded') continue;
+
+      const labId = decoded.args?._labId?.toString?.();
+      const provider = decoded.args?._provider;
+      const decodedUri = decoded.args?._uri;
+
+      if (!labId) continue;
+      if (providerAddress && provider && provider.toLowerCase() !== providerAddress.toLowerCase()) continue;
+      if (uri && decodedUri && decodedUri !== uri) continue;
+
+      return labId;
+    } catch {
+      // Not a matching event log - ignore.
+    }
+  }
+
+  return null;
+};
+
 // ===== MUTATIONS =====
 
 // Intent hook for /api/contract/lab/addLab (institutional wallet executes)
 export const useAddLabSSO = (options = {}) => {
-  const { addOptimisticLab, addLab, removeLab, updateLab } = useLabCacheUpdates();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (labData) => {
-      const data = await runActionIntent(ACTION_CODES.LAB_ADD, {
+      const intentResponse = await runActionIntent(ACTION_CODES.LAB_ADD, {
         labId: 0,
         uri: labData.uri,
         price: labData.price,
@@ -99,64 +144,41 @@ export const useAddLabSSO = (options = {}) => {
         accessKey: labData.accessKey,
         gatewayUrl: labData.gatewayUrl,
       });
-      devLog.log('useAddLabSSO intent (webauthn)', data);
-      return data;
-    },
-    onSuccess: (data, variables) => {
-      const requestId =
-        data?.requestId ||
-        data?.intent?.meta?.requestId ||
-        data?.intent?.requestId ||
-        data?.intent?.request_id ||
-        data?.intent?.requestId?.toString?.();
-      addOptimisticLab({
-        ...variables,
-        id: requestId,
-        labId: requestId,
-        isIntentPending: true,
-        intentRequestId: requestId,
-        intentStatus: 'requested',
-        status: 'requested',
-        note: 'Requested to institution',
-        timestamp: new Date().toISOString(),
+
+      const requestId = resolveRequestId(intentResponse);
+      if (!requestId) {
+        throw new Error('Institution intent did not return requestId');
+      }
+
+      devLog.log('useAddLabSSO intent created; polling status', { requestId });
+      const statusResult = await pollIntentStatus(requestId, {
+        gatewayUrl: labData.gatewayUrl,
       });
-      devLog.log('Lab intent created; requested to institution', { requestId });
 
-      if (requestId) {
-        (async () => {
-          try {
-            const result = await pollIntentStatus(requestId);
-            const status = result?.status;
-            const labId = result?.labId || variables?.labId || variables?.id;
-            const txHash = result?.txHash;
-            const reason = result?.error || result?.reason;
+      const status = statusResult?.status;
+      if (status !== 'executed') {
+        const reason = statusResult?.error || statusResult?.reason || 'Intent not executed';
+        throw new Error(reason);
+      }
 
-            if (status === 'executed' && labId) {
-              removeLab(requestId);
-              addLab({
-                ...variables,
-                id: labId,
-                labId,
-                transactionHash: txHash,
-                isIntentPending: false,
-                intentStatus: 'executed',
-                status: 'listed',
-                note: 'Executed by institution',
-                timestamp: new Date().toISOString(),
-              });
-            } else if (status === 'failed' || status === 'rejected') {
-              updateLab(requestId, {
-                isIntentPending: false,
-                intentStatus: status,
-                note: reason || 'Rejected by institution',
-                intentError: reason,
-                timestamp: new Date().toISOString(),
-              });
-            }
-          } catch (err) {
-            devLog.error('Polling intent addLab failed:', err);
-          }
-        })();
+      const labId = statusResult?.labId?.toString?.();
+      if (!labId) {
+        throw new Error('Institution intent executed but did not include labId');
+      }
+
+      return {
+        requestId,
+        labId,
+        txHash: statusResult?.txHash,
+        status,
+      };
+    },
+    onSuccess: (data) => {
+      const labId = data?.labId?.toString?.();
+      queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs() });
+      if (labId) {
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(labId) });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.tokenURI(labId) });
       }
     },
     onError: (error) => {
@@ -168,6 +190,11 @@ export const useAddLabSSO = (options = {}) => {
 // Wallet hook for adding labs (on-chain tx)
 export const useAddLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
+  const { chain, address: userAddress } = useAccount();
+  const safeChain = selectChain(chain);
+  const chainKey = safeChain.name.toLowerCase();
+  const contractAddress = contractAddresses[chainKey];
+  const publicClient = usePublicClient({ chainId: safeChain.id });
   const { addOptimisticLab, replaceOptimisticLab, removeOptimisticLab, invalidateAllLabs } = useLabCacheUpdates();
   const { contractWriteFunction: addLab } = useContractWriteFunction('addLab');
 
@@ -194,7 +221,28 @@ export const useAddLabWallet = (options = {}) => {
         const txHash = await addLab([uri, priceInContractUnits, auth, accessURI, accessKey]);
         
         devLog.log('🔗 useAddLabWallet - Transaction Hash:', txHash);
-        return { hash: txHash, optimisticId: optimisticLab.id };
+
+        let labId = null;
+        if (publicClient && contractAddress) {
+          try {
+            const receipt = await publicClient.waitForTransactionReceipt({
+              hash: txHash,
+              confirmations: 1,
+              timeout: 600_000,
+            });
+
+            labId = findLabAddedIdFromReceipt({
+              receipt,
+              contractAddress,
+              providerAddress: userAddress,
+              uri,
+            });
+          } catch (err) {
+            devLog.error('Failed to wait for tx receipt / decode LabAdded:', err);
+          }
+        }
+
+        return { hash: txHash, optimisticId: optimisticLab.id, labId };
       } catch (error) {
         removeOptimisticLab(optimisticLab.id);
         throw error;
@@ -202,17 +250,27 @@ export const useAddLabWallet = (options = {}) => {
     },
     onSuccess: (result, variables) => {
       try {
-        const transactionPendingLab = {
+        const resolvedLabId = result.labId?.toString?.();
+        const updatedLab = {
           ...variables,
-          id: result.optimisticId,
+          id: resolvedLabId || result.optimisticId,
+          labId: resolvedLabId || result.optimisticId,
           transactionHash: result.hash,
-          isPending: true,
+          isPending: !resolvedLabId,
           isProcessing: false,
           timestamp: new Date().toISOString()
         };
         
-        replaceOptimisticLab(result.optimisticId, transactionPendingLab);
-        devLog.log('✅ Lab transaction sent via wallet, awaiting confirmation');
+        replaceOptimisticLab(result.optimisticId, updatedLab);
+
+        if (resolvedLabId) {
+          devLog.log('✅ Lab confirmed via wallet receipt', { labId: resolvedLabId });
+          queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs() });
+          queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(resolvedLabId) });
+          queryClient.invalidateQueries({ queryKey: labQueryKeys.tokenURI(resolvedLabId) });
+        } else {
+          devLog.log('⚠️ Lab tx mined but labId not decoded; UI will rely on events/refetch');
+        }
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
         invalidateAllLabs();
