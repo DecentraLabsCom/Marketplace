@@ -43,11 +43,11 @@ export const ACTION_PAYLOAD_TYPES = {
     { name: 'reservationKey', type: 'bytes32' },
     { name: 'uri', type: 'string' },
     { name: 'price', type: 'uint96' },
+    { name: 'maxBatch', type: 'uint96' },
     { name: 'auth', type: 'string' },
     { name: 'accessURI', type: 'string' },
     { name: 'accessKey', type: 'string' },
     { name: 'tokenURI', type: 'string' },
-    { name: 'maxBatch', type: 'uint256' },
   ],
 };
 
@@ -83,11 +83,11 @@ function normalizeActionPayload(payload) {
     reservationKey: payload.reservationKey || ethers.ZeroHash,
     uri: payload.uri || '',
     price: toBigIntOrZero(payload.price || 0),
+    maxBatch: toBigIntOrZero(payload.maxBatch || 0),
     auth: payload.auth || '',
     accessURI: payload.accessURI || '',
     accessKey: payload.accessKey || '',
     tokenURI: payload.tokenURI || '',
-    maxBatch: toBigIntOrZero(payload.maxBatch || 0),
   };
 }
 

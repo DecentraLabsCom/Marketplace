@@ -13,6 +13,7 @@ import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { checkOnboardingStatus, getOnboardingResult } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
+import { saveCredential } from '@/utils/webauthn/store'
 
 /**
  * GET /api/onboarding/status/[sessionId]
@@ -71,6 +72,24 @@ export async function GET(request, { params }) {
           sessionId,
           gatewayUrl,
         })
+
+        if (
+          (status.status === 'SUCCESS' || status.status === 'COMPLETED') &&
+          status.stableUserId &&
+          status.credentialId &&
+          status.publicKey
+        ) {
+          saveCredential({
+            puc: status.stableUserId,
+            credentialId: status.credentialId,
+            cosePublicKey: status.publicKey,
+            aaguid: status.aaguid || undefined,
+            signCount: 0,
+            status: 'active',
+            rpId: status.rpId || undefined,
+          })
+          devLog.log('[Onboarding/Status] Stored WebAuthn credential for:', status.stableUserId)
+        }
 
         return NextResponse.json({
           source: 'gateway',

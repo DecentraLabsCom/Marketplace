@@ -4,7 +4,7 @@ import { defaultChain } from '@/utils/blockchain/networkConfig'
 import getProvider from '@/app/api/contract/utils/getProvider'
 
 const INTENT_REGISTRY_ABI = [
-  'function registerActionIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,bytes32 reservationKey,string uri,uint96 price,string auth,string accessURI,string accessKey,string tokenURI,uint256 maxBatch) payload,bytes signature)',
+  'function registerActionIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,bytes32 reservationKey,string uri,uint96 price,uint96 maxBatch,string auth,string accessURI,string accessKey,string tokenURI) payload,bytes signature)',
   'function registerReservationIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,uint32 start,uint32 end,uint96 price,bytes32 reservationKey) payload,bytes signature)',
 ]
 
@@ -100,14 +100,14 @@ export async function registerIntentOnChain(kind, meta, payload, signature) {
       assertionHash: payload.assertionHash,
       labId: toBigInt(payload.labId || 0),
       reservationKey: payload.reservationKey || ethers.ZeroHash,
-    uri: payload.uri || '',
-    price: toBigInt(payload.price || 0),
-    auth: payload.auth || '',
-    accessURI: payload.accessURI || '',
-    accessKey: payload.accessKey || '',
-    tokenURI: payload.tokenURI || '',
-    maxBatch: toBigInt(payload.maxBatch || 0),
-  }
+      uri: payload.uri || '',
+      price: toBigInt(payload.price || 0),
+      maxBatch: toBigInt(payload.maxBatch || 0),
+      auth: payload.auth || '',
+      accessURI: payload.accessURI || '',
+      accessKey: payload.accessKey || '',
+      tokenURI: payload.tokenURI || '',
+    }
     const tx = await contract.registerActionIntent(normalizedMeta, normalizedPayload, signature)
     const receipt = await tx.wait?.()
     return { txHash: tx.hash, blockNumber: receipt?.blockNumber }

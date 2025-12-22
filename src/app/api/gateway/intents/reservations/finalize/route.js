@@ -10,6 +10,15 @@ import { serializeIntent } from '@/utils/intents/serialize'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import devLog from '@/utils/dev/logger'
 
+function getGatewayApiKey() {
+  return (
+    process.env.INSTITUTIONAL_SP_API_KEY ||
+    process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
+    process.env.SP_API_KEY ||
+    null
+  )
+}
+
 export async function POST(request) {
   try {
     const session = await requireAuth()
@@ -127,12 +136,17 @@ export async function POST(request) {
 
     if (gatewayUrl) {
       try {
+        const apiKey = getGatewayApiKey()
+        const headers = { 'Content-Type': 'application/json' }
+        if (apiKey) {
+          headers['x-api-key'] = apiKey
+        }
         const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             meta: serializedMeta,
-            payload: serializedPayload,
+            reservationPayload: serializedPayload,
             payloadHash,
             signature: adminSignatureForUse,
             samlAssertion,

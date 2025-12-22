@@ -1,21 +1,28 @@
 import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
-import { requireAuth, handleGuardError, isValidAddress } from '@/utils/auth/guards'
+import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
 import { resolveIntentExecutorAddress } from '@/utils/intents/resolveIntentExecutor'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
-import { getCredentialForUser, setAssertionChallenge } from '@/utils/webauthn/store'
-import { buildIntentChallenge } from '@/utils/webauthn/challenge'
 import { serializeIntent } from '@/utils/intents/serialize'
-import { signIntentMeta, getAdminAddress } from '@/utils/intents/adminIntentSigner'
+import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import devLog from '@/utils/dev/logger'
+
+function getGatewayApiKey() {
+  return (
+    process.env.INSTITUTIONAL_SP_API_KEY ||
+    process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
+    process.env.SP_API_KEY ||
+    null
+  )
+}
 
 export async function POST(request) {
   try {
     const session = await requireAuth()
     const body = await request.json()
-    const { labId, start, timeslot, gatewayUrl: gatewayUrlOverride } = body || {}
+    const { labId, start, timeslot, gatewayUrl: gatewayUrlOverride, returnUrl } = body || {}
 
     if (labId === undefined || labId === null) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
@@ -47,12 +54,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
 
-    const credential = getCredentialForUser(puc)
-    if (!credential) {
-      return NextResponse.json(
-        { error: 'WebAuthn credential not registered for this SSO user', code: 'WEBAUTHN_REQUIRED' },
-        { status: 428 },
-      )
+    const gatewayUrl = gatewayUrlOverride || process.env.INSTITUTION_GATEWAY_URL
+    if (!gatewayUrl) {
+      return NextResponse.json({ error: 'Missing institutional gateway URL' }, { status: 400 })
     }
 
     const executorAddress = resolveIntentExecutorAddress()
@@ -80,42 +84,75 @@ export async function POST(request) {
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
 
-    const { challenge, challengeString } = buildIntentChallenge({
-      puc,
-      credentialId: credential.credentialId,
-      meta: intentPackage.meta,
-      payloadHash: intentPackage.payloadHash,
-    })
+    let onChain = null
+    try {
+      onChain = await registerIntentOnChain('reservation', intentPackage.meta, intentPackage.payload, adminSignature)
+    } catch (err) {
+      devLog.error('[API] On-chain reservation intent registration failed', err)
+      return NextResponse.json(
+        { error: 'Failed to register reservation intent on-chain', details: err?.message || String(err) },
+        { status: 502 },
+      )
+    }
 
-    setAssertionChallenge(intentPackage.meta.requestId, {
-      expectedChallenge: challenge,
-      credentialId: credential.credentialId,
-      puc,
-      kind: 'reservation',
-      meta: intentPackage.meta,
-      payload: intentPackage.payload,
-      payloadHash: intentPackage.payloadHash,
-      adminSignature,
-      gatewayUrl: gatewayUrlOverride || process.env.INSTITUTION_GATEWAY_URL,
-      createdAt: Date.now(),
-    })
+    let authorization = null
+    try {
+      const apiKey = getGatewayApiKey()
+      const headers = { 'Content-Type': 'application/json' }
+      if (apiKey) {
+        headers['x-api-key'] = apiKey
+      }
+
+      const serializedMeta = serializeIntent(intentPackage.meta)
+      const serializedPayload = serializeIntent(intentPackage.payload)
+
+      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/authorize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          meta: serializedMeta,
+          reservationPayload: serializedPayload,
+          signature: adminSignature,
+          samlAssertion,
+          returnUrl: returnUrl || null,
+        }),
+      })
+
+      authorization = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: authorization?.error || authorization?.message || 'Failed to create authorization session' },
+          { status: res.status },
+        )
+      }
+    } catch (err) {
+      devLog.error('[API] Failed to request reservation authorization', err)
+      return NextResponse.json(
+        { error: err?.message || 'Failed to request authorization session' },
+        { status: 502 },
+      )
+    }
 
     const intentForTransport = serializeIntent(intentPackage)
+    const fallbackUrl = authorization?.sessionId
+      ? `${gatewayUrl.replace(/\/$/, '')}/intents/authorize/ceremony/${authorization.sessionId}`
+      : null
+    const authorizationUrl = authorization?.ceremonyUrl || authorization?.authorizationUrl || fallbackUrl
 
     return NextResponse.json({
       kind: 'reservation',
       intent: intentForTransport,
       adminSignature,
-      webauthnChallenge: challenge,
-      webauthnChallengeString: challengeString,
-      webauthnCredentialId: credential.credentialId,
-      allowCredentials: [{ id: credential.credentialId, type: 'public-key' }],
       requestId: intentPackage.meta.requestId,
       requestedAt: intentPackage.meta.requestedAt.toString(),
       expiresAt: intentPackage.meta.expiresAt.toString(),
       executor: executorAddress,
       signer: adminAddress,
-      gatewayUrl: gatewayUrlOverride || process.env.INSTITUTION_GATEWAY_URL || null,
+      gatewayUrl,
+      onChain,
+      authorizationUrl,
+      authorizationSessionId: authorization?.sessionId || null,
+      authorizationExpiresAt: authorization?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare reservation intent failed', error)

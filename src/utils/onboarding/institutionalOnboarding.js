@@ -238,6 +238,8 @@ export async function checkOnboardingStatus({ sessionId, gatewayUrl }) {
       sessionId,
       status: data.status || OnboardingStatus.PENDING,
       credentialId: data.credentialId || null,
+      publicKey: data.publicKey || data.publicKeyCose || data.cosePublicKey || null,
+      rpId: data.rpId || null,
       aaguid: data.aaguid || null,
       error: data.error || null,
       timestamp: data.timestamp || null,
@@ -301,8 +303,7 @@ export async function pollOnboardingStatus({
 /**
  * Checks if a user is already onboarded with their institution's IB.
  * 
- * Note: This endpoint may not exist yet in the IB - see Architecture.md
- * TODO: Implement when IB adds GET /onboarding/webauthn/user/{stableUserId} endpoint
+ * Uses IB key-status endpoint.
  * 
  * @param {Object} params - Check parameters
  * @param {Object} params.userData - User data from SAML session
@@ -333,10 +334,8 @@ export async function checkUserOnboardingStatus({ userData }) {
   }
 
   try {
-    // TODO: Replace with actual IB endpoint when implemented
-    // Current IB doesn't have this endpoint - will need to be added
     const response = await fetch(
-      `${gatewayUrl}/onboarding/webauthn/user/${encodeURIComponent(stableUserId)}`,
+      `${gatewayUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(institutionId)}`,
       {
         method: 'GET',
         headers: {
@@ -371,12 +370,12 @@ export async function checkUserOnboardingStatus({ userData }) {
     const data = await response.json()
 
     return {
-      isOnboarded: data.registered === true || data.isOnboarded === true,
+      isOnboarded: data.hasCredential === true || data.registered === true || data.isOnboarded === true,
       stableUserId,
       institutionId,
       gatewayUrl,
       credentialId: data.credentialId || null,
-      registeredAt: data.registeredAt || null,
+      registeredAt: data.lastRegistered || data.registeredAt || null,
     }
   } catch (error) {
     devLog.warn('[InstitutionalOnboarding] User status check failed:', error.message)

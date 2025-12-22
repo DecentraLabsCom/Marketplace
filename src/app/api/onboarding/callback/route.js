@@ -37,6 +37,7 @@ import {
 } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
 import { onboardingEventBus } from '../_eventBus'
+import { saveCredential } from '@/utils/webauthn/store'
 
 /**
  * POST /api/onboarding/callback
@@ -73,6 +74,12 @@ export async function POST(request) {
       // Accept it anyway but log warning
     }
 
+    const publicKey =
+      body.publicKey ||
+      body.publicKeyCose ||
+      body.cosePublicKey ||
+      null
+
     // Store result for the user/session
     const result = {
       status: body.status,
@@ -81,9 +88,30 @@ export async function POST(request) {
       institutionId: body.institutionId || null,
       sessionId: body.sessionId || null,
       credentialId: body.credentialId || null,
+      publicKey,
+      rpId: body.rpId || null,
       aaguid: body.aaguid || null,
       error: body.error || null,
       timestamp: body.timestamp || new Date().toISOString(),
+    }
+
+    if (isSuccess && result.stableUserId && result.credentialId && result.publicKey) {
+      saveCredential({
+        puc: result.stableUserId,
+        credentialId: result.credentialId,
+        cosePublicKey: result.publicKey,
+        aaguid: result.aaguid || undefined,
+        signCount: 0,
+        status: 'active',
+        rpId: result.rpId || undefined,
+      })
+      devLog.log('[Onboarding/Callback] Stored WebAuthn credential for:', result.stableUserId)
+    } else if (isSuccess) {
+      devLog.warn('[Onboarding/Callback] Missing credential data for local store:', {
+        hasStableUserId: !!result.stableUserId,
+        hasCredentialId: !!result.credentialId,
+        hasPublicKey: !!result.publicKey,
+      })
     }
 
     // Store by multiple keys for flexible lookup

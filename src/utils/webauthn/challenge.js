@@ -18,7 +18,7 @@ function toPlainString(value) {
  */
 export function buildIntentChallenge({ puc, credentialId, meta, payloadHash }) {
   const challengeString = [
-    puc,
+    puc ? puc.toLowerCase() : '',
     credentialId,
     meta?.requestId,
     payloadHash || meta?.payloadHash || '',

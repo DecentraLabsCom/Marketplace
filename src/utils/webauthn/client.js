@@ -49,6 +49,7 @@ export function transformAssertionOptions(options) {
       ...cred,
       id: bufferDecode(cred.id),
     })),
+    rpId: options.rpId || undefined,
   }
 }
 

@@ -10,10 +10,58 @@ import { useUser } from '@/context/UserContext'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { useBookingCacheUpdates } from './useBookingCacheUpdates'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
+import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus'
 import devLog from '@/utils/dev/logger'
 import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+
+const resolveIntentRequestId = (data) =>
+  data?.requestId ||
+  data?.intent?.meta?.requestId ||
+  data?.intent?.requestId ||
+  data?.intent?.request_id ||
+  data?.intent?.requestId?.toString?.();
+
+const resolveAuthorizationInfo = (prepareData) => ({
+  authorizationUrl: prepareData?.authorizationUrl || prepareData?.ceremonyUrl || null,
+  authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
+});
+
+async function awaitGatewayAuthorization(prepareData, { gatewayUrl } = {}) {
+  const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
+  if (!authorizationUrl || !authorizationSessionId) {
+    return null;
+  }
+
+  const popup = window.open(
+    authorizationUrl,
+    'intent-authorization',
+    'width=480,height=720,noopener,noreferrer'
+  );
+  if (!popup) {
+    throw new Error('Authorization window was blocked');
+  }
+
+  const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
+    gatewayUrl: prepareData?.gatewayUrl || gatewayUrl,
+  });
+
+  const normalized = (status?.status || '').toUpperCase();
+  if (normalized === 'FAILED') {
+    throw new Error(status?.error || 'Intent authorization failed');
+  }
+
+  try {
+    if (!popup.closed) {
+      popup.close();
+    }
+  } catch {
+    // ignore close errors
+  }
+
+  return status;
+}
 
 async function runActionIntent(action, payload) {
   if (typeof window === 'undefined' || !window.PublicKeyCredential) {
@@ -32,9 +80,21 @@ async function runActionIntent(action, payload) {
     throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
   }
 
+  const authorizationStatus = await awaitGatewayAuthorization(prepareData, { gatewayUrl: payload.gatewayUrl });
+  if (authorizationStatus) {
+    const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
+    return {
+      ...prepareData,
+      requestId,
+      intent: prepareData.intent,
+      authorization: authorizationStatus,
+    };
+  }
+
   const publicKey = transformAssertionOptions({
     challenge: prepareData.webauthnChallenge,
     allowCredentials: prepareData.allowCredentials || [],
+    rpId: prepareData.webauthnRpId || undefined,
     userVerification: 'required',
     timeout: 90_000,
   });
@@ -69,8 +129,7 @@ async function runActionIntent(action, payload) {
 
   const requestId =
     finalizeData?.intent?.meta?.requestId ||
-    prepareData?.intent?.meta?.requestId ||
-    prepareData?.requestId;
+    resolveIntentRequestId(prepareData);
 
   return {
     ...finalizeData,
@@ -198,9 +257,21 @@ export const useReservationRequestSSO = (options = {}) => {
         throw new Error(prepareData.error || `Failed to prepare reservation intent: ${prepareResponse.status}`)
       }
 
+      const authorizationStatus = await awaitGatewayAuthorization(prepareData, { gatewayUrl: payload.gatewayUrl })
+      if (authorizationStatus) {
+        const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData)
+        return {
+          ...prepareData,
+          requestId,
+          intent: prepareData.intent,
+          authorization: authorizationStatus,
+        }
+      }
+
       const publicKey = transformAssertionOptions({
         challenge: prepareData.webauthnChallenge,
         allowCredentials: prepareData.allowCredentials || [],
+        rpId: prepareData.webauthnRpId || undefined,
         userVerification: 'required',
         timeout: 90_000,
       })
@@ -235,8 +306,7 @@ export const useReservationRequestSSO = (options = {}) => {
 
       const requestId =
         finalizeData?.intent?.meta?.requestId ||
-        prepareData?.intent?.meta?.requestId ||
-        prepareData?.requestId
+        resolveIntentRequestId(prepareData)
 
       return {
         ...finalizeData,

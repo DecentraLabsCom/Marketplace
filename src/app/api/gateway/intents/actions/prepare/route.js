@@ -4,9 +4,7 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { resolveIntentExecutorAddress } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
-import { getCredentialForUser, setAssertionChallenge } from '@/utils/webauthn/store'
-import { buildIntentChallenge } from '@/utils/webauthn/challenge'
-import { signIntentMeta, getAdminAddress } from '@/utils/intents/adminIntentSigner'
+import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { serializeIntent } from '@/utils/intents/serialize'
 import devLog from '@/utils/dev/logger'
 
@@ -19,6 +17,15 @@ function normalizeAction(action) {
     if (!Number.isNaN(asNumber)) return asNumber
   }
   return null
+}
+
+function getGatewayApiKey() {
+  return (
+    process.env.INSTITUTIONAL_SP_API_KEY ||
+    process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
+    process.env.SP_API_KEY ||
+    null
+  )
 }
 
 export async function POST(request) {
@@ -39,17 +46,14 @@ export async function POST(request) {
     const action = normalizeAction(body?.action)
     const payloadInput = body?.payload || {}
     const gatewayUrl = body?.gatewayUrl || payloadInput.gatewayUrl || process.env.INSTITUTION_GATEWAY_URL
+    const returnUrl = body?.returnUrl || payloadInput.returnUrl || null
 
     if (action === null) {
       return NextResponse.json({ error: 'Invalid action code' }, { status: 400 })
     }
 
-    const credential = getCredentialForUser(puc)
-    if (!credential) {
-      return NextResponse.json(
-        { error: 'WebAuthn credential not registered for this SSO user', code: 'WEBAUTHN_REQUIRED' },
-        { status: 428 },
-      )
+    if (!gatewayUrl) {
+      return NextResponse.json({ error: 'Missing institutional gateway URL' }, { status: 400 })
     }
 
     const executorAddress = resolveIntentExecutorAddress()
@@ -75,42 +79,75 @@ export async function POST(request) {
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
 
-    const { challenge, challengeString } = buildIntentChallenge({
-      puc,
-      credentialId: credential.credentialId,
-      meta: intentPackage.meta,
-      payloadHash: intentPackage.payloadHash,
-    })
+    let onChain = null
+    try {
+      onChain = await registerIntentOnChain('action', intentPackage.meta, intentPackage.payload, adminSignature)
+    } catch (err) {
+      devLog.error('[API] On-chain action intent registration failed', err)
+      return NextResponse.json(
+        { error: 'Failed to register action intent on-chain', details: err?.message || String(err) },
+        { status: 502 },
+      )
+    }
 
-    setAssertionChallenge(intentPackage.meta.requestId, {
-      expectedChallenge: challenge,
-      credentialId: credential.credentialId,
-      puc,
-      kind: 'action',
-      meta: intentPackage.meta,
-      payload: intentPackage.payload,
-      payloadHash: intentPackage.payloadHash,
-      adminSignature,
-      gatewayUrl,
-      createdAt: Date.now(),
-    })
+    let authorization = null
+    try {
+      const apiKey = getGatewayApiKey()
+      const headers = { 'Content-Type': 'application/json' }
+      if (apiKey) {
+        headers['x-api-key'] = apiKey
+      }
+
+      const serializedMeta = serializeIntent(intentPackage.meta)
+      const serializedPayload = serializeIntent(intentPackage.payload)
+
+      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/authorize`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          meta: serializedMeta,
+          actionPayload: serializedPayload,
+          signature: adminSignature,
+          samlAssertion,
+          returnUrl,
+        }),
+      })
+
+      authorization = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        return NextResponse.json(
+          { error: authorization?.error || authorization?.message || 'Failed to create authorization session' },
+          { status: res.status },
+        )
+      }
+    } catch (err) {
+      devLog.error('[API] Failed to request intent authorization', err)
+      return NextResponse.json(
+        { error: err?.message || 'Failed to request authorization session' },
+        { status: 502 },
+      )
+    }
 
     const intentForTransport = serializeIntent(intentPackage)
+    const fallbackUrl = authorization?.sessionId
+      ? `${gatewayUrl.replace(/\/$/, '')}/intents/authorize/ceremony/${authorization.sessionId}`
+      : null
+    const authorizationUrl = authorization?.ceremonyUrl || authorization?.authorizationUrl || fallbackUrl
 
     return NextResponse.json({
       kind: 'action',
       intent: intentForTransport,
       adminSignature,
-      webauthnChallenge: challenge,
-      webauthnChallengeString: challengeString,
-      webauthnCredentialId: credential.credentialId,
-      allowCredentials: [{ id: credential.credentialId, type: 'public-key' }],
       requestId: intentPackage.meta.requestId,
       requestedAt: intentPackage.meta.requestedAt.toString(),
       expiresAt: intentPackage.meta.expiresAt.toString(),
       executor: executorAddress,
       signer: adminAddress,
       gatewayUrl,
+      onChain,
+      authorizationUrl,
+      authorizationSessionId: authorization?.sessionId || null,
+      authorizationExpiresAt: authorization?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare action intent failed', error)
