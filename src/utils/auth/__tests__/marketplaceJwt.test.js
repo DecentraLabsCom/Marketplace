@@ -355,6 +355,57 @@ describe("MarketplaceJwtService", () => {
     });
   });
 
+  describe("generateSamlAuthToken", () => {
+    test("generates JWT with required SAML auth claims", async () => {
+      const token = await MarketplaceJwtService.generateSamlAuthToken({
+        userId: "user-1",
+        affiliation: "uned.es",
+        institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
+        puc: "puc-1",
+      });
+
+      expect(token).toBe("mocked.jwt.token");
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userid: "user-1",
+          affiliation: "uned.es",
+          institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
+          puc: "puc-1",
+          bookingInfoAllowed: true,
+          scope: "booking:read",
+        }),
+        validPrivateKey,
+        expect.objectContaining({ algorithm: "RS256" })
+      );
+    });
+
+    test("throws error when userId is missing", async () => {
+      await expect(
+        MarketplaceJwtService.generateSamlAuthToken({
+          affiliation: "uned.es",
+        })
+      ).rejects.toThrow("userId is required for SAML auth token generation");
+    });
+
+    test("throws error when affiliation is missing", async () => {
+      await expect(
+        MarketplaceJwtService.generateSamlAuthToken({
+          userId: "user-1",
+        })
+      ).rejects.toThrow("affiliation is required for SAML auth token generation");
+    });
+
+    test("throws error for invalid institutional wallet format", async () => {
+      await expect(
+        MarketplaceJwtService.generateSamlAuthToken({
+          userId: "user-1",
+          affiliation: "uned.es",
+          institutionalProviderWallet: "invalid-wallet",
+        })
+      ).rejects.toThrow("Invalid institutionalProviderWallet address format");
+    });
+  });
+
   describe("decodeToken", () => {
     test("decodes valid JWT token", () => {
       const mockDecoded = {

@@ -24,7 +24,7 @@ import devLog from '@/utils/dev/logger';
 export default function ActiveLabCard({ 
   lab, 
   booking, 
-  userAddress, 
+  userAddress = null, 
   isActive = false, 
   bookingTimes = { start: null, end: null } 
 }) {
@@ -141,7 +141,7 @@ ActiveLabCard.propTypes = {
     start: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     end: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
-  userAddress: PropTypes.string.isRequired,
+  userAddress: PropTypes.string,
   isActive: PropTypes.bool,
   bookingTimes: PropTypes.shape({
     start: PropTypes.string,

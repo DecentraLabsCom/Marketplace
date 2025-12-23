@@ -141,6 +141,86 @@ class MarketplaceJwtService {
     }
   }
 
+
+  /**
+   * Generate a signed JWT token for SAML auth-service access.
+   * Includes the claims expected by blockchain-services saml-auth2.
+   *
+   * @param {Object} params
+   * @param {string} params.userId - User ID matching SAML assertion
+   * @param {string} params.affiliation - Institution domain (schacHomeOrganization)
+   * @param {string} params.institutionalProviderWallet - Institution wallet address
+   * @param {string} [params.puc] - Personal unique code (optional)
+   * @param {string|string[]} [params.scope] - OAuth-style scope for booking info
+   * @param {boolean} [params.bookingInfoAllowed] - Allow booking info claims
+   * @returns {Promise<string>} Signed JWT token
+   */
+  async generateSamlAuthToken({
+    userId,
+    affiliation,
+    institutionalProviderWallet,
+    puc,
+    scope = 'booking:read',
+    bookingInfoAllowed = true,
+  } = {}) {
+    try {
+      if (!this.privateKey) {
+        await this.loadPrivateKey();
+      }
+
+      if (!this.privateKey) {
+        throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
+      }
+
+      if (!userId) {
+        throw new Error('userId is required for SAML auth token generation');
+      }
+
+      if (!affiliation) {
+        throw new Error('affiliation is required for SAML auth token generation');
+      }
+
+      if (institutionalProviderWallet) {
+        const trimmed = institutionalProviderWallet.trim();
+        if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+          throw new Error('Invalid institutionalProviderWallet address format');
+        }
+      }
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '300000', 10) / 1000;
+
+      const payload = {
+        userid: userId,
+        affiliation,
+        bookingInfoAllowed,
+        scope,
+        iat: nowSec,
+        exp: expSec,
+      };
+
+      if (institutionalProviderWallet) {
+        payload.institutionalProviderWallet = institutionalProviderWallet;
+      }
+
+      if (puc) {
+        payload.puc = puc;
+      }
+
+      const token = jwt.sign(payload, this.privateKey, {
+        algorithm: 'RS256',
+        issuer: process.env.JWT_ISSUER || 'marketplace',
+      });
+
+      devLog.log('INFO: SAML auth JWT generated successfully for user:', userId);
+
+      return token;
+    } catch (error) {
+      devLog.error('ERROR: Failed to generate SAML auth JWT:', error.message);
+      throw new Error(`SAML auth JWT generation failed: ${error.message}`);
+    }
+  }
+
   /**
    * Validate JWT token structure (for testing purposes)
    * Note: This doesn't verify signature, only decodes the token

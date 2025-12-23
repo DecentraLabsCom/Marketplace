@@ -27,6 +27,7 @@ import LabCard from "../LabCard";
  */
 jest.mock("@/hooks/booking/useBookings", () => ({
   useActiveReservationKeyForUser: jest.fn(() => ({ data: null })),
+  useInstitutionalUserActiveReservationKeySSO: jest.fn(() => ({ data: null })),
 }));
 
 /**
@@ -108,6 +109,8 @@ jest.mock("next/link", () => {
 
 const mockUseUser = require("@/context/UserContext").useUser;
 const mockUseLabToken = require("@/context/LabTokenContext").useLabToken;
+const mockUseActiveReservationKeyForUser = require("@/hooks/booking/useBookings").useActiveReservationKeyForUser;
+const mockUseInstitutionalUserActiveReservationKeySSO = require("@/hooks/booking/useBookings").useInstitutionalUserActiveReservationKeySSO;
 
 // Test Fixtures
 
@@ -139,11 +142,15 @@ beforeEach(() => {
   mockUseUser.mockReturnValue({
     address: "0xABCDEF1234567890",
     isConnected: true,
+    isSSO: false,
   });
 
   mockUseLabToken.mockReturnValue({
-    formatPrice: (price) => `€${Number(price).toFixed(2)}`,
+    formatPrice: (price) => `ƒ'ª${Number(price).toFixed(2)}`,
   });
+
+  mockUseActiveReservationKeyForUser.mockReturnValue({ data: null });
+  mockUseInstitutionalUserActiveReservationKeySSO.mockReturnValue({ data: null });
 });
 
 afterEach(() => {
@@ -326,6 +333,7 @@ describe("LabCard - LabAccess Integration", () => {
     mockUseUser.mockReturnValue({
       address: "0x123",
       isConnected: true,
+      isSSO: false,
     });
 
     renderLabCard();
@@ -341,6 +349,7 @@ describe("LabCard - LabAccess Integration", () => {
     mockUseUser.mockReturnValue({
       address: null,
       isConnected: false,
+      isSSO: false,
     });
 
     renderLabCard();
@@ -348,10 +357,25 @@ describe("LabCard - LabAccess Integration", () => {
     expect(screen.queryByTestId("lab-access-mock")).not.toBeInTheDocument();
   });
 
+  test("renders LabAccess when user is SSO even without wallet", () => {
+    mockUseUser.mockReturnValue({
+      address: null,
+      isConnected: false,
+      isSSO: true,
+    });
+
+    renderLabCard();
+
+    const labAccess = screen.getByTestId("lab-access-mock");
+    expect(labAccess).toBeInTheDocument();
+    expect(labAccess).toHaveTextContent("LabAccess - lab-123");
+  });
+
   test("forwards correct props to LabAccess component", () => {
     mockUseUser.mockReturnValue({
       address: "0xWallet",
       isConnected: true,
+      isSSO: false,
     });
 
     renderLabCard({
@@ -363,10 +387,45 @@ describe("LabCard - LabAccess Integration", () => {
     expect(labAccess).toHaveTextContent("LabAccess - special-lab");
   });
 
+  test("passes reservationKey to LabAccess for wallet users", () => {
+    mockUseUser.mockReturnValue({
+      address: "0xWallet",
+      isConnected: true,
+      isSSO: false,
+    });
+
+    mockUseActiveReservationKeyForUser.mockReturnValue({
+      data: { reservationKey: "0xwallet-key" },
+    });
+
+    renderLabCard({ activeBooking: true });
+
+    const labAccess = screen.getByTestId("lab-access-mock");
+    expect(labAccess).toHaveTextContent("Key: 0xwallet-key");
+  });
+
+  test("passes reservationKey to LabAccess for SSO users", () => {
+    mockUseUser.mockReturnValue({
+      address: null,
+      isConnected: false,
+      isSSO: true,
+    });
+
+    mockUseInstitutionalUserActiveReservationKeySSO.mockReturnValue({
+      data: { reservationKey: "0xsso-key" },
+    });
+
+    renderLabCard({ activeBooking: true });
+
+    const labAccess = screen.getByTestId("lab-access-mock");
+    expect(labAccess).toHaveTextContent("Key: 0xsso-key");
+  });
+
   test("renders Explore Lab link even when user is disconnected", () => {
     mockUseUser.mockReturnValue({
       address: null,
       isConnected: false,
+      isSSO: false,
     });
 
     renderLabCard();

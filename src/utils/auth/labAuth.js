@@ -3,42 +3,67 @@
  * Handles the authentication flow for lab access (JWT-based and wallet-based)
  */
 import devLog from '@/utils/dev/logger'
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
-import authServiceClient from '@/utils/auth/authServiceClient'
 
 /**
- * Authenticates SSO user for lab access using JWT flow
- * Generates JWT from user session and exchanges it with auth-service
- * @param {Object} userData - User data from SSO session
- * @param {string|number} labId - Lab ID to access
+ * Authenticates SSO user for lab access using marketplace-backed flow.
+ * @param {Object} params
+ * @param {string|number} params.labId - Lab ID to access
+ * @param {string} [params.reservationKey] - Optional reservation key for validation
+ * @param {string} [params.authEndpoint] - Optional auth endpoint override
+ * @param {boolean} [params.skipCheckIn] - Skip on-chain check-in step
  * @returns {Promise<Object>} Authentication result with token and labURL or error
- * @throws {Error} If any step of the JWT authentication process fails
+ * @throws {Error} If any step of the SSO authentication process fails
  */
-export const authenticateLabAccessSSO = async (userData, labId) => {
+export const authenticateLabAccessSSO = async ({
+  labId,
+  reservationKey = null,
+  authEndpoint = null,
+  skipCheckIn = false,
+} = {}) => {
   try {
-    devLog.log('🔐 Starting JWT-based lab authentication for user:', userData.email);
-
-    // Step 1: Check if JWT service is configured
-    if (!(await marketplaceJwtService.isConfigured())) {
-      throw new Error('JWT service is not properly configured');
+    if (!labId && !reservationKey) {
+      throw new Error('Missing labId or reservationKey for SSO access');
     }
 
-    // Step 2: Generate JWT for the authenticated user
-    const marketplaceJwt = marketplaceJwtService.generateJwtForUser(userData);
-    devLog.log('📝 Marketplace JWT generated successfully');
+    if (!skipCheckIn) {
+      await submitInstitutionalCheckIn({ reservationKey, labId, authEndpoint });
+    }
 
-    // Step 3: Exchange JWT with auth-service for lab access token
-    devLog.log('🔑 Exchanging JWT with auth-service for lab access...');
-    
-    const authResult = await authServiceClient.exchangeJwtForToken(marketplaceJwt, userData.affiliation, labId);
-    devLog.log('✅ Lab access token received successfully');
+    const response = await fetch('/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ labId, reservationKey, authEndpoint }),
+    });
 
-    return authResult;
+    if (!response.ok) {
+      throw new Error(`SSO authentication failed. Status: ${response.status}`);
+    }
 
+    return response.json();
   } catch (error) {
-    devLog.error('❌ SSO lab authentication failed:', error);
+    devLog.error('ERROR: SSO lab authentication failed:', error);
     throw error;
   }
+};
+
+export const submitInstitutionalCheckIn = async ({
+  reservationKey = null,
+  labId = null,
+  authEndpoint = null,
+} = {}) => {
+  const response = await fetch('/api/auth/checkin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ reservationKey, labId, authEndpoint }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Institutional check-in failed. Status: ${response.status}`);
+  }
+
+  return response.json();
 };
 
 /**
@@ -62,6 +87,31 @@ const buildAuthUrl = (baseUrl, endpoint) => {
   
   const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   return `${cleanBase}/${endpoint}`;
+};
+
+const buildCheckInMessageUrl = (baseUrl, reservationKey, signer, puc) => {
+  if (!reservationKey || !signer) {
+    throw new Error('Missing reservationKey or signer for check-in');
+  }
+
+  const base = buildAuthUrl(baseUrl, "message");
+  const params = new URLSearchParams({
+    purpose: "checkin",
+    reservationKey,
+    signer,
+  });
+  if (puc) {
+    params.set("puc", puc);
+  }
+  return `${base}?${params.toString()}`;
+};
+
+const normalizeTypedDataTypes = (types) => {
+  if (!types || typeof types !== 'object') {
+    return {};
+  }
+  const { EIP712Domain, ...rest } = types;
+  return rest;
 };
 
 /**
@@ -95,8 +145,100 @@ const buildTimestampHex = (timestampMs) => {
   return BigInt(timestampMs).toString(16).padStart(13, '0');
 };
 
-export const authenticateLabAccess = async (authEndpoint, userWallet, labId, signMessageAsync, reservationKey = null) => {
+const submitReservationCheckIn = async ({
+  authEndpoint,
+  reservationKey,
+  signer,
+  puc = null,
+  signTypedDataAsync,
+  signature = null,
+  timestamp = null,
+}) => {
+  if (!reservationKey) {
+    throw new Error('Missing reservationKey for check-in');
+  }
+  if (!signer) {
+    throw new Error('Missing signer for check-in');
+  }
+
+  let resolvedSignature = signature;
+  let resolvedTimestamp = timestamp;
+
+  if (!resolvedSignature) {
+    if (!signTypedDataAsync) {
+      throw new Error('Missing signTypedDataAsync for check-in');
+    }
+
+    const messageUrl = buildCheckInMessageUrl(authEndpoint, reservationKey, signer, puc);
+    const checkInMessageResponse = await fetch(messageUrl, { method: "GET" });
+    if (!checkInMessageResponse.ok) {
+      throw new Error(`Failed to get check-in message. Status: ${checkInMessageResponse.status}`);
+    }
+
+    const messageData = await checkInMessageResponse.json();
+    const typedData = messageData?.typedData;
+    if (!typedData) {
+      throw new Error('Check-in message missing typedData');
+    }
+
+    resolvedTimestamp = messageData?.timestamp ?? typedData?.message?.timestamp;
+    if (!resolvedTimestamp) {
+      throw new Error('Check-in message missing timestamp');
+    }
+
+    resolvedSignature = await signTypedDataAsync({
+      domain: typedData.domain,
+      types: normalizeTypedDataTypes(typedData.types),
+      primaryType: typedData.primaryType,
+      message: typedData.message,
+    });
+  }
+
+  const checkInUrl = buildAuthUrl(authEndpoint, "checkin");
+  const response = await fetch(checkInUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      reservationKey,
+      signer,
+      signature: resolvedSignature,
+      timestamp: resolvedTimestamp,
+      puc: puc || undefined,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Check-in failed. Status: ${response.status}`);
+  }
+
+  return response.json();
+};
+
+export const authenticateLabAccess = async (
+  authEndpoint,
+  userWallet,
+  labId,
+  signMessageAsync,
+  reservationKey = null,
+  options = {},
+) => {
   try {
+    const { signTypedDataAsync, puc, skipCheckIn } = options || {};
+
+    if (!skipCheckIn && reservationKey && signTypedDataAsync) {
+      await submitReservationCheckIn({
+        authEndpoint,
+        reservationKey,
+        signer: userWallet,
+        puc,
+        signTypedDataAsync,
+      });
+    } else if (!skipCheckIn && reservationKey && !signTypedDataAsync) {
+      devLog.log('INFO: Check-in skipped (signTypedDataAsync missing).');
+    }
+
     // Step 1: Request message to sign from authentication service
     const messageUrl = buildAuthUrl(authEndpoint, "message");
     devLog.log('🔐 Requesting authentication message from:', messageUrl);
@@ -169,12 +311,16 @@ export const authenticateLabAccess = async (authEndpoint, userWallet, labId, sig
 export const getAuthErrorMessage = (error, isJwtFlow = false) => {
   if (isJwtFlow) {
     // JWT flow specific errors
-    if (error.message.includes('JWT service is not properly configured')) {
-      return 'Authentication system is not configured. Please contact support.';
+    if (error.message.includes('Missing labId') || error.message.includes('Missing reservationKey')) {
+      return 'Missing booking details for SSO access. Please try again.';
+    } else if (error.message.includes('Institutional check-in failed')) {
+      return 'Unable to record check-in. Please try again.';
+    } else if (error.message.includes('SSO authentication failed')) {
+      return 'Failed to authenticate with lab service. Please try again.';
+    } else if (error.message.includes('Missing SSO session')) {
+      return 'Please sign in with your institution and try again.';
     } else if (error.message.includes('Lab does not have a configured Lab Gateway')) {
       return 'This lab does not support SSO access. Please use wallet authentication.';
-    } else if (error.message.includes('Failed to exchange JWT')) {
-      return 'Failed to authenticate with lab service. Please try again.';
     } else {
       return 'There was an error with SSO authentication. Please try again or use wallet authentication.';
     }

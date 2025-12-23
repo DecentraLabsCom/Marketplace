@@ -1,9 +1,9 @@
 "use client";
 import { useState } from 'react'
 import PropTypes from 'prop-types'
-import { useRouter } from 'next/navigation'
-import { useSignMessage } from 'wagmi'
-import { authenticateLabAccess, getAuthErrorMessage } from '@/utils/auth/labAuth'
+import { useSignMessage, useSignTypedData } from 'wagmi'
+import { useUser } from '@/context/UserContext'
+import { authenticateLabAccess, authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -20,8 +20,9 @@ import devLog from '@/utils/dev/logger'
 export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '', reservationKey = null }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const router = useRouter();
+  const { isSSO } = useUser();
   const { signMessageAsync } = useSignMessage();
+  const { signTypedDataAsync } = useSignTypedData();
 
   devLog.log(`🔐 LabAccess component - Lab ${id} auth endpoint:`, auth);
 
@@ -37,11 +38,31 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '',
       setLoading(false);
       return;
     }
-    
+
+    if (!isSSO && !userWallet) {
+      setErrorMessage('Please connect your wallet to access this lab.');
+      setTimeout(() => setErrorMessage(null), 1500);
+      setLoading(false);
+      return;
+    }
+
     try {
       // Use helper function to handle the complete authentication flow
       // Pass reservationKey if available for optimized validation
-      const authResult = await authenticateLabAccess(auth, userWallet, id, signMessageAsync, reservationKey);
+      const authResult = isSSO
+        ? await authenticateLabAccessSSO({
+            labId: id,
+            reservationKey,
+            authEndpoint: auth,
+          })
+        : await authenticateLabAccess(
+            auth,
+            userWallet,
+            id,
+            signMessageAsync,
+            reservationKey,
+            { signTypedDataAsync }
+          );
 
       // Handle successful authentication
       if (authResult.token && authResult.labURL) {
@@ -60,7 +81,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '',
       
     } catch (error) {
       // Handle authentication process errors
-      const userFriendlyMessage = getAuthErrorMessage(error);
+      const userFriendlyMessage = getAuthErrorMessage(error, isSSO);
       setErrorMessage(userFriendlyMessage);
       setTimeout(() => setErrorMessage(null), 1500);
     } finally {
@@ -98,7 +119,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '',
 
 LabAccess.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  userWallet: PropTypes.string.isRequired,
+  userWallet: PropTypes.string,
   hasActiveBooking: PropTypes.bool.isRequired,
   auth: PropTypes.string,
   reservationKey: PropTypes.string

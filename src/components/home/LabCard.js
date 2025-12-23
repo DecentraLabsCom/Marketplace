@@ -6,9 +6,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
-import { useActiveReservationKeyForUser } from '@/hooks/booking/useBookings'
+import { useActiveReservationKeyForUser, useInstitutionalUserActiveReservationKeySSO } from '@/hooks/booking/useBookings'
 import LabAccess from '@/components/home/LabAccess'
 import { Card, Badge, cn, LabCardImage } from '@/components/ui'
+
+const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 /**
  * Individual lab card component for displaying lab information in grid/list views
@@ -25,22 +27,35 @@ import { Card, Badge, cn, LabCardImage } from '@/components/ui'
  * @returns {JSX.Element} Lab card with image, details, and action buttons
  */
 const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = null, activeBooking = false, isListed = true, image = '' }) {
-  const { address, isConnected } = useUser();
+  const { address, isConnected, isSSO } = useUser();
   const { formatPrice } = useLabToken();
   
-  // Get active reservation key for this lab when user has an active booking
-  // This is required for the auth service to validate the booking efficiently
-  // TODO: CURRENTLY DISABLED DUE TO A BUG IN THE SMART CONTRACT FUNCTION
-  /*const { data: reservationKeyData } = useActiveReservationKeyForUser(
-    id, 
-    address, 
+  // Get active reservation key for wallet users with an active booking.
+  // This allows the lab gateway to perform on-chain check-in.
+  const reservationKeyUserAddress = activeBooking && isConnected && !isSSO ? address : null;
+  const { data: reservationKeyData } = useActiveReservationKeyForUser(
+    id,
+    reservationKeyUserAddress,
     {
-      enabled: !!activeBooking && !!address && isConnected,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+
+  const { data: institutionalReservationKeyData } = useInstitutionalUserActiveReservationKeySSO(
+    id,
+    {
+      enabled: !!activeBooking && !!isSSO,
       staleTime: 5 * 60 * 1000, // 5 minutes
     }
   );
   
-  const reservationKey = reservationKeyData?.reservationKey;*/
+  const reservationKeyValue = reservationKeyData?.reservationKey ?? reservationKeyData;
+  const walletReservationKey = reservationKeyValue && reservationKeyValue !== ZERO_BYTES32 ? reservationKeyValue : null;
+  const institutionalReservationKeyValue = institutionalReservationKeyData?.reservationKey ?? institutionalReservationKeyData;
+  const institutionalReservationKey = institutionalReservationKeyValue && institutionalReservationKeyValue !== ZERO_BYTES32
+    ? institutionalReservationKeyValue
+    : null;
+  const reservationKey = isSSO ? institutionalReservationKey : walletReservationKey;
  
   return (
     <Card 
@@ -106,13 +121,13 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = 
           Explore Lab
         </div>
       </Link>
-      {isConnected && (
+      {(isConnected || isSSO) && (
         <LabAccess 
           id={id} 
           userWallet={address} 
           hasActiveBooking={activeBooking} 
           auth={auth}
-          //reservationKey={reservationKey} // TODO
+          reservationKey={reservationKey}
         />
       )}
     </Card>

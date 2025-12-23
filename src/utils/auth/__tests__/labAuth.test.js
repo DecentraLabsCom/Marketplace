@@ -12,10 +12,6 @@
  * - Edge cases and error scenarios
  */
 
-import marketplaceJwtService from "@/utils/auth/marketplaceJwt";
-import authServiceClient from "@/utils/auth/authServiceClient";
-import devLog from "@/utils/dev/logger";
-
 import {
   authenticateLabAccessSSO,
   authenticateLabAccess,
@@ -23,8 +19,6 @@ import {
 } from "../labAuth";
 
 // Mock external dependencies
-jest.mock("@/utils/auth/marketplaceJwt");
-jest.mock("@/utils/auth/authServiceClient");
 jest.mock("@/utils/dev/logger", () => ({
   log: jest.fn(),
   error: jest.fn(),
@@ -37,11 +31,6 @@ const originalFetch = global.fetch;
 global.fetch = jest.fn();
 
 describe("Lab Authentication Utilities", () => {
-  const mockUserData = {
-    email: "test@example.com",
-    affiliation: "faculty",
-    name: "Test User",
-  };
   const labId = "lab-123";
   const authEndpoint = "https://auth.example.com";
   const userWallet = "0xUser123";
@@ -49,11 +38,6 @@ describe("Lab Authentication Utilities", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Reset mock implementations in beforeEach to ensure clean state
-    marketplaceJwtService.isConfigured = jest.fn();
-    marketplaceJwtService.generateJwtForUser = jest.fn();
-    authServiceClient.exchangeJwtForToken = jest.fn();
   });
 
   afterEach(() => {
@@ -67,78 +51,66 @@ describe("Lab Authentication Utilities", () => {
   });
 
   describe("authenticateLabAccessSSO", () => {
-    test("successfully authenticates SSO user", async () => {
-      // Setup mocks
-      marketplaceJwtService.isConfigured.mockResolvedValue(true);
-      marketplaceJwtService.generateJwtForUser.mockReturnValue(
-        "mock-jwt-token"
-      );
-      authServiceClient.exchangeJwtForToken.mockResolvedValue({
-        token: "lab-access-token",
-        labURL: "https://lab.example.com",
+    beforeEach(() => {
+      global.fetch = jest.fn();
+    });
+
+    test("submits check-in and returns auth response", async () => {
+      const reservationKey = "0xabc123";
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ valid: true }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            token: "lab-access-token",
+            labURL: "https://lab.example.com",
+          }),
+        });
+
+      const result = await authenticateLabAccessSSO({
+        labId,
+        reservationKey,
+        authEndpoint,
       });
 
-      const result = await authenticateLabAccessSSO(mockUserData, labId);
-
-      expect(marketplaceJwtService.isConfigured).toHaveBeenCalled();
-      expect(marketplaceJwtService.generateJwtForUser).toHaveBeenCalledWith(
-        mockUserData
-      );
-      expect(authServiceClient.exchangeJwtForToken).toHaveBeenCalledWith(
-        "mock-jwt-token",
-        "faculty",
-        labId
-      );
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch.mock.calls[0][0]).toBe("/api/auth/checkin");
+      expect(global.fetch.mock.calls[1][0]).toBe("/api/auth/lab-access");
       expect(result).toEqual({
         token: "lab-access-token",
         labURL: "https://lab.example.com",
       });
     });
 
-    test("throws error when JWT service not configured", async () => {
-      marketplaceJwtService.isConfigured.mockResolvedValue(false);
-
-      await expect(
-        authenticateLabAccessSSO(mockUserData, labId)
-      ).rejects.toThrow("JWT service is not properly configured");
-
-      expect(marketplaceJwtService.generateJwtForUser).not.toHaveBeenCalled();
-    });
-
-    test("throws error when JWT generation fails", async () => {
-      marketplaceJwtService.isConfigured.mockResolvedValue(true);
-      marketplaceJwtService.generateJwtForUser.mockImplementation(() => {
-        throw new Error("JWT generation failed");
+    test("throws error when check-in fails", async () => {
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
       });
 
       await expect(
-        authenticateLabAccessSSO(mockUserData, labId)
-      ).rejects.toThrow("JWT generation failed");
+        authenticateLabAccessSSO({ labId, reservationKey: "0xabc", authEndpoint })
+      ).rejects.toThrow("Institutional check-in failed. Status: 500");
     });
 
-    test("throws error when token exchange fails", async () => {
-      marketplaceJwtService.isConfigured.mockResolvedValue(true);
-      marketplaceJwtService.generateJwtForUser.mockReturnValue("mock-jwt");
-      authServiceClient.exchangeJwtForToken.mockRejectedValue(
-        new Error("Exchange failed")
-      );
+    test("throws error when auth request fails", async () => {
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ valid: true }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+        });
 
       await expect(
-        authenticateLabAccessSSO(mockUserData, labId)
-      ).rejects.toThrow("Exchange failed");
-    });
-
-    test("logs error when authentication fails", async () => {
-      marketplaceJwtService.isConfigured.mockResolvedValue(false);
-
-      await expect(
-        authenticateLabAccessSSO(mockUserData, labId)
-      ).rejects.toThrow();
-
-      expect(devLog.error).toHaveBeenCalledWith(
-        "❌ SSO lab authentication failed:",
-        expect.any(Error)
-      );
+        authenticateLabAccessSSO({ labId, reservationKey: "0xabc", authEndpoint })
+      ).rejects.toThrow("SSO authentication failed. Status: 401");
     });
   });
 
@@ -216,6 +188,53 @@ describe("Lab Authentication Utilities", () => {
       const auth2Body = JSON.parse(auth2Call[1].body);
 
       expect(auth2Body.reservationKey).toBe(reservationKey);
+    });
+
+    test("submits check-in when reservationKey and signTypedDataAsync are provided", async () => {
+      const reservationKey = "0xabc123";
+      const mockSignTypedDataAsync = jest.fn().mockResolvedValue("0xCheckInSig");
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            timestamp: 1700000000,
+            typedData: {
+              domain: { name: "DecentraLabsIntent", version: "1", chainId: 1, verifyingContract: "0x0" },
+              types: { CheckIn: [{ name: "signer", type: "address" }] },
+              primaryType: "CheckIn",
+              message: { timestamp: 1700000000 },
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ valid: true, txHash: "0xTx" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ message: "Sign 1700000000000", timestampMs: 1700000000000 }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: "token", labURL: "https://lab.example.com" }),
+        });
+
+      mockSignMessageAsync.mockResolvedValue("0xSig");
+
+      await authenticateLabAccess(
+        authEndpoint,
+        userWallet,
+        labId,
+        mockSignMessageAsync,
+        reservationKey,
+        { signTypedDataAsync: mockSignTypedDataAsync }
+      );
+
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+      expect(global.fetch.mock.calls[0][0]).toContain("purpose=checkin");
+      expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/checkin");
+      expect(mockSignTypedDataAsync).toHaveBeenCalled();
     });
 
     test("handles trailing slash in auth endpoint", async () => {
@@ -316,16 +335,24 @@ describe("Lab Authentication Utilities", () => {
     describe("JWT Flow Errors", () => {
       test.each([
         [
-          "JWT service is not properly configured",
-          "Authentication system is not configured. Please contact support.",
+          "Missing labId",
+          "Missing booking details for SSO access. Please try again.",
+        ],
+        [
+          "Institutional check-in failed",
+          "Unable to record check-in. Please try again.",
+        ],
+        [
+          "SSO authentication failed. Status: 401",
+          "Failed to authenticate with lab service. Please try again.",
+        ],
+        [
+          "Missing SSO session",
+          "Please sign in with your institution and try again.",
         ],
         [
           "Lab does not have a configured Lab Gateway",
           "This lab does not support SSO access. Please use wallet authentication.",
-        ],
-        [
-          "Failed to exchange JWT",
-          "Failed to authenticate with lab service. Please try again.",
         ],
         [
           "Unknown JWT error",

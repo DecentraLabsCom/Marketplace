@@ -12,10 +12,12 @@
 
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useRouter } from "next/navigation";
-import { useSignMessage } from "wagmi";
+import { useSignMessage, useSignTypedData } from "wagmi";
 import LabAccess from "../LabAccess";
+import { useUser } from "@/context/UserContext";
 import {
   authenticateLabAccess,
+  authenticateLabAccessSSO,
   getAuthErrorMessage,
 } from "@/utils/auth/labAuth";
 
@@ -26,10 +28,16 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("wagmi", () => ({
   useSignMessage: jest.fn(),
+  useSignTypedData: jest.fn(),
+}));
+
+jest.mock("@/context/UserContext", () => ({
+  useUser: jest.fn(),
 }));
 
 jest.mock("@/utils/auth/labAuth", () => ({
   authenticateLabAccess: jest.fn(),
+  authenticateLabAccessSSO: jest.fn(),
   getAuthErrorMessage: jest.fn(),
 }));
 
@@ -41,6 +49,8 @@ jest.mock("@/utils/dev/logger", () => ({
 describe("LabAccess Component", () => {
   const mockRouter = { push: jest.fn() };
   const mockSignMessageAsync = jest.fn();
+  const mockSignTypedDataAsync = jest.fn();
+  const mockUseUser = useUser;
   const originalConsoleError = console.error;
 
   const defaultProps = {
@@ -59,6 +69,10 @@ describe("LabAccess Component", () => {
     useSignMessage.mockReturnValue({
       signMessageAsync: mockSignMessageAsync,
     });
+    useSignTypedData.mockReturnValue({
+      signTypedDataAsync: mockSignTypedDataAsync,
+    });
+    mockUseUser.mockReturnValue({ isSSO: false });
     // Suppress jsdom navigation warnings
     console.error = (...args) => {
       if (args[0]?.toString?.().includes('Not implemented: navigation')) return;
@@ -115,8 +129,29 @@ describe("LabAccess Component", () => {
           defaultProps.userWallet,
           defaultProps.id,
           mockSignMessageAsync,
-          null
+          null,
+          { signTypedDataAsync: mockSignTypedDataAsync }
         );
+      });
+    });
+
+    test("uses SSO auth flow when user is institutional", async () => {
+      useUser.mockReturnValue({ isSSO: true });
+      authenticateLabAccessSSO.mockResolvedValue({
+        error: "Invalid booking credentials",
+      });
+
+      render(<LabAccess {...defaultProps} />);
+
+      const accessButton = screen.getByText("Access");
+      fireEvent.click(accessButton.closest("div"));
+
+      await waitFor(() => {
+        expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
+          labId: defaultProps.id,
+          reservationKey: defaultProps.reservationKey,
+          authEndpoint: defaultProps.auth,
+        });
       });
     });
   });
@@ -167,7 +202,7 @@ describe("LabAccess Component", () => {
       fireEvent.click(accessButton.closest("div"));
 
       await waitFor(() => {
-        expect(getAuthErrorMessage).toHaveBeenCalledWith(mockError);
+        expect(getAuthErrorMessage).toHaveBeenCalledWith(mockError, false);
         const errorMessage = screen.getByText(
           "Connection failed. Please try again."
         );
