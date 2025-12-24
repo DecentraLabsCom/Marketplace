@@ -146,7 +146,7 @@ beforeEach(() => {
   });
 
   mockUseLabToken.mockReturnValue({
-    formatPrice: (price) => `ƒ'ª${Number(price).toFixed(2)}`,
+    formatPrice: (price) => `€${Number(price).toFixed(2)}`,
   });
 
   mockUseActiveReservationKeyForUser.mockReturnValue({ data: null });
