@@ -71,6 +71,7 @@ jest.mock("@/utils/hooks/queryKeys", () => ({
       ["lab", "tokenURI", labId],
       ["lab", "isTokenListed", labId],
       ["lab", "ownerOf", labId],
+      ["lab", "getLabReputation", labId],
     ]),
   },
 }));
@@ -438,7 +439,7 @@ describe("LabEventContext", () => {
         (call) => call[0]?.queryKey?.includes("7")
       );
 
-      expect(calls.length).toBe(4); // derivedByLabId once each
+      expect(calls.length).toBe(5); // derivedByLabId once each
     });
   });
 
