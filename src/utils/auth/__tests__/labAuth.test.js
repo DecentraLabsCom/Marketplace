@@ -203,7 +203,7 @@ describe("Lab Authentication Utilities", () => {
               domain: { name: "DecentraLabsIntent", version: "1", chainId: 1, verifyingContract: "0x0" },
               types: { CheckIn: [{ name: "signer", type: "address" }] },
               primaryType: "CheckIn",
-              message: { timestamp: 1700000000 },
+              message: { timestamp: 1700000000, reservationKey },
             },
           }),
         })
@@ -235,6 +235,56 @@ describe("Lab Authentication Utilities", () => {
       expect(global.fetch.mock.calls[0][0]).toContain("purpose=checkin");
       expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/checkin");
       expect(mockSignTypedDataAsync).toHaveBeenCalled();
+    });
+
+    test("submits check-in when reservationKey is missing but labId is provided", async () => {
+      const mockSignTypedDataAsync = jest.fn().mockResolvedValue("0xCheckInSig");
+      const resolvedKey = "0x" + "b".repeat(64);
+
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            timestamp: 1700000000,
+            typedData: {
+              domain: { name: "DecentraLabsIntent", version: "1", chainId: 1, verifyingContract: "0x0" },
+              types: { CheckIn: [{ name: "signer", type: "address" }] },
+              primaryType: "CheckIn",
+              message: { timestamp: 1700000000, reservationKey: resolvedKey },
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ valid: true, txHash: "0xTx" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ message: "Sign 1700000000000", timestampMs: 1700000000000 }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: "token", labURL: "https://lab.example.com" }),
+        });
+
+      mockSignMessageAsync.mockResolvedValue("0xSig");
+
+      await authenticateLabAccess(
+        authEndpoint,
+        userWallet,
+        labId,
+        mockSignMessageAsync,
+        null,
+        { signTypedDataAsync: mockSignTypedDataAsync }
+      );
+
+      expect(global.fetch).toHaveBeenCalledTimes(4);
+      expect(global.fetch.mock.calls[0][0]).toContain("purpose=checkin");
+      expect(global.fetch.mock.calls[0][0]).toContain(`labId=${encodeURIComponent(labId)}`);
+      expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/checkin");
+
+      const checkInBody = JSON.parse(global.fetch.mock.calls[1][1].body);
+      expect(checkInBody.reservationKey).toBe(resolvedKey);
     });
 
     test("handles trailing slash in auth endpoint", async () => {

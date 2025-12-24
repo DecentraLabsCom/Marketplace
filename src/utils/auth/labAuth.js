@@ -89,17 +89,21 @@ const buildAuthUrl = (baseUrl, endpoint) => {
   return `${cleanBase}/${endpoint}`;
 };
 
-const buildCheckInMessageUrl = (baseUrl, reservationKey, signer, puc) => {
-  if (!reservationKey || !signer) {
-    throw new Error('Missing reservationKey or signer for check-in');
+const buildCheckInMessageUrl = (baseUrl, reservationKey, labId, signer, puc) => {
+  if ((!reservationKey && !labId) || !signer) {
+    throw new Error('Missing reservationKey or labId or signer for check-in');
   }
 
   const base = buildAuthUrl(baseUrl, "message");
   const params = new URLSearchParams({
     purpose: "checkin",
-    reservationKey,
     signer,
   });
+  if (reservationKey) {
+    params.set("reservationKey", reservationKey);
+  } else if (labId) {
+    params.set("labId", labId);
+  }
   if (puc) {
     params.set("puc", puc);
   }
@@ -148,14 +152,15 @@ const buildTimestampHex = (timestampMs) => {
 const submitReservationCheckIn = async ({
   authEndpoint,
   reservationKey,
+  labId,
   signer,
   puc = null,
   signTypedDataAsync,
   signature = null,
   timestamp = null,
 }) => {
-  if (!reservationKey) {
-    throw new Error('Missing reservationKey for check-in');
+  if (!reservationKey && !labId) {
+    throw new Error('Missing reservationKey or labId for check-in');
   }
   if (!signer) {
     throw new Error('Missing signer for check-in');
@@ -169,7 +174,7 @@ const submitReservationCheckIn = async ({
       throw new Error('Missing signTypedDataAsync for check-in');
     }
 
-    const messageUrl = buildCheckInMessageUrl(authEndpoint, reservationKey, signer, puc);
+    const messageUrl = buildCheckInMessageUrl(authEndpoint, reservationKey, labId, signer, puc);
     const checkInMessageResponse = await fetch(messageUrl, { method: "GET" });
     if (!checkInMessageResponse.ok) {
       throw new Error(`Failed to get check-in message. Status: ${checkInMessageResponse.status}`);
@@ -185,6 +190,13 @@ const submitReservationCheckIn = async ({
     if (!resolvedTimestamp) {
       throw new Error('Check-in message missing timestamp');
     }
+
+    const resolvedReservationKey = messageData?.reservationKey ?? typedData?.message?.reservationKey ?? reservationKey;
+    if (!resolvedReservationKey) {
+      throw new Error('Check-in message missing reservationKey');
+    }
+
+    reservationKey = resolvedReservationKey;
 
     resolvedSignature = await signTypedDataAsync({
       domain: typedData.domain,
@@ -227,15 +239,16 @@ export const authenticateLabAccess = async (
   try {
     const { signTypedDataAsync, puc, skipCheckIn } = options || {};
 
-    if (!skipCheckIn && reservationKey && signTypedDataAsync) {
+    if (!skipCheckIn && (reservationKey || labId) && signTypedDataAsync) {
       await submitReservationCheckIn({
         authEndpoint,
         reservationKey,
+        labId,
         signer: userWallet,
         puc,
         signTypedDataAsync,
       });
-    } else if (!skipCheckIn && reservationKey && !signTypedDataAsync) {
+    } else if (!skipCheckIn && (reservationKey || labId) && !signTypedDataAsync) {
       devLog.log('INFO: Check-in skipped (signTypedDataAsync missing).');
     }
 
