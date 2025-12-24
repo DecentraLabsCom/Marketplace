@@ -953,10 +953,54 @@ export const contractABI = [
                                                                           "name":  "accessKey",
                                                                           "type":  "string",
                                                                           "internalType":  "string"
+                                                                      },
+                                                                      {
+                                                                          "name":  "createdAt",
+                                                                          "type":  "uint32",
+                                                                          "internalType":  "uint32"
                                                                       }
                                                                   ]
                                                }
                                            ]
+                        }
+                    ],
+        "stateMutability":  "view"
+    },
+    {
+        "type":  "function",
+        "name":  "getLabReputation",
+        "inputs":  [
+                       {
+                           "name":  "labId",
+                           "type":  "uint256",
+                           "internalType":  "uint256"
+                       }
+                   ],
+        "outputs":  [
+                        {
+                            "name":  "score",
+                            "type":  "int32",
+                            "internalType":  "int32"
+                        },
+                        {
+                            "name":  "totalEvents",
+                            "type":  "uint32",
+                            "internalType":  "uint32"
+                        },
+                        {
+                            "name":  "ownerCancellations",
+                            "type":  "uint32",
+                            "internalType":  "uint32"
+                        },
+                        {
+                            "name":  "institutionalCancellations",
+                            "type":  "uint32",
+                            "internalType":  "uint32"
+                        },
+                        {
+                            "name":  "lastUpdated",
+                            "type":  "uint64",
+                            "internalType":  "uint64"
                         }
                     ],
         "stateMutability":  "view"

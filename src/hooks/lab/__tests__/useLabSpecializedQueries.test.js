@@ -75,6 +75,8 @@ jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useLabSSO: { queryFn: jest.fn() },
   useIsTokenListed: jest.fn(),
   useIsTokenListedSSO: { queryFn: jest.fn() },
+  useLabReputation: jest.fn(),
+  useLabReputationSSO: { queryFn: jest.fn() },
   LAB_QUERY_CONFIG: {
     staleTime: 30000,
     gcTime: 300000,
@@ -152,6 +154,7 @@ describe("useLabSpecializedQueries", () => {
   let mockUseLab;
   let mockUseLabOwner;
   let mockUseIsTokenListed;
+  let mockUseLabReputation;
   let mockUseMetadata;
   let mockUseProviderMapping;
   let mockUseOptimisticUI;
@@ -171,6 +174,7 @@ describe("useLabSpecializedQueries", () => {
     mockUseLab = labAtomicQueries.useLab;
     mockUseLabOwner = labAtomicQueries.useLabOwner;
     mockUseIsTokenListed = labAtomicQueries.useIsTokenListed;
+    mockUseLabReputation = labAtomicQueries.useLabReputation;
     mockUseMetadata = metadataModule.useMetadata;
     mockUseProviderMapping = providerMappingModule.useProviderMapping;
     mockUseOptimisticUI = optimisticUIModule.useOptimisticUI;
@@ -221,6 +225,30 @@ describe("useLabSpecializedQueries", () => {
 
     labAtomicQueries.useIsTokenListedSSO.queryFn = jest.fn(() =>
       Promise.resolve({ isListed: true })
+    );
+
+    mockUseLabReputation.mockReturnValue({
+      data: {
+        score: 2,
+        totalEvents: 4,
+        ownerCancellations: 1,
+        institutionalCancellations: 1,
+        lastUpdated: 0,
+      },
+      isLoading: false,
+      isSuccess: true,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    labAtomicQueries.useLabReputationSSO.queryFn = jest.fn(() =>
+      Promise.resolve({
+        score: 2,
+        totalEvents: 4,
+        ownerCancellations: 1,
+        institutionalCancellations: 1,
+        lastUpdated: 0,
+      })
     );
 
     mockUseMetadata.mockReturnValue({
@@ -283,6 +311,27 @@ describe("useLabSpecializedQueries", () => {
         ) {
           return {
             data: { isListed: true },
+            isLoading: false,
+            isSuccess: true,
+            isError: false,
+            error: null,
+            refetch: jest.fn(),
+          };
+        }
+
+        if (
+          queryKey &&
+          (queryKey[0] === "labs" || queryKey[0] === "lab") &&
+          queryKey[1] === "getLabReputation"
+        ) {
+          return {
+            data: {
+              score: 2,
+              totalEvents: 4,
+              ownerCancellations: 1,
+              institutionalCancellations: 1,
+              lastUpdated: 0,
+            },
             isLoading: false,
             isSuccess: true,
             isError: false,

@@ -3,12 +3,13 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faSearch } from '@fortawesome/free-solid-svg-icons'
+import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
 import { useActiveReservationKeyForUser, useInstitutionalUserActiveReservationKeySSO } from '@/hooks/booking/useBookings'
 import LabAccess from '@/components/home/LabAccess'
-import { Card, Badge, cn, LabCardImage } from '@/components/ui'
+import { Card, cn, LabCardImage } from '@/components/ui'
+import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
@@ -24,11 +25,19 @@ const ZERO_BYTES32 = '0x00000000000000000000000000000000000000000000000000000000
  * @param {boolean} props.activeBooking - Whether user has active booking
  * @param {boolean} [props.isListed=true] - Whether the lab is currently listed
  * @param {string} props.image - Lab main image URL
+ * @param {Object} props.reputation - Lab reputation stats
+ * @param {string|number} props.createdAt - Lab creation timestamp (seconds)
  * @returns {JSX.Element} Lab card with image, details, and action buttons
  */
-const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = null, activeBooking = false, isListed = true, image = '' }) {
+const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = null, activeBooking = false, isListed = true, image = '', reputation = null, createdAt = null }) {
   const { address, isConnected, isSSO } = useUser();
   const { formatPrice } = useLabToken();
+  const ratingValue = getLabRatingValue(reputation);
+  const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
+  const ageLabel = getLabAgeLabel(createdAt);
+  const statsLabel = [ratingLabel ? `Rating ${ratingLabel}/5` : null, ageLabel ? `Age ${ageLabel}` : null]
+    .filter(Boolean)
+    .join(' | ');
   
   // Get active reservation key for wallet users with an active booking.
   // This allows the lab gateway to perform on-chain check-in.
@@ -94,6 +103,23 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = 
           </div>
         )}*/}
         
+        {/* Rating + Age Badge */}
+        {(ratingLabel || ageLabel) && (
+          <div
+            className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm"
+            title={statsLabel || undefined}
+          >
+            {ratingLabel && (
+              <span className="inline-flex items-center gap-1">
+                <FontAwesomeIcon icon={faStar} className="text-brand text-[0.7rem]" />
+                <span>{ratingLabel}</span>
+              </span>
+            )}
+            {ratingLabel && ageLabel && <span className="text-white/60">|</span>}
+            {ageLabel && <span>{ageLabel}</span>}
+          </div>
+        )}
+
         {/* Unlisted Badge */}
         {!isListed && (
           <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand border-l-2 border-brand px-3 py-2 rounded-bl-lg shadow-lg backdrop-blur-sm`}>
@@ -142,7 +168,15 @@ LabCard.propTypes = {
   auth: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
   activeBooking: PropTypes.bool,
   isListed: PropTypes.bool,
-  image: PropTypes.string
+  image: PropTypes.string,
+  reputation: PropTypes.shape({
+    score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    ownerCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    institutionalCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+  }),
+  createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 
 export default LabCard;

@@ -61,6 +61,14 @@ describe("LabDetail", () => {
     category: "Chemistry",
     keywords: ["chemistry", "research", "experiments"],
     isListed: true,
+    createdAt: Math.floor(Date.now() / 1000),
+    reputation: {
+      score: 4,
+      totalEvents: 4,
+      ownerCancellations: 0,
+      institutionalCancellations: 0,
+      lastUpdated: 0,
+    },
     docs: [
       { id: 1, title: "Safety Manual", url: "/docs/safety.pdf" },
       { id: 2, title: "Equipment Guide", url: "/docs/equipment.pdf" },
@@ -143,6 +151,17 @@ describe("LabDetail", () => {
 
       expect(formatPrice).toHaveBeenCalledWith("150");
       expect(screen.getByText("$150 $LAB / hour")).toBeInTheDocument();
+    });
+  });
+
+  describe("Reputation and Age", () => {
+    test("shows rating and lab age summary", () => {
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText("Rating")).toBeInTheDocument();
+      expect(screen.getByText("Lab age")).toBeInTheDocument();
+      expect(screen.getByText("5.0")).toBeInTheDocument();
+      expect(screen.getByText("0d")).toBeInTheDocument();
     });
   });
   describe("Booking Functionality", () => {

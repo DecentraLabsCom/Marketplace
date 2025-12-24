@@ -178,7 +178,8 @@ export const useLabWallet = (labId, options = {}) => {
           price: data.base?.price ? (typeof data.base.price === 'bigint' ? data.base.price.toString() : String(data.base.price)) : '0',
           auth: String(data.base?.auth || ''),
           accessURI: String(data.base?.accessURI || ''),
-          accessKey: String(data.base?.accessKey || '')
+          accessKey: String(data.base?.accessKey || ''),
+          createdAt: data.base?.createdAt ? Number(data.base.createdAt) : 0
         }
       };
     })() : null
@@ -577,5 +578,94 @@ export const useIsTokenListed = (labId, options = {}) => {
   
   devLog.log(`🔀 useIsTokenListed [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
   
+  return isSSO ? ssoQuery : walletQuery;
+};
+
+// ===== useLabReputation Hook Family =====
+
+const getLabReputationQueryFn = createSSRSafeQuery(async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+
+  const response = await fetch(`/api/contract/lab/getLabReputation?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch lab reputation ${labId}: ${response.status}`);
+  }
+
+  const data = await response.json();
+  devLog.log('useLabReputationSSO:', labId, data);
+  return data;
+}, null);
+
+/**
+ * Hook for /api/contract/lab/getLabReputation endpoint (SSO users)
+ * Gets lab reputation data via API + Ethers
+ * @param {string|number} labId - Lab ID to fetch reputation for
+ * @param {Object} [options={}] - Additional react-query options
+ * @returns {Object} React Query result with reputation data
+ */
+export const useLabReputationSSO = (labId, options = {}) => {
+  return useQuery({
+    queryKey: labQueryKeys.getLabReputation(labId),
+    queryFn: () => getLabReputationQueryFn(labId),
+    enabled: !!labId,
+    ...LAB_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+useLabReputationSSO.queryFn = getLabReputationQueryFn;
+
+/**
+ * Hook for getLabReputation contract read (Wallet users)
+ * Gets lab reputation data directly from blockchain via Wagmi
+ * @param {string|number} labId - Lab ID to fetch reputation for
+ * @param {Object} [options={}] - Additional wagmi options
+ * @returns {Object} Wagmi query result with reputation data
+ */
+export const useLabReputationWallet = (labId, options = {}) => {
+  const result = useDefaultReadContract('getLabReputation', [labId], {
+    enabled: !!labId,
+    ...LAB_QUERY_CONFIG,
+    ...options,
+  });
+
+  const normalizeNumber = (value) => {
+    if (value === null || value === undefined) return 0;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  return {
+    ...result,
+    data: result.data ? {
+      score: normalizeNumber(result.data.score ?? result.data[0]),
+      totalEvents: normalizeNumber(result.data.totalEvents ?? result.data[1]),
+      ownerCancellations: normalizeNumber(result.data.ownerCancellations ?? result.data[2]),
+      institutionalCancellations: normalizeNumber(result.data.institutionalCancellations ?? result.data[3]),
+      lastUpdated: normalizeNumber(result.data.lastUpdated ?? result.data[4])
+    } : null
+  };
+};
+
+/**
+ * Hook for getLabReputation (Router - selects SSO or Wallet)
+ * Gets lab reputation data - routes to API or Wagmi based on user type
+ * @param {string|number} labId - Lab ID to fetch reputation for
+ * @param {Object} [options={}] - Additional query options
+ * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode
+ * @returns {Object} React Query result with reputation data
+ */
+export const useLabReputation = (labId, options = {}) => {
+  const isSSO = useGetIsSSO(options);
+
+  const ssoQuery = useLabReputationSSO(labId, { ...options, enabled: isSSO && !!labId });
+  const walletQuery = useLabReputationWallet(labId, { ...options, enabled: !isSSO && !!labId });
+
+  devLog.log(`useLabReputation [${labId}] - ${isSSO ? 'SSO' : 'Wallet'} mode`);
+
   return isSSO ? ssoQuery : walletQuery;
 };

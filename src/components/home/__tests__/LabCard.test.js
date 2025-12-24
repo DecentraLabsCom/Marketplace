@@ -117,6 +117,8 @@ const mockUseInstitutionalUserActiveReservationKeySSO = require("@/hooks/booking
 /**
  * Default props for standard test scenarios
  */
+const defaultCreatedAt = Math.floor(Date.now() / 1000);
+
 const defaultProps = {
   id: "lab-123",
   name: "Advanced Research Lab",
@@ -126,6 +128,14 @@ const defaultProps = {
   activeBooking: false,
   isListed: true,
   image: "https://cdn.example.com/labs/research-lab.jpg",
+  createdAt: defaultCreatedAt,
+  reputation: {
+    score: 4,
+    totalEvents: 4,
+    ownerCancellations: 0,
+    institutionalCancellations: 0,
+    lastUpdated: 0,
+  },
 };
 
 /**
@@ -323,6 +333,21 @@ describe("LabCard - Badge Display", () => {
     const badge = screen.getByText(/Unlisted/i);
     expect(badge.className).toContain("uppercase");
     expect(badge.className).toContain("tracking-wide");
+  });
+});
+
+describe("LabCard - Rating and Age", () => {
+  test("shows rating and age badge when data is available", () => {
+    renderLabCard();
+
+    expect(screen.getByText("5.0")).toBeInTheDocument();
+    expect(screen.getByText("0d")).toBeInTheDocument();
+  });
+
+  test("hides rating and age badge when data is missing", () => {
+    renderLabCard({ reputation: null, createdAt: null });
+
+    expect(screen.queryByText("0d")).not.toBeInTheDocument();
   });
 });
 

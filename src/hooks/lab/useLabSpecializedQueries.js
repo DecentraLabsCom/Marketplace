@@ -11,6 +11,8 @@ import {
   useLabOwnerSSO,
   useIsTokenListed,
   useIsTokenListedSSO,
+  useLabReputation,
+  useLabReputationSSO,
   LAB_QUERY_CONFIG 
 } from './useLabAtomicQueries'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
@@ -161,6 +163,19 @@ export const useLabsForMarket = (options = {}) => {
       ? labIds.map(labId => ({
           queryKey: labQueryKeys.isTokenListed(labId),
           queryFn: () => useIsTokenListedSSO.queryFn(labId),
+          enabled: !!labId && (queryOptions.enabled !== false),
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  // Step 5.5: Get reputation data for all labs
+  const reputationResults = useQueries({
+    queries: labIds.length > 0
+      ? labIds.map(labId => ({
+          queryKey: labQueryKeys.getLabReputation(labId),
+          queryFn: () => useLabReputationSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -288,6 +303,7 @@ export const useLabsForMarket = (options = {}) => {
       const ownerData = ownerResults[originalIndex]?.data;
       const ownerAddress = ownerData?.owner || ownerData;
       const metadata = metadataResults[originalIndex]?.data;
+      const reputation = reputationResults[originalIndex]?.data;
 
       // Get listing status for this lab
       const serverIsListed = listingResults[originalIndex]?.data?.isListed;
@@ -300,6 +316,10 @@ export const useLabsForMarket = (options = {}) => {
         isListed: effectiveState.isListed, // Add listing status
         ...lab.base,
       };
+
+      if (reputation) {
+        enrichedLab.reputation = reputation;
+      }
 
       // Add metadata
       if (metadata) {
@@ -389,6 +409,7 @@ export const useLabsForMarket = (options = {}) => {
       labDetailResults.forEach(r => r.refetch && r.refetch());
       ownerResults.forEach(r => r.refetch && r.refetch());
       metadataResults.forEach(r => r.refetch && r.refetch());
+      reputationResults.forEach(r => r.refetch && r.refetch());
       imageResults.forEach(r => r.refetch && r.refetch());
       providerMapping.refetch();
     }
@@ -419,6 +440,12 @@ export const useLabById = (labId, options = {}) => {
 
   // Check if lab is listed
   const listingResult = useIsTokenListed(normalizedLabId, {
+    ...LAB_QUERY_CONFIG,
+    enabled: !!normalizedLabId && (options.enabled !== false),
+  });
+
+  // Get lab reputation
+  const reputationResult = useLabReputation(normalizedLabId, {
     ...LAB_QUERY_CONFIG,
     enabled: !!normalizedLabId && (options.enabled !== false),
   });
@@ -496,6 +523,7 @@ export const useLabById = (labId, options = {}) => {
     const ownerData = ownerResult.data;
     const ownerAddress = ownerData?.owner || ownerData;
     const metadata = metadataResult.data;
+    const reputation = reputationResult.data;
 
     const enrichedLab = {
       id: lab.labId,
@@ -504,6 +532,10 @@ export const useLabById = (labId, options = {}) => {
       isListed: isListed, // Add listing status
       ...lab.base,
     };
+
+    if (reputation) {
+      enrichedLab.reputation = reputation;
+    }
 
     // Add metadata
     if (metadata) {
@@ -594,6 +626,7 @@ export const useLabById = (labId, options = {}) => {
       ownerResult.refetch();
       listingResult.refetch();
       metadataResult.refetch();
+      reputationResult.refetch();
       imageResults.forEach(r => r.refetch && r.refetch());
     }
   };

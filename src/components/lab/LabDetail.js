@@ -2,12 +2,15 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faStar } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
 import { useLabById } from '@/hooks/lab/useLabs'
 import { useLabToken } from '@/context/LabTokenContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
+import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 
 /**
  * Detailed lab information display component
@@ -60,6 +63,12 @@ export default function LabDetail({ id }) {
   if (!lab) {
     return <div className="text-center text-neutral-200">Lab not found.</div>
   }
+
+  const ratingValue = getLabRatingValue(lab.reputation);
+  const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : '0.0';
+  const totalEvents = lab.reputation?.totalEvents ? Number(lab.reputation.totalEvents) : 0;
+  const eventsLabel = totalEvents > 0 ? `${totalEvents} events` : 'No events yet';
+  const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
 
   return (
     <Container as="main" padding="sm">
@@ -126,6 +135,23 @@ export default function LabDetail({ id }) {
               <hr className="mb-2 separator-width w-1/2" />
             </div>
           </header>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
+            <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
+              <div className="text-xs uppercase tracking-wide text-text-secondary">Rating</div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <FontAwesomeIcon icon={faStar} className="text-brand text-sm" />
+                <span className="text-2xl font-semibold text-header-bg">{ratingLabel}</span>
+                <span className="text-sm text-text-secondary">/5</span>
+              </div>
+              <div className="text-xs text-text-secondary">{eventsLabel}</div>
+            </div>
+            <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
+              <div className="text-xs uppercase tracking-wide text-text-secondary">Lab age</div>
+              <div className="mt-1 text-2xl font-semibold text-header-bg">{ageLabel}</div>
+              <div className="text-xs text-text-secondary">On-chain registration</div>
+            </div>
+          </div>
           
           {/* Metadata warning banner - shown instead of description when metadata is missing */}
           {metadataError ? (
