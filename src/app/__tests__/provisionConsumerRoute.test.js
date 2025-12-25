@@ -31,9 +31,12 @@ jest.mock('@/utils/auth/guards', () => {
 jest.mock('@/utils/auth/provisioningToken', () => ({
   __esModule: true,
   signProvisioningToken: jest.fn(),
-  normalizeHttpsUrl: jest.fn((url) => {
+  normalizeHttpsUrl: jest.fn((url, label = 'URL') => {
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      throw new Error(`${label} is required`);
+    }
     if (!url.startsWith('https://')) {
-      throw new Error('URL must use HTTPS protocol');
+      throw new Error(`${label} must use HTTPS protocol`);
     }
     return url;
   }),
@@ -129,7 +132,29 @@ describe('/api/institutions/provisionConsumer route', () => {
     });
   });
 
-  test('successfully generates consumer provisioning token without publicBaseUrl', async () => {
+  test('returns 400 when publicBaseUrl is missing', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'valid-assertion',
+      role: 'admin',
+      scopedRole: 'admin',
+      affiliation: 'consumer.edu',
+      organizationName: 'Consumer Institution',
+      schacHomeOrganization: 'consumer.edu',
+    });
+
+    const { POST } = await import('../api/institutions/provisionConsumer/route.js');
+
+    const req = new Request('http://localhost/api/institutions/provisionConsumer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  test('successfully generates consumer provisioning token with publicBaseUrl', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'admin',
@@ -154,6 +179,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         consumerName: 'Test Consumer',
+        publicBaseUrl: 'https://wallet.consumer.edu',
       }),
     });
 
@@ -174,8 +200,13 @@ describe('/api/institutions/provisionConsumer route', () => {
       consumerOrganization: 'consumer.edu',
     });
 
-    // Consumer tokens should NOT have publicBaseUrl
-    expect(json.payload.publicBaseUrl).toBeUndefined();
+    expect(signProvisioningToken).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        audience: 'https://wallet.consumer.edu',
+        issuer: 'https://marketplace.example.com',
+      })
+    );
   });
 
   test('uses session attributes when consumerName not provided', async () => {
@@ -198,7 +229,9 @@ describe('/api/institutions/provisionConsumer route', () => {
     const req = new Request('http://localhost/api/institutions/provisionConsumer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}), // No consumerName provided
+      body: JSON.stringify({
+        publicBaseUrl: 'https://wallet.auto.edu',
+      }), // No consumerName provided
     });
 
     const res = await POST(req);
@@ -224,7 +257,9 @@ describe('/api/institutions/provisionConsumer route', () => {
     const req = new Request('http://localhost/api/institutions/provisionConsumer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        publicBaseUrl: 'https://wallet.test.edu',
+      }),
     });
 
     const res = await POST(req);
@@ -250,7 +285,9 @@ describe('/api/institutions/provisionConsumer route', () => {
     const req = new Request('http://localhost/api/institutions/provisionConsumer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+      body: JSON.stringify({
+        publicBaseUrl: 'https://wallet.consumer.edu',
+      }),
     });
 
     const res = await POST(req);

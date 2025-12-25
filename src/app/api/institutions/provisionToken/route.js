@@ -28,15 +28,16 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const requestedBaseUrl = body.publicBaseUrl || process.env.PROVISIONING_DEFAULT_PUBLIC_BASE_URL;
     const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '900', 10);
-    const issuer = process.env.PROVISIONING_TOKEN_ISSUER || 'marketplace-provisioning';
-    const audience = process.env.PROVISIONING_TOKEN_AUDIENCE || 'blockchain-services';
+
+    const publicBaseUrl = normalizeHttpsUrl(body.publicBaseUrl, 'Public base URL');
+    const audience = publicBaseUrl;
 
     const marketplaceBaseUrl = normalizeHttpsUrl(
       process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || request.nextUrl.origin,
       'Marketplace base URL'
     );
+    const issuer = marketplaceBaseUrl;
     const apiKey = requireApiKey(process.env.INSTITUTIONAL_SERVICES_API_KEY);
 
     const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(
@@ -52,8 +53,6 @@ export async function POST(request) {
       body.providerCountry || process.env.PROVISIONING_DEFAULT_COUNTRY || 'ES',
       'Provider country'
     );
-    const publicBaseUrl = normalizeHttpsUrl(requestedBaseUrl, 'Public base URL');
-
     const payload = {
       marketplaceBaseUrl,
       apiKey,

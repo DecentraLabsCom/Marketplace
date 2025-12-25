@@ -9,8 +9,7 @@ const nextConfig = {
   publicRuntimeConfig: {
     basePath: "", //appendPath,
   },
-  // Note: turbopack is disabled by default due to wagmi v2 compatibility issues
-  // Use 'npm run dev:turbo' to enable turbopack when compatibility is resolved
+  // Turbopack is the default dev bundler; use 'npm run dev:webpack' if issues appear.
   webpack(config) {
     config.resolve.alias["@"] = path.resolve("./src");
     // For OneDrive

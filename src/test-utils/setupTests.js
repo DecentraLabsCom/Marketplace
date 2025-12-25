@@ -57,6 +57,32 @@ jest.mock('wagmi', () => require('./mocks/wagmi'));
 jest.mock('wagmi/chains', () => require('./mocks/wagmiChains'));
 jest.mock('viem', () => require('./mocks/viem'));
 jest.mock('@/utils/dev/logger', () => require('./mocks/logger'));
+jest.mock('i18n-iso-countries', () => {
+  const normalizeValue = (value) => (value || '').toString().trim();
+
+  const getName = (code) => {
+    const normalized = normalizeValue(code).toUpperCase();
+    if (normalized === 'ES') return 'Spain';
+    if (normalized === 'PT') return 'Portugal';
+    return null;
+  };
+
+  const getAlpha2Code = (name) => {
+    const normalized = normalizeValue(name).toLowerCase();
+    if (!normalized) return null;
+    if (normalized === 'spain' || normalized === 'españa' || normalized === 'espana') return 'ES';
+    if (normalized === 'portugal') return 'PT';
+    return null;
+  };
+
+  return {
+    registerLocale: () => {},
+    getName,
+    getAlpha2Code,
+  };
+});
+jest.mock('i18n-iso-countries/langs/en.json', () => ({}));
+jest.mock('i18n-iso-countries/langs/es.json', () => ({}));
 
 // Mock blockchain configuration modules with proper chain structures
 jest.mock('@/utils/blockchain/wagmiConfig', () => {

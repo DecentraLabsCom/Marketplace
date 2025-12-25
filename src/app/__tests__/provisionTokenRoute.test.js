@@ -215,6 +215,14 @@ describe('/api/institutions/provisionToken route', () => {
       providerOrganization: 'institution.edu',
       providerCountry: 'ES',
     });
+
+    expect(signProvisioningToken).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        audience: 'https://auth.institution.edu',
+        issuer: 'https://marketplace.example.com',
+      })
+    );
   });
 
   test('normalizes publicBaseUrl to https', async () => {

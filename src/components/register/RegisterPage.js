@@ -6,7 +6,6 @@ import ProviderRegisterForm from './ProviderRegisterForm'
 import { hasAdminRole } from '@/utils/auth/roleValidation'
 import { useUser } from '@/context/UserContext'
 import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard'
-import { useNotifications } from '@/context/NotificationContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUsers, faFlask, faCheckCircle } from '@fortawesome/free-solid-svg-icons'
 
@@ -20,52 +19,8 @@ import { faUsers, faFlask, faCheckCircle } from '@fortawesome/free-solid-svg-ico
  */
 export default function RegisterPage() {
   const { isSSO, user, isLoading, isWalletLoading } = useUser()
-  const { addErrorNotification, addSuccessNotification } = useNotifications()
-  const [institutionMode, setInstitutionMode] = useState(null) // 'provider' | null
+  const [institutionMode, setInstitutionMode] = useState(null) // 'provider' | 'consumer' | null
   const [hoveredCard, setHoveredCard] = useState(null) // Track which card is hovered
-  const [consumerLoading, setConsumerLoading] = useState(false)
-
-  const handleConsumerProvision = async () => {
-    if (consumerLoading) return
-
-    setConsumerLoading(true)
-
-    try {
-      const response = await fetch('/api/institutions/provisionConsumer', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({}),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        const message = data?.error || 'Failed to generate consumer provisioning token'
-        addErrorNotification(message, '')
-        return
-      }
-
-      const data = await response.json()
-      if (!data?.token) {
-        addErrorNotification('Provisioning token missing in response', '')
-        return
-      }
-
-      try {
-        await navigator.clipboard.writeText(data.token)
-        addSuccessNotification('Consumer provisioning token copied to clipboard', '')
-      } catch (error) {
-        addErrorNotification('Failed to copy provisioning token to clipboard', '')
-      }
-    } catch (error) {
-      const message = error?.message || 'Failed to generate consumer provisioning token'
-      addErrorNotification(message, '')
-    } finally {
-      setConsumerLoading(false)
-    }
-  }
   
   // Show loading state while user data is being fetched
   if (isLoading || isWalletLoading) {
@@ -106,7 +61,7 @@ export default function RegisterPage() {
     // SSO + institutional admin roles: show institution registration choices with modal follow-ups
     if (canUseInstitutionFlow) {
       const renderModal = () => {
-        if (institutionMode !== 'provider') return null
+        if (!institutionMode) return null
 
         return (
           <div
@@ -122,7 +77,7 @@ export default function RegisterPage() {
               <div className="max-w-xl mx-auto">
                 <InstitutionInviteCard
                   className="shadow-lg"
-                  defaultTokenType="provider"
+                  defaultTokenType={institutionMode}
                   lockTokenType
                 />
               </div>
@@ -156,7 +111,7 @@ export default function RegisterPage() {
                   `}
                   onMouseEnter={() => setHoveredCard('consumer')}
                   onMouseLeave={() => setHoveredCard(null)}
-                  onClick={handleConsumerProvision}
+                  onClick={() => setInstitutionMode('consumer')}
                 >
                   {/* Gradient background overlay */}
                   <div className="absolute inset-0 bg-gradient-to-br from-header-bg/30 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -223,11 +178,10 @@ export default function RegisterPage() {
                       className="transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg !bg-[#8ab4d4] hover:!bg-[#7aa3c4]"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleConsumerProvision()
+                        setInstitutionMode('consumer')
                       }}
-                      disabled={consumerLoading}
                     >
-                      {consumerLoading ? 'Generating...' : 'Continue as Consumer'}
+                      Continue as Consumer
                     </Button>
                   </div>
                 </div>

@@ -20,9 +20,8 @@ const LOCKED_FIELDS = ['consumerOrganization'];
  * Generates a provisioning token for SSO institutional staff to register
  * their institution as CONSUMER-ONLY (no labs published, only reserves).
  * 
- * Unlike provisionToken (for providers), this does NOT require publicBaseUrl
- * because consumer-only institutions don't need a public auth-service endpoint.
- * They only need blockchain-services for wallet/treasury management.
+ * Unlike provisionToken (for providers), this does NOT require a provider auth endpoint,
+ * but it DOES require the institutional blockchain-services public base URL to set the JWT audience.
  */
 export async function POST(request) {
   try {
@@ -38,13 +37,14 @@ export async function POST(request) {
 
     const body = await request.json().catch(() => ({}));
     const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '900', 10);
-    const issuer = process.env.PROVISIONING_TOKEN_ISSUER || 'marketplace-provisioning';
-    const audience = process.env.PROVISIONING_TOKEN_AUDIENCE || 'blockchain-services';
+    const publicBaseUrl = normalizeHttpsUrl(body.publicBaseUrl, 'Public base URL');
+    const audience = publicBaseUrl;
 
     const marketplaceBaseUrl = normalizeHttpsUrl(
       process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || request.nextUrl.origin,
       'Marketplace base URL'
     );
+    const issuer = marketplaceBaseUrl;
     const apiKey = requireApiKey(process.env.INSTITUTIONAL_SERVICES_API_KEY);
 
     const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(
