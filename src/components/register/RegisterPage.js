@@ -137,10 +137,8 @@ export default function RegisterPage() {
             <div className="max-w-5xl mx-auto mt-8">
               <div className="text-center mb-8">
                 <p className="text-neutral-200 max-w-2xl mx-auto">
-                  Choose how your institution wants to participate in the DecentraLabs marketplace
-                </p>
-                <p className="text-neutral-200 max-w-2xl mx-auto mt-2">
-                  Generate a short-lived provisioning token to auto-configure the wallet dashboard for your institution.
+                  Choose how your institution wants to participate in the DecentraLabs marketplace and generate a short-lived 
+                  provisioning token to auto-configure the wallet dashboard for your institution.
                 </p>
               </div>
 

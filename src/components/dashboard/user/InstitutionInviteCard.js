@@ -27,6 +27,12 @@ export default function InstitutionInviteCard({
   const [payload, setPayload] = useState(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState('');
   const [providerCountry, setProviderCountry] = useState('');
+  const detectedCountry =
+    user?.country ||
+    user?.organizationCountry ||
+    user?.countryCode ||
+    user?.organizationCountryCode ||
+    '';
 
   const isInstitutionAdmin = isSSO && user && hasAdminRole(user.role, user.scopedRole);
 
@@ -51,7 +57,7 @@ export default function InstitutionInviteCard({
         credentials: 'include',
         body: JSON.stringify({
           publicBaseUrl: publicBaseUrl.trim(),
-          providerCountry: providerCountry.trim() || undefined,
+          providerCountry: providerCountry.trim() || detectedCountry || undefined,
         }),
       });
 
@@ -81,7 +87,15 @@ export default function InstitutionInviteCard({
     } finally {
       setLoading(false);
     }
-  }, [isSSO, isInstitutionAdmin, addErrorNotification, addSuccessNotification, publicBaseUrl, providerCountry]);
+  }, [
+    isSSO,
+    isInstitutionAdmin,
+    addErrorNotification,
+    addSuccessNotification,
+    publicBaseUrl,
+    providerCountry,
+    detectedCountry,
+  ]);
 
   const handleCopy = useCallback(() => {
     if (!token) return;
@@ -113,13 +127,6 @@ export default function InstitutionInviteCard({
       user.schacHomeOrganization ||
       '';
 
-    const defaultCountry =
-      user.country ||
-      user.organizationCountry ||
-      user.countryCode ||
-      user.organizationCountryCode ||
-      '';
-
     const defaultPublicBaseUrl =
       user.publicBaseUrl ||
       user.institutionPublicBaseUrl ||
@@ -130,14 +137,14 @@ export default function InstitutionInviteCard({
       setConsumerName(defaultInstitutionName);
     }
 
-    if (!providerCountry && defaultCountry) {
-      setProviderCountry(defaultCountry);
+    if (!providerCountry && detectedCountry) {
+      setProviderCountry(detectedCountry);
     }
 
     if (!publicBaseUrl && defaultPublicBaseUrl) {
       setPublicBaseUrl(defaultPublicBaseUrl);
     }
-  }, [user, consumerName, providerCountry, publicBaseUrl]);
+  }, [user, consumerName, providerCountry, publicBaseUrl, detectedCountry]);
 
   const handleGenerateConsumerToken = useCallback(async () => {
     if (!isSSO || !isInstitutionAdmin) {
@@ -249,9 +256,6 @@ export default function InstitutionInviteCard({
       {/* Provider-specific fields */}
       {tokenType === 'provider' && (
         <div className="space-y-3 mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
-          <p className="text-xs text-blue-800 mb-2">
-            <strong>Provider institutions</strong> publish labs and need a public auth-service endpoint.
-          </p>
           <label className="block text-xs font-semibold text-gray-700">
             Public base URL (https://)
             <input
@@ -263,16 +267,18 @@ export default function InstitutionInviteCard({
             />
           </label>
 
-          <label className="block text-xs font-semibold text-gray-700">
-            Provider country (ISO, optional)
-            <input
-            className="mt-1 w-full border rounded p-2 text-sm"
-            type="text"
-            value={providerCountry}
-            onChange={(e) => setProviderCountry(e.target.value)}
-            placeholder="ES"
-          />
-          </label>
+          {!detectedCountry && (
+            <label className="block text-xs font-semibold text-gray-700">
+              Provider country (ISO, optional)
+              <input
+                className="mt-1 w-full border rounded p-2 text-sm"
+                type="text"
+                value={providerCountry}
+                onChange={(e) => setProviderCountry(e.target.value)}
+                placeholder="ES"
+              />
+            </label>
+          )}
         </div>
       )}
 
