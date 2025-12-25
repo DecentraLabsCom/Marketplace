@@ -9,7 +9,6 @@ import PropTypes from 'prop-types'
  * @param {Object} props.errors - Validation errors object
  * @param {boolean} props.isLocalURI - Whether using local URI (disables editing)
  * @param {React.RefObject} props.priceRef - Ref for price input field
- * @param {React.RefObject} props.authRef - Ref for authentication input field
  * @param {React.RefObject} props.accessURIRef - Ref for access URI input field
  * @param {React.RefObject} props.accessKeyRef - Ref for access key input field
  * @param {React.RefObject} props.uriRef - Ref for URI input field
@@ -21,7 +20,7 @@ import PropTypes from 'prop-types'
  * @param {Object} props.lab - Original lab object for reference
  * @returns {JSX.Element} Quick setup form with essential lab fields
  */
-export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLocalURI, priceRef, authRef,
+export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLocalURI, priceRef,
   accessURIRef, accessKeyRef, uriRef, clickedToEditUri, setClickedToEditUri, handleUriChange,
   onSubmit, onCancel, lab }) {
   return (
@@ -38,18 +37,6 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         ref={priceRef}
       />
       {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
-
-      <input
-        type="text"
-        placeholder="Auth URL"
-        value={localLab?.auth || ''}
-        onChange={(e) => setLocalLab({ ...localLab, auth: e.target.value })}
-        className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
-        disabled:cursor-not-allowed disabled:border-gray-300"
-        disabled={isLocalURI}
-        ref={authRef}
-      />
-      {errors.auth && <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
 
       <input
         type="text"

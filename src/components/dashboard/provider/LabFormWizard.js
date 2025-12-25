@@ -49,7 +49,6 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
     keywords: useRef(null),
     description: useRef(null),
     price: useRef(null),
-    auth: useRef(null),
     accessURI: useRef(null),
     accessKey: useRef(null),
     timeSlots: useRef(null),
@@ -264,7 +263,6 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
               keywordsRef={refs.keywords}
               descriptionRef={refs.description}
               priceRef={refs.price}
-              authRef={refs.auth}
               accessURIRef={refs.accessURI}
               accessKeyRef={refs.accessKey}
               timeSlotsRef={refs.timeSlots}
@@ -282,7 +280,7 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
               errors={getErrors(formData)}
               isLocalURI={isLocalURI}
               priceRef={refs.price}
-              authRef={refs.auth}
+              accessURIRef={refs.accessURI}
             />
           )}
 

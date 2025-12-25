@@ -1,0 +1,82 @@
+import { NextResponse } from 'next/server';
+import { requireAuth, HttpError, ForbiddenError } from '@/utils/auth/guards';
+import { hasAdminRole } from '@/utils/auth/roleValidation';
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
+import devLog from '@/utils/dev/logger';
+import {
+  normalizeHttpsUrl,
+  requireApiKey,
+  requireEmail,
+  requireString,
+  signProvisioningToken,
+} from '@/utils/auth/provisioningToken';
+
+export const runtime = 'nodejs';
+
+const LOCKED_FIELDS = ['providerName', 'providerEmail', 'providerCountry', 'providerOrganization'];
+
+export async function POST(request) {
+  try {
+    const session = await requireAuth();
+
+    // Enforce SSO session with institutional roles
+    if (!session?.samlAssertion) {
+      throw new ForbiddenError('Provisioning token requires SSO session');
+    }
+    if (!hasAdminRole(session.role, session.scopedRole)) {
+      throw new ForbiddenError('Provisioning token allowed only for institutional staff');
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const requestedBaseUrl = body.publicBaseUrl || process.env.PROVISIONING_DEFAULT_PUBLIC_BASE_URL;
+    const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '900', 10);
+    const issuer = process.env.PROVISIONING_TOKEN_ISSUER || 'marketplace-provisioning';
+    const audience = process.env.PROVISIONING_TOKEN_AUDIENCE || 'blockchain-services';
+
+    const marketplaceBaseUrl = normalizeHttpsUrl(
+      process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || request.nextUrl.origin,
+      'Marketplace base URL'
+    );
+    const apiKey = requireApiKey(process.env.INSTITUTIONAL_SERVICES_API_KEY);
+
+    const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(
+      body.providerOrganization || session.affiliation || session.schacHomeOrganization || ''
+    );
+
+    const providerName = requireString(
+      body.providerName || session.organizationName || session.name || organizationDomain,
+      'Provider name'
+    );
+    const providerEmail = requireEmail(session.email || session.mail || body.providerEmail, 'Provider email');
+    const providerCountry = requireString(
+      body.providerCountry || process.env.PROVISIONING_DEFAULT_COUNTRY || 'ES',
+      'Provider country'
+    );
+    const publicBaseUrl = normalizeHttpsUrl(requestedBaseUrl, 'Public base URL');
+
+    const payload = {
+      marketplaceBaseUrl,
+      apiKey,
+      providerName,
+      providerEmail,
+      providerCountry,
+      providerOrganization: organizationDomain,
+      publicBaseUrl,
+    };
+
+    const { token, expiresAt } = await signProvisioningToken(payload, { issuer, audience, ttlSeconds });
+
+    return NextResponse.json({
+      success: true,
+      token,
+      expiresAt,
+      lockedFields: LOCKED_FIELDS,
+      payload,
+    });
+  } catch (error) {
+    devLog.error('[API] provisionToken: generation failed', error);
+    const status = error instanceof HttpError ? error.status : 400;
+    const message = error.message || 'Failed to generate provisioning token';
+    return NextResponse.json({ error: message }, { status });
+  }
+}

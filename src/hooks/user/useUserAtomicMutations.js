@@ -28,7 +28,11 @@ export const useAddProviderWallet = (options = {}) => {
 
   return useMutation({
     mutationFn: async (providerData) => {
-      const txHash = await addProvider([providerData.name, providerData.account, providerData.email, providerData.country]);
+      const params = providerData.authURI 
+        ? [providerData.name, providerData.account, providerData.email, providerData.country, providerData.authURI]
+        : [providerData.name, providerData.account, providerData.email, providerData.country];
+      
+      const txHash = await addProvider(params);
       
       devLog.mutation('useAddProviderWallet - Transaction Hash:', txHash);
       return { hash: txHash };
@@ -77,10 +81,18 @@ export const useAddProviderSSO = (options = {}) => {
 
   return useMutation({
     mutationFn: async (providerData) => {
+      const payload = {
+        name: providerData.name,
+        account: providerData.account,
+        email: providerData.email,
+        country: providerData.country,
+        ...(providerData.authURI && { authURI: providerData.authURI })
+      };
+      
       const response = await fetch('/api/contract/provider/addProvider', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(providerData)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {

@@ -78,7 +78,6 @@ export default function LabGrid({
             name={lab.name}
             provider={lab.provider}
             price={lab.price}
-            auth={lab.auth}
             activeBooking={lab.hasActiveBooking}
             isListed={lab.isListed}
             image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}

@@ -145,7 +145,6 @@ export default function ProviderDashboard() {
     price: '',
     description: '',
     provider: '',
-    auth: '',
     accessURI: '',
     accessKey: '',
     timeSlots: [],
@@ -415,11 +414,10 @@ export default function ProviderDashboard() {
     const normalize = (value) => value === undefined || value === null ? '' : value;
     
     // ONLY compare on-chain fields that are stored in the smart contract
-    // According to smart contract ABI: uri, price, auth, accessURI, accessKey
+    // According to smart contract ABI: uri, price, accessURI, accessKey (auth removed - now per provider)
     const hasChangedOnChainData =
       normalize(originalLab.uri) !== normalize(labData.uri) ||
       normalize(originalLab.price) !== normalize(labData.price) ||
-      normalize(originalLab.auth) !== normalize(labData.auth) ||
       normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
       normalize(originalLab.accessKey) !== normalize(labData.accessKey);
 
@@ -427,7 +425,6 @@ export default function ProviderDashboard() {
     devLog.log('🔍 On-chain comparison debug:', {
       uri: { original: normalize(originalLab.uri), new: normalize(labData.uri), changed: normalize(originalLab.uri) !== normalize(labData.uri) },
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
-      auth: { original: normalize(originalLab.auth), new: normalize(labData.auth), changed: normalize(originalLab.auth) !== normalize(labData.auth) },
       accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
       accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
       hasChangedOnChainData
@@ -445,7 +442,6 @@ export default function ProviderDashboard() {
           labData: {
             uri: labData.uri,
             price: labData.price, // Already in token units
-            auth: labData.auth,
             accessURI: labData.accessURI,
             accessKey: labData.accessKey
           }

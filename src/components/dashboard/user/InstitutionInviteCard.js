@@ -7,8 +7,10 @@ import devLog from '@/utils/dev/logger';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
 
 /**
- * Dashboard card to generate and display institutional invite token
- * for SSO users with appropriate institutional roles.
+ * Dashboard card to generate and display provisioning token
+ * for SSO institutional staff. Token is consumed by the
+ * blockchain-services wallet dashboard to auto-fill and lock
+ * provider configuration fields.
  */
 export default function InstitutionInviteCard({ className = '' }) {
   const { isSSO, user } = useUser();
@@ -17,63 +19,73 @@ export default function InstitutionInviteCard({ className = '' }) {
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
-  const [domains, setDomains] = useState([]);
+  const [payload, setPayload] = useState(null);
+  const [publicBaseUrl, setPublicBaseUrl] = useState('');
+  const [providerCountry, setProviderCountry] = useState('');
 
   const isInstitutionAdmin = isSSO && user && hasAdminRole(user.role, user.scopedRole);
 
   const handleGenerateInvite = useCallback(async () => {
     if (!isSSO || !isInstitutionAdmin) {
-      addErrorNotification('Institutional invite is only available for authorized institutional staff (SSO)', '');
+      addErrorNotification('Provisioning token is only available for authorized institutional staff (SSO)', '');
+      return;
+    }
+
+    if (!publicBaseUrl || !publicBaseUrl.trim().startsWith('https://')) {
+      addErrorNotification('Public base URL (https://) is required', '');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch('/api/institutions/invite', {
+      const response = await fetch('/api/institutions/provisionToken', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          publicBaseUrl: publicBaseUrl.trim(),
+          providerCountry: providerCountry.trim() || undefined,
+        }),
       });
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        const message = data?.error || 'Failed to generate institution invite token';
+        const message = data?.error || 'Failed to generate provisioning token';
         addErrorNotification(message, '');
         setToken(null);
         setExpiresAt(null);
-        setDomains([]);
+        setPayload(null);
         return;
       }
 
       const data = await response.json();
       setToken(data.token);
       setExpiresAt(data.expiresAt);
-      setDomains(data.organizationDomains || []);
+      setPayload(data.payload || null);
 
-      devLog.log('InstitutionInviteCard: Invite token generated', data);
-      addSuccessNotification('Institution invite token generated successfully', '');
+      devLog.log('InstitutionInviteCard: Provisioning token generated', data);
+      addSuccessNotification('Provisioning token generated successfully', '');
     } catch (error) {
-      devLog.error('InstitutionInviteCard: Failed to generate invite token', error);
-      addErrorNotification(error, 'Failed to generate institution invite token');
+      devLog.error('InstitutionInviteCard: Failed to generate provisioning token', error);
+      addErrorNotification(error, 'Failed to generate provisioning token');
       setToken(null);
       setExpiresAt(null);
-      setDomains([]);
+      setPayload(null);
     } finally {
       setLoading(false);
     }
-  }, [isSSO, isInstitutionAdmin, addErrorNotification, addSuccessNotification]);
+  }, [isSSO, isInstitutionAdmin, addErrorNotification, addSuccessNotification, publicBaseUrl, providerCountry]);
 
   const handleCopy = useCallback(() => {
     if (!token) return;
     try {
       navigator.clipboard.writeText(token);
-      addSuccessNotification('Invite token copied to clipboard', '');
+      addSuccessNotification('Provisioning token copied to clipboard', '');
     } catch (error) {
-      devLog.error('InstitutionInviteCard: Failed to copy token', error);
-      addErrorNotification('Failed to copy token to clipboard', '');
+      devLog.error('InstitutionInviteCard: Failed to copy provisioning token', error);
+      addErrorNotification('Failed to copy provisioning token to clipboard', '');
     }
   }, [token, addSuccessNotification, addErrorNotification]);
 
@@ -85,16 +97,39 @@ export default function InstitutionInviteCard({ className = '' }) {
   return (
     <div className={`bg-white shadow-md rounded-lg p-6 mt-6 mb-6 ${className}`}>
       <h1 className="text-2xl font-bold text-center mb-4 text-gray-800">
-        Register Institution (Consumer)
+        Provisioning Token (Provider)
       </h1>
       <p className="text-sm text-gray-600 mb-4">
-        Generate a short-lived invite token so your institution can configure the{' '}
-        <a href="https://github.com/DecentraLabsCom/Blockchain-Services" className="text-brand hover:text-hover-dark underline">institutional wallet and treasury</a> backend and obtain{' '}
-        <code>INSTITUTION_ROLE</code> on-chain as a consumer. 
+        Generate a short-lived provisioning token to auto-fill the{' '}
+        <a href="https://github.com/DecentraLabsCom/Blockchain-Services" className="text-brand hover:text-hover-dark underline">blockchain-services wallet dashboard</a> with your institution metadata.
       </p>
       <p className="text-sm text-gray-600 mb-4 italic">
         Disclaimer: This should only be used by staff responsible for managing institutional wallets.
       </p>
+
+      <div className="space-y-3 mb-4">
+        <label className="block text-xs font-semibold text-gray-700">
+          Public base URL (https://)
+          <input
+            className="mt-1 w-full border rounded p-2 text-sm"
+            type="url"
+            value={publicBaseUrl}
+            onChange={(e) => setPublicBaseUrl(e.target.value)}
+            placeholder="https://institution.example.edu/auth"
+          />
+        </label>
+
+        <label className="block text-xs font-semibold text-gray-700">
+          Provider country (ISO, optional)
+          <input
+            className="mt-1 w-full border rounded p-2 text-sm"
+            type="text"
+            value={providerCountry}
+            onChange={(e) => setProviderCountry(e.target.value)}
+            placeholder="ES"
+          />
+        </label>
+      </div>
 
       <div className="flex justify-center mb-4">
         <button
@@ -103,32 +138,44 @@ export default function InstitutionInviteCard({ className = '' }) {
           disabled={loading}
           className="inline-flex items-center px-4 py-2 bg-brand text-white text-sm font-medium rounded-md hover:bg-hover-dark disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {loading ? 'Generating...' : 'Generate Invite Token'}
+          {loading ? 'Generating...' : 'Generate Provisioning Token'}
         </button>
       </div>
 
       {token && (
         <div className="mt-4 space-y-3">
-          <div>
-            <p className="text-xs font-semibold text-gray-700 mb-1">
-              Domains in this invite
-            </p>
-            <ul className="list-disc list-inside text-xs text-gray-700">
-              {domains.map((d) => (
-                <li key={d}>{d}</li>
-              ))}
-            </ul>
-          </div>
-
           {expiresAt && (
             <p className="text-xs text-gray-500">
               Expires at: {new Date(expiresAt).toLocaleString()}
             </p>
           )}
 
+          {payload && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-700">
+              <div className="border rounded p-2 bg-gray-50">
+                <p className="font-semibold">Marketplace</p>
+                <p>{payload.marketplaceBaseUrl}</p>
+              </div>
+              <div className="border rounded p-2 bg-gray-50">
+                <p className="font-semibold">Public base URL</p>
+                <p>{payload.publicBaseUrl}</p>
+              </div>
+              <div className="border rounded p-2 bg-gray-50">
+                <p className="font-semibold">Provider</p>
+                <p>{payload.providerName}</p>
+                <p>{payload.providerEmail}</p>
+              </div>
+              <div className="border rounded p-2 bg-gray-50">
+                <p className="font-semibold">Organization / Country</p>
+                <p>{payload.providerOrganization}</p>
+                <p>{payload.providerCountry}</p>
+              </div>
+            </div>
+          )}
+
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-1">
-              Invite Token
+              Provisioning Token
             </p>
             <div className="flex items-center gap-2">
               <textarea
@@ -148,8 +195,7 @@ export default function InstitutionInviteCard({ className = '' }) {
           </div>
 
           <p className="text-xs text-gray-500">
-            Paste this token into the <strong>Institution Invite</strong> card inside
-            your institutional <code>wallet dashboard</code> to complete onboarding.
+            Paste this token into the <strong>Provisioning Token</strong> section of the blockchain-services wallet dashboard modal to lock fields and auto-register.
           </p>
         </div>
       )}

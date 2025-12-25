@@ -75,6 +75,23 @@ class MarketplaceJwtService {
   }
 
   /**
+   * Expose the PEM-encoded private key once loaded.
+   * Ensures the key is available and throws if misconfigured.
+   * @returns {Promise<string>} RSA private key in PEM format
+   */
+  async getPrivateKeyPem() {
+    if (!this.privateKey) {
+      await this.loadPrivateKey();
+    }
+
+    if (!this.privateKey) {
+      throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH.');
+    }
+
+    return this.privateKey;
+  }
+
+  /**
    * Generate a signed JWT token for user authentication with auth-service
    * 
    * @param {Object} samlAttributes - User attributes from SAML2 session

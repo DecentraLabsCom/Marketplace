@@ -281,7 +281,6 @@ export const useAddLabSSO = (options = {}) => {
         labId: 0,
         uri: labData.uri,
         price: labData.price,
-        auth: labData.auth,
         accessURI: labData.accessURI,
         accessKey: labData.accessKey,
         gatewayUrl: labData.gatewayUrl,
@@ -374,11 +373,10 @@ export const useAddLabWallet = (options = {}) => {
           devLog.error('Error converting price to BigInt:', { rawPrice, error });
           priceInContractUnits = BigInt('0');
         }
-        const auth = labData.auth || '';
         const accessURI = labData.accessURI || '';
         const accessKey = labData.accessKey || '';
         
-        const txHash = await addLab([uri, priceInContractUnits, auth, accessURI, accessKey]);
+        const txHash = await addLab([uri, priceInContractUnits, accessURI, accessKey]);
         
         devLog.log('🔗 useAddLabWallet - Transaction Hash:', txHash);
 
@@ -506,7 +504,6 @@ export const useUpdateLabSSO = (options = {}) => {
         labId: updateData.labId,
         uri: updateData.labData?.uri,
         price: updateData.labData?.price,
-        auth: updateData.labData?.auth,
         accessURI: updateData.labData?.accessURI,
         accessKey: updateData.labData?.accessKey,
         tokenURI: updateData.labData?.tokenURI,
@@ -612,11 +609,10 @@ export const useUpdateLabWallet = (options = {}) => {
         devLog.error('Error converting price to BigInt:', { rawPrice, error });
         priceInContractUnits = BigInt('0');
       }
-      const auth = labDataObj.auth || '';
       const accessURI = labDataObj.accessURI || '';
       const accessKey = labDataObj.accessKey || '';
       
-      const txHash = await updateLabContract([labId, uri, priceInContractUnits, auth, accessURI, accessKey]);
+      const txHash = await updateLabContract([labId, uri, priceInContractUnits, accessURI, accessKey]);
       
       devLog.log('🔗 useUpdateLabWallet - Transaction Hash:', txHash);
       return { hash: txHash };

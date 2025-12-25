@@ -341,19 +341,6 @@ export default function LabFormFullSetup({
           <div>
             <input
               type="text"
-              placeholder="Auth URL"
-              value={localLab?.auth || ''}
-              onChange={(e) => handleBasicChange('auth', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={authRef}
-            />
-            {errors.auth && <p className="text-red-500 text-sm !mt-1">{errors.auth}</p>}
-          </div>
-
-          <div>
-            <input
-              type="text"
               placeholder="Access Key"
               value={localLab?.accessKey || ''}
               onChange={(e) => handleBasicChange('accessKey', e.target.value)}

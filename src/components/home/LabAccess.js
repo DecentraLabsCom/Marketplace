@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useSignMessage, useSignTypedData } from 'wagmi'
 import { useUser } from '@/context/UserContext'
@@ -13,25 +13,49 @@ import devLog from '@/utils/dev/logger'
  * @param {string|number} props.id - Lab ID to provide access for
  * @param {string} props.userWallet - User's wallet address
  * @param {boolean} props.hasActiveBooking - Whether user has an active booking
- * @param {string} props.auth - Authentication method required for access
  * @param {string} [props.reservationKey] - Optional reservation key for optimized validation
  * @returns {JSX.Element} Lab access interface with validation and entry controls
  */
-export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '', reservationKey = null }) {
+export default function LabAccess({ id, userWallet, hasActiveBooking, reservationKey = null }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [authURI, setAuthURI] = useState(null);
+  const [fetchingAuth, setFetchingAuth] = useState(false);
   const { isSSO } = useUser();
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
 
-  devLog.log(`🔐 LabAccess component - Lab ${id} auth endpoint:`, auth);
+  // Fetch authURI when component mounts or lab ID changes
+  useEffect(() => {
+    const fetchAuthURI = async () => {
+      if (!id) return;
+      
+      setFetchingAuth(true);
+      try {
+        const response = await fetch(`/api/contract/lab/getLabAuthURI?labId=${id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch auth URI');
+        }
+        const data = await response.json();
+        setAuthURI(data.authURI);
+        devLog.log(`🔐 LabAccess - Fetched authURI for lab ${id}:`, data.authURI);
+      } catch (error) {
+        devLog.error('❌ Error fetching authURI:', error);
+        setAuthURI('');
+      } finally {
+        setFetchingAuth(false);
+      }
+    };
+
+    fetchAuthURI();
+  }, [id]);
 
   const handleAccess = async () => {
     setLoading(true);
     setErrorMessage(null);
     
     // Validate auth endpoint before attempting authentication
-    if (!auth || auth === '') {
+    if (!authURI || authURI === '') {
       devLog.error('❌ Missing auth endpoint for lab:', id);
       setErrorMessage('This lab does not have authentication configured. Please contact the lab provider.');
       setTimeout(() => setErrorMessage(null), 3000);
@@ -53,10 +77,10 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, auth = '',
         ? await authenticateLabAccessSSO({
             labId: id,
             reservationKey,
-            authEndpoint: auth,
+            authEndpoint: authURI,
           })
         : await authenticateLabAccess(
-            auth,
+            authURI,
             userWallet,
             id,
             signMessageAsync,
@@ -121,6 +145,5 @@ LabAccess.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   userWallet: PropTypes.string,
   hasActiveBooking: PropTypes.bool.isRequired,
-  auth: PropTypes.string,
   reservationKey: PropTypes.string
 }
