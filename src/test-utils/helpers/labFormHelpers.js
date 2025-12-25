@@ -29,11 +29,9 @@ export const fillFullSetupForm = async (labData) => {
   fireEvent.change(priceInput, { target: { value: labData.price } });
 
   // Access Configuration
-  const authInput = screen.getByPlaceholderText(/auth url/i);
   const accessURIInput = screen.getByPlaceholderText(/access uri/i);
   const accessKeyInput = screen.getByPlaceholderText(/access key/i);
 
-  fireEvent.change(authInput, { target: { value: labData.auth } });
   fireEvent.change(accessURIInput, { target: { value: labData.accessURI } });
   fireEvent.change(accessKeyInput, { target: { value: labData.accessKey } });
 
@@ -97,13 +95,11 @@ export const fillFullSetupForm = async (labData) => {
  */
 export const fillQuickSetupForm = async (labData) => {
   const priceInput = screen.getByPlaceholderText(/price/i);
-  const authInput = screen.getByPlaceholderText(/auth url/i);
   const accessURIInput = screen.getByPlaceholderText(/access uri/i);
   const accessKeyInput = screen.getByPlaceholderText(/access key/i);
   const uriInput = screen.getByPlaceholderText(/lab data url/i);
 
   fireEvent.change(priceInput, { target: { value: labData.price } });
-  fireEvent.change(authInput, { target: { value: labData.auth } });
   fireEvent.change(accessURIInput, { target: { value: labData.accessURI } });
   fireEvent.change(accessKeyInput, { target: { value: labData.accessKey } });
   fireEvent.change(uriInput, { target: { value: labData.uri } });

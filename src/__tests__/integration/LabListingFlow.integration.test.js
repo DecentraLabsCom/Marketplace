@@ -233,7 +233,6 @@ describe("LabModal Component - Lab Listing Flow", () => {
     expect(submittedData.price).toBe(labData.price);
 
     // Access Configuration - all fields verified
-    expect(submittedData.auth).toBe(labData.auth);
     expect(submittedData.accessURI).toBe(labData.accessURI);
     expect(submittedData.accessKey).toBe(labData.accessKey);
 
@@ -287,7 +286,6 @@ describe("LabModal Component - Lab Listing Flow", () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           price: labData.price,
-          auth: labData.auth,
           accessURI: labData.accessURI,
           accessKey: labData.accessKey,
           uri: labData.uri,

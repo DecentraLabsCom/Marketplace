@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
-import { getServerWallet } from '@/app/api/contract/utils/serverWallet';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import devLog from '@/utils/dev/logger';
 
@@ -56,6 +55,7 @@ function validateAddress(address) {
 /**
  * POST /api/institutions/registerProvider
  * Secure endpoint for blockchain-services to register as provider
+ * Executes on-chain registration using server signer
  * Requires shared API key authentication
  */
 export async function POST(request) {
@@ -128,77 +128,90 @@ export async function POST(request) {
       );
     }
 
+    // Check if provider already exists and prepare transaction data
+    const contract = await getContractInstance('diamond', true);
+    let needsRegistration = true;
+    let needsRoleGrant = true;
+
     // Normalize organization domain to lowercase for consistency
     const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(organization.trim());
-
-    const contract = await getContractInstance();
-    const wallet = getServerWallet();
 
     // Check if provider already exists
     try {
       const existingProvider = await contract.getProvider(walletAddress);
       if (existingProvider && existingProvider.name && existingProvider.name.length > 0) {
         devLog.log('[API] registerProvider: Provider already registered', walletAddress);
-        
-        // Check if organization needs to be granted
-        const resolvedWallet = await contract.resolveSchacHomeOrganization(normalizedOrganization);
-        const needsOrgGrant = !resolvedWallet || resolvedWallet === ZERO_ADDRESS || resolvedWallet.toLowerCase() !== walletAddress.toLowerCase();
-        
-        if (needsOrgGrant) {
-          devLog.log('[API] registerProvider: Granting institution role for existing provider');
-          const grantTx = await contract.connect(wallet).grantInstitutionRole(
-            walletAddress,
-            normalizedOrganization
-          );
-          await grantTx.wait();
-        }
-
-        return NextResponse.json(
-          {
-            success: true,
-            alreadyRegistered: true,
-            walletAddress,
-            organizationGranted: needsOrgGrant,
-            organization: normalizedOrganization
-          },
-          { status: 200 }
-        );
+        needsRegistration = false;
       }
     } catch (err) {
-      // Provider doesn't exist, continue with registration
-      devLog.log('[API] registerProvider: Provider not found, proceeding with registration');
+      // Provider doesn't exist, needs registration
+      devLog.log('[API] registerProvider: Provider not found, needs registration');
     }
 
-    // Execute addProvider transaction
-    devLog.log('[API] registerProvider: Adding provider', { name, walletAddress, email, country, authURI: authValidation.normalized });
-    const addProviderTx = await contract.connect(wallet).addProvider(
-      name.trim(),
-      walletAddress,
-      email.trim(),
-      country.trim(),
-      authValidation.normalized
-    );
-    const addProviderReceipt = await addProviderTx.wait();
+    // Check if organization role needs to be granted (and ensure no conflicts)
+    try {
+      const resolvedWallet = await contract.resolveSchacHomeOrganization(normalizedOrganization);
+      if (resolvedWallet && resolvedWallet !== ZERO_ADDRESS) {
+        if (resolvedWallet.toLowerCase() === walletAddress.toLowerCase()) {
+          devLog.log('[API] registerProvider: Organization role already granted', { walletAddress, organization: normalizedOrganization });
+          needsRoleGrant = false;
+        } else {
+          devLog.warn('[API] registerProvider: Organization already registered to different wallet', {
+            organization: normalizedOrganization,
+            existingWallet: resolvedWallet
+          });
+          return NextResponse.json(
+            { error: 'Organization already registered to a different wallet' },
+            { status: 409 }
+          );
+        }
+      }
+    } catch (err) {
+      // Organization not registered yet
+      devLog.log('[API] registerProvider: Organization not found, needs role grant');
+    }
 
-    devLog.log('[API] registerProvider: Provider added successfully', addProviderReceipt.hash);
+    if (!needsRegistration && !needsRoleGrant) {
+      return NextResponse.json(
+        {
+          success: true,
+          alreadyRegistered: true,
+          walletAddress,
+          organization: normalizedOrganization
+        },
+        { status: 200 }
+      );
+    }
 
-    // Execute grantInstitutionRole transaction
-    devLog.log('[API] registerProvider: Granting institution role', { walletAddress, organization: normalizedOrganization });
-    const grantRoleTx = await contract.connect(wallet).grantInstitutionRole(
-      walletAddress,
-      normalizedOrganization
-    );
-    const grantRoleReceipt = await grantRoleTx.wait();
+    const writeContract = await getContractInstance('diamond', false);
+    const txHashes = [];
 
-    devLog.log('[API] registerProvider: Institution role granted successfully', grantRoleReceipt.hash);
+    if (needsRegistration) {
+      devLog.log('[API] registerProvider: Adding provider', walletAddress);
+      const addProviderTx = await writeContract.addProvider(
+        name.trim(),
+        walletAddress,
+        email.trim(),
+        country.trim(),
+        authValidation.normalized
+      );
+      const addProviderReceipt = await addProviderTx.wait();
+      txHashes.push(addProviderReceipt?.hash ?? addProviderTx?.hash);
+    }
+
+    if (needsRoleGrant) {
+      devLog.log('[API] registerProvider: Granting institution role', { walletAddress, organization: normalizedOrganization });
+      const grantRoleTx = await writeContract.grantInstitutionRole(walletAddress, normalizedOrganization);
+      const grantRoleReceipt = await grantRoleTx.wait();
+      txHashes.push(grantRoleReceipt?.hash ?? grantRoleTx?.hash);
+    }
 
     return NextResponse.json(
       {
         success: true,
         walletAddress,
-        addProviderTxHash: addProviderReceipt.hash,
-        grantRoleTxHash: grantRoleReceipt.hash,
-        organization: normalizedOrganization
+        organization: normalizedOrganization,
+        txHashes
       },
       { status: 201 }
     );

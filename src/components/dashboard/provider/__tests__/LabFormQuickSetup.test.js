@@ -21,7 +21,6 @@ import LabFormQuickSetup from "../LabFormQuickSetup";
 const mockLab = {
   id: "1",
   price: "100",
-  auth: "https://auth.test.com",
   accessURI: "https://access.test.com",
   accessKey: "key123",
   uri: "https://lab-data.json",
@@ -47,7 +46,6 @@ const renderForm = (overrides = {}) => {
     errors: {},
     isLocalURI: false,
     priceRef: { current: null },
-    authRef: { current: null },
     accessURIRef: { current: null },
     accessKeyRef: { current: null },
     uriRef: { current: null },
@@ -71,9 +69,6 @@ describe("LabFormQuickSetup", () => {
       renderForm();
 
       expect(screen.getByDisplayValue("100")).toBeInTheDocument();
-      expect(
-        screen.getByDisplayValue("https://auth.test.com")
-      ).toBeInTheDocument();
       expect(
         screen.getByDisplayValue("https://access.test.com")
       ).toBeInTheDocument();
@@ -112,18 +107,6 @@ describe("LabFormQuickSetup", () => {
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
         price: "250",
-      });
-    });
-
-    test("updates auth URL field with correct value", () => {
-      renderForm();
-
-      const authInput = screen.getByPlaceholderText("Auth URL");
-      fireEvent.change(authInput, { target: { value: "https://newauth.com" } });
-
-      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
-        ...mockLab,
-        auth: "https://newauth.com",
       });
     });
 
@@ -243,7 +226,6 @@ describe("LabFormQuickSetup", () => {
       renderForm({ isLocalURI: true });
 
       expect(screen.getByPlaceholderText("Price")).toBeDisabled();
-      expect(screen.getByPlaceholderText("Auth URL")).toBeDisabled();
       expect(screen.getByPlaceholderText("Access URI")).toBeDisabled();
       expect(screen.getByPlaceholderText("Access Key")).toBeDisabled();
 
@@ -256,7 +238,6 @@ describe("LabFormQuickSetup", () => {
       renderForm({ isLocalURI: false });
 
       expect(screen.getByPlaceholderText("Price")).not.toBeDisabled();
-      expect(screen.getByPlaceholderText("Auth URL")).not.toBeDisabled();
       expect(screen.getByPlaceholderText("Access URI")).not.toBeDisabled();
       expect(screen.getByPlaceholderText("Access Key")).not.toBeDisabled();
     });
@@ -272,14 +253,12 @@ describe("LabFormQuickSetup", () => {
     test("displays multiple validation errors simultaneously", () => {
       const errors = {
         price: "Price must be a number",
-        auth: "Auth URL is invalid",
         accessURI: "Access URI is required",
       };
 
       renderForm({ errors });
 
       expect(screen.getByText("Price must be a number")).toBeInTheDocument();
-      expect(screen.getByText("Auth URL is invalid")).toBeInTheDocument();
       expect(screen.getByText("Access URI is required")).toBeInTheDocument();
     });
 
@@ -331,7 +310,6 @@ describe("LabFormQuickSetup", () => {
       renderForm({ localLab: {} });
 
       expect(screen.getByPlaceholderText("Price")).toHaveValue(null);
-      expect(screen.getByPlaceholderText("Auth URL")).toHaveValue("");
       expect(screen.getByPlaceholderText("Access URI")).toHaveValue("");
       expect(screen.getByPlaceholderText("Access Key")).toHaveValue("");
     });
@@ -340,7 +318,6 @@ describe("LabFormQuickSetup", () => {
       renderForm({
         localLab: {
           price: null,
-          auth: null,
           accessURI: null,
           accessKey: null,
           uri: null,
@@ -348,7 +325,6 @@ describe("LabFormQuickSetup", () => {
       });
 
       expect(screen.getByPlaceholderText("Price")).toHaveValue(null);
-      expect(screen.getByPlaceholderText("Auth URL")).toHaveValue("");
       expect(screen.getByPlaceholderText("Lab Data URL (JSON)")).toHaveValue(
         ""
       );

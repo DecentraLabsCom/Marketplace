@@ -10,7 +10,7 @@
  * - User interaction flows
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { useSignMessage, useSignTypedData } from "wagmi";
 import LabAccess from "../LabAccess";
@@ -46,6 +46,9 @@ jest.mock("@/utils/dev/logger", () => ({
   error: jest.fn(),
 }));
 
+// Mock fetch globally
+global.fetch = jest.fn();
+
 describe("LabAccess Component", () => {
   const mockRouter = { push: jest.fn() };
   const mockSignMessageAsync = jest.fn();
@@ -57,7 +60,6 @@ describe("LabAccess Component", () => {
     id: "123",
     userWallet: "0x1234567890",
     hasActiveBooking: true,
-    auth: "https://auth.example.com",
     reservationKey: "test-key-123",
   };
 
@@ -73,6 +75,11 @@ describe("LabAccess Component", () => {
       signTypedDataAsync: mockSignTypedDataAsync,
     });
     mockUseUser.mockReturnValue({ isSSO: false });
+    // Mock fetch to return authURI
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ authURI: "https://auth.example.com" }),
+    });
     // Suppress jsdom navigation warnings
     console.error = (...args) => {
       if (args[0]?.toString?.().includes('Not implemented: navigation')) return;
@@ -107,6 +114,13 @@ describe("LabAccess Component", () => {
 
       render(<LabAccess {...defaultProps} />);
 
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
 
@@ -120,12 +134,23 @@ describe("LabAccess Component", () => {
 
       render(<LabAccess {...propsWithoutKey} />);
 
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
 
       await waitFor(() => {
         expect(authenticateLabAccess).toHaveBeenCalledWith(
-          defaultProps.auth,
+          "https://auth.example.com",
           defaultProps.userWallet,
           defaultProps.id,
           mockSignMessageAsync,
@@ -143,6 +168,17 @@ describe("LabAccess Component", () => {
 
       render(<LabAccess {...defaultProps} />);
 
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
 
@@ -150,7 +186,7 @@ describe("LabAccess Component", () => {
         expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
           labId: defaultProps.id,
           reservationKey: defaultProps.reservationKey,
-          authEndpoint: defaultProps.auth,
+          authEndpoint: "https://auth.example.com",
         });
       });
     });
@@ -158,7 +194,24 @@ describe("LabAccess Component", () => {
 
   describe("Error Handling", () => {
     test("should display error when auth endpoint is missing", async () => {
-      render(<LabAccess {...defaultProps} auth="" />);
+      // Mock fetch to return empty authURI
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ authURI: "" }),
+      });
+
+      render(<LabAccess {...defaultProps} />);
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
 
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
@@ -180,6 +233,17 @@ describe("LabAccess Component", () => {
 
       render(<LabAccess {...defaultProps} />);
 
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
 
@@ -197,6 +261,17 @@ describe("LabAccess Component", () => {
       );
 
       render(<LabAccess {...defaultProps} />);
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
 
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
@@ -218,6 +293,17 @@ describe("LabAccess Component", () => {
 
       render(<LabAccess {...defaultProps} />);
 
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
 
@@ -236,7 +322,16 @@ describe("LabAccess Component", () => {
         error: "Temporary error",
       });
 
-      render(<LabAccess {...defaultProps} />);
+      await act(async () => {
+        render(<LabAccess {...defaultProps} />);
+      });
+
+      // Wait for authURI to be fetched
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
 
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
@@ -256,17 +351,23 @@ describe("LabAccess Component", () => {
   });
 
   describe("Props Validation", () => {
-    test("should handle string ID prop", () => {
+    test("should handle string ID prop", async () => {
       render(<LabAccess {...defaultProps} id="string-id" />);
-      expect(screen.getByText("Access")).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByText("Access")).toBeInTheDocument();
+      });
     });
 
-    test("should handle number ID prop", () => {
+    test("should handle number ID prop", async () => {
       render(<LabAccess {...defaultProps} id={456} />);
-      expect(screen.getByText("Access")).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByText("Access")).toBeInTheDocument();
+      });
     });
 
-    test("should use default props when not provided", () => {
+    test("should use default props when not provided", async () => {
       const minimalProps = {
         id: "123",
         userWallet: "0x1234567890",
@@ -275,14 +376,8 @@ describe("LabAccess Component", () => {
 
       render(<LabAccess {...minimalProps} />);
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
-
-      // Should show error for missing auth endpoint
-      waitFor(() => {
-        expect(
-          screen.getByText(/does not have authentication configured/)
-        ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText("Access")).toBeInTheDocument();
       });
     });
   });
@@ -293,6 +388,10 @@ describe("LabAccess Component", () => {
       getAuthErrorMessage.mockReturnValue("Error occurred");
 
       render(<LabAccess {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Access")).toBeInTheDocument();
+      });
 
       const accessButton = screen.getByText("Access");
       fireEvent.click(accessButton.closest("div"));
