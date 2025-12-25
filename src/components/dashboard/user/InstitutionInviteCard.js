@@ -89,11 +89,6 @@ export default function InstitutionInviteCard({ className = '' }) {
     }
   }, [token, addSuccessNotification, addErrorNotification]);
 
-  // Only show the card for SSO users with institutional admin roles
-  if (!isInstitutionAdmin) {
-    return null;
-  }
-
   const [tokenType, setTokenType] = useState('provider'); // 'provider' or 'consumer'
   const [consumerName, setConsumerName] = useState('');
 
@@ -143,6 +138,11 @@ export default function InstitutionInviteCard({ className = '' }) {
       setLoading(false);
     }
   }, [isSSO, isInstitutionAdmin, addErrorNotification, addSuccessNotification, consumerName]);
+
+  // Only show the card for SSO users with institutional admin roles
+  if (!isInstitutionAdmin) {
+    return null;
+  }
 
   return (
     <div className={`bg-white shadow-md rounded-lg p-6 mt-6 mb-6 ${className}`}>
