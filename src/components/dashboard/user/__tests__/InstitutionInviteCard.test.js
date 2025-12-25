@@ -1,0 +1,123 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard';
+
+const mockAddErrorNotification = jest.fn();
+const mockAddSuccessNotification = jest.fn();
+
+let mockUserState = {
+  isSSO: true,
+  user: {
+    role: 'staff',
+    scopedRole: 'staff@uned.es',
+    affiliation: 'uned.es',
+    organizationName: 'UNED',
+  },
+};
+
+jest.mock('@/context/UserContext', () => ({
+  useUser: () => mockUserState,
+}));
+
+jest.mock('@/context/NotificationContext', () => ({
+  useNotifications: () => ({
+    addErrorNotification: mockAddErrorNotification,
+    addSuccessNotification: mockAddSuccessNotification,
+  }),
+}));
+
+describe('InstitutionInviteCard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUserState = {
+      isSSO: true,
+      user: {
+        role: 'staff',
+        scopedRole: 'staff@uned.es',
+        affiliation: 'uned.es',
+        organizationName: 'UNED',
+      },
+    };
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        token: 'mock-token',
+        expiresAt: '2025-01-01T00:00:00.000Z',
+        payload: {},
+      }),
+    });
+  });
+
+  test('shows provider country input when no detected country is available', () => {
+    render(<InstitutionInviteCard />);
+
+    expect(
+      screen.getByText(/Provider country \(ISO, optional\)/i)
+    ).toBeInTheDocument();
+  });
+
+  test('hides provider country input when detected country is available', () => {
+    mockUserState = {
+      ...mockUserState,
+      user: {
+        ...mockUserState.user,
+        country: 'ES',
+      },
+    };
+
+    render(<InstitutionInviteCard />);
+
+    expect(
+      screen.queryByText(/Provider country \(ISO, optional\)/i)
+    ).not.toBeInTheDocument();
+  });
+
+  test('uses detected country when generating provider invite', async () => {
+    const user = userEvent.setup();
+    mockUserState = {
+      ...mockUserState,
+      user: {
+        ...mockUserState.user,
+        country: 'ES',
+      },
+    };
+
+    render(<InstitutionInviteCard />);
+
+    await user.type(
+      screen.getByLabelText(/Public base URL/i),
+      'https://institution.example.edu/auth'
+    );
+    await user.click(
+      screen.getByRole('button', { name: /Generate Provisioning Token/i })
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(body.providerCountry).toBe('ES');
+  });
+
+  test('uses manual provider country when entered', async () => {
+    const user = userEvent.setup();
+
+    render(<InstitutionInviteCard />);
+
+    await user.type(
+      screen.getByLabelText(/Public base URL/i),
+      'https://institution.example.edu/auth'
+    );
+    await user.type(
+      screen.getByLabelText(/Provider country/i),
+      'PT'
+    );
+    await user.click(
+      screen.getByRole('button', { name: /Generate Provisioning Token/i })
+    );
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    expect(body.providerCountry).toBe('PT');
+  });
+});

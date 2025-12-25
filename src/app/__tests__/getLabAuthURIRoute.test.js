@@ -3,6 +3,7 @@
  */
 
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
+import devLog from '@/utils/dev/logger';
 
 jest.mock('@/app/api/contract/utils/contractInstance', () => ({
   getContractInstance: jest.fn(),
@@ -88,6 +89,10 @@ describe('/api/contract/lab/getLabAuthURI route', () => {
     await expect(res.json()).resolves.toMatchObject({
       error: 'Contract call failed',
     });
+    expect(devLog.error).toHaveBeenCalledWith(
+      'Error fetching lab authURI:',
+      expect.any(Error)
+    );
   });
 
   test('accepts numeric labId as string', async () => {
