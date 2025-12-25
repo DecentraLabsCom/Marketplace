@@ -283,8 +283,27 @@ describe("LabDetail", () => {
       ).toBeInTheDocument();
     });
 
+    test("shows provider country when available", () => {
+      const labWithCountry = {
+        ...mockLabData,
+        providerInfo: { country: "ES" },
+      };
+      useLabById.mockReturnValue({
+        ...defaultMockResponse,
+        data: labWithCountry,
+      });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText("Country: Spain")).toBeInTheDocument();
+    });
+
     test("hides provider info when not available", () => {
-      const labWithoutProvider = { ...mockLabData, provider: null };
+      const labWithoutProvider = {
+        ...mockLabData,
+        provider: null,
+        providerInfo: null,
+      };
       useLabById.mockReturnValue({
         ...defaultMockResponse,
         data: labWithoutProvider,

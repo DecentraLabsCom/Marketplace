@@ -4,6 +4,8 @@ import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faStar } from '@fortawesome/free-solid-svg-icons'
+import countries from 'i18n-iso-countries'
+import enLocale from 'i18n-iso-countries/langs/en.json'
 import { Container } from '@/components/ui'
 import { useLabById } from '@/hooks/lab/useLabs'
 import { useLabToken } from '@/context/LabTokenContext'
@@ -11,6 +13,23 @@ import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
+
+let countryLocaleRegistered = false
+
+const ensureCountryLocale = () => {
+  if (countryLocaleRegistered) return
+  countries.registerLocale(enLocale)
+  countryLocaleRegistered = true
+}
+
+const getCountryLabel = (value) => {
+  if (!value || typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.length !== 2) return trimmed
+  ensureCountryLocale()
+  return countries.getName(trimmed.toUpperCase(), 'en') || trimmed
+}
 
 /**
  * Detailed lab information display component
@@ -69,6 +88,7 @@ export default function LabDetail({ id }) {
   const totalEvents = lab.reputation?.totalEvents ? Number(lab.reputation.totalEvents) : 0;
   const eventsLabel = totalEvents > 0 ? `${totalEvents} events` : 'No events yet';
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
+  const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
 
   return (
     <Container as="main" padding="sm">
@@ -78,12 +98,21 @@ export default function LabDetail({ id }) {
           <div className="size-full flex flex-col justify-center">
             <Carrousel lab={lab} />
             {/* Price and Provider info - moved here */}
-            <div className="flex justify-between items-center text-text-secondary font-semibold mt-4 mb-2">
+            <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
               <span className="text-text-secondary">{formatPrice(lab?.price)} $LAB / hour</span>
-              {lab?.provider && (
-                <span className="truncate max-w-[50%] text-text-secondary" title={lab.provider}>
-                  Provider: {lab.provider}
-                </span>
+              {(lab?.provider || providerCountryLabel) && (
+                <div className="text-right max-w-[55%]">
+                  {lab?.provider && (
+                    <span className="block truncate text-text-secondary" title={lab.provider}>
+                      Provider: {lab.provider}
+                    </span>
+                  )}
+                  {providerCountryLabel && (
+                    <span className="block text-xs text-text-secondary/80">
+                      Country: {providerCountryLabel}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <button 

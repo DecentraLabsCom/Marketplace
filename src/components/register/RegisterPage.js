@@ -6,7 +6,7 @@ import ProviderRegisterForm from './ProviderRegisterForm'
 import { hasAdminRole } from '@/utils/auth/roleValidation'
 import { useUser } from '@/context/UserContext'
 import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard'
-import InstitutionProviderRegister from './InstitutionProviderRegister'
+import { useNotifications } from '@/context/NotificationContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUsers, faFlask, faCheckCircle } from '@fortawesome/free-solid-svg-icons'
 
@@ -20,8 +20,52 @@ import { faUsers, faFlask, faCheckCircle } from '@fortawesome/free-solid-svg-ico
  */
 export default function RegisterPage() {
   const { isSSO, user, isLoading, isWalletLoading } = useUser()
-  const [institutionMode, setInstitutionMode] = useState(null) // 'consumer' | 'provider' | null
+  const { addErrorNotification, addSuccessNotification } = useNotifications()
+  const [institutionMode, setInstitutionMode] = useState(null) // 'provider' | null
   const [hoveredCard, setHoveredCard] = useState(null) // Track which card is hovered
+  const [consumerLoading, setConsumerLoading] = useState(false)
+
+  const handleConsumerProvision = async () => {
+    if (consumerLoading) return
+
+    setConsumerLoading(true)
+
+    try {
+      const response = await fetch('/api/institutions/provisionConsumer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        const message = data?.error || 'Failed to generate consumer provisioning token'
+        addErrorNotification(message, '')
+        return
+      }
+
+      const data = await response.json()
+      if (!data?.token) {
+        addErrorNotification('Provisioning token missing in response', '')
+        return
+      }
+
+      try {
+        await navigator.clipboard.writeText(data.token)
+        addSuccessNotification('Consumer provisioning token copied to clipboard', '')
+      } catch (error) {
+        addErrorNotification('Failed to copy provisioning token to clipboard', '')
+      }
+    } catch (error) {
+      const message = error?.message || 'Failed to generate consumer provisioning token'
+      addErrorNotification(message, '')
+    } finally {
+      setConsumerLoading(false)
+    }
+  }
   
   // Show loading state while user data is being fetched
   if (isLoading || isWalletLoading) {
@@ -62,9 +106,7 @@ export default function RegisterPage() {
     // SSO + institutional admin roles: show institution registration choices with modal follow-ups
     if (canUseInstitutionFlow) {
       const renderModal = () => {
-        if (!institutionMode) return null
-
-        const isConsumerMode = institutionMode === 'consumer'
+        if (institutionMode !== 'provider') return null
 
         return (
           <div
@@ -74,36 +116,16 @@ export default function RegisterPage() {
             onClick={() => setInstitutionMode(null)}
           >
             <div
-              className={`relative w-full ${isConsumerMode ? 'max-w-xl' : 'max-w-4xl'} max-h-[90vh] overflow-y-auto`}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {isConsumerMode ? (
-                <div className="max-w-md mx-auto">
-                  <InstitutionInviteCard className="shadow-lg" />
-                  <div className="mt-4 text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setInstitutionMode(null)}
-                    >
-                      Back to institution registration options
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="max-w-4xl mx-auto">
-                  <InstitutionProviderRegister />
-                  <div className="mt-4 text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setInstitutionMode(null)}
-                    >
-                      Back to institution registration options
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <div className="max-w-xl mx-auto">
+                <InstitutionInviteCard
+                  className="shadow-lg"
+                  defaultTokenType="provider"
+                  lockTokenType
+                />
+              </div>
             </div>
           </div>
         )
@@ -116,6 +138,9 @@ export default function RegisterPage() {
               <div className="text-center mb-8">
                 <p className="text-neutral-200 max-w-2xl mx-auto">
                   Choose how your institution wants to participate in the DecentraLabs marketplace
+                </p>
+                <p className="text-neutral-200 max-w-2xl mx-auto mt-2">
+                  Generate a short-lived provisioning token to auto-configure the wallet dashboard for your institution.
                 </p>
               </div>
 
@@ -133,7 +158,7 @@ export default function RegisterPage() {
                   `}
                   onMouseEnter={() => setHoveredCard('consumer')}
                   onMouseLeave={() => setHoveredCard(null)}
-                  onClick={() => setInstitutionMode('consumer')}
+                  onClick={handleConsumerProvision}
                 >
                   {/* Gradient background overlay */}
                   <div className="absolute inset-0 bg-gradient-to-br from-header-bg/30 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -200,10 +225,11 @@ export default function RegisterPage() {
                       className="transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg !bg-[#8ab4d4] hover:!bg-[#7aa3c4]"
                       onClick={(e) => {
                         e.stopPropagation()
-                        setInstitutionMode('consumer')
+                        handleConsumerProvision()
                       }}
+                      disabled={consumerLoading}
                     >
-                      Continue as Consumer
+                      {consumerLoading ? 'Generating...' : 'Continue as Consumer'}
                     </Button>
                   </div>
                 </div>
@@ -295,6 +321,11 @@ export default function RegisterPage() {
                   </div>
                 </div>
               </div>
+
+              <p className="text-sm text-neutral-200 text-center mt-6">
+                Disclaimer: This should only be used by staff responsible for managing institutional wallets.
+              </p>
+
             </div>
           </Container>
 

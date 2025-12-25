@@ -22,6 +22,12 @@ import { hasAdminRole } from "@/utils/auth/roleValidation";
 
 // Mock dependencies
 jest.mock("@/context/UserContext");
+jest.mock("@/context/NotificationContext", () => ({
+  useNotifications: () => ({
+    addErrorNotification: jest.fn(),
+    addSuccessNotification: jest.fn(),
+  }),
+}));
 jest.mock("@/utils/auth/roleValidation");
 
 // Mock FontAwesome

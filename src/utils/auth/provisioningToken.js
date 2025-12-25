@@ -64,9 +64,19 @@ export function normalizeHttpsUrl(url, label) {
     throw new Error(`${label} is required`);
   }
   const trimmed = url.trim();
-  if (!trimmed.toLowerCase().startsWith('https://')) {
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch (error) {
+    throw new Error(`${label} must be a valid URL`);
+  }
+
+  const protocol = parsed.protocol.toLowerCase();
+  const isDev = process.env.NODE_ENV !== 'production';
+  if (protocol !== 'https:' && !(isDev && protocol === 'http:')) {
     throw new Error(`${label} must start with https://`);
   }
+
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 
@@ -87,6 +97,11 @@ export function requireEmail(value, label = 'email') {
 }
 
 export function requireApiKey(value) {
+  const isDev = process.env.NODE_ENV !== 'production';
+  if ((!value || typeof value !== 'string' || value.trim().length === 0) && isDev) {
+    return 'dev-only-institutional-services-api-key-32chars';
+  }
+
   const key = requireString(value, 'API key');
   if (key.length < 32) {
     throw new Error('API key must be at least 32 characters');
