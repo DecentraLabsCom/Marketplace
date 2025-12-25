@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import devLog from '@/utils/dev/logger'
 
 /**
  * GET /api/contract/lab/getLabAuthURI
@@ -26,7 +27,7 @@ export async function GET(request) {
 
     return NextResponse.json({ authURI }, { status: 200 });
   } catch (error) {
-    console.error('Error fetching lab authURI:', error);
+    devLog.error('Error fetching lab authURI:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch lab authURI' },
       { status: 500 }
