@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Simple Lab Image Component
  * Uses Next.js Image component with built-in caching and optimization

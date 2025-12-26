@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * File upload manager component for handling lab images and documents
  * Supports both URL links and file uploads with preview functionality

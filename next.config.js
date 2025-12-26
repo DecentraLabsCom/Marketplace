@@ -12,6 +12,9 @@ const nextConfig = {
   // Turbopack is the default dev bundler; use 'npm run dev:webpack' if issues appear.
   webpack(config) {
     config.resolve.alias["@"] = path.resolve("./src");
+    config.resolve.alias["@react-native-async-storage/async-storage"] = path.resolve(
+      "./src/utils/asyncStorageShim.js"
+    );
     // For OneDrive
     config.watchOptions = {
       aggregateTimeout: 300,

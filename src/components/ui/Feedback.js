@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * UI Component Library - Feedback Components
  * Standardized feedback components using the design system
