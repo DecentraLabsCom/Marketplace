@@ -120,4 +120,36 @@ describe('InstitutionInviteCard', () => {
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
     expect(body.providerCountry).toBe('PT');
   });
+
+  test('does not render for non-admin SSO users', () => {
+    mockUserState = {
+      isSSO: true,
+      user: {
+        role: 'student',
+        scopedRole: 'student@uned.es',
+        affiliation: 'uned.es',
+        organizationName: 'UNED',
+      },
+    };
+
+    const { container } = render(<InstitutionInviteCard />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  test('does not render for non-SSO users', () => {
+    mockUserState = {
+      isSSO: false,
+      user: {
+        role: 'staff',
+        scopedRole: 'staff@uned.es',
+        affiliation: 'uned.es',
+        organizationName: 'UNED',
+      },
+    };
+
+    const { container } = render(<InstitutionInviteCard />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
 });

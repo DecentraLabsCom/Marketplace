@@ -103,7 +103,7 @@ describe("UserData Context", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    global.fetch.mockReset();
 
     // Setup default mocks
     wagmiHooks.useAccount.mockReturnValue(mockUseAccount);
@@ -270,6 +270,108 @@ describe("UserData Context", () => {
         },
         { timeout: 5000 }
       );
+    });
+  });
+
+  describe("Institution Registration", () => {
+    test("marks institution as registered when resolve returns wallet", async () => {
+      const mockSSOUser = {
+        name: "Test User",
+        email: "test@uned.es",
+        affiliation: "uned.es",
+      };
+
+      userHooks.useSSOSessionQuery.mockReturnValue({
+        data: { user: mockSSOUser, isSSO: true },
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      global.fetch.mockImplementation((url) => {
+        if (String(url).includes("/api/onboarding/init")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ isOnboarded: true }),
+          });
+        }
+        if (String(url).includes("/api/contract/institution/resolve")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              registered: true,
+              wallet: "0xabc",
+              domain: "uned.es",
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        });
+      });
+
+      const queryClient = createTestQueryClient();
+      const { result } = renderHook(() => useUser(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSSO).toBe(true);
+        expect(result.current.isInstitutionRegistered).toBe(true);
+        expect(result.current.institutionRegistrationStatus).toBe("registered");
+        expect(result.current.institutionRegistrationWallet).toBe("0xabc");
+      });
+    });
+
+    test("marks institution as unregistered when resolve returns no wallet", async () => {
+      const mockSSOUser = {
+        name: "Test User",
+        email: "test@example.edu",
+        affiliation: "example.edu",
+      };
+
+      userHooks.useSSOSessionQuery.mockReturnValue({
+        data: { user: mockSSOUser, isSSO: true },
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      global.fetch.mockImplementation((url) => {
+        if (String(url).includes("/api/onboarding/init")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ isOnboarded: true }),
+          });
+        }
+        if (String(url).includes("/api/contract/institution/resolve")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              registered: false,
+              wallet: null,
+              domain: "example.edu",
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        });
+      });
+
+      const queryClient = createTestQueryClient();
+      const { result } = renderHook(() => useUser(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSSO).toBe(true);
+        expect(result.current.isInstitutionRegistered).toBe(false);
+        expect(result.current.institutionRegistrationStatus).toBe("unregistered");
+        expect(result.current.institutionRegistrationWallet).toBeNull();
+      });
     });
   });
 

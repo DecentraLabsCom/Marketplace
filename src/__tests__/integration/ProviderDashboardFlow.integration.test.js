@@ -189,6 +189,9 @@ jest.mock("@/context/UserContext", () => ({
     address: "0x1234567890123456789012345678901234567890",
     isSSO: true,
     isAuthenticated: true,
+    isInstitutionRegistered: true,
+    isInstitutionRegistrationLoading: false,
+    institutionRegistrationStatus: "registered",
     user: {
       name: "Dr. Provider",
       email: "provider@university.edu",
@@ -464,6 +467,9 @@ describe("Provider Dashboard Flow Integration", () => {
       address: "0x1234567890123456789012345678901234567890",
       isSSO: true,
       isAuthenticated: true,
+      isInstitutionRegistered: false,
+      isInstitutionRegistrationLoading: false,
+      institutionRegistrationStatus: "unregistered",
     });
 
     renderWithAllProviders(<ProviderDashboardPage />);

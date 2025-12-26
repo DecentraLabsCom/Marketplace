@@ -80,6 +80,25 @@ describe("AccessControl", () => {
       expect(screen.getByText(/connecting/i)).toBeInTheDocument();
       expect(screen.queryByText("Protected Content")).not.toBeInTheDocument();
     });
+
+    test("displays loading state while institution registration is pending", () => {
+      useUser.mockReturnValue({
+        ...mockUserDefaults,
+        isSSO: true,
+        user: { email: "professor@university.edu", role: "Faculty" },
+        institutionRegistrationStatus: null,
+        isInstitutionRegistrationLoading: false,
+      });
+
+      render(
+        <AccessControl>
+          <div>Protected Content</div>
+        </AccessControl>
+      );
+
+      expect(screen.getByText(/connecting/i)).toBeInTheDocument();
+      expect(screen.queryByText("Protected Content")).not.toBeInTheDocument();
+    });
   });
 
   describe("Access Denied - General", () => {
@@ -410,6 +429,25 @@ describe("AccessControl", () => {
       expect(mockPush).not.toHaveBeenCalled();
     });
 
+    test("does not redirect while institution registration is pending", async () => {
+      useUser.mockReturnValue({
+        ...mockUserDefaults,
+        isSSO: true,
+        user: { email: "professor@university.edu", role: "Faculty" },
+        institutionRegistrationStatus: null,
+        isInstitutionRegistrationLoading: false,
+      });
+
+      render(
+        <AccessControl>
+          <div>Protected Content</div>
+        </AccessControl>
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
     test("does not redirect when user has access", async () => {
       useUser.mockReturnValue({
         ...mockUserDefaults,
@@ -457,6 +495,8 @@ describe("AccessControl", () => {
           email: "professor@university.edu",
           role: "  Faculty  ",
         },
+        isInstitutionRegistered: true,
+        institutionRegistrationStatus: "registered",
       });
 
       render(

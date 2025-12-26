@@ -284,6 +284,23 @@ describe("RegisterPage", () => {
       expect(mockHasAdminRole).not.toHaveBeenCalled();
     });
 
+    test("shows loading state when institution registration status is unknown", () => {
+      mockUseUser.mockReturnValue({
+        isSSO: true,
+        user: { role: "faculty", scopedRole: "staff" },
+        isLoading: false,
+        isWalletLoading: false,
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: null,
+      });
+
+      render(<RegisterPage />);
+
+      expect(screen.getByText("Checking institution registration...")).toBeInTheDocument();
+      expect(mockHasAdminRole).not.toHaveBeenCalled();
+    });
+
     test("blocks SSO users when institution is already registered", () => {
       mockUseUser.mockReturnValue({
         isSSO: true,
