@@ -1,21 +1,6 @@
 import 'react-datepicker/dist/react-datepicker.css'
 import '@/styles/global.css'
 import PropTypes from 'prop-types'
-import ClientQueryProvider from '@/context/ClientQueryProvider'
-import ClientWagmiProvider from '@/context/ClientWagmiProvider'
-import { UserData } from '@/context/UserContext'
-import { LabTokenProvider } from '@/context/LabTokenContext'
-import { UserEventProvider } from '@/context/UserEventContext'
-import { LabEventProvider } from '@/context/LabEventContext'
-import { BookingEventProvider } from '@/context/BookingEventContext'
-import { NotificationProvider } from '@/context/NotificationContext'
-import { OptimisticUIProvider } from '@/context/OptimisticUIContext'
-import Navbar from '@/components/layout/Navbar'
-import Footer from '@/components/layout/Footer'
-import GlobalNotificationStack from '@/components/layout/GlobalNotificationStack'
-import DataRefreshIndicator from '@/components/layout/DataRefreshIndicator'
-import ClientOnly from '@/components/layout/ClientOnly'
-import InstitutionalOnboardingWrapper from '@/components/auth/InstitutionalOnboardingWrapper'
 
 export const metadata = {
   title: 'DecentraLabs Marketplace',
@@ -57,38 +42,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="flex flex-col min-h-screen bg-[#262B2D]">
-        <ClientQueryProvider>
-          <ClientWagmiProvider>
-            <NotificationProvider>
-              <OptimisticUIProvider>
-                <UserData>
-                  <LabTokenProvider>
-                    <UserEventProvider>
-                      <LabEventProvider>
-                        <BookingEventProvider>
-                          <header className="sticky top-0 z-50">
-                            <ClientOnly fallback={<div className="bg-header-bg text-hover-dark p-3 shadow-md h-20" />}>
-                              <Navbar />
-                            </ClientOnly>
-                          </header>
-                          <main className="grow">
-                              {children}
-                          </main>
-                          <Footer />
-                          <GlobalNotificationStack />
-                          <DataRefreshIndicator />
-                          <ClientOnly>
-                            <InstitutionalOnboardingWrapper />
-                          </ClientOnly>
-                        </BookingEventProvider>
-                      </LabEventProvider>
-                    </UserEventProvider>
-                  </LabTokenProvider>
-                </UserData>
-              </OptimisticUIProvider>
-            </NotificationProvider>
-          </ClientWagmiProvider>
-        </ClientQueryProvider>
+        {children}
       </body>
     </html>
   )

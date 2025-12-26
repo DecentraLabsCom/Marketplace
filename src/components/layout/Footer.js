@@ -17,11 +17,11 @@ export default function Footer() {
           <div className="flex justify-center">
               <div className="flex space-x-4 md:justify-center size-full relative">
                 <div className="relative w-1/2 h-full">
-                  <Image src="/eu_funded_en.jpg" alt="EU Funded" fill priority sizes="10vw"
+                  <Image src="/eu_funded_en.jpg" alt="EU Funded" fill sizes="10vw"
                                           className="!relative" />
                 </div>
                 <div className="relative w-1/2 h-full">
-                  <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" fill priority sizes="10vw"
+                  <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" fill sizes="10vw"
                                           className="!relative" />
                 </div>
               </div>

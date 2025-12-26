@@ -291,6 +291,61 @@ describe("useUserAtomicQueries", () => {
       );
     });
 
+    test("treats wallet session id as non-SSO", async () => {
+      const walletSession = {
+        user: {
+          email: "user@test.com",
+          name: "Wallet User",
+          id: "wallet:0x1234567890123456789012345678901234567890",
+        },
+        isSSO: true,
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => walletSession,
+      });
+
+      const { result } = renderHook(() => useSSOSessionQuery(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(result.current.data).toEqual({
+        ...walletSession,
+        isSSO: false,
+      });
+    });
+
+    test("treats wallet authType as non-SSO", async () => {
+      const walletSession = {
+        user: {
+          email: "user@test.com",
+          name: "Wallet User",
+          id: "123",
+          authType: "wallet",
+        },
+        isSSO: true,
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => walletSession,
+      });
+
+      const { result } = renderHook(() => useSSOSessionQuery(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(result.current.data).toEqual({
+        ...walletSession,
+        isSSO: false,
+      });
+    });
+
     test("handles 401 unauthorized gracefully", async () => {
       global.fetch.mockResolvedValueOnce({
         ok: false,

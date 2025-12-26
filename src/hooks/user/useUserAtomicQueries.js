@@ -222,10 +222,15 @@ const getSSOSessionQueryFn = createSSRSafeQuery(async () => {
   const data = await response.json();
   devLog.log('getSSOSessionQueryFn:', data);
   
+  const isWalletSession = Boolean(
+    data.user?.authType === 'wallet' ||
+    (typeof data.user?.id === 'string' && data.user.id.startsWith('wallet:'))
+  );
+
   // Return consistent format
   return {
     user: data.user,
-    isSSO: Boolean(data.user)
+    isSSO: Boolean(data.user) && !isWalletSession
   };
 }, { user: null, isSSO: false }); // Return null user during SSR
 

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
-import { useUser } from '@/context/UserContext'
+import { useOptionalUser } from '@/context/UserContext'
 import Login from '@/components/auth/Login'
 import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
 
@@ -16,16 +16,18 @@ import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
  */
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const userContext = useOptionalUser();
   const {
-    isLoggedIn,
-    isProvider,
-    isProviderLoading,
-    isSSO,
-    user,
-    isInstitutionRegistered,
-    isInstitutionRegistrationLoading,
-    institutionRegistrationStatus,
-  } = useUser();
+    isLoggedIn = false,
+    isProvider = false,
+    isProviderLoading = false,
+    isSSO = false,
+    user = null,
+    isInstitutionRegistered = false,
+    isInstitutionRegistrationLoading = false,
+    institutionRegistrationStatus = null,
+  } = userContext || {};
+  const hasUserContext = Boolean(userContext);
   const isInstitutionRegistrationPending =
     isSSO && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);
 
@@ -74,6 +76,7 @@ export default function Navbar() {
       {label}
     </Link>
   );
+  const hasMenuContent = showMenuButtons || hasUserContext;
 
   return (
     <nav className="bg-header-bg text-hover-dark p-3 shadow-md">
@@ -96,22 +99,28 @@ export default function Navbar() {
             {showProviderButton() && menuButton("/providerdashboard", "Lab Panel")}
           </div>
           )}
-          <div className="hidden md:block">
-            <div className="h-8 border-l border-gray-600" />
-          </div>
-          <div className="hidden md:block">
-            {<Login />}
-          </div>
+          {hasUserContext && (
+            <>
+              <div className="hidden md:block">
+                <div className="h-8 border-l border-gray-600" />
+              </div>
+              <div className="hidden md:block">
+                <Login />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
-        <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
-          <FontAwesomeIcon icon={faBars} />
-        </button>
+        {hasMenuContent && (
+          <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
+            <FontAwesomeIcon icon={faBars} />
+          </button>
+        )}
       </Container>
 
       {/* Mobile Dropdown */}
-      {menuOpen && (
+      {hasMenuContent && menuOpen && (
         <div className="md:hidden bg-header-bg text-hover-dark shadow-md absolute inset-x-0 z-50">
           <div className="flex flex-col items-center py-4 space-y-2">
             {showMenuButtons && (
@@ -134,12 +143,14 @@ export default function Navbar() {
                 )}
               </>
             )}
-            <div className="w-full flex justify-end items-center pt-2 px-2 border-t border-gray-300">
-              <div className="flex items-center">
-                <div className="h-8 border-l border-gray-600 mr-2" />
-                <Login />
+            {hasUserContext && (
+              <div className="w-full flex justify-end items-center pt-2 px-2 border-t border-gray-300">
+                <div className="flex items-center">
+                  <div className="h-8 border-l border-gray-600 mr-2" />
+                  <Login />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}

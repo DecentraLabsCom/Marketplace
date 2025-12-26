@@ -43,6 +43,13 @@ function getInstitutionName(userData) {
     return null;
 }
 
+function isWalletSessionUser(sessionUser) {
+    return Boolean(
+        sessionUser?.authType === 'wallet' ||
+        (typeof sessionUser?.id === 'string' && sessionUser.id.startsWith('wallet:'))
+    );
+}
+
 /**
  * Core user data provider component with React Query integration
  * Manages user state, SSO authentication, and provider status
@@ -285,9 +292,11 @@ function UserDataCore({ children }) {
         }
     }, [isSSO, user]);
 
-    // Determine current isSSO state based on ssoData
+    const sessionIsWallet = isWalletSessionUser(ssoData?.user);
+
+    // Determine current isSSO state based on session data
     // This needs to be calculated BEFORE using the router hooks
-    const currentIsSSO = Boolean(ssoData?.isSSO);
+    const currentIsSSO = Boolean(ssoData?.user) && !sessionIsWallet;
 
     const { 
         data: providerStatus, 
@@ -438,7 +447,7 @@ function UserDataCore({ children }) {
             devLog.log('🔑 Processing SSO data:', ssoData);
             
             // Only update isSSO if it has changed to prevent infinite loops
-            const newIsSSO = Boolean(ssoData.isSSO);
+            const newIsSSO = Boolean(ssoData.user) && !isWalletSessionUser(ssoData.user);
             if (isSSO !== newIsSSO) {
                 setIsSSO(newIsSSO);
             }

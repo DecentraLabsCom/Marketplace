@@ -16,7 +16,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Navbar from "../Navbar";
-import { useUser } from "@/context/UserContext";
+import { useOptionalUser } from "@/context/UserContext";
 import { hasAdminRole } from "@/utils/auth/roleValidation";
 
 // Mock external dependencies to isolate component behavior
@@ -49,7 +49,7 @@ describe("Navbar", () => {
    */
   describe("when user is logged out", () => {
     beforeEach(() => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: false,
         isProvider: false,
         isProviderLoading: false,
@@ -77,7 +77,7 @@ describe("Navbar", () => {
    */
   describe("when user is logged in (wallet user)", () => {
     beforeEach(() => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -101,7 +101,7 @@ describe("Navbar", () => {
    */
   describe("SSO user with institutional admin privileges", () => {
     beforeEach(() => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -123,7 +123,7 @@ describe("Navbar", () => {
     });
 
     test('hides "Register my Institution" when institution is already registered', () => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -142,7 +142,7 @@ describe("Navbar", () => {
     });
 
     test('hides "Register my Institution" while institution registration is pending', () => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -161,7 +161,7 @@ describe("Navbar", () => {
     });
 
     test("shows Lab Panel when institution is registered", () => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -178,7 +178,7 @@ describe("Navbar", () => {
     });
 
     test("hides Lab Panel while institution registration is pending", () => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -200,7 +200,7 @@ describe("Navbar", () => {
    */
   describe("SSO user without admin privileges", () => {
     beforeEach(() => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -229,7 +229,7 @@ describe("Navbar", () => {
    */
   describe("when user is a confirmed provider", () => {
     beforeEach(() => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: true,
         isProviderLoading: false,
@@ -254,7 +254,7 @@ describe("Navbar", () => {
    */
   describe("mobile menu", () => {
     beforeEach(() => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
@@ -282,7 +282,7 @@ describe("Navbar", () => {
    */
   describe("loading states", () => {
     test("shows menu but hides register during provider loading", () => {
-      useUser.mockReturnValue({
+      useOptionalUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: true,
