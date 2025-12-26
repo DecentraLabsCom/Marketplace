@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Container, Button } from '@/components/ui'
 import ProviderAccessDenied from './ProviderAccessDenied'
 import ProviderRegisterForm from './ProviderRegisterForm'
@@ -8,6 +8,7 @@ import { useUser } from '@/context/UserContext'
 import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faUsers, faFlask, faCheckCircle } from '@fortawesome/free-solid-svg-icons'
+import { useRouter } from 'next/navigation'
 
 /**
  * Top-level page component for registration
@@ -18,10 +19,28 @@ import { faUsers, faFlask, faCheckCircle } from '@fortawesome/free-solid-svg-ico
  * @returns {JSX.Element} Registration page with role-based access control
  */
 export default function RegisterPage() {
-  const { isSSO, user, isLoading, isWalletLoading } = useUser()
+  const {
+    isSSO,
+    user,
+    isLoading,
+    isWalletLoading,
+    isInstitutionRegistered,
+    isInstitutionRegistrationLoading,
+    institutionRegistrationStatus,
+  } = useUser()
+  const router = useRouter()
   const [institutionMode, setInstitutionMode] = useState(null) // 'provider' | 'consumer' | null
   const [hoveredCard, setHoveredCard] = useState(null) // Track which card is hovered
-  
+  const isInstitutionRegistrationPending =
+    isSSO && user && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null)
+
+  // Redirect SSO users if institution is already registered
+  useEffect(() => {
+    if (isSSO && user && !isInstitutionRegistrationPending && isInstitutionRegistered) {
+      router.push('/')
+    }
+  }, [isSSO, user, isInstitutionRegistrationPending, isInstitutionRegistered, router])
+
   // Show loading state while user data is being fetched
   if (isLoading || isWalletLoading) {
     return (
@@ -33,7 +52,31 @@ export default function RegisterPage() {
       </Container>
     )
   }
-  
+
+  if (isInstitutionRegistrationPending) {
+    return (
+      <Container padding="sm" className="text-center mt-6">
+        <div className="flex-center space-x-2">
+          <div className="spinner-md border-blue-600"></div>
+          <span>Checking institution registration...</span>
+        </div>
+      </Container>
+    )
+  }
+
+  if (isSSO && user && isInstitutionRegistered) {
+    return (
+      <Container padding="sm" className="text-center mt-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+          <h2 className="text-yellow-800 text-xl font-semibold mb-2">Access Restricted</h2>
+          <p className="text-yellow-600 mb-4">
+            Your institution is already registered. Contact your administrator if you need updates.
+          </p>
+        </div>
+      </Container>
+    )
+  }
+
   // For SSO users, validate their role
   if (isSSO) {
     // If user data isn't loaded yet, show loading

@@ -55,6 +55,8 @@ describe("Navbar", () => {
         isProviderLoading: false,
         isSSO: false,
         user: null,
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
       });
     });
 
@@ -81,6 +83,8 @@ describe("Navbar", () => {
         isProviderLoading: false,
         isSSO: false,
         user: { id: "1", role: "user" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
       });
     });
 
@@ -103,6 +107,9 @@ describe("Navbar", () => {
         isProviderLoading: false,
         isSSO: true,
         user: { id: "1", role: "staff", scopedRole: "" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
       mockHasAdminRole.mockReturnValue(true);
     });
@@ -115,13 +122,35 @@ describe("Navbar", () => {
       ).not.toBeInTheDocument();
     });
 
-    test("shows Lab Panel for faculty even if not yet registered", () => {
+    test('hides "Register my Institution" when institution is already registered', () => {
+      useUser.mockReturnValue({
+        isLoggedIn: true,
+        isProvider: false,
+        isProviderLoading: false,
+        isSSO: true,
+        user: { id: "1", role: "staff", scopedRole: "" },
+        isInstitutionRegistered: true,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "registered",
+      });
+      mockHasAdminRole.mockReturnValue(true);
+
+      render(<Navbar />);
+      expect(
+        screen.queryByText("Register my Institution")
+      ).not.toBeInTheDocument();
+    });
+
+    test("shows Lab Panel when institution is registered", () => {
       useUser.mockReturnValue({
         isLoggedIn: true,
         isProvider: false,
         isProviderLoading: false,
         isSSO: true,
         user: { id: "1", role: "faculty" },
+        isInstitutionRegistered: true,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "registered",
       });
       mockHasAdminRole.mockReturnValue(true);
 
@@ -141,6 +170,9 @@ describe("Navbar", () => {
         isProviderLoading: false,
         isSSO: true,
         user: { id: "1", role: "student", scopedRole: "" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
       mockHasAdminRole.mockReturnValue(false);
     });
@@ -167,6 +199,8 @@ describe("Navbar", () => {
         isProviderLoading: false,
         isSSO: false,
         user: { id: "1" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
       });
     });
 
@@ -190,6 +224,8 @@ describe("Navbar", () => {
         isProviderLoading: false,
         isSSO: false,
         user: { id: "1" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
       });
     });
 
@@ -216,6 +252,8 @@ describe("Navbar", () => {
         isProviderLoading: true,
         isSSO: false,
         user: { id: "1" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
       });
 
       render(<Navbar />);

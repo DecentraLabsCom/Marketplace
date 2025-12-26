@@ -347,14 +347,14 @@ export default function ProviderDashboard() {
     setIsModalOpen(false);
   }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab, isSSO]);
 
-  // Redirect non-providers to home page
+  // Redirect non-providers to home page for wallet users
   useEffect(() => {
     // Only redirect after loading is complete to avoid false redirects
-    if (!isLoading && !isProviderLoading && address && !isProvider) {
+    if (!isLoading && !isProviderLoading && address && !isProvider && !isSSO) {
       router.push('/');
       return;
     }
-  }, [isProvider, isProviderLoading, isLoading, address, router]);
+  }, [isProvider, isProviderLoading, isLoading, address, isSSO, router]);
 
   // Automatically set the first lab as the selected lab (only once)
   useEffect(() => {

@@ -20,8 +20,23 @@ export default function AccessControl({
   requireSSO = false,
   requireProvider = false,
 }) {
-  const { isLoggedIn, isSSO, isConnected, isLoading, isWalletLoading, address, user, isProvider, isProviderLoading } = useUser();
+  const {
+    isLoggedIn,
+    isSSO,
+    isConnected,
+    isLoading,
+    isWalletLoading,
+    address,
+    user,
+    isProvider,
+    isProviderLoading,
+    isInstitutionRegistered,
+    isInstitutionRegistrationLoading,
+    institutionRegistrationStatus,
+  } = useUser();
   const router = useRouter();
+  const isInstitutionRegistrationPending =
+    isSSO && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);
 
   // Check if user has faculty role (professor)
   const isFaculty = () => {
@@ -38,9 +53,11 @@ export default function AccessControl({
       return isProvider && !isProviderLoading;
     }
     
-    // SSO users: confirmed providers OR faculty members
+    // SSO users: confirmed providers OR faculty members with registered institution
     if (isSSO) {
-      return (isProvider && !isProviderLoading) || isFaculty();
+      if (isProvider && !isProviderLoading) return true;
+      if (isInstitutionRegistrationPending) return false;
+      return isFaculty() && isInstitutionRegistered;
     }
     
     return false;
@@ -53,9 +70,17 @@ export default function AccessControl({
   if (requireProvider) {
     hasAccess = canAccessProviderDashboard();
     if (!hasAccess && !isLoading && !isProviderLoading) {
-      accessMessage = isSSO 
-        ? "Only faculty members and confirmed providers can access the Lab Panel."
-        : "Only confirmed providers can access the Lab Panel. Please register as a provider first.";
+      if (isSSO) {
+        if (!isFaculty()) {
+          accessMessage = "Only faculty members can access the Lab Panel.";
+        } else if (!isInstitutionRegistered) {
+          accessMessage = "Your institution is not registered yet. Please register it first.";
+        } else {
+          accessMessage = "Only faculty members and confirmed providers can access the Lab Panel.";
+        }
+      } else {
+        accessMessage = "Only confirmed providers can access the Lab Panel. Please register as a provider first.";
+      }
     }
   } else if (requireWallet) {
     hasAccess = isConnected;
@@ -68,13 +93,13 @@ export default function AccessControl({
   // Handle redirect logic - must be called before any conditional returns
   useEffect(() => {
     // Only redirect after loading is complete and we know the real connection state
-    if (!isLoading && !isWalletLoading && !hasAccess) {
+    if (!isLoading && !isWalletLoading && !isInstitutionRegistrationPending && !hasAccess) {
       router.push('/');
     }
-  }, [hasAccess, router, isLoading, isWalletLoading]);
+  }, [hasAccess, router, isLoading, isWalletLoading, isInstitutionRegistrationPending]);
 
   // Show loading state while wallet connection is being determined
-  if (isWalletLoading || isLoading) {
+  if (isWalletLoading || isLoading || isInstitutionRegistrationPending) {
     return (
       <Container padding="sm" className="text-white text-center mt-6">
         <div className="flex items-center justify-center space-x-2">

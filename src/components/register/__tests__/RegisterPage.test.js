@@ -19,6 +19,7 @@ import "@testing-library/jest-dom";
 import RegisterPage from "../RegisterPage";
 import { useUser } from "@/context/UserContext";
 import { hasAdminRole } from "@/utils/auth/roleValidation";
+import { useRouter } from "next/navigation";
 
 // Mock dependencies
 jest.mock("@/context/UserContext");
@@ -29,6 +30,9 @@ jest.mock("@/context/NotificationContext", () => ({
   }),
 }));
 jest.mock("@/utils/auth/roleValidation");
+jest.mock("next/navigation", () => ({
+  useRouter: jest.fn(),
+}));
 
 // Mock FontAwesome
 jest.mock("@fortawesome/react-fontawesome", () => ({
@@ -87,10 +91,12 @@ jest.mock("../InstitutionProviderRegister", () => ({
 
 const mockUseUser = useUser;
 const mockHasAdminRole = hasAdminRole;
+const mockUseRouter = useRouter;
 
 describe("RegisterPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseRouter.mockReturnValue({ push: jest.fn() });
   });
 
   // Loading States Tests
@@ -162,6 +168,7 @@ describe("RegisterPage", () => {
         user: mockUser,
         isLoading: false,
         isWalletLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
 
       render(<RegisterPage />);
@@ -176,6 +183,7 @@ describe("RegisterPage", () => {
         user: { role: "employee", scopedRole: "" },
         isLoading: false,
         isWalletLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
       mockHasAdminRole.mockReturnValue(true);
 
@@ -194,6 +202,7 @@ describe("RegisterPage", () => {
         user: { role: "student", scopedRole: "learner" },
         isLoading: false,
         isWalletLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
       mockHasAdminRole.mockReturnValue(false);
 
@@ -210,6 +219,7 @@ describe("RegisterPage", () => {
         user: { role: "alum", scopedRole: "former-student" },
         isLoading: false,
         isWalletLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
       mockHasAdminRole.mockReturnValue(false);
 
@@ -256,6 +266,45 @@ describe("RegisterPage", () => {
     });
   });
 
+  describe("Institution Registration Checks", () => {
+    test("shows loading state when institution registration is being checked", () => {
+      mockUseUser.mockReturnValue({
+        isSSO: true,
+        user: { role: "faculty", scopedRole: "staff" },
+        isLoading: false,
+        isWalletLoading: false,
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: true,
+        institutionRegistrationStatus: "unregistered",
+      });
+
+      render(<RegisterPage />);
+
+      expect(screen.getByText("Checking institution registration...")).toBeInTheDocument();
+      expect(mockHasAdminRole).not.toHaveBeenCalled();
+    });
+
+    test("blocks SSO users when institution is already registered", () => {
+      mockUseUser.mockReturnValue({
+        isSSO: true,
+        user: { role: "staff", scopedRole: "" },
+        isLoading: false,
+        isWalletLoading: false,
+        isInstitutionRegistered: true,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "registered",
+      });
+
+      render(<RegisterPage />);
+
+      expect(screen.getByText("Access Restricted")).toBeInTheDocument();
+      expect(
+        screen.getByText(/institution is already registered/i)
+      ).toBeInTheDocument();
+      expect(mockHasAdminRole).not.toHaveBeenCalled();
+    });
+  });
+
   // Edge Cases
   describe("Edge Cases", () => {
     test("handles SSO user with undefined role gracefully", () => {
@@ -264,6 +313,7 @@ describe("RegisterPage", () => {
         user: { role: undefined, scopedRole: undefined },
         isLoading: false,
         isWalletLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
       mockHasAdminRole.mockReturnValue(false);
 
@@ -279,6 +329,7 @@ describe("RegisterPage", () => {
         user: { role: "faculty", scopedRole: "staff" },
         isLoading: true,
         isWalletLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
 
       render(<RegisterPage />);

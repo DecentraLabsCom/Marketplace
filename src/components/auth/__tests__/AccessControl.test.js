@@ -5,7 +5,7 @@
  * - Shows loading spinner during authentication checks
  * - Blocks access and shows messages when requirements not met
  * - Grants access when user meets auth requirements (basic/wallet/SSO)
- * - Grants provider access to: confirmed providers (wallet/SSO) and faculty (SSO)
+ * - Grants provider access to: confirmed providers (wallet/SSO) and faculty (SSO) with registered institution
  * - Detects faculty role from user.role or user.scopedRole (case-insensitive)
  * - Shows "Register as Provider" button only for wallet users
  * - Redirects to home when access denied (after loading completes)
@@ -35,6 +35,9 @@ describe("AccessControl", () => {
     isWalletLoading: false,
     isProvider: false,
     isProviderLoading: false,
+    isInstitutionRegistered: false,
+    isInstitutionRegistrationLoading: false,
+    institutionRegistrationStatus: "unregistered",
     address: null,
     user: null,
   };
@@ -183,6 +186,8 @@ describe("AccessControl", () => {
           email: "professor@university.edu",
           role: "Faculty",
         },
+        isInstitutionRegistered: true,
+        institutionRegistrationStatus: "registered",
       });
 
       render(
@@ -221,6 +226,8 @@ describe("AccessControl", () => {
           email: "professor@university.edu",
           scopedRole: "Faculty Member",
         },
+        isInstitutionRegistered: true,
+        institutionRegistrationStatus: "registered",
       });
 
       render(
@@ -240,6 +247,8 @@ describe("AccessControl", () => {
           email: "professor@university.edu",
           role: "FACULTY",
         },
+        isInstitutionRegistered: true,
+        institutionRegistrationStatus: "registered",
       });
 
       render(
@@ -281,6 +290,7 @@ describe("AccessControl", () => {
         user: { email: "student@university.edu", role: "Student" },
         isProvider: false,
         isProviderLoading: false,
+        institutionRegistrationStatus: "unregistered",
       });
 
       render(
@@ -291,7 +301,29 @@ describe("AccessControl", () => {
 
       expect(screen.getByText(/access restricted/i)).toBeInTheDocument();
       expect(
-        screen.getByText(/only faculty members and confirmed providers/i)
+        screen.getByText(/only faculty members can access the lab panel/i)
+      ).toBeInTheDocument();
+    });
+
+    test("shows institution not registered message for SSO faculty without registration", () => {
+      useUser.mockReturnValue({
+        ...mockUserDefaults,
+        isSSO: true,
+        user: { email: "professor@university.edu", role: "Faculty" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "unregistered",
+      });
+
+      render(
+        <AccessControl requireProvider>
+          <div>Provider Dashboard</div>
+        </AccessControl>
+      );
+
+      expect(screen.getByText(/access restricted/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/institution is not registered yet/i)
       ).toBeInTheDocument();
     });
 

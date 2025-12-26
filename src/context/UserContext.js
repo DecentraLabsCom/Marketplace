@@ -63,6 +63,8 @@ function UserDataCore({ children }) {
     // Institutional onboarding state (WebAuthn credential at IB)
     const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'no_gateway'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+    const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
+    const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -162,6 +164,8 @@ function UserDataCore({ children }) {
         }
     }, [isSSO, user]);
 
+    const institutionDomain = user?.affiliation || user?.schacHomeOrganization || null;
+
     // Check institutional onboarding status after SSO login
     // This verifies if the user has registered a WebAuthn credential at their IB
     useEffect(() => {
@@ -215,11 +219,69 @@ function UserDataCore({ children }) {
         };
     }, [isSSO, user, institutionalOnboardingStatus]);
 
+    // Check whether the institution is already registered on-chain (for SSO users)
+    useEffect(() => {
+        if (!isSSO || !user) {
+            setInstitutionRegistrationStatus(null);
+            setInstitutionRegistrationWallet(null);
+            return;
+        }
+
+        if (!institutionDomain) {
+            setInstitutionRegistrationStatus('error');
+            setInstitutionRegistrationWallet(null);
+            return;
+        }
+
+        let cancelled = false;
+
+        const checkInstitutionRegistration = async () => {
+            setInstitutionRegistrationStatus('checking');
+            try {
+                const response = await fetch(
+                    `/api/contract/institution/resolve?domain=${encodeURIComponent(institutionDomain)}`,
+                    {
+                        method: 'GET',
+                        credentials: 'include',
+                    }
+                );
+
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data.error || `Failed to resolve institution (${response.status})`);
+                }
+
+                if (cancelled) return;
+
+                if (data.registered) {
+                    setInstitutionRegistrationStatus('registered');
+                    setInstitutionRegistrationWallet(data.wallet || null);
+                } else {
+                    setInstitutionRegistrationStatus('unregistered');
+                    setInstitutionRegistrationWallet(null);
+                }
+            } catch (error) {
+                if (cancelled) return;
+                devLog.warn('[InstitutionRegistration] Resolve failed:', error);
+                setInstitutionRegistrationStatus('error');
+                setInstitutionRegistrationWallet(null);
+            }
+        };
+
+        checkInstitutionRegistration();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isSSO, user, institutionDomain]);
+
     // Reset institutional onboarding status on logout
     useEffect(() => {
         if (!isSSO || !user) {
             setInstitutionalOnboardingStatus(null);
             setShowOnboardingModal(false);
+            setInstitutionRegistrationStatus(null);
+            setInstitutionRegistrationWallet(null);
         }
     }, [isSSO, user]);
 
@@ -628,6 +690,10 @@ function UserDataCore({ children }) {
         showOnboardingModal,
         needsInstitutionalOnboarding: institutionalOnboardingStatus === 'required' || institutionalOnboardingStatus === 'pending',
         isInstitutionallyOnboarded: institutionalOnboardingStatus === 'completed',
+        institutionRegistrationStatus,
+        institutionRegistrationWallet,
+        isInstitutionRegistered: institutionRegistrationStatus === 'registered',
+        isInstitutionRegistrationLoading: institutionRegistrationStatus === 'checking',
         
         // Actions
         refreshProviderStatus,
@@ -684,6 +750,10 @@ export function UserData({ children }) {
  * @returns {boolean} returns.showOnboardingModal - Whether to show the onboarding modal
  * @returns {boolean} returns.needsInstitutionalOnboarding - Whether user needs institutional onboarding
  * @returns {boolean} returns.isInstitutionallyOnboarded - Whether user has completed institutional onboarding
+ * @returns {string|null} returns.institutionRegistrationStatus - Status: null, 'checking', 'registered', 'unregistered', 'error'
+ * @returns {string|null} returns.institutionRegistrationWallet - Wallet address if institution is registered
+ * @returns {boolean} returns.isInstitutionRegistered - Whether institution is registered
+ * @returns {boolean} returns.isInstitutionRegistrationLoading - Whether institution registration check is in progress
  * @returns {Function} returns.refreshProviderStatus - Function to refresh provider status
  * @returns {Function} returns.openOnboardingModal - Function to open the onboarding modal
  * @returns {Function} returns.closeOnboardingModal - Function to close the onboarding modal

@@ -16,7 +16,18 @@ import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
  */
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { isLoggedIn, isProvider, isProviderLoading, isSSO, user } = useUser();
+  const {
+    isLoggedIn,
+    isProvider,
+    isProviderLoading,
+    isSSO,
+    user,
+    isInstitutionRegistered,
+    isInstitutionRegistrationLoading,
+    institutionRegistrationStatus,
+  } = useUser();
+  const isInstitutionRegistrationPending =
+    isSSO && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);
 
   // More tolerant approach - show buttons if we're logged in, even if loading provider data
   const showMenuButtons = isLoggedIn;
@@ -39,7 +50,9 @@ export default function Navbar() {
     
     // For SSO users, only show if they have institutional admin-level role
     if (!user) return false;
-    return hasAdminRole(user.role, user.scopedRole);
+    if (!hasAdminRole(user.role, user.scopedRole)) return false;
+    if (isInstitutionRegistrationPending) return false;
+    return !isInstitutionRegistered;
   };
 
   const isInstitutionAdmin =
@@ -49,10 +62,8 @@ export default function Navbar() {
   const showProviderButton = () => {
     // Show if already a confirmed provider
     if (isProvider && !isProviderLoading) return true;
-    
-    // Show for faculty (professors) even if not yet registered as provider
-    if (isFaculty()) return true;
-    
+    // For SSO faculty users, show only if institution is already registered
+    if (isSSO && !isInstitutionRegistrationPending && isFaculty() && isInstitutionRegistered) return true;
     return false;
   };
 
