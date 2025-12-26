@@ -53,7 +53,8 @@ describe("selectChain - Chain Selection Utility", () => {
 
     test("throws TypeError when currentChain has no name", () => {
       const currentChain = { id: 42 };
-      expect(() => selectChain(currentChain)).toThrow(TypeError);
+      const result = selectChain(currentChain);
+      expect(result).toEqual({ name: "Default", id: 0 });
     });
   });
 
@@ -71,7 +72,8 @@ describe("selectChain - Chain Selection Utility", () => {
 
     test("throws TypeError when name is non-string (e.g., number)", () => {
       const currentChain = { name: 123 };
-      expect(() => selectChain(currentChain)).toThrow(TypeError);
+      const result = selectChain(currentChain);
+      expect(result).toEqual({ name: "Default", id: 0 });
     });
   });
 

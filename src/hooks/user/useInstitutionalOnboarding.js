@@ -173,7 +173,11 @@ export function useInstitutionalOnboarding({
     }
 
     // Redirect to IB
-    window.location.href = ceremonyUrl
+    if (typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
+      window.location.assign(ceremonyUrl)
+    } else {
+      window.location.href = ceremonyUrl
+    }
   }, [sessionData])
 
   /**
@@ -233,7 +237,7 @@ export function useInstitutionalOnboarding({
     }
 
     return poll()
-  }, [sessionData, pollInterval, pollTimeout])
+  }, [pollInterval, pollTimeout]) // Removed sessionData since it's passed as parameter
 
   /**
    * Cancel ongoing polling
@@ -359,7 +363,7 @@ export function useInstitutionalOnboarding({
     }
 
     return pollForCompletion(session)
-  }, [listenForCompletionViaSSE, pollForCompletion, sessionData])
+  }, [listenForCompletionViaSSE, pollForCompletion]) // Removed sessionData to prevent infinite loop
 
   /**
    * Reset state
@@ -413,7 +417,7 @@ export function useInstitutionalOnboarding({
         sessionStorage.removeItem('onboarding_session')
       }
     }
-  }, [autoPoll, awaitCompletion])
+  }, [autoPoll]) // Removed awaitCompletion from dependencies to prevent infinite loop
 
   // Auto-check on mount if enabled
   useEffect(() => {

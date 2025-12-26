@@ -12,9 +12,13 @@ import { defaultChain } from '@/utils/blockchain/networkConfig'
  * @returns {Object} Matching chain configuration or default chain if no match found
  */
 export const selectChain = (currentChain) => {
-    const targetChain = config.chains.find(
-      (c) => c.name.toLowerCase() === currentChain?.name.toLowerCase()
-    );
-    
-    return targetChain || defaultChain;
+    const chains = Array.isArray(config?.chains) ? config.chains : [];
+    const currentName = typeof currentChain?.name === 'string'
+      ? currentChain.name.toLowerCase()
+      : null;
+    const targetChain = currentName
+      ? chains.find((c) => c?.name?.toLowerCase() === currentName)
+      : null;
+
+    return targetChain || defaultChain || chains[0] || currentChain;
 };
