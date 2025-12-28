@@ -23,8 +23,8 @@ async function resolveAuthEndpoint(labId) {
     return null
   }
   const contract = await getContractInstance()
-  const lab = await contract.getLab(Number(labId))
-  return normalizeAuthBase(lab?.base?.auth || '')
+  const authURI = await contract.getLabAuthURI(Number(labId))
+  return normalizeAuthBase(authURI || '')
 }
 
 export async function POST(req) {

@@ -32,7 +32,6 @@ describe("useLabValidation", () => {
     category: "Chemistry",
     description: "Test description",
     price: "100",
-    auth: "oauth",
   };
 
   beforeEach(() => {
@@ -272,7 +271,6 @@ describe("useLabValidation", () => {
         "category",
         "description",
         "price",
-        "auth",
       ]);
     });
 
@@ -285,7 +283,6 @@ describe("useLabValidation", () => {
         "keywords",
         "description",
         "price",
-        "auth",
         "accessURI",
         "accessKey",
         "timeSlots",

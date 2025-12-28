@@ -138,13 +138,13 @@ export async function POST(request) {
 
     // Check if provider already exists
     try {
-      const existingProvider = await contract.getProvider(walletAddress);
-      if (existingProvider && existingProvider.name && existingProvider.name.length > 0) {
+      const isProvider = await contract.isLabProvider(walletAddress);
+      if (isProvider) {
         devLog.log('[API] registerProvider: Provider already registered', walletAddress);
         needsRegistration = false;
       }
     } catch (err) {
-      // Provider doesn't exist, needs registration
+      // Provider doesn't exist or contract call failed, needs registration
       devLog.log('[API] registerProvider: Provider not found, needs registration');
     }
 

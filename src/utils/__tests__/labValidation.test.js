@@ -21,7 +21,6 @@ describe("validateLabFull", () => {
     category: "AI",
     description: "Test lab",
     price: 100,
-    auth: "https://auth.example.com",
     accessURI: "https://lab.example.com",
     accessKey: "key123",
     opens: 1704067200,
@@ -90,8 +89,6 @@ describe("validateLabFull", () => {
 
   describe("URL Validation", () => {
     test.each([
-      ["auth", "", "Authentication URL is required"],
-      ["auth", "not-url", "Invalid Authentication URL format"],
       ["accessURI", "", "Access URI is required"],
       ["accessURI", "invalid", "Invalid Access URI format"],
     ])("validates %s URL format", (field, value, expectedError) => {
@@ -107,11 +104,10 @@ describe("validateLabFull", () => {
       ["http://example.com"],
       ["ftp://files.example.com"],
     ])("accepts valid URL protocol: %s", (url) => {
-      const lab = { ...validLab, auth: url, accessURI: url };
+      const lab = { ...validLab, accessURI: url };
 
       const errors = validateLabFull(lab, validOptions);
 
-      expect(errors.auth).toBeUndefined();
       expect(errors.accessURI).toBeUndefined();
     });
   });
@@ -220,7 +216,6 @@ describe("validateLabFull", () => {
 describe("validateLabQuick", () => {
   const validQuickLab = {
     price: 100,
-    auth: "https://auth.example.com",
     accessURI: "https://lab.example.com",
     accessKey: "key123",
     uri: "https://data.example.com/lab.json",
@@ -229,7 +224,6 @@ describe("validateLabQuick", () => {
   describe("Required Fields", () => {
     test.each([
       ["accessKey", "", "Access Key is required"],
-      ["auth", "", "Authentication URL is required"],
       ["accessURI", "", "Access URI is required"],
       ["uri", "", "Lab Data URL is required"],
     ])("validates %s is required", (field, value, expectedError) => {

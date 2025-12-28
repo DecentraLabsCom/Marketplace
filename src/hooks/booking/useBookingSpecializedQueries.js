@@ -149,7 +149,7 @@ export const useBookingsForCalendar = (userAddress, labId, options = {}) => {
       const calendarBookings = rawReservations
         .filter(reservation => 
           // Only include non-cancelled bookings for availability checking
-          parseInt(reservation.status) !== 4
+          parseInt(reservation.status) !== 5
         )
         .map(reservation => ({
           id: reservation.reservationKey,

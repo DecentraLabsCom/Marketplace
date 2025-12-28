@@ -39,7 +39,7 @@ describe('signInstitutionalActionIntent utilities', () => {
   })
 
   test('ACTION_CODES includes institutional cancels', () => {
-    expect(ACTION_CODES.CANCEL_INSTITUTIONAL_REQUEST_BOOKING).toBe(12)
-    expect(ACTION_CODES.CANCEL_INSTITUTIONAL_BOOKING).toBe(13)
+    expect(ACTION_CODES.CANCEL_INSTITUTIONAL_REQUEST_BOOKING).toBe(9)
+    expect(ACTION_CODES.CANCEL_INSTITUTIONAL_BOOKING).toBe(10)
   })
 })

@@ -383,12 +383,12 @@ export const useUserBookingsDashboard = (userAddress, {
     let statusCategory = 'unknown';
     const numericStatus = parseInt(statusNumeric);
     
-    if (numericStatus === 4 || statusNumeric === '4') {
+    if (numericStatus === 5 || statusNumeric === '5') {
       statusCategory = 'cancelled';
     } else if (numericStatus === 0 || statusNumeric === '0') {
       statusCategory = 'pending';  // Always pending regardless of timing
-    } else if (numericStatus === 2 || numericStatus === 3) {
-      statusCategory = 'completed';  // USED or COLLECTED
+    } else if (numericStatus === 2 || numericStatus === 3 || numericStatus === 4) {
+      statusCategory = 'completed';  // USED, COMPLETED, or COLLECTED
     } else if (numericStatus === 1) {
       // CONFIRMED/BOOKED - use timing logic
       if (startTime && endTime) {
@@ -410,7 +410,7 @@ export const useUserBookingsDashboard = (userAddress, {
       id: payload.reservationKey || undefined,
       reservationKey: payload.reservationKey,
       labId,
-      status: statusNumeric, // keep numeric/string code (0,1,2,3,4)
+      status: statusNumeric, // keep numeric/string code (0,1,2,3,4,5)
       statusCategory,
       start: startTime,
       end: endTime,
@@ -518,8 +518,8 @@ export const useUserBookingsDashboard = (userAddress, {
         // Combine lab data with metadata for enriched experience
         const enrichedLabDetails = {
           ...labData,
-          // Extract auth from base object (comes from smart contract)
-          auth: labData?.base?.auth || '',
+          // Provider auth URI is stored at provider level (resolved below if available)
+          authURI: labData?.authURI || '',
           // Add metadata fields if available
           name: metadataData?.name || labData?.name || `Lab ${booking.labId}`,
           description: metadataData?.description || labData?.description,
@@ -548,6 +548,10 @@ export const useUserBookingsDashboard = (userAddress, {
         if (providerInfo) {
           enrichedLabDetails.providerName = providerInfo.name;
           enrichedLabDetails.providerInfo = providerInfo;
+          if (providerInfo.authURI) {
+            enrichedLabDetails.authURI = providerInfo.authURI;
+            enrichedLabDetails.auth = providerInfo.authURI;
+          }
         }
         
         // ✅ Create a properly formatted lab object for components
@@ -562,7 +566,7 @@ export const useUserBookingsDashboard = (userAddress, {
           description: enrichedLabDetails.description,
           category: enrichedLabDetails.category,
           keywords: enrichedLabDetails.keywords,
-          auth: enrichedLabDetails.auth,
+          auth: enrichedLabDetails.auth || enrichedLabDetails.authURI || '',
           // Pass through all other enriched lab details
           ...enrichedLabDetails
         };

@@ -121,6 +121,41 @@ export function UserEventProvider({ children }) {
         }
     });
 
+    // ProviderAuthURIUpdated event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'ProviderAuthURIUpdated',
+        chainId: safeChain.id,
+        client: publicClient,
+        enabled: isEnabled, // Only enable when we have valid address and public client
+        onLogs: (logs) => {
+            devLog.log('[UserEventContext] ProviderAuthURIUpdated events detected:', logs.length);
+
+            queryClient.invalidateQueries({
+                queryKey: providerQueryKeys.list()
+            });
+            queryClient.invalidateQueries({
+                queryKey: providerQueryKeys.getLabProviders()
+            });
+
+            logs.forEach(log => {
+                const providerAddress = log.args._provider || log.args.provider;
+                if (providerAddress) {
+                    queryClient.invalidateQueries({
+                        queryKey: providerQueryKeys.byAddress(providerAddress)
+                    });
+                    queryClient.invalidateQueries({
+                        queryKey: providerQueryKeys.name(providerAddress)
+                    });
+                    queryClient.invalidateQueries({
+                        queryKey: userQueryKeys.byAddress(providerAddress)
+                    });
+                }
+            });
+        }
+    });
+
     return (
         <UserEventContext.Provider value={{}}>
             {children}

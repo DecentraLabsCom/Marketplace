@@ -19,18 +19,25 @@ class AuthServiceClient {
 
   /**
    * Extract auth-service URL from lab contract data
-   * @param {Object} labContractData - Lab data from smart contract (from /api/contract/lab/getLab)
+   * @param {Object} labContractData - Lab data from smart contract or enriched payload (must include authURI)
    * @returns {string|null} Auth service URL or null if not found
    */
   getAuthServiceUrlFromLab(labContractData) {
     try {
-      // Lab contract data structure: { labId, base: { uri, price, auth, accessURI, accessKey } }
-      if (!labContractData?.base?.auth) {
-        devLog.warn('Lab contract data has no base.auth (auth-service URL)');
+      // Prefer provider-level authURI (lab -> provider) when available.
+      const authURI =
+        labContractData?.authURI ||
+        labContractData?.base?.authURI ||
+        labContractData?.provider?.authURI ||
+        labContractData?.base?.auth ||
+        labContractData?.auth;
+
+      if (!authURI) {
+        devLog.warn('Lab contract data has no authURI (auth-service URL)');
         return null;
       }
 
-      let authServiceUrl = labContractData.base.auth;
+      let authServiceUrl = authURI;
       
       // Validate URL format
       if (!authServiceUrl.startsWith('http://') && !authServiceUrl.startsWith('https://')) {
@@ -66,7 +73,7 @@ class AuthServiceClient {
   async requestAuthToken(marketplaceJwt, labContractData, labId = null) {
     const authServiceUrl = this.getAuthServiceUrlFromLab(labContractData);
     if (!authServiceUrl) {
-      throw new Error('Lab does not have a configured Lab Gateway auth-service URL in contract');
+      throw new Error('Lab does not have a configured auth-service URL in contract data');
     }
     
     return this.makeAuthRequest(authServiceUrl, '/marketplace-auth', marketplaceJwt, labId, false);
@@ -87,7 +94,7 @@ class AuthServiceClient {
     
     const authServiceUrl = this.getAuthServiceUrlFromLab(labContractData);
     if (!authServiceUrl) {
-      throw new Error('Lab does not have a configured Lab Gateway auth-service URL in contract');
+      throw new Error('Lab does not have a configured auth-service URL in contract data');
     }
     
     return this.makeAuthRequest(authServiceUrl, '/marketplace-auth2', marketplaceJwt, labId, true);

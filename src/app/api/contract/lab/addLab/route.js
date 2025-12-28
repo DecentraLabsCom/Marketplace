@@ -14,12 +14,11 @@ export async function POST(request) {
   
   try {
     const body = await request.json();
-    const { uri, price, auth, accessURI, accessKey, gatewayUrl: gatewayUrlOverride } = body;
+    const { uri, price, accessURI, accessKey, gatewayUrl: gatewayUrlOverride } = body;
     
     // Input validation
     if (!uri) return Response.json({ error: 'Missing required field: uri', field: 'uri' }, { status: 400 });
     if (price === undefined || price === null) return Response.json({ error: 'Missing required field: price', field: 'price' }, { status: 400 });
-    if (!auth) return Response.json({ error: 'Missing required field: auth', field: 'auth' }, { status: 400 });
     if (!accessURI) return Response.json({ error: 'Missing required field: accessURI', field: 'accessURI' }, { status: 400 });
     if (!accessKey) return Response.json({ error: 'Missing required field: accessKey', field: 'accessKey' }, { status: 400 });
 
@@ -55,7 +54,6 @@ export async function POST(request) {
       labId: 0,
       uri,
       price: priceInContractUnits,
-      auth,
       accessURI,
       accessKey
     });

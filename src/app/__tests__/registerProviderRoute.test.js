@@ -96,7 +96,7 @@ describe('/api/institutions/registerProvider route', () => {
 
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
-        getProvider: jest.fn().mockResolvedValue(null),
+        isLabProvider: jest.fn().mockResolvedValue(false),
         resolveSchacHomeOrganization: jest.fn().mockResolvedValue(null),
       })
     );
@@ -400,7 +400,7 @@ describe('/api/institutions/registerProvider route', () => {
     };
 
     const readContract = {
-      getProvider: jest.fn().mockRejectedValue(new Error('Provider not found')),
+      isLabProvider: jest.fn().mockResolvedValue(false),
       resolveSchacHomeOrganization: jest.fn().mockRejectedValue(new Error('Organization not found')),
     };
 

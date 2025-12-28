@@ -2,7 +2,12 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
 import ConfirmModal from '@/components/ui/ConfirmModal'
-import { getBookingStatusDisplay } from '@/utils/booking/bookingStatus'
+import {
+    getBookingStatusDisplay,
+    isCancelledBooking,
+    isConfirmedBooking,
+    isPendingBooking
+} from '@/utils/booking/bookingStatus'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -35,6 +40,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
 }) {
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
+    const isCancelled = isCancelledBooking(booking);
+    const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
 
     return (
         <li className={`flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
@@ -74,9 +81,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     {statusDisplay.text}
                 </span>
                 {/* Show cancel button for booked or pending reservations (not canceled) */}
-                {typeof onCancel === "function" && 
-                 booking.status !== "4" && booking.status !== 4 && // Not canceled
-                 (booking.status === "0" || booking.status === 0 || booking.status === "1" || booking.status === 1) && ( // PENDING or BOOKED
+                {typeof onCancel === "function" && canCancel && (
                     <button
                         onClick={() => {
                             // Log critical action for debugging
@@ -89,8 +94,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     </button>
                 )}
                 {/* Only show refund button for reservations that have a key and are not canceled */}
-                {typeof onRefund === "function" && booking.reservationKey && 
-                 booking.status !== "4" && booking.status !== 4 && ( // Not canceled
+                {typeof onRefund === "function" && booking.reservationKey && !isCancelled && (
                     <button
                         onClick={() => onRefund(lab.id, booking)}
                         className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"

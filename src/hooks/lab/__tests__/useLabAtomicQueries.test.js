@@ -170,7 +170,6 @@ describe("useLabAtomicQueries", () => {
       base: {
         uri: "ipfs://test",
         price: "1000000000000000000",
-        auth: "",
         accessURI: "",
         accessKey: "",
       },

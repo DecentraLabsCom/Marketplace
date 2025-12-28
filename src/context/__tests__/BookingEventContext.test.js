@@ -237,13 +237,13 @@ describe("BookingEventContext", () => {
         queryKey: bookingQueryKeys.getReservationsOfToken("7"),
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: bookingQueryKeys.hasActiveBookingByToken("7"),
-      });
-      expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: bookingQueryKeys.reservationsOf(mockUseAccount.address),
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: bookingQueryKeys.hasActiveBooking(mockUseAccount.address),
+        queryKey: bookingQueryKeys.hasActiveBooking("reservation-999", mockUseAccount.address),
+      });
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: bookingQueryKeys.hasActiveBookingByToken("7", mockUseAccount.address),
       });
     });
   });

@@ -127,7 +127,7 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     const { result } = renderHook(() => useReservationRequestWallet(), { wrapper: Wrapper });
 
-    const req = { tokenId: 'tok-err', start: 5, end: 6 };
+    const req = { tokenId: 'tok-err', start: 5, end: 6, userAddress: '0xerr' };
 
     let res;
     await act(async () => { res = await result.current.mutateAsync(req); });
@@ -136,7 +136,9 @@ describe('useReservationRequest (minimal unit tests)', () => {
     expect(res).toEqual(expect.objectContaining({ hash: '0xHASHERR', optimisticId: 'opt-err' }));
     expect(bookingMocks.invalidateAllBookings).toHaveBeenCalledTimes(1);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: bookingQueryKeys.getReservationsOfToken(req.tokenId) });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: bookingQueryKeys.hasActiveBookingByToken(req.tokenId) });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: bookingQueryKeys.hasActiveBookingByToken(req.tokenId, req.userAddress),
+    });
   });
 
   test('wallet: BigInt tx hash gets normalized to string', async () => {
@@ -177,11 +179,20 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     const { result } = renderHook(() => useReservationRequestWallet(), { wrapper: Wrapper });
 
-    await act(async () => { await result.current.mutateAsync({ tokenId: 'tok-f', start: 10, end: 11 }); });
+    await act(async () => {
+      await result.current.mutateAsync({
+        tokenId: 'tok-f',
+        start: 10,
+        end: 11,
+        userAddress: '0xfallback',
+      });
+    });
 
     expect(bookingMocks.invalidateAllBookings).toHaveBeenCalledTimes(1);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: bookingQueryKeys.getReservationsOfToken('tok-f') });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: bookingQueryKeys.hasActiveBookingByToken('tok-f') });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: bookingQueryKeys.hasActiveBookingByToken('tok-f', '0xfallback'),
+    });
   });
 
   test('wallet: contract error -> remove optimistic booking and throw', async () => {

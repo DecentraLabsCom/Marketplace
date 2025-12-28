@@ -169,14 +169,13 @@ export const useLabWallet = (labId, options = {}) => {
     data: result.data ? (() => {
       const data = result.data;
       
-      // Wagmi already returns data as object: { labId: BigInt, base: { uri, price, auth, accessURI, accessKey } }
+      // Wagmi already returns data as object: { labId: BigInt, base: { uri, price, accessURI, accessKey } }
       // We just need to normalize BigInt values to numbers/strings
       return {
         labId: typeof data.labId === 'bigint' ? Number(data.labId) : Number(data.labId || labId),
         base: {
           uri: String(data.base?.uri || ''),
           price: data.base?.price ? (typeof data.base.price === 'bigint' ? data.base.price.toString() : String(data.base.price)) : '0',
-          auth: String(data.base?.auth || ''),
           accessURI: String(data.base?.accessURI || ''),
           accessKey: String(data.base?.accessKey || ''),
           createdAt: data.base?.createdAt ? Number(data.base.createdAt) : 0

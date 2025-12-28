@@ -40,12 +40,12 @@ describe("AuthServiceClient", () => {
       const res = authServiceClient.getAuthServiceUrlFromLab(data);
       expect(res).toBeNull();
       expect(devLog.warn).toHaveBeenCalledWith(
-        "Lab contract data has no base.auth (auth-service URL)"
+        "Lab contract data has no authURI (auth-service URL)"
       );
     });
 
     test("rejects invalid URL schemes with proper warning logging", () => {
-      const data = { base: { auth: "ftp://example.com" } };
+      const data = { authURI: "ftp://example.com" };
       const res = authServiceClient.getAuthServiceUrlFromLab(data);
       expect(res).toBeNull();
       expect(devLog.warn).toHaveBeenCalledWith(
@@ -55,17 +55,17 @@ describe("AuthServiceClient", () => {
     });
 
     test("normalizes URL format by removing trailing slashes and appending auth endpoint", () => {
-      const data1 = { base: { auth: "https://gateway.example.com/" } };
+      const data1 = { authURI: "https://gateway.example.com/" };
       const res1 = authServiceClient.getAuthServiceUrlFromLab(data1);
       expect(res1).toBe("https://gateway.example.com/auth");
 
-      const data2 = { base: { auth: "https://gateway.example.com" } };
+      const data2 = { authURI: "https://gateway.example.com" };
       const res2 = authServiceClient.getAuthServiceUrlFromLab(data2);
       expect(res2).toBe("https://gateway.example.com/auth");
     });
 
     test("preserves existing auth endpoint while removing trailing slashes", () => {
-      const data = { base: { auth: "https://gateway.example.com/auth/" } };
+      const data = { authURI: "https://gateway.example.com/auth/" };
       const res = authServiceClient.getAuthServiceUrlFromLab(data);
       expect(res).toBe("https://gateway.example.com/auth");
     });
@@ -197,14 +197,14 @@ describe("AuthServiceClient", () => {
   });
 
   describe("Public API Method Validation", () => {
-    const labContractData = { base: { auth: "https://gateway.example.com" } };
+    const labContractData = { authURI: "https://gateway.example.com" };
 
     test("validates contract configuration before authentication token requests", async () => {
       const bad = { base: {} };
       await expect(
         authServiceClient.requestAuthToken("jwt", bad)
       ).rejects.toThrow(
-        /Lab does not have a configured Lab Gateway auth-service URL/
+        /Lab does not have a configured auth-service URL in contract data/
       );
     });
 
@@ -273,7 +273,7 @@ describe("AuthServiceClient", () => {
     });
 
     test("returns true when health endpoint responds with successful status", async () => {
-      const good = { base: { auth: "https://gateway.example.com" } };
+      const good = { authURI: "https://gateway.example.com" };
       global.fetch.mockResolvedValueOnce({ ok: true });
       const res = await authServiceClient.healthCheck(good);
       expect(res).toBe(true);
@@ -288,7 +288,7 @@ describe("AuthServiceClient", () => {
     });
 
     test("returns false when health endpoint responds with error status", async () => {
-      const good = { base: { auth: "https://gateway.example.com" } };
+      const good = { authURI: "https://gateway.example.com" };
       global.fetch.mockResolvedValueOnce({ ok: false });
       const res = await authServiceClient.healthCheck(good);
       expect(res).toBe(false);
@@ -302,7 +302,7 @@ describe("AuthServiceClient", () => {
     });
 
     test("handles network failures during health checks with graceful degradation", async () => {
-      const good = { base: { auth: "https://gateway.example.com" } };
+      const good = { authURI: "https://gateway.example.com" };
       global.fetch.mockRejectedValueOnce(new Error("timeout"));
       const res = await authServiceClient.healthCheck(good);
       expect(res).toBe(false);

@@ -16,8 +16,8 @@ export const ACTION_CODES = {
   CANCEL_REQUEST_BOOKING: 9,
   CANCEL_BOOKING: 10,
   REQUEST_FUNDS: 11,
-  CANCEL_INSTITUTIONAL_REQUEST_BOOKING: 12,
-  CANCEL_INSTITUTIONAL_BOOKING: 13,
+  CANCEL_INSTITUTIONAL_REQUEST_BOOKING: 9,
+  CANCEL_INSTITUTIONAL_BOOKING: 10,
 };
 
 export const INTENT_META_TYPES = {
@@ -44,7 +44,6 @@ export const ACTION_PAYLOAD_TYPES = {
     { name: 'uri', type: 'string' },
     { name: 'price', type: 'uint96' },
     { name: 'maxBatch', type: 'uint96' },
-    { name: 'auth', type: 'string' },
     { name: 'accessURI', type: 'string' },
     { name: 'accessKey', type: 'string' },
     { name: 'tokenURI', type: 'string' },
@@ -84,7 +83,6 @@ function normalizeActionPayload(payload) {
     uri: payload.uri || '',
     price: toBigIntOrZero(payload.price || 0),
     maxBatch: toBigIntOrZero(payload.maxBatch || 0),
-    auth: payload.auth || '',
     accessURI: payload.accessURI || '',
     accessKey: payload.accessKey || '',
     tokenURI: payload.tokenURI || '',
@@ -120,7 +118,6 @@ export async function buildActionIntent({
   reservationKey = ethers.ZeroHash,
   uri = '',
   price = 0,
-  auth = '',
   accessURI = '',
   accessKey = '',
   tokenURI = '',
@@ -150,7 +147,6 @@ export async function buildActionIntent({
     reservationKey,
     uri,
     price,
-    auth,
     accessURI,
     accessKey,
     tokenURI,

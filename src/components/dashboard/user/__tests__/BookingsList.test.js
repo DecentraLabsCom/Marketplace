@@ -47,7 +47,7 @@ const bookings = [
         reservationKey: 'k3',
         start: future,
         end: future + 3600,
-        status: '4',
+        status: '5',
         labDetails: { id: '103', name: 'Cancelled' }
     }
 ];
@@ -61,8 +61,8 @@ const mockRefund = jest.fn();
 const mockClose = jest.fn();
 
 jest.mock('@/utils/booking/bookingStatus', () => ({
-    isCancelledBooking: (b) => b.status === '4',
-    isPendingBooking: (b) => b.status === '0'
+    isCancelledBooking: (b) => b.status === '5' || b.status === 5,
+    isPendingBooking: (b) => b.status === '0' || b.status === 0
 }));
 
 jest.mock('@/components/skeletons', () => ({

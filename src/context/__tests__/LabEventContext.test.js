@@ -8,6 +8,8 @@
  * - LabUnlisted event handling
  * - LabDeleted event handling
  * - LabURISet event handling
+ * - LabReputationAdjusted event handling
+ * - LabReputationSet event handling
  * - React Query cache invalidation
  * - Event listener setup and configuration
  * - Hook validation
@@ -240,6 +242,40 @@ describe("LabEventContext", () => {
       expect(labURISetCall[0].address).toBe("0xMockDiamondAddress");
       expect(labURISetCall[0].eventName).toBe("LabURISet");
       expect(labURISetCall[0].enabled).toBe(true);
+    });
+
+    test("sets up LabReputationAdjusted event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
+
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const reputationAdjustedCall = useWatchContractEvent.mock.calls.find(
+        (call) => call[0].eventName === "LabReputationAdjusted"
+      );
+
+      expect(reputationAdjustedCall).toBeDefined();
+      expect(reputationAdjustedCall[0].address).toBe("0xMockDiamondAddress");
+      expect(reputationAdjustedCall[0].eventName).toBe("LabReputationAdjusted");
+      expect(reputationAdjustedCall[0].enabled).toBe(true);
+    });
+
+    test("sets up LabReputationSet event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
+
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const reputationSetCall = useWatchContractEvent.mock.calls.find(
+        (call) => call[0].eventName === "LabReputationSet"
+      );
+
+      expect(reputationSetCall).toBeDefined();
+      expect(reputationSetCall[0].address).toBe("0xMockDiamondAddress");
+      expect(reputationSetCall[0].eventName).toBe("LabReputationSet");
+      expect(reputationSetCall[0].enabled).toBe(true);
     });
 
     test("disables listeners when chain or address missing", () => {
@@ -834,6 +870,88 @@ describe("LabEventContext", () => {
       // Should not try to invalidate queries for null labId
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", null],
+      });
+    });
+  });
+
+  describe("LabReputation Event Handling", () => {
+    test("invalidates derived lab queries on LabReputationAdjusted", () => {
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const mockLogs = [
+        {
+          args: {
+            labId: 1n,
+          },
+        },
+      ];
+
+      act(() => {
+        mockWatchContractEventHandlers.LabReputationAdjusted(mockLogs);
+        jest.advanceTimersByTime(60);
+      });
+
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "getLab", "1"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "tokenURI", "1"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "isTokenListed", "1"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "ownerOf", "1"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "getLabReputation", "1"],
+        exact: true,
+      });
+    });
+
+    test("invalidates derived lab queries on LabReputationSet", () => {
+      renderHook(() => useLabEventContext(), {
+        wrapper: LabEventProvider,
+      });
+
+      const mockLogs = [
+        {
+          args: {
+            labId: 2n,
+          },
+        },
+      ];
+
+      act(() => {
+        mockWatchContractEventHandlers.LabReputationSet(mockLogs);
+        jest.advanceTimersByTime(60);
+      });
+
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "getLab", "2"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "tokenURI", "2"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "isTokenListed", "2"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "ownerOf", "2"],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "getLabReputation", "2"],
+        exact: true,
       });
     });
   });

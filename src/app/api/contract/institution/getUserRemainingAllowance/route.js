@@ -13,7 +13,7 @@ import { isAddress } from 'viem'
  * Retrieves institutional user remaining allowance
  * @param {Request} request - HTTP request with query parameters
  * @param {string} request.searchParams.institutionAddress - Institution wallet address (required)
- * @param {string} request.searchParams.userAddress - User wallet address (required)
+ * @param {string} request.searchParams.puc - schacPersonalUniqueCode (required)
  * @returns {Response} JSON response with remaining allowance
  */
 export async function GET(request) {
@@ -25,7 +25,7 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const institutionAddress = url.searchParams.get('institutionAddress');
-  const userAddress = url.searchParams.get('userAddress');
+  const puc = url.searchParams.get('puc');
   
   if (!institutionAddress) {
     return Response.json({ 
@@ -33,31 +33,31 @@ export async function GET(request) {
     }, { status: 400 });
   }
 
-  if (!userAddress) {
+  if (!puc) {
     return Response.json({ 
-      error: 'Missing userAddress parameter' 
+      error: 'Missing puc parameter' 
     }, { status: 400 });
   }
 
-  if (!isAddress(institutionAddress) || !isAddress(userAddress)) {
+  if (!isAddress(institutionAddress)) {
     return Response.json({ 
       error: 'Invalid address format' 
     }, { status: 400 });
   }
 
   try {
-    console.log(`🔍 Fetching remaining allowance for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
+    console.log(`🔍 Fetching remaining allowance for PUC: ${puc}`);
     
     const contract = await getContractInstance();
     
-    const allowance = await contract.getInstitutionalUserRemainingAllowance(institutionAddress, userAddress);
+    const allowance = await contract.getInstitutionalUserRemainingAllowance(institutionAddress, puc);
     
     console.log(`✅ Successfully fetched remaining allowance`);
     
     return Response.json({ 
       remainingAllowance: allowance?.toString() || '0',
       institutionAddress,
-      userAddress
+      puc
     }, { status: 200 });
 
   } catch (error) {

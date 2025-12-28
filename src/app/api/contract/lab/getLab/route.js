@@ -41,18 +41,17 @@ export async function GET(request) {
     const labData = await contract.getLab(numericLabId);
     
     // Transform the raw contract response to expected structure
-    // Contract returns: { "0": labId, "1": [uri, price, auth, accessURI, accessKey, createdAt] }
-    // Transform to: { labId, base: { uri, price, auth, accessURI, accessKey, createdAt } }
+    // Contract returns: { "0": labId, "1": [uri, price, accessURI, accessKey, createdAt] }
+    // Transform to: { labId, base: { uri, price, accessURI, accessKey, createdAt } }
     // Ensure ALL BigInt values are converted to strings
     const transformedData = {
       labId: Number(labData[0] || numericLabId), // Convert potential BigInt labId
       base: {
         uri: String(labData[1]?.[0] || ''),
         price: labData[1]?.[1] ? labData[1][1].toString() : '0',
-        auth: String(labData[1]?.[2] || ''),
-        accessURI: String(labData[1]?.[3] || ''),
-        accessKey: String(labData[1]?.[4] || ''),
-        createdAt: labData[1]?.[5] ? Number(labData[1][5]) : 0
+        accessURI: String(labData[1]?.[2] || ''),
+        accessKey: String(labData[1]?.[3] || ''),
+        createdAt: labData[1]?.[4] ? Number(labData[1][4]) : 0
       }
     };
     

@@ -44,7 +44,8 @@ export const useProviderMapping = ({
         name: matchingProvider.name,
         email: matchingProvider.email,
         country: matchingProvider.country,
-        account: matchingProvider.account
+        account: matchingProvider.account,
+        authURI: matchingProvider.authURI || ''
       };
     }
 

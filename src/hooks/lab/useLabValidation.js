@@ -86,11 +86,11 @@ export function useLabValidation(lab, mode = 'full', refs = {}) {
    */
   const requiredFields = useMemo(() => {
     if (mode === 'quick') {
-      return ['name', 'category', 'description', 'price', 'auth']
+      return ['name', 'category', 'description', 'price']
     }
     return [
       'name', 'category', 'keywords', 'description', 'price', 
-      'auth', 'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes'
+      'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes'
     ]
   }, [mode])
 
@@ -115,7 +115,7 @@ export function useLabValidation(lab, mode = 'full', refs = {}) {
     // Check all possible fields
     const allFields = [
       'name', 'category', 'keywords', 'description', 'price',
-      'auth', 'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes',
+      'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes',
       'imageUrls', 'docUrls', 'uri'
     ]
     

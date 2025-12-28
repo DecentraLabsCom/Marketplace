@@ -208,7 +208,11 @@ export const useReservationRequestWallet = (options = {}) => {
         if (variables.tokenId) {
           try {
             queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) });
-            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId) });
+            if (variables.userAddress) {
+              queryClient.invalidateQueries({
+                queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId, variables.userAddress),
+              });
+            }
           } catch (targetedError) {
             devLog.error('Targeted booking invalidations failed', targetedError);
           }
@@ -520,7 +524,7 @@ export const useCancelReservationRequestWallet = (options = {}) => {
           ...oldData,
           reservation: {
             ...oldData.reservation,
-            status: '4', // Cancelled status
+            status: '5', // Cancelled status
             isCancelled: true
           }
         };
@@ -652,7 +656,7 @@ export const useCancelInstitutionalReservationRequestWallet = (options = {}) => 
           ...oldData,
           reservation: {
             ...oldData.reservation,
-            status: '4',
+            status: '5',
             isCancelled: true,
           },
         };
@@ -700,7 +704,7 @@ export const useCancelBookingSSO = (options = {}) => {
           ...oldData,
           reservation: {
             ...oldData.reservation,
-            status: '4', // Cancelled status
+            status: '5', // Cancelled status
             isCancelled: true
           }
         };
@@ -731,7 +735,7 @@ export const useCancelBookingSSO = (options = {}) => {
                       ...oldData.reservation,
                       transactionHash: txHash,
                       isCancelled: true,
-                      status: '4',
+                      status: '5',
                     },
                   };
                 });
@@ -786,7 +790,7 @@ export const useCancelBookingWallet = (options = {}) => {
           ...oldData,
           reservation: {
             ...oldData.reservation,
-            status: '4', // Cancelled status
+            status: '5', // Cancelled status
             isCancelled: true
           }
         };
@@ -838,7 +842,7 @@ export const useCancelInstitutionalBookingSSO = (options = {}) => {
           ...oldData,
           reservation: {
             ...oldData.reservation,
-            status: '4',
+            status: '5',
             isCancelled: true,
           },
         };
@@ -869,7 +873,7 @@ export const useCancelInstitutionalBookingSSO = (options = {}) => {
                       ...oldData.reservation,
                       transactionHash: txHash,
                       isCancelled: true,
-                      status: '4',
+                      status: '5',
                     },
                   };
                 });
@@ -923,7 +927,7 @@ export const useCancelInstitutionalBookingWallet = (options = {}) => {
           ...oldData,
           reservation: {
             ...oldData.reservation,
-            status: '4',
+            status: '5',
             isCancelled: true,
           },
         };
@@ -954,7 +958,6 @@ export const useCancelInstitutionalBooking = (options = {}) => {
  */
 export const useRequestFundsSSO = (options = {}) => {
   const queryClient = useQueryClient();
-  const { address } = useUser();
 
   return useMutation({
     mutationFn: async () => {
@@ -964,7 +967,7 @@ export const useRequestFundsSSO = (options = {}) => {
     },
     onSuccess: () => {
       // Invalidate safe balance and related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
       devLog.log('Funds requested successfully, cache invalidated');
     },
     onError: (error) => {
@@ -982,7 +985,6 @@ export const useRequestFundsSSO = (options = {}) => {
  */
 export const useRequestFundsWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const { address } = useUser();
   const { contractWriteFunction: requestFunds } = useContractWriteFunction('requestFunds');
 
   return useMutation({
@@ -993,7 +995,7 @@ export const useRequestFundsWallet = (options = {}) => {
     },
     onSuccess: (result) => {
       // Invalidate safe balance and related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance(address || '') });
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
       devLog.log('Funds requested successfully via wallet, cache invalidated');
     },
     onError: (error) => {

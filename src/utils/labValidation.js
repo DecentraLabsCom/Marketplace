@@ -59,12 +59,6 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         }
     }
 
-    if (!localLab.auth?.trim()) {
-        errors.auth = 'Authentication URL is required';
-    } else if (!urlRegex.test(localLab.auth)) {
-        errors.auth = 'Invalid Authentication URL format';
-    }
-
     if (!localLab.accessURI?.trim()) {
         errors.accessURI = 'Access URI is required';
     } else if (!urlRegex.test(localLab.accessURI)) {
@@ -197,12 +191,6 @@ export function validateLabQuick(localLab) {
     if (isNaN(priceNum) || priceNum < 0) {
         errors.price = 'Price must be a positive number or zero';
     }
-    }
-
-    if (!localLab.auth?.trim()) {
-        errors.auth = 'Authentication URL is required';
-    } else if (!urlRegex.test(localLab.auth)) {
-        errors.auth = 'Invalid Authentication URL format';
     }
 
     if (!localLab.accessURI?.trim()) {

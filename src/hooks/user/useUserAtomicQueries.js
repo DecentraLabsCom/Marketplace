@@ -92,7 +92,8 @@ export const useGetLabProvidersWallet = (options = {}) => {
         account: provider.account,
         name: provider.base?.name || provider.name,
         email: provider.base?.email || provider.email,
-        country: provider.base?.country || provider.country
+        country: provider.base?.country || provider.country,
+        authURI: provider.base?.authURI || provider.authURI || ''
       }));
       
       return {

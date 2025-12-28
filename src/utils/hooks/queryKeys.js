@@ -26,13 +26,23 @@ export const bookingQueryKeys = {
   totalReservations: () => ['bookings', 'totalReservations'],
   userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
   checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
-  hasActiveBooking: (userAddress) => ['bookings', 'hasActiveBooking', userAddress],
-  hasActiveBookingByToken: (labId) => ['bookings', 'hasActiveBookingByToken', labId],
+  hasActiveBooking: (reservationKey, userAddress) => [
+    'bookings',
+    'hasActiveBooking',
+    reservationKey,
+    userAddress,
+  ],
+  hasActiveBookingByToken: (labId, userAddress) => [
+    'bookings',
+    'hasActiveBookingByToken',
+    labId,
+    userAddress,
+  ],
   activeReservationKeyForUser: (labId, userAddress) => ['bookings', 'activeReservationKey', labId, userAddress],
   institutionalHasActiveBooking: () => ['bookings', 'institutional', 'hasActiveBooking', 'session'],
   institutionalActiveReservationKey: (labId) => ['bookings', 'institutional', 'activeReservationKey', labId],
   labTokenAddress: () => ['bookings', 'labTokenAddress'],
-  safeBalance: (userAddress) => ['bookings', 'safeBalance', userAddress],
+  safeBalance: () => ['bookings', 'safeBalance'],
 };
 
 // Lab query keys

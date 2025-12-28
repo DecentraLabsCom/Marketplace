@@ -28,7 +28,8 @@ export async function GET() {
         account: provider.account,
         name: provider.base.name,
         email: provider.base.email,
-        country: provider.base.country
+        country: provider.base.country,
+        authURI: provider.base.authURI || ''
       })),
       count: providers.length,
       timestamp: new Date().toISOString()

@@ -70,7 +70,6 @@ export async function POST(request) {
       reservationKey: payloadInput.reservationKey || ethers.ZeroHash,
       uri: payloadInput.uri || '',
       price: payloadInput.price ?? 0,
-      auth: payloadInput.auth || '',
       accessURI: payloadInput.accessURI || '',
       accessKey: payloadInput.accessKey || '',
       tokenURI: payloadInput.tokenURI || '',

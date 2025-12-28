@@ -72,17 +72,33 @@ export async function POST(request) {
           response.data.auth_service_error = `Failed to fetch lab ${labId} from contract`;
         } else {
           const labContractData = await labResponse.json();
+          let authURI = null;
+
+          try {
+            const authRes = await fetch(
+              `${process.env.VERCEL_URL || 'http://localhost:3000'}/api/contract/lab/getLabAuthURI?labId=${labId}`
+            );
+            if (authRes.ok) {
+              const authData = await authRes.json();
+              authURI = authData?.authURI || null;
+            }
+          } catch (authError) {
+            response.data.auth_service_error = authError.message;
+          }
+
+          const labContractDataWithAuth = { ...labContractData, authURI };
+
           response.data.lab_gateway_url = labContractData.base?.accessURI || 'not configured';
-          response.data.auth_service_url = labContractData.base?.auth || 'not configured';
+          response.data.auth_service_url = authURI || 'not configured';
           
           // Test auth-service connectivity using contract data
-          const healthCheck = await authServiceClient.healthCheck(labContractData);
+          const healthCheck = await authServiceClient.healthCheck(labContractDataWithAuth);
           response.data.auth_service_health = healthCheck;
 
           if (healthCheck) {
             // Attempt to make test request (may fail due to test JWT)
             try {
-              const authResponse = await authServiceClient.requestAuthToken(jwt, labContractData, labId);
+              const authResponse = await authServiceClient.requestAuthToken(jwt, labContractDataWithAuth, labId);
               response.data.auth_service_response = 'success';
               response.data.auth_service_data = authResponse;
             } catch (authError) {
@@ -118,7 +134,7 @@ export async function GET() {
     status: {
       jwt_service_configured: await marketplaceJwtService.isConfigured(),
       auth_service_mode: 'dynamic (per-lab from smart contract)',
-      note: 'Auth-service URL is now obtained dynamically from each lab\'s contract data (base.accessURI)'
+      note: 'Auth-service URL is now obtained dynamically from each lab provider authURI'
     }
   });
 }

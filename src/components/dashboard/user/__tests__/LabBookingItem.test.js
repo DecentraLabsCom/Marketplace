@@ -40,10 +40,13 @@ jest.mock('@/utils/booking/bookingStatus', () => ({
     const statusMap = {
       '0': { text: 'Pending', icon: '⏳', className: 'bg-yellow-200' },
       '1': { text: 'Confirmed', icon: '✓', className: 'bg-green-200' },
-      '4': { text: 'Canceled', icon: '✗', className: 'bg-red-200' }
+      '5': { text: 'Canceled', icon: '✗', className: 'bg-red-200' }
     };
     return statusMap[booking.status] || { text: 'Unknown', icon: '?', className: 'bg-gray-200' };
-  })
+  }),
+  isCancelledBooking: (booking) => booking.status === '5' || booking.status === 5,
+  isPendingBooking: (booking) => booking.status === '0' || booking.status === 0,
+  isConfirmedBooking: (booking) => booking.status === '1' || booking.status === 1
 }));
 
 jest.mock('@/utils/dev/logger', () => ({
@@ -157,11 +160,11 @@ describe('LabBookingItem', () => {
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
 
-  test('hides cancel button for canceled booking (status 4)', () => {
+  test('hides cancel button for canceled booking (status 5)', () => {
     render(
       <LabBookingItem
         lab={mockLab}
-        booking={createBooking({ status: '4' })}
+        booking={createBooking({ status: '5' })}
         onCancel={jest.fn()}
       />
     );
@@ -209,7 +212,7 @@ describe('LabBookingItem', () => {
     render(
       <LabBookingItem
         lab={mockLab}
-        booking={createBooking({ status: '4' })}
+        booking={createBooking({ status: '5' })}
         onRefund={jest.fn()}
       />
     );

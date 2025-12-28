@@ -13,7 +13,7 @@ import { isAddress } from 'viem'
  * Retrieves institutional user spending data
  * @param {Request} request - HTTP request with query parameters
  * @param {string} request.searchParams.institutionAddress - Institution wallet address (required)
- * @param {string} request.searchParams.userAddress - User wallet address (required)
+ * @param {string} request.searchParams.puc - schacPersonalUniqueCode (required)
  * @returns {Response} JSON response with spending data
  */
 export async function GET(request) {
@@ -25,7 +25,7 @@ export async function GET(request) {
 
   const url = new URL(request.url);
   const institutionAddress = url.searchParams.get('institutionAddress');
-  const userAddress = url.searchParams.get('userAddress');
+  const puc = url.searchParams.get('puc');
   
   if (!institutionAddress) {
     return Response.json({ 
@@ -33,37 +33,35 @@ export async function GET(request) {
     }, { status: 400 });
   }
 
-  if (!userAddress) {
+  if (!puc) {
     return Response.json({ 
-      error: 'Missing userAddress parameter' 
+      error: 'Missing puc parameter' 
     }, { status: 400 });
   }
 
-  if (!isAddress(institutionAddress) || !isAddress(userAddress)) {
+  if (!isAddress(institutionAddress)) {
     return Response.json({ 
       error: 'Invalid address format' 
     }, { status: 400 });
   }
 
   try {
-    console.log(`🔍 Fetching spending data for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
+    console.log(`🔍 Fetching spending data for PUC: ${puc}`);
     
     const contract = await getContractInstance();
     
-    const spendingData = await contract.getInstitutionalUserSpendingData(institutionAddress, userAddress);
+    const spendingData = await contract.getInstitutionalUserSpendingData(institutionAddress, puc);
     
     console.log(`✅ Successfully fetched spending data`);
     
-    // Contract returns: { spent, limit, periodStart, periodDuration }
+    // Contract returns: (amount, periodStart)
     return Response.json({ 
       spendingData: {
-        spent: spendingData.spent?.toString() || '0',
-        limit: spendingData.limit?.toString() || '0',
-        periodStart: spendingData.periodStart?.toString() || '0',
-        periodDuration: spendingData.periodDuration?.toString() || '0'
+        amount: spendingData.amount?.toString() || spendingData[0]?.toString?.() || '0',
+        periodStart: spendingData.periodStart?.toString() || spendingData[1]?.toString?.() || '0'
       },
       institutionAddress,
-      userAddress
+      puc
     }, { status: 200 });
 
   } catch (error) {

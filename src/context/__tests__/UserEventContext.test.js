@@ -5,6 +5,7 @@
  * - ProviderAdded event handling
  * - ProviderRemoved event handling
  * - ProviderUpdated event handling
+ * - ProviderAuthURIUpdated event handling
  * - React Query cache invalidation
  * - Event listener setup and configuration
  * - Hook validation
@@ -73,6 +74,7 @@ jest.mock("@/utils/hooks/queryKeys", () => ({
     byAddress: jest.fn((address) => ["provider", "byAddress", address]),
     isLabProvider: jest.fn((address) => ["provider", "isLabProvider", address]),
     name: jest.fn((address) => ["provider", "name", address]),
+    getLabProviders: jest.fn(() => ["provider", "getLabProviders"]),
   },
 }));
 
@@ -177,6 +179,24 @@ describe("UserEventContext", () => {
       expect(providerUpdatedCall[0].address).toBe("0xMockDiamondAddress");
       expect(providerUpdatedCall[0].eventName).toBe("ProviderUpdated");
       expect(providerUpdatedCall[0].enabled).toBe(true);
+    });
+
+    test("sets up ProviderAuthURIUpdated event listener", () => {
+      const { useWatchContractEvent } = require("wagmi");
+
+      renderHook(() => useUserEventContext(), {
+        wrapper: UserEventProvider,
+      });
+
+      // Verify useWatchContractEvent was called for ProviderAuthURIUpdated
+      const providerAuthCall = useWatchContractEvent.mock.calls.find(
+        (call) => call[0].eventName === "ProviderAuthURIUpdated"
+      );
+
+      expect(providerAuthCall).toBeDefined();
+      expect(providerAuthCall[0].address).toBe("0xMockDiamondAddress");
+      expect(providerAuthCall[0].eventName).toBe("ProviderAuthURIUpdated");
+      expect(providerAuthCall[0].enabled).toBe(true);
     });
   });
 
@@ -510,6 +530,62 @@ describe("UserEventContext", () => {
       });
       expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
         queryKey: ["provider", "byAddress", undefined],
+      });
+    });
+  });
+
+  describe("ProviderAuthURIUpdated Event Handling", () => {
+    test("invalidates provider list and lab providers cache on ProviderAuthURIUpdated", () => {
+      renderHook(() => useUserEventContext(), {
+        wrapper: UserEventProvider,
+      });
+
+      const mockLogs = [
+        {
+          args: {
+            _provider: "0xProvider1",
+          },
+        },
+      ];
+
+      act(() => {
+        mockWatchContractEventHandlers.ProviderAuthURIUpdated(mockLogs);
+      });
+
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["provider", "list"],
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["provider", "getLabProviders"],
+      });
+    });
+
+    test("invalidates provider-specific queries on ProviderAuthURIUpdated", () => {
+      renderHook(() => useUserEventContext(), {
+        wrapper: UserEventProvider,
+      });
+
+      const providerAddress = "0xProvider2";
+      const mockLogs = [
+        {
+          args: {
+            _provider: providerAddress,
+          },
+        },
+      ];
+
+      act(() => {
+        mockWatchContractEventHandlers.ProviderAuthURIUpdated(mockLogs);
+      });
+
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["provider", "byAddress", providerAddress],
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["provider", "name", providerAddress],
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["user", "byAddress", providerAddress],
       });
     });
   });

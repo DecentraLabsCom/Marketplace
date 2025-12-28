@@ -184,6 +184,40 @@ export function LabEventProvider({ children }) {
         }
     });
 
+    // LabReputationAdjusted event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'LabReputationAdjusted',
+        chainId: safeChain.id,
+        client: publicClient,
+        enabled: isEnabled, // Only enable when we have valid address and public client
+        onLogs: (logs) => {
+            devLog.log('[LabEventContext] LabReputationAdjusted events detected:', logs.length);
+
+            uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
+                queueLabDerivedInvalidations(labId);
+            });
+        }
+    });
+
+    // LabReputationSet event listener
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'LabReputationSet',
+        chainId: safeChain.id,
+        client: publicClient,
+        enabled: isEnabled, // Only enable when we have valid address and public client
+        onLogs: (logs) => {
+            devLog.log('[LabEventContext] LabReputationSet events detected:', logs.length);
+
+            uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
+                queueLabDerivedInvalidations(labId);
+            });
+        }
+    });
+
     return (
         <LabEventContext.Provider value={{}}>
             {children}

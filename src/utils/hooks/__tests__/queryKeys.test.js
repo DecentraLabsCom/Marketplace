@@ -192,18 +192,16 @@ describe("queryKeys", () => {
       ]);
     });
 
-    test("hasActiveBooking() includes userAddress", () => {
-      const address = "0x111";
-      const result = bookingQueryKeys.hasActiveBooking(address);
+    test("hasActiveBooking() includes reservationKey and userAddress", () => {
+      const result = bookingQueryKeys.hasActiveBooking("key-1", "0x111");
 
-      expect(result).toEqual(["bookings", "hasActiveBooking", "0x111"]);
+      expect(result).toEqual(["bookings", "hasActiveBooking", "key-1", "0x111"]);
     });
 
-    test("hasActiveBookingByToken() includes labId", () => {
-      const labId = "12";
-      const result = bookingQueryKeys.hasActiveBookingByToken(labId);
+    test("hasActiveBookingByToken() includes labId and userAddress", () => {
+      const result = bookingQueryKeys.hasActiveBookingByToken("12", "0x111");
 
-      expect(result).toEqual(["bookings", "hasActiveBookingByToken", "12"]);
+      expect(result).toEqual(["bookings", "hasActiveBookingByToken", "12", "0x111"]);
     });
 
     test("activeReservationKeyForUser() includes labId and userAddress", () => {
@@ -228,11 +226,10 @@ describe("queryKeys", () => {
       expect(result).toEqual(["bookings", "labTokenAddress"]);
     });
 
-    test("safeBalance() includes userAddress", () => {
-      const address = "0x333";
-      const result = bookingQueryKeys.safeBalance(address);
+    test("safeBalance() returns static key", () => {
+      const result = bookingQueryKeys.safeBalance();
 
-      expect(result).toEqual(["bookings", "safeBalance", "0x333"]);
+      expect(result).toEqual(["bookings", "safeBalance"]);
     });
   });
 

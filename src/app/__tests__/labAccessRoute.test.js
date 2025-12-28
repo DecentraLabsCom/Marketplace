@@ -157,12 +157,10 @@ describe('/api/auth/lab-access route', () => {
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
 
-    const getLab = jest.fn().mockResolvedValue({
-      base: { auth: 'https://gateway.example.com' },
-    })
+    const getLabAuthURI = jest.fn().mockResolvedValue('https://gateway.example.com')
 
     getContractInstance.mockResolvedValue({
-      getLab,
+      getLabAuthURI,
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
@@ -188,7 +186,7 @@ describe('/api/auth/lab-access route', () => {
       labURL: 'https://lab.example.com',
     })
 
-    expect(getLab).toHaveBeenCalledWith(10)
+    expect(getLabAuthURI).toHaveBeenCalledWith(10)
     expect(global.fetch).toHaveBeenCalledWith(
       'https://gateway.example.com/auth/saml-auth2',
       expect.objectContaining({ method: 'POST' })

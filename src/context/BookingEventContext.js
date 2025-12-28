@@ -70,9 +70,6 @@ export function BookingEventProvider({ children }) {
             queryClient.invalidateQueries({ 
                 queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
             });
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId) 
-            });
         }
 
         const normalizedUser = address || userAddress;
@@ -80,9 +77,16 @@ export function BookingEventProvider({ children }) {
             queryClient.invalidateQueries({ 
                 queryKey: bookingQueryKeys.reservationsOf(normalizedUser) 
             });
-            queryClient.invalidateQueries({ 
-                queryKey: bookingQueryKeys.hasActiveBooking(normalizedUser) 
-            });
+            if (reservationKey) {
+                queryClient.invalidateQueries({
+                    queryKey: bookingQueryKeys.hasActiveBooking(reservationKey, normalizedUser)
+                });
+            }
+            if (tokenId) {
+                queryClient.invalidateQueries({
+                    queryKey: bookingQueryKeys.hasActiveBookingByToken(tokenId, normalizedUser)
+                });
+            }
         }
     };
 
@@ -237,7 +241,7 @@ export function BookingEventProvider({ children }) {
                         invalidateReservationCaches(reservationKey, info.tokenId);
 
                         if (isCurrentUserReservation) {
-                            if (statusNumber === 4) {
+                            if (statusNumber === 5) {
                                 addTemporaryNotification('error', '❌ Reservation denied by the provider.');
                             } else {
                                 addTemporaryNotification('success', '✅ Reservation confirmed!');
