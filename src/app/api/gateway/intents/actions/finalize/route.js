@@ -147,10 +147,8 @@ export async function POST(request) {
           body: JSON.stringify({
             meta: serializedMeta,
             actionPayload: serializedPayload,
-            payloadHash,
             signature: adminSignatureForUse,
             samlAssertion,
-            intentKind: 'action',
             webauthnCredentialId: credential.credentialId,
             webauthnClientDataJSON,
             webauthnAuthenticatorData,

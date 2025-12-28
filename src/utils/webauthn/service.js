@@ -158,7 +158,6 @@ export async function registerCredentialInGateway(record, gatewayUrl) {
         publicKey: record.publicKeySpki,
         signCount: record.signCount,
         aaguid: record.aaguid,
-        status: record.status,
       }),
     })
     return res.ok

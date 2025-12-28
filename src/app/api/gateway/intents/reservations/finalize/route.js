@@ -147,10 +147,8 @@ export async function POST(request) {
           body: JSON.stringify({
             meta: serializedMeta,
             reservationPayload: serializedPayload,
-            payloadHash,
             signature: adminSignatureForUse,
             samlAssertion,
-            intentKind: 'reservation',
             webauthnCredentialId: credential.credentialId,
             webauthnClientDataJSON,
             webauthnAuthenticatorData,

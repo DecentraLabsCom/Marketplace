@@ -1,7 +1,7 @@
 /**
  * Atomic React Query Hooks for Lab-related Write Operations
- * Each hook maps 1:1 to an API endpoint in /api/contract/lab/
- * All write operations for authenticated users generate intents to the institutional wallet.
+ * SSO write operations use /api/gateway/intents/* for institutional signing.
+ * Wallet flows use contract write helpers directly.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
@@ -271,7 +271,7 @@ const findLabAddedIdFromReceipt = ({ receipt, contractAddress, providerAddress, 
 
 // ===== MUTATIONS =====
 
-// Intent hook for /api/contract/lab/addLab (institutional wallet executes)
+// Intent hook for /api/gateway/intents/actions/prepare (institutional wallet executes)
 export const useAddLabSSO = (options = {}) => {
   const queryClient = useQueryClient();
 
