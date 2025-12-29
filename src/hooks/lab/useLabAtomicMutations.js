@@ -984,6 +984,7 @@ export const useUnlistLabSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
+        const authToken = data?.gatewayAuthToken;
 
         updateLab(labId, {
           id: labId,
