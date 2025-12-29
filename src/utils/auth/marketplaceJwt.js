@@ -11,6 +11,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import devLog from '@/utils/dev/logger';
 
 class MarketplaceJwtService {
@@ -235,6 +236,64 @@ class MarketplaceJwtService {
     } catch (error) {
       devLog.error('ERROR: Failed to generate SAML auth JWT:', error.message);
       throw new Error(`SAML auth JWT generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate a signed JWT token for intent gateway authorization.
+   * Intended for short-lived service-to-service calls to /intents endpoints.
+   *
+   * @param {Object} [options]
+   * @param {string} [options.scope] - Space-delimited scope string
+   * @param {string} [options.audience] - JWT audience
+   * @param {number} [options.expiresInSeconds] - TTL in seconds
+   * @param {string} [options.subject] - JWT subject
+   * @returns {Promise<{ token: string, expiresAt: string }>}
+   */
+  async generateIntentGatewayToken({
+    scope,
+    audience,
+    expiresInSeconds,
+    subject,
+  } = {}) {
+    try {
+      if (!this.privateKey) {
+        await this.loadPrivateKey();
+      }
+
+      if (!this.privateKey) {
+        throw new Error('JWT private key is not available. Check JWT_PRIVATE_KEY environment variable or key file.');
+      }
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const ttlSeconds = parseInt(
+        expiresInSeconds ?? process.env.INTENTS_JWT_EXPIRATION_SECONDS ?? '900',
+        10,
+      );
+      const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 900;
+      const expSec = nowSec + safeTtl;
+
+      const payload = {
+        scope: scope || process.env.INTENTS_JWT_SCOPE || 'intents:submit intents:status',
+        iat: nowSec,
+        exp: expSec,
+      };
+
+      const token = jwt.sign(payload, this.privateKey, {
+        algorithm: 'RS256',
+        issuer: process.env.JWT_ISSUER || 'marketplace',
+        audience: audience || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
+        subject: subject || process.env.INTENTS_JWT_SUBJECT || 'marketplace-intents',
+        jwtid: randomUUID(),
+      });
+
+      return {
+        token,
+        expiresAt: new Date(expSec * 1000).toISOString(),
+      };
+    } catch (error) {
+      devLog.error('ERROR: Failed to generate intent gateway JWT:', error.message);
+      throw new Error(`Intent gateway JWT generation failed: ${error.message}`);
     }
   }
 

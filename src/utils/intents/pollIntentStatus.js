@@ -6,6 +6,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function pollIntentStatus(requestId, {
   gatewayUrl = process.env.NEXT_PUBLIC_INSTITUTION_GATEWAY_URL || process.env.INSTITUTION_GATEWAY_URL,
+  authToken,
   signal,
   maxDurationMs = 10 * 60 * 1000, // 10 minutes
   initialDelayMs = 5000,
@@ -32,9 +33,14 @@ export async function pollIntentStatus(requestId, {
     }
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+        const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+        headers.Authorization = value;
+      }
       const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/${requestId}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         signal,
       });
       if (!res.ok) {

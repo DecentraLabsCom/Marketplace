@@ -7,6 +7,7 @@ import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
 function getGatewayApiKey() {
@@ -16,6 +17,10 @@ function getGatewayApiKey() {
     process.env.SP_API_KEY ||
     null
   )
+}
+
+async function getGatewayAuthToken() {
+  return marketplaceJwtService.generateIntentGatewayToken()
 }
 
 export async function POST(request) {
@@ -96,9 +101,14 @@ export async function POST(request) {
     }
 
     let authorization = null
+    let gatewayAuth = null
     try {
+      gatewayAuth = await getGatewayAuthToken()
       const apiKey = getGatewayApiKey()
-      const headers = { 'Content-Type': 'application/json' }
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${gatewayAuth.token}`,
+      }
       if (apiKey) {
         headers['x-api-key'] = apiKey
       }
@@ -153,6 +163,8 @@ export async function POST(request) {
       authorizationUrl,
       authorizationSessionId: authorization?.sessionId || null,
       authorizationExpiresAt: authorization?.expiresAt || null,
+      gatewayAuthToken: gatewayAuth?.token || null,
+      gatewayAuthExpiresAt: gatewayAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare reservation intent failed', error)

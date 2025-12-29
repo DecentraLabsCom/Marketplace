@@ -28,7 +28,7 @@ const resolveAuthorizationInfo = (prepareData) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
-async function awaitGatewayAuthorization(prepareData, { gatewayUrl } = {}) {
+async function awaitGatewayAuthorization(prepareData, { gatewayUrl, authToken } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
   if (!authorizationUrl || !authorizationSessionId) {
     return null;
@@ -45,6 +45,7 @@ async function awaitGatewayAuthorization(prepareData, { gatewayUrl } = {}) {
 
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
     gatewayUrl: prepareData?.gatewayUrl || gatewayUrl,
+    authToken: authToken || prepareData?.gatewayAuthToken,
   });
 
   const normalized = (status?.status || '').toUpperCase();
@@ -80,7 +81,11 @@ async function runActionIntent(action, payload) {
     throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
   }
 
-  const authorizationStatus = await awaitGatewayAuthorization(prepareData, { gatewayUrl: payload.gatewayUrl });
+  const authToken = prepareData?.gatewayAuthToken || null;
+  const authorizationStatus = await awaitGatewayAuthorization(prepareData, {
+    gatewayUrl: payload.gatewayUrl,
+    authToken,
+  });
   if (authorizationStatus) {
     const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
     return {
@@ -88,6 +93,8 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
+      gatewayAuthToken: authToken,
+      gatewayAuthExpiresAt: prepareData?.gatewayAuthExpiresAt || null,
     };
   }
 
@@ -131,10 +138,15 @@ async function runActionIntent(action, payload) {
     finalizeData?.intent?.meta?.requestId ||
     resolveIntentRequestId(prepareData);
 
+  const finalizeAuthToken = finalizeData?.gatewayAuthToken || authToken;
+  const finalizeAuthExpiresAt = finalizeData?.gatewayAuthExpiresAt || prepareData?.gatewayAuthExpiresAt || null;
+
   return {
     ...finalizeData,
     requestId,
     intent: finalizeData.intent || prepareData.intent,
+    gatewayAuthToken: finalizeAuthToken,
+    gatewayAuthExpiresAt: finalizeAuthExpiresAt,
   };
 }
 
@@ -261,7 +273,11 @@ export const useReservationRequestSSO = (options = {}) => {
         throw new Error(prepareData.error || `Failed to prepare reservation intent: ${prepareResponse.status}`)
       }
 
-      const authorizationStatus = await awaitGatewayAuthorization(prepareData, { gatewayUrl: payload.gatewayUrl })
+      const authToken = prepareData?.gatewayAuthToken || null
+      const authorizationStatus = await awaitGatewayAuthorization(prepareData, {
+        gatewayUrl: payload.gatewayUrl,
+        authToken,
+      })
       if (authorizationStatus) {
         const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData)
         return {
@@ -269,6 +285,8 @@ export const useReservationRequestSSO = (options = {}) => {
           requestId,
           intent: prepareData.intent,
           authorization: authorizationStatus,
+          gatewayAuthToken: authToken,
+          gatewayAuthExpiresAt: prepareData?.gatewayAuthExpiresAt || null,
         }
       }
 
@@ -311,11 +329,15 @@ export const useReservationRequestSSO = (options = {}) => {
       const requestId =
         finalizeData?.intent?.meta?.requestId ||
         resolveIntentRequestId(prepareData)
+      const finalizeAuthToken = finalizeData?.gatewayAuthToken || prepareData?.gatewayAuthToken || null
+      const finalizeAuthExpiresAt = finalizeData?.gatewayAuthExpiresAt || prepareData?.gatewayAuthExpiresAt || null
 
       return {
         ...finalizeData,
         requestId,
         intent: finalizeData.intent || prepareData.intent,
+        gatewayAuthToken: finalizeAuthToken,
+        gatewayAuthExpiresAt: finalizeAuthExpiresAt,
       }
     },
     onSuccess: (data, variables) => {
@@ -327,6 +349,7 @@ export const useReservationRequestSSO = (options = {}) => {
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
         const reservationKey = intentId || `intent-${Date.now()}`;
+        const authToken = data?.gatewayAuthToken;
 
         updateBooking(reservationKey, {
           reservationKey,
@@ -344,7 +367,7 @@ export const useReservationRequestSSO = (options = {}) => {
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId);
+              const result = await pollIntentStatus(intentId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -447,6 +470,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
+        const authToken = data?.gatewayAuthToken;
         updateBooking(reservationKey, {
           reservationKey,
           intentRequestId: intentId,
@@ -460,7 +484,10 @@ export const useCancelReservationRequestSSO = (options = {}) => {
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId, { signal: abortController.signal });
+              const result = await pollIntentStatus(intentId, {
+                authToken,
+                signal: abortController.signal,
+              });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -579,6 +606,7 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
+        const authToken = data?.gatewayAuthToken;
 
         updateBooking(reservationKey, {
           reservationKey,
@@ -593,7 +621,10 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId, { signal: abortController.signal });
+              const result = await pollIntentStatus(intentId, {
+                authToken,
+                signal: abortController.signal,
+              });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -717,11 +748,12 @@ export const useCancelBookingSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
+        const authToken = data?.gatewayAuthToken;
 
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId);
+              const result = await pollIntentStatus(intentId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -855,11 +887,12 @@ export const useCancelInstitutionalBookingSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
+        const authToken = data?.gatewayAuthToken;
 
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId);
+              const result = await pollIntentStatus(intentId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;

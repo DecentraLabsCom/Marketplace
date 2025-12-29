@@ -8,6 +8,7 @@ import { getAssertionChallenge, clearAssertionChallenge, getCredentialById, save
 import { registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
 function getGatewayApiKey() {
@@ -17,6 +18,10 @@ function getGatewayApiKey() {
     process.env.SP_API_KEY ||
     null
   )
+}
+
+async function getGatewayAuthToken() {
+  return marketplaceJwtService.generateIntentGatewayToken()
 }
 
 export async function POST(request) {
@@ -134,10 +139,15 @@ export async function POST(request) {
     const serializedMeta = serializeIntent(metaForUse)
     const serializedPayload = serializeIntent(payloadForUse)
 
+    let gatewayAuth = null
     if (gatewayUrl) {
       try {
+        gatewayAuth = await getGatewayAuthToken()
         const apiKey = getGatewayApiKey()
-        const headers = { 'Content-Type': 'application/json' }
+        const headers = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${gatewayAuth.token}`,
+        }
         if (apiKey) {
           headers['x-api-key'] = apiKey
         }
@@ -177,6 +187,8 @@ export async function POST(request) {
       onChain,
       gatewayError,
       gatewayResponse,
+      gatewayAuthToken: gatewayAuth?.token || null,
+      gatewayAuthExpiresAt: gatewayAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Finalize action intent failed', error)

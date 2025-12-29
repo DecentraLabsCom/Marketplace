@@ -24,7 +24,7 @@ const resolveAuthorizationInfo = (prepareData) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
-async function awaitGatewayAuthorization(prepareData, { gatewayUrl } = {}) {
+async function awaitGatewayAuthorization(prepareData, { gatewayUrl, authToken } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
   if (!authorizationUrl || !authorizationSessionId) {
     return null;
@@ -41,6 +41,7 @@ async function awaitGatewayAuthorization(prepareData, { gatewayUrl } = {}) {
 
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
     gatewayUrl: prepareData?.gatewayUrl || gatewayUrl,
+    authToken: authToken || prepareData?.gatewayAuthToken,
   });
 
   const normalized = (status?.status || '').toUpperCase();
@@ -80,7 +81,11 @@ async function runActionIntent(action, payload) {
     throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
   }
 
-  const authorizationStatus = await awaitGatewayAuthorization(prepareData, { gatewayUrl: payload.gatewayUrl });
+  const authToken = prepareData?.gatewayAuthToken || null;
+  const authorizationStatus = await awaitGatewayAuthorization(prepareData, {
+    gatewayUrl: payload.gatewayUrl,
+    authToken,
+  });
   if (authorizationStatus) {
     const requestId = authorizationStatus?.requestId || resolveRequestId(prepareData);
     return {
@@ -88,6 +93,8 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
+      gatewayAuthToken: authToken,
+      gatewayAuthExpiresAt: prepareData?.gatewayAuthExpiresAt || null,
     };
   }
 
@@ -131,10 +138,15 @@ async function runActionIntent(action, payload) {
     finalizeData?.intent?.meta?.requestId ||
     resolveRequestId(prepareData);
 
+  const finalizeAuthToken = finalizeData?.gatewayAuthToken || authToken;
+  const finalizeAuthExpiresAt = finalizeData?.gatewayAuthExpiresAt || prepareData?.gatewayAuthExpiresAt || null;
+
   return {
     ...finalizeData,
     requestId,
     intent: finalizeData.intent || prepareData.intent,
+    gatewayAuthToken: finalizeAuthToken,
+    gatewayAuthExpiresAt: finalizeAuthExpiresAt,
   };
 }
 
@@ -149,6 +161,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const pollExecutedIntentForLabId = async (requestId, {
   gatewayUrl,
+  authToken,
   signal,
   maxDurationMs = 60_000,
   initialDelayMs = 2_000,
@@ -168,9 +181,14 @@ const pollExecutedIntentForLabId = async (requestId, {
     }
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+        const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+        headers.Authorization = value;
+      }
       const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/${requestId}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         signal,
       });
       if (res.ok) {
@@ -291,9 +309,11 @@ export const useAddLabSSO = (options = {}) => {
         throw new Error('Institution intent did not return requestId');
       }
 
+      const authToken = intentResponse?.gatewayAuthToken;
       devLog.log('useAddLabSSO intent created; polling status', { requestId });
       const statusResult = await pollIntentStatus(requestId, {
         gatewayUrl: labData.gatewayUrl,
+        authToken,
         signal: labData.abortSignal,
         maxDurationMs: labData.pollMaxDurationMs,
         initialDelayMs: labData.pollInitialDelayMs,
@@ -313,6 +333,7 @@ export const useAddLabSSO = (options = {}) => {
       if (!labId) {
         const followUp = await pollExecutedIntentForLabId(requestId, {
           gatewayUrl: labData.gatewayUrl,
+          authToken,
           signal: labData.abortSignal,
           maxDurationMs: labData.postExecutePollMaxDurationMs ?? 60_000,
           initialDelayMs: labData.postExecutePollInitialDelayMs ?? 2_000,
@@ -522,6 +543,7 @@ export const useUpdateLabSSO = (options = {}) => {
             data?.intent?.requestId ||
             data?.intent?.request_id ||
             data?.intent?.requestId?.toString?.();
+          const authToken = data?.gatewayAuthToken;
           const updatedLab = {
             ...variables.labData,
             id: variables.labId,
@@ -544,7 +566,7 @@ export const useUpdateLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId);
+              const result = await pollIntentStatus(requestId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -691,6 +713,7 @@ export const useDeleteLabSSO = (options = {}) => {
           _data?.intent?.requestId ||
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
+        const authToken = _data?.gatewayAuthToken;
         updateLab(labId, {
           id: labId,
           labId: labId,
@@ -705,7 +728,7 @@ export const useDeleteLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId);
+              const result = await pollIntentStatus(requestId, { authToken });
               const status = result?.status;
               const reason = result?.error || result?.reason;
 
@@ -829,6 +852,7 @@ export const useListLabSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
+        const authToken = data?.gatewayAuthToken;
 
         updateLab(labId, {
           id: labId,
@@ -843,7 +867,7 @@ export const useListLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId);
+              const result = await pollIntentStatus(requestId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -974,7 +998,7 @@ export const useUnlistLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId);
+              const result = await pollIntentStatus(requestId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -1103,11 +1127,12 @@ export const useSetTokenURISSO = (options = {}) => {
           _data?.intent?.requestId ||
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
+        const authToken = _data?.gatewayAuthToken;
 
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId);
+              const result = await pollIntentStatus(requestId, { authToken });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
