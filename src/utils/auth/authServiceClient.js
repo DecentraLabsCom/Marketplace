@@ -5,8 +5,8 @@
  * Provides methods for authentication and authorization requests.
  * 
  * Endpoints:
- * - /auth/marketplace-auth: Authentication only
- * - /auth/marketplace-auth2: Authentication + Authorization
+ * - /auth/wallet-auth: Authentication only
+ * - /auth/wallet-auth2: Authentication + Authorization
  */
 
 import devLog from '@/utils/dev/logger';
@@ -48,9 +48,10 @@ class AuthServiceClient {
       // Remove trailing slash if present
       authServiceUrl = authServiceUrl.replace(/\/$/, '');
       
-      // The auth-service is typically at /auth endpoint of the Lab Gateway
+      // Require auth-service base to end with /auth for consistency
       if (!authServiceUrl.endsWith('/auth')) {
-        authServiceUrl += '/auth';
+        devLog.warn('Invalid Lab Gateway auth-service URL (must end with /auth):', authServiceUrl);
+        return null;
       }
       
       devLog.log('🌐 Found Lab Gateway auth-service URL:', authServiceUrl);
@@ -76,7 +77,7 @@ class AuthServiceClient {
       throw new Error('Lab does not have a configured auth-service URL in contract data');
     }
     
-    return this.makeAuthRequest(authServiceUrl, '/marketplace-auth', marketplaceJwt, labId, false);
+    return this.makeAuthRequest(authServiceUrl, '/wallet-auth', marketplaceJwt, labId, false);
   }
 
   /**
@@ -97,7 +98,7 @@ class AuthServiceClient {
       throw new Error('Lab does not have a configured auth-service URL in contract data');
     }
     
-    return this.makeAuthRequest(authServiceUrl, '/marketplace-auth2', marketplaceJwt, labId, true);
+    return this.makeAuthRequest(authServiceUrl, '/wallet-auth2', marketplaceJwt, labId, true);
   }
 
   /**
@@ -187,7 +188,8 @@ class AuthServiceClient {
         return false;
       }
 
-      const response = await fetch(`${authServiceUrl}/health`, {
+      const baseUrl = authServiceUrl.replace(/\/auth$/, '');
+      const response = await fetch(`${baseUrl}/health`, {
         method: 'GET',
         timeout: 5000 // 5 second timeout
       });

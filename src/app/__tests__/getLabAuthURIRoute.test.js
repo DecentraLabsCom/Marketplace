@@ -35,7 +35,7 @@ describe('/api/contract/lab/getLabAuthURI route', () => {
   });
 
   test('returns authURI for valid labId', async () => {
-    const mockAuthURI = 'https://auth.institution.edu/lab-access';
+    const mockAuthURI = 'https://auth.institution.edu/auth';
     
     getContractInstance.mockResolvedValue({
       getLabAuthURI: jest.fn().mockResolvedValue(mockAuthURI),
@@ -96,7 +96,7 @@ describe('/api/contract/lab/getLabAuthURI route', () => {
   });
 
   test('accepts numeric labId as string', async () => {
-    const mockAuthURI = 'https://auth.example.com';
+    const mockAuthURI = 'https://auth.example.com/auth';
     
     getContractInstance.mockResolvedValue({
       getLabAuthURI: jest.fn().mockResolvedValue(mockAuthURI),

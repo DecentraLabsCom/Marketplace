@@ -16,7 +16,10 @@ function normalizeAuthBase(authEndpoint) {
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
     return null
   }
-  return trimmed.endsWith('/auth') ? trimmed : `${trimmed}/auth`
+  if (!trimmed.endsWith('/auth')) {
+    return null
+  }
+  return trimmed
 }
 
 function normalizeOrganizationDomain(domain) {

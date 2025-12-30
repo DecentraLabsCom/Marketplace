@@ -7,7 +7,7 @@ import devLog from '@/utils/dev/logger';
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /**
- * Validate authURI format (https://, no trailing slash)
+ * Validate authURI format (https://, ends with /auth, no trailing slash)
  */
 function validateAuthURI(authURI) {
   if (!authURI || typeof authURI !== 'string') {
@@ -22,6 +22,10 @@ function validateAuthURI(authURI) {
 
   if (trimmed.endsWith('/')) {
     return { valid: false, error: 'authURI must not end with a trailing slash' };
+  }
+
+  if (!trimmed.endsWith('/auth')) {
+    return { valid: false, error: 'authURI must end with /auth' };
   }
 
   if (trimmed.length < 12 || trimmed.length > 255) {

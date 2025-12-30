@@ -119,7 +119,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -147,7 +147,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -177,7 +177,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -204,7 +204,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -232,7 +232,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: 'invalid-address',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -260,7 +260,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'invalid-email',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -287,7 +287,7 @@ describe('/api/institutions/registerProvider route', () => {
         name: 'Test Provider',
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization: 'example.edu'
       }),
     });
@@ -327,6 +327,34 @@ describe('/api/institutions/registerProvider route', () => {
     });
   });
 
+  test('returns 400 when authURI does not end with /auth', async () => {
+    // Mock headers to return valid API key
+    const mockHeaders = new Map([['x-api-key', 'test-api-key-123']]);
+    headers.mockResolvedValue(mockHeaders);
+
+    const req = new Request('http://localhost/api/institutions/registerProvider', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'test-api-key-123'
+      },
+      body: JSON.stringify({
+        name: 'Test Provider',
+        walletAddress: '0x1234567890123456789012345678901234567890',
+        email: 'test@example.com',
+        country: 'ES',
+        authURI: 'https://auth.example.com',
+        organization: 'example.edu'
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'authURI must end with /auth',
+    });
+  });
+
   test('returns 400 when authURI has trailing slash', async () => {
     // Mock headers to return valid API key
     const mockHeaders = new Map([['x-api-key', 'test-api-key-123']]);
@@ -343,7 +371,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com/',
+        authURI: 'https://auth.example.com/auth/',
         organization: 'example.edu'
       }),
     });
@@ -371,7 +399,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress: '0x1234567890123456789012345678901234567890',
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
       }),
     });
 
@@ -424,7 +452,7 @@ describe('/api/institutions/registerProvider route', () => {
         walletAddress,
         email: 'test@example.com',
         country: 'ES',
-        authURI: 'https://auth.example.com',
+        authURI: 'https://auth.example.com/auth',
         organization,
       }),
     });
@@ -443,8 +471,9 @@ describe('/api/institutions/registerProvider route', () => {
       walletAddress,
       'test@example.com',
       'ES',
-      'https://auth.example.com'
+      'https://auth.example.com/auth'
     );
     expect(writeContract.grantInstitutionRole).toHaveBeenCalledWith(walletAddress, 'example.edu');
   });
 });
+

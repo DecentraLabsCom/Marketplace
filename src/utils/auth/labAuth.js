@@ -86,6 +86,9 @@ const buildAuthUrl = (baseUrl, endpoint) => {
   }
   
   const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  if (!cleanBase.endsWith('/auth')) {
+    throw new Error(`Invalid auth endpoint: ${baseUrl}. Expected base URL to end with /auth.`);
+  }
   return `${cleanBase}/${endpoint}`;
 };
 

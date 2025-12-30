@@ -62,7 +62,7 @@ const mockLab = {
   id: "1",
   name: "Physics Lab",
   docs: ["https://example.com/doc1.pdf", "https://example.com/doc2.pdf"],
-  auth: "https://auth.example.com",
+  auth: "https://auth.example.com/auth",
   images: ["https://example.com/img1.jpg"],
 };
 

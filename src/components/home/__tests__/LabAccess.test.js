@@ -78,7 +78,7 @@ describe("LabAccess Component", () => {
     // Mock fetch to return authURI
     global.fetch.mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ authURI: "https://auth.example.com" }),
+      json: () => Promise.resolve({ authURI: "https://auth.example.com/auth" }),
     });
     // Suppress jsdom navigation warnings
     console.error = (...args) => {
@@ -150,7 +150,7 @@ describe("LabAccess Component", () => {
 
       await waitFor(() => {
         expect(authenticateLabAccess).toHaveBeenCalledWith(
-          "https://auth.example.com",
+          "https://auth.example.com/auth",
           defaultProps.userWallet,
           defaultProps.id,
           mockSignMessageAsync,
@@ -186,7 +186,7 @@ describe("LabAccess Component", () => {
         expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
           labId: defaultProps.id,
           reservationKey: defaultProps.reservationKey,
-          authEndpoint: "https://auth.example.com",
+          authEndpoint: "https://auth.example.com/auth",
         });
       });
     });

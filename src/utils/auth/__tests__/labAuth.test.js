@@ -32,7 +32,7 @@ global.fetch = jest.fn();
 
 describe("Lab Authentication Utilities", () => {
   const labId = "lab-123";
-  const authEndpoint = "https://auth.example.com";
+  const authEndpoint = "https://auth.example.com/auth";
   const userWallet = "0xUser123";
   const mockSignMessageAsync = jest.fn();
 
@@ -233,7 +233,7 @@ describe("Lab Authentication Utilities", () => {
 
       expect(global.fetch).toHaveBeenCalledTimes(4);
       expect(global.fetch.mock.calls[0][0]).toContain("purpose=checkin");
-      expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/checkin");
+      expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/auth/checkin");
       expect(mockSignTypedDataAsync).toHaveBeenCalled();
     });
 
@@ -281,14 +281,14 @@ describe("Lab Authentication Utilities", () => {
       expect(global.fetch).toHaveBeenCalledTimes(4);
       expect(global.fetch.mock.calls[0][0]).toContain("purpose=checkin");
       expect(global.fetch.mock.calls[0][0]).toContain(`labId=${encodeURIComponent(labId)}`);
-      expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/checkin");
+      expect(global.fetch.mock.calls[1][0]).toBe("https://auth.example.com/auth/checkin");
 
       const checkInBody = JSON.parse(global.fetch.mock.calls[1][1].body);
       expect(checkInBody.reservationKey).toBe(resolvedKey);
     });
 
     test("handles trailing slash in auth endpoint", async () => {
-      const endpointWithSlash = "https://auth.example.com/";
+      const endpointWithSlash = "https://auth.example.com/auth/";
 
       global.fetch.mockResolvedValueOnce({
         ok: true,
@@ -309,10 +309,10 @@ describe("Lab Authentication Utilities", () => {
 
       // Verify URLs don't have double slashes
       expect(global.fetch.mock.calls[0][0]).toBe(
-        "https://auth.example.com/message"
+        "https://auth.example.com/auth/message"
       );
       expect(global.fetch.mock.calls[1][0]).toBe(
-        "https://auth.example.com/wallet-auth2"
+        "https://auth.example.com/auth/wallet-auth2"
       );
     });
 

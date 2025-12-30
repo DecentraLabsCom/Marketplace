@@ -90,7 +90,7 @@ describe('/api/auth/lab-access route', () => {
     const req = new Request('http://localhost/api/auth/lab-access', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ labId: '1', authEndpoint: 'https://gateway.example.com' }),
+      body: JSON.stringify({ labId: '1', authEndpoint: 'https://gateway.example.com/auth' }),
     })
 
     const res = await POST(req)
@@ -129,7 +129,7 @@ describe('/api/auth/lab-access route', () => {
       body: JSON.stringify({
         labId: '10',
         reservationKey: '0xabc',
-        authEndpoint: 'https://gateway.example.com',
+        authEndpoint: 'https://gateway.example.com/auth',
       }),
     })
 
@@ -157,7 +157,7 @@ describe('/api/auth/lab-access route', () => {
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
     marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
 
-    const getLabAuthURI = jest.fn().mockResolvedValue('https://gateway.example.com')
+    const getLabAuthURI = jest.fn().mockResolvedValue('https://gateway.example.com/auth')
 
     getContractInstance.mockResolvedValue({
       getLabAuthURI,
@@ -219,7 +219,7 @@ describe('/api/auth/lab-access route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         reservationKey: '0xabc',
-        authEndpoint: 'https://gateway.example.com',
+        authEndpoint: 'https://gateway.example.com/auth',
       }),
     })
 

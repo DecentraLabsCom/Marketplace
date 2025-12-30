@@ -54,14 +54,14 @@ describe("AuthServiceClient", () => {
       );
     });
 
-    test("normalizes URL format by removing trailing slashes and appending auth endpoint", () => {
-      const data1 = { authURI: "https://gateway.example.com/" };
-      const res1 = authServiceClient.getAuthServiceUrlFromLab(data1);
-      expect(res1).toBe("https://gateway.example.com/auth");
-
-      const data2 = { authURI: "https://gateway.example.com" };
-      const res2 = authServiceClient.getAuthServiceUrlFromLab(data2);
-      expect(res2).toBe("https://gateway.example.com/auth");
+    test("rejects base URLs that do not end with /auth", () => {
+      const data = { authURI: "https://gateway.example.com" };
+      const res = authServiceClient.getAuthServiceUrlFromLab(data);
+      expect(res).toBeNull();
+      expect(devLog.warn).toHaveBeenCalledWith(
+        "Invalid Lab Gateway auth-service URL (must end with /auth):",
+        "https://gateway.example.com"
+      );
     });
 
     test("preserves existing auth endpoint while removing trailing slashes", () => {
@@ -99,14 +99,14 @@ describe("AuthServiceClient", () => {
 
       const result = await authServiceClient.makeAuthRequest(
         fakeUrl,
-        "/marketplace-auth",
+        "/wallet-auth",
         "jwt",
         null,
         false
       );
 
       expect(global.fetch).toHaveBeenCalledWith(
-        `${fakeUrl}/marketplace-auth`,
+        `${fakeUrl}/wallet-auth`,
         expect.any(Object)
       );
       expect(result).toEqual(jsonPayload);
@@ -121,7 +121,7 @@ describe("AuthServiceClient", () => {
 
       const result = await authServiceClient.makeAuthRequest(
         fakeUrl,
-        "/marketplace-auth",
+        "/wallet-auth",
         "jwt",
         null,
         false
@@ -140,7 +140,7 @@ describe("AuthServiceClient", () => {
       await expect(
         authServiceClient.makeAuthRequest(
           fakeUrl,
-          "/marketplace-auth",
+          "/wallet-auth",
           "jwt",
           null,
           false
@@ -159,7 +159,7 @@ describe("AuthServiceClient", () => {
       await expect(
         authServiceClient.makeAuthRequest(
           fakeUrl,
-          "/marketplace-auth",
+          "/wallet-auth",
           "jwt",
           null,
           false
@@ -182,7 +182,7 @@ describe("AuthServiceClient", () => {
 
       await authServiceClient.makeAuthRequest(
         fakeUrl,
-        "/marketplace-auth2",
+        "/wallet-auth2",
         "jwt",
         "lab-1",
         true
@@ -197,7 +197,7 @@ describe("AuthServiceClient", () => {
   });
 
   describe("Public API Method Validation", () => {
-    const labContractData = { authURI: "https://gateway.example.com" };
+    const labContractData = { authURI: "https://gateway.example.com/auth" };
 
     test("validates contract configuration before authentication token requests", async () => {
       const bad = { base: {} };
@@ -219,7 +219,7 @@ describe("AuthServiceClient", () => {
       );
       expect(spy).toHaveBeenCalledWith(
         "https://gateway.example.com/auth",
-        "/marketplace-auth",
+        "/wallet-auth",
         "jwt",
         null,
         false
@@ -251,7 +251,7 @@ describe("AuthServiceClient", () => {
       );
       expect(spy).toHaveBeenCalledWith(
         "https://gateway.example.com/auth",
-        "/marketplace-auth2",
+        "/wallet-auth2",
         "jwt",
         "lab-xyz",
         true
@@ -273,7 +273,7 @@ describe("AuthServiceClient", () => {
     });
 
     test("returns true when health endpoint responds with successful status", async () => {
-      const good = { authURI: "https://gateway.example.com" };
+      const good = { authURI: "https://gateway.example.com/auth" };
       global.fetch.mockResolvedValueOnce({ ok: true });
       const res = await authServiceClient.healthCheck(good);
       expect(res).toBe(true);
@@ -288,7 +288,7 @@ describe("AuthServiceClient", () => {
     });
 
     test("returns false when health endpoint responds with error status", async () => {
-      const good = { authURI: "https://gateway.example.com" };
+      const good = { authURI: "https://gateway.example.com/auth" };
       global.fetch.mockResolvedValueOnce({ ok: false });
       const res = await authServiceClient.healthCheck(good);
       expect(res).toBe(false);
@@ -302,7 +302,7 @@ describe("AuthServiceClient", () => {
     });
 
     test("handles network failures during health checks with graceful degradation", async () => {
-      const good = { authURI: "https://gateway.example.com" };
+      const good = { authURI: "https://gateway.example.com/auth" };
       global.fetch.mockRejectedValueOnce(new Error("timeout"));
       const res = await authServiceClient.healthCheck(good);
       expect(res).toBe(false);

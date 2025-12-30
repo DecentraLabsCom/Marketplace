@@ -2,9 +2,9 @@
  * Diamond Contract Addresses
 */
 export const contractAddresses = {
-  "ethereum": "0x...",
-  "polygon": "0x...",
-  "sepolia": "0xC332F296d698bb05Fbad7863131F36085F6ce66dC"
+  ethereum: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_ETHEREUM || "0x...",
+  polygon: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_POLYGON || "0x...",
+  sepolia: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_SEPOLIA || "0x..."
 };
 
 export const contractABI = [

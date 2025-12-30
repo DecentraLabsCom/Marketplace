@@ -41,7 +41,7 @@ export async function POST(request) {
       eduPersonScopedAffiliation: testUser.scopedAffiliation || 'member@test-org.edu'
     };
 
-    const jwt = marketplaceJwtService.generateJwtForUser(mockSamlAttributes);
+    const jwt = await marketplaceJwtService.generateJwtForUser(mockSamlAttributes);
 
     // Decode JWT to show information
     const decodedJwt = marketplaceJwtService.decodeToken(jwt);
@@ -96,15 +96,8 @@ export async function POST(request) {
           response.data.auth_service_health = healthCheck;
 
           if (healthCheck) {
-            // Attempt to make test request (may fail due to test JWT)
-            try {
-              const authResponse = await authServiceClient.requestAuthToken(jwt, labContractDataWithAuth, labId);
-              response.data.auth_service_response = 'success';
-              response.data.auth_service_data = authResponse;
-            } catch (authError) {
-              response.data.auth_service_response = 'error';
-              response.data.auth_service_error = authError.message;
-            }
+            response.data.auth_service_response = 'skipped';
+            response.data.auth_service_note = 'Wallet auth endpoints require a signed wallet message; JWT-only checks are not supported.';
           }
         }
       } catch (serviceError) {

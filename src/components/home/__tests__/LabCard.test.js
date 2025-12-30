@@ -124,7 +124,7 @@ const defaultProps = {
   name: "Advanced Research Lab",
   provider: "ProviderCorp",
   price: 15.75,
-  auth: "https://auth.example.com/api",
+  auth: "https://auth.example.com/auth",
   activeBooking: false,
   isListed: true,
   image: "https://cdn.example.com/labs/research-lab.jpg",

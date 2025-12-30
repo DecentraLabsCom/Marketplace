@@ -16,7 +16,7 @@ export const createValidLabFormData = (overrides = {}) => ({
   keywords: ["testing", "electronics", "lab"],
   description: "A laboratory for electronics testing and prototyping",
   price: "0.5",
-  auth: "https://auth.example.com",
+  auth: "https://auth.example.com/auth",
   accessURI: "https://lab.example.com",
   accessKey: "secret-key-123",
   opens: 1735689600,
@@ -50,7 +50,7 @@ export const createValidLabFormData = (overrides = {}) => ({
  */
 export const createValidQuickSetupData = (overrides = {}) => ({
   price: "0.5",
-  auth: "https://auth.example.com",
+  auth: "https://auth.example.com/auth",
   accessURI: "https://lab.example.com",
   accessKey: "quick-key-456",
   uri: "https://metadata.example.com/lab.json",
