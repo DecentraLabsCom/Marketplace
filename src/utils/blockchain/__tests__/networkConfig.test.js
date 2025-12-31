@@ -14,14 +14,14 @@ jest.mock('../networkConfig.js', () => {
     NEXT_PUBLIC_DEFAULT_POLYGON_URL: 'https://default-polygon.example.com',
     NEXT_PUBLIC_DEFAULT_SEPOLIA_URL: 'https://default-sepolia.example.com',
     NEXT_PUBLIC_ALCHEMY_MAINNET_URL: 'https://alchemy-mainnet.example.com',
-    NEXT_PUBLIC_ALCHEMY_POLYGON_MAINNET_URL: 'https://alchemy-polygon.example.com',
+    NEXT_PUBLIC_ALCHEMY_POLYGON_URL: 'https://alchemy-polygon.example.com',
     NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL: 'https://alchemy-sepolia.example.com',
     NEXT_PUBLIC_MORALIS_SEPOLIA_URL: 'https://moralis-sepolia.example.com',
     NEXT_PUBLIC_ANKR_SEPOLIA_URL: 'https://ankr-sepolia.example.com',
     NEXT_PUBLIC_QUICKNODE_SEPOLIA_URL: 'https://quicknode-sepolia.example.com',
     NEXT_PUBLIC_CHAINSTACK_SEPOLIA_URL: 'https://chainstack-sepolia.example.com',
     NEXT_PUBLIC_INFURA_MAINNET_URL: 'https://infura-mainnet.example.com',
-    NEXT_PUBLIC_INFURA_POLYGON_MAINNET_URL: 'https://infura-polygon.example.com',
+    NEXT_PUBLIC_INFURA_POLYGON_URL: 'https://infura-polygon.example.com',
     NEXT_PUBLIC_INFURA_SEPOLIA_URL: 'https://infura-sepolia.example.com',
   };
 
@@ -34,7 +34,7 @@ jest.mock('../networkConfig.js', () => {
     },
     alchemyNetworks: {
       [mainnet.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_MAINNET_URL,
-      [polygon.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_POLYGON_MAINNET_URL,
+      [polygon.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_POLYGON_URL,
       [sepolia.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL,
     },
     moralisNetworks: {
@@ -51,7 +51,7 @@ jest.mock('../networkConfig.js', () => {
     },
     infuraNetworks: {
       [mainnet.id]: mockEnv.NEXT_PUBLIC_INFURA_MAINNET_URL,
-      [polygon.id]: mockEnv.NEXT_PUBLIC_INFURA_POLYGON_MAINNET_URL,
+      [polygon.id]: mockEnv.NEXT_PUBLIC_INFURA_POLYGON_URL,
       [sepolia.id]: mockEnv.NEXT_PUBLIC_INFURA_SEPOLIA_URL,
     },
   };
@@ -75,14 +75,14 @@ describe('networkConfig', () => {
     NEXT_PUBLIC_DEFAULT_POLYGON_URL: 'https://default-polygon.example.com',
     NEXT_PUBLIC_DEFAULT_SEPOLIA_URL: 'https://default-sepolia.example.com',
     NEXT_PUBLIC_ALCHEMY_MAINNET_URL: 'https://alchemy-mainnet.example.com',
-    NEXT_PUBLIC_ALCHEMY_POLYGON_MAINNET_URL: 'https://alchemy-polygon.example.com',
+    NEXT_PUBLIC_ALCHEMY_POLYGON_URL: 'https://alchemy-polygon.example.com',
     NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL: 'https://alchemy-sepolia.example.com',
     NEXT_PUBLIC_MORALIS_SEPOLIA_URL: 'https://moralis-sepolia.example.com',
     NEXT_PUBLIC_ANKR_SEPOLIA_URL: 'https://ankr-sepolia.example.com',
     NEXT_PUBLIC_QUICKNODE_SEPOLIA_URL: 'https://quicknode-sepolia.example.com',
     NEXT_PUBLIC_CHAINSTACK_SEPOLIA_URL: 'https://chainstack-sepolia.example.com',
     NEXT_PUBLIC_INFURA_MAINNET_URL: 'https://infura-mainnet.example.com',
-    NEXT_PUBLIC_INFURA_POLYGON_MAINNET_URL: 'https://infura-polygon.example.com',
+    NEXT_PUBLIC_INFURA_POLYGON_URL: 'https://infura-polygon.example.com',
     NEXT_PUBLIC_INFURA_SEPOLIA_URL: 'https://infura-sepolia.example.com',
   };
   describe('defaultChain', () => {
@@ -112,7 +112,7 @@ describe('networkConfig', () => {
     test('should map chain IDs to Alchemy environment variables', () => {
       expect(alchemyNetworks).toEqual({
         [mainnet.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_MAINNET_URL,
-        [polygon.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_POLYGON_MAINNET_URL,
+        [polygon.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_POLYGON_URL,
         [sepolia.id]: mockEnv.NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL,
       });
     });
@@ -162,7 +162,7 @@ describe('networkConfig', () => {
     test('should include all three networks', () => {
       expect(infuraNetworks).toEqual({
         [mainnet.id]: mockEnv.NEXT_PUBLIC_INFURA_MAINNET_URL,
-        [polygon.id]: mockEnv.NEXT_PUBLIC_INFURA_POLYGON_MAINNET_URL,
+        [polygon.id]: mockEnv.NEXT_PUBLIC_INFURA_POLYGON_URL,
         [sepolia.id]: mockEnv.NEXT_PUBLIC_INFURA_SEPOLIA_URL,
       });
     });
