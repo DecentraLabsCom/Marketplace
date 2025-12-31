@@ -180,7 +180,6 @@ const createWagmiConfig = () => {
   connectors.push(metaMask({ dappMetadata: metadata }));
 
   _cachedConfig = createConfig({
-    autoConnect: true,
     chains: chains,
     connectors: connectors,
     transports: transports,
