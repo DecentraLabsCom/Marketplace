@@ -354,7 +354,7 @@ describe("LabCard - Rating and Age", () => {
 describe("LabCard - LabAccess Integration", () => {
   // Test: LabAccess visibility for connected users
 
-  test("renders LabAccess when user is connected", () => {
+  test("renders LabAccess when user is connected", async () => {
     mockUseUser.mockReturnValue({
       address: "0x123",
       isConnected: true,
@@ -363,7 +363,7 @@ describe("LabCard - LabAccess Integration", () => {
 
     renderLabCard();
 
-    const labAccess = screen.getByTestId("lab-access-mock");
+    const labAccess = await screen.findByTestId("lab-access-mock");
     expect(labAccess).toBeInTheDocument();
     expect(labAccess).toHaveTextContent("LabAccess - lab-123");
   });
@@ -382,7 +382,7 @@ describe("LabCard - LabAccess Integration", () => {
     expect(screen.queryByTestId("lab-access-mock")).not.toBeInTheDocument();
   });
 
-  test("renders LabAccess when user is SSO even without wallet", () => {
+  test("renders LabAccess when user is SSO even without wallet", async () => {
     mockUseUser.mockReturnValue({
       address: null,
       isConnected: false,
@@ -391,12 +391,12 @@ describe("LabCard - LabAccess Integration", () => {
 
     renderLabCard();
 
-    const labAccess = screen.getByTestId("lab-access-mock");
+    const labAccess = await screen.findByTestId("lab-access-mock");
     expect(labAccess).toBeInTheDocument();
     expect(labAccess).toHaveTextContent("LabAccess - lab-123");
   });
 
-  test("forwards correct props to LabAccess component", () => {
+  test("forwards correct props to LabAccess component", async () => {
     mockUseUser.mockReturnValue({
       address: "0xWallet",
       isConnected: true,
@@ -408,11 +408,11 @@ describe("LabCard - LabAccess Integration", () => {
       auth: "https://special-auth.com",
     });
 
-    const labAccess = screen.getByTestId("lab-access-mock");
+    const labAccess = await screen.findByTestId("lab-access-mock");
     expect(labAccess).toHaveTextContent("LabAccess - special-lab");
   });
 
-  test("passes reservationKey to LabAccess for wallet users", () => {
+  test("passes reservationKey to LabAccess for wallet users", async () => {
     mockUseUser.mockReturnValue({
       address: "0xWallet",
       isConnected: true,
@@ -425,11 +425,11 @@ describe("LabCard - LabAccess Integration", () => {
 
     renderLabCard({ activeBooking: true });
 
-    const labAccess = screen.getByTestId("lab-access-mock");
+    const labAccess = await screen.findByTestId("lab-access-mock");
     expect(labAccess).toHaveTextContent("Key: 0xwallet-key");
   });
 
-  test("passes reservationKey to LabAccess for SSO users", () => {
+  test("passes reservationKey to LabAccess for SSO users", async () => {
     mockUseUser.mockReturnValue({
       address: null,
       isConnected: false,
@@ -442,7 +442,7 @@ describe("LabCard - LabAccess Integration", () => {
 
     renderLabCard({ activeBooking: true });
 
-    const labAccess = screen.getByTestId("lab-access-mock");
+    const labAccess = await screen.findByTestId("lab-access-mock");
     expect(labAccess).toHaveTextContent("Key: 0xsso-key");
   });
 
@@ -699,7 +699,7 @@ describe("LabCard - Prop Validation and Edge Cases", () => {
 });
 
 describe("LabCard - Context Integration", () => {
-  test("integrates with UserContext for authentication state", () => {
+  test("integrates with UserContext for authentication state", async () => {
     mockUseUser.mockReturnValue({
       address: "0xTEST",
       isConnected: true,
@@ -708,7 +708,7 @@ describe("LabCard - Context Integration", () => {
     renderLabCard();
 
     // LabAccess should render when connected
-    expect(screen.getByTestId("lab-access-mock")).toBeInTheDocument();
+    expect(await screen.findByTestId("lab-access-mock")).toBeInTheDocument();
     expect(mockUseUser).toHaveBeenCalled();
   });
 
@@ -724,7 +724,7 @@ describe("LabCard - Context Integration", () => {
     expect(screen.getByText(/Custom: 42/)).toBeInTheDocument();
   });
 
-  test("works correctly with both UserContext and LabTokenContext", () => {
+  test("works correctly with both UserContext and LabTokenContext", async () => {
     mockUseUser.mockReturnValue({
       address: "0xMULTI",
       isConnected: true,
@@ -736,7 +736,7 @@ describe("LabCard - Context Integration", () => {
 
     renderLabCard();
 
-    expect(screen.getByTestId("lab-access-mock")).toBeInTheDocument();
+    expect(await screen.findByTestId("lab-access-mock")).toBeInTheDocument();
     expect(screen.getByText(/Multi: €/)).toBeInTheDocument();
   });
 
@@ -791,7 +791,7 @@ describe("LabCard - Accessibility", () => {
 });
 
 describe("LabCard - Integration Scenarios", () => {
-  test("renders complete experience for connected user with active booking", () => {
+  test("renders complete experience for connected user with active booking", async () => {
     mockUseUser.mockReturnValue({
       address: "0xCOMPLETE",
       isConnected: true,
@@ -805,7 +805,7 @@ describe("LabCard - Integration Scenarios", () => {
     // Should show all features
     expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
     expect(screen.getByTestId("lab-card-image")).toBeInTheDocument();
-    expect(screen.getByTestId("lab-access-mock")).toBeInTheDocument();
+    expect(await screen.findByTestId("lab-access-mock")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Explore Lab/i })
     ).toBeInTheDocument();

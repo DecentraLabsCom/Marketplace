@@ -242,8 +242,12 @@ describe("Wallet Connection Flow Integration", () => {
     });
 
     // Verify both wallet and institutional options are shown
-    expect(screen.getByText(/wallet login/i)).toBeInTheDocument();
-    expect(screen.getByText(/institutional login/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /wallet login/i })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /institutional login/i })
+    ).toBeInTheDocument();
   });
 
   /**
@@ -263,9 +267,9 @@ describe("Wallet Connection Flow Integration", () => {
     });
 
     // Click "Wallet Login" button
-    const walletLoginButton = screen
-      .getByText(/wallet login/i)
-      .closest("button");
+    const walletLoginButton = await screen.findByRole("button", {
+      name: /wallet login/i,
+    });
     fireEvent.click(walletLoginButton);
 
     // Wait for wallet connector modal to appear
@@ -297,9 +301,9 @@ describe("Wallet Connection Flow Integration", () => {
     });
 
     // Click "Wallet Login"
-    const walletLoginButton = screen
-      .getByText(/wallet login/i)
-      .closest("button");
+    const walletLoginButton = await screen.findByRole("button", {
+      name: /wallet login/i,
+    });
     fireEvent.click(walletLoginButton);
 
     // Wait for connector modal
@@ -401,9 +405,9 @@ describe("Wallet Connection Flow Integration", () => {
     });
 
     // Click "Institutional Login"
-    const institutionalButton = screen
-      .getByText(/institutional login/i)
-      .closest("button");
+    const institutionalButton = await screen.findByRole("button", {
+      name: /institutional login/i,
+    });
     fireEvent.click(institutionalButton);
 
     // Verify router.push was called with SSO endpoint
@@ -454,9 +458,9 @@ describe("Wallet Connection Flow Integration", () => {
     });
 
     // Open wallet connector modal
-    const walletLoginButton = screen
-      .getByText(/wallet login/i)
-      .closest("button");
+    const walletLoginButton = await screen.findByRole("button", {
+      name: /wallet login/i,
+    });
     fireEvent.click(walletLoginButton);
 
     await waitFor(() => {
@@ -500,9 +504,9 @@ describe("Wallet Connection Flow Integration", () => {
     });
 
     // Open wallet connector modal
-    const walletLoginButton = screen
-      .getByText(/wallet login/i)
-      .closest("button");
+    const walletLoginButton = await screen.findByRole("button", {
+      name: /wallet login/i,
+    });
     fireEvent.click(walletLoginButton);
 
     await waitFor(() => {
@@ -550,9 +554,9 @@ describe("Wallet Connection Flow Integration", () => {
       expect(screen.getByText(/choose login method/i)).toBeInTheDocument();
     });
 
-    const walletLoginButton = screen
-      .getByText(/wallet login/i)
-      .closest("button");
+    const walletLoginButton = await screen.findByRole("button", {
+      name: /wallet login/i,
+    });
     fireEvent.click(walletLoginButton);
 
     await waitFor(() => {

@@ -166,14 +166,14 @@ describe("Login", () => {
       expect(screen.getByText("Choose Login Method")).toBeInTheDocument();
     });
 
-    test("shows wallet-only modal for SSO connect wallet flow", () => {
+    test("shows wallet-only modal for SSO connect wallet flow", async () => {
       useUser.mockReturnValue({ isLoggedIn: true, isSSO: true, isConnected: false });
 
       render(<Login />);
       fireEvent.click(screen.getByText("Connect wallet"));
 
       expect(screen.getByText("Connect Wallet")).toBeInTheDocument();
-      expect(screen.getByTestId("wallet-login")).toBeInTheDocument();
+      expect(await screen.findByTestId("wallet-login")).toBeInTheDocument();
       expect(screen.queryByTestId("institutional-login")).not.toBeInTheDocument();
     });
   });
@@ -246,43 +246,43 @@ describe("Login", () => {
   });
 
   describe("Child Components", () => {
-    test("renders WalletLogin component when modal is open", () => {
+    test("renders WalletLogin component when modal is open", async () => {
       useUser.mockReturnValue({ isLoggedIn: false });
 
       render(<Login />);
       fireEvent.click(screen.getByTestId("login-button"));
 
-      expect(screen.getByTestId("wallet-login")).toBeInTheDocument();
+      expect(await screen.findByTestId("wallet-login")).toBeInTheDocument();
     });
 
-    test("renders InstitutionalLogin component when modal is open", () => {
+    test("renders InstitutionalLogin component when modal is open", async () => {
       useUser.mockReturnValue({ isLoggedIn: false });
 
       render(<Login />);
       fireEvent.click(screen.getByTestId("login-button"));
 
-      expect(screen.getByTestId("institutional-login")).toBeInTheDocument();
+      expect(await screen.findByTestId("institutional-login")).toBeInTheDocument();
     });
 
-    test("passes setIsModalOpen prop to WalletLogin", () => {
+    test("passes setIsModalOpen prop to WalletLogin", async () => {
       useUser.mockReturnValue({ isLoggedIn: false });
 
       render(<Login />);
       fireEvent.click(screen.getByTestId("login-button"));
 
-      const walletLoginButton = screen.getByText("Mock Wallet Login");
+      const walletLoginButton = await screen.findByText("Mock Wallet Login");
       fireEvent.click(walletLoginButton);
 
       expect(screen.queryByText("Choose Login Method")).not.toBeInTheDocument();
     });
 
-    test("passes setIsModalOpen prop to InstitutionalLogin", () => {
+    test("passes setIsModalOpen prop to InstitutionalLogin", async () => {
       useUser.mockReturnValue({ isLoggedIn: false });
 
       render(<Login />);
       fireEvent.click(screen.getByTestId("login-button"));
 
-      const institutionalLoginButton = screen.getByText(
+      const institutionalLoginButton = await screen.findByText(
         "Mock Institutional Login"
       );
       fireEvent.click(institutionalLoginButton);
