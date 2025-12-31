@@ -337,31 +337,30 @@ export default function LabFormFullSetup({
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Access Details</h3>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <input
-              type="text"
-              placeholder="Access Key"
-              value={localLab?.accessKey || ''}
-              onChange={(e) => handleBasicChange('accessKey', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={accessKeyRef}
-            />
-            {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
-          </div>
+        <div>
+          <input
+            type="text"
+            placeholder="Access URI"
+            value={localLab?.accessURI || ''}
+            onChange={(e) => handleBasicChange('accessURI', e.target.value)}
+            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            disabled={disabled}
+            ref={accessURIRef}
+          />
+          {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
         </div>
-
-        <input
-          type="text"
-          placeholder="Access URI"
-          value={localLab?.accessURI || ''}
-          onChange={(e) => handleBasicChange('accessURI', e.target.value)}
-          className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-          disabled={disabled}
-          ref={accessURIRef}
-        />
-        {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
+        <div>
+          <input
+            type="text"
+            placeholder="Access Key"
+            value={localLab?.accessKey || ''}
+            onChange={(e) => handleBasicChange('accessKey', e.target.value)}
+            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            disabled={disabled}
+            ref={accessKeyRef}
+          />
+          {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
+        </div>
       </section>
 
       <section className="space-y-4">
