@@ -84,7 +84,12 @@ export default function Account() {
           </div>
         </div>
       )}
-      <button onClick={handleLogout}>
+      <button
+        type="button"
+        onClick={handleLogout}
+        aria-label={isConnected ? "Disconnect wallet" : "Logout"}
+        title={isConnected ? "Disconnect wallet" : "Logout"}
+      >
         <FontAwesomeIcon icon={faSignOutAlt} className="text-brand font-semibold text-4xl
                 hover:text-hover-dark" title={isConnected ? "Disconnect Wallet" : "Logout"}/>
       </button>

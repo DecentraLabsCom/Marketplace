@@ -1,5 +1,6 @@
 "use client";
 import React from 'react'
+import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -7,11 +8,11 @@ import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
 import { useActiveReservationKeyForUser, useInstitutionalUserActiveReservationKeySSO } from '@/hooks/booking/useBookings'
-import LabAccess from '@/components/home/LabAccess'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
 
 /**
  * Individual lab card component for displaying lab information in grid/list views

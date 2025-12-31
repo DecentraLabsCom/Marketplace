@@ -1,13 +1,18 @@
 "use client";
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import Image from 'next/image'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
 import { useOptionalUser } from '@/context/UserContext'
-import Login from '@/components/auth/Login'
 import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
+
+const Login = dynamic(() => import('@/components/auth/Login'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-20 rounded bg-white/40 animate-pulse" />
+});
 
 /**
  * Main navigation bar component with responsive design and authentication-aware menu
@@ -113,7 +118,14 @@ export default function Navbar() {
 
         {/* Mobile Menu Button */}
         {hasMenuContent && (
-          <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
+          <button
+            type="button"
+            className="md:hidden"
+            onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+          >
             <FontAwesomeIcon icon={faBars} />
           </button>
         )}
@@ -121,7 +133,10 @@ export default function Navbar() {
 
       {/* Mobile Dropdown */}
       {hasMenuContent && menuOpen && (
-        <div className="md:hidden bg-header-bg text-hover-dark shadow-md absolute inset-x-0 z-50">
+        <div
+          id="mobile-menu"
+          className="md:hidden bg-header-bg text-hover-dark shadow-md absolute inset-x-0 z-50"
+        >
           <div className="flex flex-col items-center py-4 space-y-2">
             {showMenuButtons && (
               <>

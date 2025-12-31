@@ -42,14 +42,35 @@ export default function Footer() {
 
           {/* Right: Social Media */}
           <div className="flex space-x-4 justify-center items-center">
-            <a href="https://decentralabs.nebsyst.com" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://decentralabs.nebsyst.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="DecentraLabs website"
+              title="DecentraLabs website"
+            >
               <FaGlobe className="size-6 hover:text-brand-primary" />
+              <span className="sr-only">DecentraLabs website</span>
             </a>
-            <a href="https://github.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://github.com/DecentraLabsCom"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="DecentraLabs on GitHub"
+              title="DecentraLabs on GitHub"
+            >
               <FaGithub className="size-6 hover:text-brand-primary" />
+              <span className="sr-only">DecentraLabs on GitHub</span>
             </a>
-            <a href="https://x.com/DecentraLabsCom" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://x.com/DecentraLabsCom"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="DecentraLabs on X"
+              title="DecentraLabs on X"
+            >
               <FaXTwitter className="size-6 hover:text-brand-primary" />
+              <span className="sr-only">DecentraLabs on X</span>
             </a>
           </div>
         </div>

@@ -129,10 +129,11 @@ export default function LabFilters({
       <div className="w-full md:w-auto">
         <div className="relative">
           <div className="absolute top-1.5 left-1 flex items-center">
-            <label htmlFor="search-bar" className="sr-only">
-              Search Labs
+            <label htmlFor="search-filter" className="sr-only">
+              Search filter
             </label>
             <select 
+              id="search-filter"
               onChange={(e) => onFilterChange(e.target.value)} 
               value={selectedFilter}
               className="bg-white rounded border border-transparent py-1 pl-1.5 pr-7 flex items-center text-sm transition-all text-slate-600 hover:bg-header-bg cursor-pointer"
@@ -143,8 +144,12 @@ export default function LabFilters({
             </select>
             <div className="h-6 border-l border-slate-200 ml-1.5" />
           </div>
+          <label htmlFor="search-bar" className="sr-only">
+            Search labs
+          </label>
           <input 
             ref={searchInputRef} 
+            id="search-bar"
             type="text" 
             placeholder="Type here..." 
             onKeyDown={handleKeyDown}

@@ -169,13 +169,20 @@ const createWagmiConfig = () => {
   // Use environment-aware metadata
   const metadata = getWalletConnectMetadata();
 
+  const connectors = [];
+
+  if (cloudReownId) {
+    connectors.push(walletConnect({ projectId: cloudReownId, metadata: metadata }));
+  } else {
+    devLog.warn('[wagmiConfig] WalletConnect project ID missing; WalletConnect disabled.');
+  }
+
+  connectors.push(metaMask({ dappMetadata: metadata }));
+
   _cachedConfig = createConfig({
     autoConnect: true,
     chains: chains,
-    connectors: [
-      walletConnect({ projectId: cloudReownId, metadata: metadata }),
-      metaMask({ dappMetadata: metadata }),
-    ],
+    connectors: connectors,
     transports: transports,
   });
 

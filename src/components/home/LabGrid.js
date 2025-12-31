@@ -40,10 +40,10 @@ export default function LabGrid({
     return (
       <div className="text-center py-12">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-          <h3 className="text-lg font-semibold text-red-800 mb-2">
+          <h2 className="text-lg font-semibold text-red-800 mb-2">
             Unable to Load Labs
-          </h3>
-          <p className="text-red-600">
+          </h2>
+          <p className="text-red-500">
             There was an error loading the laboratory data. Please try refreshing the page.
           </p>
         </div>
@@ -56,9 +56,9 @@ export default function LabGrid({
     return (
       <div className="text-center py-12">
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 max-w-md mx-auto">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">
             No Labs Found
-          </h3>
+          </h2>
           <p className="text-gray-600">
             {emptyMessage}
           </p>

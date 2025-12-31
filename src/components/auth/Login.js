@@ -1,11 +1,19 @@
 "use client";
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { FaSignInAlt } from 'react-icons/fa'
 import { useUser } from '@/context/UserContext'
-import WalletLogin from '@/components/auth/WalletLogin'
-import InstitutionalLogin from '@/components/auth/InstitutionalLogin'
 import Account from '@/utils/auth/account'
 import { Button, Card, CardHeader, CardContent } from '@/components/ui'
+
+const WalletLogin = dynamic(() => import('@/components/auth/WalletLogin'), {
+  ssr: false,
+  loading: () => <div className="text-sm text-neutral-500">Loading wallet options...</div>
+});
+const InstitutionalLogin = dynamic(() => import('@/components/auth/InstitutionalLogin'), {
+  ssr: false,
+  loading: () => <div className="text-sm text-neutral-500">Loading institutional login...</div>
+});
 
 /**
  * Main login component that provides multiple authentication methods

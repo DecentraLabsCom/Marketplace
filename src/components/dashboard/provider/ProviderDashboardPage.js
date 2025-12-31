@@ -602,15 +602,15 @@ export default function ProviderDashboard() {
   if (labsError) {
     return (
       <AccessControl requireProvider message="Please log in to manage your labs.">
-        <Container padding="sm">
+        <Container className="mt-12" padding="sm">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-red-800 text-xl font-semibold mb-2">Error Loading Labs</h2>
-            <p className="text-red-600 mb-4">
+            <p className="text-red-500 mb-4">
               {labsErrorDetails?.message || 'Failed to load laboratory data'}
             </p>
             <button 
               onClick={() => window.location.reload()}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+              className="bg-red-700 text-white px-4 py-2 rounded hover:bg-red-800 transition-colors"
             >
               Retry
             </button>
