@@ -156,7 +156,7 @@ jobs:
         
       - name: Create Pull Request
         if: steps.check-rotation.outputs.needs_rotation == 'true'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "🔄 Automated JWT key rotation - $(date +%Y-%m-%d)"

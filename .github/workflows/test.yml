@@ -40,7 +40,7 @@ jobs:
           CI: true
 
       - name: 📊 Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage/lcov.info
           flags: unittests
@@ -48,7 +48,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: 💾 Archive coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report-node-${{ matrix.node-version }}
           path: coverage/
