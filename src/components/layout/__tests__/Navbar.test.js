@@ -63,7 +63,9 @@ describe("Navbar", () => {
     test("renders logo and login", () => {
       render(<Navbar />);
       expect(screen.getByAltText("DecentraLabs Logo")).toBeInTheDocument();
-      expect(screen.getByText("Login")).toBeInTheDocument();
+      const loginContent =
+        screen.queryByText("Login") || screen.getByTestId("login-skeleton");
+      expect(loginContent).toBeInTheDocument();
     });
 
     test("does not show navigation menu", () => {

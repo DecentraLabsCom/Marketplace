@@ -63,6 +63,14 @@ describe("LabAccess Component", () => {
     reservationKey: "test-key-123",
   };
 
+  const getAccessButton = async () => {
+    const button = await screen.findByRole("button", { name: "Access" });
+    await waitFor(() => {
+      expect(button).toBeEnabled();
+    });
+    return button;
+  };
+
   // Setup before each test
   beforeEach(() => {
     jest.clearAllMocks();
@@ -95,8 +103,8 @@ describe("LabAccess Component", () => {
     test("should render access button when user has active booking", () => {
       render(<LabAccess {...defaultProps} />);
 
-      const accessDiv = screen.getByText("Access");
-      expect(accessDiv).toBeInTheDocument();
+      const accessButton = screen.getByRole("button", { name: "Access" });
+      expect(accessButton).toBeInTheDocument();
     });
 
     test("should render empty div when user has no active booking", () => {
@@ -121,8 +129,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       expect(screen.getByText("Verifying...")).toBeInTheDocument();
     });
@@ -145,8 +153,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         expect(authenticateLabAccess).toHaveBeenCalledWith(
@@ -179,8 +187,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
@@ -213,8 +221,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         const errorMessage = screen.getByText(
@@ -244,8 +252,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         const errorMessage = screen.getByText("Invalid booking credentials");
@@ -273,8 +281,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         expect(getAuthErrorMessage).toHaveBeenCalledWith(mockError, false);
@@ -304,8 +312,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         const errorMessage = screen.getByText(
@@ -333,8 +341,8 @@ describe("LabAccess Component", () => {
         );
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         expect(screen.getByText("Temporary error")).toBeInTheDocument();
@@ -393,8 +401,8 @@ describe("LabAccess Component", () => {
         expect(screen.getByText("Access")).toBeInTheDocument();
       });
 
-      const accessButton = screen.getByText("Access");
-      fireEvent.click(accessButton.closest("div"));
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
 
       await waitFor(() => {
         expect(screen.queryByText("Verifying...")).not.toBeInTheDocument();
@@ -403,3 +411,5 @@ describe("LabAccess Component", () => {
     });
   });
 });
+
+

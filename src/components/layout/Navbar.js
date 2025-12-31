@@ -11,7 +11,12 @@ import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
 
 const Login = dynamic(() => import('@/components/auth/Login'), {
   ssr: false,
-  loading: () => <div className="h-8 w-20 rounded bg-white/40 animate-pulse" />
+  loading: () => (
+    <div
+      data-testid="login-skeleton"
+      className="h-8 w-20 rounded bg-white/40 animate-pulse"
+    />
+  ),
 });
 
 /**

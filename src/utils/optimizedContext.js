@@ -107,7 +107,6 @@ export const useOptimizedContextValue = (valueFactory, dependencies = [], contex
     }
     
     return value;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueFactory, contextName, ...dependencies]);
 };
 
@@ -127,7 +126,6 @@ export const useMemoizedValue = (valueFactory, dependencies = []) => {
       devLog.error('Memoized value creation error:', error);
       throw error;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueFactory, ...dependencies]);
 };
 

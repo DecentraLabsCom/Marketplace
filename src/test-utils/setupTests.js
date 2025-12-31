@@ -1,6 +1,43 @@
 // Extend Jest with @testing-library matchers
 require('@testing-library/jest-dom');
 
+// Resolve next/dynamic in tests so dynamic imports render the real component
+jest.mock('next/dynamic', () => {
+  const React = require('react');
+
+  return (importer, options = {}) => {
+    const Loading = options.loading || null;
+
+    const DynamicComponent = (props) => {
+      const [Component, setComponent] = React.useState(null);
+
+      React.useEffect(() => {
+        let mounted = true;
+
+        Promise.resolve()
+          .then(() => importer())
+          .then((mod) => {
+            if (mounted) {
+              setComponent(() => mod.default || mod);
+            }
+          });
+
+        return () => {
+          mounted = false;
+        };
+      }, []);
+
+      if (Component) {
+        return React.createElement(Component, props);
+      }
+
+      return Loading ? React.createElement(Loading, props) : null;
+    };
+
+    return DynamicComponent;
+  };
+});
+
 // Polyfill for TextEncoder/TextDecoder (needed in JSDOM)
 if (typeof global.TextEncoder === 'undefined') {
   const { TextEncoder, TextDecoder } = require('util');
