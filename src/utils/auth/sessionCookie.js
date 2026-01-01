@@ -241,6 +241,23 @@ function getChunkedSessionToken(cookieStore) {
   return chunks.length ? chunks.join('') : null;
 }
 
+function getBaseSessionValues(cookieStore) {
+  if (!cookieStore) return [];
+
+  if (cookieStore.getAll) {
+    const matches = cookieStore
+      .getAll()
+      .filter((cookie) => cookie.name === COOKIE_NAME && cookie.value);
+
+    if (matches.length) {
+      return matches.map((cookie) => cookie.value);
+    }
+  }
+
+  const value = cookieStore.get?.(COOKIE_NAME)?.value;
+  return value ? [value] : [];
+}
+
 /**
  * Creates session cookie configurations for Next.js response.cookies.set()
  * @param {SessionData} sessionData - User session data to store
@@ -308,11 +325,22 @@ export function createDestroySessionCookie(name = COOKIE_NAME) {
  * @returns {SessionData|null} Session data or null if no valid session
  */
 export function getSessionFromCookies(cookieStore) {
-  const baseCookie = cookieStore.get(COOKIE_NAME)?.value;
+  const baseValues = getBaseSessionValues(cookieStore);
 
-  if (baseCookie) {
-    const parsed = parseSessionValue(baseCookie);
-    if (parsed) return parsed;
+  if (baseValues.length) {
+    const combined = baseValues.length === 1 ? baseValues[0] : baseValues.join('');
+    const parsedCombined = parseSessionValue(combined);
+    if (parsedCombined) return parsedCombined;
+
+    if (baseValues.length > 1) {
+      const parsedDotted = parseSessionValue(baseValues.join('.'));
+      if (parsedDotted) return parsedDotted;
+
+      for (const value of baseValues) {
+        const parsed = parseSessionValue(value);
+        if (parsed) return parsed;
+      }
+    }
   }
 
   const sessionCookie = getChunkedSessionToken(cookieStore);

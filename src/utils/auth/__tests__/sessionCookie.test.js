@@ -308,6 +308,27 @@ describe('sessionCookie', () => {
       expect(result.email).toBe(sessionData.email);
     });
 
+    it('should rebuild session from multiple cookies with the same name', () => {
+      const sessionData = { id: 'user123', email: 'test@example.com' };
+      const token = sessionCookie.createSessionToken(sessionData);
+      const splitIndex = Math.floor(token.length / 2);
+      const parts = [token.slice(0, splitIndex), token.slice(splitIndex)];
+
+      const mockCookieStore = {
+        get: jest.fn().mockReturnValue(undefined),
+        getAll: jest.fn().mockReturnValue([
+          { name: 'user_session', value: parts[0] },
+          { name: 'user_session', value: parts[1] },
+        ]),
+      };
+
+      const result = sessionCookie.getSessionFromCookies(mockCookieStore);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(sessionData.id);
+      expect(result.email).toBe(sessionData.email);
+    });
+
     it('should reconstruct session from chunked cookies', () => {
       const sessionData = { id: 'user123', email: 'test@example.com' };
       const token = sessionCookie.createSessionToken(sessionData);
