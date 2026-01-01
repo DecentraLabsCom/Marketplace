@@ -32,6 +32,10 @@ export async function createSession(response, userData) {
   // Create a signed JWT cookie with the user information
   const cookieConfigs = createSessionCookie(userData);
   const configs = Array.isArray(cookieConfigs) ? cookieConfigs : [cookieConfigs];
+  console.log('[session] set cookies', configs.map((cookie) => ({
+    name: cookie.name,
+    length: cookie.value?.length || 0,
+  })));
   configs.forEach((cookieConfig) => {
     response.cookies.set(cookieConfig.name, cookieConfig.value, {
       httpOnly: cookieConfig.httpOnly,
