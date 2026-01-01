@@ -188,6 +188,17 @@ describe("validateBooking", () => {
 });
 
 describe("canCancelBooking", () => {
+  const fixedNow = new Date("2026-01-01T00:00:00Z");
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test("allows cancellation when booking is more than 24 hours away", () => {
     const booking = {
       startDate: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(), // 25 hours
@@ -223,6 +234,17 @@ describe("canCancelBooking", () => {
 });
 
 describe("canModifyBooking", () => {
+  const fixedNow = new Date("2026-01-01T00:00:00Z");
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test("allows modification when booking is more than 48 hours away", () => {
     const booking = {
       startDate: new Date(Date.now() + 49 * 60 * 60 * 1000).toISOString(), // 49 hours

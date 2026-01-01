@@ -78,6 +78,14 @@ describe("getDaysInMonth", () => {
 
 describe("validateDateString", () => {
   const currentYear = new Date().getFullYear();
+  const findLeapYearInRange = (startYear, endYear) => {
+    for (let year = startYear; year <= endYear; year += 1) {
+      if (isLeapYear(year)) {
+        return year;
+      }
+    }
+    return null;
+  };
 
   describe("Required field validation", () => {
     test.each([
@@ -146,7 +154,10 @@ describe("validateDateString", () => {
     });
 
     test("accepts February 29 in leap year", () => {
-      const result = validateDateString("02/29/2024");
+      const leapYear = findLeapYearInRange(currentYear - 1, currentYear + 10);
+
+      expect(leapYear).not.toBeNull();
+      const result = validateDateString(`02/29/${leapYear}`);
 
       expect(result.isValid).toBe(true);
     });
