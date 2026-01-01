@@ -35,24 +35,8 @@ export default function LabGrid({
     return <LabCardGridSkeleton />
   }
 
-  // Error state
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
-          <h2 className="text-lg font-semibold text-red-800 mb-2">
-            Unable to Load Labs
-          </h2>
-          <p className="text-red-500">
-            There was an error loading the laboratory data. Please try refreshing the page.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Empty state
-  if (labs.length === 0) {
+  // Empty state (also used for error cases)
+  if (error || labs.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 max-w-md mx-auto">

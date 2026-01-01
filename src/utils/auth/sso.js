@@ -142,6 +142,8 @@ export async function parseSAMLResponse(samlResponse) {
         id: Array.isArray(attrs.uid) ? attrs.uid[0] : attrs.uid,
         email: Array.isArray(attrs.mail) ? attrs.mail[0] : attrs.mail,
         name: Array.isArray(attrs.displayName) ? attrs.displayName[0] : attrs.displayName,
+        authType: 'sso',
+        isSSO: true,
         affiliation: Array.isArray(attrs.schacHomeOrganization) ? 
                       attrs.schacHomeOrganization[0] : attrs.schacHomeOrganization,
         role: Array.isArray(attrs.eduPersonAffiliation) ? 

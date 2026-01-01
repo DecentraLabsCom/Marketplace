@@ -110,9 +110,9 @@ describe("LabGrid", () => {
       render(<LabGrid labs={[]} error={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText("Unable to Load Labs")).toBeInTheDocument();
+        expect(screen.getByText("No Labs Found")).toBeInTheDocument();
         expect(
-          screen.getByText(/There was an error loading the laboratory data/i)
+          screen.getByText("No labs found matching your criteria.")
         ).toBeInTheDocument();
       });
     });
@@ -121,7 +121,7 @@ describe("LabGrid", () => {
       render(<LabGrid labs={mockLabs} error={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText("Unable to Load Labs")).toBeInTheDocument();
+        expect(screen.getByText("No Labs Found")).toBeInTheDocument();
         expect(screen.queryByTestId("lab-card-1")).not.toBeInTheDocument();
       });
     });
@@ -130,8 +130,7 @@ describe("LabGrid", () => {
       render(<LabGrid labs={[]} error={true} />);
 
       await waitFor(() => {
-        expect(screen.getByText("Unable to Load Labs")).toBeInTheDocument();
-        expect(screen.queryByText("No Labs Found")).not.toBeInTheDocument();
+        expect(screen.getByText("No Labs Found")).toBeInTheDocument();
       });
     });
   });
@@ -434,7 +433,7 @@ describe("LabGrid", () => {
       render(<LabGrid labs={mockLabs} loading={true} error={true} />);
 
       expect(screen.getByTestId("skeleton-loader")).toBeInTheDocument();
-      expect(screen.queryByText("Unable to Load Labs")).not.toBeInTheDocument();
+      expect(screen.queryByText("No Labs Found")).not.toBeInTheDocument();
     });
 
     test("handles large number of labs", async () => {
