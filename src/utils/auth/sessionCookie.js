@@ -157,6 +157,13 @@ export function createSessionToken(sessionData, maxAgeSec = DEFAULT_MAX_AGE) {
     expiresIn: maxAgeSec,
     issuer: 'marketplace-session',
   });
+
+  console.log('[session] token created', {
+    authType: sessionData.authType || 'sso',
+    length: token.length,
+    dots: token.split('.').length - 1,
+    prefix: token.slice(0, 12),
+  });
   
   devLog.log('✅ Session token created for user:', sessionData.id || sessionData.email);
   

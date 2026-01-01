@@ -411,8 +411,12 @@ describe("Wallet Connection Flow Integration", () => {
     fireEvent.click(institutionalButton);
 
     // Verify router.push was called with SSO endpoint
+    const expectedSSOPath =
+      process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === "true"
+        ? "/api/auth/dev/mock-sso"
+        : "/api/auth/sso/saml2/login";
     await waitFor(() => {
-      expect(mockRouterPush).toHaveBeenCalledWith("/api/auth/sso/saml2/login");
+      expect(mockRouterPush).toHaveBeenCalledWith(expectedSSOPath);
     });
 
     // Verify modal is closed
