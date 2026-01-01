@@ -187,7 +187,8 @@ describe('sessionCookie', () => {
     it('should return complete cookie configuration', () => {
       const sessionData = { id: 'user123', email: 'test@example.com' };
 
-      const cookie = sessionCookie.createSessionCookie(sessionData);
+      const cookies = sessionCookie.createSessionCookie(sessionData);
+      const cookie = cookies[0];
 
       expect(cookie.name).toBe('user_session');
       expect(cookie.value).toBeDefined();
@@ -203,14 +204,16 @@ describe('sessionCookie', () => {
       const prodSessionCookie = await import('@/utils/auth/sessionCookie');
 
       const sessionData = { id: 'user123' };
-      const cookie = prodSessionCookie.createSessionCookie(sessionData);
+      const cookies = prodSessionCookie.createSessionCookie(sessionData);
+      const cookie = cookies[0];
 
       expect(cookie.secure).toBe(true);
     });
 
     it('should set secure=false in development', () => {
       const sessionData = { id: 'user123' };
-      const cookie = sessionCookie.createSessionCookie(sessionData);
+      const cookies = sessionCookie.createSessionCookie(sessionData);
+      const cookie = cookies[0];
 
       expect(cookie.secure).toBe(false);
     });
@@ -287,6 +290,26 @@ describe('sessionCookie', () => {
       const result = sessionCookie.getSessionFromCookies(mockCookieStore);
 
       expect(result).toBeNull();
+    });
+
+    it('should reconstruct session from chunked cookies', () => {
+      const sessionData = { id: 'user123', email: 'test@example.com' };
+      const token = sessionCookie.createSessionToken(sessionData);
+      const chunked = [
+        { name: 'user_session.0', value: token.slice(0, 10) },
+        { name: 'user_session.1', value: token.slice(10) },
+      ];
+
+      const mockCookieStore = {
+        get: jest.fn().mockReturnValue(undefined),
+        getAll: jest.fn().mockReturnValue(chunked),
+      };
+
+      const result = sessionCookie.getSessionFromCookies(mockCookieStore);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(sessionData.id);
+      expect(result.email).toBe(sessionData.email);
     });
   });
 

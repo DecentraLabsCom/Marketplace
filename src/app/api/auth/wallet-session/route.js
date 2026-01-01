@@ -41,15 +41,18 @@ export async function POST(request) {
         };
 
         // Create the signed JWT session cookie
-        const cookieConfig = createSessionCookie(sessionData);
+        const cookieConfigs = createSessionCookie(sessionData);
         
         const cookieStore = await cookies();
-        cookieStore.set(cookieConfig.name, cookieConfig.value, {
-            httpOnly: cookieConfig.httpOnly,
-            secure: cookieConfig.secure,
-            sameSite: cookieConfig.sameSite,
-            path: cookieConfig.path,
-            maxAge: cookieConfig.maxAge,
+        const configs = Array.isArray(cookieConfigs) ? cookieConfigs : [cookieConfigs];
+        configs.forEach((cookieConfig) => {
+            cookieStore.set(cookieConfig.name, cookieConfig.value, {
+                httpOnly: cookieConfig.httpOnly,
+                secure: cookieConfig.secure,
+                sameSite: cookieConfig.sameSite,
+                path: cookieConfig.path,
+                maxAge: cookieConfig.maxAge,
+            });
         });
 
         devLog.log('✅ Wallet session created for:', normalizedAddress);

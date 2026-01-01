@@ -30,13 +30,16 @@ function normalizeCountryCode(value) {
 
 export async function createSession(response, userData) {
   // Create a signed JWT cookie with the user information
-  const cookieConfig = createSessionCookie(userData);
-  response.cookies.set(cookieConfig.name, cookieConfig.value, {
-    httpOnly: cookieConfig.httpOnly,
-    secure: cookieConfig.secure,
-    sameSite: cookieConfig.sameSite,
-    path: cookieConfig.path,
-    maxAge: cookieConfig.maxAge,
+  const cookieConfigs = createSessionCookie(userData);
+  const configs = Array.isArray(cookieConfigs) ? cookieConfigs : [cookieConfigs];
+  configs.forEach((cookieConfig) => {
+    response.cookies.set(cookieConfig.name, cookieConfig.value, {
+      httpOnly: cookieConfig.httpOnly,
+      secure: cookieConfig.secure,
+      sameSite: cookieConfig.sameSite,
+      path: cookieConfig.path,
+      maxAge: cookieConfig.maxAge,
+    });
   });
 }
 

@@ -7,7 +7,7 @@
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createDestroySessionCookie, SESSION_COOKIE_NAME } from '@/utils/auth/sessionCookie'
+import { clearSessionCookies } from '@/utils/auth/sessionCookie'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -17,28 +17,7 @@ import devLog from '@/utils/dev/logger'
 export async function POST() {
     try {
         const cookieStore = await cookies();
-        const destroyCookie = createDestroySessionCookie();
-        
-        // Clear the session cookie
-        cookieStore.set(destroyCookie.name, destroyCookie.value, { 
-            maxAge: destroyCookie.maxAge, 
-            path: destroyCookie.path,
-            httpOnly: destroyCookie.httpOnly,
-            secure: destroyCookie.secure,
-            sameSite: destroyCookie.sameSite
-        });
-        
-        // Also try to clear with expires in the past (belt and suspenders)
-        cookieStore.set(SESSION_COOKIE_NAME, "", {
-            expires: new Date(0),
-            path: "/",
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict"
-        });
-        
-        // Delete the cookie entirely
-        cookieStore.delete(SESSION_COOKIE_NAME);
+        clearSessionCookies(cookieStore);
 
         devLog.log('✅ Wallet session destroyed');
 

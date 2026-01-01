@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { clearSessionCookies } from '@/utils/auth/sessionCookie'
 import { parseStringPromise } from 'xml2js'
 
 // Validate SAML logout request structure
@@ -81,7 +82,7 @@ export async function POST(request) {
     }
 
     const cookieStore = await cookies();
-    cookieStore.set("user_session", "", { maxAge: 0, path: "/" });
+    clearSessionCookies(cookieStore);
 
     return NextResponse.redirect("/");
   } catch (error) {

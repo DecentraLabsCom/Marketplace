@@ -15,7 +15,9 @@ import jwt from 'jsonwebtoken';
 import devLog from '@/utils/dev/logger';
 
 const COOKIE_NAME = 'user_session';
+const COOKIE_CHUNK_COUNT_NAME = `${COOKIE_NAME}.count`;
 const DEFAULT_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
+const MAX_COOKIE_VALUE_LENGTH = 3800;
 
 /**
  * Get the session secret from environment
@@ -143,29 +145,109 @@ export function getSessionCookieOptions(maxAgeSec = DEFAULT_MAX_AGE) {
 }
 
 /**
- * Creates a complete session cookie configuration for Next.js response.cookies.set()
+ * Splits large cookie values into safe-sized chunks.
+ */
+function chunkCookieValue(value) {
+  const chunks = [];
+  for (let i = 0; i < value.length; i += MAX_COOKIE_VALUE_LENGTH) {
+    chunks.push(value.slice(i, i + MAX_COOKIE_VALUE_LENGTH));
+  }
+  return chunks;
+}
+
+function getChunkedSessionToken(cookieStore) {
+  const prefix = `${COOKIE_NAME}.`;
+  const chunkCountRaw = cookieStore?.get?.(COOKIE_CHUNK_COUNT_NAME)?.value;
+  const chunkCount = Number(chunkCountRaw);
+
+  if (Number.isFinite(chunkCount) && chunkCount > 0) {
+    const chunks = [];
+    for (let i = 0; i < chunkCount; i += 1) {
+      const value = cookieStore?.get?.(`${COOKIE_NAME}.${i}`)?.value;
+      if (!value) {
+        return null;
+      }
+      chunks.push(value);
+    }
+    return chunks.join('');
+  }
+
+  if (cookieStore?.getAll) {
+    const chunks = cookieStore
+      .getAll()
+      .filter((cookie) => cookie.name.startsWith(prefix))
+      .map((cookie) => {
+        const index = Number(cookie.name.slice(prefix.length));
+        return Number.isFinite(index) ? { index, value: cookie.value } : null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.index - b.index);
+
+    if (!chunks.length) return null;
+    return chunks.map((chunk) => chunk.value).join('');
+  }
+
+  const chunks = [];
+  for (let i = 0; i < 20; i += 1) {
+    const value = cookieStore?.get?.(`${COOKIE_NAME}.${i}`)?.value;
+    if (!value) break;
+    chunks.push(value);
+  }
+  return chunks.length ? chunks.join('') : null;
+}
+
+/**
+ * Creates session cookie configurations for Next.js response.cookies.set()
  * @param {SessionData} sessionData - User session data to store
  * @param {number} [maxAgeSec] - Cookie max age in seconds (default: 24 hours)
- * @returns {{ name: string, value: string, options: Object }} Cookie configuration
+ * @returns {Array<{ name: string, value: string, options: Object }>} Cookie configurations
  */
 export function createSessionCookie(sessionData, maxAgeSec = DEFAULT_MAX_AGE) {
   const token = createSessionToken(sessionData, maxAgeSec);
   const options = getSessionCookieOptions(maxAgeSec);
-  
-  return {
+  const chunks = chunkCookieValue(token);
+
+  if (chunks.length === 1) {
+    return [{
+      name: options.name,
+      value: token,
+      ...options,
+    }];
+  }
+
+  const clearBase = {
     name: options.name,
-    value: token,
+    value: '',
+    httpOnly: options.httpOnly,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    path: options.path,
+    maxAge: 0,
+  };
+  const chunkCountCookie = {
+    name: COOKIE_CHUNK_COUNT_NAME,
+    value: String(chunks.length),
     ...options,
   };
+
+  return [
+    clearBase,
+    chunkCountCookie,
+    ...chunks.map((chunk, index) => ({
+      name: `${options.name}.${index}`,
+      value: chunk,
+      ...options,
+    })),
+  ];
 }
 
 /**
  * Creates a cookie configuration to destroy/clear the session
  * @returns {{ name: string, value: string, options: Object }} Cookie configuration for clearing
  */
-export function createDestroySessionCookie() {
+export function createDestroySessionCookie(name = COOKIE_NAME) {
   return {
-    name: COOKIE_NAME,
+    name,
     value: '',
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -181,28 +263,80 @@ export function createDestroySessionCookie() {
  * @returns {SessionData|null} Session data or null if no valid session
  */
 export function getSessionFromCookies(cookieStore) {
-  const sessionCookie = cookieStore.get(COOKIE_NAME)?.value;
-  
+  const baseCookie = cookieStore.get(COOKIE_NAME)?.value;
+
+  if (baseCookie) {
+    const jwtSession = verifySessionToken(baseCookie);
+    if (jwtSession) {
+      return jwtSession;
+    }
+
+    try {
+      const legacySession = JSON.parse(baseCookie);
+      devLog.warn('?s???? Legacy JSON session detected - will be converted to JWT on next write');
+      return legacySession;
+    } catch {
+      // Fall through to chunked cookie
+    }
+  }
+
+  const sessionCookie = getChunkedSessionToken(cookieStore);
+
   if (!sessionCookie) {
     return null;
   }
-  
-  // Try to verify as JWT first (new format)
+
   const jwtSession = verifySessionToken(sessionCookie);
   if (jwtSession) {
     return jwtSession;
   }
-  
-  // Fallback: try to parse as plain JSON (legacy format - for migration)
-  // This allows existing sessions to continue working during transition
+
   try {
     const legacySession = JSON.parse(sessionCookie);
-    devLog.warn('⚠️ Legacy JSON session detected - will be converted to JWT on next write');
+    devLog.warn('?s???? Legacy JSON session detected - will be converted to JWT on next write');
     return legacySession;
   } catch {
-    // Not valid JSON either
     return null;
   }
+}
+
+
+export function clearSessionCookies(cookieStore) {
+  if (!cookieStore) return [];
+  const names = new Set([COOKIE_NAME, COOKIE_CHUNK_COUNT_NAME]);
+  const prefix = `${COOKIE_NAME}.`;
+
+  if (cookieStore.getAll) {
+    cookieStore.getAll().forEach((cookie) => {
+      if (cookie.name.startsWith(prefix)) {
+        names.add(cookie.name);
+      }
+    });
+  } else {
+    for (let i = 0; i < 20; i += 1) {
+      const name = `${COOKIE_NAME}.${i}`;
+      if (!cookieStore.get?.(name)) break;
+      names.add(name);
+    }
+  }
+
+  const cleared = [];
+  names.forEach((name) => {
+    const destroy = createDestroySessionCookie(name);
+    cookieStore.set(destroy.name, destroy.value, {
+      maxAge: destroy.maxAge,
+      path: destroy.path,
+      httpOnly: destroy.httpOnly,
+      secure: destroy.secure,
+      sameSite: destroy.sameSite,
+    });
+    if (cookieStore.delete) {
+      cookieStore.delete(name);
+    }
+    cleared.push(name);
+  });
+
+  return cleared;
 }
 
 /**
@@ -217,5 +351,6 @@ export default {
   createDestroySessionCookie,
   getSessionFromCookies,
   getSessionCookieOptions,
+  clearSessionCookies,
   SESSION_COOKIE_NAME,
 };
