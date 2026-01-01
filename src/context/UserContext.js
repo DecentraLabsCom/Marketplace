@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useContext } from 'react'
+import { useState, useEffect, useCallback, useContext, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAccount } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
@@ -66,6 +66,7 @@ function UserDataCore({ children }) {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [walletSessionCreated, setWalletSessionCreated] = useState(false);
     const [webAuthnBootstrapDone, setWebAuthnBootstrapDone] = useState(false);
+    const lastWalletAddressRef = useRef(null);
     
     // Institutional onboarding state (WebAuthn credential at IB)
     const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'no_gateway'
@@ -357,19 +358,21 @@ function UserDataCore({ children }) {
     }, [isConnected, address, isSSO, walletSessionCreated, isWalletLoading, isLoggingOut, refetchSSO]);
 
     // Destroy wallet session when wallet disconnects
-    const destroyWalletSession = useCallback(async () => {
-        if (!walletSessionCreated) return;
+    const destroyWalletSession = useCallback(async (options = {}) => {
+        const forceDestroy = Boolean(options.force);
+        if (!walletSessionCreated && !forceDestroy) return;
         
         try {
-            devLog.log('🔓 Destroying wallet session...');
+            devLog.log('Destroying wallet session...');
             await fetch('/api/auth/wallet-logout', {
                 method: 'POST',
                 credentials: 'include',
             });
-            setWalletSessionCreated(false);
-            devLog.log('✅ Wallet session destroyed');
+            devLog.log('Wallet session destroyed');
         } catch (error) {
-            devLog.error('❌ Error destroying wallet session:', error);
+            devLog.error('Error destroying wallet session:', error);
+        } finally {
+            setWalletSessionCreated(false);
         }
     }, [walletSessionCreated]);
 
@@ -414,7 +417,7 @@ function UserDataCore({ children }) {
       // - We have any user object (SSO session)
       const isLoggedIn =
         (isConnected && Boolean(address) && !isWalletLoading) ||
-        Boolean(user);
+        (Boolean(user) && isSSO);
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
     // Combined loading state - don't wait for providers list for basic functionality
@@ -436,6 +439,14 @@ function UserDataCore({ children }) {
         // Don't update state during logout process
         if (isLoggingOut) {
             devLog.log('🚫 Skipping useEffect - logout in progress');
+            return;
+        }
+        
+        if (!isConnected && sessionIsWallet) {
+            if (isSSO) {
+                setIsSSO(false);
+            }
+            setUser(null);
             return;
         }
         
@@ -528,31 +539,37 @@ function UserDataCore({ children }) {
                 return prev;
             });
         }
-    }, [ssoData, address, providerStatus, providersData?.providers, isLoggingOut, isSSO]);
+    }, [ssoData, address, providerStatus, providersData?.providers, isLoggingOut, isSSO, isConnected, sessionIsWallet]);
 
     // Handle connection changes - only clear wallet-related data, preserve SSO
     useEffect(() => {
-        if (!isConnected && address) {
-            // Wallet disconnected - only clear wallet-related data if we had an address
-            // Don't clear SSO state here as it's managed separately
-            queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(address) });
-            
-            // Destroy wallet session when wallet disconnects (external disconnect from MetaMask)
-            if (walletSessionCreated && !isSSO) {
-                destroyWalletSession();
+        if (isConnected && address) {
+            lastWalletAddressRef.current = address;
+        }
+
+        const addressToClear = address || lastWalletAddressRef.current;
+
+        if (!isConnected) {
+            // Wallet disconnected - only clear wallet-related data
+            if (addressToClear) {
+                queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(addressToClear) });
             }
             
-            // Only clear user state if it was wallet-based (not SSO)
+            // Destroy wallet session when wallet disconnects (manual or external)
             if (!isSSO) {
+                destroyWalletSession({ force: sessionIsWallet });
                 setUser(null);
             }
-        } else if (isConnected && address) {
+            return;
+        }
+
+        if (address) {
             // Invalidate provider status cache when wallet connects
             queryClient.invalidateQueries({ 
                 queryKey: providerQueryKeys.isLabProvider(address) 
             });
         }
-    }, [isConnected, address, queryClient, isSSO, walletSessionCreated, destroyWalletSession]);
+    }, [isConnected, address, queryClient, isSSO, destroyWalletSession, sessionIsWallet]);
 
     // Handle errors
     useEffect(() => {

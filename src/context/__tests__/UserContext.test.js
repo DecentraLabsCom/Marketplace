@@ -450,6 +450,42 @@ describe("UserData Context", () => {
       });
     });
 
+    test("clears wallet session user when wallet is disconnected", async () => {
+      const walletSessionUser = {
+        id: "wallet:0x1234567890abcdef",
+        authType: "wallet",
+        name: "Wallet User",
+      };
+
+      userHooks.useSSOSessionQuery.mockReturnValue({
+        data: { user: walletSessionUser, isSSO: false },
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      wagmiHooks.useAccount.mockReturnValue({
+        address: null,
+        isConnected: false,
+        isReconnecting: false,
+        isConnecting: false,
+      });
+
+      const queryClient = createTestQueryClient();
+      const { result } = renderHook(() => useUser(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          "/api/auth/wallet-logout",
+          expect.objectContaining({ method: "POST" })
+        );
+        expect(result.current.isLoggedIn).toBe(false);
+        expect(result.current.user).toBeNull();
+      });
+    });
+
     test("preserves SSO data when wallet disconnects", async () => {
       const testAddress = "0x1234567890abcdef";
       const mockSSOUser = { name: "SSO User", email: "test@uned.es" };

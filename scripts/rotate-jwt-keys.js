@@ -7,10 +7,10 @@
  * Usage: npm run rotate-jwt-keys [--force] [--backup-suffix=YYYY-MM-DD]
  */
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { execSync } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { execSync } from 'child_process';
 
 // Configuration
 const KEYS_DIR = path.join(process.cwd(), 'certificates', 'jwt');
