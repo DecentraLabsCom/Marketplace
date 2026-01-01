@@ -311,18 +311,18 @@ export function createSessionCookie(sessionData, maxAgeSec = DEFAULT_MAX_AGE) {
     maxAge: 0,
   };
   const chunkCountCookie = {
+    ...options,
     name: COOKIE_CHUNK_COUNT_NAME,
     value: String(chunks.length),
-    ...options,
   };
 
   return [
     clearBase,
     chunkCountCookie,
     ...chunks.map((chunk, index) => ({
+      ...options,
       name: `${options.name}.${index}`,
       value: chunk,
-      ...options,
     })),
   ];
 }
