@@ -25,7 +25,6 @@ module.exports = [
       "next.config.js",
       "jest.config.js",
       "cypress.config.js",
-      "eslint.config.cjs",
     ],
   },
   {

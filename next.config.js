@@ -6,9 +6,6 @@ const nextConfig = {
   reactStrictMode: true,
   basePath: "", //appendPath,
   assetPrefix: "", //appendPath,
-  publicRuntimeConfig: {
-    basePath: "", //appendPath,
-  },
   // Turbopack is the default dev bundler; use 'npm run dev:webpack' if issues appear.
   webpack(config) {
     config.resolve.alias["@"] = path.resolve("./src");
