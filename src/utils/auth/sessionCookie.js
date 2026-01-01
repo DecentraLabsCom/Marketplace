@@ -19,6 +19,51 @@ const COOKIE_CHUNK_COUNT_NAME = `${COOKIE_NAME}.count`;
 const DEFAULT_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
 const MAX_COOKIE_VALUE_LENGTH = 3800;
 
+function decodeBase64Value(value) {
+  if (!value || typeof value !== 'string') return null;
+  if (!/^[A-Za-z0-9+/_=-]+$/.test(value)) return null;
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+  try {
+    return Buffer.from(padded, 'base64').toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+function parseSessionValue(rawValue) {
+  if (!rawValue) return null;
+
+  const jwtSession = verifySessionToken(rawValue);
+  if (jwtSession) {
+    return jwtSession;
+  }
+
+  try {
+    const legacySession = JSON.parse(rawValue);
+    devLog.warn('ƒsÿ‹÷? Legacy JSON session detected - will be converted to JWT on next write');
+    return legacySession;
+  } catch {
+    // Fall through to base64 decode attempts
+  }
+
+  const decoded = decodeBase64Value(rawValue);
+  if (!decoded) return null;
+
+  const decodedJwt = verifySessionToken(decoded);
+  if (decodedJwt) {
+    return decodedJwt;
+  }
+
+  try {
+    const legacySession = JSON.parse(decoded);
+    devLog.warn('ƒsÿ‹÷? Legacy JSON session detected - will be converted to JWT on next write');
+    return legacySession;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get the session secret from environment
  * Falls back to a development-only secret if not configured
@@ -266,18 +311,8 @@ export function getSessionFromCookies(cookieStore) {
   const baseCookie = cookieStore.get(COOKIE_NAME)?.value;
 
   if (baseCookie) {
-    const jwtSession = verifySessionToken(baseCookie);
-    if (jwtSession) {
-      return jwtSession;
-    }
-
-    try {
-      const legacySession = JSON.parse(baseCookie);
-      devLog.warn('?s???? Legacy JSON session detected - will be converted to JWT on next write');
-      return legacySession;
-    } catch {
-      // Fall through to chunked cookie
-    }
+    const parsed = parseSessionValue(baseCookie);
+    if (parsed) return parsed;
   }
 
   const sessionCookie = getChunkedSessionToken(cookieStore);
@@ -286,18 +321,7 @@ export function getSessionFromCookies(cookieStore) {
     return null;
   }
 
-  const jwtSession = verifySessionToken(sessionCookie);
-  if (jwtSession) {
-    return jwtSession;
-  }
-
-  try {
-    const legacySession = JSON.parse(sessionCookie);
-    devLog.warn('?s???? Legacy JSON session detected - will be converted to JWT on next write');
-    return legacySession;
-  } catch {
-    return null;
-  }
+  return parseSessionValue(sessionCookie);
 }
 
 

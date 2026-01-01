@@ -292,6 +292,22 @@ describe('sessionCookie', () => {
       expect(result).toBeNull();
     });
 
+    it('should decode base64-encoded JWT cookies', () => {
+      const sessionData = { id: 'user123', email: 'test@example.com' };
+      const token = sessionCookie.createSessionToken(sessionData);
+      const encoded = Buffer.from(token, 'utf8').toString('base64');
+
+      const mockCookieStore = {
+        get: jest.fn().mockReturnValue({ value: encoded }),
+      };
+
+      const result = sessionCookie.getSessionFromCookies(mockCookieStore);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(sessionData.id);
+      expect(result.email).toBe(sessionData.email);
+    });
+
     it('should reconstruct session from chunked cookies', () => {
       const sessionData = { id: 'user123', email: 'test@example.com' };
       const token = sessionCookie.createSessionToken(sessionData);
