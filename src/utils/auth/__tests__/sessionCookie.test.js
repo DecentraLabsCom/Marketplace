@@ -308,6 +308,24 @@ describe('sessionCookie', () => {
       expect(result.email).toBe(sessionData.email);
     });
 
+    it('should decode compound base64 header-payload cookies', () => {
+      const sessionData = { id: 'user123', email: 'test@example.com' };
+      const token = sessionCookie.createSessionToken(sessionData);
+      const [header, payload, signature] = token.split('.');
+      const encodedLeft = Buffer.from(`${header}.${payload}`, 'utf8').toString('base64');
+      const compound = `${encodedLeft}.${signature}`;
+
+      const mockCookieStore = {
+        get: jest.fn().mockReturnValue({ value: compound }),
+      };
+
+      const result = sessionCookie.getSessionFromCookies(mockCookieStore);
+
+      expect(result).toBeDefined();
+      expect(result.id).toBe(sessionData.id);
+      expect(result.email).toBe(sessionData.email);
+    });
+
     it('should rebuild session from multiple cookies with the same name', () => {
       const sessionData = { id: 'user123', email: 'test@example.com' };
       const token = sessionCookie.createSessionToken(sessionData);

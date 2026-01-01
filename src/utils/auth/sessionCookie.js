@@ -31,6 +31,34 @@ function decodeBase64Value(value) {
   }
 }
 
+function parseLegacyJson(rawValue) {
+  if (!rawValue || typeof rawValue !== 'string') return null;
+  try {
+    const legacySession = JSON.parse(rawValue);
+    devLog.warn('Legacy JSON session detected - will be converted to JWT on next write');
+    return legacySession;
+  } catch {
+    return null;
+  }
+}
+
+function tryParseCompoundJwt(rawValue) {
+  if (!rawValue || typeof rawValue !== 'string') return null;
+  const segments = rawValue.split('.');
+  if (segments.length !== 2) return null;
+  const [encodedLeft, signature] = segments;
+  const decodedLeft = decodeBase64Value(encodedLeft);
+  if (!decodedLeft) return null;
+
+  if (decodedLeft.includes('.')) {
+    const reconstructed = `${decodedLeft}.${signature}`;
+    const jwtSession = verifySessionToken(reconstructed);
+    if (jwtSession) return jwtSession;
+  }
+
+  return parseLegacyJson(decodedLeft);
+}
+
 function parseSessionValue(rawValue) {
   if (!rawValue) return null;
 
@@ -39,13 +67,11 @@ function parseSessionValue(rawValue) {
     return jwtSession;
   }
 
-  try {
-    const legacySession = JSON.parse(rawValue);
-    devLog.warn('ƒsÿ‹÷? Legacy JSON session detected - will be converted to JWT on next write');
-    return legacySession;
-  } catch {
-    // Fall through to base64 decode attempts
-  }
+  const legacySession = parseLegacyJson(rawValue);
+  if (legacySession) return legacySession;
+
+  const compoundSession = tryParseCompoundJwt(rawValue);
+  if (compoundSession) return compoundSession;
 
   const decoded = decodeBase64Value(rawValue);
   if (!decoded) return null;
@@ -55,14 +81,12 @@ function parseSessionValue(rawValue) {
     return decodedJwt;
   }
 
-  try {
-    const legacySession = JSON.parse(decoded);
-    devLog.warn('ƒsÿ‹÷? Legacy JSON session detected - will be converted to JWT on next write');
-    return legacySession;
-  } catch {
-    return null;
-  }
+  const decodedLegacy = parseLegacyJson(decoded);
+  if (decodedLegacy) return decodedLegacy;
+
+  return null;
 }
+
 
 /**
  * Get the session secret from environment
