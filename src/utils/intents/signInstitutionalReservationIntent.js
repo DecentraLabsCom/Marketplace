@@ -83,7 +83,7 @@ function resolveIntentDomain(overrides = {}) {
 
 /**
  * Builds the intent package (meta + payload + typedData) without signing.
- * The signature is expected to be added by the gateway/back-end that holds the executor wallet.
+ * The signature is expected to be added by the backend that holds the executor wallet.
  */
 export async function buildReservationIntent({
   executor,

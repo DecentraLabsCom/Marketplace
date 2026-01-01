@@ -65,7 +65,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(result.current.isLoading).toBe(false)
       expect(result.current.needsOnboarding).toBe(false)
       expect(result.current.isCompleted).toBe(false)
-      expect(result.current.hasGateway).toBe(true)
+      expect(result.current.hasBackend).toBe(true)
     })
   })
 
@@ -90,7 +90,7 @@ describe('useInstitutionalOnboarding', () => {
       mockFetch.mockResolvedValueOnce({
         json: () => Promise.resolve({
           isOnboarded: false,
-          gatewayUrl: 'https://gateway.example.com'
+          backendUrl: 'https://backend.example.com'
         })
       })
 
@@ -108,7 +108,7 @@ describe('useInstitutionalOnboarding', () => {
       expect(result.current.state).toBe(OnboardingState.REQUIRED)
       expect(result.current.isOnboarded).toBe(false)
       expect(statusResult.needed).toBe(true)
-      expect(statusResult.gatewayUrl).toBe('https://gateway.example.com')
+      expect(statusResult.backendUrl).toBe('https://backend.example.com')
     })
 
     it('should handle successful check - already onboarded', async () => {
@@ -129,10 +129,10 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.isOnboarded).toBe(true)
     })
 
-    it('should handle NO_GATEWAY error', async () => {
+    it('should handle NO_BACKEND error', async () => {
       mockFetch.mockResolvedValueOnce({
         json: () => Promise.resolve({
-          error: 'NO_GATEWAY_CONFIGURED'
+          error: 'NO_BACKEND_CONFIGURED'
         })
       })
 
@@ -143,10 +143,10 @@ describe('useInstitutionalOnboarding', () => {
         statusResult = await result.current.checkOnboardingStatus()
       })
 
-      expect(result.current.state).toBe(OnboardingState.NO_GATEWAY)
+      expect(result.current.state).toBe(OnboardingState.NO_BACKEND)
       expect(result.current.isOnboarded).toBe(false)
       expect(statusResult.needed).toBe(false)
-      expect(statusResult.noGateway).toBe(true)
+      expect(statusResult.noBackend).toBe(true)
     })
 
     it('should handle fetch errors', async () => {
@@ -187,7 +187,7 @@ describe('useInstitutionalOnboarding', () => {
       const mockResponse = {
         sessionId: 'session123',
         ceremonyUrl: 'https://ceremony.example.com',
-        gatewayUrl: 'https://gateway.example.com',
+        backendUrl: 'https://backend.example.com',
         stableUserId: 'stable123',
         institutionId: 'inst123'
       }
@@ -258,7 +258,7 @@ describe('useInstitutionalOnboarding', () => {
       const mockSessionData = {
         sessionId: 'session123',
         ceremonyUrl: mockCeremonyUrl,
-        gatewayUrl: 'https://gateway.example.com',
+        backendUrl: 'https://backend.example.com',
         stableUserId: 'stable123',
         institutionId: 'inst123'
       }
@@ -299,7 +299,7 @@ describe('useInstitutionalOnboarding', () => {
     it('should poll successfully for completion', async () => {
       const mockSession = {
         sessionId: 'session123',
-        gatewayUrl: 'https://gateway.example.com'
+        backendUrl: 'https://backend.example.com'
       }
 
       // First call returns pending, second returns success
@@ -328,7 +328,7 @@ describe('useInstitutionalOnboarding', () => {
     it('should handle polling failure', async () => {
       const mockSession = {
         sessionId: 'session123',
-        gatewayUrl: 'https://gateway.example.com'
+        backendUrl: 'https://backend.example.com'
       }
 
       mockFetch.mockResolvedValueOnce({
@@ -350,7 +350,7 @@ describe('useInstitutionalOnboarding', () => {
     it('should handle polling timeout', async () => {
       const mockSession = {
         sessionId: 'session123',
-        gatewayUrl: 'https://gateway.example.com'
+        backendUrl: 'https://backend.example.com'
       }
 
       // Always return pending
@@ -407,12 +407,12 @@ describe('useInstitutionalOnboarding', () => {
       const mockInitResponse = {
         sessionId: 'session123',
         ceremonyUrl: 'https://ceremony.example.com',
-        gatewayUrl: 'https://gateway.example.com'
+        backendUrl: 'https://backend.example.com'
       }
 
       mockFetch
         .mockResolvedValueOnce({
-          json: () => Promise.resolve({ isOnboarded: false, gatewayUrl: 'https://gateway.example.com' })
+          json: () => Promise.resolve({ isOnboarded: false, backendUrl: 'https://backend.example.com' })
         })
         .mockResolvedValueOnce({
           ok: true,
@@ -480,7 +480,7 @@ describe('useInstitutionalOnboarding', () => {
     it('should restore session from storage on mount', async () => {
       const storedSession = {
         sessionId: 'stored123',
-        gatewayUrl: 'https://gateway.example.com'
+        backendUrl: 'https://backend.example.com'
       }
 
       mockSessionStorage.getItem.mockReturnValue(JSON.stringify(storedSession))
@@ -498,3 +498,4 @@ describe('useInstitutionalOnboarding', () => {
     })
   })
 })
+

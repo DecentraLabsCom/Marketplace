@@ -7,7 +7,7 @@
  * - Modal closes on completion or skip
  * - Error states display appropriate messages
  * - Loading states show spinners and messages
- * - Gateway unavailable state shows warning
+ * - backend unavailable state shows warning
  *
  * @test-suite InstitutionalOnboardingFlow
  */
@@ -120,7 +120,7 @@ jest.mock("@/hooks/user/useInstitutionalOnboarding", () => ({
     POLLING: 'polling',
     COMPLETED: 'completed',
     FAILED: 'failed',
-    NO_GATEWAY: 'no_gateway',
+    NO_BACKEND: 'no_backend',
   },
   useInstitutionalOnboarding: jest.fn(),
 }));
@@ -134,7 +134,7 @@ const setupMockHook = (state) => {
     error: null,
     isLoading: false,
     isCompleted: false,
-    hasGateway: true,
+    hasBackend: true,
     sessionData: null,
     startOnboarding: mockStartOnboarding,
     reset: mockReset,
@@ -163,8 +163,8 @@ const setupMockHook = (state) => {
     case 'failed':
       baseMock.error = 'Setup failed';
       break;
-    case 'no_gateway':
-      baseMock.hasGateway = false;
+    case 'no_backend':
+      baseMock.hasBackend = false;
       break;
     default:
       break;
@@ -286,8 +286,8 @@ describe("InstitutionalOnboardingFlow", () => {
       expect(screen.getByText("Cancel")).toBeInTheDocument();
     });
 
-    test("renders warning when gateway is unavailable", () => {
-      setupMockHook("no_gateway");
+    test("renders warning when backend is unavailable", () => {
+      setupMockHook("no_backend");
 
       renderWithAllProviders(<InstitutionalOnboardingModal isOpen={true} onClose={jest.fn()} />);
 
@@ -357,8 +357,8 @@ describe("InstitutionalOnboardingFlow", () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    test("calls onClose when Continue without institutional authentication button is clicked in no_gateway state", () => {
-      setupMockHook("no_gateway");
+    test("calls onClose when Continue without institutional authentication button is clicked in no_backend state", () => {
+      setupMockHook("no_backend");
       const onClose = jest.fn();
 
       renderWithAllProviders(<InstitutionalOnboardingModal isOpen={true} onClose={onClose} />);
@@ -389,3 +389,4 @@ describe("InstitutionalOnboardingFlow", () => {
     });
   });
 });
+

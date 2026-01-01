@@ -254,8 +254,8 @@ describe('useReservationRequest (minimal unit tests)', () => {
     await act(async () => { out = await result.current.mutateAsync(vars); });
 
     // Key assertions: prepare/finalize called, cache updated, and response returned
-    expect(global.fetch).toHaveBeenCalledWith('/api/gateway/intents/reservations/prepare', expect.any(Object));
-    expect(global.fetch).toHaveBeenCalledWith('/api/gateway/intents/reservations/finalize', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/prepare', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/finalize', expect.any(Object));
     expect(bookingMocks.updateBooking).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
       reservationKey: expect.any(String),
       labId: vars.tokenId,
@@ -401,3 +401,4 @@ describe('useReservationRequest (minimal unit tests)', () => {
     expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
   });
 });
+

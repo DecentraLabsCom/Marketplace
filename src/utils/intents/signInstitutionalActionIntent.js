@@ -105,7 +105,7 @@ function resolveIntentDomain(overrides = {}) {
 
 /**
  * Builds the action intent package (meta + payload + typedData) without signing.
- * The gateway/back-end holding the executor wallet should sign the meta struct.
+ * The backend holding the executor wallet should sign the meta struct.
  */
 export async function buildActionIntent({
   action,

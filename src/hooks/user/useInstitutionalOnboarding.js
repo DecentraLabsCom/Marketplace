@@ -27,7 +27,7 @@ export const OnboardingState = {
   POLLING: 'polling',
   COMPLETED: 'completed',
   FAILED: 'failed',
-  NO_GATEWAY: 'no_gateway',
+  NO_BACKEND: 'no_backend',
 }
 
 /**
@@ -77,10 +77,10 @@ export function useInstitutionalOnboarding({
 
       const data = await response.json()
 
-      if (data.error?.includes('NO_GATEWAY')) {
-        setState(OnboardingState.NO_GATEWAY)
+      if (data.error?.includes('NO_BACKEND')) {
+        setState(OnboardingState.NO_BACKEND)
         setIsOnboarded(false)
-        return { needed: false, reason: 'No gateway configured', noGateway: true }
+        return { needed: false, reason: 'No backend configured', noBackend: true }
       }
 
       if (data.isOnboarded) {
@@ -91,7 +91,7 @@ export function useInstitutionalOnboarding({
 
       setState(OnboardingState.REQUIRED)
       setIsOnboarded(false)
-      return { needed: true, gatewayUrl: data.gatewayUrl }
+      return { needed: true, backendUrl: data.backendUrl }
 
     } catch (err) {
       devLog.error('[useInstitutionalOnboarding] Check failed:', err)
@@ -137,7 +137,7 @@ export function useInstitutionalOnboarding({
       setSessionData({
         sessionId: data.sessionId,
         ceremonyUrl: data.ceremonyUrl,
-        gatewayUrl: data.gatewayUrl,
+        backendUrl: data.backendUrl,
         stableUserId: data.stableUserId,
         institutionId: data.institutionId,
       })
@@ -184,7 +184,7 @@ export function useInstitutionalOnboarding({
    * Poll for onboarding completion
    */
   const pollForCompletion = useCallback(async (session = sessionData) => {
-    if (!session?.sessionId || !session?.gatewayUrl) {
+    if (!session?.sessionId || !session?.backendUrl) {
       setError('No session data for polling')
       return null
     }
@@ -201,7 +201,7 @@ export function useInstitutionalOnboarding({
 
         try {
           const url = new URL(`/api/onboarding/status/${session.sessionId}`, window.location.origin)
-          url.searchParams.set('gatewayUrl', session.gatewayUrl)
+          url.searchParams.set('backendUrl', session.backendUrl)
           url.searchParams.set('checkLocal', 'true')
 
           const response = await fetch(url.toString(), { credentials: 'include' })
@@ -337,7 +337,7 @@ export function useInstitutionalOnboarding({
   }, [pollTimeout])
 
   const awaitCompletion = useCallback(async (session = sessionData) => {
-    if (!session?.sessionId || !session?.gatewayUrl) {
+    if (!session?.sessionId || !session?.backendUrl) {
       setError('No session data for polling')
       return null
     }
@@ -448,7 +448,7 @@ export function useInstitutionalOnboarding({
     ].includes(state),
     needsOnboarding: state === OnboardingState.REQUIRED,
     isCompleted: state === OnboardingState.COMPLETED || isOnboarded === true,
-    hasGateway: state !== OnboardingState.NO_GATEWAY,
+    hasBackend: state !== OnboardingState.NO_BACKEND,
     
     // Actions
     checkOnboardingStatus,

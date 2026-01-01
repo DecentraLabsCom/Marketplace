@@ -69,7 +69,7 @@ function UserDataCore({ children }) {
     const lastWalletAddressRef = useRef(null);
     
     // Institutional onboarding state (WebAuthn credential at IB)
-    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'no_gateway'
+    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'no_backend'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
     const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
     const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
@@ -181,6 +181,15 @@ function UserDataCore({ children }) {
             return;
         }
 
+        if (!institutionRegistrationStatus || institutionRegistrationStatus === 'checking') {
+            return;
+        }
+
+        if (institutionRegistrationStatus !== 'registered') {
+            devLog.log('[InstitutionalOnboarding] Institution not registered, skipping onboarding check');
+            return;
+        }
+
         let cancelled = false;
 
         const checkInstitutionalOnboarding = async () => {
@@ -196,9 +205,10 @@ function UserDataCore({ children }) {
 
                 const data = await response.json().catch(() => ({}));
 
-                if (data.error?.includes('NO_GATEWAY') || data.noGateway) {
-                    devLog.log('[InstitutionalOnboarding] No gateway configured for institution');
-                    setInstitutionalOnboardingStatus('no_gateway');
+                if (data.error?.includes('NO_BACKEND') || data.noBackend) {
+                    devLog.log('[InstitutionalOnboarding] No backend configured for institution');
+                    setInstitutionalOnboardingStatus('no_backend');
+                    setShowOnboardingModal(false);
                     return;
                 }
 
@@ -225,7 +235,7 @@ function UserDataCore({ children }) {
         return () => {
             cancelled = true;
         };
-    }, [isSSO, user, institutionalOnboardingStatus]);
+    }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus]);
 
     // Check whether the institution is already registered on-chain (for SSO users)
     useEffect(() => {
@@ -689,7 +699,7 @@ function UserDataCore({ children }) {
     }, []);
 
     const openOnboardingModal = useCallback(() => {
-        if (institutionalOnboardingStatus !== 'completed' && institutionalOnboardingStatus !== 'no_gateway') {
+        if (institutionalOnboardingStatus !== 'completed' && institutionalOnboardingStatus !== 'no_backend') {
             setShowOnboardingModal(true);
         }
     }, [institutionalOnboardingStatus]);
@@ -772,7 +782,7 @@ export function UserData({ children }) {
  * @returns {Object|null} returns.user - User data object
  * @returns {boolean} returns.isLoading - General loading state for user data
  * @returns {boolean} returns.isWalletLoading - Specific loading state for wallet connection/reconnection
- * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'no_gateway', 'error'
+ * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'no_backend', 'error'
  * @returns {boolean} returns.showOnboardingModal - Whether to show the onboarding modal
  * @returns {boolean} returns.needsInstitutionalOnboarding - Whether user needs institutional onboarding
  * @returns {boolean} returns.isInstitutionallyOnboarded - Whether user has completed institutional onboarding

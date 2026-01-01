@@ -20,7 +20,7 @@ import { saveCredential } from '@/utils/webauthn/store'
  * Checks onboarding session status from IB and/or local callback cache
  * 
  * Query params:
- * - gatewayUrl: The IB gateway URL (required)
+ * - backendUrl: The IB backend URL (required)
  * - checkLocal: If "true", also check local callback cache
  * 
  * @param {Request} request - HTTP request
@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
   try {
     const { sessionId } = await params
     const { searchParams } = new URL(request.url)
-    const gatewayUrl = searchParams.get('gatewayUrl')
+    const backendUrl = searchParams.get('backendUrl')
     const checkLocal = searchParams.get('checkLocal') === 'true'
 
     if (!sessionId) {
@@ -65,12 +65,12 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Query IB if gatewayUrl provided
-    if (gatewayUrl) {
+    // Query IB if backendUrl provided
+    if (backendUrl) {
       try {
         const status = await checkOnboardingStatus({
           sessionId,
-          gatewayUrl,
+          backendUrl,
         })
 
         if (
@@ -92,15 +92,15 @@ export async function GET(request, { params }) {
         }
 
         return NextResponse.json({
-          source: 'gateway',
+          source: 'backend',
           ...status,
         })
       } catch (error) {
-        devLog.warn('[Onboarding/Status] Gateway query failed:', error.message)
+        devLog.warn('[Onboarding/Status] Backend query failed:', error.message)
         
-        // If gateway fails, return pending status
+        // If backend fails, return pending status
         return NextResponse.json({
-          source: 'gateway',
+          source: 'backend',
           sessionId,
           status: 'PENDING',
           error: error.message,
@@ -108,11 +108,11 @@ export async function GET(request, { params }) {
       }
     }
 
-    // No gatewayUrl and no local result
+    // No backendUrl and no local result
     return NextResponse.json({
       sessionId,
       status: 'UNKNOWN',
-      message: 'Provide gatewayUrl to check with IB or wait for callback',
+      message: 'Provide backendUrl to check with IB or wait for callback',
     })
 
   } catch (error) {

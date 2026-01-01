@@ -11,17 +11,12 @@ import { getPucFromSession } from '@/utils/webauthn/service'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
-function getGatewayApiKey() {
-  return (
-    process.env.INSTITUTIONAL_SP_API_KEY ||
-    process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
-    process.env.SP_API_KEY ||
-    null
-  )
+function getBackendApiKey() {
+  return process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 }
 
-async function getGatewayAuthToken() {
-  return marketplaceJwtService.generateIntentGatewayToken()
+async function getBackendAuthToken() {
+  return marketplaceJwtService.generateIntentBackendToken()
 }
 
 export async function POST(request) {
@@ -36,7 +31,7 @@ export async function POST(request) {
       webauthnClientDataJSON,
       webauthnAuthenticatorData,
       webauthnSignature,
-      gatewayUrl: gatewayUrlOverride,
+      backendUrl: backendUrlOverride,
     } = body || {}
 
     if (!meta?.requestId) {
@@ -132,26 +127,29 @@ export async function POST(request) {
       )
     }
 
-    const gatewayUrl = gatewayUrlOverride || stored.gatewayUrl || process.env.INSTITUTION_GATEWAY_URL
-    let gatewayResponse = null
-    let gatewayError = null
+    const backendUrl =
+      backendUrlOverride ||
+      stored.backendUrl ||
+      process.env.INSTITUTION_BACKEND_URL
+    let backendResponse = null
+    let backendError = null
 
     const serializedMeta = serializeIntent(metaForUse)
     const serializedPayload = serializeIntent(payloadForUse)
 
-    let gatewayAuth = null
-    if (gatewayUrl) {
+    let backendAuth = null
+    if (backendUrl) {
       try {
-        gatewayAuth = await getGatewayAuthToken()
-        const apiKey = getGatewayApiKey()
+        backendAuth = await getBackendAuthToken()
+        const apiKey = getBackendApiKey()
         const headers = {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${gatewayAuth.token}`,
+          Authorization: `Bearer ${backendAuth.token}`,
         }
         if (apiKey) {
           headers['x-api-key'] = apiKey
         }
-        const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents`, {
+        const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -165,18 +163,18 @@ export async function POST(request) {
             webauthnSignature,
           }),
         })
-        gatewayResponse = { status: res.status }
+        backendResponse = { status: res.status }
         if (res.ok) {
-          gatewayResponse.body = await res.json().catch(() => ({}))
+          backendResponse.body = await res.json().catch(() => ({}))
         } else {
-          gatewayError = `Gateway responded with status ${res.status}`
-          gatewayResponse.body = await res.json().catch(() => ({}))
+          backendError = `Backend responded with status ${res.status}`
+          backendResponse.body = await res.json().catch(() => ({}))
         }
       } catch (err) {
-        gatewayError = err?.message || 'Failed to call gateway'
+        backendError = err?.message || 'Failed to call backend'
       }
     } else {
-      gatewayError = 'Gateway URL not configured'
+      backendError = 'Backend URL not configured'
     }
 
     clearAssertionChallenge(meta.requestId)
@@ -185,10 +183,10 @@ export async function POST(request) {
       verified: verification.verified,
       intent: serializeIntent({ meta: metaForUse, payload: payloadForUse, payloadHash }),
       onChain,
-      gatewayError,
-      gatewayResponse,
-      gatewayAuthToken: gatewayAuth?.token || null,
-      gatewayAuthExpiresAt: gatewayAuth?.expiresAt || null,
+      backendError,
+      backendResponse,
+      backendAuthToken: backendAuth?.token || null,
+      backendAuthExpiresAt: backendAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Finalize action intent failed', error)

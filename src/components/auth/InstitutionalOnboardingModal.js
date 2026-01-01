@@ -75,7 +75,7 @@ export function InstitutionalOnboardingModal({
     error,
     isLoading,
     isCompleted,
-    hasGateway,
+    hasBackend,
     sessionData,
     startOnboarding,
     reset,
@@ -229,7 +229,7 @@ export function InstitutionalOnboardingModal({
           </div>
         )
 
-      case OnboardingState.NO_GATEWAY:
+      case OnboardingState.NO_BACKEND:
         return (
           <div className="flex flex-col items-center py-8">
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
@@ -276,8 +276,8 @@ export function InstitutionalOnboardingModal({
     }
   }
 
-  // Don't render if no gateway and not explicitly required
-  if (!hasGateway && state === OnboardingState.IDLE) {
+  // Don't render if no backend and not explicitly required
+  if (!hasBackend && state === OnboardingState.IDLE) {
     return null
   }
 

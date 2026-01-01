@@ -4,10 +4,10 @@
  */
 
 export {
-  resolveInstitutionalGatewayUrl,
-  hasInstitutionalGateway,
-  clearGatewayCache,
-} from './institutionalGateway'
+  resolveInstitutionalBackendUrl,
+  hasInstitutionalBackend,
+  clearBackendCache,
+} from './institutionalBackend'
 
 export {
   OnboardingStatus,

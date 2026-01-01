@@ -227,7 +227,7 @@ export default function ProviderDashboard() {
         isSSO,
         userEmail: user.email,
         abortSignal: createLabAbortControllerRef.current?.signal,
-        // SSO: be more tolerant to gateway propagation delays
+        // SSO: be more tolerant to backend propagation delays
         pollMaxDurationMs: 12 * 60 * 1000,
         pollInitialDelayMs: 3_000,
         pollMaxDelayMs: 20_000,

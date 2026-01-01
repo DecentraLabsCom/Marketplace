@@ -36,6 +36,49 @@ function validateAuthURI(authURI) {
 }
 
 /**
+ * Normalize and validate a backend URL (base URL for IB).
+ */
+function normalizeBackendUrl(backendUrl) {
+  if (!backendUrl || typeof backendUrl !== 'string') {
+    return null;
+  }
+
+  let trimmed = backendUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  while (trimmed.endsWith('/')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  if (trimmed.endsWith('/auth')) {
+    trimmed = trimmed.slice(0, -5);
+  }
+
+  if (!trimmed.startsWith('https://')) {
+    return null;
+  }
+
+  if (trimmed.length < 12 || trimmed.length > 255) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function deriveBackendUrlFromAuthURI(authURI) {
+  if (!authURI || typeof authURI !== 'string') {
+    return null;
+  }
+  const trimmed = authURI.trim();
+  if (!trimmed.endsWith('/auth')) {
+    return null;
+  }
+  return trimmed.slice(0, -5);
+}
+
+/**
  * Validate email format
  */
 function validateEmail(email) {
@@ -86,7 +129,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { name, walletAddress, email, country, authURI, organization } = body;
+    const { name, walletAddress, email, country, authURI, organization, backendUrl } = body;
 
     // Validate required fields
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -121,6 +164,16 @@ export async function POST(request) {
     if (!authValidation.valid) {
       return NextResponse.json(
         { error: authValidation.error },
+        { status: 400 }
+      );
+    }
+
+    const normalizedBackendUrl =
+      normalizeBackendUrl(backendUrl) || deriveBackendUrlFromAuthURI(authValidation.normalized);
+
+    if (backendUrl && !normalizedBackendUrl) {
+      return NextResponse.json(
+        { error: 'Invalid backendUrl format (must be https:// and a base URL)' },
         { status: 400 }
       );
     }
@@ -175,13 +228,28 @@ export async function POST(request) {
       devLog.log('[API] registerProvider: Organization not found, needs role grant');
     }
 
-    if (!needsRegistration && !needsRoleGrant) {
+    let shouldUpdateBackend = Boolean(normalizedBackendUrl);
+    let existingBackendUrl = null;
+    if (normalizedBackendUrl) {
+      try {
+        const rawBackend = await contract.getSchacHomeOrganizationBackend(normalizedOrganization);
+        existingBackendUrl = normalizeBackendUrl(rawBackend);
+        if (existingBackendUrl && existingBackendUrl === normalizedBackendUrl) {
+          shouldUpdateBackend = false;
+        }
+      } catch (err) {
+        devLog.warn('[API] registerProvider: Backend lookup failed', err);
+      }
+    }
+
+    if (!needsRegistration && !needsRoleGrant && !shouldUpdateBackend) {
       return NextResponse.json(
         {
           success: true,
           alreadyRegistered: true,
           walletAddress,
-          organization: normalizedOrganization
+          organization: normalizedOrganization,
+          backendUrl: existingBackendUrl || normalizedBackendUrl || null,
         },
         { status: 200 }
       );
@@ -210,11 +278,23 @@ export async function POST(request) {
       txHashes.push(grantRoleReceipt?.hash ?? grantRoleTx?.hash);
     }
 
+    if (shouldUpdateBackend) {
+      devLog.log('[API] registerProvider: Updating backend URL', { walletAddress, organization: normalizedOrganization, backendUrl: normalizedBackendUrl });
+      const backendTx = await writeContract.adminSetSchacHomeOrganizationBackend(
+        walletAddress,
+        normalizedOrganization,
+        normalizedBackendUrl
+      );
+      const backendReceipt = await backendTx.wait();
+      txHashes.push(backendReceipt?.hash ?? backendTx?.hash);
+    }
+
     return NextResponse.json(
       {
         success: true,
         walletAddress,
         organization: normalizedOrganization,
+        backendUrl: normalizedBackendUrl || null,
         txHashes
       },
       { status: 201 }

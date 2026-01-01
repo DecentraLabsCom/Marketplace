@@ -240,7 +240,7 @@ class MarketplaceJwtService {
   }
 
   /**
-   * Generate a signed JWT token for intent gateway authorization.
+   * Generate a signed JWT token for intent backend authorization.
    * Intended for short-lived service-to-service calls to /intents endpoints.
    *
    * @param {Object} [options]
@@ -250,7 +250,7 @@ class MarketplaceJwtService {
    * @param {string} [options.subject] - JWT subject
    * @returns {Promise<{ token: string, expiresAt: string }>}
    */
-  async generateIntentGatewayToken({
+  async generateIntentBackendToken({
     scope,
     audience,
     expiresInSeconds,
@@ -292,8 +292,8 @@ class MarketplaceJwtService {
         expiresAt: new Date(expSec * 1000).toISOString(),
       };
     } catch (error) {
-      devLog.error('ERROR: Failed to generate intent gateway JWT:', error.message);
-      throw new Error(`Intent gateway JWT generation failed: ${error.message}`);
+      devLog.error('ERROR: Failed to generate intent backend JWT:', error.message);
+      throw new Error(`Intent backend JWT generation failed: ${error.message}`);
     }
   }
 

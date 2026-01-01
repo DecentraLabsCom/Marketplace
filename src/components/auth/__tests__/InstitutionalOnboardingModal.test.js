@@ -24,7 +24,7 @@ jest.mock('@/hooks/user/useInstitutionalOnboarding', () => ({
     POLLING: 'polling',
     COMPLETED: 'completed',
     FAILED: 'failed',
-    NO_GATEWAY: 'no_gateway',
+    NO_BACKEND: 'no_backend',
   },
 }))
 
@@ -77,7 +77,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -94,7 +94,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -114,7 +114,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn().mockResolvedValue({}),
         reset: jest.fn(),
@@ -143,7 +143,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: mockStartOnboarding,
         reset: jest.fn(),
@@ -165,7 +165,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: mockReset,
@@ -188,7 +188,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: true,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -205,7 +205,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: true,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -223,7 +223,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: true,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: mockSessionData,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -241,7 +241,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: true,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -260,7 +260,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: true,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -279,7 +279,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: true,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -291,14 +291,14 @@ describe('InstitutionalOnboardingModal', () => {
     })
   })
 
-  describe('NO_GATEWAY state', () => {
-    it('renders gateway unavailable message', () => {
+  describe('NO_BACKEND state', () => {
+    it('renders backend unavailable message', () => {
       mockUseInstitutionalOnboarding.mockReturnValue({
-        state: OnboardingState.NO_GATEWAY,
+        state: OnboardingState.NO_BACKEND,
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: false,
+        hasBackend: false,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -323,7 +323,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: mockError,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: mockStartOnboarding,
         reset: mockReset,
@@ -344,7 +344,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: 'Some error',
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: mockStartOnboarding,
         reset: jest.fn(),
@@ -365,7 +365,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: true,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -384,7 +384,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: mockReset,
@@ -398,13 +398,13 @@ describe('InstitutionalOnboardingModal', () => {
       expect(defaultProps.onClose).toHaveBeenCalled()
     })
 
-    it('does not render when no gateway and idle', () => {
+    it('does not render when no backend and idle', () => {
       mockUseInstitutionalOnboarding.mockReturnValue({
         state: OnboardingState.IDLE,
         error: null,
         isLoading: false,
         isCompleted: false,
-        hasGateway: false,
+        hasBackend: false,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -426,7 +426,7 @@ describe('InstitutionalOnboardingModal', () => {
         error: null,
         isLoading: true,
         isCompleted: false,
-        hasGateway: true,
+        hasBackend: true,
         sessionData: null,
         startOnboarding: jest.fn(),
         reset: jest.fn(),
@@ -440,3 +440,4 @@ describe('InstitutionalOnboardingModal', () => {
     })
   })
 })
+

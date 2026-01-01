@@ -75,6 +75,24 @@ export async function GET(request) {
 
     // InstitutionalOrgRegistryFacet.resolveSchacHomeOrganization(string)
     const wallet = await contract.resolveSchacHomeOrganization(normalized);
+    let backendUrl = null;
+    try {
+      if (typeof contract.getSchacHomeOrganizationBackend === 'function') {
+        const rawBackend = await contract.getSchacHomeOrganizationBackend(normalized);
+        if (rawBackend && typeof rawBackend === 'string') {
+          let cleaned = rawBackend.trim();
+          while (cleaned.endsWith('/')) {
+            cleaned = cleaned.slice(0, -1);
+          }
+          if (cleaned.endsWith('/auth')) {
+            cleaned = cleaned.slice(0, -5);
+          }
+          backendUrl = cleaned || null;
+        }
+      }
+    } catch (err) {
+      devLog.warn('[API] institution/resolve: backend lookup failed', err);
+    }
 
     devLog.log(
       '[API] institution/resolve:',
@@ -91,6 +109,8 @@ export async function GET(request) {
           domain: normalized,
           wallet: null,
           registered: false,
+          backendUrl,
+          hasBackend: Boolean(backendUrl),
         },
         { status: 200 },
       );
@@ -101,6 +121,8 @@ export async function GET(request) {
         domain: normalized,
         wallet: wallet.toLowerCase(),
         registered: true,
+        backendUrl,
+        hasBackend: Boolean(backendUrl),
       },
       { status: 200 },
     );

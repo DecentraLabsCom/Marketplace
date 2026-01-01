@@ -2222,6 +2222,37 @@ export const contractABI = [
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "SchacHomeOrganizationBackendUpdated",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "organization",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "organizationHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "backendUrl",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "InvalidInstitutionAddress",
     "inputs": []
@@ -2877,6 +2908,66 @@ export const contractABI = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSchacHomeOrganizationBackend",
+    "inputs": [
+      {
+        "name": "schacHomeOrganization",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "backendUrl",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setSchacHomeOrganizationBackend",
+    "inputs": [
+      {
+        "name": "schacHomeOrganization",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "backendUrl",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "adminSetSchacHomeOrganizationBackend",
+    "inputs": [
+      {
+        "name": "institution",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "schacHomeOrganization",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "backendUrl",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",

@@ -427,14 +427,21 @@ describe('/api/institutions/registerProvider route', () => {
       wait: jest.fn().mockResolvedValue({ hash: '0xgrantrolehash' }),
     };
 
+    const backendTx = {
+      hash: '0xbackendhash',
+      wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
+    };
+
     const readContract = {
       isLabProvider: jest.fn().mockResolvedValue(false),
       resolveSchacHomeOrganization: jest.fn().mockRejectedValue(new Error('Organization not found')),
+      getSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(null),
     };
 
     const writeContract = {
       addProvider: jest.fn().mockResolvedValue(addProviderTx),
       grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
+      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue(backendTx),
     };
 
     getContractInstance.mockImplementation((_contractType = 'diamond', readOnly = true) =>
@@ -463,7 +470,8 @@ describe('/api/institutions/registerProvider route', () => {
       success: true,
       walletAddress,
       organization: 'example.edu',
-      txHashes: ['0xaddproviderhash', '0xgrantrolehash'],
+      backendUrl: 'https://auth.example.com',
+      txHashes: ['0xaddproviderhash', '0xgrantrolehash', '0xbackendhash'],
     });
 
     expect(writeContract.addProvider).toHaveBeenCalledWith(
@@ -474,6 +482,11 @@ describe('/api/institutions/registerProvider route', () => {
       'https://auth.example.com/auth'
     );
     expect(writeContract.grantInstitutionRole).toHaveBeenCalledWith(walletAddress, 'example.edu');
+    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalledWith(
+      walletAddress,
+      'example.edu',
+      'https://auth.example.com',
+    );
   });
 });
 

@@ -153,7 +153,7 @@ describe('useLabAtomicMutations (add lab)', () => {
         auth: '',
         accessURI: '',
         accessKey: '',
-        gatewayUrl: 'https://gateway.example',
+        backendUrl: 'https://backend.example',
       })
     })
 
@@ -203,7 +203,7 @@ describe('useLabAtomicMutations (add lab)', () => {
         auth: '',
         accessURI: '',
         accessKey: '',
-        gatewayUrl: 'https://gateway.example',
+        backendUrl: 'https://backend.example',
         postExecutePollInitialDelayMs: 1,
         postExecutePollMaxDurationMs: 1_000,
       })
@@ -268,3 +268,4 @@ describe('useLabAtomicMutations (add lab)', () => {
     expect(data.labId).toBe('99')
   })
 })
+

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
-import { registerCredentialInGateway, verifyRegistration, getPucFromSession } from '@/utils/webauthn/service'
+import { registerCredentialInBackend, verifyRegistration, getPucFromSession } from '@/utils/webauthn/service'
 import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
@@ -20,10 +20,10 @@ export async function POST(request) {
     const attestationResponse = body.attestation || body.response || body
     const record = await verifyRegistration(session, attestationResponse, request)
 
-    let gatewayRegistered = false
-    const gatewayUrl = process.env.INSTITUTION_GATEWAY_URL
-    if (gatewayUrl) {
-      gatewayRegistered = await registerCredentialInGateway(record, gatewayUrl)
+    let backendRegistered = false
+    const backendUrl = process.env.INSTITUTION_BACKEND_URL
+    if (backendUrl) {
+      backendRegistered = await registerCredentialInBackend(record, backendUrl)
     }
 
     return NextResponse.json({
@@ -32,7 +32,7 @@ export async function POST(request) {
       publicKeySpki: record.publicKeySpki,
       signCount: record.signCount,
       aaguid: record.aaguid,
-      gatewayRegistered,
+      backendRegistered,
       status: record.status,
     })
   } catch (error) {

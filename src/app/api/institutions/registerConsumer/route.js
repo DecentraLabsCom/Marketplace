@@ -17,6 +17,38 @@ function validateAddress(address) {
 }
 
 /**
+ * Normalize and validate a backend URL (base URL for IB).
+ */
+function normalizeBackendUrl(backendUrl) {
+  if (!backendUrl || typeof backendUrl !== 'string') {
+    return null;
+  }
+
+  let trimmed = backendUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  while (trimmed.endsWith('/')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+
+  if (trimmed.endsWith('/auth')) {
+    trimmed = trimmed.slice(0, -5);
+  }
+
+  if (!trimmed.startsWith('https://')) {
+    return null;
+  }
+
+  if (trimmed.length < 12 || trimmed.length > 255) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/**
  * POST /api/institutions/registerConsumer
  * 
  * Secure endpoint for blockchain-services to register as CONSUMER-ONLY institution.
@@ -48,7 +80,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { walletAddress, organization } = body;
+    const { walletAddress, organization, backendUrl } = body;
 
     // Validate required fields
     if (!validateAddress(walletAddress)) {
@@ -65,6 +97,14 @@ export async function POST(request) {
       );
     }
 
+    const normalizedBackendUrl = normalizeBackendUrl(backendUrl);
+    if (backendUrl && !normalizedBackendUrl) {
+      return NextResponse.json(
+        { error: 'Invalid backendUrl format (must be https:// and a base URL)' },
+        { status: 400 }
+      );
+    }
+
     // Normalize organization domain to lowercase for consistency
     const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(organization.trim());
 
@@ -77,12 +117,36 @@ export async function POST(request) {
       if (resolvedWallet && resolvedWallet !== ZERO_ADDRESS) {
         if (resolvedWallet.toLowerCase() === walletAddress.toLowerCase()) {
           devLog.log('[API] registerConsumer: Institution already registered', { walletAddress, organization: normalizedOrganization });
+
+          let backendTxHash = null;
+          if (normalizedBackendUrl) {
+            try {
+              const existingBackend = normalizeBackendUrl(
+                await contract.getSchacHomeOrganizationBackend(normalizedOrganization)
+              );
+              if (!existingBackend || existingBackend !== normalizedBackendUrl) {
+                const writeContract = await getContractInstance('diamond', false);
+                const backendTx = await writeContract.adminSetSchacHomeOrganizationBackend(
+                  walletAddress,
+                  normalizedOrganization,
+                  normalizedBackendUrl
+                );
+                const backendReceipt = await backendTx.wait();
+                backendTxHash = backendReceipt?.hash ?? backendTx?.hash;
+              }
+            } catch (err) {
+              devLog.warn('[API] registerConsumer: Backend update failed', err);
+            }
+          }
+
           return NextResponse.json(
             {
               success: true,
               alreadyRegistered: true,
               walletAddress,
-              organization: normalizedOrganization
+              organization: normalizedOrganization,
+              backendUrl: normalizedBackendUrl || null,
+              backendTxHash
             },
             { status: 200 }
           );
@@ -115,12 +179,26 @@ export async function POST(request) {
 
     devLog.log('[API] registerConsumer: Institution role granted successfully', grantRoleTxHash);
 
+    let backendTxHash = null;
+    if (normalizedBackendUrl) {
+      devLog.log('[API] registerConsumer: Updating backend URL', { walletAddress, organization: normalizedOrganization, backendUrl: normalizedBackendUrl });
+      const backendTx = await writeContract.adminSetSchacHomeOrganizationBackend(
+        walletAddress,
+        normalizedOrganization,
+        normalizedBackendUrl
+      );
+      const backendReceipt = await backendTx.wait();
+      backendTxHash = backendReceipt?.hash ?? backendTx?.hash;
+    }
+
     return NextResponse.json(
       {
         success: true,
         walletAddress,
         grantRoleTxHash,
-        organization: normalizedOrganization
+        organization: normalizedOrganization,
+        backendUrl: normalizedBackendUrl || null,
+        backendTxHash
       },
       { status: 201 }
     );

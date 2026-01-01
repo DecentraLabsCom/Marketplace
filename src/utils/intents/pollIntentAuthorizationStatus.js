@@ -1,11 +1,13 @@
 /**
- * Polls the institutional gateway for an intent authorization session status.
- * Expects the gateway to implement GET /intents/authorize/status/:sessionId.
+ * Polls the institutional backend for an intent authorization session status.
+ * Expects the backend to implement GET /intents/authorize/status/:sessionId.
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function pollIntentAuthorizationStatus(sessionId, {
-  gatewayUrl = process.env.NEXT_PUBLIC_INSTITUTION_GATEWAY_URL || process.env.INSTITUTION_GATEWAY_URL,
+  backendUrl =
+    process.env.NEXT_PUBLIC_INSTITUTION_BACKEND_URL ||
+    process.env.INSTITUTION_BACKEND_URL,
   authToken,
   signal,
   maxDurationMs = 5 * 60 * 1000,
@@ -13,8 +15,8 @@ export async function pollIntentAuthorizationStatus(sessionId, {
   maxDelayMs = 15000,
   onUpdate,
 } = {}) {
-  if (!gatewayUrl) {
-    throw new Error('Gateway URL not configured for intent authorization polling');
+  if (!backendUrl) {
+    throw new Error('Backend URL not configured for intent authorization polling');
   }
   if (!sessionId) {
     throw new Error('sessionId is required for intent authorization polling');
@@ -37,13 +39,13 @@ export async function pollIntentAuthorizationStatus(sessionId, {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
-      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`, {
+      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`, {
         method: 'GET',
         headers,
         signal,
       });
       if (!res.ok) {
-        throw new Error(`Gateway status ${res.status}`);
+        throw new Error(`Backend status ${res.status}`);
       }
       const data = await res.json();
 

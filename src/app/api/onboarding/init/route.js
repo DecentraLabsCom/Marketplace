@@ -4,7 +4,7 @@
  * Initiates the institutional onboarding process for an SSO user.
  * This endpoint:
  * 1. Validates the user has an active SSO session
- * 2. Checks if the user's institution has a configured gateway
+ * 2. Checks if the user's institution has a configured backend
  * 3. Calls the Institutional Backend to start WebAuthn registration
  * 4. Returns the ceremony URL for the browser to redirect to
  * 
@@ -93,7 +93,7 @@ export async function POST(request) {
       status: 'initiated',
       sessionId: onboardingSession.sessionId,
       ceremonyUrl: onboardingSession.ceremonyUrl,
-      gatewayUrl: onboardingSession.gatewayUrl,
+      backendUrl: onboardingSession.backendUrl,
       stableUserId: onboardingSession.stableUserId,
       institutionId: onboardingSession.institutionId,
       expiresAt: onboardingSession.expiresAt,
@@ -103,21 +103,21 @@ export async function POST(request) {
     devLog.error('[Onboarding/Init] Error:', error)
 
     // Handle known error codes
-    if (error.message?.includes(OnboardingErrorCode.NO_GATEWAY)) {
+    if (error.message?.includes(OnboardingErrorCode.NO_BACKEND)) {
       return NextResponse.json(
         { 
           error: 'Your institution has not configured an institutional backend',
-          code: OnboardingErrorCode.NO_GATEWAY,
+          code: OnboardingErrorCode.NO_BACKEND,
         },
         { status: 400 }
       )
     }
 
-    if (error.message?.includes(OnboardingErrorCode.GATEWAY_UNREACHABLE)) {
+    if (error.message?.includes(OnboardingErrorCode.BACKEND_UNREACHABLE)) {
       return NextResponse.json(
         { 
           error: 'Could not reach institutional backend',
-          code: OnboardingErrorCode.GATEWAY_UNREACHABLE,
+          code: OnboardingErrorCode.BACKEND_UNREACHABLE,
           details: error.message,
         },
         { status: 502 }
@@ -162,7 +162,7 @@ export async function GET() {
 
     return NextResponse.json({
       ...status,
-      hasGateway: !status.error?.includes(OnboardingErrorCode.NO_GATEWAY),
+      hasBackend: !status.error?.includes(OnboardingErrorCode.NO_BACKEND),
     })
 
   } catch (error) {

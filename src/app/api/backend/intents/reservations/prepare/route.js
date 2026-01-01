@@ -10,24 +10,19 @@ import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
-function getGatewayApiKey() {
-  return (
-    process.env.INSTITUTIONAL_SP_API_KEY ||
-    process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
-    process.env.SP_API_KEY ||
-    null
-  )
+function getBackendApiKey() {
+  return process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 }
 
-async function getGatewayAuthToken() {
-  return marketplaceJwtService.generateIntentGatewayToken()
+async function getBackendAuthToken() {
+  return marketplaceJwtService.generateIntentBackendToken()
 }
 
 export async function POST(request) {
   try {
     const session = await requireAuth()
     const body = await request.json()
-    const { labId, start, timeslot, gatewayUrl: gatewayUrlOverride, returnUrl } = body || {}
+    const { labId, start, timeslot, backendUrl: backendUrlOverride, returnUrl } = body || {}
 
     if (labId === undefined || labId === null) {
       return NextResponse.json({ error: 'Missing labId' }, { status: 400 })
@@ -59,9 +54,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
 
-    const gatewayUrl = gatewayUrlOverride || process.env.INSTITUTION_GATEWAY_URL
-    if (!gatewayUrl) {
-      return NextResponse.json({ error: 'Missing institutional gateway URL' }, { status: 400 })
+    const backendUrl = backendUrlOverride || process.env.INSTITUTION_BACKEND_URL
+    if (!backendUrl) {
+      return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
     const executorAddress = resolveIntentExecutorAddress()
@@ -101,13 +96,13 @@ export async function POST(request) {
     }
 
     let authorization = null
-    let gatewayAuth = null
+    let backendAuth = null
     try {
-      gatewayAuth = await getGatewayAuthToken()
-      const apiKey = getGatewayApiKey()
+      backendAuth = await getBackendAuthToken()
+      const apiKey = getBackendApiKey()
       const headers = {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${gatewayAuth.token}`,
+        Authorization: `Bearer ${backendAuth.token}`,
       }
       if (apiKey) {
         headers['x-api-key'] = apiKey
@@ -116,7 +111,7 @@ export async function POST(request) {
       const serializedMeta = serializeIntent(intentPackage.meta)
       const serializedPayload = serializeIntent(intentPackage.payload)
 
-      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/authorize`, {
+      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/authorize`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -145,7 +140,7 @@ export async function POST(request) {
 
     const intentForTransport = serializeIntent(intentPackage)
     const fallbackUrl = authorization?.sessionId
-      ? `${gatewayUrl.replace(/\/$/, '')}/intents/authorize/ceremony/${authorization.sessionId}`
+      ? `${backendUrl.replace(/\/$/, '')}/intents/authorize/ceremony/${authorization.sessionId}`
       : null
     const authorizationUrl = authorization?.ceremonyUrl || authorization?.authorizationUrl || fallbackUrl
 
@@ -158,13 +153,13 @@ export async function POST(request) {
       expiresAt: intentPackage.meta.expiresAt.toString(),
       executor: executorAddress,
       signer: adminAddress,
-      gatewayUrl,
+      backendUrl,
       onChain,
       authorizationUrl,
       authorizationSessionId: authorization?.sessionId || null,
       authorizationExpiresAt: authorization?.expiresAt || null,
-      gatewayAuthToken: gatewayAuth?.token || null,
-      gatewayAuthExpiresAt: gatewayAuth?.expiresAt || null,
+      backendAuthToken: backendAuth?.token || null,
+      backendAuthExpiresAt: backendAuth?.expiresAt || null,
     })
   } catch (error) {
     devLog.error('[API] Prepare reservation intent failed', error)

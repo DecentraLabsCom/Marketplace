@@ -1,6 +1,6 @@
 /**
  * Atomic React Query Hooks for Lab-related Write Operations
- * SSO write operations use /api/gateway/intents/* for institutional signing.
+ * SSO write operations use /api/backend/intents/* for institutional signing.
  * Wallet flows use contract write helpers directly.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -24,7 +24,7 @@ const resolveAuthorizationInfo = (prepareData) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
-async function awaitGatewayAuthorization(prepareData, { gatewayUrl, authToken } = {}) {
+async function awaitBackendAuthorization(prepareData, { backendUrl, authToken } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
   if (!authorizationUrl || !authorizationSessionId) {
     return null;
@@ -40,8 +40,8 @@ async function awaitGatewayAuthorization(prepareData, { gatewayUrl, authToken } 
   }
 
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
-    gatewayUrl: prepareData?.gatewayUrl || gatewayUrl,
-    authToken: authToken || prepareData?.gatewayAuthToken,
+    backendUrl: prepareData?.backendUrl || backendUrl,
+    authToken: authToken || prepareData?.backendAuthToken,
   });
 
   const normalized = (status?.status || '').toUpperCase();
@@ -65,14 +65,14 @@ async function runActionIntent(action, payload) {
     throw new Error('WebAuthn not supported in this environment');
   }
 
-  const prepareResponse = await fetch('/api/gateway/intents/actions/prepare', {
+  const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({
       action,
       payload,
-      gatewayUrl: payload.gatewayUrl,
+      backendUrl: payload.backendUrl,
     }),
   });
 
@@ -81,9 +81,9 @@ async function runActionIntent(action, payload) {
     throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
   }
 
-  const authToken = prepareData?.gatewayAuthToken || null;
-  const authorizationStatus = await awaitGatewayAuthorization(prepareData, {
-    gatewayUrl: payload.gatewayUrl,
+  const authToken = prepareData?.backendAuthToken || null;
+  const authorizationStatus = await awaitBackendAuthorization(prepareData, {
+    backendUrl: payload.backendUrl,
     authToken,
   });
   if (authorizationStatus) {
@@ -93,8 +93,8 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
-      gatewayAuthToken: authToken,
-      gatewayAuthExpiresAt: prepareData?.gatewayAuthExpiresAt || null,
+      backendAuthToken: authToken,
+      backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
     };
   }
 
@@ -113,7 +113,7 @@ async function runActionIntent(action, payload) {
   const assertion = await navigator.credentials.get({ publicKey });
   const assertionPayload = assertionToJSON(assertion);
 
-  const finalizeResponse = await fetch('/api/gateway/intents/actions/finalize', {
+  const finalizeResponse = await fetch('/api/backend/intents/actions/finalize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -125,7 +125,7 @@ async function runActionIntent(action, payload) {
       webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
       webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
       webauthnSignature: assertionPayload?.response?.signature,
-      gatewayUrl: payload.gatewayUrl,
+      backendUrl: payload.backendUrl,
     }),
   });
 
@@ -138,15 +138,15 @@ async function runActionIntent(action, payload) {
     finalizeData?.intent?.meta?.requestId ||
     resolveRequestId(prepareData);
 
-  const finalizeAuthToken = finalizeData?.gatewayAuthToken || authToken;
-  const finalizeAuthExpiresAt = finalizeData?.gatewayAuthExpiresAt || prepareData?.gatewayAuthExpiresAt || null;
+  const finalizeAuthToken = finalizeData?.backendAuthToken || authToken;
+  const finalizeAuthExpiresAt = finalizeData?.backendAuthExpiresAt || prepareData?.backendAuthExpiresAt || null;
 
   return {
     ...finalizeData,
     requestId,
     intent: finalizeData.intent || prepareData.intent,
-    gatewayAuthToken: finalizeAuthToken,
-    gatewayAuthExpiresAt: finalizeAuthExpiresAt,
+    backendAuthToken: finalizeAuthToken,
+    backendAuthExpiresAt: finalizeAuthExpiresAt,
   };
 }
 
@@ -160,14 +160,14 @@ const resolveRequestId = (data) =>
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const pollExecutedIntentForLabId = async (requestId, {
-  gatewayUrl,
+  backendUrl,
   authToken,
   signal,
   maxDurationMs = 60_000,
   initialDelayMs = 2_000,
   maxDelayMs = 5_000,
 } = {}) => {
-  if (!gatewayUrl || !requestId) return null;
+  if (!backendUrl || !requestId) return null;
 
   const start = Date.now();
   let delay = initialDelayMs;
@@ -186,7 +186,7 @@ const pollExecutedIntentForLabId = async (requestId, {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
-      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/${requestId}`, {
         method: 'GET',
         headers,
         signal,
@@ -289,7 +289,7 @@ const findLabAddedIdFromReceipt = ({ receipt, contractAddress, providerAddress, 
 
 // ===== MUTATIONS =====
 
-// Intent hook for /api/gateway/intents/actions/prepare (institutional wallet executes)
+// Intent hook for /api/backend/intents/actions/prepare (institutional wallet executes)
 export const useAddLabSSO = (options = {}) => {
   const queryClient = useQueryClient();
 
@@ -301,7 +301,7 @@ export const useAddLabSSO = (options = {}) => {
         price: labData.price,
         accessURI: labData.accessURI,
         accessKey: labData.accessKey,
-        gatewayUrl: labData.gatewayUrl,
+        backendUrl: labData.backendUrl,
       });
 
       const requestId = resolveRequestId(intentResponse);
@@ -309,10 +309,10 @@ export const useAddLabSSO = (options = {}) => {
         throw new Error('Institution intent did not return requestId');
       }
 
-      const authToken = intentResponse?.gatewayAuthToken;
+      const authToken = intentResponse?.backendAuthToken;
       devLog.log('useAddLabSSO intent created; polling status', { requestId });
       const statusResult = await pollIntentStatus(requestId, {
-        gatewayUrl: labData.gatewayUrl,
+        backendUrl: labData.backendUrl,
         authToken,
         signal: labData.abortSignal,
         maxDurationMs: labData.pollMaxDurationMs,
@@ -329,10 +329,10 @@ export const useAddLabSSO = (options = {}) => {
       let labId = statusResult?.labId?.toString?.();
       let txHash = statusResult?.txHash;
 
-      // Some gateways may mark an intent executed before attaching the labId/txHash fields.
+      // Some backends may mark an intent executed before attaching the labId/txHash fields.
       if (!labId) {
         const followUp = await pollExecutedIntentForLabId(requestId, {
-          gatewayUrl: labData.gatewayUrl,
+          backendUrl: labData.backendUrl,
           authToken,
           signal: labData.abortSignal,
           maxDurationMs: labData.postExecutePollMaxDurationMs ?? 60_000,
@@ -528,7 +528,7 @@ export const useUpdateLabSSO = (options = {}) => {
         accessURI: updateData.labData?.accessURI,
         accessKey: updateData.labData?.accessKey,
         tokenURI: updateData.labData?.tokenURI,
-        gatewayUrl: updateData.gatewayUrl,
+        backendUrl: updateData.backendUrl,
       };
       const data = await runActionIntent(ACTION_CODES.LAB_UPDATE, payload);
       devLog.log('useUpdateLabSSO intent (webauthn):', data);
@@ -543,7 +543,7 @@ export const useUpdateLabSSO = (options = {}) => {
             data?.intent?.requestId ||
             data?.intent?.request_id ||
             data?.intent?.requestId?.toString?.();
-          const authToken = data?.gatewayAuthToken;
+          const authToken = data?.backendAuthToken;
           const updatedLab = {
             ...variables.labData,
             id: variables.labId,
@@ -700,7 +700,7 @@ export const useDeleteLabSSO = (options = {}) => {
     mutationFn: async (labId) => {
       const data = await runActionIntent(ACTION_CODES.LAB_DELETE, {
         labId,
-        gatewayUrl: undefined,
+        backendUrl: undefined,
       });
       devLog.log('useDeleteLabSSO intent (webauthn):', data);
       return data;
@@ -713,7 +713,7 @@ export const useDeleteLabSSO = (options = {}) => {
           _data?.intent?.requestId ||
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
-        const authToken = _data?.gatewayAuthToken;
+        const authToken = _data?.backendAuthToken;
         updateLab(labId, {
           id: labId,
           labId: labId,
@@ -836,10 +836,10 @@ export const useListLabSSO = (options = {}) => {
   const { updateLab } = useLabCacheUpdates();
 
   return useMutation({
-    mutationFn: async ({ labId, gatewayUrl }) => {
+    mutationFn: async ({ labId, backendUrl }) => {
       const data = await runActionIntent(ACTION_CODES.LAB_LIST, {
         labId,
-        gatewayUrl,
+        backendUrl,
       });
       devLog.log('useListLabSSO intent (webauthn):', data);
       return data;
@@ -852,7 +852,7 @@ export const useListLabSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
 
         updateLab(labId, {
           id: labId,
@@ -968,10 +968,10 @@ export const useUnlistLabSSO = (options = {}) => {
   const { updateLab } = useLabCacheUpdates();
 
   return useMutation({
-    mutationFn: async ({ labId, gatewayUrl }) => {
+    mutationFn: async ({ labId, backendUrl }) => {
       const data = await runActionIntent(ACTION_CODES.LAB_UNLIST, {
         labId,
-        gatewayUrl,
+        backendUrl,
       });
       devLog.log('useUnlistLabSSO intent (webauthn):', data);
       return data;
@@ -984,7 +984,7 @@ export const useUnlistLabSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
 
         updateLab(labId, {
           id: labId,
@@ -1101,11 +1101,11 @@ export const useSetTokenURISSO = (options = {}) => {
   const { updateLab } = useLabCacheUpdates();
 
   return useMutation({
-    mutationFn: async ({ labId, tokenURI, gatewayUrl }) => {
+    mutationFn: async ({ labId, tokenURI, backendUrl }) => {
       const data = await runActionIntent(ACTION_CODES.LAB_SET_URI, {
         labId,
         tokenURI,
-        gatewayUrl,
+        backendUrl,
       });
       devLog.log('useSetTokenURISSO intent (webauthn):', data);
       return data;
@@ -1128,7 +1128,7 @@ export const useSetTokenURISSO = (options = {}) => {
           _data?.intent?.requestId ||
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
-        const authToken = _data?.gatewayAuthToken;
+        const authToken = _data?.backendAuthToken;
 
         if (requestId) {
           (async () => {
@@ -1227,3 +1227,4 @@ export const useSetTokenURI = (options = {}) => {
 
 // Re-export cache updates utility
 export { useLabCacheUpdates } from './useLabCacheUpdates';
+

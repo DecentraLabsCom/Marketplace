@@ -1,11 +1,13 @@
 /**
- * Polls the institutional gateway for an intent status with exponential backoff.
- * Expects the gateway to implement GET /intents/:requestId as per dev/INSTITUTIONAL_INTENTS_IMPLEMENTATION.md
+ * Polls the institutional backend for an intent status with exponential backoff.
+ * Expects the backend to implement GET /intents/:requestId as per dev/INSTITUTIONAL_INTENTS_IMPLEMENTATION.md
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function pollIntentStatus(requestId, {
-  gatewayUrl = process.env.NEXT_PUBLIC_INSTITUTION_GATEWAY_URL || process.env.INSTITUTION_GATEWAY_URL,
+  backendUrl =
+    process.env.NEXT_PUBLIC_INSTITUTION_BACKEND_URL ||
+    process.env.INSTITUTION_BACKEND_URL,
   authToken,
   signal,
   maxDurationMs = 10 * 60 * 1000, // 10 minutes
@@ -13,8 +15,8 @@ export async function pollIntentStatus(requestId, {
   maxDelayMs = 30000,
   onUpdate,
 } = {}) {
-  if (!gatewayUrl) {
-    throw new Error('Gateway URL not configured for intent polling');
+  if (!backendUrl) {
+    throw new Error('Backend URL not configured for intent polling');
   }
   if (!requestId) {
     throw new Error('requestId is required for intent polling');
@@ -38,13 +40,13 @@ export async function pollIntentStatus(requestId, {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
-      const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/${requestId}`, {
         method: 'GET',
         headers,
         signal,
       });
       if (!res.ok) {
-        throw new Error(`Gateway status ${res.status}`);
+        throw new Error(`Backend status ${res.status}`);
       }
       const data = await res.json();
       const status = data?.status;

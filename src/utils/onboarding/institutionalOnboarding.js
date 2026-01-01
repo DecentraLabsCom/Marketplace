@@ -17,14 +17,10 @@
  */
 
 import devLog from '@/utils/dev/logger'
-import { resolveInstitutionalGatewayUrl } from './institutionalGateway'
+import { resolveInstitutionalBackendUrl } from './institutionalBackend'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 
-const getSpApiKey = () =>
-  process.env.INSTITUTIONAL_SP_API_KEY ||
-  process.env.INSTITUTION_GATEWAY_SP_API_KEY ||
-  process.env.SP_API_KEY ||
-  null
+const getSpApiKey = () => process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 
 const buildSpAuthHeaders = () => {
   const apiKey = getSpApiKey()
@@ -32,7 +28,7 @@ const buildSpAuthHeaders = () => {
 
   if (!apiKey) {
     if (requireKey) {
-      throw new Error('Missing SP API key for institutional gateway (INSTITUTIONAL_SP_API_KEY)')
+      throw new Error('Missing SP API key for institutional backend (INSTITUTION_BACKEND_SP_API_KEY)')
     }
     return {}
   }
@@ -62,9 +58,9 @@ export const OnboardingStatus = {
  * @enum {string}
  */
 export const OnboardingErrorCode = {
-  NO_GATEWAY: 'NO_GATEWAY_CONFIGURED',
-  GATEWAY_UNREACHABLE: 'GATEWAY_UNREACHABLE',
-  INVALID_RESPONSE: 'INVALID_GATEWAY_RESPONSE',
+  NO_BACKEND: 'NO_BACKEND_CONFIGURED',
+  BACKEND_UNREACHABLE: 'BACKEND_UNREACHABLE',
+  INVALID_RESPONSE: 'INVALID_BACKEND_RESPONSE',
   SESSION_EXPIRED: 'SESSION_EXPIRED',
   USER_CANCELLED: 'USER_CANCELLED',
   WEBAUTHN_FAILED: 'WEBAUTHN_FAILED',
@@ -125,9 +121,9 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
     throw new Error(`${OnboardingErrorCode.MISSING_USER_DATA}: Missing institution affiliation`)
   }
 
-  const gatewayUrl = resolveInstitutionalGatewayUrl(institutionId)
-  if (!gatewayUrl) {
-    throw new Error(`${OnboardingErrorCode.NO_GATEWAY}: No gateway configured for ${institutionId}`)
+  const backendUrl = await resolveInstitutionalBackendUrl(institutionId)
+  if (!backendUrl) {
+    throw new Error(`${OnboardingErrorCode.NO_BACKEND}: No backend configured for ${institutionId}`)
   }
 
   const stableUserId = extractStableUserId(userData)
@@ -157,7 +153,7 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
   }
 
   try {
-    const response = await fetch(`${gatewayUrl}/onboarding/webauthn/options`, {
+    const response = await fetch(`${backendUrl}/onboarding/webauthn/options`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -168,8 +164,8 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error')
-      devLog.error('[InstitutionalOnboarding] Gateway error:', response.status, errorText)
-      throw new Error(`${OnboardingErrorCode.GATEWAY_UNREACHABLE}: ${response.status} - ${errorText}`)
+      devLog.error('[InstitutionalOnboarding] Backend error:', response.status, errorText)
+      throw new Error(`${OnboardingErrorCode.BACKEND_UNREACHABLE}: ${response.status} - ${errorText}`)
     }
 
     const data = await response.json()
@@ -179,26 +175,26 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
     }
 
     // Build ceremony URL if not provided explicitly
-    const ceremonyUrl = data.ceremonyUrl || `${gatewayUrl}/onboarding/webauthn/ceremony/${data.sessionId}`
+    const ceremonyUrl = data.ceremonyUrl || `${backendUrl}/onboarding/webauthn/ceremony/${data.sessionId}`
 
     devLog.log('[InstitutionalOnboarding] Onboarding session created:', data.sessionId)
 
     return {
       sessionId: data.sessionId,
       ceremonyUrl,
-      gatewayUrl,
+      backendUrl,
       stableUserId,
       institutionId,
       expiresAt: data.expiresAt || null,
       options: data.options || null, // WebAuthn options if IB returns them directly
     }
   } catch (error) {
-    if (error.message?.startsWith(OnboardingErrorCode.GATEWAY_UNREACHABLE) ||
+    if (error.message?.startsWith(OnboardingErrorCode.BACKEND_UNREACHABLE) ||
         error.message?.startsWith(OnboardingErrorCode.INVALID_RESPONSE)) {
       throw error
     }
     devLog.error('[InstitutionalOnboarding] Failed to initiate:', error)
-    throw new Error(`${OnboardingErrorCode.GATEWAY_UNREACHABLE}: ${error.message}`)
+    throw new Error(`${OnboardingErrorCode.BACKEND_UNREACHABLE}: ${error.message}`)
   }
 }
 
@@ -208,16 +204,16 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
  * 
  * @param {Object} params - Status check parameters
  * @param {string} params.sessionId - Onboarding session ID
- * @param {string} params.gatewayUrl - IB gateway URL
+ * @param {string} params.backendUrl - IB backend URL
  * @returns {Promise<Object>} Session status
  */
-export async function checkOnboardingStatus({ sessionId, gatewayUrl }) {
-  if (!sessionId || !gatewayUrl) {
-    throw new Error('Missing sessionId or gatewayUrl')
+export async function checkOnboardingStatus({ sessionId, backendUrl }) {
+  if (!sessionId || !backendUrl) {
+    throw new Error('Missing sessionId or backendUrl')
   }
 
   try {
-    const response = await fetch(`${gatewayUrl}/onboarding/webauthn/status/${sessionId}`, {
+    const response = await fetch(`${backendUrl}/onboarding/webauthn/status/${sessionId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -255,7 +251,7 @@ export async function checkOnboardingStatus({ sessionId, gatewayUrl }) {
  * 
  * @param {Object} params - Polling parameters
  * @param {string} params.sessionId - Onboarding session ID
- * @param {string} params.gatewayUrl - IB gateway URL
+ * @param {string} params.backendUrl - IB backend URL
  * @param {number} [params.intervalMs=2000] - Polling interval in milliseconds
  * @param {number} [params.timeoutMs=120000] - Maximum wait time in milliseconds
  * @param {AbortSignal} [params.signal] - AbortSignal to cancel polling
@@ -263,7 +259,7 @@ export async function checkOnboardingStatus({ sessionId, gatewayUrl }) {
  */
 export async function pollOnboardingStatus({
   sessionId,
-  gatewayUrl,
+  backendUrl,
   intervalMs = 2000,
   timeoutMs = 120000,
   signal,
@@ -275,7 +271,7 @@ export async function pollOnboardingStatus({
       throw new Error('Polling aborted')
     }
 
-    const status = await checkOnboardingStatus({ sessionId, gatewayUrl })
+    const status = await checkOnboardingStatus({ sessionId, backendUrl })
 
     // Check for terminal states
     if (status.status === OnboardingStatus.COMPLETED || 
@@ -315,12 +311,12 @@ export async function checkUserOnboardingStatus({ userData }) {
   }
 
   const institutionId = userData.affiliation
-  const gatewayUrl = resolveInstitutionalGatewayUrl(institutionId)
-  
-  if (!gatewayUrl) {
+  const backendUrl = await resolveInstitutionalBackendUrl(institutionId)
+
+  if (!backendUrl) {
     return { 
       isOnboarded: false, 
-      error: OnboardingErrorCode.NO_GATEWAY,
+      error: OnboardingErrorCode.NO_BACKEND,
       institutionId,
     }
   }
@@ -335,7 +331,7 @@ export async function checkUserOnboardingStatus({ userData }) {
 
   try {
     const response = await fetch(
-      `${gatewayUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(institutionId)}`,
+      `${backendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(institutionId)}`,
       {
         method: 'GET',
         headers: {
@@ -351,7 +347,7 @@ export async function checkUserOnboardingStatus({ userData }) {
         isOnboarded: false,
         stableUserId,
         institutionId,
-        gatewayUrl,
+        backendUrl,
       }
     }
 
@@ -363,7 +359,7 @@ export async function checkUserOnboardingStatus({ userData }) {
         error: `Status check returned ${response.status}`,
         stableUserId,
         institutionId,
-        gatewayUrl,
+        backendUrl,
       }
     }
 
@@ -373,7 +369,7 @@ export async function checkUserOnboardingStatus({ userData }) {
       isOnboarded: data.hasCredential === true || data.registered === true || data.isOnboarded === true,
       stableUserId,
       institutionId,
-      gatewayUrl,
+      backendUrl,
       credentialId: data.credentialId || null,
       registeredAt: data.lastRegistered || data.registeredAt || null,
     }
@@ -384,7 +380,7 @@ export async function checkUserOnboardingStatus({ userData }) {
       isOnboarded: false,
       stableUserId,
       institutionId,
-      gatewayUrl,
+      backendUrl,
       error: error.message,
     }
   }

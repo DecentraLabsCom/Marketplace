@@ -28,7 +28,7 @@ const resolveAuthorizationInfo = (prepareData) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
-async function awaitGatewayAuthorization(prepareData, { gatewayUrl, authToken } = {}) {
+async function awaitBackendAuthorization(prepareData, { backendUrl, authToken } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
   if (!authorizationUrl || !authorizationSessionId) {
     return null;
@@ -44,8 +44,8 @@ async function awaitGatewayAuthorization(prepareData, { gatewayUrl, authToken } 
   }
 
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
-    gatewayUrl: prepareData?.gatewayUrl || gatewayUrl,
-    authToken: authToken || prepareData?.gatewayAuthToken,
+    backendUrl: prepareData?.backendUrl || backendUrl,
+    authToken: authToken || prepareData?.backendAuthToken,
   });
 
   const normalized = (status?.status || '').toUpperCase();
@@ -69,11 +69,11 @@ async function runActionIntent(action, payload) {
     throw new Error('WebAuthn not supported in this environment');
   }
 
-  const prepareResponse = await fetch('/api/gateway/intents/actions/prepare', {
+  const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ action, payload, gatewayUrl: payload.gatewayUrl }),
+    body: JSON.stringify({ action, payload, backendUrl: payload.backendUrl }),
   });
 
   const prepareData = await prepareResponse.json();
@@ -81,9 +81,9 @@ async function runActionIntent(action, payload) {
     throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
   }
 
-  const authToken = prepareData?.gatewayAuthToken || null;
-  const authorizationStatus = await awaitGatewayAuthorization(prepareData, {
-    gatewayUrl: payload.gatewayUrl,
+  const authToken = prepareData?.backendAuthToken || null;
+  const authorizationStatus = await awaitBackendAuthorization(prepareData, {
+    backendUrl: payload.backendUrl,
     authToken,
   });
   if (authorizationStatus) {
@@ -93,8 +93,8 @@ async function runActionIntent(action, payload) {
       requestId,
       intent: prepareData.intent,
       authorization: authorizationStatus,
-      gatewayAuthToken: authToken,
-      gatewayAuthExpiresAt: prepareData?.gatewayAuthExpiresAt || null,
+      backendAuthToken: authToken,
+      backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
     };
   }
 
@@ -113,7 +113,7 @@ async function runActionIntent(action, payload) {
   const assertion = await navigator.credentials.get({ publicKey });
   const assertionPayload = assertionToJSON(assertion);
 
-  const finalizeResponse = await fetch('/api/gateway/intents/actions/finalize', {
+  const finalizeResponse = await fetch('/api/backend/intents/actions/finalize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -125,7 +125,7 @@ async function runActionIntent(action, payload) {
       webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
       webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
       webauthnSignature: assertionPayload?.response?.signature,
-      gatewayUrl: payload.gatewayUrl,
+      backendUrl: payload.backendUrl,
     }),
   });
 
@@ -138,15 +138,15 @@ async function runActionIntent(action, payload) {
     finalizeData?.intent?.meta?.requestId ||
     resolveIntentRequestId(prepareData);
 
-  const finalizeAuthToken = finalizeData?.gatewayAuthToken || authToken;
-  const finalizeAuthExpiresAt = finalizeData?.gatewayAuthExpiresAt || prepareData?.gatewayAuthExpiresAt || null;
+  const finalizeAuthToken = finalizeData?.backendAuthToken || authToken;
+  const finalizeAuthExpiresAt = finalizeData?.backendAuthExpiresAt || prepareData?.backendAuthExpiresAt || null;
 
   return {
     ...finalizeData,
     requestId,
     intent: finalizeData.intent || prepareData.intent,
-    gatewayAuthToken: finalizeAuthToken,
-    gatewayAuthExpiresAt: finalizeAuthExpiresAt,
+    backendAuthToken: finalizeAuthToken,
+    backendAuthExpiresAt: finalizeAuthExpiresAt,
   };
 }
 
@@ -258,10 +258,10 @@ export const useReservationRequestSSO = (options = {}) => {
         labId: requestData.tokenId ?? requestData.labId,
         start: requestData.start,
         timeslot: requestData.timeslot ?? requestData.duration ?? requestData.timeslotMinutes,
-        gatewayUrl: requestData.gatewayUrl,
+        backendUrl: requestData.backendUrl,
       }
 
-      const prepareResponse = await fetch('/api/gateway/intents/reservations/prepare', {
+      const prepareResponse = await fetch('/api/backend/intents/reservations/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -273,9 +273,9 @@ export const useReservationRequestSSO = (options = {}) => {
         throw new Error(prepareData.error || `Failed to prepare reservation intent: ${prepareResponse.status}`)
       }
 
-      const authToken = prepareData?.gatewayAuthToken || null
-      const authorizationStatus = await awaitGatewayAuthorization(prepareData, {
-        gatewayUrl: payload.gatewayUrl,
+      const authToken = prepareData?.backendAuthToken || null
+      const authorizationStatus = await awaitBackendAuthorization(prepareData, {
+        backendUrl: payload.backendUrl,
         authToken,
       })
       if (authorizationStatus) {
@@ -285,8 +285,8 @@ export const useReservationRequestSSO = (options = {}) => {
           requestId,
           intent: prepareData.intent,
           authorization: authorizationStatus,
-          gatewayAuthToken: authToken,
-          gatewayAuthExpiresAt: prepareData?.gatewayAuthExpiresAt || null,
+          backendAuthToken: authToken,
+          backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
         }
       }
 
@@ -305,7 +305,7 @@ export const useReservationRequestSSO = (options = {}) => {
       const assertion = await navigator.credentials.get({ publicKey })
       const assertionPayload = assertionToJSON(assertion)
 
-      const finalizeResponse = await fetch('/api/gateway/intents/reservations/finalize', {
+      const finalizeResponse = await fetch('/api/backend/intents/reservations/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -317,7 +317,7 @@ export const useReservationRequestSSO = (options = {}) => {
           webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
           webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
           webauthnSignature: assertionPayload?.response?.signature,
-          gatewayUrl: payload.gatewayUrl,
+          backendUrl: payload.backendUrl,
         }),
       })
 
@@ -329,15 +329,15 @@ export const useReservationRequestSSO = (options = {}) => {
       const requestId =
         finalizeData?.intent?.meta?.requestId ||
         resolveIntentRequestId(prepareData)
-      const finalizeAuthToken = finalizeData?.gatewayAuthToken || prepareData?.gatewayAuthToken || null
-      const finalizeAuthExpiresAt = finalizeData?.gatewayAuthExpiresAt || prepareData?.gatewayAuthExpiresAt || null
+      const finalizeAuthToken = finalizeData?.backendAuthToken || prepareData?.backendAuthToken || null
+      const finalizeAuthExpiresAt = finalizeData?.backendAuthExpiresAt || prepareData?.backendAuthExpiresAt || null
 
       return {
         ...finalizeData,
         requestId,
         intent: finalizeData.intent || prepareData.intent,
-        gatewayAuthToken: finalizeAuthToken,
-        gatewayAuthExpiresAt: finalizeAuthExpiresAt,
+        backendAuthToken: finalizeAuthToken,
+        backendAuthExpiresAt: finalizeAuthExpiresAt,
       }
     },
     onSuccess: (data, variables) => {
@@ -349,7 +349,7 @@ export const useReservationRequestSSO = (options = {}) => {
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
         const reservationKey = intentId || `intent-${Date.now()}`;
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
 
         updateBooking(reservationKey, {
           reservationKey,
@@ -470,7 +470,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
         updateBooking(reservationKey, {
           reservationKey,
           intentRequestId: intentId,
@@ -606,7 +606,7 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
 
         updateBooking(reservationKey, {
           reservationKey,
@@ -748,7 +748,7 @@ export const useCancelBookingSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
 
         if (intentId) {
           (async () => {
@@ -887,7 +887,7 @@ export const useCancelInstitutionalBookingSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const authToken = data?.gatewayAuthToken;
+        const authToken = data?.backendAuthToken;
 
         if (intentId) {
           (async () => {
@@ -985,7 +985,7 @@ export const useCancelInstitutionalBooking = (options = {}) => {
 };
 
 /**
- * Requests funds for SSO users via WebAuthn + gateway action intent
+ * Requests funds for SSO users via WebAuthn + backend action intent
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
@@ -1056,3 +1056,4 @@ export const useRequestFunds = (options = {}) => {
 
 // Re-export cache updates utility
 export { useBookingCacheUpdates } from './useBookingCacheUpdates';
+

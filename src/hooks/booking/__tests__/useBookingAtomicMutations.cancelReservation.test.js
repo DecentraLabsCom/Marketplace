@@ -111,8 +111,8 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
 
     // Assert: prepare + finalize called and cache update invoked
     expect(global.fetch).toHaveBeenCalledTimes(2);
-    expect(global.fetch).toHaveBeenCalledWith('/api/gateway/intents/actions/prepare', expect.any(Object));
-    expect(global.fetch).toHaveBeenCalledWith('/api/gateway/intents/actions/finalize', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/prepare', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/finalize', expect.any(Object));
     expect(updateBooking).toHaveBeenCalled();
   });
 
@@ -139,3 +139,4 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
     setSpy.mockRestore();
   });
 });
+

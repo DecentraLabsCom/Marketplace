@@ -141,15 +141,15 @@ export async function verifyRegistration(session, attestationResponse, request) 
 }
 
 /**
- * Optionally mirror the credential on the gateway.
+ * Optionally mirror the credential on the backend.
  * @param {Object} record
- * @param {string} gatewayUrl
+ * @param {string} backendUrl
  * @returns {Promise<boolean>}
  */
-export async function registerCredentialInGateway(record, gatewayUrl) {
-  if (!gatewayUrl) return false
+export async function registerCredentialInBackend(record, backendUrl) {
+  if (!backendUrl) return false
   try {
-    const res = await fetch(`${gatewayUrl.replace(/\/$/, '')}/webauthn/register`, {
+    const res = await fetch(`${backendUrl.replace(/\/$/, '')}/webauthn/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -162,7 +162,7 @@ export async function registerCredentialInGateway(record, gatewayUrl) {
     })
     return res.ok
   } catch (error) {
-    devLog.warn('[WebAuthn] Failed to register credential in gateway', error)
+    devLog.warn('[WebAuthn] Failed to register credential in backend', error)
     return false
   }
 }
@@ -171,5 +171,5 @@ export default {
   getPucFromSession,
   buildRegistrationOptions,
   verifyRegistration,
-  registerCredentialInGateway,
+  registerCredentialInBackend,
 }

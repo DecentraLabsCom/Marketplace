@@ -23,9 +23,9 @@ jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
   computeAssertionHash: jest.fn(() => 'hash'),
 }))
 
-jest.mock('../institutionalGateway', () => ({
+jest.mock('../institutionalBackend', () => ({
   __esModule: true,
-  resolveInstitutionalGatewayUrl: jest.fn(() => 'https://gateway.example'),
+  resolveInstitutionalBackendUrl: jest.fn().mockResolvedValue('https://backend.example'),
 }))
 
 describe('institutionalOnboarding', () => {
@@ -35,7 +35,7 @@ describe('institutionalOnboarding', () => {
     global.fetch = jest.fn()
     jest.clearAllMocks()
     process.env = { ...originalEnv }
-    delete process.env.INSTITUTIONAL_SP_API_KEY
+    delete process.env.INSTITUTION_BACKEND_SP_API_KEY
     delete process.env.INSTITUTIONAL_REQUIRE_SP_API_KEY
   })
 
@@ -62,20 +62,20 @@ describe('institutionalOnboarding', () => {
     ).rejects.toThrow(/Missing institution affiliation/i)
   })
 
-  test('initiateInstitutionalOnboarding errors when no gateway configured', async () => {
-    const gateway = await import('../institutionalGateway')
-    gateway.resolveInstitutionalGatewayUrl.mockReturnValueOnce(null)
+  test('initiateInstitutionalOnboarding errors when no backend configured', async () => {
+    const backend = await import('../institutionalBackend')
+    backend.resolveInstitutionalBackendUrl.mockResolvedValueOnce(null)
 
     await expect(
       initiateInstitutionalOnboarding({
         userData: { email: 'a@uned.es', affiliation: 'uned.es' },
         callbackUrl: 'cb',
       }),
-    ).rejects.toThrow(OnboardingErrorCode.NO_GATEWAY)
+    ).rejects.toThrow(OnboardingErrorCode.NO_BACKEND)
   })
 
-  test('initiateInstitutionalOnboarding calls gateway and builds ceremonyUrl when missing', async () => {
-    process.env.INSTITUTIONAL_SP_API_KEY = 'test-key'
+  test('initiateInstitutionalOnboarding calls backend and builds ceremonyUrl when missing', async () => {
+    process.env.INSTITUTION_BACKEND_SP_API_KEY = 'test-key'
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ sessionId: 's1' }),
@@ -94,7 +94,7 @@ describe('institutionalOnboarding', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1)
     const [url, opts] = global.fetch.mock.calls[0]
-    expect(url).toBe('https://gateway.example/onboarding/webauthn/options')
+    expect(url).toBe('https://backend.example/onboarding/webauthn/options')
     expect(opts.method).toBe('POST')
     expect(opts.headers['X-SP-Api-Key']).toBe('test-key')
     const body = JSON.parse(opts.body)
@@ -103,28 +103,28 @@ describe('institutionalOnboarding', () => {
     expect(body.assertionReference).toBe('sha256:hash')
 
     expect(result.sessionId).toBe('s1')
-    expect(result.ceremonyUrl).toBe('https://gateway.example/onboarding/webauthn/ceremony/s1')
-    expect(result.gatewayUrl).toBe('https://gateway.example')
+    expect(result.ceremonyUrl).toBe('https://backend.example/onboarding/webauthn/ceremony/s1')
+    expect(result.backendUrl).toBe('https://backend.example')
     expect(result.institutionId).toBe('uned.es')
   })
 
   test('checkOnboardingStatus handles missing params and 404 expired', async () => {
-    await expect(checkOnboardingStatus({ sessionId: '', gatewayUrl: '' })).rejects.toThrow(/Missing sessionId/i)
+    await expect(checkOnboardingStatus({ sessionId: '', backendUrl: '' })).rejects.toThrow(/Missing sessionId/i)
 
     global.fetch.mockResolvedValueOnce({ ok: false, status: 404 })
-    const expired = await checkOnboardingStatus({ sessionId: 's1', gatewayUrl: 'https://gateway.example' })
+    const expired = await checkOnboardingStatus({ sessionId: 's1', backendUrl: 'https://backend.example' })
     expect(expired.status).toBe(OnboardingStatus.EXPIRED)
   })
 
   test('checkOnboardingStatus returns payload when ok', async () => {
-    process.env.INSTITUTIONAL_SP_API_KEY = 'test-key'
+    process.env.INSTITUTION_BACKEND_SP_API_KEY = 'test-key'
     global.fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({ status: OnboardingStatus.SUCCESS, credentialId: 'cred' }),
     })
 
-    const res = await checkOnboardingStatus({ sessionId: 's1', gatewayUrl: 'https://gateway.example' })
+    const res = await checkOnboardingStatus({ sessionId: 's1', backendUrl: 'https://backend.example' })
     expect(res.status).toBe(OnboardingStatus.SUCCESS)
     expect(res.credentialId).toBe('cred')
 
@@ -133,7 +133,7 @@ describe('institutionalOnboarding', () => {
   })
 
   test('checkUserOnboardingStatus includes SP auth header when configured', async () => {
-    process.env.INSTITUTIONAL_SP_API_KEY = 'test-key'
+    process.env.INSTITUTION_BACKEND_SP_API_KEY = 'test-key'
     global.fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,

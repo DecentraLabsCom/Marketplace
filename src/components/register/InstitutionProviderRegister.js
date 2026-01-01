@@ -6,7 +6,7 @@ import devLog from '@/utils/dev/logger'
 
 /**
  * Institutional provider registration flow for SSO users
- * NOTE: On-chain provider registration via marketplace is deprecated; handled in institutional gateway.
+ * NOTE: On-chain provider registration via marketplace is deprecated; handled in institutional backend.
  */
 export default function InstitutionProviderRegister() {
   const { user, address, isConnected } = useUser()
@@ -34,7 +34,7 @@ export default function InstitutionProviderRegister() {
     setInviteData(null)
 
     try {
-      // Institutional provider registration is handled in the institutional gateway.
+      // Institutional provider registration is handled in the institutional backend.
       const walletAddress = address
       setProviderWallet(walletAddress || null)
 
