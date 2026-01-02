@@ -5,7 +5,6 @@ import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import devLog from '@/utils/dev/logger';
 import {
   normalizeHttpsUrl,
-  requireApiKey,
   requireEmail,
   requireString,
   signProvisioningToken,
@@ -28,7 +27,7 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '900', 10);
+    const ttlSeconds = parseInt(process.env.PROVISIONING_TOKEN_TTL_SECONDS || '300', 10);
 
     const publicBaseUrl = normalizeHttpsUrl(body.publicBaseUrl, 'Public base URL');
     const audience = publicBaseUrl;
@@ -38,8 +37,6 @@ export async function POST(request) {
       'Marketplace base URL'
     );
     const issuer = marketplaceBaseUrl;
-    const apiKey = requireApiKey(process.env.INSTITUTIONAL_SERVICES_API_KEY);
-
     const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(
       body.providerOrganization || session.affiliation || session.schacHomeOrganization || ''
     );
@@ -55,7 +52,6 @@ export async function POST(request) {
     );
     const payload = {
       marketplaceBaseUrl,
-      apiKey,
       providerName,
       providerEmail,
       providerCountry,

@@ -35,8 +35,8 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
     if (!url || typeof url !== 'string' || !url.trim()) {
       throw new Error(`${label} is required`);
     }
-    if (!url.startsWith('https://')) {
-      throw new Error(`${label} must use HTTPS protocol`);
+    if (!url.startsWith('https://') && !url.startsWith('http://')) {
+      throw new Error(`${label} must use http:// or https://`);
     }
     return url;
   }),
@@ -51,12 +51,6 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
       throw new Error(`Valid ${label} is required`);
     }
     return value.trim();
-  }),
-  requireApiKey: jest.fn((value) => {
-    if (!value) {
-      throw new Error('INSTITUTIONAL_SERVICES_API_KEY environment variable is not configured');
-    }
-    return value;
   }),
 }));
 
@@ -84,13 +78,11 @@ jest.mock('@/utils/dev/logger', () => ({
 describe('/api/institutions/provisionToken route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.INSTITUTIONAL_SERVICES_API_KEY = 'test-api-key-123';
     process.env.NEXT_PUBLIC_BASE_URL = 'https://marketplace.example.com';
-    process.env.PROVISIONING_TOKEN_TTL_SECONDS = '900';
+    process.env.PROVISIONING_TOKEN_TTL_SECONDS = '300';
   });
 
   afterEach(() => {
-    delete process.env.INSTITUTIONAL_SERVICES_API_KEY;
     delete process.env.NEXT_PUBLIC_BASE_URL;
     delete process.env.PROVISIONING_TOKEN_TTL_SECONDS;
   });
@@ -225,7 +217,7 @@ describe('/api/institutions/provisionToken route', () => {
     );
   });
 
-  test('normalizes publicBaseUrl to https', async () => {
+  test('accepts http publicBaseUrl in development', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'admin',
@@ -251,8 +243,6 @@ describe('/api/institutions/provisionToken route', () => {
     });
 
     const res = await POST(req);
-    
-    // Should be rejected because it requires https
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
   });
 });

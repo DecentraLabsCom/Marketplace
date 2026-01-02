@@ -3,6 +3,12 @@ import { headers } from 'next/headers';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import devLog from '@/utils/dev/logger';
+import {
+  extractBearerToken,
+  normalizeHttpsUrl,
+  requireString,
+  verifyProvisioningToken,
+} from '@/utils/auth/provisioningToken';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -37,7 +43,7 @@ function normalizeBackendUrl(backendUrl) {
     trimmed = trimmed.slice(0, -5);
   }
 
-  if (!trimmed.startsWith('https://')) {
+  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
     return null;
   }
 
@@ -54,25 +60,14 @@ function normalizeBackendUrl(backendUrl) {
  * Secure endpoint for blockchain-services to register as CONSUMER-ONLY institution.
  * Only executes grantInstitutionRole (does NOT call addProvider).
  * 
- * Requires shared API key authentication.
+ * Requires provisioning token authentication.
  */
 export async function POST(request) {
   try {
     const headersList = await headers();
-    const apiKey = headersList.get('x-api-key');
-
-    // Validate API key
-    const expectedApiKey = process.env.INSTITUTIONAL_SERVICES_API_KEY;
-    if (!expectedApiKey) {
-      devLog.error('[API] registerConsumer: INSTITUTIONAL_SERVICES_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    if (!apiKey || apiKey !== expectedApiKey) {
-      devLog.warn('[API] registerConsumer: Invalid or missing API key');
+    const provisioningToken = extractBearerToken(headersList.get('authorization'));
+    if (!provisioningToken) {
+      devLog.warn('[API] registerConsumer: Missing provisioning token');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -80,7 +75,29 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { walletAddress, organization, backendUrl } = body;
+    const { walletAddress, backendUrl } = body;
+
+    const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
+    const marketplaceBaseUrl = normalizeHttpsUrl(
+      process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || requestOrigin,
+      'Marketplace base URL'
+    );
+    let payload;
+    try {
+      payload = await verifyProvisioningToken(provisioningToken, { issuer: marketplaceBaseUrl });
+    } catch (error) {
+      devLog.warn('[API] registerConsumer: Invalid provisioning token', error);
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    if (payload.type !== 'consumer') {
+      return NextResponse.json(
+        { error: 'Provider provisioning token is not valid for consumer registration' },
+        { status: 400 }
+      );
+    }
 
     // Validate required fields
     if (!validateAddress(walletAddress)) {
@@ -90,23 +107,33 @@ export async function POST(request) {
       );
     }
 
-    if (!organization || typeof organization !== 'string' || organization.trim().length === 0) {
+    let consumerOrganization;
+    let normalizedBackendUrl;
+    try {
+      consumerOrganization = requireString(payload.consumerOrganization, 'Organization (schacHomeOrganization)');
+      const tokenAudience = Array.isArray(payload.aud)
+        ? payload.aud.find((value) => typeof value === 'string' && value.trim())
+        : payload.aud;
+      const normalizedTokenAudience = tokenAudience
+        ? normalizeHttpsUrl(tokenAudience, 'Public base URL')
+        : null;
+      normalizedBackendUrl = normalizeBackendUrl(backendUrl)
+        || (normalizedTokenAudience ? normalizeBackendUrl(normalizedTokenAudience) : null);
+      if (backendUrl && !normalizedBackendUrl) {
+        return NextResponse.json(
+          { error: 'Invalid backendUrl format (must be http:// or https:// and a base URL)' },
+          { status: 400 }
+        );
+      }
+    } catch (error) {
       return NextResponse.json(
-        { error: 'Organization (schacHomeOrganization) is required' },
-        { status: 400 }
-      );
-    }
-
-    const normalizedBackendUrl = normalizeBackendUrl(backendUrl);
-    if (backendUrl && !normalizedBackendUrl) {
-      return NextResponse.json(
-        { error: 'Invalid backendUrl format (must be https:// and a base URL)' },
+        { error: error.message || 'Invalid provisioning token payload' },
         { status: 400 }
       );
     }
 
     // Normalize organization domain to lowercase for consistency
-    const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(organization.trim());
+    const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(consumerOrganization.trim());
 
     const contract = await getContractInstance('diamond', true);
 

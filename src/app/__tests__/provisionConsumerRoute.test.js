@@ -35,8 +35,8 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
     if (!url || typeof url !== 'string' || !url.trim()) {
       throw new Error(`${label} is required`);
     }
-    if (!url.startsWith('https://')) {
-      throw new Error(`${label} must use HTTPS protocol`);
+    if (!url.startsWith('https://') && !url.startsWith('http://')) {
+      throw new Error(`${label} must use http:// or https://`);
     }
     return url;
   }),
@@ -45,12 +45,6 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
       throw new Error(`${label} is required`);
     }
     return value.trim();
-  }),
-  requireApiKey: jest.fn((value) => {
-    if (!value) {
-      throw new Error('INSTITUTIONAL_SERVICES_API_KEY environment variable is not configured');
-    }
-    return value;
   }),
 }));
 
@@ -78,13 +72,11 @@ jest.mock('@/utils/dev/logger', () => ({
 describe('/api/institutions/provisionConsumer route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.INSTITUTIONAL_SERVICES_API_KEY = 'test-api-key-123';
     process.env.NEXT_PUBLIC_BASE_URL = 'https://marketplace.example.com';
-    process.env.PROVISIONING_TOKEN_TTL_SECONDS = '900';
+    process.env.PROVISIONING_TOKEN_TTL_SECONDS = '300';
   });
 
   afterEach(() => {
-    delete process.env.INSTITUTIONAL_SERVICES_API_KEY;
     delete process.env.NEXT_PUBLIC_BASE_URL;
     delete process.env.PROVISIONING_TOKEN_TTL_SECONDS;
   });
@@ -240,30 +232,6 @@ describe('/api/institutions/provisionConsumer route', () => {
     const json = await res.json();
     expect(json.payload.consumerName).toBe('Auto Institution');
     expect(json.payload.consumerOrganization).toBe('auto.edu');
-  });
-
-  test('rejects when INSTITUTIONAL_SERVICES_API_KEY is not configured', async () => {
-    delete process.env.INSTITUTIONAL_SERVICES_API_KEY;
-
-    requireAuth.mockResolvedValue({
-      samlAssertion: 'valid-assertion',
-      role: 'admin',
-      scopedRole: 'admin',
-      affiliation: 'test.edu',
-    });
-
-    const { POST } = await import('../api/institutions/provisionConsumer/route.js');
-
-    const req = new Request('http://localhost/api/institutions/provisionConsumer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        publicBaseUrl: 'https://wallet.test.edu',
-      }),
-    });
-
-    const res = await POST(req);
-    expect(res.status).toBe(400);
   });
 
   test('includes correct token type discriminator', async () => {

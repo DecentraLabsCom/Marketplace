@@ -28,13 +28,18 @@ jest.mock('@/utils/auth/guards', () => {
 
 jest.mock('@/utils/auth/provisioningToken', () => ({
   __esModule: true,
-  signProvisioningToken: jest.fn(),
+  extractBearerToken: jest.fn((header) => {
+    if (!header) {
+      return null;
+    }
+    return header.replace(/^Bearer\s+/i, '').trim();
+  }),
   normalizeHttpsUrl: jest.fn((url) => {
     if (!url || typeof url !== 'string' || !url.trim()) {
       throw new Error('URL is required');
     }
-    if (!url.startsWith('https://')) {
-      throw new Error('URL must use HTTPS protocol');
+    if (!url.startsWith('https://') && !url.startsWith('http://')) {
+      throw new Error('URL must use http:// or https://');
     }
     return url;
   }),
@@ -44,18 +49,7 @@ jest.mock('@/utils/auth/provisioningToken', () => ({
     }
     return value.trim();
   }),
-  requireEmail: jest.fn((value, label = 'email') => {
-    if (!value || typeof value !== 'string' || !value.includes('@')) {
-      throw new Error(`Valid ${label} is required`);
-    }
-    return value.trim();
-  }),
-  requireApiKey: jest.fn((value) => {
-    if (!value) {
-      throw new Error('INSTITUTIONAL_SERVICES_API_KEY environment variable is not configured');
-    }
-    return value;
-  }),
+  verifyProvisioningToken: jest.fn(),
 }));
 
 jest.mock('@/utils/auth/marketplaceJwt', () => ({
@@ -83,8 +77,7 @@ jest.mock('next/headers', () => ({
 }));
 
 // Now import after mocks are set up
-import { requireAuth } from '@/utils/auth/guards';
-import { signProvisioningToken } from '@/utils/auth/provisioningToken';
+import { verifyProvisioningToken } from '@/utils/auth/provisioningToken';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { headers } from 'next/headers';
 import { POST } from '../api/institutions/registerConsumer/route.js';
@@ -92,7 +85,13 @@ import { POST } from '../api/institutions/registerConsumer/route.js';
 describe('/api/institutions/registerConsumer route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.INSTITUTIONAL_SERVICES_API_KEY = 'test-api-key-123';
+    verifyProvisioningToken.mockResolvedValue({
+      type: 'consumer',
+      marketplaceBaseUrl: 'https://marketplace.example.com',
+      consumerName: 'Consumer University',
+      consumerOrganization: 'example.edu',
+      aud: 'https://auth.example.com/auth',
+    });
 
     getContractInstance.mockImplementation((_contractType = 'diamond', _readOnly = true) =>
       Promise.resolve({
@@ -101,12 +100,7 @@ describe('/api/institutions/registerConsumer route', () => {
     );
   });
 
-  afterEach(() => {
-    delete process.env.INSTITUTIONAL_SERVICES_API_KEY;
-  });
-
-  test('returns 401 when API key is missing', async () => {
-    // Mock headers to return no x-api-key
+  test('returns 401 when provisioning token is missing', async () => {
     const mockHeaders = new Map();
     headers.mockResolvedValue(mockHeaders);
 
@@ -114,8 +108,7 @@ describe('/api/institutions/registerConsumer route', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        walletAddress: '0x1234567890123459012345678901234567890',
-        organization: 'example.edu'
+        walletAddress: '0x1234567890123456789012345678901234567890',
       }),
     });
 
@@ -126,20 +119,16 @@ describe('/api/institutions/registerConsumer route', () => {
     });
   });
 
-  test('returns 401 when API key is invalid', async () => {
-    // Mock headers to return invalid x-api-key
-    const mockHeaders = new Map([['x-api-key', 'invalid-key']]);
+  test('returns 401 when provisioning token is invalid', async () => {
+    verifyProvisioningToken.mockRejectedValue(new Error('Invalid token'));
+    const mockHeaders = new Map([['authorization', 'Bearer invalid-token']]);
     headers.mockResolvedValue(mockHeaders);
 
     const req = new Request('http://localhost/api/institutions/registerConsumer', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'invalid-key'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         walletAddress: '0x1234567890123456789012345678901234567890',
-        organization: 'example.edu'
       }),
     });
 
@@ -147,49 +136,18 @@ describe('/api/institutions/registerConsumer route', () => {
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toMatchObject({
       error: 'Unauthorized',
-    });
-  });
-
-  test('returns 500 when INSTITUTIONAL_SERVICES_API_KEY is not configured', async () => {
-    delete process.env.INSTITUTIONAL_SERVICES_API_KEY;
-
-    // Mock headers to return any key
-    const mockHeaders = new Map([['x-api-key', 'any-key']]);
-    headers.mockResolvedValue(mockHeaders);
-
-    const req = new Request('http://localhost/api/institutions/registerConsumer', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'any-key'
-      },
-      body: JSON.stringify({
-        walletAddress: '0x1234567890123456789012345678901234567890',
-        organization: 'example.edu'
-      }),
-    });
-
-    const res = await POST(req);
-    expect(res.status).toBe(500);
-    await expect(res.json()).resolves.toMatchObject({
-      error: 'Server configuration error',
     });
   });
 
   test('returns 400 when wallet address is invalid', async () => {
-    // Mock headers to return valid API key
-    const mockHeaders = new Map([['x-api-key', 'test-api-key-123']]);
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
     const req = new Request('http://localhost/api/institutions/registerConsumer', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'test-api-key-123'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         walletAddress: 'invalid-address',
-        organization: 'example.edu'
       }),
     });
 
@@ -200,43 +158,21 @@ describe('/api/institutions/registerConsumer route', () => {
     });
   });
 
-  test('returns 400 when organization is missing', async () => {
-    // Mock headers to return valid API key
-    const mockHeaders = new Map([['x-api-key', 'test-api-key-123']]);
+  test('returns 400 when organization is missing in token', async () => {
+    verifyProvisioningToken.mockResolvedValue({
+      type: 'consumer',
+      marketplaceBaseUrl: 'https://marketplace.example.com',
+      consumerName: 'Consumer University',
+      aud: 'https://auth.example.com/auth',
+    });
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
     const req = new Request('http://localhost/api/institutions/registerConsumer', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'test-api-key-123'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         walletAddress: '0x1234567890123456789012345678901234567890',
-      }),
-    });
-
-    const res = await POST(req);
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toMatchObject({
-      error: 'Organization (schacHomeOrganization) is required',
-    });
-  });
-
-  test('returns 400 when organization is empty', async () => {
-    // Mock headers to return valid API key
-    const mockHeaders = new Map([['x-api-key', 'test-api-key-123']]);
-    headers.mockResolvedValue(mockHeaders);
-
-    const req = new Request('http://localhost/api/institutions/registerConsumer', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'test-api-key-123'
-      },
-      body: JSON.stringify({
-        walletAddress: '0x1234567890123456789012345678901234567890',
-        organization: ''
       }),
     });
 
@@ -248,11 +184,18 @@ describe('/api/institutions/registerConsumer route', () => {
   });
 
   test('executes grantInstitutionRole with server signer', async () => {
-    const mockHeaders = new Map([['x-api-key', 'test-api-key-123']]);
+    const mockHeaders = new Map([['authorization', 'Bearer test-token']]);
     headers.mockResolvedValue(mockHeaders);
 
     const walletAddress = '0x1234567890123456789012345678901234567890';
     const organization = 'Example.EDU';
+    verifyProvisioningToken.mockResolvedValue({
+      type: 'consumer',
+      marketplaceBaseUrl: 'https://marketplace.example.com',
+      consumerName: 'Consumer University',
+      consumerOrganization: organization,
+      aud: 'https://auth.example.com/auth',
+    });
 
     const grantRoleTx = {
       hash: '0xgrantrolehash',
@@ -265,6 +208,10 @@ describe('/api/institutions/registerConsumer route', () => {
 
     const writeContract = {
       grantInstitutionRole: jest.fn().mockResolvedValue(grantRoleTx),
+      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue({
+        hash: '0xbackendhash',
+        wait: jest.fn().mockResolvedValue({ hash: '0xbackendhash' }),
+      }),
     };
 
     getContractInstance.mockImplementation((_contractType = 'diamond', readOnly = true) =>
@@ -273,11 +220,8 @@ describe('/api/institutions/registerConsumer route', () => {
 
     const req = new Request('http://localhost/api/institutions/registerConsumer', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'test-api-key-123',
-      },
-      body: JSON.stringify({ walletAddress, organization }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ walletAddress }),
     });
 
     const res = await POST(req);
@@ -287,8 +231,14 @@ describe('/api/institutions/registerConsumer route', () => {
       walletAddress,
       organization: 'example.edu',
       grantRoleTxHash: '0xgrantrolehash',
+      backendUrl: 'https://auth.example.com',
     });
 
     expect(writeContract.grantInstitutionRole).toHaveBeenCalledWith(walletAddress, 'example.edu');
+    expect(writeContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalledWith(
+      walletAddress,
+      'example.edu',
+      'https://auth.example.com',
+    );
   });
 });

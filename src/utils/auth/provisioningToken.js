@@ -1,4 +1,13 @@
-import { SignJWT, importPKCS8, importSPKI, exportJWK, calculateJwkThumbprint } from 'jose';
+import {
+  SignJWT,
+  importPKCS8,
+  importSPKI,
+  exportJWK,
+  calculateJwkThumbprint,
+  decodeJwt,
+  importJWK,
+  jwtVerify,
+} from 'jose';
 import { createPublicKey, randomUUID } from 'crypto';
 import marketplaceJwtService from './marketplaceJwt';
 import devLog from '@/utils/dev/logger';
@@ -72,9 +81,8 @@ export function normalizeHttpsUrl(url, label) {
   }
 
   const protocol = parsed.protocol.toLowerCase();
-  const isDev = process.env.NODE_ENV !== 'production';
-  if (protocol !== 'https:' && !(isDev && protocol === 'http:')) {
-    throw new Error(`${label} must start with https://`);
+  if (protocol !== 'https:' && protocol !== 'http:') {
+    throw new Error(`${label} must start with http:// or https://`);
   }
 
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
@@ -107,4 +115,74 @@ export function requireApiKey(value) {
     throw new Error('API key must be at least 32 characters');
   }
   return key;
+}
+
+export function extractBearerToken(authorizationHeader) {
+  if (!authorizationHeader || typeof authorizationHeader !== 'string') {
+    return null;
+  }
+  const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+function normalizeAudienceValue(audience) {
+  if (typeof audience === 'string' && audience.trim()) {
+    return normalizeHttpsUrl(audience, 'Token audience');
+  }
+  if (Array.isArray(audience)) {
+    const normalized = audience
+      .filter((value) => typeof value === 'string' && value.trim())
+      .map((value) => normalizeHttpsUrl(value, 'Token audience'));
+    if (normalized.length > 0) {
+      return normalized.length === 1 ? normalized[0] : normalized;
+    }
+  }
+  throw new Error('Token audience is required');
+}
+
+function normalizeAudienceList(audience) {
+  const values = Array.isArray(audience) ? audience : [audience];
+  return values
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => normalizeHttpsUrl(value, 'Token audience'));
+}
+
+export async function verifyProvisioningToken(token, {
+  issuer,
+  clockToleranceSeconds = 60,
+} = {}) {
+  if (!token || typeof token !== 'string') {
+    throw new Error('Provisioning token is required');
+  }
+
+  const expectedIssuer = normalizeHttpsUrl(issuer, 'Marketplace base URL');
+  const decoded = decodeJwt(token);
+  const expectedAudience = decoded.publicBaseUrl
+    ? normalizeHttpsUrl(decoded.publicBaseUrl, 'Public base URL')
+    : normalizeAudienceValue(decoded.aud);
+
+  const { publicJwk } = await getKeyMaterial();
+  const publicKey = await importJWK(publicJwk, ALG);
+  const { payload } = await jwtVerify(token, publicKey, {
+    issuer: expectedIssuer,
+    audience: expectedAudience,
+    clockTolerance: clockToleranceSeconds,
+  });
+
+  if (payload.marketplaceBaseUrl) {
+    const claimMarketplaceBaseUrl = normalizeHttpsUrl(payload.marketplaceBaseUrl, 'Marketplace base URL');
+    if (claimMarketplaceBaseUrl !== expectedIssuer) {
+      throw new Error('Marketplace base URL mismatch');
+    }
+  }
+
+  if (payload.publicBaseUrl) {
+    const claimPublicBaseUrl = normalizeHttpsUrl(payload.publicBaseUrl, 'Public base URL');
+    const audienceList = normalizeAudienceList(payload.aud);
+    if (audienceList.length === 0 || !audienceList.includes(claimPublicBaseUrl)) {
+      throw new Error('Token audience must match public base URL');
+    }
+  }
+
+  return payload;
 }

@@ -3,6 +3,13 @@ import { headers } from 'next/headers';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import devLog from '@/utils/dev/logger';
+import {
+  extractBearerToken,
+  normalizeHttpsUrl,
+  requireEmail,
+  requireString,
+  verifyProvisioningToken,
+} from '@/utils/auth/provisioningToken';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -16,8 +23,8 @@ function validateAuthURI(authURI) {
 
   const trimmed = authURI.trim();
   
-  if (!trimmed.startsWith('https://')) {
-    return { valid: false, error: 'authURI must start with https://' };
+  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
+    return { valid: false, error: 'authURI must start with http:// or https://' };
   }
 
   if (trimmed.endsWith('/')) {
@@ -56,7 +63,7 @@ function normalizeBackendUrl(backendUrl) {
     trimmed = trimmed.slice(0, -5);
   }
 
-  if (!trimmed.startsWith('https://')) {
+  if (!trimmed.startsWith('https://') && !trimmed.startsWith('http://')) {
     return null;
   }
 
@@ -79,17 +86,6 @@ function deriveBackendUrlFromAuthURI(authURI) {
 }
 
 /**
- * Validate email format
- */
-function validateEmail(email) {
-  if (!email || typeof email !== 'string') {
-    return false;
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-/**
  * Validate Ethereum address
  */
 function validateAddress(address) {
@@ -103,25 +99,14 @@ function validateAddress(address) {
  * POST /api/institutions/registerProvider
  * Secure endpoint for blockchain-services to register as provider
  * Executes on-chain registration using server signer
- * Requires shared API key authentication
+ * Requires provisioning token authentication
  */
 export async function POST(request) {
   try {
     const headersList = await headers();
-    const apiKey = headersList.get('x-api-key');
-
-    // Validate API key
-    const expectedApiKey = process.env.INSTITUTIONAL_SERVICES_API_KEY;
-    if (!expectedApiKey) {
-      devLog.error('[API] registerProvider: INSTITUTIONAL_SERVICES_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    if (!apiKey || apiKey !== expectedApiKey) {
-      devLog.warn('[API] registerProvider: Invalid or missing API key');
+    const provisioningToken = extractBearerToken(headersList.get('authorization'));
+    if (!provisioningToken) {
+      devLog.warn('[API] registerProvider: Missing provisioning token');
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -129,16 +114,31 @@ export async function POST(request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { name, walletAddress, email, country, authURI, organization, backendUrl } = body;
+    const { walletAddress } = body;
 
-    // Validate required fields
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    const requestOrigin = request?.nextUrl?.origin || new URL(request.url).origin;
+    const marketplaceBaseUrl = normalizeHttpsUrl(
+      process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || requestOrigin,
+      'Marketplace base URL'
+    );
+    let payload;
+    try {
+      payload = await verifyProvisioningToken(provisioningToken, { issuer: marketplaceBaseUrl });
+    } catch (error) {
+      devLog.warn('[API] registerProvider: Invalid provisioning token', error);
       return NextResponse.json(
-        { error: 'Provider name is required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    if (payload.type === 'consumer') {
+      return NextResponse.json(
+        { error: 'Consumer provisioning token is not valid for provider registration' },
         { status: 400 }
       );
     }
 
+    // Validate required fields
     if (!validateAddress(walletAddress)) {
       return NextResponse.json(
         { error: 'Invalid wallet address format' },
@@ -146,41 +146,36 @@ export async function POST(request) {
       );
     }
 
-    if (!validateEmail(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
+    let providerName;
+    let providerEmail;
+    let providerCountry;
+    let providerOrganization;
+    let authValidation;
+    let normalizedBackendUrl;
 
-    if (!country || typeof country !== 'string' || country.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Country is required' },
-        { status: 400 }
-      );
-    }
+    try {
+      providerName = requireString(payload.providerName, 'Provider name');
+      providerEmail = requireEmail(payload.providerEmail, 'Provider email');
+      providerCountry = requireString(payload.providerCountry, 'Provider country');
+      providerOrganization = requireString(payload.providerOrganization, 'Provider organization');
+      const publicBaseUrl = normalizeHttpsUrl(payload.publicBaseUrl, 'Public base URL');
 
-    const authValidation = validateAuthURI(authURI);
-    if (!authValidation.valid) {
-      return NextResponse.json(
-        { error: authValidation.error },
-        { status: 400 }
-      );
-    }
+      let authURI = publicBaseUrl;
+      if (!authURI.endsWith('/auth')) {
+        authURI = `${authURI}/auth`;
+      }
+      authValidation = validateAuthURI(authURI);
+      if (!authValidation.valid) {
+        return NextResponse.json(
+          { error: authValidation.error },
+          { status: 400 }
+        );
+      }
 
-    const normalizedBackendUrl =
-      normalizeBackendUrl(backendUrl) || deriveBackendUrlFromAuthURI(authValidation.normalized);
-
-    if (backendUrl && !normalizedBackendUrl) {
+      normalizedBackendUrl = deriveBackendUrlFromAuthURI(authValidation.normalized);
+    } catch (error) {
       return NextResponse.json(
-        { error: 'Invalid backendUrl format (must be https:// and a base URL)' },
-        { status: 400 }
-      );
-    }
-
-    if (!organization || typeof organization !== 'string' || organization.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Organization (schacHomeOrganization) is required' },
+        { error: error.message || 'Invalid provisioning token payload' },
         { status: 400 }
       );
     }
@@ -191,7 +186,7 @@ export async function POST(request) {
     let needsRoleGrant = true;
 
     // Normalize organization domain to lowercase for consistency
-    const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(organization.trim());
+    const normalizedOrganization = marketplaceJwtService.normalizeOrganizationDomain(providerOrganization.trim());
 
     // Check if provider already exists
     try {
@@ -261,10 +256,10 @@ export async function POST(request) {
     if (needsRegistration) {
       devLog.log('[API] registerProvider: Adding provider', walletAddress);
       const addProviderTx = await writeContract.addProvider(
-        name.trim(),
+        providerName.trim(),
         walletAddress,
-        email.trim(),
-        country.trim(),
+        providerEmail.trim(),
+        providerCountry.trim(),
         authValidation.normalized
       );
       const addProviderReceipt = await addProviderTx.wait();
