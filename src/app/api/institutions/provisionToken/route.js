@@ -14,6 +14,21 @@ export const runtime = 'nodejs';
 
 const LOCKED_FIELDS = ['providerName', 'providerEmail', 'providerCountry', 'providerOrganization'];
 
+function deriveInstitutionLabel(domain) {
+  if (!domain || typeof domain !== 'string') {
+    return '';
+  }
+  const trimmed = domain.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const firstSegment = trimmed.split('.')[0];
+  if (!firstSegment) {
+    return '';
+  }
+  return firstSegment.toUpperCase();
+}
+
 export async function POST(request) {
   try {
     const session = await requireAuth();
@@ -41,19 +56,32 @@ export async function POST(request) {
       body.providerOrganization || session.affiliation || session.schacHomeOrganization || ''
     );
 
+    const providerNameCandidate =
+      body.providerName ||
+      session.organizationName ||
+      session.institutionName ||
+      deriveInstitutionLabel(organizationDomain);
     const providerName = requireString(
-      body.providerName || session.organizationName || session.name || organizationDomain,
+      providerNameCandidate || organizationDomain || session.name,
       'Provider name'
     );
     const providerEmail = requireEmail(session.email || session.mail || body.providerEmail, 'Provider email');
+    const responsiblePerson = (session.name || session.displayName || providerEmail || '').trim();
     const providerCountry = requireString(
-      body.providerCountry || process.env.PROVISIONING_DEFAULT_COUNTRY || 'ES',
+      body.providerCountry ||
+        session.country ||
+        session.countryCode ||
+        session.organizationCountry ||
+        session.organizationCountryCode ||
+        process.env.PROVISIONING_DEFAULT_COUNTRY ||
+        'ES',
       'Provider country'
     );
     const payload = {
       marketplaceBaseUrl,
       providerName,
       providerEmail,
+      responsiblePerson,
       providerCountry,
       providerOrganization: organizationDomain,
       publicBaseUrl,

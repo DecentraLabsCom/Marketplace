@@ -13,6 +13,21 @@ export const runtime = 'nodejs';
 
 const LOCKED_FIELDS = ['consumerOrganization'];
 
+function deriveInstitutionLabel(domain) {
+  if (!domain || typeof domain !== 'string') {
+    return '';
+  }
+  const trimmed = domain.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const firstSegment = trimmed.split('.')[0];
+  if (!firstSegment) {
+    return '';
+  }
+  return firstSegment.toUpperCase();
+}
+
 /**
  * POST /api/institutions/provisionConsumer
  * 
@@ -48,16 +63,24 @@ export async function POST(request) {
       body.consumerOrganization || session.affiliation || session.schacHomeOrganization || ''
     );
 
+    const consumerNameCandidate =
+      body.consumerName ||
+      session.organizationName ||
+      session.institutionName ||
+      deriveInstitutionLabel(organizationDomain);
     const consumerName = requireString(
-      body.consumerName || session.organizationName || session.name || organizationDomain,
+      consumerNameCandidate || organizationDomain || session.name,
       'Consumer institution name'
     );
+    const responsiblePerson = (session.name || session.displayName || session.email || session.mail || '').trim();
 
     const payload = {
       type: 'consumer', // Discriminator: consumer vs provider
       marketplaceBaseUrl,
       consumerName,
+      responsiblePerson,
       consumerOrganization: organizationDomain,
+      publicBaseUrl,
     };
 
     const { token, expiresAt } = await signProvisioningToken(payload, { issuer, audience, ttlSeconds });

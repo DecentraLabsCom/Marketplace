@@ -131,9 +131,13 @@ export async function parseSAMLResponse(samlResponse) {
         'country',
         'countryCode',
         'countryName',
+        'countryOfResidence',
+        'countryOfCitizenship',
         'urn:oid:2.5.4.6',
         'schacCountryOfResidence',
         'schacCountryOfCitizenship',
+        'urn:oid:1.3.6.1.4.1.25178.1.2.9',
+        'urn:oid:1.3.6.1.4.1.25178.1.2.10',
       ]);
       const normalizedCountry = normalizeCountryCode(country);
 
