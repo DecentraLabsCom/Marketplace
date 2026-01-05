@@ -320,7 +320,6 @@ export default function InstitutionInviteCard({
                 <div className="border rounded p-2 bg-gray-50">
                   <p className="font-semibold">{payload.type === 'consumer' ? 'Consumer' : 'Provider'}</p>
                   <p>{displayInstitutionName || rawInstitutionName}</p>
-                  {payload.providerEmail && <p>{payload.providerEmail}</p>}
                 </div>
               )}
               <div className="border rounded p-2 bg-gray-50">
