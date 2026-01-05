@@ -86,7 +86,7 @@ describe('InstitutionInviteCard', () => {
 
     await user.type(
       screen.getByLabelText(/Public base URL/i),
-      'https://institution.example.edu/auth'
+      'https://institution.example.edu'
     );
     await user.click(
       screen.getByRole('button', { name: /Generate Provisioning Token/i })
@@ -105,7 +105,7 @@ describe('InstitutionInviteCard', () => {
 
     await user.type(
       screen.getByLabelText(/Public base URL/i),
-      'https://institution.example.edu/auth'
+      'https://institution.example.edu'
     );
     await user.type(
       screen.getByLabelText(/Provider country/i),

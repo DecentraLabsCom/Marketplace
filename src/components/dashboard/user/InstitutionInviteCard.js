@@ -371,7 +371,7 @@ export default function InstitutionInviteCard({
               type="url"
               value={publicBaseUrl}
               onChange={(e) => setPublicBaseUrl(e.target.value)}
-              placeholder="https://institution.example.edu/auth"
+              placeholder="https://institution.example.edu"
             />
           </label>
 
@@ -400,7 +400,7 @@ export default function InstitutionInviteCard({
               type="url"
               value={publicBaseUrl}
               onChange={(e) => setPublicBaseUrl(e.target.value)}
-              placeholder="https://institution.example.edu/auth"
+              placeholder="https://institution.example.edu"
             />
           </label>
         </div>
