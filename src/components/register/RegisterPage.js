@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
  * Top-level page component for registration
  * Routes users either to:
  *  - Institutional registration (SSO + institutional admin roles) with Consumer/Provider choice, or
- *  - Manual institution registration form (wallet-based or SSO without institutional admin role), or
+ *  - Manual provider registration form (wallet-based or SSO without institutional admin role), or
  *  - Access denied, based on role validation.
  * @returns {JSX.Element} Registration page with role-based access control
  */
