@@ -266,6 +266,7 @@ export function useInstitutionalOnboarding({
 
   /**
    * Poll for onboarding completion
+   * Uses browser-direct calls to IB to bypass firewall restrictions
    */
   const pollForCompletion = useCallback(async (session = sessionData) => {
     if (!session?.sessionId || !session?.backendUrl) {
@@ -284,31 +285,66 @@ export function useInstitutionalOnboarding({
         }
 
         try {
-          const url = new URL(`/api/onboarding/status/${session.sessionId}`, window.location.origin)
-          url.searchParams.set('backendUrl', session.backendUrl)
-          url.searchParams.set('checkLocal', 'true')
+          // First check local callback cache (this is fast and doesn't hit IB)
+          const localUrl = new URL(`/api/onboarding/status/${session.sessionId}`, window.location.origin)
+          localUrl.searchParams.set('checkLocal', 'true')
 
-          const response = await fetch(url.toString(), { credentials: 'include' })
-          const data = await response.json()
+          const localResponse = await fetch(localUrl.toString(), { credentials: 'include' })
+          const localData = await localResponse.json()
 
-          if (data.status === 'SUCCESS' || data.status === 'COMPLETED') {
-            setState(OnboardingState.COMPLETED)
-            setIsOnboarded(true)
-            setSessionData(null)
-            sessionStorage.removeItem('onboarding_session')
-            return { success: true, ...data }
+          // If we got a definitive result from callback cache, use it
+          if (localData.source === 'callback') {
+            if (localData.status === 'SUCCESS' || localData.status === 'COMPLETED') {
+              setState(OnboardingState.COMPLETED)
+              setIsOnboarded(true)
+              setSessionData(null)
+              sessionStorage.removeItem('onboarding_session')
+              return { success: true, ...localData }
+            }
+
+            if (localData.status === 'FAILED' || localData.status === 'EXPIRED') {
+              setState(OnboardingState.FAILED)
+              setError(localData.error || 'Onboarding failed')
+              return { success: false, ...localData }
+            }
           }
 
-          if (data.status === 'FAILED' || data.status === 'EXPIRED') {
-            setState(OnboardingState.FAILED)
-            setError(data.error || 'Onboarding failed')
-            return { success: false, ...data }
+          // No callback received yet - check IB directly from browser (bypasses firewall)
+          devLog.debug('[useInstitutionalOnboarding] No callback yet, checking IB directly')
+          const ibResponse = await fetch(
+            `${session.backendUrl}/onboarding/webauthn/status/${session.sessionId}`,
+            {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+              signal: pollControllerRef.current?.signal
+            }
+          )
+
+          if (ibResponse.ok) {
+            const ibData = await ibResponse.json()
+
+            if (ibData.status === 'SUCCESS' || ibData.status === 'COMPLETED') {
+              setState(OnboardingState.COMPLETED)
+              setIsOnboarded(true)
+              setSessionData(null)
+              sessionStorage.removeItem('onboarding_session')
+              return { success: true, ...ibData }
+            }
+
+            if (ibData.status === 'FAILED' || ibData.status === 'EXPIRED') {
+              setState(OnboardingState.FAILED)
+              setError(ibData.error || 'Onboarding failed')
+              return { success: false, ...ibData }
+            }
           }
 
           // Still pending, wait and retry
           await new Promise(resolve => setTimeout(resolve, pollInterval))
 
         } catch (err) {
+          if (err.name === 'AbortError') {
+            return null
+          }
           devLog.warn('[useInstitutionalOnboarding] Poll error:', err)
           await new Promise(resolve => setTimeout(resolve, pollInterval))
         }

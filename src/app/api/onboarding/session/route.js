@@ -15,7 +15,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
-import { extractStableUserId, computeAssertionHash } from '@/utils/onboarding'
+import { extractStableUserId } from '@/utils/onboarding'
+import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import devLog from '@/utils/dev/logger'
 
 /**
