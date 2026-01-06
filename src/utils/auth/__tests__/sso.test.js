@@ -682,15 +682,15 @@ describe("SSO Utilities", () => {
 
       expect(result).toEqual({
         id: "user123",
-        email: undefined,
-        name: undefined,
+        email: null,
+        name: null,
         authType: "sso",
         isSSO: true,
-        affiliation: undefined,
-        role: undefined,
-        scopedRole: undefined,
-        organizationType: undefined,
-        personalUniqueCode: undefined,
+        affiliation: null,
+        role: null,
+        scopedRole: null,
+        organizationType: null,
+        personalUniqueCode: null,
         organizationName: null,
         samlAssertion: "saml-response",
       });
@@ -709,7 +709,7 @@ describe("SSO Utilities", () => {
 
       const result = await parseSAMLResponse("saml-response");
 
-      expect(result.id).toBeUndefined();
+      expect(result.id).toBeNull();
       expect(result.organizationName).toBeNull();
     });
 
@@ -724,7 +724,7 @@ describe("SSO Utilities", () => {
 
       const result = await parseSAMLResponse("saml-response");
 
-      expect(result.id).toBeUndefined();
+      expect(result.id).toBeNull();
       expect(result.organizationName).toBeNull();
     });
   });
