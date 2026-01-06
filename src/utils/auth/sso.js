@@ -125,6 +125,10 @@ export async function parseSAMLResponse(samlResponse) {
       }
 
       const attrs = samlAssertion?.user?.attributes || {};
+      
+      // Debug: log available attributes for troubleshooting
+      console.log('[SAML] Available attributes:', Object.keys(attrs));
+      
       const country = getFirstAttribute(attrs, [
         'c',
         'co',
@@ -141,26 +145,37 @@ export async function parseSAMLResponse(samlResponse) {
       ]);
       const normalizedCountry = normalizeCountryCode(country);
 
+      // Get schacHomeOrganization (try multiple attribute names/OIDs)
+      let affiliation = getFirstAttribute(attrs, [
+        'schacHomeOrganization',
+        'urn:oid:1.3.6.1.4.1.25178.1.2.9', // SCHAC OID for schacHomeOrganization
+      ]);
+      
+      // Fallback: extract domain from eduPersonScopedAffiliation (e.g., "student@uned.es" -> "uned.es")
+      if (!affiliation) {
+        const scopedAff = getFirstAttribute(attrs, [
+          'eduPersonScopedAffiliation',
+          'urn:oid:1.3.6.1.4.1.5923.1.1.1.9',
+        ]);
+        if (scopedAff && scopedAff.includes('@')) {
+          affiliation = scopedAff.split('@')[1];
+          devLog.log('[SAML] Derived affiliation from eduPersonScopedAffiliation:', affiliation);
+        }
+      }
+
       // Get user information from the assertion
       const userData = {
-        id: Array.isArray(attrs.uid) ? attrs.uid[0] : attrs.uid,
-        email: Array.isArray(attrs.mail) ? attrs.mail[0] : attrs.mail,
-        name: Array.isArray(attrs.displayName) ? attrs.displayName[0] : attrs.displayName,
+        id: getFirstAttribute(attrs, ['uid', 'urn:oid:0.9.2342.19200300.100.1.1']),
+        email: getFirstAttribute(attrs, ['mail', 'urn:oid:0.9.2342.19200300.100.1.3']),
+        name: getFirstAttribute(attrs, ['displayName', 'urn:oid:2.16.840.1.113730.3.1.241']),
         authType: 'sso',
         isSSO: true,
-        affiliation: Array.isArray(attrs.schacHomeOrganization) ? 
-                      attrs.schacHomeOrganization[0] : attrs.schacHomeOrganization,
-        role: Array.isArray(attrs.eduPersonAffiliation) ? 
-              attrs.eduPersonAffiliation[0] : attrs.eduPersonAffiliation,
-        scopedRole: Array.isArray(attrs.eduPersonScopedAffiliation) ? 
-                    attrs.eduPersonScopedAffiliation[0] : attrs.eduPersonScopedAffiliation,
-        organizationType: Array.isArray(attrs.schacHomeOrganizationType) ? 
-                         attrs.schacHomeOrganizationType[0] : attrs.schacHomeOrganizationType,
-        personalUniqueCode: Array.isArray(attrs.schacPersonalUniqueCode) ? 
-                                attrs.schacPersonalUniqueCode[0] : attrs.schacPersonalUniqueCode, 
-        organizationName: attrs.organizationName ? 
-                         (Array.isArray(attrs.organizationName) ? attrs.organizationName[0] : attrs.organizationName) 
-                         : null, // Optional - not all IdPs provide this
+        affiliation,
+        role: getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1']),
+        scopedRole: getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9']),
+        organizationType: getFirstAttribute(attrs, ['schacHomeOrganizationType', 'urn:oid:1.3.6.1.4.1.25178.1.2.10']),
+        personalUniqueCode: getFirstAttribute(attrs, ['schacPersonalUniqueCode', 'urn:oid:1.3.6.1.4.1.25178.1.2.14']),
+        organizationName: getFirstAttribute(attrs, ['organizationName', 'o', 'urn:oid:2.5.4.10']),
         samlAssertion: samlResponse, // Preserve raw Base64 assertion for downstream intents
       };
 
