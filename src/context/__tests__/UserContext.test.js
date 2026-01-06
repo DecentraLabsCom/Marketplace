@@ -289,10 +289,20 @@ describe("UserData Context", () => {
       });
 
       global.fetch.mockImplementation((url) => {
-        if (String(url).includes("/api/onboarding/init")) {
+        if (String(url).includes("/api/onboarding/session")) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ isOnboarded: true }),
+            json: async () => ({
+              status: 'ok',
+              payload: { stableUserId: 'test@uned.es' },
+              meta: { stableUserId: 'test@uned.es', institutionId: 'uned.es' }
+            }),
+          });
+        }
+        if (String(url).includes("/onboarding/webauthn/key-status/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ hasCredentials: true }),
           });
         }
         if (String(url).includes("/api/contract/institution/resolve")) {
@@ -302,6 +312,7 @@ describe("UserData Context", () => {
               registered: true,
               wallet: "0xabc",
               domain: "uned.es",
+              backendUrl: "https://sarlab.dia.uned.es",
             }),
           });
         }
@@ -339,10 +350,20 @@ describe("UserData Context", () => {
       });
 
       global.fetch.mockImplementation((url) => {
-        if (String(url).includes("/api/onboarding/init")) {
+        if (String(url).includes("/api/onboarding/session")) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ isOnboarded: true }),
+            json: async () => ({
+              status: 'ok',
+              payload: { stableUserId: 'test@example.edu' },
+              meta: { stableUserId: 'test@example.edu', institutionId: 'example.edu' }
+            }),
+          });
+        }
+        if (String(url).includes("/onboarding/webauthn/key-status/")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ hasCredentials: true }),
           });
         }
         if (String(url).includes("/api/contract/institution/resolve")) {

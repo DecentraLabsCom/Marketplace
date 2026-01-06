@@ -36,6 +36,8 @@ global.EventSource = mockEventSource
 const mockUserContext = {
   isSSO: true,
   user: { id: 'user123', email: 'test@university.edu' },
+  institutionBackendUrl: 'https://backend.example.com',
+  institutionDomain: 'university.edu',
 }
 
 const wrapper = ({ children }) => children
@@ -67,12 +69,26 @@ describe('useInstitutionalOnboarding', () => {
       expect(result.current.isCompleted).toBe(false)
       expect(result.current.hasBackend).toBe(true)
     })
+
+    it('should expose institutionBackendUrl and institutionDomain', () => {
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      expect(result.current.institutionBackendUrl).toBe('https://backend.example.com')
+      expect(result.current.institutionDomain).toBe('university.edu')
+    })
+
+    it('should report hasBackend=false when no backend URL', () => {
+      mockUseUser.mockReturnValueOnce({ ...mockUserContext, institutionBackendUrl: null })
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      expect(result.current.hasBackend).toBe(false)
+    })
   })
 
   describe('checkOnboardingStatus', () => {
     it('should return NOT_NEEDED for non-SSO users', async () => {
       // Mock non-SSO user
-      mockUseUser.mockReturnValueOnce({ isSSO: false, user: null })
+      mockUseUser.mockReturnValueOnce({ isSSO: false, user: null, institutionBackendUrl: null, institutionDomain: null })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
 
@@ -87,11 +103,19 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should handle successful check - onboarding needed', async () => {
+      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({
-          isOnboarded: false,
-          backendUrl: 'https://backend.example.com'
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
         })
+      })
+      // Mock IB status check - 404 means not onboarded yet
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -101,7 +125,7 @@ describe('useInstitutionalOnboarding', () => {
         statusResult = await result.current.checkOnboardingStatus()
       })
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/init', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/session', {
         method: 'GET',
         credentials: 'include',
       })
@@ -112,8 +136,19 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should handle successful check - already onboarded', async () => {
+      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ isOnboarded: true })
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB key-status check - has credentials
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredentials: true })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -130,11 +165,8 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should handle NO_BACKEND error', async () => {
-      mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({
-          error: 'NO_BACKEND_CONFIGURED'
-        })
-      })
+      // Mock no backend URL - set institutionBackendUrl to null
+      mockUseUser.mockReturnValueOnce({ ...mockUserContext, institutionBackendUrl: null })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
 
@@ -169,7 +201,7 @@ describe('useInstitutionalOnboarding', () => {
   describe('initiateOnboarding', () => {
     it('should fail for non-SSO users', async () => {
       // Mock non-SSO user
-      mockUseUser.mockReturnValueOnce({ isSSO: false, user: null })
+      mockUseUser.mockReturnValueOnce({ isSSO: false, user: null, institutionBackendUrl: null, institutionDomain: null })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
 
@@ -183,41 +215,53 @@ describe('useInstitutionalOnboarding', () => {
       expect(resultData).toBeNull()
     })
 
+    it('should fail when no backend URL', async () => {
+      mockUseUser.mockReturnValueOnce({ ...mockUserContext, institutionBackendUrl: null })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      let resultData
+      await act(async () => {
+        resultData = await result.current.initiateOnboarding()
+      })
+
+      expect(result.current.state).toBe(OnboardingState.NO_BACKEND)
+      expect(result.current.error).toBe('Institution backend URL not available')
+      expect(resultData).toBeNull()
+    })
+
     it('should handle successful initiation', async () => {
-      const mockResponse = {
+      // Mock session endpoint response
+      const mockSessionResponse = {
+        status: 'ok',
+        payload: {
+          stableUserId: 'stable123',
+          institutionId: 'university.edu',
+          displayName: 'Test User',
+          callbackUrl: 'https://example.com/callback'
+        },
+        meta: {
+          stableUserId: 'stable123',
+          institutionId: 'university.edu',
+          email: 'test@university.edu',
+          displayName: 'Test User'
+        }
+      }
+
+      // Mock IB response
+      const mockIBResponse = {
         sessionId: 'session123',
         ceremonyUrl: 'https://ceremony.example.com',
-        backendUrl: 'https://backend.example.com',
-        stableUserId: 'stable123',
-        institutionId: 'inst123'
+        expiresAt: Date.now() + 3600000
       }
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve(mockResponse)
+        json: () => Promise.resolve(mockSessionResponse)
       })
-
-      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
-
-      let resultData
-      await act(async () => {
-        resultData = await result.current.initiateOnboarding()
-      })
-
-      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/init', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      expect(result.current.state).toBe(OnboardingState.REDIRECTING)
-      expect(result.current.sessionData).toEqual(mockResponse)
-      expect(resultData).toEqual(mockResponse)
-    })
-
-    it('should handle already onboarded response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ status: 'already_onboarded' })
+        json: () => Promise.resolve(mockIBResponse)
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -227,16 +271,29 @@ describe('useInstitutionalOnboarding', () => {
         resultData = await result.current.initiateOnboarding()
       })
 
-      expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
-      expect(result.current.isOnboarded).toBe(true)
-      expect(resultData).toEqual({ alreadyOnboarded: true })
+      // Should call session endpoint first
+      expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/session', {
+        method: 'GET',
+        credentials: 'include',
+      })
+      // Then call IB directly
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://backend.example.com/onboarding/webauthn/options',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      expect(result.current.state).toBe(OnboardingState.REDIRECTING)
+      expect(result.current.sessionData.sessionId).toBe('session123')
+      expect(resultData.sessionId).toBe('session123')
     })
 
-    it('should handle initiation errors', async () => {
+    it('should handle session fetch error', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
-        status: 500,
-        json: () => Promise.resolve({ error: 'Server error' })
+        status: 401,
+        json: () => Promise.resolve({ error: 'Unauthorized' })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -247,7 +304,36 @@ describe('useInstitutionalOnboarding', () => {
       })
 
       expect(result.current.state).toBe(OnboardingState.FAILED)
-      expect(result.current.error).toBe('Server error')
+      expect(result.current.error).toBe('Unauthorized')
+      expect(resultData).toBeNull()
+    })
+
+    it('should handle IB call error', async () => {
+      // Mock session endpoint success
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB failure
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal server error')
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      let resultData
+      await act(async () => {
+        resultData = await result.current.initiateOnboarding()
+      })
+
+      expect(result.current.state).toBe(OnboardingState.FAILED)
+      expect(result.current.error).toContain('IB request failed')
       expect(resultData).toBeNull()
     })
   })
@@ -260,12 +346,25 @@ describe('useInstitutionalOnboarding', () => {
         ceremonyUrl: mockCeremonyUrl,
         backendUrl: 'https://backend.example.com',
         stableUserId: 'stable123',
-        institutionId: 'inst123'
+        institutionId: 'university.edu'
       }
 
+      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve(mockSessionData)
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'stable123', institutionId: 'university.edu' },
+          meta: { stableUserId: 'stable123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          sessionId: 'session123',
+          ceremonyUrl: mockCeremonyUrl,
+        })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -387,9 +486,20 @@ describe('useInstitutionalOnboarding', () => {
   })
 
   describe('startOnboarding', () => {
-    it('should complete full flow when onboarding not needed', async () => {
+    it('should complete full flow when already onboarded', async () => {
+      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ isOnboarded: true })
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB key-status - has credentials
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredentials: true })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -404,23 +514,39 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should complete full flow with redirect when onboarding needed', async () => {
-      const mockInitResponse = {
-        sessionId: 'session123',
-        ceremonyUrl: 'https://ceremony.example.com',
-        backendUrl: 'https://backend.example.com'
-      }
-
-      mockFetch
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ isOnboarded: false, backendUrl: 'https://backend.example.com' })
+      // Mock session endpoint (for checkOnboardingStatus)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
         })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve(mockInitResponse)
+      })
+      // Mock IB status - 404 means not onboarded
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      })
+      // Mock session endpoint (for initiateOnboarding)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
         })
+      })
+      // Mock IB init response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          sessionId: 'session123',
+          ceremonyUrl: 'https://ceremony.example.com'
+        })
+      })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
-
 
       let flowResult
       await act(async () => {
@@ -436,11 +562,15 @@ describe('useInstitutionalOnboarding', () => {
     it('should reset all state', async () => {
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
 
+      // Mock session endpoint to fail to put hook in FAILED state
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       await act(async () => {
         await result.current.checkOnboardingStatus()
       })
+
+      // Verify we're in FAILED state
+      expect(result.current.state).toBe(OnboardingState.FAILED)
 
       act(() => {
         result.current.reset()
@@ -455,14 +585,25 @@ describe('useInstitutionalOnboarding', () => {
 
   describe('auto-check functionality', () => {
     it('should auto-check on mount when enabled', async () => {
+      // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ isOnboarded: true })
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB key-status - has credentials
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredentials: true })
       })
 
       renderHook(() => useInstitutionalOnboarding({ autoCheck: true }), { wrapper })
 
       await waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/init', {
+        expect(mockFetch).toHaveBeenCalledWith('/api/onboarding/session', {
           method: 'GET',
           credentials: 'include',
         })

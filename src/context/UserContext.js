@@ -73,6 +73,7 @@ function UserDataCore({ children }) {
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
     const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
     const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
+    const [institutionBackendUrl, setInstitutionBackendUrl] = useState(null);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -190,29 +191,73 @@ function UserDataCore({ children }) {
             return;
         }
 
+        // Need backend URL to check onboarding status
+        if (!institutionBackendUrl) {
+            devLog.log('[InstitutionalOnboarding] No backend URL available');
+            setInstitutionalOnboardingStatus('no_backend');
+            setShowOnboardingModal(false);
+            return;
+        }
+
         let cancelled = false;
 
         const checkInstitutionalOnboarding = async () => {
             try {
                 devLog.log('[InstitutionalOnboarding] Checking status for SSO user...');
                 
-                const response = await fetch('/api/onboarding/init', {
+                // Step 1: Get session data from our API (no external calls)
+                const sessionResponse = await fetch('/api/onboarding/session', {
                     method: 'GET',
                     credentials: 'include',
                 });
 
                 if (cancelled) return;
 
-                const data = await response.json().catch(() => ({}));
-
-                if (data.error?.includes('NO_BACKEND') || data.noBackend) {
-                    devLog.log('[InstitutionalOnboarding] No backend configured for institution');
-                    setInstitutionalOnboardingStatus('no_backend');
-                    setShowOnboardingModal(false);
+                if (!sessionResponse.ok) {
+                    devLog.warn('[InstitutionalOnboarding] Session fetch failed:', sessionResponse.status);
+                    setInstitutionalOnboardingStatus('error');
                     return;
                 }
 
-                if (data.isOnboarded) {
+                const sessionData = await sessionResponse.json();
+                const stableUserId = sessionData.meta?.stableUserId;
+
+                if (!stableUserId) {
+                    devLog.warn('[InstitutionalOnboarding] No stableUserId in session');
+                    setInstitutionalOnboardingStatus('error');
+                    return;
+                }
+
+                // Step 2: Check if user has credentials directly with IB
+                const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}`;
+                
+                const statusResponse = await fetch(statusUrl, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+
+                if (cancelled) return;
+
+                // 404 means not onboarded yet
+                if (statusResponse.status === 404) {
+                    devLog.log('[InstitutionalOnboarding] User needs onboarding');
+                    setInstitutionalOnboardingStatus('required');
+                    setShowOnboardingModal(true);
+                    return;
+                }
+
+                if (!statusResponse.ok) {
+                    // Non-404 error - assume needs onboarding
+                    devLog.warn('[InstitutionalOnboarding] Status check failed:', statusResponse.status);
+                    setInstitutionalOnboardingStatus('required');
+                    setShowOnboardingModal(true);
+                    return;
+                }
+
+                const statusData = await statusResponse.json();
+
+                // key-status endpoint returns { hasCredentials: boolean }
+                if (statusData.hasCredentials) {
                     devLog.log('[InstitutionalOnboarding] User already onboarded');
                     setInstitutionalOnboardingStatus('completed');
                     return;
@@ -235,7 +280,7 @@ function UserDataCore({ children }) {
         return () => {
             cancelled = true;
         };
-    }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus]);
+    }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl]);
 
     // Check whether the institution is already registered on-chain (for SSO users)
     useEffect(() => {
@@ -274,9 +319,11 @@ function UserDataCore({ children }) {
                 if (data.registered) {
                     setInstitutionRegistrationStatus('registered');
                     setInstitutionRegistrationWallet(data.wallet || null);
+                    setInstitutionBackendUrl(data.backendUrl || null);
                 } else {
                     setInstitutionRegistrationStatus('unregistered');
                     setInstitutionRegistrationWallet(null);
+                    setInstitutionBackendUrl(null);
                 }
             } catch (error) {
                 if (cancelled) return;
@@ -300,6 +347,7 @@ function UserDataCore({ children }) {
             setShowOnboardingModal(false);
             setInstitutionRegistrationStatus(null);
             setInstitutionRegistrationWallet(null);
+            setInstitutionBackendUrl(null);
         }
     }, [isSSO, user]);
 
@@ -728,6 +776,8 @@ function UserDataCore({ children }) {
         isInstitutionallyOnboarded: institutionalOnboardingStatus === 'completed',
         institutionRegistrationStatus,
         institutionRegistrationWallet,
+        institutionBackendUrl,
+        institutionDomain,
         isInstitutionRegistered: institutionRegistrationStatus === 'registered',
         isInstitutionRegistrationLoading: institutionRegistrationStatus === 'checking',
         

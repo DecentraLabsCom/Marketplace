@@ -46,7 +46,7 @@ export function useInstitutionalOnboarding({
   pollInterval = 2000,
   pollTimeout = 120000,
 } = {}) {
-  const { isSSO, user } = useUser()
+  const { isSSO, user, institutionBackendUrl, institutionDomain } = useUser()
   
   const [state, setState] = useState(OnboardingState.IDLE)
   const [error, setError] = useState(null)
@@ -58,7 +58,8 @@ export function useInstitutionalOnboarding({
   const eventSourceRef = useRef(null)
 
   /**
-   * Check if user needs onboarding
+   * Check if user needs onboarding.
+   * Uses browser-direct call to IB to bypass firewall restrictions.
    */
   const checkOnboardingStatus = useCallback(async () => {
     if (!isSSO || !user) {
@@ -66,24 +67,64 @@ export function useInstitutionalOnboarding({
       return { needed: false, reason: 'Not SSO user' }
     }
 
+    // Check if we have the backend URL from smart contract resolution
+    if (!institutionBackendUrl) {
+      setState(OnboardingState.NO_BACKEND)
+      setIsOnboarded(false)
+      return { needed: false, reason: 'No backend configured', noBackend: true }
+    }
+
     setState(OnboardingState.CHECKING)
     setError(null)
 
     try {
-      const response = await fetch('/api/onboarding/init', {
+      // Get session data to extract stableUserId
+      const sessionResponse = await fetch('/api/onboarding/session', {
         method: 'GET',
         credentials: 'include',
       })
 
-      const data = await response.json()
-
-      if (data.error?.includes('NO_BACKEND')) {
-        setState(OnboardingState.NO_BACKEND)
-        setIsOnboarded(false)
-        return { needed: false, reason: 'No backend configured', noBackend: true }
+      if (!sessionResponse.ok) {
+        const err = await sessionResponse.json().catch(() => ({}))
+        throw new Error(err.error || `Session fetch failed: ${sessionResponse.status}`)
       }
 
-      if (data.isOnboarded) {
+      const sessionData = await sessionResponse.json()
+      const stableUserId = sessionData.meta?.stableUserId
+
+      if (!stableUserId) {
+        throw new Error('Cannot determine stable user ID')
+      }
+
+      // Check if user has credentials directly with IB
+      const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}`
+      
+      const statusResponse = await fetch(statusUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      // If endpoint doesn't exist or returns 404, assume not onboarded yet
+      if (statusResponse.status === 404) {
+        setState(OnboardingState.REQUIRED)
+        setIsOnboarded(false)
+        return { needed: true, backendUrl: institutionBackendUrl }
+      }
+
+      if (!statusResponse.ok) {
+        // Non-404 error - treat as needing onboarding (can't confirm status)
+        devLog.warn('[useInstitutionalOnboarding] Status check failed:', statusResponse.status)
+        setState(OnboardingState.REQUIRED)
+        setIsOnboarded(false)
+        return { needed: true, backendUrl: institutionBackendUrl }
+      }
+
+      const statusData = await statusResponse.json()
+
+      // key-status endpoint returns { hasCredentials: boolean }
+      if (statusData.hasCredentials) {
         setState(OnboardingState.NOT_NEEDED)
         setIsOnboarded(true)
         return { needed: false, isOnboarded: true }
@@ -91,7 +132,7 @@ export function useInstitutionalOnboarding({
 
       setState(OnboardingState.REQUIRED)
       setIsOnboarded(false)
-      return { needed: true, backendUrl: data.backendUrl }
+      return { needed: true, backendUrl: institutionBackendUrl }
 
     } catch (err) {
       devLog.error('[useInstitutionalOnboarding] Check failed:', err)
@@ -99,11 +140,12 @@ export function useInstitutionalOnboarding({
       setState(OnboardingState.FAILED)
       return { needed: false, error: err.message }
     }
-  }, [isSSO, user])
+  }, [isSSO, user, institutionBackendUrl])
 
   /**
-   * Start the onboarding process
-   * Returns the ceremony URL for redirect
+   * Start the onboarding process using browser-direct IB calls.
+   * This bypasses server-side calls that may be blocked by firewalls.
+   * Returns the ceremony URL for redirect.
    */
   const initiateOnboarding = useCallback(async () => {
     if (!isSSO || !user) {
@@ -112,38 +154,80 @@ export function useInstitutionalOnboarding({
       return null
     }
 
+    // Check if we have the backend URL from smart contract resolution
+    if (!institutionBackendUrl) {
+      setError('Institution backend URL not available')
+      setState(OnboardingState.NO_BACKEND)
+      return null
+    }
+
     setState(OnboardingState.INITIATING)
     setError(null)
 
     try {
-      const response = await fetch('/api/onboarding/init', {
-        method: 'POST',
+      // Step 1: Get session data from our API (no external calls)
+      const sessionResponse = await fetch('/api/onboarding/session', {
+        method: 'GET',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || `Request failed: ${response.status}`)
+      if (!sessionResponse.ok) {
+        const sessionError = await sessionResponse.json().catch(() => ({}))
+        throw new Error(sessionError.error || `Session fetch failed: ${sessionResponse.status}`)
       }
 
-      if (data.status === 'already_onboarded') {
-        setState(OnboardingState.NOT_NEEDED)
-        setIsOnboarded(true)
-        return { alreadyOnboarded: true }
+      const sessionData = await sessionResponse.json()
+      
+      if (!sessionData.payload) {
+        throw new Error('Invalid session data response')
+      }
+
+      devLog.log('[useInstitutionalOnboarding] Got session data, calling IB directly:', institutionBackendUrl)
+
+      // Step 2: Call the IB directly from the browser
+      const ibResponse = await fetch(`${institutionBackendUrl}/onboarding/webauthn/options`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sessionData.payload),
+      })
+
+      if (!ibResponse.ok) {
+        const ibError = await ibResponse.text().catch(() => 'Unknown error')
+        throw new Error(`IB request failed: ${ibResponse.status} - ${ibError}`)
+      }
+
+      const ibData = await ibResponse.json()
+
+      if (!ibData.sessionId) {
+        throw new Error('Missing sessionId in IB response')
+      }
+
+      // Build ceremony URL if not provided
+      const ceremonyUrl = ibData.ceremonyUrl || `${institutionBackendUrl}/onboarding/webauthn/ceremony/${ibData.sessionId}`
+
+      const resultData = {
+        status: 'initiated',
+        sessionId: ibData.sessionId,
+        ceremonyUrl,
+        backendUrl: institutionBackendUrl,
+        stableUserId: sessionData.meta.stableUserId,
+        institutionId: sessionData.meta.institutionId,
+        expiresAt: ibData.expiresAt || null,
       }
 
       setSessionData({
-        sessionId: data.sessionId,
-        ceremonyUrl: data.ceremonyUrl,
-        backendUrl: data.backendUrl,
-        stableUserId: data.stableUserId,
-        institutionId: data.institutionId,
+        sessionId: resultData.sessionId,
+        ceremonyUrl: resultData.ceremonyUrl,
+        backendUrl: resultData.backendUrl,
+        stableUserId: resultData.stableUserId,
+        institutionId: resultData.institutionId,
       })
 
       setState(OnboardingState.REDIRECTING)
-      return data
+      devLog.log('[useInstitutionalOnboarding] IB session created:', ibData.sessionId)
+      return resultData
 
     } catch (err) {
       devLog.error('[useInstitutionalOnboarding] Initiate failed:', err)
@@ -151,7 +235,7 @@ export function useInstitutionalOnboarding({
       setState(OnboardingState.FAILED)
       return null
     }
-  }, [isSSO, user])
+  }, [isSSO, user, institutionBackendUrl])
 
   /**
    * Redirect to the IB ceremony page
@@ -439,6 +523,8 @@ export function useInstitutionalOnboarding({
     error,
     isOnboarded,
     sessionData,
+    institutionBackendUrl,
+    institutionDomain,
     
     // Computed
     isLoading: [
@@ -448,7 +534,7 @@ export function useInstitutionalOnboarding({
     ].includes(state),
     needsOnboarding: state === OnboardingState.REQUIRED,
     isCompleted: state === OnboardingState.COMPLETED || isOnboarded === true,
-    hasBackend: state !== OnboardingState.NO_BACKEND,
+    hasBackend: state !== OnboardingState.NO_BACKEND && !!institutionBackendUrl,
     
     // Actions
     checkOnboardingStatus,
