@@ -104,22 +104,14 @@ describe("Login", () => {
       expect(screen.queryByText("Choose Login Method")).not.toBeInTheDocument();
     });
 
-    test("shows connect wallet button for SSO users without wallet", () => {
-      useUser.mockReturnValue({ isLoggedIn: true, isSSO: true, isConnected: false });
-
-      render(<Login />);
-
-      expect(screen.getByTestId("account")).toBeInTheDocument();
-      expect(screen.getByText("Connect wallet")).toBeInTheDocument();
-    });
-
-    test("hides connect wallet button when SSO user has wallet connected", () => {
-      useUser.mockReturnValue({ isLoggedIn: true, isSSO: true, isConnected: true });
+    test("shows Account component for SSO users (no wallet connection option)", () => {
+      useUser.mockReturnValue({ isLoggedIn: true, isSSO: true });
 
       render(<Login />);
 
       expect(screen.getByTestId("account")).toBeInTheDocument();
       expect(screen.queryByText("Connect wallet")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("login-button")).not.toBeInTheDocument();
     });
   });
 
@@ -164,17 +156,6 @@ describe("Login", () => {
       fireEvent.click(modalCard);
 
       expect(screen.getByText("Choose Login Method")).toBeInTheDocument();
-    });
-
-    test("shows wallet-only modal for SSO connect wallet flow", async () => {
-      useUser.mockReturnValue({ isLoggedIn: true, isSSO: true, isConnected: false });
-
-      render(<Login />);
-      fireEvent.click(screen.getByText("Connect wallet"));
-
-      expect(screen.getByText("Connect Wallet")).toBeInTheDocument();
-      expect(await screen.findByTestId("wallet-login")).toBeInTheDocument();
-      expect(screen.queryByTestId("institutional-login")).not.toBeInTheDocument();
     });
   });
 

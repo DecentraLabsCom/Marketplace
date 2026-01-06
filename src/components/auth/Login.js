@@ -24,7 +24,7 @@ export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const toggleModal = () => setIsModalOpen(!isModalOpen);
 
-  const { isLoggedIn, isSSO, isConnected } = useUser();
+  const { isLoggedIn, isSSO } = useUser();
 
   // Close modal on Escape key press
   useEffect(() => {
@@ -40,44 +40,9 @@ export default function Login() {
   // Wallet-only users: show account summary + logout
   if (isLoggedIn && !isSSO) return <Account />;
 
-  // SSO users: show account summary and, if no wallet connected, a dedicated
-  // "Connect wallet" button that opens the wallet login modal.
+  // SSO users: show account summary only (wallet connection not supported for SSO users)
   if (isLoggedIn && isSSO) {
-    return (
-      <div className="flex items-center space-x-3">
-        <Account />
-        {!isConnected && (
-          <>
-            <Button 
-              variant="primary" 
-              onClick={toggleModal}
-              className="flex items-center space-x-2"
-            >
-              <span>Connect wallet</span>
-            </Button>
-            {isModalOpen && (
-              <div 
-                className="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
-                onClick={toggleModal}
-              >
-                <Card 
-                  variant="modal"
-                  className="w-96"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <CardHeader title="Connect Wallet" />
-                  <CardContent>
-                    <div className="flex flex-col space-y-3">
-                      <WalletLogin setIsModalOpen={setIsModalOpen} />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    );
+    return <Account />;
   }
 
   return (
