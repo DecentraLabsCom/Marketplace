@@ -46,12 +46,17 @@ export async function buildRegistrationOptions(session, request) {
 
   const existing = getCredentialForUser(puc)
 
+  // Use puc as the primary identifier, fall back to email/id
+  const userIdentifier = session?.email || session?.id || puc
+  // Convert userID to Uint8Array as required by @simplewebauthn/server v13+
+  const userIDBytes = new TextEncoder().encode(userIdentifier)
+
   const options = await generateRegistrationOptions({
     rpName,
     rpID,
-    userName: session?.email || session?.id || puc,
+    userName: userIdentifier,
     userDisplayName: session?.name || session?.email || puc,
-    userID: session?.id || session?.email || puc,
+    userID: userIDBytes,
     attestationType: 'indirect',
     authenticatorSelection: {
       userVerification: 'required',
