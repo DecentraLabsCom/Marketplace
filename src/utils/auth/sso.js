@@ -127,7 +127,7 @@ export async function parseSAMLResponse(samlResponse) {
       const attrs = samlAssertion?.user?.attributes || {};
       
       // Debug: log available attributes for troubleshooting
-      console.log('[SAML] Available attributes:', Object.keys(attrs));
+      console.log('[SAML] Available attributes: ' + Object.keys(attrs));
       
       const country = getFirstAttribute(attrs, [
         'c',
