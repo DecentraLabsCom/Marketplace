@@ -105,8 +105,11 @@ function UserDataCore({ children }) {
         }
     }, [queryClient, refetchSSO]);
 
-    // Auto-register WebAuthn credential on first SAML login
+    // Auto-register WebAuthn credential on first SAML login (now opt-in via env flag)
     useEffect(() => {
+        if (!NEXT_PUBLIC_WEBAUTHN_BOOTSTRAP_ENABLED) {
+            return;
+        }
         if (!isSSO || !user || webAuthnBootstrapDone) {
             return;
         }
@@ -247,10 +250,10 @@ function UserDataCore({ children }) {
                 }
 
                 if (!statusResponse.ok) {
-                    // Non-404 error - assume needs onboarding
-                    devLog.warn('[InstitutionalOnboarding] Status check failed:', statusResponse.status);
-                    setInstitutionalOnboardingStatus('required');
-                    setShowOnboardingModal(true);
+                    // Backend unreachable or errored; do not block the user with a modal
+                    devLog.warn('[InstitutionalOnboarding] Status check failed, skipping modal:', statusResponse.status);
+                    setInstitutionalOnboardingStatus('error');
+                    setShowOnboardingModal(false);
                     return;
                 }
 
