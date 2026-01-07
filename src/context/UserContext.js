@@ -107,7 +107,9 @@ function UserDataCore({ children }) {
 
     // Auto-register WebAuthn credential on first SAML login (now opt-in via env flag)
     useEffect(() => {
-        if (!NEXT_PUBLIC_WEBAUTHN_BOOTSTRAP_ENABLED) {
+        const bootstrapEnabled = process.env.NEXT_PUBLIC_WEBAUTHN_BOOTSTRAP_ENABLED === 'true';
+
+        if (!bootstrapEnabled) {
             return;
         }
         if (!isSSO || !user || webAuthnBootstrapDone) {
