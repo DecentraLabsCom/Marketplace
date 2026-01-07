@@ -48,11 +48,19 @@ export function BookingEventProvider({ children }) {
         }
 
         try {
-            const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`);
-            if (!response.ok) {
-                return null;
-            }
-            return response.json();
+            // Use React Query cache for reservation details
+            const data = await queryClient.fetchQuery({
+                queryKey: bookingQueryKeys.byReservationKey(reservationKey),
+                queryFn: async () => {
+                    const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch reservation: ${response.status}`);
+                    }
+                    return response.json();
+                },
+                staleTime: 5000, // 5 seconds - event-driven updates are recent
+            });
+            return data;
         } catch (error) {
             devLog.error(`❌ [BookingEventContext] Failed to fetch reservation ${reservationKey} details:`, error);
             return null;

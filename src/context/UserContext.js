@@ -7,7 +7,8 @@ import {
   useSSOSessionQuery, 
   useIsLabProvider, 
   useGetLabProviders,
-  useUserCacheUpdates
+  useUserCacheUpdates,
+  useInstitutionResolve
 } from '@/hooks/user/useUsers'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
@@ -288,62 +289,56 @@ function UserDataCore({ children }) {
     }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl]);
 
     // Check whether the institution is already registered on-chain (for SSO users)
+    // Using React Query for automatic caching, retry, and deduplication
+    const {
+        data: institutionData,
+        isLoading: isInstitutionResolveLoading,
+        error: institutionResolveError,
+    } = useInstitutionResolve(institutionDomain, {
+        enabled: isSSO && Boolean(user) && Boolean(institutionDomain),
+    });
+
+    // Sync React Query state to local state for backward compatibility
     useEffect(() => {
         if (!isSSO || !user) {
             setInstitutionRegistrationStatus(null);
             setInstitutionRegistrationWallet(null);
+            setInstitutionBackendUrl(null);
             return;
         }
 
         if (!institutionDomain) {
             setInstitutionRegistrationStatus('error');
             setInstitutionRegistrationWallet(null);
+            setInstitutionBackendUrl(null);
             return;
         }
 
-        let cancelled = false;
-
-        const checkInstitutionRegistration = async () => {
+        if (isInstitutionResolveLoading) {
             setInstitutionRegistrationStatus('checking');
-            try {
-                const response = await fetch(
-                    `/api/contract/institution/resolve?domain=${encodeURIComponent(institutionDomain)}`,
-                    {
-                        method: 'GET',
-                        credentials: 'include',
-                    }
-                );
+            return;
+        }
 
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(data.error || `Failed to resolve institution (${response.status})`);
-                }
+        if (institutionResolveError) {
+            devLog.warn('[InstitutionRegistration] Resolve failed:', institutionResolveError);
+            setInstitutionRegistrationStatus('error');
+            setInstitutionRegistrationWallet(null);
+            setInstitutionBackendUrl(null);
+            return;
+        }
 
-                if (cancelled) return;
-
-                if (data.registered) {
-                    setInstitutionRegistrationStatus('registered');
-                    setInstitutionRegistrationWallet(data.wallet || null);
-                    setInstitutionBackendUrl(data.backendUrl || null);
-                } else {
-                    setInstitutionRegistrationStatus('unregistered');
-                    setInstitutionRegistrationWallet(null);
-                    setInstitutionBackendUrl(null);
-                }
-            } catch (error) {
-                if (cancelled) return;
-                devLog.warn('[InstitutionRegistration] Resolve failed:', error);
-                setInstitutionRegistrationStatus('error');
+        if (institutionData) {
+            if (institutionData.registered) {
+                setInstitutionRegistrationStatus('registered');
+                setInstitutionRegistrationWallet(institutionData.wallet || null);
+                setInstitutionBackendUrl(institutionData.backendUrl || null);
+            } else {
+                setInstitutionRegistrationStatus('unregistered');
                 setInstitutionRegistrationWallet(null);
+                setInstitutionBackendUrl(null);
             }
-        };
-
-        checkInstitutionRegistration();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [isSSO, user, institutionDomain]);
+        }
+    }, [isSSO, user, institutionDomain, institutionData, isInstitutionResolveLoading, institutionResolveError]);
 
     // Reset institutional onboarding status on logout
     useEffect(() => {

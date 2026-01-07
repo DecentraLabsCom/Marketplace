@@ -22,6 +22,12 @@
 // Export all variants (SSO, Wallet, Router) from atomic queries
 export * from './useUserAtomicQueries'
 
+// Institution resolution
+export { useInstitutionResolve, institutionQueryKeys } from './useInstitutionResolve'
+
+// Onboarding session
+export { useOnboardingSession, onboardingSessionQueryKeys } from './useOnboardingSession'
+
 // ===== ATOMIC MUTATION HOOKS =====
 export {
   // Provider Mutations - Wallet variants

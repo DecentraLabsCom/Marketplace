@@ -64,6 +64,8 @@ export default function Navbar() {
     if (!user) return false;
     if (!hasAdminRole(user.role, user.scopedRole)) return false;
     if (isInstitutionRegistrationPending) return false;
+    // If registration check failed, don't show register button (avoid false positive)
+    if (institutionRegistrationStatus === 'error') return false;
     return !isInstitutionRegistered;
   };
 
