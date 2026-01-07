@@ -28,6 +28,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       <input
         type="number"
         step="any"
+        min="0"
         placeholder="Price per hour"
         value={localLab?.price || ''}
         onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}

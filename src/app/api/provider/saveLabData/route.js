@@ -255,7 +255,7 @@ export async function POST(req) {
       description: description || "",
       image: images && images.length > 0 ? images[0] : "",
       attributes: [
-        { trait_type: "category", value: category || "" },
+        { trait_type: "category", value: Array.isArray(category) ? category : (category || "") },
         { trait_type: "keywords", value: Array.isArray(keywords) ? 
           keywords : (keywords ? keywords.split(',').map(k => k.trim()) : []) },
         { trait_type: "timeSlots", value: Array.isArray(timeSlots) ? 

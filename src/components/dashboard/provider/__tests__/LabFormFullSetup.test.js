@@ -37,6 +37,8 @@ jest.mock("lucide-react", () => ({
   Plus: () => <span data-testid="plus-icon">Plus</span>,
   Trash2: () => <span data-testid="trash-icon">Trash</span>,
   Loader2: () => <span data-testid="loader-icon">Loader</span>,
+  X: () => <span data-testid="x-icon">X</span>,
+  ChevronDown: () => <span data-testid="chevron-down-icon">ChevronDown</span>,
 }));
 
 // Mock CalendarInput component
@@ -94,7 +96,7 @@ import LabFormFullSetup from "../LabFormFullSetup";
 const mockLab = {
   id: "1",
   name: "Test Lab",
-  category: "Biology",
+  category: ["Biology"],
   keywords: ["bio", "lab"],
   description: "Test description",
   price: "100",
@@ -187,7 +189,7 @@ describe("LabFormFullSetup", () => {
       // Test representative fields (not every single one)
       // Covers different input types: text, number, textarea
       expect(screen.getByDisplayValue("Test Lab")).toBeInTheDocument();
-      expect(screen.getByDisplayValue("Biology")).toBeInTheDocument();
+      expect(screen.getByText("Biology")).toBeInTheDocument(); // Category chip display
       expect(screen.getByDisplayValue("Test description")).toBeInTheDocument();
       expect(screen.getByDisplayValue("100")).toBeInTheDocument();
       expect(screen.getByDisplayValue("bio, lab")).toBeInTheDocument();
@@ -219,12 +221,17 @@ describe("LabFormFullSetup", () => {
         name: "New Lab Name",
       });
 
-      const categoryInput = screen.getByPlaceholderText("Category");
-      fireEvent.change(categoryInput, { target: { value: "Chemistry" } });
+      // Test category multi-select (adds to existing selection)
+      const categorySelect = screen.getByTestId("category-multiselect");
+      fireEvent.click(categorySelect);
+
+      // Select "Chemistry" category (adds to existing "Biology")
+      const chemistryOption = screen.getByText("Chemistry");
+      fireEvent.click(chemistryOption);
 
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
-        category: "Chemistry",
+        category: ["Biology", "Chemistry"],
       });
     });
 
@@ -336,9 +343,9 @@ describe("LabFormFullSetup", () => {
         new File([""], "image2.jpg", { type: "image/jpeg" }),
       ];
 
-      renderForm({ imageInputType: "upload", localImages: files });
+      renderForm({ imageInputType: "upload", localImages: files, localLab: { ...mockLab, category: [] } });
 
-      // Click remove button for second file
+      // Click remove button for second file (index 1, since no category chips)
       const removeButtons = screen.getAllByTestId("x-icon");
       await user.click(removeButtons[1]);
 
@@ -390,7 +397,7 @@ describe("LabFormFullSetup", () => {
 
       // Check that key inputs are disabled
       expect(screen.getByPlaceholderText("Lab Name")).toBeDisabled();
-      expect(screen.getByPlaceholderText("Category")).toBeDisabled();
+      expect(screen.getByTestId("category-multiselect")).toHaveClass("cursor-not-allowed");
       expect(screen.getByPlaceholderText("Price per hour")).toBeDisabled();
       expect(screen.getByText("Save Changes")).toBeDisabled();
 
@@ -417,7 +424,7 @@ describe("LabFormFullSetup", () => {
       renderForm({ isExternalURI: false });
 
       expect(screen.getByPlaceholderText("Lab Name")).not.toBeDisabled();
-      expect(screen.getByPlaceholderText("Category")).not.toBeDisabled();
+      expect(screen.getByTestId("category-multiselect")).not.toHaveClass("cursor-not-allowed");
       expect(screen.getByText("Save Changes")).not.toBeDisabled();
     });
   });
@@ -487,7 +494,7 @@ describe("LabFormFullSetup", () => {
       renderForm({ localLab: {} });
 
       expect(screen.getByPlaceholderText("Lab Name")).toHaveValue("");
-      expect(screen.getByPlaceholderText("Category")).toHaveValue("");
+      expect(screen.getByTestId("category-multiselect")).toBeInTheDocument();
       expect(screen.getByPlaceholderText("Price per hour")).toHaveValue(null);
     });
 

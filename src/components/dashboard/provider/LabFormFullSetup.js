@@ -4,6 +4,7 @@ import { UploadCloud, Link, XCircle, Plus, Trash2, Loader2 } from 'lucide-react'
 import { CalendarInput } from '@/components/ui'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
+import CategoryMultiSelect from '../../ui/forms/CategoryMultiSelect'
 
 const WEEKDAY_OPTIONS = [
   { value: 'MONDAY', label: 'Mon' },
@@ -284,33 +285,30 @@ export default function LabFormFullSetup({
         />
         {errors.name && <p className="text-red-500 text-sm !mt-1">{errors.name}</p>}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <input
-              type="text"
-              placeholder="Category"
-              value={localLab?.category || ''}
-              onChange={(e) => handleBasicChange('category', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={categoryRef}
-            />
-            {errors.category && <p className="text-red-500 text-sm !mt-1">{errors.category}</p>}
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-900 mb-1">Categories</label>
+          <CategoryMultiSelect
+            value={Array.isArray(localLab?.category) ? localLab.category : (localLab?.category ? [localLab.category] : [])}
+            onChange={(categories) => handleBasicChange('category', categories)}
+            disabled={disabled}
+            placeholder="Select one or more categories..."
+            error={errors.category}
+          />
+        </div>
 
-          <div>
-            <input
-              type="number"
-              step="any"
-              placeholder="Price per hour"
-              value={localLab?.price || ''}
-              onChange={(e) => handleBasicChange('price', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={priceRef}
-            />
-            {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
-          </div>
+        <div>
+          <input
+            type="number"
+            step="any"
+            min="0"
+            placeholder="Price per hour"
+            value={localLab?.price || ''}
+            onChange={(e) => handleBasicChange('price', e.target.value)}
+            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            disabled={disabled}
+            ref={priceRef}
+          />
+          {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
         </div>
 
         <input

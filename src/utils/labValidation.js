@@ -3,7 +3,7 @@
  * Validates all required fields, formats, and constraints for lab creation/editing
  * @param {Object} localLab - Lab data object to validate
  * @param {string} localLab.name - Lab name (required)
- * @param {string} localLab.category - Lab category (required)
+ * @param {string|Array<string>} localLab.category - Lab category or categories (required, can be string or array)
  * @param {string} localLab.description - Lab description (required)
  * @param {string|number} localLab.price - Lab price per hour (required, must be >= 0)
  * @param {string} localLab.uri - Lab URI/endpoint (required, must be valid URL format)
@@ -47,7 +47,16 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
     if (!localLab.name?.trim()) errors.name = 'Lab name is required';
-    if (!localLab.category?.trim()) errors.category = 'Category is required';
+    
+    // Category validation - supports both string and array
+    if (Array.isArray(localLab.category)) {
+        if (localLab.category.length === 0) {
+            errors.category = 'At least one category is required';
+        }
+    } else if (!localLab.category || !localLab.category.trim()) {
+        errors.category = 'Category is required';
+    }
+    
     if (!localLab.description?.trim()) errors.description = 'Description is required';
 
     if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {

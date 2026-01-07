@@ -2,7 +2,7 @@
  * Test helpers for filling lab forms
  * Provides reusable functions to interact with lab form fields
  */
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within, waitFor } from '@testing-library/react';
 
 /**
  * Fills all required fields in the Full Setup lab form
@@ -13,13 +13,29 @@ import { fireEvent, screen, within } from '@testing-library/react';
 export const fillFullSetupForm = async (labData) => {
   // Basic Information
   const nameInput = screen.getByPlaceholderText(/lab name/i);
-  const categoryInput = screen.getByPlaceholderText(/category/i);
+  const categoryInput = screen.getByTestId('category-multiselect');
   const keywordsInput = screen.getByPlaceholderText(/keywords/i);
   const descriptionTextarea = screen.getByPlaceholderText(/description/i);
   const priceInput = screen.getByPlaceholderText(/price/i);
 
   fireEvent.change(nameInput, { target: { value: labData.name } });
-  fireEvent.change(categoryInput, { target: { value: labData.category } });
+  // For multi-select, we need to simulate clicks on the dropdown and select options
+  fireEvent.click(categoryInput);
+  // Wait for dropdown to open and select categories
+  await waitFor(() => {
+    const dropdown = screen.getByRole('listbox');
+    expect(dropdown).toBeInTheDocument();
+  });
+  
+  // Select categories from the dropdown
+  if (Array.isArray(labData.category)) {
+    const dropdown = screen.getByRole('listbox');
+    for (const category of labData.category) {
+      const categoryOption = within(dropdown).getByText(category);
+      fireEvent.click(categoryOption);
+    }
+  }
+  
   fireEvent.change(keywordsInput, {
     target: { value: labData.keywords.join(',') }
   });

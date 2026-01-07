@@ -227,7 +227,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
 
     // Basic Information - all fields verified
     expect(submittedData.name).toBe(labData.name);
-    expect(submittedData.category).toBe(labData.category);
+    expect(submittedData.category).toEqual(labData.category);
     expect(submittedData.keywords).toEqual(labData.keywords);
     expect(submittedData.description).toBe(labData.description);
     expect(submittedData.price).toBe(labData.price);
@@ -429,7 +429,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
       auth: "https://auth.existing.com",
       accessURI: "https://lab.existing.com",
       accessKey: "existing-key",
-      category: "electronics",
+      category: ["electronics"],
       keywords: ["test"],
       opens: 1735689600,
       closes: 1767139200,
@@ -461,8 +461,8 @@ describe("LabModal Component - Lab Listing Flow", () => {
     expect(nameInput).toHaveValue("Existing Lab");
 
     // Verify other fields have values
-    const categoryInput = screen.getByPlaceholderText(/category/i);
-    expect(categoryInput).toHaveValue("electronics");
+    const categorySelect = screen.getByTestId("category-multiselect");
+    expect(categorySelect).toBeInTheDocument();
 
     // Change a field
     fireEvent.change(nameInput, { target: { value: "Updated Lab Name" } });
@@ -476,7 +476,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
       expect(mockOnSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           name: "Updated Lab Name",
-          category: "electronics",
+          category: ["electronics"],
           id: 1,
         })
       );

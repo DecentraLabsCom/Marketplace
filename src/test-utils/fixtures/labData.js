@@ -12,7 +12,7 @@
  */
 export const createValidLabFormData = (overrides = {}) => ({
   name: "Test Electronics Lab",
-  category: "electronics",
+  category: ["Computer Science"],
   keywords: ["testing", "electronics", "lab"],
   description: "A laboratory for electronics testing and prototyping",
   price: "0.5",
@@ -68,6 +68,6 @@ export const createExistingLab = (overrides = {}) => ({
   labId: 1,
   ...createValidLabFormData(),
   name: "AI Research Lab",
-  category: "ai",
+  category: ["ai"],
   ...overrides,
 });
