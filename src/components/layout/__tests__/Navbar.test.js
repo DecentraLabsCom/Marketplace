@@ -143,6 +143,25 @@ describe("Navbar", () => {
       ).not.toBeInTheDocument();
     });
 
+    test('hides "Register my Institution" when institution registration status is error', () => {
+      useOptionalUser.mockReturnValue({
+        isLoggedIn: true,
+        isProvider: false,
+        isProviderLoading: false,
+        isSSO: true,
+        user: { id: "1", role: "staff", scopedRole: "" },
+        isInstitutionRegistered: false,
+        isInstitutionRegistrationLoading: false,
+        institutionRegistrationStatus: "error",
+      });
+      mockHasAdminRole.mockReturnValue(true);
+
+      render(<Navbar />);
+      expect(
+        screen.queryByText("Register my Institution")
+      ).not.toBeInTheDocument();
+    });
+
     test('hides "Register my Institution" while institution registration is pending', () => {
       useOptionalUser.mockReturnValue({
         isLoggedIn: true,

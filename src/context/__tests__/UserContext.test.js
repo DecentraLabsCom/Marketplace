@@ -32,6 +32,8 @@ jest.mock("@/hooks/user/useUsers", () => ({
   useIsLabProvider: jest.fn(),
   useGetLabProviders: jest.fn(),
   useUserCacheUpdates: jest.fn(),
+  useInstitutionResolve: jest.fn(),
+  useOnboardingSession: jest.fn(),
 }));
 
 jest.mock("@/utils/errorBoundaries", () => ({
@@ -116,6 +118,31 @@ describe("UserData Context", () => {
       isLoading: false,
       error: null,
       refetch: jest.fn(),
+    });
+
+    userHooks.useIsLabProvider.mockReturnValue({
+      data: { isLabProvider: false },
+      isLoading: false,
+      error: null,
+    });
+
+    userHooks.useGetLabProviders.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+    });
+
+    // Default mocks for new hooks
+    userHooks.useInstitutionResolve.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+    });
+
+    userHooks.useOnboardingSession.mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
     });
 
     userHooks.useIsLabProvider.mockReturnValue({
@@ -288,32 +315,32 @@ describe("UserData Context", () => {
         refetch: jest.fn(),
       });
 
+      userHooks.useInstitutionResolve.mockReturnValue({
+        data: {
+          registered: true,
+          wallet: "0xabc",
+          domain: "uned.es",
+          backendUrl: "https://sarlab.dia.uned.es",
+        },
+        isLoading: false,
+        error: null,
+      });
+
+      userHooks.useOnboardingSession.mockReturnValue({
+        data: {
+          status: 'ok',
+          payload: { stableUserId: 'test@uned.es' },
+          meta: { stableUserId: 'test@uned.es', institutionId: 'uned.es' }
+        },
+        isLoading: false,
+        error: null,
+      });
+
       global.fetch.mockImplementation((url) => {
-        if (String(url).includes("/api/onboarding/session")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({
-              status: 'ok',
-              payload: { stableUserId: 'test@uned.es' },
-              meta: { stableUserId: 'test@uned.es', institutionId: 'uned.es' }
-            }),
-          });
-        }
         if (String(url).includes("/onboarding/webauthn/key-status/")) {
           return Promise.resolve({
             ok: true,
             json: async () => ({ hasCredentials: true }),
-          });
-        }
-        if (String(url).includes("/api/contract/institution/resolve")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({
-              registered: true,
-              wallet: "0xabc",
-              domain: "uned.es",
-              backendUrl: "https://sarlab.dia.uned.es",
-            }),
           });
         }
         return Promise.resolve({
@@ -349,31 +376,31 @@ describe("UserData Context", () => {
         refetch: jest.fn(),
       });
 
+      userHooks.useInstitutionResolve.mockReturnValue({
+        data: {
+          registered: false,
+          wallet: null,
+          domain: "example.edu",
+        },
+        isLoading: false,
+        error: null,
+      });
+
+      userHooks.useOnboardingSession.mockReturnValue({
+        data: {
+          status: 'ok',
+          payload: { stableUserId: 'test@example.edu' },
+          meta: { stableUserId: 'test@example.edu', institutionId: 'example.edu' }
+        },
+        isLoading: false,
+        error: null,
+      });
+
       global.fetch.mockImplementation((url) => {
-        if (String(url).includes("/api/onboarding/session")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({
-              status: 'ok',
-              payload: { stableUserId: 'test@example.edu' },
-              meta: { stableUserId: 'test@example.edu', institutionId: 'example.edu' }
-            }),
-          });
-        }
         if (String(url).includes("/onboarding/webauthn/key-status/")) {
           return Promise.resolve({
             ok: true,
             json: async () => ({ hasCredentials: true }),
-          });
-        }
-        if (String(url).includes("/api/contract/institution/resolve")) {
-          return Promise.resolve({
-            ok: true,
-            json: async () => ({
-              registered: false,
-              wallet: null,
-              domain: "example.edu",
-            }),
           });
         }
         return Promise.resolve({

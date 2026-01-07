@@ -3,7 +3,7 @@
  * Provides stableUserId and institutionId for onboarding flows
  */
 
-import { useQuery } from '@tantml:function_calls/react-query';
+import { useQuery } from '@tanstack/react-query';
 import devLog from '@/utils/dev/logger';
 
 const ONBOARDING_SESSION_KEY = 'onboarding-session';
