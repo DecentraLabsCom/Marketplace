@@ -262,8 +262,8 @@ function UserDataCore({ children }) {
 
                 const statusData = await statusResponse.json();
 
-                // key-status endpoint returns { hasCredentials: boolean }
-                if (statusData.hasCredentials) {
+                // key-status endpoint returns { hasCredential: boolean }
+                if (statusData.hasCredential) {
                     devLog.log('[InstitutionalOnboarding] User already onboarded');
                     setInstitutionalOnboardingStatus('completed');
                     return;

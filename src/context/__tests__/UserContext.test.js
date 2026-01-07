@@ -340,7 +340,7 @@ describe("UserData Context", () => {
         if (String(url).includes("/onboarding/webauthn/key-status/")) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ hasCredentials: true }),
+            json: async () => ({ hasCredential: true }),
           });
         }
         return Promise.resolve({
@@ -400,7 +400,7 @@ describe("UserData Context", () => {
         if (String(url).includes("/onboarding/webauthn/key-status/")) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ hasCredentials: true }),
+            json: async () => ({ hasCredential: true }),
           });
         }
         return Promise.resolve({

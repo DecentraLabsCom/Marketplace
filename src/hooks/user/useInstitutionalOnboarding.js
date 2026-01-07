@@ -123,8 +123,8 @@ export function useInstitutionalOnboarding({
 
       const statusData = await statusResponse.json()
 
-      // key-status endpoint returns { hasCredentials: boolean }
-      if (statusData.hasCredentials) {
+      // key-status endpoint returns { hasCredential: boolean }
+      if (statusData.hasCredential) {
         setState(OnboardingState.NOT_NEEDED)
         setIsOnboarded(true)
         return { needed: false, isOnboarded: true }

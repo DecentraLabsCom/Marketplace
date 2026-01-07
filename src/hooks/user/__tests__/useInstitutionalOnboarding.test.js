@@ -148,7 +148,7 @@ describe('useInstitutionalOnboarding', () => {
       // Mock IB key-status check - has credentials
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ hasCredentials: true })
+        json: () => Promise.resolve({ hasCredential: true })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -551,7 +551,7 @@ describe('useInstitutionalOnboarding', () => {
       // Mock IB key-status - has credentials
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ hasCredentials: true })
+        json: () => Promise.resolve({ hasCredential: true })
       })
 
       const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
@@ -649,7 +649,7 @@ describe('useInstitutionalOnboarding', () => {
       // Mock IB key-status - has credentials
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ hasCredentials: true })
+        json: () => Promise.resolve({ hasCredential: true })
       })
 
       renderHook(() => useInstitutionalOnboarding({ autoCheck: true }), { wrapper })
