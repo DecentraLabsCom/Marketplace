@@ -92,8 +92,58 @@ export default function LabFormFullSetup({
     setLocalLab({ ...localLab, [field]: value })
   }
 
+  // State for keywords input field (string representation)
+  const [keywordsInput, setKeywordsInput] = useState('')
+
+  // Sync keywords input with localLab.keywords on mount and when localLab.keywords changes
+  // Only update if the string representation differs to avoid unnecessary re-renders
+  useEffect(() => {
+    const keywordsString = localLab?.keywords?.join(', ') || ''
+    if (keywordsInput !== keywordsString) {
+      setKeywordsInput(keywordsString)
+    }
+  }, [localLab?.keywords]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: keywordsInput is intentionally excluded to prevent infinite loops
+
+  // State for timeSlots input field (string representation)
+  const [timeSlotsInput, setTimeSlotsInput] = useState('')
+
+  // Sync timeSlots input with localLab.timeSlots on mount and when localLab.timeSlots changes
+  // Only update if the string representation differs to avoid unnecessary re-renders
+  useEffect(() => {
+    const timeSlotsString = Array.isArray(localLab?.timeSlots) ? localLab.timeSlots.join(', ') : ''
+    if (timeSlotsInput !== timeSlotsString) {
+      setTimeSlotsInput(timeSlotsString)
+    }
+  }, [localLab?.timeSlots]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: timeSlotsInput is intentionally excluded to prevent infinite loops
+
   const handleKeywordsChange = (value) => {
-    handleBasicChange('keywords', value.split(',').map(keyword => keyword.trim()).filter(Boolean))
+    // Update the input field immediately to allow typing
+    setKeywordsInput(value)
+  }
+
+  const handleKeywordsBlur = () => {
+    // Parse the input into array only when user finishes editing (blur event)
+    handleBasicChange('keywords', keywordsInput.split(',').map(keyword => keyword.trim()).filter(Boolean))
+  }
+
+  const handleTimeSlotsChange = (value) => {
+    // Update the input field immediately to allow typing
+    setTimeSlotsInput(value)
+  }
+
+  const handleTimeSlotsBlur = () => {
+    // Parse the input into array only when user finishes editing (blur event)
+    handleBasicChange('timeSlots', timeSlotsInput.split(',').map(slot => slot.trim()).filter(Boolean))
+  }
+
+  const handleFormSubmit = (e) => {
+    // Process keywords and timeSlots before submitting
+    handleKeywordsBlur()
+    handleTimeSlotsBlur()
+    // Call parent's onSubmit handler
+    onSubmit(e)
   }
 
   const handleArrayField = (field, value) => {
@@ -263,7 +313,7 @@ export default function LabFormFullSetup({
 
 
   return (
-    <form className="space-y-6 text-gray-600" onSubmit={onSubmit}>
+    <form className="space-y-6 text-gray-600" onSubmit={handleFormSubmit}>
       {isExternalURI && (
         <div className="mt-4 flex justify-center">
           <span className="text-sm text-red-500 font-medium">
@@ -314,8 +364,10 @@ export default function LabFormFullSetup({
         <input
           type="text"
           placeholder="Keywords (comma-separated)"
-          value={localLab?.keywords?.join(', ') || ''}
+          value={keywordsInput}
           onChange={(e) => handleKeywordsChange(e.target.value)}
+          onBlur={handleKeywordsBlur}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
           className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
           disabled={disabled}
           ref={keywordsRef}
@@ -326,6 +378,7 @@ export default function LabFormFullSetup({
           placeholder="Description"
           value={localLab?.description || ''}
           onChange={(e) => handleBasicChange('description', e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation(); }}
           className="w-full p-2 border rounded min-h-32 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
           disabled={disabled}
           ref={descriptionRef}
@@ -383,7 +436,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
               containerClassName="w-full"
             />
-            {errors.closes && <p className="text-red-500 text-sm !mt-1 text-right">{errors.closes}</p>}
+            {errors.closes && <p className="text-red-500 text-sm !mt-1">{errors.closes}</p>}
           </div>
         </div>
 
@@ -446,8 +499,9 @@ export default function LabFormFullSetup({
             <input
               type="text"
               placeholder="15, 30, 60"
-              value={Array.isArray(localLab?.timeSlots) ? localLab.timeSlots.join(', ') : ''}
-              onChange={(e) => handleBasicChange('timeSlots', e.target.value.split(',').map(slot => slot.trim()).filter(Boolean))}
+              value={timeSlotsInput}
+              onChange={(e) => handleTimeSlotsChange(e.target.value)}
+              onBlur={handleTimeSlotsBlur}
               className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
               disabled={disabled}
               ref={timeSlotsRef}
@@ -554,9 +608,10 @@ export default function LabFormFullSetup({
         <div>
           <input
             type="url"
-            placeholder="Terms URL"
+            placeholder="Terms URL (optional)"
             value={termsOfUse.url || ''}
             onChange={(e) => handleTermsChange('url', e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
             className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
             disabled={disabled}
             ref={termsUrlRef}

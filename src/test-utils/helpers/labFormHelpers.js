@@ -39,6 +39,9 @@ export const fillFullSetupForm = async (labData) => {
   fireEvent.change(keywordsInput, {
     target: { value: labData.keywords.join(',') }
   });
+  // Trigger blur to process keywords into array
+  fireEvent.blur(keywordsInput);
+  
   fireEvent.change(descriptionTextarea, {
     target: { value: labData.description }
   });
@@ -67,6 +70,8 @@ export const fillFullSetupForm = async (labData) => {
   fireEvent.change(timeSlotsInput, {
     target: { value: labData.timeSlots.join(', ') }
   });
+  // Trigger blur to process time slots into array
+  fireEvent.blur(timeSlotsInput);
 
   // Available Days - Click buttons for each day
   labData.availableDays.forEach((day) => {

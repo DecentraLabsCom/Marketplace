@@ -238,7 +238,7 @@ describe("LabFormFullSetup", () => {
     test("splits comma-separated values into arrays", () => {
       renderForm();
 
-      // Test keywords splitting
+      // Test keywords splitting - keywords are updated on blur, not on change
       const keywordsInput = screen.getByPlaceholderText(
         "Keywords (comma-separated)"
       );
@@ -246,6 +246,16 @@ describe("LabFormFullSetup", () => {
         target: { value: "physics,chemistry,biology" },
       });
 
+      // Keywords should NOT be updated immediately on change
+      expect(mockHandlers.setLocalLab).not.toHaveBeenCalledWith({
+        ...mockLab,
+        keywords: ["physics", "chemistry", "biology"],
+      });
+
+      // Trigger blur event to process keywords
+      fireEvent.blur(keywordsInput);
+
+      // Now keywords should be updated
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
         keywords: ["physics", "chemistry", "biology"],
@@ -255,11 +265,98 @@ describe("LabFormFullSetup", () => {
       fireEvent.change(keywordsInput, {
         target: { value: "physics, chemistry, biology" },
       });
+      fireEvent.blur(keywordsInput);
 
       expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
         ...mockLab,
         keywords: ["physics", "chemistry", "biology"],
       });
+    });
+
+    test("processes keywords on form submit even without blur", () => {
+      renderForm();
+
+      const keywordsInput = screen.getByPlaceholderText(
+        "Keywords (comma-separated)"
+      );
+      
+      // Change keywords without triggering blur
+      fireEvent.change(keywordsInput, {
+        target: { value: "ai, machine learning, data science" },
+      });
+
+      // Submit form without blurring the input
+      const form = screen.getByRole("button", { name: /save/i }).closest("form");
+      fireEvent.submit(form);
+
+      // Keywords should be processed during submit
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        keywords: ["ai", "machine learning", "data science"],
+      });
+
+      // onSubmit should be called
+      expect(mockHandlers.onSubmit).toHaveBeenCalled();
+    });
+
+    test("splits comma-separated time slots into arrays on blur", () => {
+      renderForm();
+
+      // Test time slots splitting - updated on blur, not on change
+      const timeSlotsInput = screen.getByPlaceholderText("15, 30, 60");
+      fireEvent.change(timeSlotsInput, {
+        target: { value: "15,30,60" },
+      });
+
+      // Time slots should NOT be updated immediately on change
+      expect(mockHandlers.setLocalLab).not.toHaveBeenCalledWith({
+        ...mockLab,
+        timeSlots: ["15", "30", "60"],
+      });
+
+      // Trigger blur event to process time slots
+      fireEvent.blur(timeSlotsInput);
+
+      // Now time slots should be updated
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        timeSlots: ["15", "30", "60"],
+      });
+
+      // Additional test for time slots with spaces
+      fireEvent.change(timeSlotsInput, {
+        target: { value: "15, 30, 60, 120" },
+      });
+      fireEvent.blur(timeSlotsInput);
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        timeSlots: ["15", "30", "60", "120"],
+      });
+    });
+
+    test("processes time slots on form submit even without blur", () => {
+      renderForm();
+
+      const timeSlotsInput = screen.getByPlaceholderText("15, 30, 60");
+      
+      // Change time slots without triggering blur
+      fireEvent.change(timeSlotsInput, {
+        target: { value: "10, 20, 30" },
+      });
+
+      // Submit form without blurring the input
+      const form = screen.getByRole("button", { name: /save/i }).closest("form");
+      fireEvent.submit(form);
+
+      // Time slots should be processed during submit
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith({
+        ...mockLab,
+        timeSlots: ["10", "20", "30"],
+      });
+
+      // onSubmit should be called
+      expect(mockHandlers.onSubmit).toHaveBeenCalled();
     });
   });
 

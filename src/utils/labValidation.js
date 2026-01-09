@@ -149,17 +149,19 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
     }
 
     const termsOfUse = normalizeObject(localLab.termsOfUse);
+    // Terms URL is now optional - only validate if provided
     if (termsOfUse.url?.trim()) {
         if (!urlRegex.test(termsOfUse.url.trim())) {
             errors.termsOfUseUrl = 'Invalid terms of use URL format';
         }
-    }
-    const effectiveDateUnix = toUnixSeconds(termsOfUse.effectiveDate);
-    if (!effectiveDateUnix) {
-        errors.termsOfUseEffectiveDate = 'Effective date (Unix seconds) is required';
-    }
-    if (termsOfUse.sha256?.trim() && !shaRegex.test(termsOfUse.sha256.trim())) {
-        errors.termsOfUseSha = 'SHA256 must be a 64-character hexadecimal string';
+        // Only require effective date and SHA if URL is provided
+        const effectiveDateUnix = toUnixSeconds(termsOfUse.effectiveDate);
+        if (!effectiveDateUnix) {
+            errors.termsOfUseEffectiveDate = 'Effective date (Unix seconds) is required when Terms URL is provided';
+        }
+        if (termsOfUse.sha256?.trim() && !shaRegex.test(termsOfUse.sha256.trim())) {
+            errors.termsOfUseSha = 'SHA256 must be a 64-character hexadecimal string';
+        }
     }
 
     // Image and Document link validations
