@@ -64,49 +64,49 @@ export async function registerIntentOnChain(kind, meta, payload, signature) {
   const wallet = await getAdminWallet()
   const contract = getIntentContract(wallet)
 
-  const normalizedMeta = {
-    requestId: meta.requestId,
-    signer: meta.signer,
-    executor: meta.executor,
-    action: Number(meta.action),
-    payloadHash: meta.payloadHash,
-    nonce: toBigInt(meta.nonce),
-    requestedAt: toBigInt(meta.requestedAt),
-    expiresAt: toBigInt(meta.expiresAt),
-  }
+  const normalizedMeta = [
+    meta.requestId,
+    meta.signer,
+    meta.executor,
+    Number(meta.action),
+    meta.payloadHash,
+    toBigInt(meta.nonce),
+    toBigInt(meta.requestedAt),
+    toBigInt(meta.expiresAt),
+  ]
 
   if (kind === 'reservation') {
-    const normalizedPayload = {
-      executor: payload.executor,
-      schacHomeOrganization: payload.schacHomeOrganization || '',
-      puc: payload.puc || '',
-      assertionHash: payload.assertionHash,
-      labId: toBigInt(payload.labId),
-      start: toBigInt(payload.start),
-      end: toBigInt(payload.end),
-      price: toBigInt(payload.price || 0),
-      reservationKey: payload.reservationKey,
-    }
+    const normalizedPayload = [
+      payload.executor,
+      payload.schacHomeOrganization || '',
+      payload.puc || '',
+      payload.assertionHash,
+      toBigInt(payload.labId),
+      toBigInt(payload.start),
+      toBigInt(payload.end),
+      toBigInt(payload.price || 0),
+      payload.reservationKey,
+    ]
     const tx = await contract.registerReservationIntent(normalizedMeta, normalizedPayload, signature)
     const receipt = await tx.wait?.()
     return { txHash: tx.hash, blockNumber: receipt?.blockNumber }
   }
 
   if (kind === 'action') {
-    const normalizedPayload = {
-      executor: payload.executor,
-      schacHomeOrganization: payload.schacHomeOrganization || '',
-      puc: payload.puc || '',
-      assertionHash: payload.assertionHash,
-      labId: toBigInt(payload.labId || 0),
-      reservationKey: payload.reservationKey || ethers.ZeroHash,
-      uri: payload.uri || '',
-      price: toBigInt(payload.price || 0),
-      maxBatch: toBigInt(payload.maxBatch || 0),
-      accessURI: payload.accessURI || '',
-      accessKey: payload.accessKey || '',
-      tokenURI: payload.tokenURI || '',
-    }
+    const normalizedPayload = [
+      payload.executor,
+      payload.schacHomeOrganization || '',
+      payload.puc || '',
+      payload.assertionHash,
+      toBigInt(payload.labId || 0),
+      payload.reservationKey || ethers.ZeroHash,
+      payload.uri || '',
+      toBigInt(payload.price || 0),
+      toBigInt(payload.maxBatch || 0),
+      payload.accessURI || '',
+      payload.accessKey || '',
+      payload.tokenURI || '',
+    ]
     const tx = await contract.registerActionIntent(normalizedMeta, normalizedPayload, signature)
     const receipt = await tx.wait?.()
     return { txHash: tx.hash, blockNumber: receipt?.blockNumber }
