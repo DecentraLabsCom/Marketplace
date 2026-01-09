@@ -555,6 +555,7 @@ export default function LabFormFullSetup({
                     onChange={(value) => handleWindowChange(index, { startUnix: value })}
                     withTime
                     disabled={disabled}
+                    minDate={minOpenDate}
                     popperClassName="availability-picker"
                     popperPlacement="bottom-start"
                     popperModifiers={[

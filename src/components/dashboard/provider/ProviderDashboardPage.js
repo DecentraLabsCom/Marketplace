@@ -40,7 +40,7 @@ const sanitizeProviderNameForUri = (name) => {
  * @returns {JSX.Element} Complete provider dashboard with access control, lab list, calendar, and management actions
  */
 export default function ProviderDashboard() {
-  const { address, user, isSSO, isProvider, isProviderLoading, isLoading } = useUser();  
+  const { address, user, isSSO, isProvider, isProviderLoading, isLoading, institutionBackendUrl } = useUser();  
   const router = useRouter();
   
   // 🚀 React Query for labs owned by this provider - with safe defaults
@@ -226,6 +226,7 @@ export default function ProviderDashboard() {
         providerId: address, // Add provider info
         isSSO,
         userEmail: user.email,
+        backendUrl: isSSO ? institutionBackendUrl : undefined,
         abortSignal: createLabAbortControllerRef.current?.signal,
         // SSO: be more tolerant to backend propagation delays
         pollMaxDurationMs: 12 * 60 * 1000,
@@ -444,7 +445,8 @@ export default function ProviderDashboard() {
             price: labData.price, // Already in token units
             accessURI: labData.accessURI,
             accessKey: labData.accessKey
-          }
+          },
+          backendUrl: isSSO ? institutionBackendUrl : undefined
         });
       } else {
         // 1b. No on-chain changes - only update off-chain data (JSON file)
@@ -526,7 +528,10 @@ export default function ProviderDashboard() {
   const handleList = async (labId) => {
     try {
       // 🚀 Use React Query mutation for lab listing
-      await listLabMutation.mutateAsync(labId);
+      const listPayload = isSSO
+        ? { labId, backendUrl: institutionBackendUrl }
+        : labId;
+      await listLabMutation.mutateAsync(listPayload);
       
       addTemporaryNotification('success', '✅ Lab listed successfully!');
     } catch (error) {
@@ -541,7 +546,10 @@ export default function ProviderDashboard() {
       addTemporaryNotification('pending', '⏳ Unlisting lab...');
 
       // 🚀 Use React Query mutation for lab unlisting
-      await unlistLabMutation.mutateAsync(labId);
+      const unlistPayload = isSSO
+        ? { labId, backendUrl: institutionBackendUrl }
+        : labId;
+      await unlistLabMutation.mutateAsync(unlistPayload);
       
       addTemporaryNotification('success', '✅ Lab unlisted!');
     } catch (error) {
@@ -667,3 +675,4 @@ export default function ProviderDashboard() {
     </AccessControl>
   );
 }
+
