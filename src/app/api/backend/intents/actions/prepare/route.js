@@ -9,6 +9,19 @@ import { serializeIntent } from '@/utils/intents/serialize'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
+function extractOnchainErrorDetails(err) {
+  return {
+    message: err?.message || null,
+    shortMessage: err?.shortMessage || null,
+    reason: err?.reason || null,
+    code: err?.code || null,
+    errorName: err?.errorName || null,
+    errorSignature: err?.errorSignature || null,
+    data: err?.data || null,
+    rpcMessage: err?.info?.error?.message || null,
+  }
+}
+
 function normalizeAction(action) {
   if (typeof action === 'number') return action
   if (typeof action === 'string') {
@@ -86,8 +99,14 @@ export async function POST(request) {
       onChain = await registerIntentOnChain('action', intentPackage.meta, intentPackage.payload, adminSignature)
     } catch (err) {
       devLog.error('[API] On-chain action intent registration failed', err)
+      console.error('[API] On-chain action intent registration failed', err)
+      const onchain = extractOnchainErrorDetails(err)
       return NextResponse.json(
-        { error: 'Failed to register action intent on-chain', details: err?.message || String(err) },
+        {
+          error: 'Failed to register action intent on-chain',
+          details: err?.message || String(err),
+          onchain,
+        },
         { status: 502 },
       )
     }
