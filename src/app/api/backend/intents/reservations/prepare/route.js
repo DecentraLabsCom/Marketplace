@@ -44,7 +44,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
     }
 
-    const schacHomeOrganization = session.schacHomeOrganization || session.organization || session.organizationName
+    const schacHomeOrganization = session.schacHomeOrganization || session.affiliation || session.organization || session.organizationName
     if (!schacHomeOrganization) {
       return NextResponse.json({ error: 'Missing schacHomeOrganization in session' }, { status: 400 })
     }

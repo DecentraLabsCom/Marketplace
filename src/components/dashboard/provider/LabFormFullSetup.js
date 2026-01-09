@@ -72,6 +72,8 @@ export default function LabFormFullSetup({
     effectiveDate: '',
     sha256: ''
   })
+  const minOpenDate = new Date()
+  minOpenDate.setHours(0, 0, 0, 0)
 
   const disabled = isExternalURI
   const [termsFetchState, setTermsFetchState] = useState({ loading: false, error: null })
@@ -423,6 +425,7 @@ export default function LabFormFullSetup({
               value={localLab?.opens ?? null}
               onChange={(value) => handleBasicChange('opens', value)}
               disabled={disabled}
+              minDate={minOpenDate}
               containerClassName="w-full"
               labelClassName="md:text-left"
             />

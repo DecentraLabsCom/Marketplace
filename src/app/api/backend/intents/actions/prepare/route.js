@@ -32,7 +32,7 @@ export async function POST(request) {
   try {
     const session = await requireAuth()
     const samlAssertion = session.samlAssertion
-    const schacHomeOrganization = session.schacHomeOrganization || session.organization || session.organizationName
+    const schacHomeOrganization = session.schacHomeOrganization || session.affiliation || session.organization || session.organizationName
     const puc = getPucFromSession(session)
 
     if (!samlAssertion) {
