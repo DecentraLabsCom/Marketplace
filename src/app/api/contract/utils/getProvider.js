@@ -6,6 +6,19 @@ import { defaultNetworks, alchemyNetworks, ankrNetworks,
 const providerCache = new Map();
 const PROVIDER_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours cache
 
+function buildRpcUrl(base, projectId) {
+    if (!base || typeof base !== 'string') return null;
+    const trimmed = base.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+        return trimmed;
+    }
+    if (projectId) {
+        return `https://${trimmed}${projectId}`;
+    }
+    return `https://${trimmed}`;
+}
+
 /**
  * Creates and caches a fallback provider for the specified network
  * Combines multiple provider services with optimized timeouts and error handling
@@ -88,9 +101,12 @@ export default async function getProvider(network) {
     }
 
     // ✅ PRIORITY 2: HTTP providers (reliable but slower)
-    if (alchemyProjectId && alchemyNetworks[network.id]) {
+    if (alchemyNetworks[network.id]) {
         try {
-            const alchemyUrl = `https://${alchemyNetworks[network.id]}${alchemyProjectId}`;
+            const alchemyUrl = buildRpcUrl(alchemyNetworks[network.id], alchemyProjectId);
+            if (!alchemyUrl) {
+                throw new Error('Alchemy URL not configured');
+            }
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     alchemyUrl,
@@ -110,9 +126,12 @@ export default async function getProvider(network) {
         }
     }
 
-    if (ankrProjectId && ankrNetworks[network.id]) {
+    if (ankrNetworks[network.id]) {
         try {
-            const ankrUrl = `https://${ankrNetworks[network.id]}${ankrProjectId}`;
+            const ankrUrl = buildRpcUrl(ankrNetworks[network.id], ankrProjectId);
+            if (!ankrUrl) {
+                throw new Error('Ankr URL not configured');
+            }
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     ankrUrl,
@@ -132,9 +151,12 @@ export default async function getProvider(network) {
         }
     }
 
-    if (quicknodeProjectId && quicknodeNetworks[network.id]) {
+    if (quicknodeNetworks[network.id]) {
         try {
-            const quicknodeUrl = `https://${quicknodeNetworks[network.id]}${quicknodeProjectId}`;
+            const quicknodeUrl = buildRpcUrl(quicknodeNetworks[network.id], quicknodeProjectId);
+            if (!quicknodeUrl) {
+                throw new Error('Quicknode URL not configured');
+            }
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     quicknodeUrl,
@@ -154,9 +176,12 @@ export default async function getProvider(network) {
         }
     }
 
-    if (chainstackProjectId && chainstackNetworks[network.id]) {
+    if (chainstackNetworks[network.id]) {
         try {
-            const chainstackUrl = `https://${chainstackNetworks[network.id]}${chainstackProjectId}`;
+            const chainstackUrl = buildRpcUrl(chainstackNetworks[network.id], chainstackProjectId);
+            if (!chainstackUrl) {
+                throw new Error('Chainstack URL not configured');
+            }
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     chainstackUrl,
@@ -201,7 +226,10 @@ export default async function getProvider(network) {
     // ✅ DEFAULT HTTP PROVIDER (last resort)
     if (defaultNetworks[network.id]) {
         try {
-            const defaultUrl = `https://${defaultNetworks[network.id]}`;
+            const defaultUrl = buildRpcUrl(defaultNetworks[network.id]);
+            if (!defaultUrl) {
+                throw new Error('Default URL not configured');
+            }
             providers.push({
                 provider: new ethers.JsonRpcProvider(
                     defaultUrl,
@@ -229,12 +257,15 @@ export default async function getProvider(network) {
     
     // ✅ ROBUST FALLBACK CONFIGURATION
     const fallbackProvider = new ethers.FallbackProvider(
-        providers.map(p => p.provider), 
+        providers.map(p => ({
+            provider: p.provider,
+            priority: p.priority,
+            weight: p.weight,
+            stallTimeout: p.stallTimeout
+        })),
         chainId,
         {
-            quorum: 1,              // Only need 1 successful response
-            stallTimeout: 1000,     // 1 second before trying next provider
-            priority: 1,            // Lower priority = higher preference
+            quorum: 1, // Only need 1 successful response
         }
     );
 
