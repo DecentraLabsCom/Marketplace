@@ -5,7 +5,7 @@ import getProvider from '@/app/api/contract/utils/getProvider'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { INTENT_META_TYPES, hashActionPayload } from '@/utils/intents/signInstitutionalActionIntent'
 import { hashReservationPayload } from '@/utils/intents/signInstitutionalReservationIntent'
-import { isDebugEnabled } from '@/utils/dev/logger'
+import devLog, { isDebugEnabled } from '@/utils/dev/logger'
 
 const INTENT_REGISTRY_ABI = [
   'function registerActionIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,bytes32 reservationKey,string uri,uint96 price,uint96 maxBatch,string accessURI,string accessKey,string tokenURI) payload,bytes signature)',
@@ -26,6 +26,12 @@ function toBigInt(value) {
     }
   }
   return 0n
+}
+
+function shortHex(value) {
+  if (!value || typeof value !== 'string') return value
+  if (!value.startsWith('0x') || value.length <= 12) return value
+  return `${value.slice(0, 10)}...${value.slice(-6)}`
 }
 
 function normalizeMeta(meta) {
@@ -58,6 +64,12 @@ function resolveIntentDomain() {
 async function preflightIntentRegistration(kind, meta, payload, signature, walletAddress) {
   const errors = []
   const normalized = normalizeMeta(meta)
+  const debug = isDebugEnabled()
+  let chainNonce = null
+  let intentState = null
+  let hasAdmin = null
+  let chainTimestamp = null
+  let signatureOk = null
 
   if (!normalized.requestId || normalized.requestId === ethers.ZeroHash) {
     errors.push('requestId is required')
@@ -97,20 +109,20 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
 
   try {
     const contract = await getContractInstance('diamond', true)
-    const chainNonce = await contract.nextIntentNonce(normalized.signer)
+    chainNonce = await contract.nextIntentNonce(normalized.signer)
     if (normalized.nonce !== toBigInt(chainNonce)) {
       errors.push(`nonce mismatch (chain=${chainNonce.toString()}, meta=${normalized.nonce.toString()})`)
     }
 
     const intent = await contract.getIntent(normalized.requestId)
-    const state = Number(intent?.state ?? 0)
-    if (state !== 0) {
-      errors.push(`intent already exists (state=${state})`)
+    intentState = Number(intent?.state ?? 0)
+    if (intentState !== 0) {
+      errors.push(`intent already exists (state=${intentState})`)
     }
 
     const adminRole = await contract.DEFAULT_ADMIN_ROLE()
-    const isAdmin = await contract.hasRole(adminRole, walletAddress)
-    if (!isAdmin) {
+    hasAdmin = await contract.hasRole(adminRole, walletAddress)
+    if (!hasAdmin) {
       errors.push(`wallet ${walletAddress} missing DEFAULT_ADMIN_ROLE`)
     }
 
@@ -121,7 +133,8 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
     }
 
     const block = await provider.getBlock('latest')
-    const now = toBigInt(block?.timestamp || 0)
+    chainTimestamp = toBigInt(block?.timestamp || 0)
+    const now = chainTimestamp
     if (normalized.requestedAt === 0n) {
       errors.push('requestedAt is required')
     } else if (normalized.requestedAt > now) {
@@ -137,17 +150,44 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
   try {
     const domain = resolveIntentDomain()
     const recovered = ethers.verifyTypedData(domain, INTENT_META_TYPES, normalized, signature)
-    if (recovered.toLowerCase() !== normalized.signer?.toLowerCase()) {
+    signatureOk = recovered.toLowerCase() === normalized.signer?.toLowerCase()
+    if (!signatureOk) {
       errors.push(`signature mismatch (recovered=${recovered})`)
     }
   } catch (err) {
     errors.push(`signature verification failed: ${err?.message || String(err)}`)
   }
 
+  if (debug) {
+    devLog.log('[Intent preflight]', {
+      kind,
+      requestId: shortHex(normalized.requestId),
+      signer: normalized.signer,
+      executor: normalized.executor,
+      action: normalized.action,
+      nonce: normalized.nonce?.toString?.(),
+      payloadHash: shortHex(normalized.payloadHash),
+      calculatedPayloadHash: shortHex(calculatedPayloadHash),
+      chainNonce: chainNonce?.toString?.(),
+      intentState,
+      hasAdmin,
+      chainTimestamp: chainTimestamp?.toString?.(),
+      requestedAt: normalized.requestedAt?.toString?.(),
+      expiresAt: normalized.expiresAt?.toString?.(),
+      signatureOk,
+      errorCount: errors.length,
+    })
+  }
+
   return {
     ok: errors.length === 0,
     errors,
     calculatedPayloadHash,
+    chainNonce,
+    intentState,
+    hasAdmin,
+    chainTimestamp,
+    signatureOk,
   }
 }
 
