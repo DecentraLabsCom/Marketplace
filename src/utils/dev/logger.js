@@ -6,8 +6,12 @@
 // Track module load logs to prevent duplicates in StrictMode
 const moduleLoadLogs = new Set();
 
+export const isDebugEnabled = () => {
+  return String(process.env.NEXT_PUBLIC_DEBUG_MODE || '').toLowerCase() === 'true';
+};
+
 const isDevelopment = () => {
-  return process.env.NODE_ENV === 'development';
+  return process.env.NODE_ENV === 'development' || isDebugEnabled();
 };
 
 const devLog = {

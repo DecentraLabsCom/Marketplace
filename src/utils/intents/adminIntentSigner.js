@@ -5,6 +5,7 @@ import getProvider from '@/app/api/contract/utils/getProvider'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { INTENT_META_TYPES, hashActionPayload } from '@/utils/intents/signInstitutionalActionIntent'
 import { hashReservationPayload } from '@/utils/intents/signInstitutionalReservationIntent'
+import { isDebugEnabled } from '@/utils/dev/logger'
 
 const INTENT_REGISTRY_ABI = [
   'function registerActionIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,bytes32 reservationKey,string uri,uint96 price,uint96 maxBatch,string accessURI,string accessKey,string tokenURI) payload,bytes signature)',
@@ -113,7 +114,13 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
       errors.push(`wallet ${walletAddress} missing DEFAULT_ADMIN_ROLE`)
     }
 
-    const block = await contract.provider.getBlock('latest')
+    const runner = contract.runner || contract.provider
+    let provider = runner
+    if (!provider || typeof provider.getBlock !== 'function') {
+      provider = await getProvider(defaultChain)
+    }
+
+    const block = await provider.getBlock('latest')
     const now = toBigInt(block?.timestamp || 0)
     if (normalized.requestedAt === 0n) {
       errors.push('requestedAt is required')
@@ -185,11 +192,13 @@ function getIntentContract(wallet) {
 
 export async function registerIntentOnChain(kind, meta, payload, signature) {
   const wallet = await getAdminWallet()
-  const preflight = await preflightIntentRegistration(kind, meta, payload, signature, wallet.address)
-  if (!preflight.ok) {
-    const error = new Error(`Intent preflight failed: ${preflight.errors.join('; ')}`)
-    error.preflight = preflight
-    throw error
+  if (isDebugEnabled()) {
+    const preflight = await preflightIntentRegistration(kind, meta, payload, signature, wallet.address)
+    if (!preflight.ok) {
+      const error = new Error(`Intent preflight failed: ${preflight.errors.join('; ')}`)
+      error.preflight = preflight
+      throw error
+    }
   }
   const contract = getIntentContract(wallet)
 
