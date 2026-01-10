@@ -1,16 +1,11 @@
 import { ethers } from 'ethers'
-import { contractAddresses } from '@/contracts/diamond'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { defaultChain } from '@/utils/blockchain/networkConfig'
 import getProvider from '@/app/api/contract/utils/getProvider'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { INTENT_META_TYPES, hashActionPayload } from '@/utils/intents/signInstitutionalActionIntent'
 import { hashReservationPayload } from '@/utils/intents/signInstitutionalReservationIntent'
 import devLog, { isDebugEnabled } from '@/utils/dev/logger'
-
-const INTENT_REGISTRY_ABI = [
-  'function registerActionIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,bytes32 reservationKey,string uri,uint96 price,uint96 maxBatch,string accessURI,string accessKey,string tokenURI) payload,bytes signature)',
-  'function registerReservationIntent((bytes32,address,address,uint8,bytes32,uint256,uint64,uint64) meta,(address executor,string schacHomeOrganization,string puc,bytes32 assertionHash,uint256 labId,uint32 start,uint32 end,uint96 price,bytes32 reservationKey) payload,bytes signature)',
-]
 
 const ACTION_ALLOWED = new Set([1, 2, 3, 4, 5, 6, 7, 10, 11])
 const RESERVATION_ALLOWED = new Set([8, 9])
@@ -227,7 +222,7 @@ function getIntentContract(wallet) {
   if (!address) {
     throw new Error(`Diamond contract address not configured for ${chainKey}`)
   }
-  return new ethers.Contract(address, INTENT_REGISTRY_ABI, wallet)
+  return new ethers.Contract(address, contractABI, wallet)
 }
 
 export async function registerIntentOnChain(kind, meta, payload, signature) {
@@ -251,6 +246,7 @@ export async function registerIntentOnChain(kind, meta, payload, signature) {
     toBigInt(meta.nonce),
     toBigInt(meta.requestedAt),
     toBigInt(meta.expiresAt),
+    Number(meta.state ?? 0),
   ]
 
   if (kind === 'reservation') {
