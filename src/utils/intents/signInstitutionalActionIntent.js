@@ -123,6 +123,7 @@ export async function buildActionIntent({
   tokenURI = '',
   maxBatch = 0,
   expiresInSec = 15 * 60,
+  nowSec,
   domainOverrides = {},
   nonce,
   requestId,
@@ -132,11 +133,17 @@ export async function buildActionIntent({
   if (!signer) throw new Error('signer is required to build action intent');
   if (!schacHomeOrganization) throw new Error('schacHomeOrganization is required');
 
-  const nowSec = Math.floor(Date.now() / 1000);
+  const resolvedNowSec =
+    nowSec !== undefined && nowSec !== null
+      ? Math.floor(Number(nowSec))
+      : Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(resolvedNowSec)) {
+    throw new Error('Invalid nowSec provided for action intent');
+  }
   const resolvedRequestId = requestId || ethers.id(randomUUID());
   const resolvedNonce = nonce !== undefined ? BigInt(nonce) : await getNextIntentNonce(signer);
-  const requestedAt = BigInt(nowSec);
-  const expiresAt = BigInt(nowSec + expiresInSec);
+  const requestedAt = BigInt(resolvedNowSec);
+  const expiresAt = BigInt(resolvedNowSec + expiresInSec);
 
   const payload = normalizeActionPayload({
     executor,

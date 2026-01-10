@@ -7,6 +7,8 @@ import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import getProvider from '@/app/api/contract/utils/getProvider'
+import { defaultChain } from '@/utils/blockchain/networkConfig'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
@@ -29,6 +31,22 @@ function getBackendApiKey() {
 
 async function getBackendAuthToken() {
   return marketplaceJwtService.generateIntentBackendToken()
+}
+
+async function resolveChainNowSec() {
+  try {
+    const provider = await getProvider(defaultChain)
+    const block = await provider.getBlock('latest')
+    const timestamp = Number(block?.timestamp)
+    if (Number.isFinite(timestamp) && timestamp > 0) {
+      return Math.max(0, timestamp - 5)
+    }
+  } catch (error) {
+    devLog.warn('[API] Failed to resolve chain timestamp, falling back to local time:', error?.message || error)
+  }
+
+  const fallback = Math.floor(Date.now() / 1000) - 5
+  return fallback > 0 ? fallback : 0
 }
 
 export async function POST(request) {
@@ -82,6 +100,7 @@ export async function POST(request) {
     const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), BigInt(start)])
     const assertionHash = computeReservationAssertionHash(samlAssertion)
 
+    const chainNowSec = await resolveChainNowSec()
     const intentPackage = await buildReservationIntent({
       executor: executorAddress,
       signer: adminAddress,
@@ -93,6 +112,7 @@ export async function POST(request) {
       end,
       price,
       reservationKey,
+      nowSec: chainNowSec,
     })
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)

@@ -98,6 +98,7 @@ export async function buildReservationIntent({
   reservationKey = ethers.ZeroHash,
   action = ACTION_CODES.REQUEST_BOOKING,
   expiresInSec = 15 * 60,
+  nowSec,
   domainOverrides = {},
   nonce,
   requestId,
@@ -107,11 +108,17 @@ export async function buildReservationIntent({
   if (!labId && labId !== 0) throw new Error('labId is required to build reservation intent');
   if (start === undefined || end === undefined) throw new Error('start and end are required to build reservation intent');
 
-  const nowSec = Math.floor(Date.now() / 1000);
+  const resolvedNowSec =
+    nowSec !== undefined && nowSec !== null
+      ? Math.floor(Number(nowSec))
+      : Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(resolvedNowSec)) {
+    throw new Error('Invalid nowSec provided for reservation intent');
+  }
   const resolvedRequestId = requestId || ethers.id(randomUUID());
   const resolvedNonce = nonce !== undefined ? BigInt(nonce) : await getNextIntentNonce(signer);
-  const requestedAt = BigInt(nowSec);
-  const expiresAt = BigInt(nowSec + expiresInSec);
+  const requestedAt = BigInt(resolvedNowSec);
+  const expiresAt = BigInt(resolvedNowSec + expiresInSec);
 
   const payload = normalizeReservationPayload({
     executor,

@@ -5,6 +5,8 @@ import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/i
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
+import getProvider from '@/app/api/contract/utils/getProvider'
+import { defaultChain } from '@/utils/blockchain/networkConfig'
 import { serializeIntent } from '@/utils/intents/serialize'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
@@ -41,6 +43,22 @@ async function getBackendAuthToken() {
   return marketplaceJwtService.generateIntentBackendToken()
 }
 
+async function resolveChainNowSec() {
+  try {
+    const provider = await getProvider(defaultChain)
+    const block = await provider.getBlock('latest')
+    const timestamp = Number(block?.timestamp)
+    if (Number.isFinite(timestamp) && timestamp > 0) {
+      return Math.max(0, timestamp - 5)
+    }
+  } catch (error) {
+    devLog.warn('[API] Failed to resolve chain timestamp, falling back to local time:', error?.message || error)
+  }
+
+  const fallback = Math.floor(Date.now() / 1000) - 5
+  return fallback > 0 ? fallback : 0
+}
+
 export async function POST(request) {
   try {
     const session = await requireAuth()
@@ -75,6 +93,7 @@ export async function POST(request) {
     const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)
     const adminAddress = await getAdminAddress()
 
+    const chainNowSec = await resolveChainNowSec()
     const intentPackage = await buildActionIntent({
       action,
       executor: executorAddress,
@@ -90,6 +109,7 @@ export async function POST(request) {
       accessKey: payloadInput.accessKey || '',
       tokenURI: payloadInput.tokenURI || '',
       maxBatch: payloadInput.maxBatch ?? 0,
+      nowSec: chainNowSec,
     })
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)
