@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
-import { resolveIntentExecutorAddress } from '@/utils/intents/resolveIntentExecutor'
+import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -72,7 +72,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
-    const executorAddress = resolveIntentExecutorAddress()
+    const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)
     const adminAddress = await getAdminAddress()
     const priceProvider = await getContractInstance()
     const labData = await priceProvider.getLab(labId)

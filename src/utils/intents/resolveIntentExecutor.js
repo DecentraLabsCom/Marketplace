@@ -1,4 +1,5 @@
 import { ethers } from 'ethers';
+import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 
 function resolveFallbackAddress() {
   const direct =
@@ -36,6 +37,39 @@ export function resolveIntentExecutorAddress() {
   return configured;
 }
 
+async function resolveInstitutionBackendExecutor(schacHomeOrganization) {
+  if (!schacHomeOrganization) return null;
+
+  try {
+    const contract = await getContractInstance('diamond', true);
+    const orgHash = ethers.keccak256(ethers.toUtf8Bytes(schacHomeOrganization));
+    const institution = await contract.getInstitutionWalletByOrganizationHash(orgHash);
+
+    if (!institution || institution === ethers.ZeroAddress) {
+      return null;
+    }
+
+    try {
+      const backend = await contract.getAuthorizedBackend(institution);
+      if (backend && backend !== ethers.ZeroAddress) {
+        return backend;
+      }
+    } catch {
+      // If the backend lookup fails, fall back to the institution wallet.
+    }
+
+    return institution;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveIntentExecutorForInstitution(schacHomeOrganization) {
+  const executor = await resolveInstitutionBackendExecutor(schacHomeOrganization);
+  return executor || resolveIntentExecutorAddress();
+}
+
 export default {
   resolveIntentExecutorAddress,
+  resolveIntentExecutorForInstitution,
 };

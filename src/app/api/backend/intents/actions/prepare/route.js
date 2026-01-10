@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
-import { resolveIntentExecutorAddress } from '@/utils/intents/resolveIntentExecutor'
+import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -72,7 +72,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
-    const executorAddress = resolveIntentExecutorAddress()
+    const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)
     const adminAddress = await getAdminAddress()
 
     const intentPackage = await buildActionIntent({
