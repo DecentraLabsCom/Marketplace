@@ -58,7 +58,12 @@ const createTransports = () => {
   // Helper function to safely construct URLs
   const constructUrl = (base, id = '') => {
     if (!base || base === 'undefined') return null;
-    const url = id ? `https://${base}${id}` : `https://${base}`;
+    const trimmed = base.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+      return trimmed;
+    }
+    const url = id ? `https://${trimmed}${id}` : `https://${trimmed}`;
     return url.includes('undefined') ? null : url;
   };
 
