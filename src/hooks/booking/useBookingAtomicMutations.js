@@ -23,13 +23,70 @@ const resolveIntentRequestId = (data) =>
   data?.intent?.request_id ||
   data?.intent?.requestId?.toString?.();
 
-const resolveAuthorizationInfo = (prepareData) => ({
-  authorizationUrl: prepareData?.authorizationUrl || prepareData?.ceremonyUrl || null,
+const normalizeAuthorizationUrl = (authorizationUrl, backendUrl) => {
+  if (!authorizationUrl) return null;
+  const raw = String(authorizationUrl).trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const normalized = raw.startsWith('//') ? raw.replace(/^\/+/, '/') : raw;
+  if (backendUrl) {
+    try {
+      return new URL(normalized, backendUrl).toString();
+    } catch {
+      // fall through
+    }
+  }
+  return normalized;
+};
+
+const resolveAuthorizationInfo = (prepareData, backendUrl) => ({
+  authorizationUrl: normalizeAuthorizationUrl(
+    prepareData?.authorizationUrl || prepareData?.ceremonyUrl || null,
+    prepareData?.backendUrl || backendUrl
+  ),
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
+const openAuthorizationPopup = (authorizationUrl, popup) => {
+  if (!authorizationUrl) return null;
+
+  let authPopup = popup && !popup.closed ? popup : null;
+  if (!authPopup) {
+    authPopup = window.open('', 'intent-authorization', 'width=480,height=720');
+  }
+
+  if (authPopup) {
+    try {
+      authPopup.opener = null;
+    } catch {
+      // ignore opener errors
+    }
+    try {
+      authPopup.location.href = authorizationUrl;
+      authPopup.focus();
+      return authPopup;
+    } catch {
+      authPopup = null;
+    }
+  }
+
+  const fallback = window.open(
+    authorizationUrl,
+    'intent-authorization',
+    'width=480,height=720'
+  );
+  if (fallback) {
+    try {
+      fallback.opener = null;
+    } catch {
+      // ignore opener errors
+    }
+  }
+  return fallback;
+};
+
 async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup } = {}) {
-  const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
+  const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData, backendUrl);
   if (!authorizationUrl || !authorizationSessionId) {
     try {
       if (popup && !popup.closed) {
@@ -41,25 +98,9 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     return null;
   }
 
-  let authPopup = popup && !popup.closed ? popup : null;
-  if (authPopup) {
-    try {
-      authPopup.location.href = authorizationUrl;
-      authPopup.focus();
-    } catch {
-      authPopup = null;
-    }
-  }
-
+  const authPopup = openAuthorizationPopup(authorizationUrl, popup);
   if (!authPopup) {
-    authPopup = window.open(
-      authorizationUrl,
-      'intent-authorization',
-      'width=480,height=720,noopener,noreferrer'
-    );
-    if (!authPopup) {
-      throw new Error('Authorization window was blocked');
-    }
+    throw new Error('Authorization window was blocked');
   }
 
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
@@ -91,8 +132,15 @@ async function runActionIntent(action, payload) {
   const preOpenedPopup = window.open(
     '',
     'intent-authorization',
-    'width=480,height=720,noopener,noreferrer'
+    'width=480,height=720'
   );
+  if (preOpenedPopup) {
+    try {
+      preOpenedPopup.opener = null;
+    } catch {
+      // ignore opener errors
+    }
+  }
 
   const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
