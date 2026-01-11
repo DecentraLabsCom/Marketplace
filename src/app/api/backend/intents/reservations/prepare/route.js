@@ -39,13 +39,13 @@ async function resolveChainNowSec() {
     const block = await provider.getBlock('latest')
     const timestamp = Number(block?.timestamp)
     if (Number.isFinite(timestamp) && timestamp > 0) {
-      return Math.max(0, timestamp - 5)
+      return Math.max(0, timestamp - 30)
     }
   } catch (error) {
     devLog.warn('[API] Failed to resolve chain timestamp, falling back to local time:', error?.message || error)
   }
 
-  const fallback = Math.floor(Date.now() / 1000) - 5
+  const fallback = Math.floor(Date.now() / 1000) - 30
   return fallback > 0 ? fallback : 0
 }
 
