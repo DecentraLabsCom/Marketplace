@@ -28,19 +28,38 @@ const resolveAuthorizationInfo = (prepareData) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
-async function awaitBackendAuthorization(prepareData, { backendUrl, authToken } = {}) {
+async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData);
   if (!authorizationUrl || !authorizationSessionId) {
+    try {
+      if (popup && !popup.closed) {
+        popup.close();
+      }
+    } catch {
+      // ignore close errors
+    }
     return null;
   }
 
-  const popup = window.open(
-    authorizationUrl,
-    'intent-authorization',
-    'width=480,height=720,noopener,noreferrer'
-  );
-  if (!popup) {
-    throw new Error('Authorization window was blocked');
+  let authPopup = popup && !popup.closed ? popup : null;
+  if (authPopup) {
+    try {
+      authPopup.location.href = authorizationUrl;
+      authPopup.focus();
+    } catch {
+      authPopup = null;
+    }
+  }
+
+  if (!authPopup) {
+    authPopup = window.open(
+      authorizationUrl,
+      'intent-authorization',
+      'width=480,height=720,noopener,noreferrer'
+    );
+    if (!authPopup) {
+      throw new Error('Authorization window was blocked');
+    }
   }
 
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
@@ -54,8 +73,8 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken } 
   }
 
   try {
-    if (!popup.closed) {
-      popup.close();
+    if (!authPopup.closed) {
+      authPopup.close();
     }
   } catch {
     // ignore close errors
@@ -68,6 +87,12 @@ async function runActionIntent(action, payload) {
   if (typeof window === 'undefined' || !window.PublicKeyCredential) {
     throw new Error('WebAuthn not supported in this environment');
   }
+
+  const preOpenedPopup = window.open(
+    '',
+    'intent-authorization',
+    'width=480,height=720,noopener,noreferrer'
+  );
 
   const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
@@ -85,6 +110,7 @@ async function runActionIntent(action, payload) {
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
     backendUrl: payload.backendUrl,
     authToken,
+    popup: preOpenedPopup,
   });
   if (authorizationStatus) {
     const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
