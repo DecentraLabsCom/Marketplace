@@ -27,7 +27,29 @@ const normalizeAuthorizationUrl = (authorizationUrl, backendUrl) => {
   if (!authorizationUrl) return null;
   const raw = String(authorizationUrl).trim();
   if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^https?:\/\//i.test(raw)) {
+    if (!backendUrl) return raw;
+    try {
+      const parsed = new URL(raw);
+      const hostname = parsed.hostname.toLowerCase();
+      const isLocal =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '0.0.0.0';
+
+      if (hostname === 'intents' || (!hostname.includes('.') && !isLocal)) {
+        let path = parsed.pathname || '';
+        if (!path.startsWith('/intents')) {
+          path = `/intents${path.startsWith('/') ? '' : '/'}${path}`;
+        }
+        return new URL(`${path}${parsed.search || ''}${parsed.hash || ''}`, backendUrl).toString();
+      }
+
+      return raw;
+    } catch {
+      return raw;
+    }
+  }
   const normalized = raw.startsWith('//') ? raw.replace(/^\/+/, '/') : raw;
   if (backendUrl) {
     try {
@@ -52,24 +74,27 @@ const openAuthorizationPopup = (authorizationUrl, popup) => {
 
   let authPopup = popup && !popup.closed ? popup : null;
   if (!authPopup) {
-    authPopup = window.open('', 'intent-authorization', 'width=480,height=720');
+    authPopup = window.open(
+      authorizationUrl,
+      'intent-authorization',
+      'width=480,height=720'
+    );
   }
 
   if (authPopup) {
     try {
       authPopup.opener = null;
+      authPopup.focus();
     } catch {
       // ignore opener errors
     }
-    try {
-      authPopup.location.href = authorizationUrl;
-      authPopup.focus();
-      return authPopup;
-    } catch {
-      authPopup = null;
-    }
   }
 
+  return authPopup;
+};
+
+const openAuthorizationPopupFallback = (authorizationUrl) => {
+  if (!authorizationUrl) return null;
   const fallback = window.open(
     authorizationUrl,
     'intent-authorization',
@@ -98,7 +123,10 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     return null;
   }
 
-  const authPopup = openAuthorizationPopup(authorizationUrl, popup);
+  let authPopup = openAuthorizationPopup(authorizationUrl, popup);
+  if (!authPopup) {
+    authPopup = openAuthorizationPopupFallback(authorizationUrl);
+  }
   if (!authPopup) {
     throw new Error('Authorization window was blocked');
   }
@@ -129,19 +157,6 @@ async function runActionIntent(action, payload) {
     throw new Error('WebAuthn not supported in this environment');
   }
 
-  const preOpenedPopup = window.open(
-    '',
-    'intent-authorization',
-    'width=480,height=720'
-  );
-  if (preOpenedPopup) {
-    try {
-      preOpenedPopup.opener = null;
-    } catch {
-      // ignore opener errors
-    }
-  }
-
   const prepareResponse = await fetch('/api/backend/intents/actions/prepare', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -158,7 +173,6 @@ async function runActionIntent(action, payload) {
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
     backendUrl: payload.backendUrl,
     authToken,
-    popup: preOpenedPopup,
   });
   if (authorizationStatus) {
     const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData);
