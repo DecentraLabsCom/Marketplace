@@ -433,7 +433,7 @@ describe('useInstitutionalOnboarding', () => {
         backendUrl: 'https://backend.example.com'
       }
 
-        // Mock fetch behavior: local cache returns PENDING a couple times, then returns callback SUCCESS
+      // Mock fetch behavior: local cache returns PENDING a couple times, then returns callback SUCCESS
       let localCallCount = 0
       mockFetch.mockImplementation(async (url, opts) => {
         const u = typeof url === 'string' ? url : (url?.toString?.() || '')
