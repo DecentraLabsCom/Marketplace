@@ -14,6 +14,12 @@
 /coverage
 /scripts/*
 
+# Cypress artifacts (do not commit test screenshots/videos)
+/cypress/screenshots
+/cypress/videos
+/cypress/results
+/cypress/reports
+
 #But allow the rotate-jwt-keys script
 !scripts/rotate-jwt-keys.js
 
