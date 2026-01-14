@@ -4,6 +4,7 @@ const react = require("eslint-plugin-react");
 const reactHooks = require("eslint-plugin-react-hooks");
 const tailwindcss = require("eslint-plugin-tailwindcss");
 const jest = require("eslint-plugin-jest");
+const eslintComments = require("eslint-plugin-eslint-comments");
 const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
 
 const nextConfigs = Array.isArray(nextCoreWebVitals)
@@ -52,6 +53,9 @@ module.exports = [
         version: "detect",
       },
     },
+    plugins: {
+      'eslint-comments': eslintComments,
+    },
     rules: {
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
@@ -68,6 +72,8 @@ module.exports = [
       "@next/next/no-img-element": "off",
       "jsx-a11y/alt-text": "off",
       "import/no-anonymous-default-export": "off",
+      "eslint-comments/no-unused-disable": "error",
+      "eslint-comments/no-unused-enable": "error",
     },
   },
   {
