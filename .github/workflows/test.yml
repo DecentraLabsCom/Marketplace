@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x]
 
     steps:
       - name: 📥 Checkout code
@@ -28,7 +28,7 @@ jobs:
       - name: 📚 Install dependencies
         env:
           NPM_CONFIG_LEGACY_PEER_DEPS: true
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: 🔍 Run linting
         run: npm run lint
@@ -42,7 +42,7 @@ jobs:
       - name: 📊 Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          file: ./coverage/lcov.info
+          files: ./coverage/lcov.info
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false

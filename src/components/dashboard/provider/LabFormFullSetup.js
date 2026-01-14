@@ -104,7 +104,7 @@ export default function LabFormFullSetup({
     if (keywordsInput !== keywordsString) {
       setKeywordsInput(keywordsString)
     }
-  }, [localLab?.keywords]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localLab?.keywords])
   // Note: keywordsInput is intentionally excluded to prevent infinite loops
 
   // State for timeSlots input field (string representation)
@@ -117,7 +117,7 @@ export default function LabFormFullSetup({
     if (timeSlotsInput !== timeSlotsString) {
       setTimeSlotsInput(timeSlotsString)
     }
-  }, [localLab?.timeSlots]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [localLab?.timeSlots])
   // Note: timeSlotsInput is intentionally excluded to prevent infinite loops
 
   const handleKeywordsChange = (value) => {

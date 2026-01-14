@@ -18,13 +18,13 @@ describe("Smoke Test - Basic Navigation", () => {
     cy.contains("button", /login/i).should("be.visible");
 
     // Verify filter section is present
-    cy.contains("Filter by Category").should("be.visible");
-    cy.contains("Filter by Provider").should("be.visible");
+    cy.get("#category-filter").should("be.visible");
+    cy.get("#provider-filter").should("be.visible");
   });
 
   it("should display available labs", () => {
     // Wait for labs to load (increased timeout to allow API response time)
-    cy.contains("Listed labs", { timeout: 10000 }).should("be.visible");
+    cy.contains("button", /listed labs/i, { timeout: 10000 }).should("be.visible");
   });
 
   // Separated into individual tests to avoid navigation interference

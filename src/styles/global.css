@@ -48,6 +48,7 @@
   .size-min { width: min-content; height: min-content; }
   .size-max { width: max-content; height: max-content; }
   .size-fit { width: fit-content; height: fit-content; }
+  .animate-spin { animation: spin 1s linear infinite; }
 }
 
 :root {
@@ -73,13 +74,22 @@ body {
   border: 0;
   height: 1px;
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
-  @apply animate-separator-width;
+  animation: separator-width 1s ease-out forwards;
 }
 .separator-width-black {
   border: 0;
   height: 1px;
   background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
-  @apply animate-separator-width;
+  animation: separator-width 1s ease-out forwards;
+}
+
+@keyframes separator-width {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* Style override for Country select external component: react-flags-select */

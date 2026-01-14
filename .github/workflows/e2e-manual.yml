@@ -1,0 +1,54 @@
+name: Cypress E2E (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Test set to run: smoke or full'
+        required: false
+        default: 'smoke'
+
+jobs:
+  e2e:
+    name: Run Cypress E2E (manual)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run Cypress (start server and run)
+        uses: cypress-io/github-action@v5
+        with:
+          start: npm start
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 120000
+          browser: chrome
+
+      - name: Upload Cypress artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/videos
+            cypress/screenshots
+
+      - name: Upload Cypress report (if present)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-report
+          path: cypress/results || cypress/reports || ''

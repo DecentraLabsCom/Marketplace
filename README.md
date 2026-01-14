@@ -75,6 +75,46 @@ You can start editing the page by modifying `src/app/layout.js` or `src/app/page
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+---
+
+## Testing
+
+We run **unit and integration tests** (Jest) and linting in CI on every push/PR. E2E tests (Cypress) are intended to run locally by developers or on-demand in CI (manual workflow) to keep pull requests fast and reduce noise caused by flaky E2E runs.
+
+### Run tests locally
+
+- Install deps: `npm ci`
+- Run unit & integration tests: `npm test` (or `npm run test:ci` to run with coverage in CI mode)
+- Run lint: `npm run lint` or `npm run test:lint:cypress` (validates Cypress files do not trigger `no-undef` errors like `expect`)
+
+### Run E2E tests locally
+
+To run E2E tests locally (recommended):
+
+1. Start the development server:
+
+```bash
+npm run dev
+# or
+npm run build && npm start
+```
+
+2. Run Cypress in interactive mode:
+
+```bash
+npm run cy:open
+```
+
+or headless:
+
+```bash
+npm run cy:run
+```
+
+Notes:
+- Ensure any environment variables required by the app or Cypress are set before running E2E tests locally.
+- For CI runs, there's a manual workflow `Cypress E2E (manual)` available in GitHub Actions (Actions tab → select the workflow → Run workflow) which will run E2E on-demand.
+
 ### Learn More
 
 To learn more about DecentraLabs and how we are revolutionizing online experimentation through blockchain technologies, visit our webpage: [https://decentralabs.nebsyst.com/](https://decentralabs.nebsyst.com/)

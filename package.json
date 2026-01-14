@@ -20,6 +20,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:lint:cypress": "jest src/__tests__/lint.cypress.test.js --runInBand",
     "generate-jwt-keys": "node scripts/generate-jwt-keys.js",
     "rotate-jwt-keys": "node scripts/rotate-jwt-keys.js",
     "show-vercel-keys": "node scripts/show-keys-for-vercel.js",
@@ -73,13 +74,14 @@
     "viem": "^2.44.1",
     "wagmi": "^3.3.2",
     "xml2js": "^0.6.2",
-    "zod": "^3.24.2"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@cypress/code-coverage": "^3.14.7",
     "@eslint/eslintrc": "^3",
     "@eslint/js": "^9.39.2",
     "@tailwindcss/forms": "^0.5.11",
+    "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -102,7 +104,8 @@
     "postcss": "^8.5.6",
     "start-server-and-test": "^2.1.3",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "eslint-plugin-eslint-comments": "^3.2.0"
   },
   "overrides": {
     "xmlbuilder2": {
