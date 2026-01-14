@@ -40,6 +40,10 @@ function getInstitutionName(userData) {
     if (userData.affiliation) {
         return userData.affiliation.split('.')[0].toUpperCase();
     }
+
+    if (userData.institutionName) {
+        return userData.institutionName;
+    }
     
     return null;
 }
@@ -62,7 +66,8 @@ function UserDataCore({ children }) {
     const { address, isConnected, isReconnecting, isConnecting } = useAccount();
     const queryClient = useQueryClient();
     const { handleError: originalHandleError } = useErrorHandler();
-    const [isSSO, setIsSSO] = useState(false);
+    // undefined = unknown/initializing; prevents early Wallet-mode selection in hooks
+    const [isSSO, setIsSSO] = useState(undefined);
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [walletSessionCreated, setWalletSessionCreated] = useState(false);
@@ -478,8 +483,13 @@ function UserDataCore({ children }) {
         (Boolean(user) && isSSO);
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
-    // Combined loading state - don't wait for providers list for basic functionality
-    const isLoading = isWalletLoading || (isConnected && (isProviderLoading || ssoLoading));
+    // Combined loading state - wait for SSO session resolution to prevent early redirects
+    const isAuthInitializing = isSSO === undefined;
+    const isLoading =
+        isWalletLoading ||
+        ssoLoading ||
+        isAuthInitializing ||
+        (isConnected && isProviderLoading);
 
     // Combined effect to handle both SSO and provider data with proper name priority
     useEffect(() => {

@@ -99,7 +99,10 @@ export const useAllLabsWallet = (options = {}) => {
  * @returns {Object} React Query result with all labs data
  */
 export const useAllLabs = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  // Use a safe fallback during initialization to avoid throwing when UserContext
+  // is not yet mounted. This prevents an early Wallet-mode selection that would
+  // trigger on-chain reads before SSO session is resolved (causing flaky E2E).
+  const isSSO = useGetIsSSO({ ...options, fallbackDuringInit: true });
   
   const ssoQuery = useAllLabsSSO({ ...options, enabled: isSSO && options.enabled !== false });
   const walletQuery = useAllLabsWallet({ ...options, enabled: !isSSO && options.enabled !== false });

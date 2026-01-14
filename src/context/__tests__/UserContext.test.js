@@ -170,7 +170,7 @@ describe("UserData Context", () => {
 
       expect(result.current).toBeDefined();
       expect(result.current.user).toBeNull();
-      expect(result.current.isSSO).toBe(false);
+      expect(result.current.isSSO).toBeUndefined();
       expect(result.current.isProvider).toBe(false);
       expect(result.current.isLoggedIn).toBe(false);
     });
