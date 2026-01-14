@@ -113,7 +113,7 @@ export const useGetLabProvidersWallet = (options = {}) => {
  * @returns {Object} React Query result with providers data
  */
 export const useGetLabProviders = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isSSO = useGetIsSSO({ ...options, fallbackDuringInit: true });
   
   const ssoQuery = useGetLabProvidersSSO({ ...options, enabled: isSSO && options.enabled !== false });
   const walletQuery = useGetLabProvidersWallet({ ...options, enabled: !isSSO && options.enabled !== false });
@@ -194,7 +194,7 @@ export const useIsLabProviderWallet = (address, options = {}) => {
  * @returns {Object} React Query result with provider status
  */
 export const useIsLabProvider = (address, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isSSO = useGetIsSSO({ ...options, fallbackDuringInit: true });
   
   const ssoQuery = useIsLabProviderSSO(address, { ...options, enabled: isSSO && options.enabled !== false });
   const walletQuery = useIsLabProviderWallet(address, { ...options, enabled: !isSSO && options.enabled !== false });

@@ -34,7 +34,8 @@ import { useOptionalUser } from '@/context/UserContext'
  */
 export function useGetIsSSO(options = {}) {
   const context = useOptionalUser()
-  return resolveIsSSOValue(options, context?.isSSO)
+  const hasContext = context !== null
+  return resolveIsSSOValue(options, context?.isSSO, hasContext)
 }
 
 /**
@@ -45,7 +46,7 @@ export function getIsSSOFromOptions(options = {}) {
   return resolveIsSSOValue(options)
 }
 
-function resolveIsSSOValue(options = {}, contextIsSSO) {
+function resolveIsSSOValue(options = {}, contextIsSSO, hasContext = false) {
   // 1. Check for explicit isSSO override
   if (options.isSSO !== undefined) {
     return options.isSSO
@@ -60,6 +61,10 @@ function resolveIsSSOValue(options = {}, contextIsSSO) {
   // This allows hooks to work during UserContext initialization
   if (options.fallbackDuringInit !== undefined) {
     return options.fallbackDuringInit
+  }
+
+  if (hasContext) {
+    return true
   }
 
   throw new Error(
