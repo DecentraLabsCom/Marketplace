@@ -34,7 +34,12 @@ describe('Provider Registration API (E2E)', () => {
   })
 
   it('rejects duplicate email with 409', () => {
-    const payload = { name: 'A', email: 'dup@example.com' }
+    const payload = {
+      name: 'Acme Lab',
+      email: 'dup@example.com',
+      organization: 'Acme Org',
+      registrationType: 'manual'
+    }
 
     // First request
     cy.request('POST', '/api/provider/saveRegistration', payload)

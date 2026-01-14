@@ -24,6 +24,146 @@ Cypress.Commands.add("mockLabTokenBalance", (balance = "10.0") => {
   }).as("getBalance");
 });
 
+const DEFAULT_LABS = [
+  {
+    id: 1,
+    owner: "0xprovider1230000000000000000000000000000000000",
+    providerName: "Test University",
+    providerEmail: "provider@test.edu",
+    providerCountry: "ES",
+    uri: "Lab-Test-University-1.json",
+    price: "1000000000000000000",
+    isListed: true,
+    reputation: {
+      score: 0,
+      totalEvents: 0,
+      ownerCancellations: 0,
+      institutionalCancellations: 0,
+      lastUpdated: 0,
+    },
+    metadata: {
+      name: "Physics Lab",
+      description: "Advanced physics experiments",
+      attributes: [],
+    },
+  },
+];
+
+const getQueryParam = (url, key) => {
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get(key);
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * Mock lab and provider APIs used by market, lab detail, reservation,
+ * and provider dashboard views.
+ *
+ * @param {Array} labs - Lab definitions to return (defaults to a single lab)
+ */
+Cypress.Commands.add("mockLabApis", (labs = DEFAULT_LABS) => {
+  const normalizedLabs = Array.isArray(labs) && labs.length > 0 ? labs : DEFAULT_LABS;
+  const labsById = new Map(normalizedLabs.map((lab) => [String(lab.id), lab]));
+
+  const providers = normalizedLabs.map((lab) => ({
+    account: lab.owner,
+    name: lab.providerName || "Mock Provider",
+    email: lab.providerEmail || "provider@example.com",
+    country: lab.providerCountry || "ES",
+    authURI: lab.providerAuthURI || "",
+  }));
+
+  cy.intercept("GET", "/api/contract/lab/getAllLabs*", {
+    body: normalizedLabs.map((lab) => Number(lab.id)),
+  }).as("getAllLabs");
+
+  cy.intercept("GET", "/api/contract/provider/getLabProviders*", {
+    body: {
+      providers,
+      count: providers.length,
+      timestamp: new Date().toISOString(),
+    },
+  }).as("getLabProviders");
+
+  cy.intercept("GET", "/api/contract/lab/getLab*", (req) => {
+    const labId = req.query?.labId || getQueryParam(req.url, "labId");
+    const lab = labsById.get(String(labId));
+    if (!lab) {
+      req.reply({ statusCode: 404, body: { error: "Lab not found" } });
+      return;
+    }
+    req.reply({
+      statusCode: 200,
+      body: {
+        labId: Number(labId),
+        base: {
+          uri: lab.uri || "",
+          price: lab.price || "0",
+          accessURI: lab.accessURI || "",
+          accessKey: lab.accessKey || "",
+          createdAt: lab.createdAt || 0,
+        },
+      },
+    });
+  }).as("getLab");
+
+  cy.intercept("GET", "/api/contract/lab/ownerOf*", (req) => {
+    const labId = req.query?.labId || getQueryParam(req.url, "labId");
+    const lab = labsById.get(String(labId));
+    req.reply({
+      statusCode: 200,
+      body: {
+        labId: Number(labId),
+        owner: lab?.owner || "0x0000000000000000000000000000000000000000",
+      },
+    });
+  }).as("ownerOf");
+
+  cy.intercept("GET", "/api/contract/reservation/isTokenListed*", (req) => {
+    const labId = req.query?.labId || getQueryParam(req.url, "labId");
+    const lab = labsById.get(String(labId));
+    req.reply({
+      statusCode: 200,
+      body: {
+        labId: Number(labId),
+        isListed: lab?.isListed ?? true,
+        timestamp: new Date().toISOString(),
+        processingTime: 1,
+      },
+    });
+  }).as("isTokenListed");
+
+  cy.intercept("GET", "/api/contract/lab/getLabReputation*", (req) => {
+    const labId = req.query?.labId || getQueryParam(req.url, "labId");
+    const lab = labsById.get(String(labId));
+    req.reply({
+      statusCode: 200,
+      body: lab?.reputation || {
+        score: 0,
+        totalEvents: 0,
+        ownerCancellations: 0,
+        institutionalCancellations: 0,
+        lastUpdated: 0,
+      },
+    });
+  }).as("getLabReputation");
+
+  cy.intercept("GET", "/api/metadata*", (req) => {
+    const uri = req.query?.uri || getQueryParam(req.url, "uri");
+    const lab = normalizedLabs.find((item) => item.uri === uri) || normalizedLabs[0];
+    const metadata = lab?.metadata || {
+      name: `Lab ${lab?.id ?? "unknown"}`,
+      description: "Mock lab description",
+      attributes: [],
+    };
+
+    req.reply({ statusCode: 200, body: metadata });
+  }).as("getMetadata");
+});
+
 /**
  * Navigate to lab detail page with mocked API response
  *
@@ -32,10 +172,12 @@ Cypress.Commands.add("mockLabTokenBalance", (balance = "10.0") => {
  *   cy.visitLabDetail("2");
  */
 Cypress.Commands.add("visitLabDetail", (id = "1") => {
-  cy.intercept("GET", `/api/labs/${id}`, {
-    fixture: "lab-detail.json",
-  }).as("getLab");
-
+  cy.mockLabApis([
+    {
+      ...DEFAULT_LABS[0],
+      id: Number(id),
+    },
+  ]);
   cy.visit(`/lab/${id}`);
   cy.wait("@getLab");
 });
