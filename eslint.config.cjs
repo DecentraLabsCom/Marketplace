@@ -101,6 +101,7 @@ module.exports = [
     languageOptions: {
       globals: {
         ...globals.mocha,
+        ...globals.chai,
         Cypress: "readonly",
         cy: "readonly",
       },
