@@ -6,7 +6,6 @@ describe('ESLint - Cypress files', () => {
     const eslint = new ESLint({
       cwd: process.cwd(),
       overrideConfigFile: path.resolve(process.cwd(), 'eslint.config.cjs'),
-      useEslintrc: false,
     })
 
     let results
