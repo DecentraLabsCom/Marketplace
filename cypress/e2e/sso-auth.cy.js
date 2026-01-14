@@ -122,7 +122,9 @@ describe("SSO Authentication Flow", () => {
       cy.location("pathname").should("include", "/reservation");
 
       // Session should still be active
-      cy.contains("Test User").should("be.visible");
+      cy.contains(/Test University|test-user@institution\.edu/i).should(
+        "be.visible"
+      );
     });
   });
 
@@ -339,6 +341,7 @@ describe("SSO Provider Dashboard Access", () => {
     cy.visit("/providerdashboard");
     cy.wait("@getSession");
     cy.wait("@resolveInstitution");
+    cy.contains("Lab Panel").should("be.visible");
 
     // Lab management actions should be available
     cy.contains("Add New Lab").should("exist");

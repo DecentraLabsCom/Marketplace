@@ -32,6 +32,8 @@ describe("Lab Booking Flow", () => {
     cy.visit("/reservation/1");
 
     cy.wait("@getSession");
+    // Ensure mocked lab list is loaded (avoid Wallet-mode race that triggers on-chain calls)
+    cy.wait("@getAllLabs");
     cy.wait("@getLab");
     cy.wait("@getMetadata");
 
