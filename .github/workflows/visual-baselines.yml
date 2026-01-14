@@ -1,8 +1,14 @@
 name: Generate Visual Baselines
 
 on:
-  push:
-    branches: [ 'visual/baselines-from-main' ]
+  workflow_dispatch:
+    inputs:
+      updateSnapshots:
+        description: 'Set to true to update visual snapshots when running the workflow'
+        required: false
+        default: 'false'
+# Note: This workflow was previously triggered on pushes to 'visual/baselines-from-main' (now removed).
+# Converting to manual trigger prevents unexpected runs and allows maintainers to control snapshot updates.
 
 jobs:
   generate-baselines:
