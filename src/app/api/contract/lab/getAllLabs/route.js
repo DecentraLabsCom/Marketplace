@@ -42,9 +42,19 @@ export async function GET() {
   } catch (error) {
     console.error('❌ Error fetching lab list:', error);
     
-    return Response.json({ 
+    const shouldFallback =
+      process.env.NODE_ENV === 'production' || process.env.CI === 'true';
+    if (shouldFallback) {
+      console.warn('ƒsÿ‹÷? Returning empty lab list due to provider error');
+      return createSerializedJsonResponse([], {
+        status: 200,
+        headers: { 'x-labs-unavailable': '1' },
+      });
+    }
+
+    return Response.json({
       error: 'Failed to fetch lab list',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, {status: 500 });
+    }, { status: 500 });
   }
 }

@@ -95,9 +95,15 @@ export default function Navbar() {
       <Container className="flex justify-between items-center">
         {/* Logo */}
         <Link href="/">
-          <div className="h-14 relative">
-            <Image src="/DecentraLabs.png" alt="DecentraLabs Logo" fill priority sizes="80vw"
-                        className="!relative" />
+          <div className="relative h-14 w-[200px] sm:w-[240px] md:w-[274px]">
+            <Image
+              src="/DecentraLabs.png"
+              alt="DecentraLabs Logo"
+              fill
+              priority
+              sizes="(max-width: 640px) 200px, 274px"
+              className="object-contain"
+            />
           </div>
         </Link>
 

@@ -10,32 +10,40 @@ import { Container } from '../ui/Layout'
  */
 export default function Footer() {
   return (
-    <footer className="bg-hover-dark text-center p-3 mt-8 relative">
+    <footer className="bg-hover-dark text-slate-100 text-center p-3 mt-8 relative">
       <Container padding="none" className="p-1">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
           <div className="flex justify-center">
-              <div className="flex space-x-4 md:justify-center size-full relative">
-                <div className="relative w-1/2 h-full">
-                  <Image src="/eu_funded_en.jpg" alt="EU Funded" fill sizes="10vw"
-                                          className="!relative" />
-                </div>
-                <div className="relative w-1/2 h-full">
-                  <Image src="/ngi_sargasso.jpg" alt="NGI Sargasso" fill sizes="10vw"
-                                          className="!relative" />
-                </div>
-              </div>
+            <div className="flex items-center justify-center gap-4">
+              <Image
+                src="/eu_funded_en.jpg"
+                alt="EU Funded"
+                width={220}
+                height={50}
+                sizes="(max-width: 640px) 120px, 160px"
+                className="h-10 w-auto"
+              />
+              <Image
+                src="/ngi_sargasso.jpg"
+                alt="NGI Sargasso"
+                width={200}
+                height={46}
+                sizes="(max-width: 640px) 120px, 160px"
+                className="h-10 w-auto"
+              />
+            </div>
           </div>
 
           {/* Center: Links */}
           <div className="flex space-x-4 justify-center items-center">
-            <Link href="/about" className="hover:text-brand-primary transition font-semibold">
+            <Link href="/about" className="text-slate-100 hover:text-white transition font-semibold">
               About
             </Link>
-            <Link href="/faq" className="hover:text-brand-primary transition font-semibold">
+            <Link href="/faq" className="text-slate-100 hover:text-white transition font-semibold">
               FAQ
             </Link>
-            <Link href="/contact" className="hover:text-brand-primary transition font-semibold">
+            <Link href="/contact" className="text-slate-100 hover:text-white transition font-semibold">
               Contact
             </Link>
           </div>
@@ -49,7 +57,7 @@ export default function Footer() {
               aria-label="DecentraLabs website"
               title="DecentraLabs website"
             >
-              <FaGlobe className="size-6 hover:text-brand-primary" />
+              <FaGlobe className="size-6 text-slate-100 hover:text-white transition" />
               <span className="sr-only">DecentraLabs website</span>
             </a>
             <a
@@ -59,7 +67,7 @@ export default function Footer() {
               aria-label="DecentraLabs on GitHub"
               title="DecentraLabs on GitHub"
             >
-              <FaGithub className="size-6 hover:text-brand-primary" />
+              <FaGithub className="size-6 text-slate-100 hover:text-white transition" />
               <span className="sr-only">DecentraLabs on GitHub</span>
             </a>
             <a
@@ -69,7 +77,7 @@ export default function Footer() {
               aria-label="DecentraLabs on X"
               title="DecentraLabs on X"
             >
-              <FaXTwitter className="size-6 hover:text-brand-primary" />
+              <FaXTwitter className="size-6 text-slate-100 hover:text-white transition" />
               <span className="sr-only">DecentraLabs on X</span>
             </a>
           </div>
