@@ -1,0 +1,39 @@
+name: Generate Visual Baselines
+
+on:
+  workflow_dispatch:
+    inputs:
+      updateSnapshots:
+        description: 'Set to true to update visual snapshots when running the workflow'
+        required: false
+        default: 'false'
+# Note: This workflow was previously triggered on pushes to 'visual/baselines-from-main' (now removed).
+# Converting to manual trigger prevents unexpected runs and allows maintainers to control snapshot updates.
+
+jobs:
+  generate-baselines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Cypress binary
+        run: npx cypress install
+
+      - name: Start dev and run visual spec (create/update snapshots)
+        run: npx start-server-and-test dev http://localhost:3000 cypress run -- --spec cypress/e2e/visual/critical-pages.cy.js --env updateSnapshots=true
+        timeout-minutes: 15
+
+      - name: Upload generated snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-snapshots
+          path: cypress/snapshots/**/*
