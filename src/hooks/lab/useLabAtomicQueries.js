@@ -34,6 +34,20 @@ const LAB_QUERY_CONFIG = {
 // Export configuration for use in composed hooks
 export { LAB_QUERY_CONFIG };
 
+const normalizeLabIds = (ids) => {
+  if (!Array.isArray(ids)) return [];
+  const seen = new Set();
+  const unique = [];
+  ids.forEach((id) => {
+    const value = typeof id === 'bigint' ? Number(id) : Number(id);
+    if (!Number.isFinite(value)) return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    unique.push(value);
+  });
+  return unique;
+};
+
 // ===== useAllLabs Hook Family =====
 
 // Define queryFn first for reuse
@@ -48,8 +62,9 @@ const getAllLabsQueryFn = createSSRSafeQuery(async () => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useAllLabsSSO:', data);
-  return data;
+  const normalized = normalizeLabIds(data);
+  devLog.log('🔍 useAllLabsSSO:', normalized);
+  return normalized;
 }, []); // Return empty array during SSR
 
 /**
@@ -83,11 +98,12 @@ export const useAllLabsWallet = (options = {}) => {
     });
 
   // Normalize tuple [ids, total] into ids array for backward compatibility
+  const rawIds = Array.isArray(result.data?.[0]) ? result.data[0] : result.data;
+  const normalizedIds = rawIds ? normalizeLabIds(rawIds) : rawIds;
+
   return {
     ...result,
-    data: Array.isArray(result.data?.[0])
-      ? result.data[0].map((id) => Number(id))
-      : result.data,
+    data: normalizedIds,
   };
 };
 
