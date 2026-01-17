@@ -462,32 +462,32 @@ describe("LabCard - LabAccess Integration", () => {
 });
 
 describe("LabCard - Link Generation", () => {
-  test("generates correct href with string ID and provider", () => {
+  test("generates correct href with string ID", () => {
     renderLabCard();
 
     const link = screen.getByRole("link", { name: /Explore Lab/i });
-    expect(link).toHaveAttribute("href", "/lab/lab-123/ProviderCorp");
+    expect(link).toHaveAttribute("href", "/lab/lab-123");
   });
 
   test("generates correct href with numeric ID", () => {
     renderLabCard({ id: 42 });
 
     const link = screen.getByRole("link", { name: /Explore Lab/i });
-    expect(link).toHaveAttribute("href", "/lab/42/ProviderCorp");
+    expect(link).toHaveAttribute("href", "/lab/42");
   });
 
-  test("handles provider names with spaces in URL", () => {
+  test("ignores provider in URL generation", () => {
     renderLabCard({ provider: "Research Corp Inc" });
 
     const link = screen.getByRole("link", { name: /Explore Lab/i });
-    expect(link).toHaveAttribute("href", "/lab/lab-123/Research Corp Inc");
+    expect(link).toHaveAttribute("href", "/lab/lab-123");
   });
 
   test("handles special characters in lab ID", () => {
     renderLabCard({ id: "lab_test-123" });
 
     const link = screen.getByRole("link", { name: /Explore Lab/i });
-    expect(link).toHaveAttribute("href", "/lab/lab_test-123/ProviderCorp");
+    expect(link).toHaveAttribute("href", "/lab/lab_test-123");
   });
 
   test("link has accessible label", () => {
