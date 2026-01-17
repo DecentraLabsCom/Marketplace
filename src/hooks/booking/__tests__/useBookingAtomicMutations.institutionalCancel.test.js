@@ -27,6 +27,19 @@ jest.mock('@/utils/webauthn/client', () => ({
 }));
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'executed' })));
 
+// Mock optimistic UI helpers for cancellation flows
+const mockSetOptimisticBookingState = jest.fn();
+const mockCompleteOptimisticBookingState = jest.fn();
+const mockClearOptimisticBookingState = jest.fn();
+
+jest.mock('@/context/OptimisticUIContext', () => ({
+  useOptimisticUI: () => ({
+    setOptimisticBookingState: mockSetOptimisticBookingState,
+    completeOptimisticBookingState: mockCompleteOptimisticBookingState,
+    clearOptimisticBookingState: mockClearOptimisticBookingState,
+  }),
+}));
+
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {

@@ -38,13 +38,21 @@ jest.mock("@/utils/blockchain/selectChain", () => ({
   })),
 }));
 
-jest.mock("@/utils/dev/logger", () => ({
+jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {
     log: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
   },
+}));
+
+// Mock optimistic UI clear helper so we can assert clears on events
+const mockClearOptimisticBookingState = jest.fn();
+jest.mock('@/context/OptimisticUIContext', () => ({
+  useOptimisticUI: () => ({
+    clearOptimisticBookingState: mockClearOptimisticBookingState,
+  }),
 }));
 
 const createTestQueryClient = () =>
@@ -174,6 +182,9 @@ describe("BookingEventContext", () => {
       );
     });
 
+    // Should clear optimistic booking state for this reservation
+    expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("reservation-123");
+
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -194,6 +205,9 @@ describe("BookingEventContext", () => {
         "❌ Reservation denied by the provider."
       );
     });
+
+    // Should clear optimistic booking state for this reservation
+    expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("reservation-123");
   });
 
   test("requires reservation ownership before showing confirmation notification", async () => {
@@ -229,6 +243,9 @@ describe("BookingEventContext", () => {
       { args: { reservationKey: "reservation-999", tokenId: "7" } },
     ]);
 
+    // Ensure optimistic booking state was cleared
+    expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("reservation-999");
+
     await waitFor(() => {
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: bookingQueryKeys.byReservationKey("reservation-999"),
@@ -246,6 +263,17 @@ describe("BookingEventContext", () => {
         queryKey: bookingQueryKeys.hasActiveBookingByToken("7", mockUseAccount.address),
       });
     });
+  });
+
+  test("clears optimistic state on BookingCanceled", async () => {
+    const queryClient = createTestQueryClient();
+    renderHook(() => useBookingEventContext(), { wrapper: createWrapper(queryClient) });
+
+    await triggerEvent("BookingCanceled", [
+      { args: { reservationKey: "res-cancel-1", tokenId: "3" } },
+    ]);
+
+    expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("res-cancel-1");
   });
 
   test("backup polling resolves confirmations when events are missed", async () => {

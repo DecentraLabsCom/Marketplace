@@ -278,6 +278,69 @@ describe('OptimisticUIContext', () => {
   });
 
   describe('General Lab State Management', () => {
+    test('sets optimistic booking state', () => {
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const bookingId = 'rk-1';
+
+      act(() => {
+        result.current.setOptimisticBookingState(bookingId, { status: 'requesting', isPending: true });
+      });
+
+      expect(result.current.bookingStates[bookingId]).toBeDefined();
+      expect(result.current.bookingStates[bookingId].status).toBe('requesting');
+      expect(result.current.bookingStates[bookingId].isPending).toBe(true);
+      expect(result.current.bookingStates[bookingId].timestamp).toBeDefined();
+    });
+
+    test('completes optimistic booking state', () => {
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const bookingId = 'rk-2';
+
+      act(() => {
+        result.current.setOptimisticBookingState(bookingId, { status: 'requesting', isPending: true });
+      });
+
+      expect(result.current.bookingStates[bookingId].isPending).toBe(true);
+
+      act(() => {
+        result.current.completeOptimisticBookingState(bookingId);
+      });
+
+      expect(result.current.bookingStates[bookingId].isPending).toBe(false);
+    });
+
+    test('clears optimistic booking state', () => {
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const bookingId = 'rk-3';
+
+      act(() => {
+        result.current.setOptimisticBookingState(bookingId, { status: 'requesting', isPending: true });
+      });
+
+      expect(result.current.bookingStates[bookingId]).toBeDefined();
+
+      act(() => {
+        result.current.clearOptimisticBookingState(bookingId);
+      });
+
+      expect(result.current.bookingStates[bookingId]).toBeUndefined();
+    });
+
+    test('getEffectiveBookingState merges server and optimistic state', () => {
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const bookingId = 'rk-4';
+      const server = { status: 'pending', extra: 'srv' };
+
+      act(() => {
+        result.current.setOptimisticBookingState(bookingId, { status: 'requesting' });
+      });
+
+      const effective = result.current.getEffectiveBookingState(bookingId, server);
+      expect(effective.status).toBe('requesting');
+      expect(effective.extra).toBe('srv');
+    });
+  
+  
     test('sets optimistic lab state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
         wrapper: OptimisticUIProvider,

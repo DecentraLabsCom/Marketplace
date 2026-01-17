@@ -32,6 +32,18 @@ jest.mock('@/context/UserContext', () => ({
 }));
 
 import { renderHook, act } from '@testing-library/react';
+
+// Mock optimistic UI context (no-op default for these tests)
+const mockSetOptimisticBookingState = jest.fn();
+const mockCompleteOptimisticBookingState = jest.fn();
+const mockClearOptimisticBookingState = jest.fn();
+jest.mock('@/context/OptimisticUIContext', () => ({
+  useOptimisticUI: () => ({
+    setOptimisticBookingState: mockSetOptimisticBookingState,
+    completeOptimisticBookingState: mockCompleteOptimisticBookingState,
+    clearOptimisticBookingState: mockClearOptimisticBookingState,
+  }),
+}));
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useReservationRequest } from '../useBookingAtomicMutations';
 

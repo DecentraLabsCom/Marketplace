@@ -30,6 +30,19 @@ jest.mock('@/utils/webauthn/client', () => ({
 }));
 
 import { renderHook, act } from '@testing-library/react';
+
+// Mock optimistic UI context helpers
+const mockSetOptimisticBookingState = jest.fn();
+const mockCompleteOptimisticBookingState = jest.fn();
+const mockClearOptimisticBookingState = jest.fn();
+
+jest.mock('@/context/OptimisticUIContext', () => ({
+  useOptimisticUI: () => ({
+    setOptimisticBookingState: mockSetOptimisticBookingState,
+    completeOptimisticBookingState: mockCompleteOptimisticBookingState,
+    clearOptimisticBookingState: mockClearOptimisticBookingState,
+  }),
+}));
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useReservationRequestWallet,
@@ -95,12 +108,20 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     // Essential assertions: optimistic add occurred, contract called with expected args, optimistic replaced with tx info
     expect(bookingMocks.addOptimisticBooking).toHaveBeenCalledTimes(1);
+
+    // Optimistic UI state should be set
+    expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('opt-1', expect.objectContaining({ status: 'requesting' }));
+
     expect(contractWriteFn).toHaveBeenCalledWith([req.tokenId, req.start, req.end]);
     expect(res).toEqual(expect.objectContaining({ hash: '0xTXHASH', optimisticId: 'opt-1' }));
     expect(bookingMocks.replaceOptimisticBooking).toHaveBeenCalledWith('opt-1', expect.objectContaining({
       transactionHash: '0xTXHASH',
       status: 'pending',
     }));
+
+    // Optimistic UI should be completed after tx sent
+    expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('opt-1');
+
     expect(bookingMocks.removeOptimisticBooking).not.toHaveBeenCalled();
   });
 
@@ -212,6 +233,10 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     // Optimistic add then removal on error
     expect(bookingMocks.addOptimisticBooking).toHaveBeenCalledTimes(1);
+
+    // Optimistic UI state should be cleared on chain error
+    expect(mockClearOptimisticBookingState).toHaveBeenCalledWith('opt-2');
+
     expect(bookingMocks.removeOptimisticBooking).toHaveBeenCalledWith('opt-2');
     expect(bookingMocks.replaceOptimisticBooking).not.toHaveBeenCalled();
   });
@@ -261,6 +286,10 @@ describe('useReservationRequest (minimal unit tests)', () => {
       labId: vars.tokenId,
       status: 'requested',
     }));
+
+    // Optimistic booking UI state should be set for the reservation
+    expect(mockSetOptimisticBookingState).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ status: 'requested' }));
+
     expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object), requestId: expect.any(String) }));
   });
 

@@ -23,6 +23,75 @@ export function OptimisticUIProvider({ children }) {
   // Lab general states for other operations
   const [labStates, setLabStates] = useState({})
 
+  // Booking optimistic states keyed by reservationKey or optimistic id
+  const [bookingStates, setBookingStates] = useState({})
+
+  /**
+   * Set optimistic booking state
+   * @param {string|number} bookingKey - reservationKey or optimistic id
+   * @param {Object} state - state object, e.g., { status: 'requesting', isPending: true }
+   */
+  const setOptimisticBookingState = useCallback((bookingKey, state) => {
+    const key = String(bookingKey);
+    devLog.log(`🎯 [OptimisticUI] Setting optimistic booking state for ${key}:`, state)
+    setBookingStates(prev => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        ...state,
+        timestamp: Date.now()
+      }
+    }))
+  }, [])
+
+  /**
+   * Complete optimistic booking state (mark non-pending but keep optimistic override)
+   * @param {string|number} bookingKey
+   */
+  const completeOptimisticBookingState = useCallback((bookingKey) => {
+    const key = String(bookingKey);
+    devLog.log(`✅ [OptimisticUI] Completing optimistic booking state for ${key}`)
+    setBookingStates(prev => {
+      const current = prev[key]
+      if (!current) return prev
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          isPending: false,
+          timestamp: Date.now()
+        }
+      }
+    })
+  }, [])
+
+  /**
+   * Clear optimistic booking state
+   * @param {string|number} bookingKey
+   */
+  const clearOptimisticBookingState = useCallback((bookingKey) => {
+    const key = String(bookingKey);
+    devLog.log(`✅ [OptimisticUI] Clearing optimistic booking state for ${key}`)
+    setBookingStates(prev => {
+      const { [key]: removed, ...rest } = prev
+      return rest
+    })
+  }, [])
+
+  /**
+   * Get effective booking state (optimistic overrides server)
+   * @param {string|number} bookingKey
+   * @param {Object} serverState
+   */
+  const getEffectiveBookingState = useCallback((bookingKey, serverState = {}) => {
+    const key = String(bookingKey)
+    const optimisticState = bookingStates[key]
+    if (optimisticState) {
+      return { ...serverState, ...optimisticState }
+    }
+    return serverState
+  }, [bookingStates])
+
   /**
    * Set optimistic listing state for a lab
    * @param {string|number} labId - Lab ID
@@ -191,6 +260,20 @@ export function OptimisticUIProvider({ children }) {
         })
         return cleaned
       })
+
+      // Clean booking states
+      setBookingStates(prev => {
+        const cleaned = {}
+        Object.entries(prev).forEach(([bookingKey, state]) => {
+          const maxAge = state.isPending ? maxAgePending : maxAgeCompleted
+          if (now - state.timestamp < maxAge) {
+            cleaned[bookingKey] = state
+          } else {
+            devLog.log(`🧹 [OptimisticUI] Auto-cleaning ${state.isPending ? 'pending' : 'completed'} booking state for booking ${bookingKey}`)
+          }
+        })
+        return cleaned
+      })
     }
     
     const interval = setInterval(cleanup, 10000) // Check every 10 seconds
@@ -208,10 +291,17 @@ export function OptimisticUIProvider({ children }) {
     setOptimisticLabState,
     clearOptimisticLabState,
     getEffectiveLabState,
+
+    // Booking-specific methods
+    setOptimisticBookingState,
+    completeOptimisticBookingState,
+    clearOptimisticBookingState,
+    getEffectiveBookingState,
     
     // Direct state access (for debugging)
     labListingStates,
-    labStates
+    labStates,
+    bookingStates
   }
 
   return (

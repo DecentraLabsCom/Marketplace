@@ -9,6 +9,7 @@ import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 
 const BookingEventContext = createContext();
 
@@ -28,6 +29,8 @@ export function BookingEventProvider({ children }) {
     const { addTemporaryNotification } = useNotifications();
 
     const pendingConfirmations = useRef(new Map()); // Track reservations waiting for provider action (backup polling)
+
+    const { clearOptimisticBookingState } = useOptimisticUI();
 
     const trackPendingConfirmation = (reservationKey, tokenId, requesterAddress) => {
         if (!reservationKey) {
@@ -200,6 +203,13 @@ export function BookingEventProvider({ children }) {
                     if (shouldNotify) {
                         addTemporaryNotification('success', '✅ Reservation confirmed!');
                     }
+
+                    // Clear optimistic booking state if present
+                    try {
+                      if (reservationKeyStr) clearOptimisticBookingState(String(reservationKeyStr));
+                    } catch (err) {
+                      devLog.warn('Failed to clear optimistic booking state after ReservationConfirmed event:', err);
+                    }
                 }
             });
         }
@@ -299,6 +309,11 @@ export function BookingEventProvider({ children }) {
                 if (reservationKeyStr) {
                     pendingConfirmations.current.delete(reservationKeyStr);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+                    try {
+                      clearOptimisticBookingState(String(reservationKeyStr));
+                    } catch (err) {
+                      devLog.warn('Failed to clear optimistic booking state after BookingCanceled event:', err);
+                    }
                 }
             });
         }
@@ -322,6 +337,11 @@ export function BookingEventProvider({ children }) {
                 if (reservationKeyStr) {
                     pendingConfirmations.current.delete(reservationKeyStr);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+                    try {
+                      clearOptimisticBookingState(String(reservationKeyStr));
+                    } catch (err) {
+                      devLog.warn('Failed to clear optimistic booking state after ReservationRequestCanceled event:', err);
+                    }
                 }
             });
         }
@@ -367,6 +387,13 @@ export function BookingEventProvider({ children }) {
 
                     if (shouldNotify) {
                         addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+                    }
+
+                    // Clear optimistic booking state if present
+                    try {
+                      if (reservationKeyStr) clearOptimisticBookingState(String(reservationKeyStr));
+                    } catch (err) {
+                      devLog.warn('Failed to clear optimistic booking state after ReservationRequestDenied event:', err);
                     }
                 }
             });

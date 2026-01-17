@@ -15,6 +15,7 @@ import devLog from '@/utils/dev/logger'
 import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 
 const resolveIntentRequestId = (data) =>
   data?.requestId ||
@@ -250,6 +251,7 @@ export const useReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { addOptimisticBooking, replaceOptimisticBooking, removeOptimisticBooking, invalidateAllBookings } = useBookingCacheUpdates();
   const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (requestData) => {
@@ -263,6 +265,13 @@ export const useReservationRequestWallet = (options = {}) => {
         status: 'requesting'
       });
 
+      // Set optimistic UI state for the booking (keyed by optimistic id)
+      try {
+        setOptimisticBookingState(optimisticBooking.id, { status: 'requesting', isPending: true });
+      } catch (err) {
+        devLog.warn('Failed to set optimistic booking state (non-fatal):', err);
+      }
+
       try {
         devLog.log('🎯 Optimistic booking added to cache:', optimisticBooking.id);
 
@@ -272,7 +281,12 @@ export const useReservationRequestWallet = (options = {}) => {
         devLog.log('🔍 useReservationRequestWallet - Transaction Hash:', normalizedHash);
         return { hash: normalizedHash, optimisticId: optimisticBooking.id };
       } catch (error) {
-        // Remove optimistic update on error
+        // Remove optimistic update on error and clear optimistic UI state
+        try {
+          clearOptimisticBookingState(optimisticBooking.id);
+        } catch (err) {
+          devLog.warn('Failed to clear optimistic booking state after mutation error:', err);
+        }
         removeOptimisticBooking(optimisticBooking.id);
         throw error;
       }
@@ -297,6 +311,12 @@ export const useReservationRequestWallet = (options = {}) => {
         
         replaceOptimisticBooking(result.optimisticId, transactionPendingBooking);
         devLog.log('✅ Reservation request transaction sent via wallet, awaiting blockchain confirmation');
+
+        try {
+          completeOptimisticBookingState(result.optimisticId);
+        } catch (err) {
+          devLog.warn('Failed to complete optimistic booking state after tx sent:', err);
+        }
       } catch (error) {
         devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
         try {
@@ -335,6 +355,7 @@ export const useReservationRequestWallet = (options = {}) => {
 export const useReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateBooking, invalidateAllBookings } = useBookingCacheUpdates();
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (requestData) => {
@@ -452,6 +473,12 @@ export const useReservationRequestSSO = (options = {}) => {
           timestamp: new Date().toISOString(),
         });
 
+        try {
+          setOptimisticBookingState(reservationKey, { status: 'requested', isPending: true });
+        } catch (err) {
+          devLog.warn('Failed to set optimistic booking state for SSO reservation:', err);
+        }
+
         if (intentId) {
           (async () => {
             try {
@@ -462,7 +489,7 @@ export const useReservationRequestSSO = (options = {}) => {
               const finalKey = result?.reservationKey || reservationKey;
 
               if (status === 'executed') {
-                updateBooking(finalKey, {
+                        updateBooking(finalKey, {
                   reservationKey: finalKey,
                   labId: variables.tokenId,
                   start: variables.start,
@@ -474,6 +501,12 @@ export const useReservationRequestSSO = (options = {}) => {
                   note: 'Executed by institution',
                   timestamp: new Date().toISOString(),
                 });
+
+                try {
+                  completeOptimisticBookingState(finalKey);
+                } catch (err) {
+                  devLog.warn('Failed to complete optimistic booking state after intent executed:', err);
+                }
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
@@ -541,6 +574,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
   const [abortController] = [new AbortController()];
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
@@ -569,6 +603,12 @@ export const useCancelReservationRequestSSO = (options = {}) => {
           timestamp: new Date().toISOString(),
         });
 
+        try {
+          setOptimisticBookingState(reservationKey, { status: 'cancel-requested', isPending: true });
+        } catch (err) {
+          devLog.warn('Failed to set optimistic booking state for SSO cancel request:', err);
+        }
+
         if (intentId) {
           (async () => {
             try {
@@ -590,6 +630,12 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   note: 'Cancelled by institution',
                   timestamp: new Date().toISOString(),
                 });
+
+                try {
+                  completeOptimisticBookingState(reservationKey);
+                } catch (err) {
+                  devLog.warn('Failed to complete optimistic booking state after cancel executed:', err);
+                }
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(reservationKey, {
                   reservationKey,
@@ -599,6 +645,12 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
                 });
+
+                try {
+                  clearOptimisticBookingState(reservationKey);
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic booking state after cancel failed:', err);
+                }
               }
             } catch (err) {
               devLog.error('Polling cancel intent failed:', err);
@@ -614,6 +666,11 @@ export const useCancelReservationRequestSSO = (options = {}) => {
       }
     },
     onError: (error, reservationKey) => {
+      try {
+        clearOptimisticBookingState(reservationKey);
+      } catch (err) {
+        devLog.warn('Failed to clear optimistic booking state on SSO cancel error:', err);
+      }
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
       devLog.error('Failed to cancel reservation request via SSO:', error);
     },
@@ -623,6 +680,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
 export const useCancelReservationRequestWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { contractWriteFunction: cancelReservationRequest } = useContractWriteFunction('cancelReservationRequest');
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
@@ -645,9 +703,22 @@ export const useCancelReservationRequestWallet = (options = {}) => {
         };
       });
       devLog.log('✅ Reservation request marked as cancelled in cache via wallet (optimistic update)');
+
+      // Optimistic UI: set cancelling state and complete it after tx sent
+      try {
+        setOptimisticBookingState(reservationKey, { status: 'cancelling', isPending: true });
+        completeOptimisticBookingState(reservationKey);
+      } catch (err) {
+        devLog.warn('Failed to set/complete optimistic booking state for cancellation (non-fatal):', err);
+      }
     },
     onError: (error, reservationKey) => {
       // Revert optimistic update on error
+      try {
+        clearOptimisticBookingState(reservationKey);
+      } catch (err) {
+        devLog.warn('Failed to clear optimistic booking state on cancel error:', err);
+      }
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
       devLog.error('❌ Failed to cancel reservation request via wallet - reverting optimistic update:', error);
     },
@@ -677,6 +748,7 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
   const [abortController] = [new AbortController()];
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
@@ -706,6 +778,12 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
           timestamp: new Date().toISOString(),
         });
 
+        try {
+          setOptimisticBookingState(reservationKey, { status: 'cancel-requested', isPending: true });
+        } catch (err) {
+          devLog.warn('Failed to set optimistic booking state for institutional SSO cancel request:', err);
+        }
+
         if (intentId) {
           (async () => {
             try {
@@ -727,6 +805,12 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
                   note: 'Cancelled by institution',
                   timestamp: new Date().toISOString(),
                 });
+
+                try {
+                  completeOptimisticBookingState(reservationKey);
+                } catch (err) {
+                  devLog.warn('Failed to complete optimistic booking state after institutional cancel executed:', err);
+                }
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(reservationKey, {
                   reservationKey,
@@ -736,6 +820,12 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
                 });
+
+                try {
+                  clearOptimisticBookingState(reservationKey);
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic booking state after institutional cancel failed:', err);
+                }
               }
             } catch (err) {
               devLog.error('Polling cancel institutional reservation request intent failed:', err);
@@ -807,6 +897,7 @@ export const useCancelInstitutionalReservationRequest = (options = {}) => {
  */
 export const useCancelBookingSSO = (options = {}) => {
   const queryClient = useQueryClient();
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
@@ -830,6 +921,12 @@ export const useCancelBookingSSO = (options = {}) => {
       });
 
       try {
+        try {
+          setOptimisticBookingState(reservationKey, { status: 'cancel-requested', isPending: true });
+        } catch (err) {
+          devLog.warn('Failed to set optimistic booking state for cancel booking SSO:', err);
+        }
+
         const intentId =
           data?.requestId ||
           data?.intent?.meta?.requestId ||
@@ -859,6 +956,12 @@ export const useCancelBookingSSO = (options = {}) => {
                     },
                   };
                 });
+
+                try {
+                  completeOptimisticBookingState(reservationKey);
+                } catch (err) {
+                  devLog.warn('Failed to complete optimistic booking state after cancel booking executed:', err);
+                }
               } else if (status === 'failed' || status === 'rejected') {
                 queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
                   if (!oldData) return oldData;
@@ -873,6 +976,12 @@ export const useCancelBookingSSO = (options = {}) => {
                     },
                   };
                 });
+
+                try {
+                  clearOptimisticBookingState(reservationKey);
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic booking state after cancel booking failed:', err);
+                }
               }
             } catch (err) {
               devLog.error('Polling cancel booking intent failed:', err);
@@ -894,6 +1003,7 @@ export const useCancelBookingSSO = (options = {}) => {
 export const useCancelBookingWallet = (options = {}) => {
   const queryClient = useQueryClient();
   const { contractWriteFunction: cancelBooking } = useContractWriteFunction('cancelBooking');
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
@@ -916,9 +1026,21 @@ export const useCancelBookingWallet = (options = {}) => {
         };
       });
       devLog.log('✅ Booking marked as cancelled via wallet (optimistic update)');
+
+      try {
+        setOptimisticBookingState(reservationKey, { status: 'cancelling', isPending: true });
+        completeOptimisticBookingState(reservationKey);
+      } catch (err) {
+        devLog.warn('Failed to set/complete optimistic booking state for booking cancellation (non-fatal):', err);
+      }
     },
     onError: (error, reservationKey) => {
       // Revert optimistic update on error
+      try {
+        clearOptimisticBookingState(reservationKey);
+      } catch (err) {
+        devLog.warn('Failed to clear optimistic booking state on booking cancel error:', err);
+      }
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
       devLog.error('❌ Failed to cancel booking via wallet - reverting optimistic update:', error);
     },

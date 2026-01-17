@@ -31,6 +31,17 @@ jest.mock('@/utils/webauthn/client', () => ({
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'executed' })));
 
 import { renderHook, act } from '@testing-library/react';
+
+// Mock optimistic UI helpers
+const mockSetOptimisticBookingState = jest.fn();
+const mockCompleteOptimisticBookingState = jest.fn();
+
+jest.mock('@/context/OptimisticUIContext', () => ({
+  useOptimisticUI: () => ({
+    setOptimisticBookingState: mockSetOptimisticBookingState,
+    completeOptimisticBookingState: mockCompleteOptimisticBookingState,
+  }),
+}));
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useCancelReservationRequestSSO,
@@ -114,6 +125,10 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/prepare', expect.any(Object));
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/finalize', expect.any(Object));
     expect(updateBooking).toHaveBeenCalled();
+
+    // Optimistic booking UI state should be set and then completed after executed status
+    expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('rk-csso-1', expect.objectContaining({ status: 'cancel-requested' }));
+    expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-csso-1');
   });
 
   test('Wallet: contract write called and QueryClient.setQueryData attempted', async () => {
@@ -135,6 +150,10 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
     // Assert: contract function invoked with reservation key and local cache attempted to be patched
     expect(cancelFn).toHaveBeenCalledWith(['rk-wallet-1']);
     expect(setSpy).toHaveBeenCalled();
+
+    // Optimistic UI should be set and completed for the cancellation
+    expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('rk-wallet-1', expect.objectContaining({ status: 'cancelling' }));
+    expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-wallet-1');
 
     setSpy.mockRestore();
   });
