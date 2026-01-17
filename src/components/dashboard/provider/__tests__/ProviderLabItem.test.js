@@ -113,6 +113,23 @@ describe("ProviderLabItem", () => {
       expect(screen.getByText(/Unlisted/)).toBeInTheDocument();
     });
 
+    test('renders single category as badge', () => {
+      renderItem({ lab: { ...mockLab, category: 'Electronics' } });
+
+      expect(screen.getByText('Electronics')).toBeInTheDocument();
+      const badge = screen.getByText('Electronics');
+      expect(badge).toHaveClass('bg-ui-label-dark');
+    });
+
+    test('renders multiple categories as badges', () => {
+      renderItem({ lab: { ...mockLab, category: ['Electronics', 'Robotics'] } });
+
+      expect(screen.getByText('Electronics')).toBeInTheDocument();
+      expect(screen.getByText('Robotics')).toBeInTheDocument();
+      const badges = [screen.getByText('Electronics'), screen.getByText('Robotics')];
+      badges.forEach(b => expect(b).toHaveClass('bg-ui-label-dark'));
+    });
+
     test('displays "Listed" status when lab is listed', () => {
       renderItem({}, { isListed: true, isPending: false });
 
