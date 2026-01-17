@@ -197,12 +197,18 @@ export default function LabDetail({ id }) {
           <div className="mt-4">
             {/* Category */}
             {lab?.category && (
-              <div className="flex items-center">
-                <span className="bg-ui-label-dark text-neutral-200 inline-flex items-center justify-center 
-                py-1 px-3 text-sm rounded">
+            <div className="flex items-center gap-2">
+              {Array.isArray(lab.category) ? (
+                lab.category.map((cat) => (
+                  <span key={cat} className="bg-ui-label-dark text-neutral-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded">
+                    {cat}
+                  </span>
+                ))
+              ) : (
+                <span className="bg-ui-label-dark text-neutral-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded">
                   {lab.category}
                 </span>
-              </div>
+              )}
             )}
 
             {/* Keywords */}

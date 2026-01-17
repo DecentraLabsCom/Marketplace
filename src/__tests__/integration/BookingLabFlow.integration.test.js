@@ -190,6 +190,11 @@ describe("LabDetail Component", () => {
     expect(screen.getByText(mockLab.description)).toBeInTheDocument();
     expect(screen.getByText(/provider:/i)).toBeInTheDocument();
 
+    // Verify categories render correctly (single string)
+    if (typeof mockLab.category === 'string') {
+      expect(screen.getByText(mockLab.category)).toBeInTheDocument();
+    }
+
     // Verify booking button is available for listed labs
     // Button text is "Book Lab" but has aria-label with the lab name
     const bookButton = screen.getByRole("button", { name: /rent|book/i });
@@ -217,6 +222,26 @@ describe("LabDetail Component", () => {
     await waitFor(() => {
       expect(screen.getByText(mockLabData.name)).toBeInTheDocument();
     });
+  });
+
+  test("renders multiple categories as separate badges", async () => {
+    const { useLabById } = require("@/hooks/lab/useLabs");
+    useLabById.mockReturnValue({
+      data: { ...mockLabData, category: ["electronics", "robotics"] },
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithAllProviders(<LabDetail id="1" provider={mockLabData.provider} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(mockLabData.name)).toBeInTheDocument();
+    });
+
+    // Both category badges should be present
+    expect(screen.getByText("electronics")).toBeInTheDocument();
+    expect(screen.getByText("robotics")).toBeInTheDocument();
+  });
 
     // Verify unlisted warning is shown
     expect(screen.getByText(/currently unlisted/i)).toBeInTheDocument();
