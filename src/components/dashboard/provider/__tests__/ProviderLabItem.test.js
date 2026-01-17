@@ -19,10 +19,12 @@ import "@testing-library/jest-dom";
 
 // Mock OptimisticUI context hook
 const mockGetEffectiveListingState = jest.fn();
+const mockGetEffectiveLabState = jest.fn();
 
 jest.mock("@/context/OptimisticUIContext", () => ({
   useOptimisticUI: () => ({
     getEffectiveListingState: mockGetEffectiveListingState,
+    getEffectiveLabState: mockGetEffectiveLabState,
   }),
 }));
 
@@ -69,6 +71,12 @@ const renderItem = (props = {}, optimisticState = {}) => {
   };
 
   mockGetEffectiveListingState.mockReturnValue(defaultState);
+  // Default lab-level optimistic state (deleting/editing)
+  mockGetEffectiveLabState.mockReturnValue({
+    deleting: !!optimisticState.deleting,
+    editing: !!optimisticState.editing,
+    isPending: !!optimisticState.isPending,
+  });
 
   const defaultProps = {
     lab: mockLab,
@@ -128,7 +136,7 @@ describe("ProviderLabItem", () => {
 
       expect(screen.getByRole("button", { name: /edit/i })).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: /^list$/i })
+        screen.getByRole("button", { name: /^list/i })
       ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /unlist/i })
@@ -152,7 +160,7 @@ describe("ProviderLabItem", () => {
       const user = userEvent.setup();
       renderItem({}, { isListed: false, isPending: false });
 
-      await user.click(screen.getByRole("button", { name: /^list$/i }));
+      await user.click(screen.getByRole("button", { name: /^list/i }));
 
       expect(mockHandlers.onList).toHaveBeenCalledWith("1");
       expect(mockHandlers.onList).toHaveBeenCalledTimes(1);
@@ -213,7 +221,7 @@ describe("ProviderLabItem", () => {
     test("List button is disabled when lab is listed", () => {
       renderItem({}, { isListed: true, isPending: false });
 
-      const listButton = screen.getByRole("button", { name: /^list$/i });
+      const listButton = screen.getByRole("button", { name: /^list/i });
       expect(listButton).toBeDisabled();
     });
 
@@ -251,6 +259,7 @@ describe("ProviderLabItem", () => {
       );
 
       expect(screen.getByText(/Listing\.\.\./)).toBeInTheDocument();
+      expect(screen.getByTestId('spinner-list')).toBeInTheDocument();
     });
 
     test('displays "Unlisting..." when unlisting operation is pending', () => {
@@ -264,6 +273,23 @@ describe("ProviderLabItem", () => {
       );
 
       expect(screen.getByText(/Unlisting\.\.\./)).toBeInTheDocument();
+      expect(screen.getByTestId('spinner-unlist')).toBeInTheDocument();
+    });
+
+    test('shows delete spinner and disables other actions when deleting', () => {
+      renderItem({}, { isListed: false, isPending: false, deleting: true });
+
+      expect(screen.getByTestId('spinner-delete')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^list/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /unlist/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /edit/i })).toBeDisabled();
+    });
+
+    test('shows edit spinner and disables edit when editing pending', () => {
+      renderItem({}, { isListed: true, isPending: false, editing: true });
+
+      expect(screen.getByTestId('spinner-edit')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /edit/i })).toBeDisabled();
     });
 
     test("disables List button during listing operation", () => {
@@ -276,7 +302,7 @@ describe("ProviderLabItem", () => {
         }
       );
 
-      const listButton = screen.getByRole("button", { name: /^list$/i });
+      const listButton = screen.getByRole("button", { name: /^list/i });
       expect(listButton).toBeDisabled();
     });
 
@@ -304,7 +330,7 @@ describe("ProviderLabItem", () => {
         }
       );
 
-      expect(screen.getByRole("button", { name: /^list$/i })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /^list/i })).toBeDisabled();
       expect(screen.getByRole("button", { name: /unlist/i })).toBeDisabled();
     });
 

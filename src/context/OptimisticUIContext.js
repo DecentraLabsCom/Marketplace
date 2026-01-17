@@ -30,12 +30,13 @@ export function OptimisticUIProvider({ children }) {
    * @param {boolean} isPending - Whether operation is pending
    */
   const setOptimisticListingState = useCallback((labId, isListed, isPending = true) => {
+    const key = String(labId);
     const operation = isListed ? 'listing' : 'unlisting'
-    devLog.log(`🎯 [OptimisticUI] Setting ${operation} state for lab ${labId}:`, { isListed, isPending })
+    devLog.log(`🎯 [OptimisticUI] Setting ${operation} state for lab ${key}:`, { isListed, isPending })
     
     setLabListingStates(prev => ({
       ...prev,
-      [labId]: {
+      [key]: {
         isListed,
         isPending,
         operation,
@@ -49,15 +50,16 @@ export function OptimisticUIProvider({ children }) {
    * @param {string|number} labId - Lab ID
    */
   const completeOptimisticListingState = useCallback((labId) => {
-    devLog.log(`✅ [OptimisticUI] Completing optimistic state for lab ${labId}`)
+    const key = String(labId);
+    devLog.log(`✅ [OptimisticUI] Completing optimistic state for lab ${key}`)
     
     setLabListingStates(prev => {
-      const current = prev[labId]
+      const current = prev[key]
       if (!current) return prev
       
       return {
         ...prev,
-        [labId]: {
+        [key]: {
           ...current,
           isPending: false, // Transaction completed, keep the new state
           timestamp: Date.now()
@@ -71,10 +73,11 @@ export function OptimisticUIProvider({ children }) {
    * @param {string|number} labId - Lab ID
    */
   const clearOptimisticListingState = useCallback((labId) => {
-    devLog.log(`✅ [OptimisticUI] Clearing optimistic state for lab ${labId}`)
+    const key = String(labId);
+    devLog.log(`✅ [OptimisticUI] Clearing optimistic state for lab ${key}`)
     
     setLabListingStates(prev => {
-      const { [labId]: removed, ...rest } = prev
+      const { [key]: removed, ...rest } = prev
       return rest
     })
   }, [])
@@ -86,11 +89,12 @@ export function OptimisticUIProvider({ children }) {
    * @returns {Object} { isListed, isPending, operation }
    */
   const getEffectiveListingState = useCallback((labId, serverIsListed) => {
-    const optimisticState = labListingStates[labId]
+    const key = String(labId);
+    const optimisticState = labListingStates[key]
     
     if (optimisticState) {
       // Use optimistic state
-      devLog.log(`🎯 [OptimisticUI] Using optimistic state for lab ${labId}:`, optimisticState);
+      devLog.log(`🎯 [OptimisticUI] Using optimistic state for lab ${key}:`, optimisticState);
       return {
         isListed: optimisticState.isListed,
         isPending: optimisticState.isPending,
@@ -99,7 +103,7 @@ export function OptimisticUIProvider({ children }) {
     }
     
     // Use server state
-    devLog.log(`📡 [OptimisticUI] Using server state for lab ${labId}: isListed=${serverIsListed}`);
+    devLog.log(`📡 [OptimisticUI] Using server state for lab ${key}: isListed=${serverIsListed}`);
     return {
       isListed: serverIsListed || false,
       isPending: false,
@@ -113,10 +117,11 @@ export function OptimisticUIProvider({ children }) {
    * @param {Object} state - State object
    */
   const setOptimisticLabState = useCallback((labId, state) => {
+    const key = String(labId);
     setLabStates(prev => ({
       ...prev,
-      [labId]: {
-        ...prev[labId],
+      [key]: {
+        ...prev[key],
         ...state,
         timestamp: Date.now()
       }
@@ -128,8 +133,9 @@ export function OptimisticUIProvider({ children }) {
    * @param {string|number} labId - Lab ID
    */
   const clearOptimisticLabState = useCallback((labId) => {
+    const key = String(labId);
     setLabStates(prev => {
-      const { [labId]: removed, ...rest } = prev
+      const { [key]: removed, ...rest } = prev
       return rest
     })
   }, [])
@@ -141,7 +147,8 @@ export function OptimisticUIProvider({ children }) {
    * @returns {Object} Effective state
    */
   const getEffectiveLabState = useCallback((labId, serverState = {}) => {
-    const optimisticState = labStates[labId]
+    const key = String(labId);
+    const optimisticState = labStates[key]
     
     if (optimisticState) {
       return { ...serverState, ...optimisticState }

@@ -88,6 +88,17 @@ jest.mock("@/utils/dev/logger", () => ({
   },
 }));
 
+// Mock Optimistic UI helpers (clearers) to assert they are invoked on confirmations
+const mockClearOptimisticListingState = jest.fn();
+const mockClearOptimisticLabState = jest.fn();
+
+jest.mock("@/context/OptimisticUIContext", () => ({
+  useOptimisticUI: () => ({
+    clearOptimisticListingState: mockClearOptimisticListingState,
+    clearOptimisticLabState: mockClearOptimisticLabState,
+  }),
+}));
+
 describe("LabEventContext", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -385,6 +396,9 @@ describe("LabEventContext", () => {
         queryKey: ["lab", "ownerOf", "1"],
         exact: true,
       });
+
+      // Ensure optimistic lab state was cleared after update confirmation
+      expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
     });
 
     test("handles multiple LabUpdated events in one batch", () => {
@@ -569,6 +583,20 @@ describe("LabEventContext", () => {
         queryKey: ["lab", "getLab", null],
       });
     });
+
+    test("clears optimistic state on LabListed", () => {
+      renderHook(() => useLabEventContext(), { wrapper: LabEventProvider });
+
+      const mockLogs = [{ args: { tokenId: 5n } }];
+
+      act(() => {
+        mockWatchContractEventHandlers.LabListed(mockLogs);
+        jest.advanceTimersByTime(60);
+      });
+
+      expect(mockClearOptimisticListingState).toHaveBeenCalledWith("5");
+      expect(mockClearOptimisticLabState).toHaveBeenCalledWith("5");
+    });
   });
 
   describe("LabUnlisted Event Handling", () => {
@@ -628,6 +656,20 @@ describe("LabEventContext", () => {
           exact: true,
         });
       });
+    });
+
+    test("clears optimistic state on LabUnlisted", () => {
+      renderHook(() => useLabEventContext(), { wrapper: LabEventProvider });
+
+      const mockLogs = [{ args: { tokenId: 6n } }];
+
+      act(() => {
+        mockWatchContractEventHandlers.LabUnlisted(mockLogs);
+        jest.advanceTimersByTime(60);
+      });
+
+      expect(mockClearOptimisticListingState).toHaveBeenCalledWith("6");
+      expect(mockClearOptimisticLabState).toHaveBeenCalledWith("6");
     });
 
     test("skips invalidation when tokenId is null", () => {
@@ -703,6 +745,11 @@ describe("LabEventContext", () => {
         queryKey: ["lab", "ownerOf", "1"],
         exact: true,
       });
+
+      // Ensure optimistic states were cleared on deletion confirmation
+      expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
+      expect(mockClearOptimisticListingState).toHaveBeenCalledWith("1");
+
       // Verify getAllLabs was also invalidated
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],

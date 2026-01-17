@@ -15,10 +15,14 @@ import { useOptimisticUI } from '@/context/OptimisticUIContext'
  * @returns {JSX.Element} Provider lab management item with action buttons
  */
 const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDelete, onList, onUnlist }) {
-  const { getEffectiveListingState } = useOptimisticUI();
+  const { getEffectiveListingState, getEffectiveLabState } = useOptimisticUI();
   
   // Get effective listing state (optimistic UI overrides server state)
   const { isListed, isPending, operation } = getEffectiveListingState(lab.id, lab.isListed);
+  // Get general optimistic lab state (deleting, editing, etc.)
+  const labState = getEffectiveLabState(lab.id, {});
+  const isDeleting = !!labState.deleting;
+  const isEditing = !!labState.editing;
 
   return (
     <div className="p-4 border rounded shadow max-w-4xl mx-auto">
@@ -43,50 +47,62 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
             </div>
             <div className="h-[200px] ml-6 flex flex-col flex-1 items-stretch text-white">
                 <button onClick={onEdit}
-                className="relative bg-brand h-1/4 overflow-hidden group hover:font-bold"
+                disabled={isEditing || isDeleting}
+                className={`relative bg-brand h-1/4 overflow-hidden group hover:font-bold ${isEditing || isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    Edit
-                    <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                    border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
-                    group-hover:opacity-100 transition-opacity duration-300" />
+                    {isEditing ? (<><span data-testid="spinner-edit" className="ml-2 inline-block">⏳</span> Editing</>) : 'Edit'}
+                    {!isEditing && (
+                      <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
+                      border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-300" />
+                    )}
                 </button>
                 <button onClick={() => onList(lab.id)}
-                disabled={isListed || isPending}
+                disabled={isListed || isPending || isDeleting}
                 className={`relative h-1/4 overflow-hidden group transition-all duration-300 ${
-                  isListed || isPending
+                  isListed || isPending || isDeleting
                     ? 'bg-gray-400 cursor-not-allowed opacity-50' 
                     : 'bg-[#759ca8] hover:font-bold'
                 }`}
                 >
                     List
-                    {!isListed && !isPending && (
+                    {isPending && operation === 'listing' && (
+                      <span data-testid="spinner-list" className="ml-2 inline-block">⏳</span>
+                    )}
+                    {!isListed && !isPending && !isDeleting && (
                       <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                       border-b-[#5f7a91] border-l-[7em] border-l-transparent opacity-0 
                       group-hover:opacity-100 transition-opacity duration-300" />
                     )}
                 </button>
                 <button onClick={() => onUnlist(lab.id)}
-                disabled={!isListed || isPending}
+                disabled={!isListed || isPending || isDeleting}
                 className={`relative h-1/4 overflow-hidden group transition-all duration-300 ${
-                  !isListed || isPending
+                  !isListed || isPending || isDeleting
                     ? 'bg-gray-400 cursor-not-allowed opacity-50' 
                     : 'bg-[#7583ab] hover:font-bold'
                 }`}
                 >
                     Unlist
-                    {isListed && !isPending && (
+                    {isPending && operation === 'unlisting' && (
+                      <span data-testid="spinner-unlist" className="ml-2 inline-block">⏳</span>
+                    )}
+                    {isListed && !isPending && !isDeleting && (
                       <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                       border-b-[#5f6a91] border-l-[7em] border-l-transparent opacity-0 
                       group-hover:opacity-100 transition-opacity duration-300" />
                     )}
                 </button>
                 <button onClick={() => onDelete(lab.id)}
-                className="relative bg-[#a87583] h-1/4 overflow-hidden group hover:font-bold"
+                disabled={isDeleting}
+                className={`relative bg-[#a87583] h-1/4 overflow-hidden group hover:font-bold ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    Delete
-                    <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
-                    border-b-[#925c69] border-l-[7em] border-l-transparent opacity-0 
-                    group-hover:opacity-100 transition-opacity duration-300" />
+                    {isDeleting ? (<><span data-testid="spinner-delete" className="ml-2 inline-block">⏳</span> Deleting</>) : 'Delete'}
+                    {!isDeleting && (
+                      <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
+                      border-b-[#925c69] border-l-[7em] border-l-transparent opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-300" />
+                    )}
                 </button>
             </div>
         </div>

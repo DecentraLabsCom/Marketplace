@@ -4,6 +4,7 @@ import { parseUnits } from 'viem'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import { globalQueryClient } from '@/context/ClientQueryProvider'
 import { 
@@ -87,6 +88,7 @@ export default function ProviderDashboard() {
   );
 
   const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
+  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
   const { decimals } = useLabToken();
 
   // 🚀 React Query mutations for lab management
@@ -254,7 +256,15 @@ export default function ProviderDashboard() {
         postExecutePollInitialDelayMs: 2_000,
         postExecutePollMaxDelayMs: 5_000,
       });
-      
+      // Close modal and notify success
+      try {
+        setIsModalOpen(false);
+        addTemporaryNotification('success', '✅ Lab created!');
+      } catch (err) {
+        devLog.warn('Failed to close modal or notify success:', err);
+      } finally {
+        clearCreateLabProgress();
+      }      
       const blockchainLabId = result?.labId?.toString?.() || result?.id?.toString?.();
       
       if (!blockchainLabId) {
@@ -486,19 +496,31 @@ export default function ProviderDashboard() {
       if (hasChangedOnChainData) {
         // 1a. If there are on-chain changes, update blockchain via mutation
         addTemporaryNotification('pending', '⏳ Updating lab onchain...');
+        setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
         devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
 
         // Use React Query mutation - it will route to correct service based on isSSO
-        updateLabMutation.mutate({
-          labId: labData.id,
-          labData: {
-            uri: labData.uri,
-            price: labData.price, // Already in token units
-            accessURI: labData.accessURI,
-            accessKey: labData.accessKey
-          },
-          backendUrl: isSSO ? institutionBackendUrl : undefined
-        });
+        try {
+          await updateLabMutation.mutateAsync({
+            labId: labData.id,
+            labData: {
+              uri: labData.uri,
+              price: labData.price, // Already in token units
+              accessURI: labData.accessURI,
+              accessKey: labData.accessKey
+            },
+            backendUrl: isSSO ? institutionBackendUrl : undefined
+          });
+
+          addTemporaryNotification('success', '✅ Lab updated!');
+          // Clear optimistic editing marker
+          clearOptimisticLabState(String(labData.id));
+        } catch (err) {
+          devLog.error('Error updating lab onchain:', err);
+          clearOptimisticLabState(String(labData.id));
+          addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(err)}`);
+          return;
+        }
       } else {
         // 1b. No on-chain changes - only update off-chain data (JSON file)
         devLog.log('ProviderDashboard: No on-chain changes detected, updating only off-chain data');
@@ -555,22 +577,36 @@ export default function ProviderDashboard() {
   // Handle delete a lab using React Query mutation
   const handleDeleteLab = async (labId) => {
     try {
+      // Optimistic UI: mark deleting and provide immediate feedback
       addTemporaryNotification('pending', '⏳ Deleting lab...');
+setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
       // 🚀 Use React Query mutation for lab deletion
       await deleteLabMutation.mutateAsync(labId);
       
+      // Remove from cached list immediately when possible
+      try {
+        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => (
+          Array.isArray(old) ? old.filter(l => (l?.id || l?.labId) !== String(labId)) : old
+        ));
+      } catch (cacheErr) {
+        devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
+      }
+
       addTemporaryNotification('success', '✅ Lab deleted!');
 
-      // React Query mutations and event contexts will handle cache cleanup automatically
+      // React Query mutations and event contexts will further ensure cache consistency
       devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
       
       addTemporaryNotification('warning', 
         `⚠️ Lab deleted successfully. All associated reservations have been automatically cancelled.`
       );
 
+      // Clear optimistic deleting state
+      clearOptimisticLabState(String(labId));
     } catch (error) {
       devLog.error('Error deleting lab:', error);
+      clearOptimisticLabState(labId);
       addTemporaryNotification('error', `❌ Failed to delete lab: ${error.message}`);
     }
   };
@@ -578,15 +614,38 @@ export default function ProviderDashboard() {
   // Handle listing a lab using React Query mutation
   const handleList = async (labId) => {
     try {
+      // Immediate user feedback: notify and set optimistic pending state
+      addTemporaryNotification('pending', '⏳ Sending listing request...');
+      setOptimisticListingState(String(labId), true, true);
+
       // 🚀 Use React Query mutation for lab listing
       const listPayload = isSSO
         ? { labId, backendUrl: institutionBackendUrl }
         : labId;
       await listLabMutation.mutateAsync(listPayload);
       
+      // Mark optimistic as completed (still keep new state)
+      completeOptimisticListingState(String(labId));
+
+      // Immediately update cache so UI reflects onchain change without waiting for events
+      try {
+        // Update listing status query
+        queryClient.setQueryData(labQueryKeys.isTokenListed(String(labId)), { isListed: true });
+
+        // Update lab list entries if present
+        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+          if (!Array.isArray(old)) return old;
+          return old.map(l => ((l?.labId === labId || String(l?.id) === String(labId)) ? { ...l, isListed: true } : l));
+        });
+      } catch (cacheErr) {
+        devLog.warn('Failed to update cache after listing:', cacheErr);
+      }
+
       addTemporaryNotification('success', '✅ Lab listed successfully!');
     } catch (error) {
       devLog.error('Error listing lab:', error);
+      // Clear optimistic pending state on error
+      clearOptimisticListingState(String(labId));
       addTemporaryNotification('error', `❌ Failed to list lab: ${error.message}`);
     }
   };
@@ -594,7 +653,9 @@ export default function ProviderDashboard() {
   // Handle unlisting a lab using React Query mutation
   const handleUnlist = async (labId) => {
     try {
+      // Immediate user feedback: notify and set optimistic pending state
       addTemporaryNotification('pending', '⏳ Unlisting lab...');
+      setOptimisticListingState(String(labId), false, true);
 
       // 🚀 Use React Query mutation for lab unlisting
       const unlistPayload = isSSO
@@ -602,9 +663,25 @@ export default function ProviderDashboard() {
         : labId;
       await unlistLabMutation.mutateAsync(unlistPayload);
       
+      // Mark optimistic as completed (keep new state)
+      completeOptimisticListingState(String(labId));
+
+      // Immediately update cache so UI reflects onchain change without waiting for events
+      try {
+        queryClient.setQueryData(labQueryKeys.isTokenListed(String(labId)), { isListed: false });
+        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+          if (!Array.isArray(old)) return old;
+          return old.map(l => ((l?.labId === labId || String(l?.id) === String(labId)) ? { ...l, isListed: false } : l));
+        });
+      } catch (cacheErr) {
+        devLog.warn('Failed to update cache after unlisting:', cacheErr);
+      }
+
       addTemporaryNotification('success', '✅ Lab unlisted!');
     } catch (error) {
       devLog.error('Error unlisting lab:', error);
+      // Clear optimistic pending state on error
+      clearOptimisticListingState(String(labId));
       addTemporaryNotification('error', `❌ Failed to unlist lab: ${error.message}`);
     }
   };

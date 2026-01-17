@@ -218,12 +218,30 @@ jest.mock("@/context/NotificationContext", () => ({
 /**
  * Mock OptimisticUI Context
  */
+const mockSetOptimisticListingState = jest.fn();
+const mockCompleteOptimisticListingState = jest.fn();
+const mockClearOptimisticListingState = jest.fn();
+const mockSetOptimisticLabState = jest.fn();
+const mockClearOptimisticLabState = jest.fn();
+
 jest.mock("@/context/OptimisticUIContext", () => ({
   OptimisticUIProvider: ({ children }) => children,
   useOptimisticUI: () => ({
     optimisticData: {},
     addOptimisticData: jest.fn(),
     removeOptimisticData: jest.fn(),
+    // Listing-specific methods used by ProviderDashboard
+    setOptimisticListingState: mockSetOptimisticListingState,
+    completeOptimisticListingState: mockCompleteOptimisticListingState,
+    clearOptimisticListingState: mockClearOptimisticListingState,
+    // Lab-level optimistic helpers
+    setOptimisticLabState: mockSetOptimisticLabState,
+    clearOptimisticLabState: mockClearOptimisticLabState,
+    getEffectiveLabState: jest.fn((labId, serverState) => ({
+      deleting: false,
+      editing: false,
+      isPending: false,
+    })),
     getEffectiveListingState: jest.fn((labId, serverIsListed) => ({
       isListed: serverIsListed,
       isPending: false,
@@ -427,9 +445,11 @@ describe("Provider Dashboard Flow Integration", () => {
     // Click Delete button
     fireEvent.click(deleteButton);
 
-    // Verify mutation was called
+    // Verify mutation was called and optimistic state was set and cleared
     await waitFor(() => {
       expect(mockDeleteLabMutation.mutateAsync).toHaveBeenCalled();
+      expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
+      expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
     });
   });
 

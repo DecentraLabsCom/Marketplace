@@ -99,11 +99,27 @@ jest.mock("@/context/LabTokenContext", () => ({
   useLabToken: () => ({ decimals: 18 }),
 }));
 
+// Mock Optimistic UI context to prevent provider dependency and spy on optimistic state methods
+const mockSetOptimisticListingState = jest.fn();
+const mockCompleteOptimisticListingState = jest.fn();
+const mockClearOptimisticListingState = jest.fn();
+const mockSetOptimisticLabState = jest.fn();
+const mockClearOptimisticLabState = jest.fn();
+jest.mock("@/context/OptimisticUIContext", () => ({
+  useOptimisticUI: () => ({
+    setOptimisticListingState: mockSetOptimisticListingState,
+    completeOptimisticListingState: mockCompleteOptimisticListingState,
+    clearOptimisticListingState: mockClearOptimisticListingState,
+    setOptimisticLabState: mockSetOptimisticLabState,
+    clearOptimisticLabState: mockClearOptimisticLabState,
+  }),
+}));
+
 // Hook mocks
 jest.mock("@/hooks/lab/useLabs", () => ({
   useLabsForProvider: () => mockLabsData,
   useAddLab: () => ({ mutateAsync: mockAddLabMutate }),
-  useUpdateLab: () => ({ mutate: mockUpdateLabMutate }),
+  useUpdateLab: () => ({ mutate: mockUpdateLabMutate, mutateAsync: mockUpdateLabMutate }),
   useDeleteLab: () => ({ mutateAsync: mockDeleteLabMutate }),
   useListLab: () => ({ mutateAsync: mockListLabMutate }),
   useUnlistLab: () => ({ mutateAsync: mockUnlistLabMutate }),
@@ -582,6 +598,9 @@ describe("ProviderDashboard Component", () => {
         await waitFor(() => {
           // Verify that the edit flow is triggered
           expect(mockUpdateLabMutate).toHaveBeenCalled();
+          // Ensure optimistic editing was set and then cleared
+          expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ editing: true, isPending: true }));
+          expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
         });
       });
 
@@ -639,6 +658,9 @@ describe("ProviderDashboard Component", () => {
             "success",
             "✅ Lab deleted!"
           );
+          // Ensure optimistic deleting state was set and then cleared
+          expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
+          expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
         });
       });
 
@@ -680,11 +702,25 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
+          // Ensure user receives immediate feedback
+          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+            "pending",
+            expect.stringContaining("Sending listing request")
+          );
+
+          // Mutation should be executed
           expect(mockListLabMutate).toHaveBeenCalledWith("1");
+
+          // And finally success notification
           expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
             "success",
             "✅ Lab listed successfully!"
           );
+
+          // Optimistic state was set before mutation
+          expect(mockSetOptimisticListingState).toHaveBeenCalledWith("1", true, true);
+          // On success it was completed
+          expect(mockCompleteOptimisticListingState).toHaveBeenCalledWith("1");
         });
       });
 

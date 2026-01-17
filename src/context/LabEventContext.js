@@ -7,6 +7,7 @@ import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
+import { useOptimisticUI } from '@/context/OptimisticUIContext'
 
 const LabEventContext = createContext();
 
@@ -40,6 +41,9 @@ export function LabEventProvider({ children }) {
 
     // Debug log for enabled state
     const isEnabled = !!contractAddress && !!safeChain.id && !!publicClient;
+
+    // Optimistic UI helpers (clearers)
+    const { clearOptimisticListingState, clearOptimisticLabState } = useOptimisticUI();
 
     // Debounced invalidation queue (coalesces multiple invalidations into a single flush)
     const pendingInvalidationsRef = useRef(new Map());
@@ -104,6 +108,13 @@ export function LabEventProvider({ children }) {
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
                 // Fine-grained invalidation for this lab only (avoid refetching the entire list)
                 queueLabDerivedInvalidations(labId);
+
+                // Clear any optimistic edit state now confirmed on chain
+                try {
+                  clearOptimisticLabState(String(labId));
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic lab state after LabUpdated event:', err);
+                }
             });
         }
     });
@@ -122,6 +133,14 @@ export function LabEventProvider({ children }) {
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
                 queueInvalidation(labQueryKeys.getLab(labId));
                 queueInvalidation(labQueryKeys.isTokenListed(labId));
+
+                // Clear any optimistic listing/lab state now that chain confirmed the listing
+                try {
+                  clearOptimisticListingState(String(labId));
+                  clearOptimisticLabState(String(labId));
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic state after LabListed event:', err);
+                }
             });
         }
     });
@@ -140,6 +159,14 @@ export function LabEventProvider({ children }) {
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
                 queueInvalidation(labQueryKeys.getLab(labId));
                 queueInvalidation(labQueryKeys.isTokenListed(labId));
+
+                // Clear any optimistic listing/lab state now that chain confirmed the unlisting
+                try {
+                  clearOptimisticListingState(String(labId));
+                  clearOptimisticLabState(String(labId));
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic state after LabUnlisted event:', err);
+                }
             });
         }
     });
@@ -158,6 +185,14 @@ export function LabEventProvider({ children }) {
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
                 // Fine-grained invalidation for deleted lab (avoid refetching unrelated labs)
                 queueLabDerivedInvalidations(labId);
+
+                // Clear any optimistic lab/listing state
+                try {
+                  clearOptimisticLabState(String(labId));
+                  clearOptimisticListingState(String(labId));
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic state after LabDeleted event:', err);
+                }
             });
 
             // LabDeleted changes the lab set -> invalidate getAllLabs
