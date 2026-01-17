@@ -13,7 +13,7 @@ export default function GlobalNotificationStack() {
   if (!notifications || notifications.length === 0) return null;
 
   return (
-    <div className="fixed z-50" style={{ bottom: '16px', left: '16px' }}>
+    <div className="fixed z-[60]" style={{ bottom: '16px', left: '16px' }}>
       {notifications.map((notification, index) => (
         <div 
           key={notification.id}

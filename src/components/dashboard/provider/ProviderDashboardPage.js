@@ -40,12 +40,26 @@ const sanitizeProviderNameForUri = (name) => {
  * @returns {JSX.Element} Complete provider dashboard with access control, lab list, calendar, and management actions
  */
 export default function ProviderDashboard() {
-  const { address, user, isSSO, isProvider, isProviderLoading, isLoading, institutionBackendUrl } = useUser();  
+  const {
+    address,
+    user,
+    isSSO,
+    isProvider,
+    isProviderLoading,
+    isLoading,
+    institutionBackendUrl,
+    institutionRegistrationWallet
+  } = useUser();
   const router = useRouter();
-  
+
+  const providerOwnerAddress = useMemo(
+    () => (isSSO ? institutionRegistrationWallet : address),
+    [isSSO, institutionRegistrationWallet, address]
+  );
+
   // 🚀 React Query for labs owned by this provider - with safe defaults
-  const allLabsResult = useLabsForProvider(address, { 
-    enabled: !!address && !isLoading && !isProviderLoading
+  const allLabsResult = useLabsForProvider(providerOwnerAddress, { 
+    enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading
   });
   
   // Safe destructuring with guaranteed defaults to prevent Rules of Hooks violations
@@ -223,7 +237,7 @@ export default function ProviderDashboard() {
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
         ...labData,
-        providerId: address, // Add provider info
+        providerId: providerOwnerAddress || address, // Add provider info
         isSSO,
         userEmail: user.email,
         backendUrl: isSSO ? institutionBackendUrl : undefined,

@@ -123,6 +123,44 @@ export async function requireAuthWithWallet() {
 
 // ===== Authorization Guards =====
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+function normalizeOrganizationDomain(value) {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  if (!/^[a-z0-9.-]+$/.test(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
+async function resolveInstitutionWalletFromSession(session) {
+  const organization =
+    session?.affiliation ||
+    session?.schacHomeOrganization ||
+    session?.organizationName ||
+    session?.organization ||
+    null;
+
+  const normalized = normalizeOrganizationDomain(organization);
+  if (!normalized) return null;
+
+  try {
+    const contract = await getContractInstance();
+    const wallet = await contract.resolveSchacHomeOrganization(normalized);
+    if (!wallet || wallet === ZERO_ADDRESS) {
+      return null;
+    }
+    return wallet;
+  } catch (error) {
+    devLog.warn('requireLabOwner: Failed resolving institution wallet', error?.message || error);
+    return null;
+  }
+}
+
 /**
  * Requires the user to be the owner of a specific lab
  * Works for BOTH authentication methods since both now have session cookies:
@@ -147,7 +185,14 @@ export async function requireLabOwner(session, labId) {
   }
   
   // Get wallet from session (works for both SSO and wallet users)
-  const userWallet = session?.wallet;
+  const isSsoSession = Boolean(session?.authType === 'sso' || session?.isSSO || session?.samlAssertion);
+  let userWallet = session?.wallet;
+  if ((!userWallet || !isValidAddress(userWallet)) && isSsoSession) {
+    const institutionalWallet = await resolveInstitutionWalletFromSession(session);
+    if (institutionalWallet && isValidAddress(institutionalWallet)) {
+      userWallet = institutionalWallet;
+    }
+  }
   
   if (!userWallet || !isValidAddress(userWallet)) {
     devLog.warn('🚫 requireLabOwner: No wallet linked to session');

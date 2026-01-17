@@ -245,6 +245,17 @@ const resolveRequestId = (data) =>
   data?.intent?.request_id ||
   data?.intent?.requestId?.toString?.();
 
+const resolveLabId = (data) => {
+  const candidate = data?.labId ?? data?.lab_id ?? data?.labID;
+  if (candidate === undefined || candidate === null) return null;
+  if (typeof candidate === 'string') return candidate;
+  try {
+    return candidate.toString();
+  } catch {
+    return null;
+  }
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const pollExecutedIntentForLabId = async (requestId, {
@@ -281,7 +292,7 @@ const pollExecutedIntentForLabId = async (requestId, {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data?.labId) {
+        if (resolveLabId(data)) {
           return data;
         }
       }
@@ -414,7 +425,7 @@ export const useAddLabSSO = (options = {}) => {
         throw new Error(reason);
       }
 
-      let labId = statusResult?.labId?.toString?.();
+      let labId = resolveLabId(statusResult);
       let txHash = statusResult?.txHash;
 
       // Some backends may mark an intent executed before attaching the labId/txHash fields.
@@ -428,7 +439,7 @@ export const useAddLabSSO = (options = {}) => {
           maxDelayMs: labData.postExecutePollMaxDelayMs ?? 5_000,
         });
 
-        labId = followUp?.labId?.toString?.() || labId;
+        labId = resolveLabId(followUp) || labId;
         txHash = followUp?.txHash || txHash;
       }
 
