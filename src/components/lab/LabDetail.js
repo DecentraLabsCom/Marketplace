@@ -209,6 +209,7 @@ export default function LabDetail({ id }) {
                   {lab.category}
                 </span>
               )}
+            </div>
             )}
 
             {/* Keywords */}

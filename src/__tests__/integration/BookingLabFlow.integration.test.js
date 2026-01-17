@@ -222,6 +222,13 @@ describe("LabDetail Component", () => {
     await waitFor(() => {
       expect(screen.getByText(mockLabData.name)).toBeInTheDocument();
     });
+
+    // Verify unlisted warning is shown
+    expect(screen.getByText(/currently unlisted/i)).toBeInTheDocument();
+
+    // Verify booking button is disabled
+    const bookButton = screen.getByRole("button", { name: /not available/i });
+    expect(bookButton).toBeDisabled();
   });
 
   test("renders multiple categories as separate badges", async () => {
@@ -238,17 +245,13 @@ describe("LabDetail Component", () => {
       expect(screen.getByText(mockLabData.name)).toBeInTheDocument();
     });
 
-    // Both category badges should be present
-    expect(screen.getByText("electronics")).toBeInTheDocument();
-    expect(screen.getByText("robotics")).toBeInTheDocument();
-  });
-
-    // Verify unlisted warning is shown
-    expect(screen.getByText(/currently unlisted/i)).toBeInTheDocument();
-
-    // Verify booking button is disabled
-    const bookButton = screen.getByRole("button", { name: /not available/i });
-    expect(bookButton).toBeDisabled();
+    // Both category badges should be present (keywords may include 'electronics' too)
+    const electronicsMatches = screen.getAllByText("electronics");
+    // At least one of the 'electronics' matches should be a category badge (bg-ui-label-dark)
+    expect(electronicsMatches.some(el => el.classList && el.classList.contains('bg-ui-label-dark'))).toBe(true);
+    // 'robotics' should appear as a category badge
+    const roboticsEl = screen.getByText("robotics");
+    expect(roboticsEl.classList.contains('bg-ui-label-dark')).toBe(true);
   });
 
   /**

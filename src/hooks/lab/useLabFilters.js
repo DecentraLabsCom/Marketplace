@@ -44,7 +44,11 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     if (!labs || labs.length === 0) return []
     const uniqueCategories = new Set()
     labs.forEach(lab => {
-      if (lab.category) uniqueCategories.add(lab.category)
+      if (Array.isArray(lab.category)) {
+        lab.category.forEach(c => { if (c) uniqueCategories.add(c) })
+      } else if (lab.category) {
+        uniqueCategories.add(lab.category)
+      }
     })
     return Array.from(uniqueCategories).sort()
   }, [labs])
@@ -99,7 +103,10 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     
     // Category filter
     if (selectedCategory !== "All") {
-      filtered = filtered.filter((lab) => lab.category === selectedCategory)
+      filtered = filtered.filter((lab) => {
+        if (Array.isArray(lab.category)) return lab.category.includes(selectedCategory)
+        return lab.category === selectedCategory
+      })
     }
     
     // Price sorting

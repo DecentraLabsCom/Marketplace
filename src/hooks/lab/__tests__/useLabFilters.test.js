@@ -103,7 +103,9 @@ describe("useLabFilters", () => {
 
       expect(result.current.searchFilteredLabs).toHaveLength(2);
       expect(
-        result.current.searchFilteredLabs.every((lab) => lab.category === "AI")
+        result.current.searchFilteredLabs.every((lab) => {
+          return Array.isArray(lab.category) ? lab.category.includes("AI") : lab.category === "AI"
+        })
       ).toBe(true);
     });
 
@@ -111,6 +113,18 @@ describe("useLabFilters", () => {
       const { result } = renderHook(() => useLabFilters(mockLabs));
 
       expect(result.current.categories).toEqual(["AI", "Quantum"]);
+    });
+
+    test("handles labs with multiple categories and populates categories list", () => {
+      const multiCatLabs = [
+        ...mockLabs,
+        { id: '4', name: 'Multi Lab', category: ['AI', 'Robotics'], provider: 'Multi', price: 150 }
+      ];
+
+      const { result } = renderHook(() => useLabFilters(multiCatLabs));
+
+      // Categories should include 'AI', 'Quantum', 'Robotics' and be sorted
+      expect(result.current.categories).toEqual(["AI", "Quantum", "Robotics"]);
     });
   });
 
