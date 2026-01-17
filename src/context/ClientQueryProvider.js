@@ -8,7 +8,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { labQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
-const queryClient = new QueryClient({
+export const globalQueryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Default cache time (15 minutes for general blockchain data)

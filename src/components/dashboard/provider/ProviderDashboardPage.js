@@ -4,6 +4,8 @@ import { parseUnits } from 'viem'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
+import { labQueryKeys } from '@/utils/hooks/queryKeys'
+import { globalQueryClient } from '@/context/ClientQueryProvider'
 import { 
   useAddLab, 
   useUpdateLab, 
@@ -88,6 +90,8 @@ export default function ProviderDashboard() {
   const { decimals } = useLabToken();
 
   // 🚀 React Query mutations for lab management
+  const queryClient = globalQueryClient || null;
+
   const addLabMutation = useAddLab();
   const updateLabMutation = useUpdateLab();
   const deleteLabMutation = useDeleteLab();
@@ -320,11 +324,44 @@ export default function ProviderDashboard() {
         }
       }
 
-      clearCreateLabProgress();
-      addTemporaryNotification('success', '✅ Lab added and saved!');
-      
-      setTimeout(() => setIsModalOpen(false), 0);
-      
+      // Ensure UI shows the provided lab name immediately by updating the cache
+      try {
+        if (blockchainLabId) {
+          const immediateUpdate = {
+            id: blockchainLabId,
+            labId: blockchainLabId,
+            name: labData.name || undefined,
+            description: labData.description || undefined,
+            image: (labData.images && labData.images[0]) || labData.image || undefined,
+            images: Array.isArray(labData.images) ? labData.images : undefined,
+            price: originalPrice || undefined,
+            timestamp: new Date().toISOString()
+          };
+
+          // Update specific lab query
+          queryClient.setQueryData(labQueryKeys.getLab(blockchainLabId), (old) => ({ ...(old || {}), ...immediateUpdate }));
+
+          // Update list of labs if present
+          queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+            // If lab exists in the list, replace it; otherwise add it to the top
+            const exists = old.some(l => l?.labId === blockchainLabId || l?.id === blockchainLabId);
+            if (exists) return old.map(l => (l?.labId === blockchainLabId || l?.id === blockchainLabId) ? { ...l, ...immediateUpdate } : l);
+            return [{ ...immediateUpdate }, ...old];
+          });
+        }
+      } catch (err) {
+        devLog.warn('Failed to apply immediate lab cache update:', err);
+      }
+
+      // Close modal and notify success
+      try {
+        setIsModalOpen(false);
+        addTemporaryNotification('success', '✅ Lab created!');
+      } catch (err) {
+        devLog.warn('Failed to close modal or notify success:', err);
+      } finally {
+        clearCreateLabProgress();
+      }
     } catch (error) {
       devLog.error('Error adding lab:', error);
       addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);

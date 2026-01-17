@@ -168,23 +168,23 @@ export default function LabDetail({ id }) {
           <div className="mt-4 grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
             <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
               <div className="text-xs uppercase tracking-wide text-text-secondary">Rating</div>
-              <div className="mt-1 flex items-baseline gap-2">
+              <div className="mt-1 flex items-center gap-2">
                 <FontAwesomeIcon icon={faStar} className="text-brand text-sm" />
-                <span className="text-2xl font-semibold text-header-bg">{ratingLabel}</span>
+                <span className="text-sm font-semibold text-header-bg">{ratingLabel}</span>
                 <span className="text-sm text-text-secondary">/5</span>
               </div>
               <div className="text-xs text-text-secondary">{eventsLabel}</div>
             </div>
             <div className="rounded-lg border border-[#2a2f33] bg-[#1f2426] p-3">
               <div className="text-xs uppercase tracking-wide text-text-secondary">Lab age</div>
-              <div className="mt-1 text-2xl font-semibold text-header-bg">{ageLabel}</div>
+              <div className="mt-1 text-sm font-semibold text-header-bg">{ageLabel}</div>
               <div className="text-xs text-text-secondary">On-chain registration</div>
             </div>
           </div>
           
           {/* Metadata warning banner - shown instead of description when metadata is missing */}
           {metadataError ? (
-            <div className="bg-warning-bg border border-warning-border rounded-lg p-4 mb-4">
+            <div className="mt-4 bg-warning-bg border border-warning-border rounded-lg p-4 mb-4">
               <p className="text-warning-text text-sm">
                 ⚠️ <strong>Information Unavailable:</strong> Additional details for this laboratory are currently missing. 
                 Basic information and booking functionality remain accessible.

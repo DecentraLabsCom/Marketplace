@@ -64,35 +64,52 @@ export const useSaveLabData = (options = {}) => {
       devLog.log('🔄 [useSaveLabData] onSuccess - starting cache updates for:', variables?.uri);
       
       if (variables?.uri) {
-        // Step 1: Remove the old data from cache immediately
+        // Step 1: Remove the old data from cache immediately so we start fresh
         queryClient.removeQueries({
           queryKey: metadataQueryKeys.byUri(variables.uri),
           exact: true
         });
         devLog.log('�️ [useSaveLabData] Removed old cache for:', variables.uri);
-        
+
+        // Step 1b: Pre-populate metadata cache with the provided labData so UI shows name immediately
+        try {
+          const labData = variables.labData || {};
+          const prepopulated = {
+            name: labData.name || '',
+            description: labData.description || '',
+            image: (Array.isArray(labData.images) && labData.images[0]) || labData.image || '',
+            images: Array.isArray(labData.images) ? labData.images : (labData.images ? [labData.images] : []),
+            attributes: [
+              { trait_type: 'category', value: Array.isArray(labData.category) ? labData.category : (labData.category || '') },
+              { trait_type: 'keywords', value: Array.isArray(labData.keywords) ? labData.keywords : (labData.keywords ? labData.keywords.split(',').map(k => k.trim()) : []) }
+            ],
+            _meta: {
+              uri: variables.uri,
+              version: data?.version || 1,
+              timestamp: data?.timestamp || Date.now(),
+              cacheBreaker: data?.cacheBreaker || null
+            }
+          };
+
+          queryClient.setQueryData(metadataQueryKeys.byUri(variables.uri), (old) => {
+            if (!old) return prepopulated;
+            return { ...old, ...prepopulated };
+          });
+
+          devLog.log('🛠️ [useSaveLabData] Prepopulated metadata cache for:', variables.uri);
+        } catch (err) {
+          devLog.error('Failed to prepopulate metadata cache:', err);
+        }
+
         // Step 2: Add a small delay to ensure blob propagation in Vercel
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Step 3: Force invalidation with aggressive settings
+        // Step 3: Force invalidation with aggressive settings so the real remote metadata replaces the prepopulated one
         await queryClient.invalidateQueries({ 
           queryKey: metadataQueryKeys.byUri(variables.uri),
           exact: true,
           refetchType: 'all'
         });
-        
-        // Step 4: Also invalidate broader metadata patterns to catch composed queries
-        /*await queryClient.invalidateQueries({
-          predicate: (query) => {
-            const key = query.queryKey;
-            return Array.isArray(key) && 
-                   key.some(segment => 
-                     typeof segment === 'string' && 
-                     (segment.includes('metadata') || segment === variables.uri)
-                   );
-          },
-          refetchType: 'all'
-        });*/
         
         devLog.log('✅ [useSaveLabData] Cache invalidation completed for:', variables.uri);
       }
