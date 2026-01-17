@@ -191,7 +191,7 @@ export default function LabDetail({ id }) {
               </p>
             </div>
           ) : (
-            <p className="text-sm text-justify text-neutral-200">{lab?.description}</p>
+            <p className="mt-4 text-sm text-justify text-neutral-200">{lab?.description}</p>
           )}
 
           <div className="mt-4">
