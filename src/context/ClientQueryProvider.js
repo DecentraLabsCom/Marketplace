@@ -62,7 +62,7 @@ export default function ClientQueryProvider({ children }) {
         
         // Check if we have existing labs data in cache
         const allLabsKey = labQueryKeys.getAllLabs(); // Use the actual query key from useAllLabs
-        const existingLabsData = queryClient.getQueryData(allLabsKey);
+        const existingLabsData = globalQueryClient.getQueryData(allLabsKey);
         
         if (existingLabsData && existingLabsData.length > 0) {
           devLog.log('📦 Found existing all-labs cache with', existingLabsData.length, 'entries');
@@ -84,7 +84,7 @@ export default function ClientQueryProvider({ children }) {
 
   return (
       <PersistQueryClientProvider 
-        client={queryClient} 
+        client={globalQueryClient} 
         persistOptions={{ 
           persister,
           maxAge: 72 * 60 * 60 * 1000, // 72 hours max age in localStorage
