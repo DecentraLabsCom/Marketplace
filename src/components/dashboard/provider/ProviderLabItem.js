@@ -22,7 +22,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
 
   return (
     <div className="p-4 border rounded shadow max-w-4xl mx-auto">
-        <h3 className="text-lg font-bold text-center mb-2">
+        <h3 className="text-lg font-bold text-center mb-4">
           {lab.name}
           <span className={`ml-2 text-sm font-normal ${
             isPending 
@@ -37,23 +37,6 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
             }
           </span>
         </h3>
-
-        {/* Categories */}
-        {lab?.category && (
-          <div className="flex justify-center gap-2 mb-4">
-            {Array.isArray(lab.category) ? (
-              lab.category.map((cat) => (
-                <span key={cat} className="bg-ui-label-dark text-neutral-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded">
-                  {cat}
-                </span>
-              ))
-            ) : (
-              <span className="bg-ui-label-dark text-neutral-200 inline-flex items-center justify-center py-1 px-3 text-sm rounded">
-                {lab.category}
-              </span>
-            )}
-          </div>
-        )}
         <div className="w-full flex">
             <div className="w-2/3">
                 <Carrousel lab={lab} maxHeight={200} />
@@ -116,8 +99,7 @@ ProviderLabItem.propTypes = {
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     name: PropTypes.string.isRequired,
     images: PropTypes.array,
-    isListed: PropTypes.bool,
-    category: PropTypes.oneOfType([PropTypes.string, PropTypes.arrayOf(PropTypes.string)])
+    isListed: PropTypes.bool
   }).isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
