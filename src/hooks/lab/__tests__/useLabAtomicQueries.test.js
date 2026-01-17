@@ -122,6 +122,7 @@ describe("useLabAtomicQueries", () => {
   describe("useAllLabsSSO", () => {
     test("fetches all lab IDs successfully", async () => {
       const mockLabIds = ["1", "2", "3"];
+      const expectedLabIds = [1, 2, 3];
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => mockLabIds,
@@ -133,7 +134,7 @@ describe("useLabAtomicQueries", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(result.current.data).toEqual(mockLabIds);
+      expect(result.current.data).toEqual(expectedLabIds);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.error).toBe(null);
     });
