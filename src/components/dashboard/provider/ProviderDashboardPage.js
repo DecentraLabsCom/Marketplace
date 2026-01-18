@@ -639,6 +639,12 @@ export default function ProviderDashboard() {
             clearActionProgressNotification(actionKey);
           }
           clearOptimisticLabState(String(labData.id));
+          try {
+            queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labData.id), exact: true });
+            queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+          } catch (cacheErr) {
+            devLog.warn('Failed to invalidate cache after update error:', cacheErr);
+          }
           addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(err)}`);
           return;
         }
@@ -739,6 +745,12 @@ export default function ProviderDashboard() {
         clearActionProgressNotification(actionKey);
       }
       clearOptimisticLabState(labId);
+      try {
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+      } catch (cacheErr) {
+        devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
+      }
       addTemporaryNotification('error', `❌ Failed to delete lab: ${error.message}`);
     }
   };
@@ -778,6 +790,12 @@ export default function ProviderDashboard() {
       }
       // Clear optimistic pending state on error
       clearOptimisticListingState(String(labId));
+      try {
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+      } catch (cacheErr) {
+        devLog.warn('Failed to invalidate cache after list error:', cacheErr);
+      }
       addTemporaryNotification('error', `❌ Failed to list lab: ${error.message}`);
     }
   };
@@ -808,6 +826,12 @@ export default function ProviderDashboard() {
       clearListingProgressNotification(labId);
       // Clear optimistic pending state on error
       clearOptimisticListingState(String(labId));
+      try {
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+      } catch (cacheErr) {
+        devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
+      }
       addTemporaryNotification('error', `❌ Failed to unlist lab: ${error.message}`);
     }
   };
