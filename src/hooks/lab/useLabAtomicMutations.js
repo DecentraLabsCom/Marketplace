@@ -101,7 +101,7 @@ const updateListingCache = (queryClient, labId, isListed) => {
   });
 };
 
-const openAuthorizationPopup = (authorizationUrl, popup) => {
+const openAuthorizationPopup = (authorizationUrl, popup, { keepOpener = false } = {}) => {
   if (!authorizationUrl) return null;
 
   let authPopup = popup && !popup.closed ? popup : null;
@@ -115,7 +115,9 @@ const openAuthorizationPopup = (authorizationUrl, popup) => {
 
   if (authPopup) {
     try {
-      authPopup.opener = null;
+      if (!keepOpener) {
+        authPopup.opener = null;
+      }
       authPopup.focus();
     } catch {
       // ignore opener errors
@@ -125,7 +127,7 @@ const openAuthorizationPopup = (authorizationUrl, popup) => {
   return authPopup;
 };
 
-const openAuthorizationPopupFallback = (authorizationUrl) => {
+const openAuthorizationPopupFallback = (authorizationUrl, { keepOpener = false } = {}) => {
   if (!authorizationUrl) return null;
   const fallback = window.open(
     authorizationUrl,
@@ -134,7 +136,9 @@ const openAuthorizationPopupFallback = (authorizationUrl) => {
   );
   if (fallback) {
     try {
-      fallback.opener = null;
+      if (!keepOpener) {
+        fallback.opener = null;
+      }
     } catch {
       // ignore opener errors
     }
@@ -204,9 +208,9 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     return null;
   }
 
-  let authPopup = openAuthorizationPopup(authorizationUrl, popup);
+  let authPopup = openAuthorizationPopup(authorizationUrl, popup, { keepOpener: true });
   if (!authPopup) {
-    authPopup = openAuthorizationPopupFallback(authorizationUrl);
+    authPopup = openAuthorizationPopupFallback(authorizationUrl, { keepOpener: true });
   }
   if (!authPopup) {
     throw new Error('Authorization window was blocked');
