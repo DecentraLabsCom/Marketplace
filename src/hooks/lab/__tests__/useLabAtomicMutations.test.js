@@ -418,28 +418,24 @@ describe('useLabAtomicMutations (add lab)', () => {
     expect(pollIntentStatus).toHaveBeenCalledWith('req-auto', expect.objectContaining({ authToken: 'auth-token', backendUrl: 'https://backend.example' }))
   })
 
-  test('SSO add-lab handles CANCELLED presence: poll execution once and succeed if executed', async () => {
+  test('SSO add-lab succeeds when popup posts SUCCESS message', async () => {
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
 
-    // Simulate pollIntentAuthorizationStatus never resolves
     pollAuth.mockImplementationOnce(() => new Promise(() => {}))
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '99', txHash: '0xhash' })
 
-    // Prepare response includes authorization info
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         authorizationUrl: 'https://backend.example/auth',
-        authorizationSessionId: 'auth-cancel',
-        intent: { meta: { requestId: 'req-cancel' }, payload: {} },
+        authorizationSessionId: 'auth-msg',
+        intent: { meta: { requestId: 'req-msg' }, payload: {} },
       }),
     })
 
-    // presenceFn returns 'absent' indicating backend closed without success
-    const presenceFn = jest.fn(async () => 'absent')
-
-    // Simulate pollIntentStatus showing executed when checked after CANCELLED (both internal and follow-up calls)
-    pollIntentStatus.mockResolvedValue({ status: 'executed', labId: '99', txHash: '0xhash' })
+    const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -451,44 +447,45 @@ describe('useLabAtomicMutations (add lab)', () => {
 
     let data
     await act(async () => {
-      data = await result.current.mutateAsync({
+      const promise = result.current.mutateAsync({
         uri: 'Lab-Provider-1.json',
         price: '0',
         auth: '',
         accessURI: '',
         accessKey: '',
         backendUrl: 'https://backend.example',
-        presenceFn,
       })
+
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      window.dispatchEvent(new MessageEvent('message', {
+        origin: 'https://backend.example',
+        data: { type: 'intent-authorization', status: 'SUCCESS', requestId: 'req-msg' },
+      }))
+
+      data = await promise
     })
 
     expect(data.labId).toBe('99')
-    expect(presenceFn).toHaveBeenCalled()
-    expect(pollIntentStatus).toHaveBeenCalled()
+    expect(data.requestId).toBe('req-msg')
   })
 
-  test('SSO add-lab handles CANCELLED presence: poll execution once and fail if not executed', async () => {
+  test('SSO add-lab rejects when popup posts CANCELLED message', async () => {
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
 
-    // Simulate pollIntentAuthorizationStatus never resolves
     pollAuth.mockImplementationOnce(() => new Promise(() => {}))
 
-    // Prepare response includes authorization info
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         authorizationUrl: 'https://backend.example/auth',
-        authorizationSessionId: 'auth-cancel2',
-        intent: { meta: { requestId: 'req-cancel2' }, payload: {} },
+        authorizationSessionId: 'auth-msg-cancel',
+        intent: { meta: { requestId: 'req-cancel' }, payload: {} },
       }),
     })
 
-    // presenceFn returns 'absent' indicating backend closed without success
-    const presenceFn = jest.fn(async () => 'absent')
-
-    // Simulate pollIntentStatus showing not executed/failed (both internal and follow-up calls)
-    pollIntentStatus.mockResolvedValue({ status: 'failed', error: 'Rejected' })
+    const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
 
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -499,21 +496,25 @@ describe('useLabAtomicMutations (add lab)', () => {
     })
 
     await act(async () => {
-      await expect(
-        result.current.mutateAsync({
-          uri: 'Lab-Provider-1.json',
-          price: '0',
-          auth: '',
-          accessURI: '',
-          accessKey: '',
-          backendUrl: 'https://backend.example',
-          presenceFn,
-        })
-      ).rejects.toThrow()
+      const promise = result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      window.dispatchEvent(new MessageEvent('message', {
+        origin: 'https://backend.example',
+        data: { type: 'intent-authorization', status: 'CANCELLED', requestId: 'req-cancel' },
+      }))
+
+      await expect(promise).rejects.toThrow()
     })
 
-    expect(presenceFn).toHaveBeenCalled()
-    expect(pollIntentStatus).toHaveBeenCalled()
+    expect(pollIntentStatus).not.toHaveBeenCalled()
   })
 
   test('SSO add-lab succeeds when popup auto-closes and intent presence is detected (presenceFn)', async () => {
@@ -550,8 +551,6 @@ describe('useLabAtomicMutations (add lab)', () => {
     })
 
     let data
-    await waitFor(() => expect(result.current).toBeTruthy())
-
     await act(async () => {
       data = await result.current.mutateAsync({
         uri: 'Lab-Provider-1.json',
@@ -590,8 +589,6 @@ describe('useLabAtomicMutations (add lab)', () => {
     const { result } = renderHook(() => useAddLabSSO(), {
       wrapper: createWrapper(new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })),
     })
-
-    await waitFor(() => expect(result.current).toBeTruthy())
 
     await act(async () => {
       const promise = result.current.mutateAsync({
@@ -632,8 +629,6 @@ describe('useLabAtomicMutations (add lab)', () => {
     const { result } = renderHook(() => useAddLabSSO(), {
       wrapper: createWrapper(new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })),
     })
-
-    await waitFor(() => expect(result.current).toBeTruthy())
 
     await act(async () => {
       const promise = result.current.mutateAsync({
