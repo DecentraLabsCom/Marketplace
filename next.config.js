@@ -20,6 +20,36 @@ const nextConfig = {
       { hostname: "n7alj90bp0isqv2j.public.blob.vercel-storage.com" },
     ],
   },
+  async headers() {
+    const noStoreHeaders = [
+      { key: "Cache-Control", value: "no-store, max-age=0" },
+    ];
+    const noStoreSources = [
+      "/api/contract/lab/:path*",
+      "/api/contract/provider/:path*",
+      "/api/contract/institution/:path*",
+      "/api/contract/reservation/userOfReservation",
+      "/api/contract/reservation/totalReservations",
+      "/api/contract/reservation/reservationsOf",
+      "/api/contract/reservation/reservationKeyOfUserByIndex",
+      "/api/contract/reservation/getReservationsOfToken",
+      "/api/contract/reservation/hasActiveBooking",
+      "/api/contract/reservation/isTokenListed",
+      "/api/contract/reservation/hasActiveBookingByToken",
+      "/api/contract/reservation/getReservationOfTokenByIndex",
+      "/api/contract/reservation/getSafeBalance",
+      "/api/contract/reservation/checkAvailable",
+      "/api/contract/reservation/getReservation",
+      "/api/contract/reservation/getActiveReservationKeyForUser",
+      "/api/contract/reservation/getReservationsOfTokenByUser",
+    ];
+    return [
+      ...noStoreSources.map((source) => ({
+        source,
+        headers: noStoreHeaders,
+      })),
+    ];
+  },
 };
 
 export default nextConfig;
