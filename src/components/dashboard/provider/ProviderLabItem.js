@@ -50,7 +50,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
                 disabled={isEditing || isDeleting}
                 className={`relative bg-brand h-1/4 overflow-hidden group hover:font-bold ${isEditing || isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    {isEditing ? (<><span data-testid="spinner-edit" className="ml-2 inline-block">⏳</span> Editing</>) : 'Edit'}
+                    {isEditing ? (<><span data-testid="spinner-edit" className="ml-2 inline-block animate-spin">⏳</span> Editing</>) : 'Edit'}
                     {!isEditing && (
                       <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                       border-b-[#5e4a7a] border-l-[7em] border-l-transparent opacity-0 
@@ -67,7 +67,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
                 >
                     List
                     {isPending && operation === 'listing' && (
-                      <span data-testid="spinner-list" className="ml-2 inline-block">⏳</span>
+                      <span data-testid="spinner-list" className="ml-2 inline-block animate-spin">⏳</span>
                     )}
                     {!isListed && !isPending && !isDeleting && (
                       <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
@@ -85,7 +85,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
                 >
                     Unlist
                     {isPending && operation === 'unlisting' && (
-                      <span data-testid="spinner-unlist" className="ml-2 inline-block">⏳</span>
+                      <span data-testid="spinner-unlist" className="ml-2 inline-block animate-spin">⏳</span>
                     )}
                     {isListed && !isPending && !isDeleting && (
                       <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
@@ -97,7 +97,7 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
                 disabled={isDeleting}
                 className={`relative bg-[#a87583] h-1/4 overflow-hidden group hover:font-bold ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    {isDeleting ? (<><span data-testid="spinner-delete" className="ml-2 inline-block">⏳</span> Deleting</>) : 'Delete'}
+                    {isDeleting ? (<><span data-testid="spinner-delete" className="ml-2 inline-block animate-spin">⏳</span> Deleting</>) : 'Delete'}
                     {!isDeleting && (
                       <span className="absolute bottom-0 right-0 size-0 border-b-[3.15em] 
                       border-b-[#925c69] border-l-[7em] border-l-transparent opacity-0 

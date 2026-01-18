@@ -115,6 +115,7 @@ export default function ProviderDashboard() {
   const hasInitialized = useRef(false);
   const createLabAbortControllerRef = useRef(null);
   const createLabNotificationIdRef = useRef(null);
+  const listingNotificationIdsRef = useRef(new Map());
 
   const setCreateLabProgress = useCallback((message, { hash } = {}) => {
     try {
@@ -146,6 +147,78 @@ export default function ProviderDashboard() {
       devLog.error('Failed to clear create-lab progress notification:', err);
     }
   }, [removeNotification]);
+
+  const setListingProgressNotification = useCallback((labId, message) => {
+    try {
+      const key = String(labId);
+      const existingId = listingNotificationIdsRef.current.get(key);
+      if (existingId) {
+        removeNotification(existingId);
+      }
+
+      const notif = addNotification('pending', message, {
+        autoHide: false,
+        category: 'lab-listing',
+        priority: 'high',
+        allowDuplicates: true,
+      });
+
+      if (notif?.id) {
+        listingNotificationIdsRef.current.set(key, notif.id);
+      }
+    } catch (err) {
+      devLog.error('Failed to set listing progress notification:', err);
+    }
+  }, [addNotification, removeNotification]);
+
+  const clearListingProgressNotification = useCallback((labId) => {
+    try {
+      const key = String(labId);
+      const existingId = listingNotificationIdsRef.current.get(key);
+      if (existingId) {
+        removeNotification(existingId);
+        listingNotificationIdsRef.current.delete(key);
+      }
+    } catch (err) {
+      devLog.error('Failed to clear listing progress notification:', err);
+    }
+  }, [removeNotification]);
+
+  const updateListingCache = useCallback((labId, isListed) => {
+    if (!queryClient) return;
+
+    const ids = new Set();
+    if (labId !== null && labId !== undefined) {
+      ids.add(labId);
+      ids.add(String(labId));
+
+      const numericId = Number(labId);
+      if (!Number.isNaN(numericId)) {
+        ids.add(numericId);
+      }
+    }
+
+    ids.forEach((id) => {
+      try {
+        queryClient.setQueryData(labQueryKeys.isTokenListed(id), { isListed });
+      } catch (cacheErr) {
+        devLog.warn('Failed to update isTokenListed cache:', cacheErr);
+      }
+    });
+
+    try {
+      queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((lab) => {
+          const labKey = lab?.labId ?? lab?.id;
+          if (labKey === undefined || labKey === null) return lab;
+          return String(labKey) === String(labId) ? { ...lab, isListed } : lab;
+        });
+      });
+    } catch (cacheErr) {
+      devLog.warn('Failed to update lab list cache:', cacheErr);
+    }
+  }, [queryClient]);
   
   // 🚀 React Query for lab bookings with user details
   const { 
@@ -628,18 +701,7 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
-      try {
-        // Update listing status query
-        queryClient.setQueryData(labQueryKeys.isTokenListed(String(labId)), { isListed: true });
-
-        // Update lab list entries if present
-        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-          if (!Array.isArray(old)) return old;
-          return old.map(l => ((l?.labId === labId || String(l?.id) === String(labId)) ? { ...l, isListed: true } : l));
-        });
-      } catch (cacheErr) {
-        devLog.warn('Failed to update cache after listing:', cacheErr);
-      }
+      updateListingCache(labId, true);
 
       addTemporaryNotification('success', '✅ Lab listed successfully!');
     } catch (error) {
@@ -654,7 +716,7 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
   const handleUnlist = async (labId) => {
     try {
       // Immediate user feedback: notify and set optimistic pending state
-      addTemporaryNotification('pending', '⏳ Unlisting lab...');
+      setListingProgressNotification(labId, '⏳ Unlisting lab...');
       setOptimisticListingState(String(labId), false, true);
 
       // 🚀 Use React Query mutation for lab unlisting
@@ -664,22 +726,16 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
       await unlistLabMutation.mutateAsync(unlistPayload);
       
       // Mark optimistic as completed (keep new state)
+      clearListingProgressNotification(labId);
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
-      try {
-        queryClient.setQueryData(labQueryKeys.isTokenListed(String(labId)), { isListed: false });
-        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-          if (!Array.isArray(old)) return old;
-          return old.map(l => ((l?.labId === labId || String(l?.id) === String(labId)) ? { ...l, isListed: false } : l));
-        });
-      } catch (cacheErr) {
-        devLog.warn('Failed to update cache after unlisting:', cacheErr);
-      }
+      updateListingCache(labId, false);
 
       addTemporaryNotification('success', '✅ Lab unlisted!');
     } catch (error) {
       devLog.error('Error unlisting lab:', error);
+      clearListingProgressNotification(labId);
       // Clear optimistic pending state on error
       clearOptimisticListingState(String(labId));
       addTemporaryNotification('error', `❌ Failed to unlist lab: ${error.message}`);
