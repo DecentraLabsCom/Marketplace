@@ -145,11 +145,11 @@ const openAuthorizationPopupFallback = (authorizationUrl) => {
 const pollIntentPresence = async (requestId, {
   backendUrl,
   authToken,
-  maxDurationMs = 3000,
+  maxDurationMs = 2500,
   initialDelayMs = 300,
   maxDelayMs = 800,
 } = {}) => {
-  if (!backendUrl || !requestId) return false;
+  if (!backendUrl || !requestId) return 'unknown';
 
   let delay = initialDelayMs;
   const start = Date.now();
@@ -167,7 +167,18 @@ const pollIntentPresence = async (requestId, {
         headers,
       });
       if (res.ok) {
-        return true;
+        return 'present';
+      }
+      if (res.status === 404) {
+        return 'absent';
+      }
+      if (res.status === 401 || res.status === 403) {
+        return 'unknown';
+      }
+      if (res.status >= 500) {
+        // Backend is unhealthy; try again until timeout.
+      } else {
+        return 'unknown';
       }
     } catch {
       // Ignore transient errors and keep polling.
@@ -177,10 +188,10 @@ const pollIntentPresence = async (requestId, {
     delay = Math.min(delay * 1.5, maxDelayMs);
   }
 
-  return false;
+  return 'unknown';
 };
 
-async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup } = {}) {
+async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup, presenceFn } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData, backendUrl);
   if (!authorizationUrl || !authorizationSessionId) {
     try {
@@ -215,7 +226,7 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
     backendUrl: prepareData?.backendUrl || backendUrl,
     authToken: authToken || prepareData?.backendAuthToken,
-  });
+  }).catch((error) => ({ __pollError: error }));
 
   let status;
   try {
@@ -223,21 +234,39 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     if (firstResult && firstResult.__closed) {
       const graceMs = 2000;
       try {
-        const graceResult = await Promise.race([
+        const requestId = resolveRequestId(prepareData);
+        const graceResultPromise = Promise.race([
           pollPromise,
           new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
         ]);
-        if (graceResult && graceResult.__closed) {
-          const requestId = resolveRequestId(prepareData);
-          const hasIntent = await pollIntentPresence(requestId, {
-            backendUrl: prepareData?.backendUrl || backendUrl,
-            authToken: authToken || prepareData?.backendAuthToken,
-          });
-          if (hasIntent) {
+        const presenceChecker = presenceFn || pollIntentPresence;
+        const intentPresencePromise = presenceChecker(requestId, {
+          backendUrl: prepareData?.backendUrl || backendUrl,
+          authToken: authToken || prepareData?.backendAuthToken,
+        });
+        const [graceResult, intentPresence] = await Promise.all([
+          graceResultPromise,
+          intentPresencePromise,
+        ]);
+
+        if (graceResult && graceResult.__pollError) {
+          status = {
+            status: 'UNKNOWN',
+            requestId,
+            error: graceResult.__pollError?.message || 'Authorization status unavailable',
+          };
+        } else if (graceResult && graceResult.__closed) {
+          if (intentPresence === 'present') {
             status = { status: 'SUCCESS', requestId };
-          } else {
+          } else if (intentPresence === 'absent') {
             status = {
               status: 'CANCELLED',
+              requestId,
+              error: 'Authorization window closed',
+            };
+          } else {
+            status = {
+              status: 'UNKNOWN',
               requestId,
               error: 'Authorization window closed',
             };
@@ -247,11 +276,17 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
         }
       } catch (err) {
         status = {
-          status: 'CANCELLED',
+          status: 'UNKNOWN',
           requestId: resolveRequestId(prepareData),
           error: err?.message || 'Authorization window closed',
         };
       }
+    } else if (firstResult && firstResult.__pollError) {
+      status = {
+        status: 'UNKNOWN',
+        requestId: resolveRequestId(prepareData),
+        error: firstResult.__pollError?.message || 'Authorization status unavailable',
+      };
     } else {
       status = firstResult;
     }
@@ -302,10 +337,44 @@ async function runActionIntent(action, payload) {
   const authorizationStatus = await awaitBackendAuthorization(prepareData, {
     backendUrl: payload.backendUrl,
     authToken,
+    presenceFn: payload?.presenceFn,
   });
+  const authorizationRequestId =
+    authorizationStatus?.requestId || resolveRequestId(prepareData);
   if (authorizationStatus) {
     const normalizedStatus = (authorizationStatus.status || '').toUpperCase();
-    if (normalizedStatus === 'FAILED' || normalizedStatus === 'CANCELLED') {
+    if (normalizedStatus === 'FAILED') {
+      throw new Error(authorizationStatus?.error || 'Authorization cancelled');
+    }
+    if (normalizedStatus === 'CANCELLED') {
+      if (authorizationRequestId) {
+        try {
+          const result = await pollIntentStatus(authorizationRequestId, {
+            backendUrl: payload.backendUrl || prepareData?.backendUrl,
+            authToken,
+            maxDurationMs: 3000,
+            initialDelayMs: 300,
+            maxDelayMs: 800,
+          });
+          const status = result?.status;
+          const reason = result?.error || result?.reason;
+          if (status === 'executed') {
+            return {
+              ...prepareData,
+              requestId: authorizationRequestId,
+              intent: prepareData.intent,
+              authorization: authorizationStatus,
+              backendAuthToken: authToken,
+              backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
+            };
+          }
+          if (status === 'failed' || status === 'rejected') {
+            throw new Error(reason || 'Authorization cancelled');
+          }
+        } catch (err) {
+          throw new Error(err?.message || authorizationStatus?.error || 'Authorization cancelled');
+        }
+      }
       throw new Error(authorizationStatus?.error || 'Authorization cancelled');
     }
     if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
@@ -313,7 +382,7 @@ async function runActionIntent(action, payload) {
     }
   }
   if (authorizationStatus) {
-    const requestId = authorizationStatus?.requestId || resolveRequestId(prepareData);
+    const requestId = authorizationRequestId;
     return {
       ...prepareData,
       requestId,
@@ -521,6 +590,7 @@ export const useAddLabSSO = (options = {}) => {
         accessURI: labData.accessURI,
         accessKey: labData.accessKey,
         backendUrl: labData.backendUrl,
+        presenceFn: labData?.presenceFn,
       });
 
       const requestId = resolveRequestId(intentResponse);
@@ -748,6 +818,7 @@ export const useUpdateLabSSO = (options = {}) => {
         accessKey: updateData.labData?.accessKey,
         tokenURI: updateData.labData?.tokenURI,
         backendUrl: updateData.backendUrl,
+        presenceFn: updateData?.presenceFn,
       };
       const data = await runActionIntent(ACTION_CODES.LAB_UPDATE, payload);
       devLog.log('useUpdateLabSSO intent (webauthn):', data);
@@ -1081,10 +1152,11 @@ export const useListLabSSO = (options = {}) => {
   const { clearOptimisticListingState } = useOptimisticUI();
 
   return useMutation({
-    mutationFn: async ({ labId, backendUrl }) => {
+    mutationFn: async ({ labId, backendUrl, presenceFn } = {}) => {
       const data = await runActionIntent(ACTION_CODES.LAB_LIST, {
         labId,
         backendUrl,
+        presenceFn,
       });
       devLog.log('useListLabSSO intent (webauthn):', data);
       return data;
@@ -1235,10 +1307,11 @@ export const useUnlistLabSSO = (options = {}) => {
   const { clearOptimisticListingState } = useOptimisticUI();
 
   return useMutation({
-    mutationFn: async ({ labId, backendUrl }) => {
+    mutationFn: async ({ labId, backendUrl, presenceFn } = {}) => {
       const data = await runActionIntent(ACTION_CODES.LAB_UNLIST, {
         labId,
         backendUrl,
+        presenceFn,
       });
       devLog.log('useUnlistLabSSO intent (webauthn):', data);
       return data;
@@ -1387,11 +1460,12 @@ export const useSetTokenURISSO = (options = {}) => {
   const { updateLab } = useLabCacheUpdates();
 
   return useMutation({
-    mutationFn: async ({ labId, tokenURI, backendUrl }) => {
+    mutationFn: async ({ labId, tokenURI, backendUrl, presenceFn } = {}) => {
       const data = await runActionIntent(ACTION_CODES.LAB_SET_URI, {
         labId,
         tokenURI,
         backendUrl,
+        presenceFn,
       });
       devLog.log('useSetTokenURISSO intent (webauthn):', data);
       return data;

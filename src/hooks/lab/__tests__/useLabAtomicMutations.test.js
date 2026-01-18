@@ -5,7 +5,7 @@
  * ensuring that the hooks return a resolved labId when available.
  */
 
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAddLabSSO, useAddLabWallet } from '../useLabAtomicMutations'
 
@@ -416,6 +416,237 @@ describe('useLabAtomicMutations (add lab)', () => {
     expect(data.labId).toBe('55')
     expect(data.requestId).toBe('req-auto')
     expect(pollIntentStatus).toHaveBeenCalledWith('req-auto', expect.objectContaining({ authToken: 'auth-token', backendUrl: 'https://backend.example' }))
+  })
+
+  test('SSO add-lab handles CANCELLED presence: poll execution once and succeed if executed', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+
+    // Simulate pollIntentAuthorizationStatus never resolves
+    pollAuth.mockImplementationOnce(() => new Promise(() => {}))
+
+    // Prepare response includes authorization info
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-cancel',
+        intent: { meta: { requestId: 'req-cancel' }, payload: {} },
+      }),
+    })
+
+    // presenceFn returns 'absent' indicating backend closed without success
+    const presenceFn = jest.fn(async () => 'absent')
+
+    // Simulate pollIntentStatus showing executed when checked after CANCELLED (both internal and follow-up calls)
+    pollIntentStatus.mockResolvedValue({ status: 'executed', labId: '99', txHash: '0xhash' })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    let data
+    await act(async () => {
+      data = await result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+        presenceFn,
+      })
+    })
+
+    expect(data.labId).toBe('99')
+    expect(presenceFn).toHaveBeenCalled()
+    expect(pollIntentStatus).toHaveBeenCalled()
+  })
+
+  test('SSO add-lab handles CANCELLED presence: poll execution once and fail if not executed', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+
+    // Simulate pollIntentAuthorizationStatus never resolves
+    pollAuth.mockImplementationOnce(() => new Promise(() => {}))
+
+    // Prepare response includes authorization info
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-cancel2',
+        intent: { meta: { requestId: 'req-cancel2' }, payload: {} },
+      }),
+    })
+
+    // presenceFn returns 'absent' indicating backend closed without success
+    const presenceFn = jest.fn(async () => 'absent')
+
+    // Simulate pollIntentStatus showing not executed/failed (both internal and follow-up calls)
+    pollIntentStatus.mockResolvedValue({ status: 'failed', error: 'Rejected' })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          uri: 'Lab-Provider-1.json',
+          price: '0',
+          auth: '',
+          accessURI: '',
+          accessKey: '',
+          backendUrl: 'https://backend.example',
+          presenceFn,
+        })
+      ).rejects.toThrow()
+    })
+
+    expect(presenceFn).toHaveBeenCalled()
+    expect(pollIntentStatus).toHaveBeenCalled()
+  })
+
+  test('SSO add-lab succeeds when popup auto-closes and intent presence is detected (presenceFn)', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+
+    // Prepare: pollAuth never resolves so popupClosedPromise would win, but we use presenceFn to shortcut
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockImplementationOnce(() => new Promise(() => {}))
+
+    // Prepare response includes authorization info so awaitBackendAuthorization has session
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-pres',
+        intent: { meta: { requestId: 'req-pres' }, payload: {} },
+      }),
+    })
+
+    // After presence detected (via presenceFn), execution poll returns executed
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '77', txHash: '0xhash' })
+
+    const popup = { closed: true, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
+
+    const presenceFn = jest.fn(async () => 'present')
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    let data
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      data = await result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+        presenceFn,
+      })
+    })
+
+    expect(data.labId).toBe('77')
+    expect(pollIntentStatus).toHaveBeenCalledWith('req-pres', expect.objectContaining({ backendUrl: 'https://backend.example' }))
+    expect(presenceFn).toHaveBeenCalledWith('req-pres', expect.any(Object))
+  })
+
+  test('SSO add-lab rejects when popup auto-closes and intent is absent (presenceFn)', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockImplementationOnce(() => new Promise(() => {}))
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-abs',
+        intent: { meta: { requestId: 'req-abs' }, payload: {} },
+      }),
+    })
+
+    const popup = { closed: true, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
+
+    const presenceFn = jest.fn(async () => 'absent')
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })),
+    })
+
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      const promise = result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+        presenceFn,
+      })
+
+      await expect(promise).rejects.toThrow()
+    })
+
+    expect(presenceFn).toHaveBeenCalledWith('req-abs', expect.any(Object))
+  })
+
+  test('SSO add-lab rejects when popup auto-closes and intent is absent', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockImplementationOnce(() => new Promise(() => {}))
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: 'https://backend.example/auth',
+          authorizationSessionId: 'auth-abs',
+          intent: { meta: { requestId: 'req-abs' }, payload: {} },
+        }),
+      })
+      // pollIntentPresence fetch -> 404 (absent)
+      .mockResolvedValueOnce({ ok: false, status: 404 })
+
+    const popup = { closed: true, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })),
+    })
+
+    await waitFor(() => expect(result.current).toBeTruthy())
+
+    await act(async () => {
+      const promise = result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+      })
+
+      await expect(promise).rejects.toThrow()
+    })
   })
 })
 
