@@ -142,6 +142,44 @@ const openAuthorizationPopupFallback = (authorizationUrl) => {
   return fallback;
 };
 
+const pollIntentPresence = async (requestId, {
+  backendUrl,
+  authToken,
+  maxDurationMs = 3000,
+  initialDelayMs = 300,
+  maxDelayMs = 800,
+} = {}) => {
+  if (!backendUrl || !requestId) return false;
+
+  let delay = initialDelayMs;
+  const start = Date.now();
+  const normalizedBackend = backendUrl.replace(/\/$/, '');
+
+  while (Date.now() - start <= maxDurationMs) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (typeof authToken === 'string' && authToken.trim().length > 0) {
+        const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+        headers.Authorization = value;
+      }
+      const res = await fetch(`${normalizedBackend}/intents/${requestId}`, {
+        method: 'GET',
+        headers,
+      });
+      if (res.ok) {
+        return true;
+      }
+    } catch {
+      // Ignore transient errors and keep polling.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    delay = Math.min(delay * 1.5, maxDelayMs);
+  }
+
+  return false;
+};
+
 async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData, backendUrl);
   if (!authorizationUrl || !authorizationSessionId) {
@@ -183,18 +221,27 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   try {
     const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
     if (firstResult && firstResult.__closed) {
-      const graceMs = 200;
+      const graceMs = 2000;
       try {
         const graceResult = await Promise.race([
           pollPromise,
           new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
         ]);
         if (graceResult && graceResult.__closed) {
-          status = {
-            status: 'CANCELLED',
-            requestId: resolveRequestId(prepareData),
-            error: 'Authorization window closed',
-          };
+          const requestId = resolveRequestId(prepareData);
+          const hasIntent = await pollIntentPresence(requestId, {
+            backendUrl: prepareData?.backendUrl || backendUrl,
+            authToken: authToken || prepareData?.backendAuthToken,
+          });
+          if (hasIntent) {
+            status = { status: 'SUCCESS', requestId };
+          } else {
+            status = {
+              status: 'CANCELLED',
+              requestId,
+              error: 'Authorization window closed',
+            };
+          }
         } else {
           status = graceResult;
         }
