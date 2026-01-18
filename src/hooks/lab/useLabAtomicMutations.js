@@ -183,7 +183,7 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   try {
     const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
     if (firstResult && firstResult.__closed) {
-      const graceMs = 4000;
+      const graceMs = 100; // small grace window to avoid race conditions with backend auto-closing popup
       const graceResult = await Promise.race([
         pollPromise,
         new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
@@ -260,6 +260,12 @@ async function runActionIntent(action, payload) {
     backendUrl: payload.backendUrl,
     authToken,
   });
+  if (authorizationStatus) {
+    const normalizedStatus = (authorizationStatus.status || '').toUpperCase();
+    if (normalizedStatus && normalizedStatus !== 'SUCCESS') {
+      throw new Error(authorizationStatus?.error || 'Authorization cancelled');
+    }
+  }
   if (authorizationStatus) {
     const requestId = authorizationStatus?.requestId || resolveRequestId(prepareData);
     return {
@@ -1344,7 +1350,7 @@ export const useSetTokenURISSO = (options = {}) => {
       devLog.log('useSetTokenURISSO intent (webauthn):', data);
       return data;
     },
-    onSuccess: (_data, { labId, tokenURI }) => {
+    onSuccess: (_data, { labId, tokenURI, backendUrl }) => {
       try {
         updateLab(labId, {
           id: labId,

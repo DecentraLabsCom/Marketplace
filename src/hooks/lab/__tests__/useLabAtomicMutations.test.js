@@ -25,6 +25,11 @@ jest.mock('@/utils/intents/pollIntentStatus', () => ({
   default: jest.fn(),
 }))
 
+jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}))
+
 jest.mock('@/utils/webauthn/client', () => ({
   __esModule: true,
   transformAssertionOptions: jest.fn(() => ({ challenge: 'challenge' })),
@@ -266,6 +271,150 @@ describe('useLabAtomicMutations (add lab)', () => {
 
     expect(data.hash).toBe('0xtx')
     expect(data.labId).toBe('99')
+  })
+
+  test('SSO add-lab aborts when authorization returns FAILED/UNKNOWN and does not poll intent execution', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+
+    // Simulate authorization failing/unknown
+    pollAuth.mockResolvedValueOnce({ status: 'FAILED', error: 'Denied' })
+
+    // Prepare response includes authorization info so awaitBackendAuthorization uses pollAuth
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-1',
+        intent: { meta: { requestId: 'req-auth' }, payload: {} },
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    // Ensure window.open doesn't throw and returns a mock popup
+    window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }))
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          uri: 'Lab-Provider-1.json',
+          price: '0',
+          auth: '',
+          accessURI: '',
+          accessKey: '',
+          backendUrl: 'https://backend.example',
+        })
+      ).rejects.toThrow('Denied')
+    })
+
+    // Ensure we did not proceed to poll execution
+    expect(pollIntentStatus).not.toHaveBeenCalled()
+  })
+
+  test('SSO add-lab aborts when authorization returns UNKNOWN and does not poll', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+
+    // Simulate authorization returning UNKNOWN (e.g., popup closed by backend/user)
+    pollAuth.mockResolvedValueOnce({ status: 'UNKNOWN', requestId: 'req-unknown', error: 'Authorization window closed' })
+
+    // Prepare response includes authorization info so awaitBackendAuthorization uses pollAuth
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-unknown',
+        intent: { meta: { requestId: 'req-unknown' }, payload: {} },
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    // Ensure window.open doesn't throw and returns a mock popup
+    const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          uri: 'Lab-Provider-1.json',
+          price: '0',
+          auth: '',
+          accessURI: '',
+          accessKey: '',
+          backendUrl: 'https://backend.example',
+        })
+      ).rejects.toThrow('Authorization window closed')
+    })
+
+    // Ensure we did not proceed to poll execution
+    expect(pollIntentStatus).not.toHaveBeenCalled()
+  })
+
+  test('SSO add-lab succeeds when backend authorizes and auto-closes popup (grace window allows success)', async () => {
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+
+    // Simulate backend authorizing and auto-closing the popup
+    const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null }
+    window.open = jest.fn(() => popup)
+
+    pollAuth.mockImplementationOnce(async () => {
+      // backend closes popup after authorizing
+      popup.closed = true
+      return { status: 'SUCCESS', requestId: 'req-auto', backendAuthToken: 'auth-token' }
+    })
+
+    // Prepare response includes authorization info so awaitBackendAuthorization uses pollAuth
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-auto',
+        backendAuthToken: 'auth-token',
+        intent: { meta: { requestId: 'req-auto' }, payload: {} },
+      }),
+    })
+
+    // Execution poll returns executed with labId
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '55', txHash: '0xhash' })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    const { result } = renderHook(() => useAddLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    let data
+    await act(async () => {
+      data = await result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+      })
+    })
+
+    expect(data.labId).toBe('55')
+    expect(data.requestId).toBe('req-auto')
+    expect(pollIntentStatus).toHaveBeenCalledWith('req-auto', expect.objectContaining({ authToken: 'auth-token', backendUrl: 'https://backend.example' }))
   })
 })
 
