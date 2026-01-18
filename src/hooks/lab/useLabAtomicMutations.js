@@ -183,7 +183,7 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   try {
     const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
     if (firstResult && firstResult.__closed) {
-      const graceMs = 100; // small grace window to avoid race conditions with backend auto-closing popup
+      const graceMs = 200; // small grace window to avoid race conditions with backend auto-closing popup
       const graceResult = await Promise.race([
         pollPromise,
         new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
@@ -262,7 +262,10 @@ async function runActionIntent(action, payload) {
   });
   if (authorizationStatus) {
     const normalizedStatus = (authorizationStatus.status || '').toUpperCase();
-    if (normalizedStatus && normalizedStatus !== 'SUCCESS') {
+    if (normalizedStatus === 'FAILED') {
+      throw new Error(authorizationStatus?.error || 'Authorization cancelled');
+    }
+    if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
       throw new Error(authorizationStatus?.error || 'Authorization cancelled');
     }
   }
