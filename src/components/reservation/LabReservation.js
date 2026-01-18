@@ -27,11 +27,11 @@ import devLog from '@/utils/dev/logger'
  * @returns {JSX.Element} Complete lab reservation interface
  */
 export default function LabReservation({ id }) {
-  const labId = id ? String(id) : null
+  const labId = id ? String(id) : null;
   
   // Data fetching
   const { data: labsData, isError: labsError } = useLabsForReservation()
-  const labs = labsData?.labs || []
+  const labs = labsData.labs || []
   
   // User context
   const { isSSO, address: userAddress } = useUser()
@@ -62,7 +62,7 @@ export default function LabReservation({ id }) {
   })
   const labBookings = useMemo(() => 
     labBookingsData?.bookings || [], 
-    [labBookingsData?.bookings]
+    [labBookingsData]
   )
   
   // Lab reservation state hook (extracted logic)
@@ -112,12 +112,12 @@ export default function LabReservation({ id }) {
       return null
     }
 
-    if (!selectedLab?.id) {
+    if (!selectedLab.id) {
       addTemporaryNotification('error', '⚠️ Please select a lab.')
       return null
     }
 
-    const labIdNum = Number(selectedLab?.id)
+    const labIdNum = Number(selectedLab.id)
     const [hours, minutes] = selectedTime.split(':').map(Number)
     const startDate = new Date(date)
     startDate.setHours(hours)
@@ -145,7 +145,7 @@ export default function LabReservation({ id }) {
         end: start + timeslot
       })
 
-      addTemporaryNotification('pending', '⏳ Reservation request sent! Processing...')
+      addTemporaryNotification('pending', 'Reservation request sent! Processing...')
       await handleBookingSuccess()
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ')
@@ -161,10 +161,10 @@ export default function LabReservation({ id }) {
       return
     }
 
-    const contractAddress = contractAddresses[chain?.name?.toLowerCase()]
+    const contractAddress = contractAddresses[chain.name.toLowerCase()]
     if (!contractAddress || contractAddress === "0x...") {
       addTemporaryNotification('error', 
-        `❌ Contract not deployed on ${chain?.name || 'this network'}. Please switch to a supported network.`)
+        `❌ Contract not deployed on ${chain.name || 'this network'}. Please switch to a supported network.`)
       return
     }
 
@@ -192,7 +192,7 @@ export default function LabReservation({ id }) {
     try {
       // Handle token approval if needed
       if (!paymentCheck.hasSufficientAllowance) {
-        addTemporaryNotification('pending', '⏳ Approving LAB tokens...')
+        addTemporaryNotification('pending', 'Approving LAB tokens...')
         
         try {
           await approveLabTokens(cost)
@@ -234,15 +234,15 @@ export default function LabReservation({ id }) {
         end: start + timeslot
       })
 
-      addTemporaryNotification('pending', '⏳ Reservation request sent! Processing...')
+      addTemporaryNotification('pending', 'Reservation request sent! Processing...')
       
       // Add optimistic booking to cache
-      if (result?.hash) {
+      if (result.hash) {
         const userAddr = address || userAddress
         const startDate = new Date(start * 1000)
         
         const optimisticBookingData = {
-          labId: selectedLab?.id,
+          labId: selectedLab.id,
           userAddress: userAddr,
           start: start.toString(),
           end: (start + timeslot).toString(),
@@ -252,7 +252,7 @@ export default function LabReservation({ id }) {
           status: 0,
           statusCategory: 'pending',
           date: startDate.toLocaleDateString('en-CA'),
-          labName: selectedLab?.name,
+          labName: selectedLab.name,
           isPending: true,
           isOptimistic: true,
           transactionHash: result.hash
@@ -278,7 +278,7 @@ export default function LabReservation({ id }) {
       
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         addTemporaryNotification('warning', '🚫 Transaction rejected by user.')
-      } else if (error.message?.includes('execution reverted')) {
+      } else if (error.message.includes('execution reverted')) {
         addTemporaryNotification('error', '❌ Time slot was reserved while you were booking. Please try another time.')
       } else {
         addErrorNotification(error, 'Failed to create reservation: ')
@@ -357,10 +357,7 @@ export default function LabReservation({ id }) {
                     : 'bg-brand hover:bg-hover-dark'
                 }`}
               >
-                {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : 
-                 (isWaitingForReceipt && !isSSO && !isReceiptError) ? 'Confirming...' :
-                 isReceiptError ? 'Try Again' :
-                 'Book Now'}
+                {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : (isWaitingForReceipt && !isSSO && !isReceiptError ? 'Confirming...' : (isReceiptError ? 'Try Again' : 'Book Now'))}
               </button>
             </div>
           </>

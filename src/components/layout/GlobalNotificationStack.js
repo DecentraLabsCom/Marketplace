@@ -1,5 +1,7 @@
 "use client";
 import React from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { useNotifications } from '@/context/NotificationContext'
 
 /**
@@ -11,6 +13,9 @@ export default function GlobalNotificationStack() {
   const { notifications, removeNotification } = useNotifications();
 
   if (!notifications || notifications.length === 0) return null;
+
+  const sanitizeMessage = (message) =>
+    String(message ?? '');
 
   return (
     <div className="fixed z-[60]" style={{ bottom: '16px', left: '16px' }}>
@@ -30,7 +35,12 @@ export default function GlobalNotificationStack() {
         >
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <p className="text-white font-medium">{notification.message}</p>
+              <p className="text-white font-medium">
+                {notification.type === 'pending' && (
+                  <FontAwesomeIcon icon={faSpinner} className="mr-2 animate-spin" />
+                )}
+                {sanitizeMessage(notification.message)}
+              </p>
               {notification.hash && (
                 <p className="text-gray-200 text-sm mt-1 break-all">
                   Hash: {notification.hash.slice(0, 10)}...{notification.hash.slice(-8)}

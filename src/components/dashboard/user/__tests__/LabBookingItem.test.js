@@ -38,11 +38,11 @@ jest.mock('@/components/ui/ConfirmModal', () => ({ isOpen, onClose, onContinue }
 jest.mock('@/utils/booking/bookingStatus', () => ({
   getBookingStatusDisplay: jest.fn((booking) => {
     const statusMap = {
-      '0': { text: 'Pending', icon: '⏳', className: 'bg-yellow-200' },
+      '0': { text: 'Pending', icon: '', className: 'bg-yellow-200' },
       '1': { text: 'Confirmed', icon: '✓', className: 'bg-green-200' },
       '5': { text: 'Canceled', icon: '✗', className: 'bg-red-200' }
     };
-    return statusMap[booking.status] || { text: 'Unknown', icon: '?', className: 'bg-gray-200' };
+    return statusMap[booking.status] || { text: 'Unknown', icon: '', className: 'bg-gray-200' };
   }),
   isCancelledBooking: (booking) => booking.status === '5' || booking.status === 5,
   isPendingBooking: (booking) => booking.status === '0' || booking.status === 0,

@@ -245,7 +245,7 @@ jest.mock("@/components/dashboard/provider/LabModal", () => ({
   default: ({ isOpen, onClose, onSubmit, lab }) =>
     isOpen ? (
       <div data-testid="lab-modal">
-        <div data-testid="modal-lab-id">{lab?.id || "new"}</div>
+        <div data-testid="modal-lab-id">{lab.id || "new"}</div>
         <button onClick={onClose} data-testid="modal-close">
           Close
         </button>
@@ -253,8 +253,8 @@ jest.mock("@/components/dashboard/provider/LabModal", () => ({
           onClick={() =>
             onSubmit({
               ...lab,
-              name: lab?.name || "New Lab",
-              price: lab?.price || "100",
+              name: lab.name || "New Lab",
+              price: lab.price || "100",
             })
           }
           data-testid="modal-submit"
@@ -652,7 +652,7 @@ describe("ProviderDashboard Component", () => {
           expect(mockDeleteLabMutate).toHaveBeenCalledWith("1");
           expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
             "pending",
-            "⏳ Deleting lab..."
+            "Deleting lab..."
           );
           expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
             "success",
@@ -743,7 +743,7 @@ describe("ProviderDashboard Component", () => {
         expect(mockUnlistLabMutate).toHaveBeenCalledWith("1");
         expect(mockAddNotification).toHaveBeenCalledWith(
           "pending",
-          "⏳ Unlisting lab...",
+          "Unlisting lab...",
           expect.objectContaining({ autoHide: false, category: "lab-listing" })
         );
       });
@@ -791,7 +791,7 @@ describe("ProviderDashboard Component", () => {
         expect(mockRequestFundsMutate).toHaveBeenCalled();
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "pending",
-          "⏳ Collecting all balances..."
+          "Collecting all balances..."
         );
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "success",

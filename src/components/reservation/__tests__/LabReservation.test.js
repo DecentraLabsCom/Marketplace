@@ -442,7 +442,7 @@ describe("LabReservation Component", () => {
 
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "pending",
-        "⏳ Reservation request sent! Processing..."
+        "Reservation request sent! Processing..."
       );
       expect(mockHandleBookingSuccess).toHaveBeenCalled();
     });
@@ -567,7 +567,7 @@ describe("LabReservation Component", () => {
 
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "pending",
-        "⏳ Approving LAB tokens..."
+        "Approving LAB tokens..."
       );
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "success",

@@ -2,6 +2,7 @@
  * Booking status utilities for filtering and categorizing bookings
  * Centralized logic for determining booking states and visibility
  */
+import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -87,7 +88,7 @@ export const getBookingStatusDisplay = (booking) => {
     case 0: return {
       text: "Pending",
       className: "bg-booking-pending-bg text-booking-pending-text border-booking-pending-border",
-      icon: "⏳"
+      icon: faSpinner
     };
     case 1: return {
       text: "Confirmed",

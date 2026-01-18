@@ -2,6 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
 import ConfirmModal from '@/components/ui/ConfirmModal'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     getBookingStatusDisplay,
     isCancelledBooking,
@@ -40,6 +41,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
 }) {
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
+    const statusIcon = statusDisplay?.icon;
+    const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
     const isCancelled = isCancelledBooking(booking);
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
 
@@ -77,7 +80,13 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 <div className="flex flex-col md:flex-row gap-2 mt-2 md:mt-0 items-center">
                 {/* Reservation Status */}
                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusDisplay.className}`}>
-                    <span className="mr-1">{statusDisplay.icon}</span>
+                    <span className="mr-1">
+                      {shouldRenderIcon ? (
+                        <FontAwesomeIcon icon={statusIcon} className="animate-spin" />
+                      ) : (
+                        statusIcon
+                      )}
+                    </span>
                     {statusDisplay.text}
                 </span>
                 {/* Show cancel button for booked or pending reservations (not canceled) */}

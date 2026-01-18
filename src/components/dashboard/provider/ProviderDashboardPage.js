@@ -116,6 +116,7 @@ export default function ProviderDashboard() {
   const createLabAbortControllerRef = useRef(null);
   const createLabNotificationIdRef = useRef(null);
   const listingNotificationIdsRef = useRef(new Map());
+  const actionNotificationIdsRef = useRef(new Map());
 
   const setCreateLabProgress = useCallback((message, { hash } = {}) => {
     try {
@@ -181,6 +182,42 @@ export default function ProviderDashboard() {
       }
     } catch (err) {
       devLog.error('Failed to clear listing progress notification:', err);
+    }
+  }, [removeNotification]);
+
+  const setActionProgressNotification = useCallback((actionKey, message) => {
+    try {
+      const key = String(actionKey);
+      const existingId = actionNotificationIdsRef.current.get(key);
+      if (existingId) {
+        removeNotification(existingId);
+      }
+
+      const notif = addNotification('pending', message, {
+        autoHide: false,
+        category: 'lab-action',
+        priority: 'high',
+        allowDuplicates: true,
+      });
+
+      if (notif?.id) {
+        actionNotificationIdsRef.current.set(key, notif.id);
+      }
+    } catch (err) {
+      devLog.error('Failed to set action progress notification:', err);
+    }
+  }, [addNotification, removeNotification]);
+
+  const clearActionProgressNotification = useCallback((actionKey) => {
+    try {
+      const key = String(actionKey);
+      const existingId = actionNotificationIdsRef.current.get(key);
+      if (existingId) {
+        removeNotification(existingId);
+        actionNotificationIdsRef.current.delete(key);
+      }
+    } catch (err) {
+      devLog.error('Failed to clear action progress notification:', err);
     }
   }, [removeNotification]);
 
@@ -311,7 +348,7 @@ export default function ProviderDashboard() {
     try {
       setIsCreatingLab(true);
       createLabAbortControllerRef.current = isSSO ? new AbortController() : null;
-      setCreateLabProgress(isSSO ? '⏳ Sending lab to institution for execution...' : '⏳ Confirm the transaction in your wallet...');
+      setCreateLabProgress(isSSO ? 'Sending lab to institution for execution...' : 'Confirm the transaction in your wallet...');
       
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
@@ -568,7 +605,12 @@ export default function ProviderDashboard() {
     try {
       if (hasChangedOnChainData) {
         // 1a. If there are on-chain changes, update blockchain via mutation
-        addTemporaryNotification('pending', '⏳ Updating lab onchain...');
+        const actionKey = `update:${labData.id}`;
+        if (isSSO) {
+          setActionProgressNotification(actionKey, 'Updating lab onchain...');
+        } else {
+          addTemporaryNotification('pending', 'Updating lab onchain...');
+        }
         setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
         devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
 
@@ -585,11 +627,17 @@ export default function ProviderDashboard() {
             backendUrl: isSSO ? institutionBackendUrl : undefined
           });
 
+          if (isSSO) {
+            clearActionProgressNotification(actionKey);
+          }
           addTemporaryNotification('success', '✅ Lab updated!');
           // Clear optimistic editing marker
           clearOptimisticLabState(String(labData.id));
         } catch (err) {
           devLog.error('Error updating lab onchain:', err);
+          if (isSSO) {
+            clearActionProgressNotification(actionKey);
+          }
           clearOptimisticLabState(String(labData.id));
           addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(err)}`);
           return;
@@ -649,10 +697,15 @@ export default function ProviderDashboard() {
 
   // Handle delete a lab using React Query mutation
   const handleDeleteLab = async (labId) => {
+    const actionKey = `delete:${labId}`;
     try {
       // Optimistic UI: mark deleting and provide immediate feedback
-      addTemporaryNotification('pending', '⏳ Deleting lab...');
-setOptimisticLabState(String(labId), { deleting: true, isPending: true });
+      if (isSSO) {
+        setActionProgressNotification(actionKey, 'Deleting lab...');
+      } else {
+        addTemporaryNotification('pending', 'Deleting lab...');
+      }
+      setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
       // 🚀 Use React Query mutation for lab deletion
       await deleteLabMutation.mutateAsync(labId);
@@ -666,6 +719,9 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
         devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
       }
 
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
       addTemporaryNotification('success', '✅ Lab deleted!');
 
       // React Query mutations and event contexts will further ensure cache consistency
@@ -679,6 +735,9 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
       clearOptimisticLabState(String(labId));
     } catch (error) {
       devLog.error('Error deleting lab:', error);
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
       clearOptimisticLabState(labId);
       addTemporaryNotification('error', `❌ Failed to delete lab: ${error.message}`);
     }
@@ -686,18 +745,26 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
   // Handle listing a lab using React Query mutation
   const handleList = async (labId) => {
+    const actionKey = `list:${labId}`;
     try {
       // Immediate user feedback: notify and set optimistic pending state
-      addTemporaryNotification('pending', '⏳ Sending listing request...');
+      if (isSSO) {
+        setListingProgressNotification(actionKey, 'Listing lab...');
+      } else {
+        addTemporaryNotification('pending', 'Sending listing request...');
+      }
       setOptimisticListingState(String(labId), true, true);
 
-      // 🚀 Use React Query mutation for lab listing
+      // ?Ys? Use React Query mutation for lab listing
       const listPayload = isSSO
         ? { labId, backendUrl: institutionBackendUrl }
         : labId;
       await listLabMutation.mutateAsync(listPayload);
       
       // Mark optimistic as completed (still keep new state)
+      if (isSSO) {
+        clearListingProgressNotification(actionKey);
+      }
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
@@ -706,6 +773,9 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
       addTemporaryNotification('success', '✅ Lab listed successfully!');
     } catch (error) {
       devLog.error('Error listing lab:', error);
+      if (isSSO) {
+        clearListingProgressNotification(actionKey);
+      }
       // Clear optimistic pending state on error
       clearOptimisticListingState(String(labId));
       addTemporaryNotification('error', `❌ Failed to list lab: ${error.message}`);
@@ -716,10 +786,10 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
   const handleUnlist = async (labId) => {
     try {
       // Immediate user feedback: notify and set optimistic pending state
-      setListingProgressNotification(labId, '⏳ Unlisting lab...');
+      setListingProgressNotification(labId, 'Unlisting lab...');
       setOptimisticListingState(String(labId), false, true);
 
-      // 🚀 Use React Query mutation for lab unlisting
+      // ?Ys? Use React Query mutation for lab unlisting
       const unlistPayload = isSSO
         ? { labId, backendUrl: institutionBackendUrl }
         : labId;
@@ -742,16 +812,27 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
     }
   };
 
-  // Handle collecting balances from all labs
+// Handle collecting balances from all labs
   const handleCollectAll = async () => {
+    const actionKey = 'collect:all';
     try {
-      addTemporaryNotification('pending', '⏳ Collecting all balances...');
+      if (isSSO) {
+        setActionProgressNotification(actionKey, 'Collecting all balances...');
+      } else {
+        addTemporaryNotification('pending', 'Collecting all balances...');
+      }
       
       await requestFundsMutation.mutateAsync();
       
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
       addTemporaryNotification('success', '✅ Balance collected!');
     } catch (err) {
       devLog.error(err);
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
       addTemporaryNotification('error', `❌ Failed to collect balances: ${formatErrorMessage(err)}`);
     }
   };
@@ -859,4 +940,3 @@ setOptimisticLabState(String(labId), { deleting: true, isPending: true });
     </AccessControl>
   );
 }
-

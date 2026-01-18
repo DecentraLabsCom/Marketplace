@@ -12,6 +12,7 @@
  * - Complex filtering logic by display mode
  */
 
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import {
   BOOKING_STATUS,
   isCancelledBooking,
@@ -116,7 +117,7 @@ describe("Display Utilities", () => {
       const display = getBookingStatusDisplay(booking);
 
       expect(display.text).toBe("Pending");
-      expect(display.icon).toBe("⏳");
+      expect(display.icon).toBe(faSpinner);
 
       expect(display.className).toBe(
         "bg-booking-pending-bg text-booking-pending-text border-booking-pending-border"

@@ -65,6 +65,24 @@ const resolveAuthorizationInfo = (prepareData, backendUrl) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
+const updateListingCache = (queryClient, labId, isListed) => {
+  if (!queryClient) return;
+
+  const ids = new Set([labId, String(labId)]);
+  const numericId = Number(labId);
+  if (!Number.isNaN(numericId)) {
+    ids.add(numericId);
+  }
+
+  ids.forEach((id) => {
+    try {
+      queryClient.setQueryData(labQueryKeys.isTokenListed(id), { isListed });
+    } catch (err) {
+      devLog.warn('Failed to update listing cache:', err);
+    }
+  });
+};
+
 const openAuthorizationPopup = (authorizationUrl, popup) => {
   if (!authorizationUrl) return null;
 
@@ -127,10 +145,30 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     throw new Error('Authorization window was blocked');
   }
 
-  const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
+  let closeInterval = null;
+  const popupClosedPromise = new Promise((_, reject) => {
+    closeInterval = setInterval(() => {
+      if (authPopup.closed) {
+        clearInterval(closeInterval);
+        closeInterval = null;
+        reject(new Error('Authorization window closed'));
+      }
+    }, 500);
+  });
+
+  const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
     backendUrl: prepareData?.backendUrl || backendUrl,
     authToken: authToken || prepareData?.backendAuthToken,
   });
+
+  let status;
+  try {
+    status = await Promise.race([pollPromise, popupClosedPromise]);
+  } finally {
+    if (closeInterval) {
+      clearInterval(closeInterval);
+    }
+  }
 
   const normalized = (status?.status || '').toUpperCase();
   if (normalized === 'FAILED') {
@@ -932,7 +970,9 @@ export const useDeleteLab = (options = {}) => {
 
 // Intent hook for listing labs (institutional wallet executes)
 export const useListLabSSO = (options = {}) => {
+  const queryClient = useQueryClient();
   const { updateLab } = useLabCacheUpdates();
+  const { clearOptimisticListingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async ({ labId, backendUrl }) => {
@@ -982,6 +1022,7 @@ export const useListLabSSO = (options = {}) => {
                   note: 'Executed by institution',
                   timestamp: new Date().toISOString(),
                 });
+                updateListingCache(queryClient, labId, true);
               } else if (status === 'failed' || status === 'rejected') {
                 updateLab(labId, {
                   id: labId,
@@ -992,6 +1033,8 @@ export const useListLabSSO = (options = {}) => {
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
                 });
+                clearOptimisticListingState(labId);
+                updateListingCache(queryClient, labId, false);
               }
             } catch (err) {
               devLog.error('Polling list intent failed:', err);
@@ -1002,7 +1045,11 @@ export const useListLabSSO = (options = {}) => {
         devLog.error('Failed to handle list intent response:', error);
       }
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      if (variables?.labId) {
+        clearOptimisticListingState(variables.labId);
+        updateListingCache(queryClient, variables.labId, false);
+      }
       devLog.error('Failed to create list intent:', error);
     },
     ...options,
@@ -1064,7 +1111,9 @@ export const useListLab = (options = {}) => {
 
 // Intent hook for unlisting labs (institutional wallet executes)
 export const useUnlistLabSSO = (options = {}) => {
+  const queryClient = useQueryClient();
   const { updateLab } = useLabCacheUpdates();
+  const { clearOptimisticListingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async ({ labId, backendUrl }) => {
@@ -1114,6 +1163,7 @@ export const useUnlistLabSSO = (options = {}) => {
                   note: 'Executed by institution',
                   timestamp: new Date().toISOString(),
                 });
+                updateListingCache(queryClient, labId, false);
               } else if (status === 'failed' || status === 'rejected') {
                 updateLab(labId, {
                   id: labId,
@@ -1124,6 +1174,8 @@ export const useUnlistLabSSO = (options = {}) => {
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
                 });
+                clearOptimisticListingState(labId);
+                updateListingCache(queryClient, labId, true);
               }
             } catch (err) {
               devLog.error('Polling unlist intent failed:', err);
@@ -1134,7 +1186,10 @@ export const useUnlistLabSSO = (options = {}) => {
         devLog.error('Failed to handle unlist intent response:', error);
       }
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      if (variables?.labId) {
+        clearOptimisticListingState(variables.labId);
+      }
       devLog.error('Failed to create unlist intent:', error);
     },
     ...options,
