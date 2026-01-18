@@ -404,6 +404,28 @@ describe("MarketplaceJwtService", () => {
         })
       ).rejects.toThrow("Invalid institutionalProviderWallet address format");
     });
+
+    test('generateIntentBackendToken defaults to 60 seconds when no env var or param', async () => {
+      // Ensure deterministic time
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+      delete process.env.INTENTS_JWT_EXPIRATION_SECONDS;
+
+      const result = await MarketplaceJwtService.generateIntentBackendToken();
+
+      expect(result.token).toBe('mocked.jwt.token');
+      const expectedExpiresAt = new Date((1700000000 + 60) * 1000).toISOString();
+      expect(result.expiresAt).toBe(expectedExpiresAt);
+    });
+
+    test('generateIntentBackendToken respects expiresInSeconds parameter', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+
+      const result = await MarketplaceJwtService.generateIntentBackendToken({ expiresInSeconds: 30 });
+
+      expect(result.token).toBe('mocked.jwt.token');
+      const expectedExpiresAt = new Date((1700000000 + 30) * 1000).toISOString();
+      expect(result.expiresAt).toBe(expectedExpiresAt);
+    });
   });
 
   describe("decodeToken", () => {

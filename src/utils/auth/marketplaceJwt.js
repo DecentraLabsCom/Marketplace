@@ -267,10 +267,10 @@ class MarketplaceJwtService {
 
       const nowSec = Math.floor(Date.now() / 1000);
       const ttlSeconds = parseInt(
-        expiresInSeconds ?? process.env.INTENTS_JWT_EXPIRATION_SECONDS ?? '900',
+        expiresInSeconds ?? process.env.INTENTS_JWT_EXPIRATION_SECONDS ?? '60',
         10,
       );
-      const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 900;
+      const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 60;
       const expSec = nowSec + safeTtl;
 
       const payload = {
