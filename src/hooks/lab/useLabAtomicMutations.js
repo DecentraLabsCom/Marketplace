@@ -19,6 +19,24 @@ import { selectChain } from '@/utils/blockchain/selectChain'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { decodeEventLog } from 'viem'
 
+const resolveRequestId = (data) =>
+  data?.requestId ||
+  data?.intent?.meta?.requestId ||
+  data?.intent?.requestId ||
+  data?.intent?.request_id ||
+  data?.intent?.requestId?.toString?.();
+
+const resolveLabId = (data) => {
+  const candidate = data?.labId ?? data?.lab_id ?? data?.labID;
+  if (candidate === undefined || candidate === null) return null;
+  if (typeof candidate === 'string') return candidate;
+  try {
+    return candidate.toString();
+  } catch {
+    return null;
+  }
+};
+
 const normalizeAuthorizationUrl = (authorizationUrl, backendUrl) => {
   if (!authorizationUrl) return null;
   const raw = String(authorizationUrl).trim();
@@ -159,7 +177,7 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
     backendUrl: prepareData?.backendUrl || backendUrl,
     authToken: authToken || prepareData?.backendAuthToken,
-  });
+  }).catch((error) => ({ __pollError: error }));
 
   let status;
   try {
@@ -171,9 +189,26 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
         new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
       ]);
       if (graceResult && graceResult.__closed) {
-        throw new Error('Authorization window closed');
+        status = {
+          status: 'UNKNOWN',
+          requestId: resolveRequestId(prepareData),
+          error: 'Authorization window closed',
+        };
+      } else if (graceResult && graceResult.__pollError) {
+        status = {
+          status: 'UNKNOWN',
+          requestId: resolveRequestId(prepareData),
+          error: graceResult.__pollError?.message || 'Authorization status unavailable',
+        };
+      } else {
+        status = graceResult;
       }
-      status = graceResult;
+    } else if (firstResult && firstResult.__pollError) {
+      status = {
+        status: 'UNKNOWN',
+        requestId: resolveRequestId(prepareData),
+        error: firstResult.__pollError?.message || 'Authorization status unavailable',
+      };
     } else {
       status = firstResult;
     }
@@ -288,24 +323,6 @@ async function runActionIntent(action, payload) {
     backendAuthExpiresAt: finalizeAuthExpiresAt,
   };
 }
-
-const resolveRequestId = (data) =>
-  data?.requestId ||
-  data?.intent?.meta?.requestId ||
-  data?.intent?.requestId ||
-  data?.intent?.request_id ||
-  data?.intent?.requestId?.toString?.();
-
-const resolveLabId = (data) => {
-  const candidate = data?.labId ?? data?.lab_id ?? data?.labID;
-  if (candidate === undefined || candidate === null) return null;
-  if (typeof candidate === 'string') return candidate;
-  try {
-    return candidate.toString();
-  } catch {
-    return null;
-  }
-};
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -694,6 +711,7 @@ export const useUpdateLabSSO = (options = {}) => {
             data?.intent?.request_id ||
             data?.intent?.requestId?.toString?.();
           const authToken = data?.backendAuthToken;
+          const backendUrl = data?.backendUrl || variables?.backendUrl;
           const updatedLab = {
             ...variables.labData,
             id: variables.labId,
@@ -713,43 +731,54 @@ export const useUpdateLabSSO = (options = {}) => {
               refetchType: 'active'
             });
           }
-        if (requestId) {
-          (async () => {
-            try {
-              const result = await pollIntentStatus(requestId, { authToken });
-              const status = result?.status;
-              const txHash = result?.txHash;
-              const reason = result?.error || result?.reason;
+          if (requestId) {
+            (async () => {
+              try {
+                const result = await pollIntentStatus(requestId, { authToken, backendUrl });
+                const status = result?.status;
+                const txHash = result?.txHash;
+                const reason = result?.error || result?.reason;
 
-              if (status === 'executed') {
+                if (status === 'executed') {
+                  updateLab(variables.labId, {
+                    ...variables.labData,
+                    id: variables.labId,
+                    labId: variables.labId,
+                    transactionHash: txHash,
+                    isIntentPending: false,
+                    intentStatus: 'executed',
+                    note: 'Executed by institution',
+                    timestamp: new Date().toISOString()
+                  });
+                } else if (status === 'failed' || status === 'rejected') {
+                  updateLab(variables.labId, {
+                    ...variables.labData,
+                    id: variables.labId,
+                    labId: variables.labId,
+                    isIntentPending: false,
+                    intentStatus: status,
+                    note: reason || 'Rejected by institution',
+                    intentError: reason,
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              } catch (err) {
+                const reason = err?.message || 'Intent status unavailable';
+                devLog.error('Polling intent updateLab failed:', err);
                 updateLab(variables.labId, {
                   ...variables.labData,
                   id: variables.labId,
                   labId: variables.labId,
-                  transactionHash: txHash,
                   isIntentPending: false,
-                  intentStatus: 'executed',
-                  note: 'Executed by institution',
-                  timestamp: new Date().toISOString()
-                });
-              } else if (status === 'failed' || status === 'rejected') {
-                updateLab(variables.labId, {
-                  ...variables.labData,
-                  id: variables.labId,
-                  labId: variables.labId,
-                  isIntentPending: false,
-                  intentStatus: status,
-                  note: reason || 'Rejected by institution',
+                  intentStatus: 'unknown',
                   intentError: reason,
+                  note: reason,
                   timestamp: new Date().toISOString()
                 });
+                invalidateAllLabs();
               }
-            } catch (err) {
-              devLog.error('Polling intent updateLab failed:', err);
-              invalidateAllLabs();
-            }
-          })();
-        }
+            })();
+          }
         }
       } catch (error) {
         devLog.error('Failed to handle update intent response:', error);
@@ -864,6 +893,7 @@ export const useDeleteLabSSO = (options = {}) => {
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
         const authToken = _data?.backendAuthToken;
+        const backendUrl = _data?.backendUrl;
         updateLab(labId, {
           id: labId,
           labId: labId,
@@ -878,7 +908,7 @@ export const useDeleteLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId, { authToken });
+              const result = await pollIntentStatus(requestId, { authToken, backendUrl });
               const status = result?.status;
               const reason = result?.error || result?.reason;
 
@@ -895,7 +925,18 @@ export const useDeleteLabSSO = (options = {}) => {
                 });
               }
             } catch (err) {
+              const reason = err?.message || 'Intent status unavailable';
               devLog.error('Polling delete intent failed:', err);
+              updateLab(labId, {
+                id: labId,
+                labId,
+                isIntentPending: false,
+                intentStatus: 'unknown',
+                intentError: reason,
+                note: reason,
+                status: 'delete-unknown',
+                timestamp: new Date().toISOString(),
+              });
               invalidateAllLabs();
             }
           })();
@@ -1005,6 +1046,7 @@ export const useListLabSSO = (options = {}) => {
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
         const authToken = data?.backendAuthToken;
+        const backendUrl = data?.backendUrl;
 
         updateLab(labId, {
           id: labId,
@@ -1019,7 +1061,7 @@ export const useListLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId, { authToken });
+              const result = await pollIntentStatus(requestId, { authToken, backendUrl });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -1050,7 +1092,19 @@ export const useListLabSSO = (options = {}) => {
                 updateListingCache(queryClient, labId, false);
               }
             } catch (err) {
+              const reason = err?.message || 'Intent status unavailable';
               devLog.error('Polling list intent failed:', err);
+              updateLab(labId, {
+                id: labId,
+                labId,
+                isIntentPending: false,
+                intentStatus: 'unknown',
+                intentError: reason,
+                note: reason,
+                timestamp: new Date().toISOString(),
+              });
+              clearOptimisticListingState(labId);
+              queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs() });
             }
           })();
         }
@@ -1146,6 +1200,7 @@ export const useUnlistLabSSO = (options = {}) => {
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
         const authToken = data?.backendAuthToken;
+        const backendUrl = data?.backendUrl;
 
         updateLab(labId, {
           id: labId,
@@ -1160,7 +1215,7 @@ export const useUnlistLabSSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId, { authToken });
+              const result = await pollIntentStatus(requestId, { authToken, backendUrl });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -1191,7 +1246,19 @@ export const useUnlistLabSSO = (options = {}) => {
                 updateListingCache(queryClient, labId, true);
               }
             } catch (err) {
+              const reason = err?.message || 'Intent status unavailable';
               devLog.error('Polling unlist intent failed:', err);
+              updateLab(labId, {
+                id: labId,
+                labId,
+                isIntentPending: false,
+                intentStatus: 'unknown',
+                intentError: reason,
+                note: reason,
+                timestamp: new Date().toISOString(),
+              });
+              clearOptimisticListingState(labId);
+              queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs() });
             }
           })();
         }
@@ -1300,7 +1367,7 @@ export const useSetTokenURISSO = (options = {}) => {
         if (requestId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(requestId, { authToken });
+              const result = await pollIntentStatus(requestId, { authToken, backendUrl });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -1330,7 +1397,18 @@ export const useSetTokenURISSO = (options = {}) => {
                 });
               }
             } catch (err) {
+              const reason = err?.message || 'Intent status unavailable';
               devLog.error('Polling setTokenURI intent failed:', err);
+              updateLab(labId, {
+                id: labId,
+                labId,
+                tokenURI,
+                isIntentPending: false,
+                intentStatus: 'unknown',
+                intentError: reason,
+                note: reason,
+                timestamp: new Date().toISOString(),
+              });
             }
           })();
         }
@@ -1394,4 +1472,3 @@ export const useSetTokenURI = (options = {}) => {
 
 // Re-export cache updates utility
 export { useLabCacheUpdates } from './useLabCacheUpdates';
-
