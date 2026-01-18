@@ -213,6 +213,28 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   }
 
   let closeInterval = null;
+  let messageHandler = null;
+  const expectedOrigin = (() => {
+    try {
+      return authorizationUrl ? new URL(authorizationUrl).origin : null;
+    } catch {
+      return null;
+    }
+  })();
+  const messagePromise = new Promise((resolve) => {
+    messageHandler = (event) => {
+      if (expectedOrigin && event.origin !== expectedOrigin) return;
+      const payload = event?.data;
+      if (!payload || payload.type !== 'intent-authorization') return;
+      resolve({
+        __message: true,
+        status: payload.status,
+        requestId: payload.requestId,
+        error: payload.error,
+      });
+    };
+    window.addEventListener('message', messageHandler);
+  });
   const popupClosedPromise = new Promise((resolve) => {
     closeInterval = setInterval(() => {
       if (authPopup.closed) {
@@ -230,13 +252,14 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
 
   let status;
   try {
-    const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
+    const firstResult = await Promise.race([pollPromise, popupClosedPromise, messagePromise]);
     if (firstResult && firstResult.__closed) {
-      const graceMs = 2000;
+      const graceMs = 800;
       try {
         const requestId = resolveRequestId(prepareData);
         const graceResultPromise = Promise.race([
           pollPromise,
+          messagePromise,
           new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
         ]);
         const presenceChecker = presenceFn || pollIntentPresence;
@@ -244,10 +267,7 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
           backendUrl: prepareData?.backendUrl || backendUrl,
           authToken: authToken || prepareData?.backendAuthToken,
         });
-        const [graceResult, intentPresence] = await Promise.all([
-          graceResultPromise,
-          intentPresencePromise,
-        ]);
+        const graceResult = await graceResultPromise;
 
         if (graceResult && graceResult.__pollError) {
           status = {
@@ -255,7 +275,10 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
             requestId,
             error: graceResult.__pollError?.message || 'Authorization status unavailable',
           };
+        } else if (graceResult && graceResult.__message) {
+          status = graceResult;
         } else if (graceResult && graceResult.__closed) {
+          const intentPresence = await intentPresencePromise;
           if (intentPresence === 'present') {
             status = { status: 'SUCCESS', requestId };
           } else if (intentPresence === 'absent') {
@@ -287,12 +310,17 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
         requestId: resolveRequestId(prepareData),
         error: firstResult.__pollError?.message || 'Authorization status unavailable',
       };
+    } else if (firstResult && firstResult.status) {
+      status = firstResult;
     } else {
       status = firstResult;
     }
   } finally {
     if (closeInterval) {
       clearInterval(closeInterval);
+    }
+    if (messageHandler) {
+      window.removeEventListener('message', messageHandler);
     }
   }
 
@@ -347,34 +375,6 @@ async function runActionIntent(action, payload) {
       throw new Error(authorizationStatus?.error || 'Authorization cancelled');
     }
     if (normalizedStatus === 'CANCELLED') {
-      if (authorizationRequestId) {
-        try {
-          const result = await pollIntentStatus(authorizationRequestId, {
-            backendUrl: payload.backendUrl || prepareData?.backendUrl,
-            authToken,
-            maxDurationMs: 3000,
-            initialDelayMs: 300,
-            maxDelayMs: 800,
-          });
-          const status = result?.status;
-          const reason = result?.error || result?.reason;
-          if (status === 'executed') {
-            return {
-              ...prepareData,
-              requestId: authorizationRequestId,
-              intent: prepareData.intent,
-              authorization: authorizationStatus,
-              backendAuthToken: authToken,
-              backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
-            };
-          }
-          if (status === 'failed' || status === 'rejected') {
-            throw new Error(reason || 'Authorization cancelled');
-          }
-        } catch (err) {
-          throw new Error(err?.message || authorizationStatus?.error || 'Authorization cancelled');
-        }
-      }
       throw new Error(authorizationStatus?.error || 'Authorization cancelled');
     }
     if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
