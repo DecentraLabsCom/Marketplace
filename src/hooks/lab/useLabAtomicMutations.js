@@ -177,38 +177,34 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
     backendUrl: prepareData?.backendUrl || backendUrl,
     authToken: authToken || prepareData?.backendAuthToken,
-  }).catch((error) => ({ __pollError: error }));
+  });
 
   let status;
   try {
     const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
     if (firstResult && firstResult.__closed) {
-      const graceMs = 200; // small grace window to avoid race conditions with backend auto-closing popup
-      const graceResult = await Promise.race([
-        pollPromise,
-        new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
-      ]);
-      if (graceResult && graceResult.__closed) {
+      const graceMs = 200;
+      try {
+        const graceResult = await Promise.race([
+          pollPromise,
+          new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
+        ]);
+        if (graceResult && graceResult.__closed) {
+          status = {
+            status: 'CANCELLED',
+            requestId: resolveRequestId(prepareData),
+            error: 'Authorization window closed',
+          };
+        } else {
+          status = graceResult;
+        }
+      } catch (err) {
         status = {
-          status: 'UNKNOWN',
+          status: 'CANCELLED',
           requestId: resolveRequestId(prepareData),
-          error: 'Authorization window closed',
+          error: err?.message || 'Authorization window closed',
         };
-      } else if (graceResult && graceResult.__pollError) {
-        status = {
-          status: 'UNKNOWN',
-          requestId: resolveRequestId(prepareData),
-          error: graceResult.__pollError?.message || 'Authorization status unavailable',
-        };
-      } else {
-        status = graceResult;
       }
-    } else if (firstResult && firstResult.__pollError) {
-      status = {
-        status: 'UNKNOWN',
-        requestId: resolveRequestId(prepareData),
-        error: firstResult.__pollError?.message || 'Authorization status unavailable',
-      };
     } else {
       status = firstResult;
     }
@@ -262,7 +258,7 @@ async function runActionIntent(action, payload) {
   });
   if (authorizationStatus) {
     const normalizedStatus = (authorizationStatus.status || '').toUpperCase();
-    if (normalizedStatus === 'FAILED') {
+    if (normalizedStatus === 'FAILED' || normalizedStatus === 'CANCELLED') {
       throw new Error(authorizationStatus?.error || 'Authorization cancelled');
     }
     if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
