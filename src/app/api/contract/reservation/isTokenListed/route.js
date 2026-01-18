@@ -16,6 +16,11 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import devLog from '@/utils/dev/logger'
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const noStoreHeaders = { 'Cache-Control': 'no-store, max-age=0' };
+
 export async function GET(request) {
   const startTime = Date.now();
   let numericLabId; // Declare outside try block for error handling access
@@ -31,7 +36,7 @@ export async function GET(request) {
         error: 'Missing required parameter: labId',
         parameter: 'labId',
         message: 'Lab ID is required to check listing status'
-      }, { status: 400 });
+      }, { status: 400, headers: noStoreHeaders });
     }
 
     // Validate labId is a valid number
@@ -42,7 +47,7 @@ export async function GET(request) {
         parameter: 'labId',
         value: labId,
         message: 'Lab ID must be a valid non-negative number'
-      }, { status: 400 });
+      }, { status: 400, headers: noStoreHeaders });
     }
 
     devLog.log('🔍 Checking lab listing status:', { labId: numericLabId });
@@ -69,7 +74,7 @@ export async function GET(request) {
       isListed,
       timestamp: new Date().toISOString(),
       processingTime
-    }, { status: 200 });
+    }, { status: 200, headers: noStoreHeaders });
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
@@ -83,7 +88,7 @@ export async function GET(request) {
         message: revertReason,
         type: 'CONTRACT_ERROR',
         processingTime
-      }, { status: 422 }); // Unprocessable Entity for contract logic errors
+      }, { status: 422, headers: noStoreHeaders }); // Unprocessable Entity for contract logic errors
     }
 
     // Handle network/connection errors
@@ -93,7 +98,7 @@ export async function GET(request) {
         message: 'Failed to connect to blockchain network. Please try again.',
         type: 'NETWORK_ERROR',
         processingTime
-      }, { status: 503 }); // Service Unavailable
+      }, { status: 503, headers: noStoreHeaders }); // Service Unavailable
     }
 
     // Handle token not found errors (common case)
@@ -103,7 +108,7 @@ export async function GET(request) {
         message: `Lab with ID ${numericLabId} does not exist`,
         type: 'NOT_FOUND',
         processingTime
-      }, { status: 404 });
+      }, { status: 404, headers: noStoreHeaders });
     }
 
     // Generic server error for unexpected issues
@@ -112,6 +117,6 @@ export async function GET(request) {
       message: 'An unexpected error occurred while checking lab listing status',
       type: 'INTERNAL_ERROR',
       processingTime
-    }, { status: 500 });
+    }, { status: 500, headers: noStoreHeaders });
   }
 }

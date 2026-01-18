@@ -6,7 +6,7 @@
  * 
  * Security Features:
  * - RSA-256 signatures for cryptographic authentication
- * - 5-minute token expiration to prevent replay attacks
+ * - 1-minute token expiration to prevent replay attacks
  * - Proper claim mapping from SAML2 attributes
  */
 
@@ -133,7 +133,7 @@ class MarketplaceJwtService {
         eduPersonAffiliation: samlAttributes.eduPersonAffiliation || '', // Institutional role
         eduPersonScopedAffiliation: samlAttributes.eduPersonScopedAffiliation || '', // Scoped role
         iat: Math.floor(Date.now() / 1000),                            // Issued at
-        exp: Math.floor(Date.now() / 1000) + parseInt(process.env.JWT_EXPIRATION_MS || '300000') / 1000 // Expires in
+        exp: Math.floor(Date.now() / 1000) + parseInt(process.env.JWT_EXPIRATION_MS || '60000') / 1000 // Expires in
       };
 
       // Generate signed JWT with issuer in options (not payload)
@@ -206,7 +206,7 @@ class MarketplaceJwtService {
       }
 
       const nowSec = Math.floor(Date.now() / 1000);
-      const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '300000', 10) / 1000;
+      const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '60000', 10) / 1000;
 
       const payload = {
         userid: userId,

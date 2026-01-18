@@ -533,7 +533,8 @@ const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
   
   const response = await fetch(`/api/contract/reservation/isTokenListed?labId=${labId}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
   });
   
   if (!response.ok) {

@@ -178,13 +178,13 @@ describe("MarketplaceJwtService", () => {
         expect(payload.exp).toBeGreaterThan(payload.iat);
       });
 
-      test("calculates expiration correctly with default 5 minutes", async () => {
+      test("calculates expiration correctly with default 1 minute", async () => {
         const samlAttributes = { username: "testuser" };
 
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
-        const expectedExp = payload.iat + 300; // 300 seconds (5 minutes)
+        const expectedExp = payload.iat + 60; // 60 seconds (1 minute)
         expect(payload.exp).toBe(expectedExp);
       });
 
