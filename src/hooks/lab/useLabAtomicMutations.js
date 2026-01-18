@@ -146,12 +146,12 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
   }
 
   let closeInterval = null;
-  const popupClosedPromise = new Promise((_, reject) => {
+  const popupClosedPromise = new Promise((resolve) => {
     closeInterval = setInterval(() => {
       if (authPopup.closed) {
         clearInterval(closeInterval);
         closeInterval = null;
-        reject(new Error('Authorization window closed'));
+        resolve({ __closed: true });
       }
     }, 500);
   });
@@ -163,7 +163,20 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
 
   let status;
   try {
-    status = await Promise.race([pollPromise, popupClosedPromise]);
+    const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
+    if (firstResult && firstResult.__closed) {
+      const graceMs = 4000;
+      const graceResult = await Promise.race([
+        pollPromise,
+        new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
+      ]);
+      if (graceResult && graceResult.__closed) {
+        throw new Error('Authorization window closed');
+      }
+      status = graceResult;
+    } else {
+      status = firstResult;
+    }
   } finally {
     if (closeInterval) {
       clearInterval(closeInterval);
