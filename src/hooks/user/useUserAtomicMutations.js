@@ -13,6 +13,7 @@ import { useUser } from '@/context/UserContext'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { useIsLabProvider, USER_QUERY_CONFIG } from './useUsers'
 import devLog from '@/utils/dev/logger'
+import { enqueueReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 
 // ===== PROVIDER MUTATION HOOKS =====
 
@@ -44,6 +45,19 @@ export const useAddProviderWallet = (options = {}) => {
           providerQueryKeys.isLabProvider(variables.account),
           { isLabProvider: true, isProvider: true }
         );
+        enqueueReconciliationEntry({
+          id: `provider:status:${variables.account}`,
+          category: 'provider-status',
+          expected: {
+            queryKey: providerQueryKeys.isLabProvider(variables.account),
+            field: 'isLabProvider',
+            value: true,
+          },
+          queryKeys: [
+            providerQueryKeys.all(),
+            providerQueryKeys.isLabProvider(variables.account),
+          ],
+        });
       }
       
       return { previousData: variables };
@@ -110,6 +124,19 @@ export const useAddProviderSSO = (options = {}) => {
           providerQueryKeys.isLabProvider(variables.account),
           { isLabProvider: true, isProvider: true }
         );
+        enqueueReconciliationEntry({
+          id: `provider:status:${variables.account}`,
+          category: 'provider-status',
+          expected: {
+            queryKey: providerQueryKeys.isLabProvider(variables.account),
+            field: 'isLabProvider',
+            value: true,
+          },
+          queryKeys: [
+            providerQueryKeys.all(),
+            providerQueryKeys.isLabProvider(variables.account),
+          ],
+        });
       }
       
       return { previousData: variables };
@@ -289,6 +316,19 @@ export const useRemoveProviderSSO = (options = {}) => {
         providerQueryKeys.isLabProvider(providerAddress),
         { isLabProvider: false, isProvider: false }
       );
+      enqueueReconciliationEntry({
+        id: `provider:status:${providerAddress}`,
+        category: 'provider-status',
+        expected: {
+          queryKey: providerQueryKeys.isLabProvider(providerAddress),
+          field: 'isLabProvider',
+          value: false,
+        },
+        queryKeys: [
+          providerQueryKeys.all(),
+          providerQueryKeys.isLabProvider(providerAddress),
+        ],
+      });
       
       return { previousData: providerAddress };
     },
@@ -330,6 +370,19 @@ export const useRemoveProviderWallet = (options = {}) => {
         providerQueryKeys.isLabProvider(providerAddress),
         { isLabProvider: false, isProvider: false }
       );
+      enqueueReconciliationEntry({
+        id: `provider:status:${providerAddress}`,
+        category: 'provider-status',
+        expected: {
+          queryKey: providerQueryKeys.isLabProvider(providerAddress),
+          field: 'isLabProvider',
+          value: false,
+        },
+        queryKeys: [
+          providerQueryKeys.all(),
+          providerQueryKeys.isLabProvider(providerAddress),
+        ],
+      });
       
       return { previousData: providerAddress };
     },

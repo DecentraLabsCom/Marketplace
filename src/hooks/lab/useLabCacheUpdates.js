@@ -6,6 +6,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
+import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -89,6 +90,13 @@ export function useLabCacheUpdates() {
     };
 
     addLab(optimisticLab);
+    enqueueReconciliationEntry({
+      id: `lab:add:${optimisticLab.id}`,
+      category: 'lab-add',
+      queryKeys: [
+        labQueryKeys.getAllLabs(),
+      ],
+    });
     return optimisticLab;
   }, [addLab])
 
@@ -106,6 +114,7 @@ export function useLabCacheUpdates() {
       const labId = realLab.labId || realLab.id;
       queryClient.setQueryData(labQueryKeys.getLab(labId), realLab);
     }
+    removeReconciliationEntry(`lab:add:${optimisticId}`);
   }, [queryClient])
 
   // Remove optimistic lab (on error)
@@ -114,6 +123,7 @@ export function useLabCacheUpdates() {
       if (!oldData) return [];
       return oldData.filter(lab => lab.id !== optimisticId);
     });
+    removeReconciliationEntry(`lab:add:${optimisticId}`);
   }, [queryClient])
 
   // Invalidate all lab caches (fallback)

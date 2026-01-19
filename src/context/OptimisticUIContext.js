@@ -5,8 +5,19 @@
  */
 "use client";
 import React, { createContext, useContext, useState, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
+import { labQueryKeys, bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import {
+  RECONCILIATION_DEFAULTS,
+  RECONCILIATION_SCHEDULE_MS,
+  enqueueReconciliationEntry,
+  readReconciliationQueue,
+  removeReconciliationEntry,
+  updateReconciliationQueue,
+  buildNextAttemptAt,
+} from '@/utils/optimistic/reconciliationQueue'
 
 const OptimisticUIContext = createContext()
 
@@ -17,6 +28,7 @@ const OptimisticUIContext = createContext()
  * @returns {JSX.Element} Context provider
  */
 export function OptimisticUIProvider({ children }) {
+  const queryClient = useQueryClient()
   // Lab listing states: { labId: { isListed: boolean, isPending: boolean, operation: 'listing'|'unlisting' } }
   const [labListingStates, setLabListingStates] = useState({})
   
@@ -42,6 +54,41 @@ export function OptimisticUIProvider({ children }) {
         timestamp: Date.now()
       }
     }))
+    if (state?.isPending) {
+      const queryKeys = [
+        bookingQueryKeys.byReservationKey(key),
+      ]
+      const labId = state?.labId
+      const userAddress = state?.userAddress && state?.userAddress !== 'unknown'
+        ? state.userAddress
+        : null
+      if (labId !== null && labId !== undefined) {
+        queryKeys.push(bookingQueryKeys.byLab(labId))
+        queryKeys.push(bookingQueryKeys.getReservationsOfToken(labId))
+        queryKeys.push({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false })
+      }
+      if (userAddress) {
+        queryKeys.push(bookingQueryKeys.byUser(userAddress))
+        queryKeys.push(bookingQueryKeys.reservationsOf(userAddress))
+        queryKeys.push({ queryKey: ['bookings', 'reservationKeyOfUser', userAddress], exact: false })
+      }
+      if (labId !== null && labId !== undefined && userAddress) {
+        queryKeys.push(bookingQueryKeys.activeReservationKeyForUser(labId, userAddress))
+        queryKeys.push(bookingQueryKeys.hasActiveBookingByToken(labId, userAddress))
+        queryKeys.push(bookingQueryKeys.hasActiveBooking(key, userAddress))
+      }
+      if (state?.isInstitutional && labId !== null && labId !== undefined) {
+        queryKeys.push(bookingQueryKeys.institutionalActiveReservationKey(labId))
+      }
+      if (state?.isInstitutional) {
+        queryKeys.push(bookingQueryKeys.institutionalHasActiveBooking())
+      }
+      enqueueReconciliationEntry({
+        id: `booking:${key}`,
+        category: 'booking',
+        queryKeys,
+      })
+    }
   }, [])
 
   /**
@@ -76,6 +123,7 @@ export function OptimisticUIProvider({ children }) {
       const { [key]: removed, ...rest } = prev
       return rest
     })
+    removeReconciliationEntry(`booking:${key}`)
   }, [])
 
   /**
@@ -112,6 +160,19 @@ export function OptimisticUIProvider({ children }) {
         timestamp: Date.now()
       }
     }))
+    enqueueReconciliationEntry({
+      id: `lab:list:${key}`,
+      category: 'lab-listing',
+      expected: {
+        queryKey: labQueryKeys.isTokenListed(key),
+        field: 'isListed',
+        value: isListed,
+      },
+      queryKeys: [
+        labQueryKeys.isTokenListed(key),
+        labQueryKeys.getLab(key),
+      ],
+    })
   }, [])
 
   /**
@@ -149,6 +210,7 @@ export function OptimisticUIProvider({ children }) {
       const { [key]: removed, ...rest } = prev
       return rest
     })
+    removeReconciliationEntry(`lab:list:${key}`)
   }, [])
 
   /**
@@ -195,6 +257,16 @@ export function OptimisticUIProvider({ children }) {
         timestamp: Date.now()
       }
     }))
+    if (state?.isPending) {
+      enqueueReconciliationEntry({
+        id: `lab:state:${key}`,
+        category: 'lab-state',
+        queryKeys: [
+          labQueryKeys.getLab(key),
+          labQueryKeys.getAllLabs(),
+        ],
+      })
+    }
   }, [])
 
   /**
@@ -207,6 +279,7 @@ export function OptimisticUIProvider({ children }) {
       const { [key]: removed, ...rest } = prev
       return rest
     })
+    removeReconciliationEntry(`lab:state:${key}`)
   }, [])
 
   /**
@@ -279,6 +352,64 @@ export function OptimisticUIProvider({ children }) {
     const interval = setInterval(cleanup, 10000) // Check every 10 seconds
     return () => clearInterval(interval)
   }, [])
+
+  React.useEffect(() => {
+    const { checkIntervalMs } = RECONCILIATION_DEFAULTS
+
+    const reconcileQueue = () => {
+      const entries = readReconciliationQueue()
+      if (!entries.length) return
+
+      const now = Date.now()
+      const updatedQueue = []
+
+      entries.forEach((entry) => {
+        if (!entry || !entry.id || !entry.queryKeys?.length) return
+
+        if (entry.nextAttemptAt && entry.nextAttemptAt > now) {
+          updatedQueue.push(entry)
+          return
+        }
+
+        if (entry.expected?.queryKey) {
+          const cached = queryClient.getQueryData(entry.expected.queryKey)
+          if (cached && cached?.[entry.expected.field] === entry.expected.value) {
+            return
+          }
+        }
+
+        entry.queryKeys.forEach((item) => {
+          const queryKey = item?.queryKey || item
+          const exact = item?.exact ?? true
+          if (!queryKey) return
+          try {
+            queryClient.invalidateQueries({
+              queryKey,
+              exact,
+              refetchType: 'active',
+            })
+          } catch (err) {
+            devLog.warn('Reconciliation invalidation failed:', err)
+          }
+        })
+
+        const nextIndex = Number(entry.attemptIndex || 0) + 1
+        if (nextIndex < RECONCILIATION_SCHEDULE_MS.length) {
+          updatedQueue.push({
+            ...entry,
+            attemptIndex: nextIndex,
+            nextAttemptAt: buildNextAttemptAt(entry.createdAt || now, nextIndex),
+          })
+        }
+      })
+
+      updateReconciliationQueue(updatedQueue)
+    }
+
+    reconcileQueue()
+    const interval = setInterval(reconcileQueue, checkIntervalMs)
+    return () => clearInterval(interval)
+  }, [queryClient])
 
   const value = {
     // Listing-specific methods

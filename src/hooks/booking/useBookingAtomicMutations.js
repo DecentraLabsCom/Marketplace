@@ -17,6 +17,16 @@ import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 
+const resolveBookingContext = (queryClient, reservationKey) => {
+  if (!queryClient || !reservationKey) return {};
+  const cached = queryClient.getQueryData(bookingQueryKeys.byReservationKey(reservationKey));
+  const reservation = cached?.reservation || cached;
+  return {
+    labId: reservation?.labId ?? cached?.labId,
+    userAddress: reservation?.renter ?? reservation?.userAddress ?? cached?.userAddress,
+  };
+};
+
 const resolveIntentRequestId = (data) =>
   data?.requestId ||
   data?.intent?.meta?.requestId ||
@@ -267,7 +277,13 @@ export const useReservationRequestWallet = (options = {}) => {
 
       // Set optimistic UI state for the booking (keyed by optimistic id)
       try {
-        setOptimisticBookingState(optimisticBooking.id, { status: 'requesting', isPending: true });
+        setOptimisticBookingState(optimisticBooking.id, {
+          status: 'requesting',
+          isPending: true,
+          isInstitutional: false,
+          labId: requestData.tokenId,
+          userAddress: requestData.userAddress || 'unknown',
+        });
       } catch (err) {
         devLog.warn('Failed to set optimistic booking state (non-fatal):', err);
       }
@@ -474,7 +490,13 @@ export const useReservationRequestSSO = (options = {}) => {
         });
 
         try {
-          setOptimisticBookingState(reservationKey, { status: 'requested', isPending: true });
+          setOptimisticBookingState(reservationKey, {
+            status: 'requested',
+            isPending: true,
+            isInstitutional: true,
+            labId: variables.tokenId,
+            userAddress: variables.userAddress || 'unknown',
+          });
         } catch (err) {
           devLog.warn('Failed to set optimistic booking state for SSO reservation:', err);
         }
@@ -604,7 +626,14 @@ export const useCancelReservationRequestSSO = (options = {}) => {
         });
 
         try {
-          setOptimisticBookingState(reservationKey, { status: 'cancel-requested', isPending: true });
+          const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+          setOptimisticBookingState(reservationKey, {
+            status: 'cancel-requested',
+            isPending: true,
+            isInstitutional: true,
+            labId,
+            userAddress,
+          });
         } catch (err) {
           devLog.warn('Failed to set optimistic booking state for SSO cancel request:', err);
         }
@@ -706,7 +735,14 @@ export const useCancelReservationRequestWallet = (options = {}) => {
 
       // Optimistic UI: set cancelling state and complete it after tx sent
       try {
-        setOptimisticBookingState(reservationKey, { status: 'cancelling', isPending: true });
+        const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+        setOptimisticBookingState(reservationKey, {
+          status: 'cancelling',
+          isPending: true,
+          isInstitutional: false,
+          labId,
+          userAddress,
+        });
         completeOptimisticBookingState(reservationKey);
       } catch (err) {
         devLog.warn('Failed to set/complete optimistic booking state for cancellation (non-fatal):', err);
@@ -779,7 +815,14 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
         });
 
         try {
-          setOptimisticBookingState(reservationKey, { status: 'cancel-requested', isPending: true });
+          const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+          setOptimisticBookingState(reservationKey, {
+            status: 'cancel-requested',
+            isPending: true,
+            isInstitutional: true,
+            labId,
+            userAddress,
+          });
         } catch (err) {
           devLog.warn('Failed to set optimistic booking state for institutional SSO cancel request:', err);
         }
@@ -922,7 +965,14 @@ export const useCancelBookingSSO = (options = {}) => {
 
       try {
         try {
-          setOptimisticBookingState(reservationKey, { status: 'cancel-requested', isPending: true });
+          const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+          setOptimisticBookingState(reservationKey, {
+            status: 'cancel-requested',
+            isPending: true,
+            isInstitutional: true,
+            labId,
+            userAddress,
+          });
         } catch (err) {
           devLog.warn('Failed to set optimistic booking state for cancel booking SSO:', err);
         }
@@ -1028,7 +1078,14 @@ export const useCancelBookingWallet = (options = {}) => {
       devLog.log('✅ Booking marked as cancelled via wallet (optimistic update)');
 
       try {
-        setOptimisticBookingState(reservationKey, { status: 'cancelling', isPending: true });
+        const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+        setOptimisticBookingState(reservationKey, {
+          status: 'cancelling',
+          isPending: true,
+          isInstitutional: false,
+          labId,
+          userAddress,
+        });
         completeOptimisticBookingState(reservationKey);
       } catch (err) {
         devLog.warn('Failed to set/complete optimistic booking state for booking cancellation (non-fatal):', err);

@@ -10,6 +10,7 @@
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OptimisticUIProvider, useOptimisticUI } from '@/context/OptimisticUIContext';
 
 // Mock logger
@@ -24,9 +25,29 @@ jest.mock('@/utils/dev/logger', () => ({
 }));
 
 describe('OptimisticUIContext', () => {
+  const createWrapper = () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    return function Wrapper({ children }) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <OptimisticUIProvider>{children}</OptimisticUIProvider>
+        </QueryClientProvider>
+      );
+    };
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    if (typeof window !== 'undefined') {
+      window.localStorage.clear();
+    }
   });
 
   afterEach(() => {
@@ -37,7 +58,7 @@ describe('OptimisticUIContext', () => {
   describe('Provider Functionality', () => {
     test('renders and provides context without errors', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       expect(result.current).toBeDefined();
@@ -45,7 +66,7 @@ describe('OptimisticUIContext', () => {
 
     test('provides all required methods', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       // Listing-specific methods
@@ -78,7 +99,7 @@ describe('OptimisticUIContext', () => {
   describe('Listing State Management', () => {
     test('sets optimistic listing state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -96,7 +117,7 @@ describe('OptimisticUIContext', () => {
 
     test('sets optimistic unlisting state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -113,7 +134,7 @@ describe('OptimisticUIContext', () => {
 
     test('completes optimistic listing state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -138,7 +159,7 @@ describe('OptimisticUIContext', () => {
 
     test('completes non-existent state gracefully', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '999';
@@ -154,7 +175,7 @@ describe('OptimisticUIContext', () => {
 
     test('clears optimistic listing state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -176,7 +197,7 @@ describe('OptimisticUIContext', () => {
 
     test('handles multiple labs independently', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       act(() => {
@@ -197,7 +218,7 @@ describe('OptimisticUIContext', () => {
   describe('Effective Listing State', () => {
     test('returns server state when no optimistic state exists', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const effectiveState = result.current.getEffectiveListingState('1', true);
@@ -209,7 +230,7 @@ describe('OptimisticUIContext', () => {
 
     test('returns false for server state when undefined', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const effectiveState = result.current.getEffectiveListingState('1', undefined);
@@ -221,7 +242,7 @@ describe('OptimisticUIContext', () => {
 
     test('returns optimistic state when it exists', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -240,7 +261,7 @@ describe('OptimisticUIContext', () => {
 
     test('optimistic state overrides server state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -259,7 +280,7 @@ describe('OptimisticUIContext', () => {
 
     test('completed optimistic state still overrides server', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -279,7 +300,7 @@ describe('OptimisticUIContext', () => {
 
   describe('General Lab State Management', () => {
     test('sets optimistic booking state', () => {
-      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: createWrapper() });
       const bookingId = 'rk-1';
 
       act(() => {
@@ -293,7 +314,7 @@ describe('OptimisticUIContext', () => {
     });
 
     test('completes optimistic booking state', () => {
-      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: createWrapper() });
       const bookingId = 'rk-2';
 
       act(() => {
@@ -310,7 +331,7 @@ describe('OptimisticUIContext', () => {
     });
 
     test('clears optimistic booking state', () => {
-      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: createWrapper() });
       const bookingId = 'rk-3';
 
       act(() => {
@@ -327,7 +348,7 @@ describe('OptimisticUIContext', () => {
     });
 
     test('getEffectiveBookingState merges server and optimistic state', () => {
-      const { result } = renderHook(() => useOptimisticUI(), { wrapper: OptimisticUIProvider });
+      const { result } = renderHook(() => useOptimisticUI(), { wrapper: createWrapper() });
       const bookingId = 'rk-4';
       const server = { status: 'pending', extra: 'srv' };
 
@@ -343,7 +364,7 @@ describe('OptimisticUIContext', () => {
   
     test('sets optimistic lab state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -361,7 +382,7 @@ describe('OptimisticUIContext', () => {
 
     test('merges optimistic lab state updates', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -380,7 +401,7 @@ describe('OptimisticUIContext', () => {
 
     test('clears optimistic lab state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -402,7 +423,7 @@ describe('OptimisticUIContext', () => {
   describe('Effective Lab State', () => {
     test('returns server state when no optimistic state exists', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const serverState = { name: 'Server Lab', price: 50 };
@@ -413,7 +434,7 @@ describe('OptimisticUIContext', () => {
 
     test('merges optimistic state over server state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -432,7 +453,7 @@ describe('OptimisticUIContext', () => {
 
     test('handles empty server state', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -450,7 +471,7 @@ describe('OptimisticUIContext', () => {
   describe('Auto-Cleanup', () => {
     test('cleans up pending states after 2 minutes', async () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -471,7 +492,7 @@ describe('OptimisticUIContext', () => {
 
     test('cleans up completed states after 15 minutes', async () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -501,7 +522,7 @@ describe('OptimisticUIContext', () => {
 
     test('cleans up general lab states after timeout', async () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -522,7 +543,7 @@ describe('OptimisticUIContext', () => {
 
     test('keeps recent states during cleanup', async () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       act(() => {
@@ -541,7 +562,7 @@ describe('OptimisticUIContext', () => {
 
     test('cleanup interval runs periodically', async () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -563,7 +584,7 @@ describe('OptimisticUIContext', () => {
   describe('Edge Cases', () => {
     test('handles numeric and string labIds consistently', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       act(() => {
@@ -579,7 +600,7 @@ describe('OptimisticUIContext', () => {
 
     test('handles rapid state changes', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -598,7 +619,7 @@ describe('OptimisticUIContext', () => {
 
     test('clearing already cleared state does nothing', () => {
       const { result } = renderHook(() => useOptimisticUI(), {
-        wrapper: OptimisticUIProvider,
+        wrapper: createWrapper(),
       });
 
       const labId = '1';
@@ -614,3 +635,4 @@ describe('OptimisticUIContext', () => {
     });
   });
 });
+
