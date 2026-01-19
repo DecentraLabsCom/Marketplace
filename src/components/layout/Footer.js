@@ -45,15 +45,15 @@ export default function Footer() {
 
           {/* Center: Links */}
           <div className="flex space-x-4 justify-center items-center">
-            <Link href="/about" className="text-slate-100 hover:text-white transition font-semibold">
+            <Link href="/about" className="text-slate-100 hover:text-brand-primary transition font-semibold">
               About
             </Link>
-            <Link href="/faq" className="text-slate-100 hover:text-white transition font-semibold">
+            <Link href="/faq" className="text-slate-100 hover:text-brand-primary transition font-semibold">
               FAQ
             </Link>
-            <Link href="/contact" className="text-slate-100 hover:text-white transition font-semibold">
+            <Link href="/contact" className="text-slate-100 hover:text-brand-primary transition font-semibold">
               Contact
-            </Link>
+            </Link>  
           </div>
 
           {/* Right: Social Media */}
@@ -64,8 +64,9 @@ export default function Footer() {
               rel="noopener noreferrer"
               aria-label="DecentraLabs website"
               title="DecentraLabs website"
+              className="text-slate-100 hover:text-brand-primary transition"
             >
-              <FaGlobe className="size-6 text-slate-100 hover:text-white transition" />
+              <FaGlobe className="h-6 w-6" />
               <span className="sr-only">DecentraLabs website</span>
             </a>
             <a
@@ -74,8 +75,9 @@ export default function Footer() {
               rel="noopener noreferrer"
               aria-label="DecentraLabs on GitHub"
               title="DecentraLabs on GitHub"
+              className="text-slate-100 hover:text-brand-primary transition"
             >
-              <FaGithub className="size-6 text-slate-100 hover:text-white transition" />
+              <FaGithub className="h-6 w-6" />
               <span className="sr-only">DecentraLabs on GitHub</span>
             </a>
             <a
@@ -84,8 +86,9 @@ export default function Footer() {
               rel="noopener noreferrer"
               aria-label="DecentraLabs on X"
               title="DecentraLabs on X"
+              className="text-slate-100 hover:text-brand-primary transition"
             >
-              <FaXTwitter className="size-6 text-slate-100 hover:text-white transition" />
+              <FaXTwitter className="h-6 w-6" />
               <span className="sr-only">DecentraLabs on X</span>
             </a>
           </div>

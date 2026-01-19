@@ -81,7 +81,7 @@ describe('Footer', () => {
       })
     })
 
-    test('renders external social links with proper security attributes', () => {
+    test('renders external social links with proper security attributes and hover classes', () => {
       const externalUrls = [
         'https://decentralabs.nebsyst.com',
         'https://github.com/DecentraLabsCom',
@@ -92,6 +92,9 @@ describe('Footer', () => {
         const link = document.querySelector(`a[href="${url}"]`)
         expect(link).toHaveAttribute('target', '_blank')
         expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+        // Ensure hover classes exist on the anchor so hover works even if SVG doesn't receive it
+        expect(link.className).toMatch(/text-slate-100/)
+        expect(link.className).toMatch(/hover:text-brand-primary/)
       })
     })
   })
