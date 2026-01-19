@@ -32,6 +32,14 @@ export default function Footer() {
                 sizes="(max-width: 640px) 120px, 160px"
                 className="h-10 w-auto"
               />
+              <Image
+                src="/vietsch-logo.jpg"
+                alt="Vietsch"
+                width={160}
+                height={40}
+                sizes="(max-width: 640px) 120px, 140px"
+                className="h-10 w-auto"
+              />
             </div>
           </div>
 

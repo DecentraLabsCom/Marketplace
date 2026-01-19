@@ -54,14 +54,16 @@ describe('Footer', () => {
   })
 
   describe('Funding Images', () => {
-    test('displays EU and NGI funding logos with correct paths and alt text', () => {
+    test('displays EU, NGI and Vietsch funding logos with correct paths and alt text', () => {
       const images = screen.getAllByTestId('mock-image')
       
-      expect(images).toHaveLength(2)
+      expect(images).toHaveLength(3)
       expect(images[0]).toHaveAttribute('src', '/eu_funded_en.jpg')
       expect(images[0]).toHaveAttribute('alt', 'EU Funded')
       expect(images[1]).toHaveAttribute('src', '/ngi_sargasso.jpg')
       expect(images[1]).toHaveAttribute('alt', 'NGI Sargasso')
+      expect(images[2]).toHaveAttribute('src', '/vietsch-logo.jpg')
+      expect(images[2]).toHaveAttribute('alt', 'Vietsch')
     })
   })
 
