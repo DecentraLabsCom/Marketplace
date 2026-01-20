@@ -43,8 +43,8 @@ describe('queryKeys', () => {
       expect(bookingQueryKeys.hasActiveBooking('key123', '0x123')).toEqual(['bookings', 'hasActiveBooking', 'key123', '0x123']);
       expect(bookingQueryKeys.hasActiveBookingByToken('123', '0x123')).toEqual(['bookings', 'hasActiveBookingByToken', '123', '0x123']);
       expect(bookingQueryKeys.activeReservationKeyForUser('123', '0x123')).toEqual(['bookings', 'activeReservationKey', '123', '0x123']);
-      expect(bookingQueryKeys.institutionalHasActiveBooking()).toEqual(['bookings', 'institutional', 'hasActiveBooking', 'session']);
-      expect(bookingQueryKeys.institutionalActiveReservationKey('123')).toEqual(['bookings', 'institutional', 'activeReservationKey', '123']);
+      expect(bookingQueryKeys.ssoHasActiveBookingSession()).toEqual(['bookings', 'sso', 'hasActiveBooking', 'session']);
+      expect(bookingQueryKeys.ssoActiveReservationKeySession('123')).toEqual(['bookings', 'sso', 'activeReservationKey', '123']);
       expect(bookingQueryKeys.labTokenAddress()).toEqual(['bookings', 'labTokenAddress']);
       expect(bookingQueryKeys.safeBalance()).toEqual(['bookings', 'safeBalance']);
     });

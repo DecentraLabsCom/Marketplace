@@ -7,14 +7,14 @@
  * 
  * Architecture:
  * - Atomic Query Hooks: Three variants (SSO/Wallet/Router) for each query
- * - Atomic Mutation Hooks: Three variants (SSO/Wallet/Router) for each mutation
+ * - Atomic Mutation Hooks: Wallet-only for provider mutations
  * - Composed Query Hooks: Complex orchestration using useQueries (SSO-only)
  * - Cache Update Utilities: Granular cache management
  * - Cache Extraction Helpers: Performance-optimized data extraction
  * 
  * Usage:
  * ```javascript
- * import { useGetLabProviders, useAddProvider, useAllUsersComposed } from '@/hooks/user/useUsers'
+ * import { useGetLabProviders, useAddProviderWallet, useAllUsersComposed } from '@/hooks/user/useUsers'
  * ```
  */
 
@@ -30,20 +30,10 @@ export { useOnboardingSession, onboardingSessionQueryKeys } from './useOnboardin
 
 // ===== ATOMIC MUTATION HOOKS =====
 export {
-  // Provider Mutations - Wallet variants
+  // Provider Mutations - Wallet variants (admin wallet only)
   useAddProviderWallet,
   useUpdateProviderWallet,
   useRemoveProviderWallet,
-  
-  // Provider Mutations - SSO variants
-  useAddProviderSSO,
-  useUpdateProviderSSO,
-  useRemoveProviderSSO,
-  
-  // Provider Mutations - Router variants (auto-detect SSO vs Wallet)
-  useAddProvider,
-  useUpdateProvider,
-  useRemoveProvider,
 } from './useUserAtomicMutations'
 
 // ===== COMPOSED QUERY HOOKS =====

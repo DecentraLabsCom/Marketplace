@@ -7,7 +7,7 @@
  *
  * Notes:
  *  - External dependencies are mocked via centralized factories under src/test-utils/mocks/hooks.
- *  - The useUser hook is toggled to simulate SSO vs Wallet users.
+ *  - The router hook receives isSSO overrides to simulate SSO vs Wallet users.
  *  - React Query retries are disabled for deterministic tests.
  */
 
@@ -26,9 +26,6 @@ jest.mock('@/utils/webauthn/client', () => ({
       signature: 'sig',
     },
   })),
-}));
-jest.mock('@/context/UserContext', () => ({
-  useUser: jest.fn(() => ({ isSSO: true })),
 }));
 
 import { renderHook, act } from '@testing-library/react';
@@ -58,12 +55,6 @@ function createWrapper() {
   return ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-/* Small helper to toggle useUser mock */
-function setUserSSO(isSSO) {
-  const userModule = require('@/context/UserContext');
-  userModule.useUser.mockReturnValue({ isSSO });
-}
-
 describe('useReservationRequest unified selection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -82,8 +73,6 @@ describe('useReservationRequest unified selection', () => {
   });
 
   test('SSO path: uses fetch and calls addBooking', async () => {
-    setUserSSO(true);
-
     const updateBooking = jest.fn();
     const invalidateAllBookings = jest.fn();
     mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
@@ -114,7 +103,7 @@ describe('useReservationRequest unified selection', () => {
       .mockResolvedValueOnce(preparePayload)
       .mockResolvedValueOnce(finalizePayload);
 
-    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useReservationRequest({ isSSO: true }), { wrapper: createWrapper() });
 
     const vars = { tokenId: 'tU1', start: 10, end: 20, userAddress: 'u1' };
 
@@ -127,8 +116,6 @@ describe('useReservationRequest unified selection', () => {
   });
 
   test('SSO path: does not call wallet contract writer', async () => {
-    setUserSSO(true);
-
     const updateBooking = jest.fn();
     const invalidateAllBookings = jest.fn();
     mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
@@ -157,7 +144,7 @@ describe('useReservationRequest unified selection', () => {
       .mockResolvedValueOnce(preparePayload)
       .mockResolvedValueOnce(finalizePayload);
 
-    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useReservationRequest({ isSSO: true }), { wrapper: createWrapper() });
 
     await act(async () => { await result.current.mutateAsync({ tokenId: 'tk-sso', start: 1, end: 2 }); });
 
@@ -165,8 +152,6 @@ describe('useReservationRequest unified selection', () => {
   });
 
   test('Wallet path: optimistic add then contract write', async () => {
-    setUserSSO(false);
-
     const addOptimisticBooking = jest.fn(() => ({ id: 'opt-u-1' }));
     const replaceOptimisticBooking = jest.fn();
     const removeOptimisticBooking = jest.fn();
@@ -182,7 +167,7 @@ describe('useReservationRequest unified selection', () => {
     const contractWriteFn = jest.fn(() => Promise.resolve('0xUNHASH'));
     mockContractWriteFactory.mockImplementation(() => ({ contractWriteFunction: contractWriteFn }));
 
-    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useReservationRequest({ isSSO: false }), { wrapper: createWrapper() });
 
     const vars = { tokenId: 'tU2', start: 1, end: 2, userAddress: '0xU' };
 
@@ -200,8 +185,6 @@ describe('useReservationRequest unified selection', () => {
   });
 
   test('Wallet path: does not call fetch (SSO API)', async () => {
-    setUserSSO(false);
-
     const addOptimisticBooking = jest.fn(() => ({ id: 'opt-nofetch' }));
     const replaceOptimisticBooking = jest.fn();
     const removeOptimisticBooking = jest.fn();
@@ -219,7 +202,7 @@ describe('useReservationRequest unified selection', () => {
 
     global.fetch = jest.fn();
 
-    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useReservationRequest({ isSSO: false }), { wrapper: createWrapper() });
 
     await act(async () => { await result.current.mutateAsync({ tokenId: 'tk-wallet', start: 3, end: 4, userAddress: '0xAA' }); });
 

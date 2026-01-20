@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
-import { useActiveReservationKeyForUser, useInstitutionalUserActiveReservationKeySSO } from '@/hooks/booking/useBookings'
+import { useActiveReservationKeyForUser, useActiveReservationKeyForSessionUserSSO } from '@/hooks/booking/useBookings'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 
@@ -51,7 +51,7 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = 
     }
   );
 
-  const { data: institutionalReservationKeyData } = useInstitutionalUserActiveReservationKeySSO(
+  const { data: ssoReservationKeyData } = useActiveReservationKeyForSessionUserSSO(
     id,
     {
       enabled: !!activeBooking && !!isSSO,
@@ -61,11 +61,11 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = 
   
   const reservationKeyValue = reservationKeyData?.reservationKey ?? reservationKeyData;
   const walletReservationKey = reservationKeyValue && reservationKeyValue !== ZERO_BYTES32 ? reservationKeyValue : null;
-  const institutionalReservationKeyValue = institutionalReservationKeyData?.reservationKey ?? institutionalReservationKeyData;
-  const institutionalReservationKey = institutionalReservationKeyValue && institutionalReservationKeyValue !== ZERO_BYTES32
-    ? institutionalReservationKeyValue
+  const ssoReservationKeyValue = ssoReservationKeyData?.reservationKey ?? ssoReservationKeyData;
+  const ssoReservationKey = ssoReservationKeyValue && ssoReservationKeyValue !== ZERO_BYTES32
+    ? ssoReservationKeyValue
     : null;
-  const reservationKey = isSSO ? institutionalReservationKey : walletReservationKey;
+  const reservationKey = isSSO ? ssoReservationKey : walletReservationKey;
  
   return (
     <Card 

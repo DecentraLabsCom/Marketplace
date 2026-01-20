@@ -5,7 +5,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
-import { useUser } from '@/context/UserContext'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
@@ -791,20 +791,11 @@ export const useAddLabWallet = (options = {}) => {
 
 // Unified add lab hook
 export const useAddLab = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = useGetIsSSO(options);
   const ssoMutation = useAddLabSSO(options);
   const walletMutation = useAddLabWallet(options);
 
-  return useMutation({
-    mutationFn: async (labData) => (isSSO ? ssoMutation.mutateAsync(labData) : walletMutation.mutateAsync(labData)),
-    onSuccess: () => {
-      devLog.log('✅ Lab add mutation completed');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to add lab via unified hook:', error);
-    },
-    ...options,
-  });
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 // Intent hook for updating labs (institutional wallet executes)
@@ -994,20 +985,11 @@ export const useUpdateLabWallet = (options = {}) => {
 
 // Unified update lab hook
 export const useUpdateLab = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = useGetIsSSO(options);
   const ssoMutation = useUpdateLabSSO(options);
   const walletMutation = useUpdateLabWallet(options);
 
-  return useMutation({
-    mutationFn: async (updateData) => (isSSO ? ssoMutation.mutateAsync(updateData) : walletMutation.mutateAsync(updateData)),
-    onSuccess: () => {
-      devLog.log('✅ Lab update mutation completed');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to update lab via unified hook:', error);
-    },
-    ...options,
-  });
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 // Intent hook for deleting labs (institutional wallet executes)
@@ -1145,20 +1127,11 @@ export const useDeleteLabWallet = (options = {}) => {
 
 // Unified delete lab hook
 export const useDeleteLab = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = useGetIsSSO(options);
   const ssoMutation = useDeleteLabSSO(options);
   const walletMutation = useDeleteLabWallet(options);
 
-  return useMutation({
-    mutationFn: async (labId) => (isSSO ? ssoMutation.mutateAsync(labId) : walletMutation.mutateAsync(labId)),
-    onSuccess: () => {
-      devLog.log('✅ Lab delete mutation completed');
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to delete lab via unified hook:', error);
-    },
-    ...options,
-  });
+  return isSSO ? ssoMutation : walletMutation;
 };
 
 // Intent hook for listing labs (institutional wallet executes)
@@ -1310,7 +1283,7 @@ export const useListLabWallet = (options = {}) => {
 
 // Unified list hook
 export const useListLab = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = useGetIsSSO(options);
   const ssoMutation = useListLabSSO(options);
   const walletMutation = useListLabWallet(options);
   return isSSO ? ssoMutation : walletMutation;
@@ -1464,7 +1437,7 @@ export const useUnlistLabWallet = (options = {}) => {
 
 // Unified unlist hook
 export const useUnlistLab = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = useGetIsSSO(options);
   const ssoMutation = useUnlistLabSSO(options);
   const walletMutation = useUnlistLabWallet(options);
   return isSSO ? ssoMutation : walletMutation;
@@ -1606,7 +1579,7 @@ export const useSetTokenURIWallet = (options = {}) => {
 
 // Unified hook for setTokenURI
 export const useSetTokenURI = (options = {}) => {
-  const { isSSO } = useUser();
+  const isSSO = useGetIsSSO(options);
   const ssoMutation = useSetTokenURISSO(options);
   const walletMutation = useSetTokenURIWallet(options);
   return isSSO ? ssoMutation : walletMutation;

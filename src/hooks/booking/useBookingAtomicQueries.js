@@ -1053,12 +1053,12 @@ export const useActiveReservationKeyForUser = (labId, userAddress, options = {})
   return isSSO ? ssoQuery : walletQuery;
 };
 
-// ===== Institutional: useActiveReservationKey Hook (SSO-only) =====
+// ===== SSO session: useActiveReservationKey Hook (SSO-only) =====
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 // Define queryFn first for reuse
-const getInstitutionalActiveReservationKeyQueryFn = createSSRSafeQuery(async (labId) => {
+const getSSOActiveReservationKeyQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) {
     throw new Error('Lab ID is required')
   }
@@ -1070,11 +1070,11 @@ const getInstitutionalActiveReservationKeyQueryFn = createSSRSafeQuery(async (la
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch institutional active reservation key: ${response.status}`)
+    throw new Error(`Failed to fetch SSO active reservation key: ${response.status}`)
   }
 
   const data = await response.json()
-  devLog.log('🔍 useInstitutionalUserActiveReservationKeySSO:', labId, data)
+  devLog.log('🔍 useActiveReservationKeyForSessionUserSSO:', labId, data)
   return data
 }, { reservationKey: ZERO_BYTES32, hasActiveReservation: false })
 
@@ -1082,33 +1082,33 @@ const getInstitutionalActiveReservationKeyQueryFn = createSSRSafeQuery(async (la
  * Hook for /api/contract/institution/getActiveReservationKey (SSO institutional users)
  * Gets active reservation key for institutional user by labId
  */
-export const useInstitutionalUserActiveReservationKeySSO = (labId, options = {}) => {
+export const useActiveReservationKeyForSessionUserSSO = (labId, options = {}) => {
   return useQuery({
-    queryKey: bookingQueryKeys.institutionalActiveReservationKey(labId),
-    queryFn: () => getInstitutionalActiveReservationKeyQueryFn(labId),
+    queryKey: bookingQueryKeys.ssoActiveReservationKeySession(labId),
+    queryFn: () => getSSOActiveReservationKeyQueryFn(labId),
     enabled: !!labId,
     ...BOOKING_QUERY_CONFIG,
     ...options,
   })
 }
 
-useInstitutionalUserActiveReservationKeySSO.queryFn = getInstitutionalActiveReservationKeyQueryFn;
+useActiveReservationKeyForSessionUserSSO.queryFn = getSSOActiveReservationKeyQueryFn;
 
-// ===== Institutional: useHasActiveBooking Hook (SSO-only) =====
+// ===== SSO session: useHasActiveBooking Hook (SSO-only) =====
 
 // Define queryFn first for reuse
-const getInstitutionalHasActiveBookingQueryFn = createSSRSafeQuery(async () => {
+const getSSOHasActiveBookingQueryFn = createSSRSafeQuery(async () => {
   const response = await fetch('/api/contract/institution/hasUserActiveBooking', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to check institutional active booking: ${response.status}`)
+    throw new Error(`Failed to check SSO active booking: ${response.status}`)
   }
 
   const data = await response.json()
-  devLog.log('🔍 useHasInstitutionalUserActiveBookingSSO:', data)
+  devLog.log('🔍 useHasActiveBookingForSessionUserSSO:', data)
   return data
 }, { hasActiveBooking: false })
 
@@ -1116,30 +1116,30 @@ const getInstitutionalHasActiveBookingQueryFn = createSSRSafeQuery(async () => {
  * Hook for /api/contract/institution/hasUserActiveBooking (SSO institutional users)
  * Checks if institutional user has any active booking
  */
-export const useHasInstitutionalUserActiveBookingSSO = (options = {}) => {
+export const useHasActiveBookingForSessionUserSSO = (options = {}) => {
   return useQuery({
-    queryKey: bookingQueryKeys.institutionalHasActiveBooking(),
-    queryFn: () => getInstitutionalHasActiveBookingQueryFn(),
+    queryKey: bookingQueryKeys.ssoHasActiveBookingSession(),
+    queryFn: () => getSSOHasActiveBookingQueryFn(),
     enabled: options.enabled ?? true,
     ...BOOKING_QUERY_CONFIG,
     ...options,
   })
 }
 
-useHasInstitutionalUserActiveBookingSSO.queryFn = getInstitutionalHasActiveBookingQueryFn;
+useHasActiveBookingForSessionUserSSO.queryFn = getSSOHasActiveBookingQueryFn;
 
 // Router-friendly wrappers (Wallet users have no institutional path, so disable when not SSO)
-export const useInstitutionalUserActiveReservationKey = (labId, options = {}) => {
+export const useActiveReservationKeyForSessionUser = (labId, options = {}) => {
   const isSSO = useGetIsSSO(options)
-  return useInstitutionalUserActiveReservationKeySSO(labId, {
+  return useActiveReservationKeyForSessionUserSSO(labId, {
     ...options,
     enabled: isSSO && !!labId && (options.enabled ?? true),
   })
 }
 
-export const useHasInstitutionalUserActiveBooking = (options = {}) => {
+export const useHasActiveBookingForSessionUser = (options = {}) => {
   const isSSO = useGetIsSSO(options)
-  return useHasInstitutionalUserActiveBookingSSO({
+  return useHasActiveBookingForSessionUserSSO({
     ...options,
     enabled: isSSO && (options.enabled ?? true),
   })

@@ -39,8 +39,8 @@ export const bookingQueryKeys = {
     userAddress,
   ],
   activeReservationKeyForUser: (labId, userAddress) => ['bookings', 'activeReservationKey', labId, userAddress],
-  institutionalHasActiveBooking: () => ['bookings', 'institutional', 'hasActiveBooking', 'session'],
-  institutionalActiveReservationKey: (labId) => ['bookings', 'institutional', 'activeReservationKey', labId],
+  ssoHasActiveBookingSession: () => ['bookings', 'sso', 'hasActiveBooking', 'session'],
+  ssoActiveReservationKeySession: (labId) => ['bookings', 'sso', 'activeReservationKey', labId],
   labTokenAddress: () => ['bookings', 'labTokenAddress'],
   safeBalance: () => ['bookings', 'safeBalance'],
 };

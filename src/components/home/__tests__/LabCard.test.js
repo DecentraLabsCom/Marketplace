@@ -27,7 +27,7 @@ import LabCard from "../LabCard";
  */
 jest.mock("@/hooks/booking/useBookings", () => ({
   useActiveReservationKeyForUser: jest.fn(() => ({ data: null })),
-  useInstitutionalUserActiveReservationKeySSO: jest.fn(() => ({ data: null })),
+  useActiveReservationKeyForSessionUserSSO: jest.fn(() => ({ data: null })),
 }));
 
 /**
@@ -110,7 +110,7 @@ jest.mock("next/link", () => {
 const mockUseUser = require("@/context/UserContext").useUser;
 const mockUseLabToken = require("@/context/LabTokenContext").useLabToken;
 const mockUseActiveReservationKeyForUser = require("@/hooks/booking/useBookings").useActiveReservationKeyForUser;
-const mockUseInstitutionalUserActiveReservationKeySSO = require("@/hooks/booking/useBookings").useInstitutionalUserActiveReservationKeySSO;
+const mockUseActiveReservationKeyForSessionUserSSO = require("@/hooks/booking/useBookings").useActiveReservationKeyForSessionUserSSO;
 
 // Test Fixtures
 
@@ -160,7 +160,7 @@ beforeEach(() => {
   });
 
   mockUseActiveReservationKeyForUser.mockReturnValue({ data: null });
-  mockUseInstitutionalUserActiveReservationKeySSO.mockReturnValue({ data: null });
+  mockUseActiveReservationKeyForSessionUserSSO.mockReturnValue({ data: null });
 });
 
 afterEach(() => {
@@ -436,7 +436,7 @@ describe("LabCard - LabAccess Integration", () => {
       isSSO: true,
     });
 
-    mockUseInstitutionalUserActiveReservationKeySSO.mockReturnValue({
+    mockUseActiveReservationKeyForSessionUserSSO.mockReturnValue({
       data: { reservationKey: "0xsso-key" },
     });
 
