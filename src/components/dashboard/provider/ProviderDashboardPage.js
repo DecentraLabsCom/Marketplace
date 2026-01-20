@@ -335,7 +335,10 @@ export default function ProviderDashboard() {
     const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
       ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
-    const providerSegment = sanitizeProviderNameForUri(user?.name);
+    const providerSegmentSource = isSSO
+      ? (user?.institutionName || user?.name)
+      : user?.name;
+    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
     labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
 
     // Store the original human-readable price before blockchain conversion
@@ -574,7 +577,10 @@ export default function ProviderDashboard() {
     
     // Use original lab's URI to preserve consistency, regardless of provider name changes
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
-    const providerSegment = sanitizeProviderNameForUri(user?.name);
+    const providerSegmentSource = isSSO
+      ? (user?.institutionName || user?.name)
+      : user?.name;
+    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
     labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
