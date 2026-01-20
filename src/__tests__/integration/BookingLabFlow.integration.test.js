@@ -139,6 +139,8 @@ jest.mock("@/context/UserContext", () => ({
     isSSO: true,
     address: mockUser.address,
     isAuthenticated: true,
+    // Provide a fake institutional backend URL so server-side booking proceeds in tests
+    institutionBackendUrl: "https://institution.example",
   }),
   UserData: ({ children }) => children,
 }));
