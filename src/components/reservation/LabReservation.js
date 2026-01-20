@@ -34,7 +34,7 @@ export default function LabReservation({ id }) {
   const labs = labsData.labs || []
   
   // User context
-  const { isSSO, address: userAddress } = useUser()
+  const { isSSO, address: userAddress, institutionBackendUrl } = useUser()
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
   const { chain, isConnected, address } = useAccount()
   
@@ -135,6 +135,11 @@ export default function LabReservation({ id }) {
     const bookingData = validateAndCalculateBooking()
     if (!bookingData) return
 
+    if (!institutionBackendUrl) {
+      addTemporaryNotification('error', '❌ Missing institutional backend URL.')
+      return
+    }
+
     const { labId, start, timeslot } = bookingData
     setIsBooking(true)
     
@@ -142,7 +147,9 @@ export default function LabReservation({ id }) {
       await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
-        end: start + timeslot
+        end: start + timeslot,
+        timeslot,
+        backendUrl: institutionBackendUrl
       })
 
       addTemporaryNotification('pending', 'Reservation request sent! Processing...')

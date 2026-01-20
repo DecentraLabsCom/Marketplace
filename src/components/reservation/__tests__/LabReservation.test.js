@@ -158,6 +158,7 @@ describe("LabReservation Component", () => {
     userContext.useUser.mockReturnValue({
       isSSO: false,
       address: "0xUserWallet",
+      institutionBackendUrl: "https://institution.example",
     });
 
     // Mock useNotifications
@@ -348,6 +349,7 @@ describe("LabReservation Component", () => {
       userContext.useUser.mockReturnValue({
         isSSO: true,
         address: null,
+        institutionBackendUrl: "https://institution.example",
       });
 
       reservationHooks.useLabReservationState.mockReturnValue({
@@ -405,6 +407,7 @@ describe("LabReservation Component", () => {
       userContext.useUser.mockReturnValue({
         isSSO: true,
         address: null,
+        institutionBackendUrl: "https://institution.example",
       });
 
       reservationHooks.useLabReservationState.mockReturnValue({
@@ -436,6 +439,8 @@ describe("LabReservation Component", () => {
             tokenId: 1,
             start: expect.any(Number),
             end: expect.any(Number),
+            timeslot: expect.any(Number),
+            backendUrl: "https://institution.example",
           })
         );
       });
