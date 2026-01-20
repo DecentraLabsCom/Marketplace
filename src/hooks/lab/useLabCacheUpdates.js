@@ -38,16 +38,31 @@ export function useLabCacheUpdates() {
 
   // Update existing lab in cache
   const updateLab = useCallback((labId, updatedLab) => {
-    
+    const onchainKeys = ['uri', 'price', 'accessURI', 'accessKey', 'tokenURI', 'createdAt'];
+    const collectOnchainUpdates = (source) => {
+      if (!source || typeof source !== 'object') return {};
+      const baseSource = source.base && typeof source.base === 'object' ? source.base : {};
+      return onchainKeys.reduce((acc, key) => {
+        if (source[key] !== undefined) {
+          acc[key] = source[key];
+        } else if (baseSource[key] !== undefined) {
+          acc[key] = baseSource[key];
+        }
+        return acc;
+      }, {});
+    };
+    const onchainUpdates = collectOnchainUpdates(updatedLab);
+
     // Update all labs list (using correct query key)
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
       if (!oldData) {
         devLog.log('⚠️ No existing lab data found in cache');
         return []
       }
-      const updated = oldData.map(lab => 
-        (lab.labId === labId || lab.id === labId) ? { ...lab, ...updatedLab } : lab
-      );
+      const updated = oldData.map((lab) => {
+        if (lab.labId !== labId && lab.id !== labId) return lab;
+        return { ...lab, ...updatedLab, ...onchainUpdates };
+      });
       devLog.log('🔄 Updated all labs cache:', { count: updated.length });
       return updated;
     })
@@ -56,9 +71,17 @@ export function useLabCacheUpdates() {
     queryClient.setQueryData(labQueryKeys.getLab(labId), (oldData) => {
       if (!oldData) {
         devLog.log('⚠️ No existing specific lab data found for ID:', labId);
+        if (Object.keys(onchainUpdates).length > 0) {
+          return { ...updatedLab, base: { ...onchainUpdates } };
+        }
         return updatedLab;
       }
-      const result = { ...oldData, ...updatedLab };
+      const nextBase = Object.keys(onchainUpdates).length > 0
+        ? { ...(oldData.base || {}), ...onchainUpdates }
+        : oldData.base;
+      const result = nextBase
+        ? { ...oldData, ...updatedLab, base: nextBase }
+        : { ...oldData, ...updatedLab };
       devLog.log('🔄 Updated specific lab cache:', { labId, result });
       return result;
     })

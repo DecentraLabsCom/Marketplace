@@ -888,6 +888,8 @@ export const useUpdateLabSSO = (options = {}) => {
                     intentError: reason,
                     timestamp: new Date().toISOString()
                   });
+                  queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
+                  queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
                 }
               } catch (err) {
                 const reason = err?.message || 'Intent status unavailable';
@@ -902,6 +904,8 @@ export const useUpdateLabSSO = (options = {}) => {
                   note: reason,
                   timestamp: new Date().toISOString()
                 });
+                queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
+                queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
                 invalidateAllLabs();
               }
             })();
@@ -912,8 +916,12 @@ export const useUpdateLabSSO = (options = {}) => {
         invalidateAllLabs();
       }
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       devLog.error('Failed to create update intent:', error);
+      if (variables?.labId) {
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
+      }
+      queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
     },
     ...options,
   });
@@ -973,8 +981,12 @@ export const useUpdateLabWallet = (options = {}) => {
         invalidateAllLabs();
       }
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       devLog.error('❌ Failed to update lab via wallet:', error);
+      if (variables?.labId) {
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(variables.labId), exact: true });
+      }
+      queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
     },
     ...options,
   });
