@@ -228,11 +228,13 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
 
 jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   __esModule: true,
-  default: ({ onCollectAll, onAddNewLab }) => (
+  default: ({ onCollectAll, onAddNewLab, isSSO }) => (
     <div data-testid="actions">
-      <button onClick={onCollectAll} data-testid="collect-all">
-        Collect All
-      </button>
+      {!isSSO && (
+        <button onClick={onCollectAll} data-testid="collect-all">
+          Collect All
+        </button>
+      )}
       <button onClick={onAddNewLab} data-testid="add-new-lab">
         Add New Lab
       </button>
@@ -776,6 +778,14 @@ describe("ProviderDashboard Component", () => {
   });
 
   describe("Funds Collection", () => {
+    test("hides Collect All button for SSO users", () => {
+      mockUserData.isSSO = true;
+
+      render(<ProviderDashboard />);
+
+      expect(screen.queryByTestId("collect-all")).not.toBeInTheDocument();
+    });
+
     test("collects all balances successfully", async () => {
       mockRequestFundsMutate.mockResolvedValueOnce({ success: true });
 

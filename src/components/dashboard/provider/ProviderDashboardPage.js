@@ -948,6 +948,7 @@ export default function ProviderDashboard() {
 
             {/* Provider actions */}
             <ProviderActions
+              isSSO={isSSO}
               onCollectAll={handleCollectAll}
               onAddNewLab={() => {
                 setNewLab(newLabStructure);

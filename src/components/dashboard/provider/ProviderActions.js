@@ -14,7 +14,8 @@ import PropTypes from 'prop-types';
  */
 export default function ProviderActions({ 
   onCollectAll,
-  onAddNewLab
+  onAddNewLab,
+  isSSO = false
 }) {
   return (
     <div className="mt-6">
@@ -23,15 +24,17 @@ export default function ProviderActions({
       </h3>
       
       <div className="flex space-x-3 justify-center">
-        {/* Collect All Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={onCollectAll}
-            className="px-6 py-3 rounded shadow-lg bg-[#bcc4fc] text-white hover:bg-[#aab8e6] font-bold"
-          >
-            Collect All
-          </button>
-        </div>
+        {/* Collect All Button (wallet users only) */}
+        {!isSSO && (
+          <div className="flex justify-center">
+            <button
+              onClick={onCollectAll}
+              className="px-6 py-3 rounded shadow-lg bg-[#bcc4fc] text-white hover:bg-[#aab8e6] font-bold"
+            >
+              Collect All
+            </button>
+          </div>
+        )}
         
         {/* Add New Lab Button */}
         <div className="flex justify-center">
@@ -49,5 +52,6 @@ export default function ProviderActions({
 
 ProviderActions.propTypes = {
   onCollectAll: PropTypes.func.isRequired,
-  onAddNewLab: PropTypes.func.isRequired
+  onAddNewLab: PropTypes.func.isRequired,
+  isSSO: PropTypes.bool
 };

@@ -458,6 +458,23 @@ describe("Provider Dashboard Flow Integration", () => {
    * Verifies that clicking Collect All triggers fund collection mutation
    */
   test("collects all funds when Collect All button is clicked", async () => {
+    const { useUser } = require("@/context/UserContext");
+    useUser.mockReturnValue({
+      isProvider: true,
+      isProviderLoading: false,
+      address: "0x1234567890123456789012345678901234567890",
+      isSSO: false,
+      isAuthenticated: true,
+      isInstitutionRegistered: true,
+      isInstitutionRegistrationLoading: false,
+      institutionRegistrationStatus: "registered",
+      user: {
+        name: "Dr. Provider",
+        email: "provider@university.edu",
+        role: "faculty",
+      },
+    });
+
     renderWithAllProviders(<ProviderDashboardPage />);
 
     // Wait for Collect All button to appear

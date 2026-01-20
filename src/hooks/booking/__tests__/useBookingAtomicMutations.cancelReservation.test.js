@@ -18,6 +18,12 @@ jest.mock('@/hooks/contract/useContractWriteFunction', () =>
 jest.mock('../useBookingCacheUpdates', () =>
   require('../../../test-utils/mocks/hooks/useBookingCacheUpdates')
 );
+jest.mock('@/context/UserContext', () => ({
+  useUser: jest.fn(() => ({
+    isSSO: true,
+    institutionBackendUrl: 'https://institution.example',
+  })),
+}));
 jest.mock('@/utils/webauthn/client', () => ({
   transformAssertionOptions: jest.fn((opts) => opts),
   assertionToJSON: jest.fn(() => ({

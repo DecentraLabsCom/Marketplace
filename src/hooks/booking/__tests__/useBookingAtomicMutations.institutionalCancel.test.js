@@ -13,7 +13,10 @@ jest.mock('../useBookingCacheUpdates', () =>
   require('../../../test-utils/mocks/hooks/useBookingCacheUpdates')
 );
 jest.mock('@/context/UserContext', () => ({
-  useUser: jest.fn(() => ({ isSSO: true })),
+  useUser: jest.fn(() => ({
+    isSSO: true,
+    institutionBackendUrl: 'https://institution.example',
+  })),
 }));
 jest.mock('@/utils/webauthn/client', () => ({
   transformAssertionOptions: jest.fn((opts) => opts),
@@ -137,7 +140,10 @@ describe('useCancelInstitutionalReservationRequest hooks', () => {
 
   test('Router: selects SSO when isSSO=true, wallet otherwise', async () => {
     const userModule = require('@/context/UserContext');
-    userModule.useUser.mockReturnValue({ isSSO: true });
+    userModule.useUser.mockReturnValue({
+      isSSO: true,
+      institutionBackendUrl: 'https://institution.example',
+    });
     const { wrapper } = createWrapper();
     const { result: ssoResult } = renderHook(() => useCancelInstitutionalReservationRequest(), { wrapper });
     expect(ssoResult.current.mutateAsync).toBeDefined();
@@ -152,6 +158,11 @@ describe('useCancelInstitutionalReservationRequest hooks', () => {
 describe('useCancelInstitutionalBooking hooks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    const userModule = require('@/context/UserContext');
+    userModule.useUser.mockReturnValue({
+      isSSO: true,
+      institutionBackendUrl: 'https://institution.example',
+    });
     delete global.fetch;
     mockWebauthn();
   });
@@ -209,7 +220,10 @@ describe('useCancelInstitutionalBooking hooks', () => {
 
   test('Router: picks SSO vs Wallet based on useUser', async () => {
     const userModule = require('@/context/UserContext');
-    userModule.useUser.mockReturnValue({ isSSO: true });
+    userModule.useUser.mockReturnValue({
+      isSSO: true,
+      institutionBackendUrl: 'https://institution.example',
+    });
     const { wrapper } = createWrapper();
     const { result: ssoResult } = renderHook(() => useCancelInstitutionalBooking(), { wrapper });
     expect(ssoResult.current.mutateAsync).toBeDefined();

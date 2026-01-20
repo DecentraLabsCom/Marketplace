@@ -597,11 +597,16 @@ export const useCancelReservationRequestSSO = (options = {}) => {
   const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
   const [abortController] = [new AbortController()];
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
+  const { institutionBackendUrl } = useUser();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
+      if (!institutionBackendUrl) {
+        throw new Error('Missing institutional backend URL');
+      }
       const data = await runActionIntent(ACTION_CODES.CANCEL_REQUEST_BOOKING, {
         reservationKey,
+        backendUrl: institutionBackendUrl,
       });
       devLog.log('useCancelReservationRequestSSO intent (webauthn):', data);
       return data;
@@ -785,11 +790,16 @@ export const useCancelInstitutionalReservationRequestSSO = (options = {}) => {
   const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
   const [abortController] = [new AbortController()];
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
+  const { institutionBackendUrl } = useUser();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
+      if (!institutionBackendUrl) {
+        throw new Error('Missing institutional backend URL');
+      }
       const data = await runActionIntent(ACTION_CODES.CANCEL_INSTITUTIONAL_REQUEST_BOOKING, {
         reservationKey,
+        backendUrl: institutionBackendUrl,
       });
       devLog.log('useCancelInstitutionalReservationRequestSSO intent (webauthn):', data);
       return data;
@@ -941,11 +951,16 @@ export const useCancelInstitutionalReservationRequest = (options = {}) => {
 export const useCancelBookingSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
+  const { institutionBackendUrl } = useUser();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
+      if (!institutionBackendUrl) {
+        throw new Error('Missing institutional backend URL');
+      }
       const data = await runActionIntent(ACTION_CODES.CANCEL_BOOKING, {
         reservationKey,
+        backendUrl: institutionBackendUrl,
       });
       devLog.log('useCancelBookingSSO intent (webauthn):', data);
       return data;
@@ -1125,11 +1140,16 @@ export const useCancelBooking = (options = {}) => {
 
 export const useCancelInstitutionalBookingSSO = (options = {}) => {
   const queryClient = useQueryClient();
+  const { institutionBackendUrl } = useUser();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
+      if (!institutionBackendUrl) {
+        throw new Error('Missing institutional backend URL');
+      }
       const data = await runActionIntent(ACTION_CODES.CANCEL_INSTITUTIONAL_BOOKING, {
         reservationKey,
+        backendUrl: institutionBackendUrl,
       });
       devLog.log('useCancelInstitutionalBookingSSO intent (webauthn):', data);
       return data;
@@ -1258,10 +1278,16 @@ export const useCancelInstitutionalBooking = (options = {}) => {
  */
 export const useRequestFundsSSO = (options = {}) => {
   const queryClient = useQueryClient();
+  const { institutionBackendUrl } = useUser();
 
   return useMutation({
     mutationFn: async () => {
-      const data = await runActionIntent(ACTION_CODES.REQUEST_FUNDS, {});
+      if (!institutionBackendUrl) {
+        throw new Error('Missing institutional backend URL');
+      }
+      const data = await runActionIntent(ACTION_CODES.REQUEST_FUNDS, {
+        backendUrl: institutionBackendUrl,
+      });
       devLog.log('useRequestFundsSSO intent (webauthn):', data);
       return data;
     },
