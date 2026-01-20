@@ -71,9 +71,9 @@ export function useLabCacheUpdates() {
     queryClient.setQueryData(labQueryKeys.getLab(labId), (oldData) => {
       if (!oldData) {
         devLog.log('⚠️ No existing specific lab data found for ID:', labId);
-        if (Object.keys(onchainUpdates).length > 0) {
-          return { ...updatedLab, base: { ...onchainUpdates } };
-        }
+        // When there's no existing specific cache, return the updates directly.
+        // This preserves the expected plain shape (e.g., { price: 150 }) and avoids
+        // introducing a nested `base` object unexpectedly in newly created entries.
         return updatedLab;
       }
       const nextBase = Object.keys(onchainUpdates).length > 0
