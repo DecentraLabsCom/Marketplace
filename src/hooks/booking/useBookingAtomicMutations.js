@@ -529,6 +529,38 @@ export const useReservationRequestSSO = (options = {}) => {
                 } catch (err) {
                   devLog.warn('Failed to complete optimistic booking state after intent executed:', err);
                 }
+
+                // Invalidate user and lab booking queries so calendar and dashboard update
+                // After institutional reservation is executed onchain, we need to refresh:
+                // - User's reservation list (for dashboard)
+                // - Lab's reservation list (for calendar)
+                // - Active booking checks
+                if (variables.userAddress) {
+                  queryClient.invalidateQueries({ 
+                    queryKey: bookingQueryKeys.reservationsOf(variables.userAddress) 
+                  });
+                  if (variables.tokenId) {
+                    queryClient.invalidateQueries({
+                      queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId, variables.userAddress)
+                    });
+                  }
+                }
+                if (variables.tokenId) {
+                  queryClient.invalidateQueries({ 
+                    queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) 
+                  });
+                }
+                if (finalKey) {
+                  queryClient.invalidateQueries({
+                    queryKey: bookingQueryKeys.byReservationKey(finalKey)
+                  });
+                }
+
+                devLog.log('✅ Invalidated booking queries after institutional reservation executed:', {
+                  finalKey,
+                  userAddress: variables.userAddress,
+                  tokenId: variables.tokenId
+                });
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
                   reservationKey: finalKey,

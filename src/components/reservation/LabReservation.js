@@ -149,6 +149,7 @@ export default function LabReservation({ id }) {
         start,
         end: start + timeslot,
         timeslot,
+        userAddress, 
         backendUrl: institutionBackendUrl
       })
 
