@@ -92,6 +92,22 @@ const applyMetadataAttributes = (lab, metadata) => {
 }
 
 /**
+ * Extract and normalize timeSlots from metadata attributes
+ * Accepts arrays, comma-separated strings, or single numeric values
+ * Returns normalized array of positive integers or the provided fallback
+ */
+const getTimeSlotsFromMetadata = (metadata, fallback = [15, 30, 60]) => {
+  if (!metadata) return fallback;
+  const attributeMap = buildAttributeMap(metadata);
+  if (attributeMap.timeSlots === undefined || attributeMap.timeSlots === null) return fallback;
+
+  const raw = attributeMap.timeSlots;
+  const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(',') : [raw]);
+  const normalized = arr.map(Number).filter(n => Number.isFinite(n) && n > 0);
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+/**
  * Specialized hook for Market component
  * Gets all labs with provider mapping but minimal data transformation
  * Optimized for filtering and display in lab grid
@@ -392,7 +408,7 @@ export const useLabsForMarket = (options = {}) => {
       if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
       if (!enrichedLab.price) enrichedLab.price = '0';
       if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
-        enrichedLab.timeSlots = [15, 30, 60];
+        enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadata);
       }
 
       return enrichedLab;
@@ -600,7 +616,7 @@ export const useLabById = (labId, options = {}) => {
     if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
     if (!enrichedLab.price) enrichedLab.price = '0';
     if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
-      enrichedLab.timeSlots = [15, 30, 60];
+      enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadata);
     }
 
     return enrichedLab;
@@ -853,7 +869,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
       if (!enrichedLab.price) enrichedLab.price = '0';
       if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
-        enrichedLab.timeSlots = [15, 30, 60];
+        enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadata);
       }
 
       return enrichedLab;
