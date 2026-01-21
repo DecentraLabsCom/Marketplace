@@ -855,6 +855,48 @@ describe("useLabSpecializedQueries", () => {
       expect(mockUseMetadata).toBeDefined();
     });
 
+    test("uses metadata timeSlots when provided", async () => {
+      // Configure useQueries to return appropriate data for listing, labs and metadata
+      mockUseQueries.mockImplementation((config) => {
+        const queries = config.queries || [];
+        const results = queries.map((query, index) => {
+          const queryKey = query.queryKey;
+
+          if (queryKey && (queryKey[0] === 'lab' || queryKey[0] === 'labs') && queryKey[1] === 'isTokenListed') {
+            return { data: { isListed: true }, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+          }
+
+          if (queryKey && (queryKey[0] === 'lab' || queryKey[0] === 'labs') && queryKey[1] === 'getLab') {
+            return { data: { ...mockLabData, labId: mockLabIds[index] || '1' }, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+          }
+
+          if (queryKey && queryKey[0] === 'metadata') {
+            // Provide metadata with a single 15-minute timeslot
+            const customMetadata = { ...mockMetadata, attributes: [ ...mockMetadata.attributes.filter(a => a.trait_type !== 'timeSlots'), { trait_type: 'timeSlots', value: [15] } ] };
+            return { data: customMetadata, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+          }
+
+          return { data: null, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+        });
+
+        return config.combine ? config.combine(results) : results;
+      });
+
+      // For simplicity in this test, return a single lab id
+      mockUseAllLabs.mockReturnValue({ data: [mockLabIds[0]], isLoading: false, isSuccess: true, error: null, refetch: jest.fn() });
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabsForReservation(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+
+
+      expect(result.current.data.labs[0].timeSlots).toEqual([15]);
+    });
+
     test("handles empty lab list", () => {
       mockUseAllLabs.mockReturnValue({
         data: [],

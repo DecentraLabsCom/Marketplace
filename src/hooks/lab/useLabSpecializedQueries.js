@@ -983,7 +983,21 @@ export const useLabsForReservation = (options = {}) => {
       images, // For Carrousel component
       // Essential reservation data
       price: lab.base?.price || '0',
-      timeSlots: [15, 30, 60], // Default time slots, can be customized per lab
+      // Determine timeSlots from metadata attributes if provided; normalize to numbers
+      // Falls back to default [15, 30, 60] when not specified or invalid
+      timeSlots: (() => {
+        let timeSlotsFromMeta = [15, 30, 60];
+        if (metadataData?.attributes) {
+          const attributeMap = buildAttributeMap(metadataData);
+          if (attributeMap.timeSlots !== undefined && attributeMap.timeSlots !== null) {
+            const raw = attributeMap.timeSlots;
+            const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(',') : [raw]);
+            const normalized = arr.map(Number).filter(n => Number.isFinite(n) && n > 0);
+            if (normalized.length > 0) timeSlotsFromMeta = normalized;
+          }
+        }
+        return timeSlotsFromMeta;
+      })(),
       opens: opensAttr?.value,
       closes: closesAttr?.value,
       // Include other base data
