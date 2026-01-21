@@ -10,6 +10,7 @@ import { useNotifications } from '@/context/NotificationContext'
 import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
+import { removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 
 const BookingEventContext = createContext();
 
@@ -183,6 +184,9 @@ export function BookingEventProvider({ children }) {
                         pendingConfirmations.current.delete(reservationKeyStr);
                     }
 
+                    // Remove reconciliation entry - event confirmed, no need to keep polling
+                    removeReconciliationEntry(`booking:confirm:${reservationKeyStr}`);
+
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
 
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
@@ -308,6 +312,7 @@ export function BookingEventProvider({ children }) {
                 
                 if (reservationKeyStr) {
                     pendingConfirmations.current.delete(reservationKeyStr);
+                    removeReconciliationEntry(`booking:cancel:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
@@ -336,6 +341,7 @@ export function BookingEventProvider({ children }) {
                 
                 if (reservationKeyStr) {
                     pendingConfirmations.current.delete(reservationKeyStr);
+                    removeReconciliationEntry(`booking:cancel-request:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
@@ -367,6 +373,9 @@ export function BookingEventProvider({ children }) {
                     if (pendingInfo) {
                         pendingConfirmations.current.delete(reservationKeyStr);
                     }
+
+                    // Remove reconciliation entry - event confirmed (denied), no need to keep polling
+                    removeReconciliationEntry(`booking:confirm:${reservationKeyStr}`);
 
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
 

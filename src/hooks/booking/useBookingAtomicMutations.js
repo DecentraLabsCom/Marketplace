@@ -16,6 +16,7 @@ import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/cli
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
+import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 
 const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
@@ -561,6 +562,25 @@ export const useReservationRequestSSO = (options = {}) => {
                   userAddress: variables.userAddress,
                   tokenId: variables.tokenId
                 });
+
+                // Enqueue for reconciliation - will auto-invalidate at scheduled intervals
+                // until blockchain event confirms the reservation (status 0 → 1)
+                const reconciliationQueryKeys = [];
+                if (variables.userAddress) {
+                  reconciliationQueryKeys.push(bookingQueryKeys.reservationsOf(variables.userAddress));
+                }
+                if (variables.tokenId) {
+                  reconciliationQueryKeys.push(bookingQueryKeys.getReservationsOfToken(variables.tokenId));
+                }
+                if (finalKey) {
+                  reconciliationQueryKeys.push(bookingQueryKeys.byReservationKey(finalKey));
+                }
+                
+                enqueueReconciliationEntry({
+                  id: `booking:confirm:${finalKey}`,
+                  category: 'booking-confirmation',
+                  queryKeys: reconciliationQueryKeys,
+                });
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
@@ -690,6 +710,40 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                 } catch (err) {
                   devLog.warn('Failed to complete optimistic booking state after cancel executed:', err);
                 }
+
+                // Invalidate relevant caches after cancellation is executed
+                const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+                if (userAddress) {
+                  queryClient.invalidateQueries({ 
+                    queryKey: bookingQueryKeys.reservationsOf(userAddress) 
+                  });
+                }
+                if (labId) {
+                  queryClient.invalidateQueries({ 
+                    queryKey: bookingQueryKeys.getReservationsOfToken(labId) 
+                  });
+                }
+                queryClient.invalidateQueries({
+                  queryKey: bookingQueryKeys.byReservationKey(reservationKey)
+                });
+
+                devLog.log('✅ Invalidated booking queries after reservation request cancellation executed');
+
+                // Enqueue for reconciliation - will auto-invalidate until blockchain event confirms
+                const cancelReconciliationKeys = [];
+                if (userAddress) {
+                  cancelReconciliationKeys.push(bookingQueryKeys.reservationsOf(userAddress));
+                }
+                if (labId) {
+                  cancelReconciliationKeys.push(bookingQueryKeys.getReservationsOfToken(labId));
+                }
+                cancelReconciliationKeys.push(bookingQueryKeys.byReservationKey(reservationKey));
+                
+                enqueueReconciliationEntry({
+                  id: `booking:cancel-request:${reservationKey}`,
+                  category: 'booking-cancel-request',
+                  queryKeys: cancelReconciliationKeys,
+                });
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(reservationKey, {
                   reservationKey,
@@ -888,6 +942,40 @@ export const useCancelBookingSSO = (options = {}) => {
                 } catch (err) {
                   devLog.warn('Failed to complete optimistic booking state after cancel booking executed:', err);
                 }
+
+                // Invalidate relevant caches after booking cancellation is executed
+                const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
+                if (userAddress) {
+                  queryClient.invalidateQueries({ 
+                    queryKey: bookingQueryKeys.reservationsOf(userAddress) 
+                  });
+                }
+                if (labId) {
+                  queryClient.invalidateQueries({ 
+                    queryKey: bookingQueryKeys.getReservationsOfToken(labId) 
+                  });
+                }
+                queryClient.invalidateQueries({
+                  queryKey: bookingQueryKeys.byReservationKey(reservationKey)
+                });
+
+                devLog.log('✅ Invalidated booking queries after booking cancellation executed');
+
+                // Enqueue for reconciliation - will auto-invalidate until BookingCanceled event confirms
+                const bookingCancelKeys = [];
+                if (userAddress) {
+                  bookingCancelKeys.push(bookingQueryKeys.reservationsOf(userAddress));
+                }
+                if (labId) {
+                  bookingCancelKeys.push(bookingQueryKeys.getReservationsOfToken(labId));
+                }
+                bookingCancelKeys.push(bookingQueryKeys.byReservationKey(reservationKey));
+                
+                enqueueReconciliationEntry({
+                  id: `booking:cancel:${reservationKey}`,
+                  category: 'booking-cancel',
+                  queryKeys: bookingCancelKeys,
+                });
               } else if (status === 'failed' || status === 'rejected') {
                 queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
                   if (!oldData) return oldData;
