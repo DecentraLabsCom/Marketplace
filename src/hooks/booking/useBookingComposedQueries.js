@@ -3,6 +3,11 @@
  * These hooks use useQueries to orchestrate multiple related atomic hooks while maintaining
  * React Query's caching, error handling, and retry capabilities
  * 
+ * ARCHITECTURE: These composed hooks use API-based queryFn for BOTH SSO and Wallet users.
+ * - SSO: Uses PUC-based endpoints (/api/contract/institution/*)
+ * - Wallet: Uses address-based endpoints (/api/contract/reservation/*)
+ * This is necessary because useQueries cannot extract Wagmi hooks as queryFn.
+ * 
  * Main hooks:
  * - useUserBookingsDashboard: User bookings with enriched details, analytics, and optional features for user dashboard
  * - useLabBookingsDashboard: Lab bookings with enriched details and analytics for provider dashboard  
@@ -10,11 +15,13 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
-  useReservationsOf,
+  useReservationsOfSSO,
+  useReservationsOfWallet,
   useReservationSSO,
   useReservationsOfToken,
   useReservationOfTokenByIndexSSO,
   useReservationKeyOfUserByIndexSSO,
+  useReservationKeyOfUserByIndexWallet,
   useReservationKeyOfUserByIndex,
   useReservation,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
@@ -221,9 +228,10 @@ function getReservationStatusText(status) {
 
 /**
  * Composed dashboard hook for getting user bookings with enriched details and comprehensive analytics
+ * Supports both wallet users (with address) and institutional users (with PUC from session)
  * Orchestrates: reservation count → reservation keys → booking details → optional lab details → analytics
  * Provides booking summary analytics, recent activity, and status categorization for dashboard components
- * @param {string} userAddress - User wallet address
+ * @param {string|null} userAddress - User wallet address (null for institutional users or auto-detect from context)
  * @param {Object} options - Configuration options
  * @param {boolean} [options.includeLabDetails=false] - Whether to fetch lab details for each booking
  * @param {boolean} [options.includeRecentActivity=false] - Whether to calculate recent activity summary
@@ -237,23 +245,25 @@ export const useUserBookingsDashboard = (userAddress, {
   limit,
   queryOptions = {} 
 } = {}) => {
-  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
-  // Reason: Wagmi hooks cannot be extracted as queryFn for useQueries
-  // Solution: Force SSO mode (API + Ethers.js) for ALL users in composed hooks
-  // This is safe because API endpoints are read-only blockchain queries that work for any address
+  // ARCHITECTURE: Both SSO and Wallet use API-based queryFn in useQueries
+  // - SSO: PUC-based endpoints (no address needed)
+  // - Wallet: Address-based endpoints (userAddress required)
   const isSSO = useGetIsSSO(queryOptions);
   
-  // FORCE SSO MODE for composed hooks - API endpoints work for both SSO and Wallet users
-  const forceSSO = true;
-  
-  // Step 1: Get user reservation count using atomic hook (forced SSO mode for consistency)
-  const reservationCountResult = useReservationsOf(userAddress, {
+  // Step 1: Get user reservation count (using appropriate hook based on user type)
+  const ssoCountResult = useReservationsOfSSO({
     ...BOOKING_QUERY_CONFIG,
-    // Only allow override of non-critical options like enabled, meta, etc.
-    enabled: queryOptions.enabled,
+    enabled: isSSO && (queryOptions.enabled ?? true),
     meta: queryOptions.meta,
-    isSSO: forceSSO, // ✅ Force SSO mode - API works for all users
   });
+  
+  const walletCountResult = useReservationsOfWallet(userAddress, {
+    ...BOOKING_QUERY_CONFIG,
+    enabled: !isSSO && !!userAddress && (queryOptions.enabled ?? true),
+    meta: queryOptions.meta,
+  });
+  
+  const reservationCountResult = isSSO ? ssoCountResult : walletCountResult;
   
   // Extract reservation count and apply limit if specified
   const totalReservationCount = reservationCountResult.data?.count || 0;
@@ -261,7 +271,8 @@ export const useUserBookingsDashboard = (userAddress, {
   const hasReservations = reservationCount > 0;
 
   // DEBUG: Log reservation count details
-  devLog.log(`🔍 [useUserBookingsDashboard] User ${userAddress?.slice(0, 6)}...${userAddress?.slice(-4)}:`, {
+  devLog.log(`🔍 [useUserBookingsDashboard] User ${isSSO ? 'SSO' : userAddress?.slice(0, 6)}...${userAddress?.slice(-4)}:`, {
+    isSSO,
     totalReservationCount,
     reservationCount,
     limit,
@@ -270,40 +281,39 @@ export const useUserBookingsDashboard = (userAddress, {
   });
 
   // Step 2: Get reservation keys for each index (limited if specified)
+  // - SSO: useReservationKeyOfUserByIndexSSO.queryFn(index) → PUC-based
+  // - Wallet: useReservationKeyOfUserByIndexWallet.queryFn(userAddress, index) → Address-based
   // SAFETY: Additional validation to prevent out-of-range queries
   const safeReservationCount = Math.max(0, Math.min(reservationCount, 100)); // Cap at 100 for safety
 
   const reservationKeyResults = useQueries({
     queries: hasReservations && safeReservationCount > 0
       ? Array.from({ length: safeReservationCount }, (_, index) => {
-          // VALIDATION: Prevent out-of-range queries
           if (index < 0 || index >= safeReservationCount) {
-            devLog.error(`🚨 [useUserBookingsDashboard] BLOCKED OUT-OF-RANGE INDEX ${index}!`, {
-              index,
-              safeReservationCount,
-              originalReservationCount: reservationCount,
-              totalReservationCount,
-              userAddress: userAddress?.slice(0, 6) + '...' + userAddress?.slice(-4)
-            });
-            
-            // Return a disabled query to prevent the API call
             return {
-              queryKey: ['blocked-query', userAddress, index],
+              queryKey: ['blocked-query', isSSO ? 'sso' : 'wallet', index],
               queryFn: () => Promise.reject(new Error(`Index ${index} out of range`)),
               enabled: false,
               ...BOOKING_QUERY_CONFIG,
             };
           }
           
-          // DEBUG: Log valid indices being created
-          devLog.log(`✅ [useUserBookingsDashboard] Creating query for valid INDEX ${index}`);
-          
-          return {
-            queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-            queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(userAddress, index), // ✅ Using SSO atomic hook queryFn
-            enabled: !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
-            ...BOOKING_QUERY_CONFIG,
-          };
+          // Use appropriate queryFn based on user type
+          if (isSSO) {
+            return {
+              queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
+              queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
+              enabled: hasReservations && index >= 0 && index < safeReservationCount,
+              ...BOOKING_QUERY_CONFIG,
+            };
+          } else {
+            return {
+              queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
+              queryFn: () => useReservationKeyOfUserByIndexWallet.queryFn(userAddress, index),
+              enabled: !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
+              ...BOOKING_QUERY_CONFIG,
+            };
+          }
         })
       : [],
     combine: (results) => results
@@ -312,25 +322,23 @@ export const useUserBookingsDashboard = (userAddress, {
   // Extract reservation keys from successful results
   const reservationKeys = reservationKeyResults
     .filter(result => result.isSuccess && result.data)
-    .map(result => result.data.reservationKey || result.data); // Handle both formats
+    .map(result => result.data.reservationKey || result.data);
 
   // Step 3: Get booking details for each reservation key
+  // Note: useReservationSSO.queryFn works for both SSO and Wallet (read-only endpoint)
   const bookingDetailsResults = useQueries({
     queries: reservationKeys.length > 0 
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
-          queryFn: () => useReservationSSO.queryFn(key), // ✅ Using atomic hook queryFn
+          queryFn: () => useReservationSSO.queryFn(key),
           enabled: !!key,
           ...BOOKING_QUERY_CONFIG,
-          // Don't retry on 404/not found - these are valid responses
           retry: (failureCount, error) => {
-            // Don't retry if the error message indicates a not found or client error
             if (error?.message?.includes('404') || 
                 error?.message?.includes('not found') ||
                 error?.message?.includes('400')) {
               return false;
             }
-            // Retry once for other errors (network, 500, etc.)
             return failureCount < 1;
           },
         }))
@@ -729,26 +737,24 @@ export const useLabBookingsDashboard = (labId, {
   queryOptions = {} 
 } = {}) => {
   
-  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
-  // Force SSO mode for ALL users - API endpoints work for any address
-  const isSSO = useGetIsSSO(queryOptions);
-  const forceSSO = true;
+  // ARCHITECTURE: This hook queries lab reservations (public data, not user-specific).
+  // Uses API-based queryFn for useQueries compatibility (Wagmi hooks cannot be extracted).
+  // Works identically for both SSO and Wallet users - the queries are lab-centric, not user-centric.
   
   // Debug log for input parameters
   devLog.log('📅 useLabBookingsDashboard called with:', {
     labId,
     includeUserDetails,
-    userType: isSSO ? 'SSO' : 'Wallet',
-    queryMode: 'API (forced for composed hooks)',
-    reason: 'useQueries requires extractable queryFn'
+    queryMode: 'API-based (required for useQueries)',
+    reason: 'Lab reservations are public data, queryFn must be extractable'
   });
   
-  // Step 1: Get reservation count for lab (forced SSO mode)
+  // Step 1: Get reservation count for lab (uses API path for useQueries compatibility)
   const reservationCountResult = useReservationsOfToken(labId, {
     ...BOOKING_QUERY_CONFIG,
     enabled: !!labId && (queryOptions.enabled !== false),
     meta: queryOptions.meta,
-    isSSO: forceSSO, // ✅ Force SSO mode
+    isSSO: true, // Use API path (required: useQueries needs extractable queryFn)
   });
   
   const reservationCount = reservationCountResult.data?.count || 0;

@@ -1,35 +1,47 @@
 /**
  * Specialized Booking Hooks - Optimized for specific use cases
  * These hooks use atomic queries + React Query 'select' for maximum performance
+ * 
+ * ARCHITECTURE: These hooks use API-based queryFn for BOTH SSO and Wallet users.
+ * - SSO: Uses PUC-based endpoints
+ * - Wallet: Uses address-based endpoints
  */
 import { useQueries } from '@tanstack/react-query'
 import { 
-  useReservationsOf,
+  useReservationsOfSSO,
+  useReservationsOfWallet,
   useReservationKeyOfUserByIndexSSO,
+  useReservationKeyOfUserByIndexWallet,
   useReservationSSO,
   BOOKING_QUERY_CONFIG 
 } from './useBookingAtomicQueries'
+import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 /**
  * Specialized hook for Market component
  * Uses composed queries to get user reservations and extract active/upcoming lab IDs
- * @param {string} userAddress - User wallet address
+ * Works for both SSO and Wallet users
+ * @param {string} userAddress - User wallet address (used for wallet users, ignored for SSO)
  * @param {Object} options - Configuration options
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
-  // ⚠️ ARCHITECTURAL DECISION: Composed hooks with useQueries must use SSO path
-  // Force SSO mode for ALL users - API endpoints work for any address
-  const forceSSO = true;
+  const isSSO = useGetIsSSO(options);
   
-  // Step 1: Get user reservation count (forced SSO mode)
-  const reservationCountResult = useReservationsOf(userAddress, {
+  // Step 1: Get user reservation count (using appropriate hook based on user type)
+  const ssoCountResult = useReservationsOfSSO({
     ...BOOKING_QUERY_CONFIG,
-    enabled: !!userAddress && (options.enabled !== false),
-    isSSO: forceSSO, // ✅ Force SSO mode
+    enabled: isSSO && (options.enabled !== false),
   });
+  
+  const walletCountResult = useReservationsOfWallet(userAddress, {
+    ...BOOKING_QUERY_CONFIG,
+    enabled: !isSSO && !!userAddress && (options.enabled !== false),
+  });
+  
+  const reservationCountResult = isSSO ? ssoCountResult : walletCountResult;
 
   const totalReservationCount = reservationCountResult.data?.count || 0;
   const hasReservations = totalReservationCount > 0;
@@ -37,12 +49,23 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
   // Step 2: Get reservation keys for each index
   const reservationKeyResults = useQueries({
     queries: hasReservations 
-      ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => ({
-          queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-          queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(userAddress, index),
-          enabled: !!userAddress && hasReservations,
-          ...BOOKING_QUERY_CONFIG,
-        }))
+      ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => {
+          if (isSSO) {
+            return {
+              queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
+              queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
+              enabled: hasReservations,
+              ...BOOKING_QUERY_CONFIG,
+            };
+          } else {
+            return {
+              queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
+              queryFn: () => useReservationKeyOfUserByIndexWallet.queryFn(userAddress, index),
+              enabled: !!userAddress && hasReservations,
+              ...BOOKING_QUERY_CONFIG,
+            };
+          }
+        })
       : [],
     combine: (results) => results
   });

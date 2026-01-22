@@ -352,8 +352,24 @@ export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
 
 // ===== useReservationsOf Hook Family =====
 
-// Define queryFn first for reuse
-const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
+// Institutional (SSO) - PUC-based count
+const getReservationsOfSSOQueryFn = createSSRSafeQuery(async () => {
+  const response = await fetch('/api/contract/institution/getUserReservationCount', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch institutional user reservation count: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  devLog.log('🔍 useReservationsOfSSO (PUC-based):', data);
+  return data;
+}, { count: 0 });
+
+// Wallet - address-based count (for useQueries in composed hooks)
+const getReservationsOfWalletQueryFn = createSSRSafeQuery(async (userAddress) => {
   if (!userAddress) throw new Error('User address is required');
   
   const response = await fetch(`/api/contract/reservation/reservationsOf?userAddress=${userAddress}`, {
@@ -366,29 +382,24 @@ const getReservationsOfQueryFn = createSSRSafeQuery(async (userAddress) => {
   }
   
   const data = await response.json();
-  devLog.log('🔍 useReservationsOfSSO:', userAddress, data);
+  devLog.log('🔍 useReservationsOfWallet (API):', userAddress, data);
   return data;
-}, { count: 0 }); // Return count object during SSR
+}, { count: 0 });
 
 /**
- * Hook for /api/contract/reservation/reservationsOf endpoint (SSO users)
- * Gets all reservations made by a specific user via API + Ethers
- * @param {string} userAddress - User address to get reservations for
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with user reservations
+ * Hook for institutional reservationsOf (SSO users, PUC-based)
+ * Retrieves reservation count for the current SSO user (no wallet address)
  */
-export const useReservationsOfSSO = (userAddress, options = {}) => {
+export const useReservationsOfSSO = (options = {}) => {
   return useQuery({
-    queryKey: bookingQueryKeys.reservationsOf(userAddress),
-    queryFn: () => getReservationsOfQueryFn(userAddress),
-    enabled: !!userAddress,
+    queryKey: bookingQueryKeys.ssoReservationsOf(),
+    queryFn: () => getReservationsOfSSOQueryFn(),
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
 };
 
-// Export queryFn for use in composed hooks
-useReservationsOfSSO.queryFn = getReservationsOfQueryFn;
+useReservationsOfSSO.queryFn = getReservationsOfSSOQueryFn;
 
 /**
  * Hook for reservationsOf contract read (Wallet users)
@@ -415,21 +426,29 @@ export const useReservationsOfWallet = (userAddress, options = {}) => {
   };
 };
 
+// Export queryFn for use in composed hooks (API-based, works for any address)
+useReservationsOfWallet.queryFn = getReservationsOfWalletQueryFn;
+
 /**
- * Hook for reservationsOf (Router - selects SSO or Wallet)
+ * Hook for reservationsOf (Router - selects SSO or Wallet, auto-detects institutional)
  * Gets all reservations made by a specific user - routes to API or Wagmi based on user type
- * @param {string} userAddress - User address to get reservations for
+ * 
+ * IMPORTANT: For institutional users (SSO without wallet address), pass userAddress=null
+ * and the hook will automatically use the institutional endpoint with PUC from session.
+ * 
+ * @param {string|null} userAddress - User address (null for institutional users)
  * @param {Object} [options={}] - Additional query options
  * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
+ * @param {boolean} [options.isInstitutional] - Optional: force institutional mode (auto-detected if userAddress is null)
  * @returns {Object} React Query result with user reservations
  */
 export const useReservationsOf = (userAddress, options = {}) => {
   const isSSO = useGetIsSSO(options);
   
-  const ssoQuery = useReservationsOfSSO(userAddress, { ...options, enabled: isSSO && !!userAddress });
-  const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress });
+  const ssoQuery = useReservationsOfSSO({ ...options, enabled: isSSO && (options.enabled ?? true) });
+  const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress && (options.enabled ?? true) });
   
-  devLog.log(`🔀 useReservationsOf [${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useReservationsOf ${isSSO ? '→ SSO (PUC-based)' : `[${userAddress}] → Wallet mode`}`);
   
   return isSSO ? ssoQuery : walletQuery;
 };
@@ -437,45 +456,52 @@ export const useReservationsOf = (userAddress, options = {}) => {
 // ===== useReservationKeyOfUserByIndex Hook Family =====
 
 // Define queryFn first for reuse
-const getReservationKeyOfUserByIndexQueryFn = createSSRSafeQuery(async (userAddress, index) => {
+// PUC-based reservation key lookup (SSO)
+const getReservationKeyOfUserByIndexSSOQueryFn = createSSRSafeQuery(async (index) => {
+  if (index === undefined || index === null) {
+    throw new Error('Index is required');
+  }
+  const response = await fetch(`/api/contract/institution/getUserReservationByIndex?index=${index}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch institutional reservation at index ${index}: ${response.status}`);
+  }
+  const data = await response.json();
+  devLog.log('🔍 useReservationKeyOfUserByIndexSSO (PUC-based):', index, data);
+  return data;
+}, { reservationKey: null });
+
+// Wallet - address-based reservation key lookup (for useQueries in composed hooks)
+const getReservationKeyOfUserByIndexWalletQueryFn = createSSRSafeQuery(async (userAddress, index) => {
   if (!userAddress || index === undefined || index === null) {
     throw new Error('User address and index are required');
   }
-  
   const response = await fetch(`/api/contract/reservation/reservationKeyOfUserByIndex?userAddress=${userAddress}&index=${index}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
-  
   if (!response.ok) {
     throw new Error(`Failed to fetch reservation key at index ${index} for user ${userAddress}: ${response.status}`);
   }
-  
   const data = await response.json();
-  devLog.log('🔍 useReservationKeyOfUserByIndexSSO:', userAddress, index, data);
+  devLog.log('🔍 useReservationKeyOfUserByIndexWallet (API):', userAddress, index, data);
   return data;
-}, { reservationKey: null }); // Return null during SSR
+}, { reservationKey: null });
 
-/**
- * Hook for /api/contract/reservation/reservationKeyOfUserByIndex endpoint (SSO users)
- * Gets reservation key at specific index for a user via API + Ethers
- * @param {string} userAddress - User address
- * @param {number} index - User's reservation index
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with reservation key
- */
-export const useReservationKeyOfUserByIndexSSO = (userAddress, index, options = {}) => {
+export const useReservationKeyOfUserByIndexSSO = (index, options = {}) => {
   return useQuery({
-    queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-    queryFn: () => getReservationKeyOfUserByIndexQueryFn(userAddress, index),
-    enabled: !!userAddress && (index !== undefined && index !== null),
+    queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
+    queryFn: () => getReservationKeyOfUserByIndexSSOQueryFn(index),
+    enabled: index !== undefined && index !== null,
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
 };
 
-// Export queryFn for use in composed hooks
-useReservationKeyOfUserByIndexSSO.queryFn = getReservationKeyOfUserByIndexQueryFn;
+useReservationKeyOfUserByIndexSSO.queryFn = getReservationKeyOfUserByIndexSSOQueryFn;
+
 
 /**
  * Hook for reservationKeyOfUserByIndex contract read (Wallet users)
@@ -503,23 +529,31 @@ export const useReservationKeyOfUserByIndexWallet = (userAddress, index, options
   };
 };
 
+// Export queryFn for use in composed hooks (API-based, works for any address)
+useReservationKeyOfUserByIndexWallet.queryFn = getReservationKeyOfUserByIndexWalletQueryFn;
+
 /**
- * Hook for reservationKeyOfUserByIndex (Router - selects SSO or Wallet)
+ * Hook for reservationKeyOfUserByIndex (Router - selects SSO or Wallet, auto-detects institutional)
  * Gets reservation key at specific index for a user - routes to API or Wagmi based on user type
- * @param {string} userAddress - User address
+ * 
+ * IMPORTANT: For institutional users, pass userAddress=null and the hook will use
+ * the institutional endpoint with PUC from session.
+ * 
+ * @param {string|null} userAddress - User address (null for institutional users)
  * @param {number} index - User's reservation index
  * @param {Object} [options={}] - Additional query options
  * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
+ * @param {boolean} [options.isInstitutional] - Optional: force institutional mode (auto-detected if userAddress is null)
  * @returns {Object} React Query result with reservation key
- */
+*/
 export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
   const isSSO = useGetIsSSO(options);
   
-  const enabled = !!userAddress && (index !== undefined && index !== null);
-  const ssoQuery = useReservationKeyOfUserByIndexSSO(userAddress, index, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useReservationKeyOfUserByIndexWallet(userAddress, index, { ...options, enabled: !isSSO && enabled });
+  const indexValid = index !== undefined && index !== null;
+  const ssoQuery = useReservationKeyOfUserByIndexSSO(index, { ...options, enabled: isSSO && indexValid && (options.enabled ?? true) });
+  const walletQuery = useReservationKeyOfUserByIndexWallet(userAddress, index, { ...options, enabled: !isSSO && !!userAddress && indexValid && (options.enabled ?? true) });
   
-  devLog.log(`🔀 useReservationKeyOfUserByIndex [${userAddress}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useReservationKeyOfUserByIndex ${isSSO ? `[${index}] → SSO (PUC-based)` : `[${userAddress}, ${index}] → Wallet mode`}`);
   
   return isSSO ? ssoQuery : walletQuery;
 };
@@ -1274,7 +1308,7 @@ export const useSafeBalance = (options = {}) => {
   const ssoQuery = useSafeBalanceSSO({ ...options, enabled: isSSO });
   const walletQuery = useSafeBalanceWallet({ ...options, enabled: !isSSO });
   
-  devLog.log(`?? useSafeBalance ? ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useSafeBalance → ${isSSO ? 'SSO' : 'Wallet'} mode`);
   
   return isSSO ? ssoQuery : walletQuery;
 };

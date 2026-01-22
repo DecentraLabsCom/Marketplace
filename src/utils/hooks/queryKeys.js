@@ -22,7 +22,9 @@ export const bookingQueryKeys = {
   getReservationsOfTokenByUser: (labId, userAddress, offset = 0, limit = 50) => ['bookings', 'reservationsOfTokenByUser', labId, userAddress, offset, limit],
   getReservationOfTokenByIndex: (labId, index) => ['bookings', 'reservationOfToken', labId, index],
   reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress],
+  ssoReservationsOf: () => ['bookings', 'sso', 'reservationsOf'],
   reservationKeyOfUserByIndex: (userAddress, index) => ['bookings', 'reservationKeyOfUser', userAddress, index],
+  ssoReservationKeyOfUserByIndex: (index) => ['bookings', 'sso', 'reservationKeyOfUser', index],
   totalReservations: () => ['bookings', 'totalReservations'],
   userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
   checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
@@ -43,6 +45,10 @@ export const bookingQueryKeys = {
   ssoActiveReservationKeySession: (labId) => ['bookings', 'sso', 'activeReservationKey', labId],
   labTokenAddress: () => ['bookings', 'labTokenAddress'],
   safeBalance: () => ['bookings', 'safeBalance'],
+  
+  // Institutional user query keys (SSO mode only)
+  // NOTE: SSO users never provide wallet address; all SSO keys are PUC-based
+  // kept above as ssoReservationsOf / ssoReservationKeyOfUserByIndex
 };
 
 // Lab query keys
