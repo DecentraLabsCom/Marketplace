@@ -10,6 +10,7 @@ import { useQueries } from '@tanstack/react-query'
 import { 
   useReservationsOfSSO,
   useReservationsOfWallet,
+  useReservationsOf,
   useReservationKeyOfUserByIndexSSO,
   useReservationKeyOfUserByIndexWallet,
   useReservationSSO,
@@ -52,10 +53,10 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
       ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => {
           if (isSSO) {
             return {
-              queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
-              queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
-              enabled: hasReservations,
-              ...BOOKING_QUERY_CONFIG,
+          queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
+          queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
+          enabled: hasReservations,
+          ...BOOKING_QUERY_CONFIG,
             };
           } else {
             return {
