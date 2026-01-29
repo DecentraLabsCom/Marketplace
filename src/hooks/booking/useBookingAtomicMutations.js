@@ -795,9 +795,10 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   timestamp: new Date().toISOString(),
                 });
 
+                const { labId } = resolveBookingContext(queryClient, reservationKey);
                 invalidateInstitutionalReservationQueries(queryClient, {
-                  labId: variables.tokenId,
-                  reservationKey: finalKey,
+                  labId,
+                  reservationKey,
                 });
 
                 try {
