@@ -397,7 +397,11 @@ export const useUserBookingsDashboard = (userAddress, {
     if (numericStatus === 5 || statusNumeric === '5') {
       statusCategory = 'cancelled';
     } else if (numericStatus === 0 || statusNumeric === '0') {
-      statusCategory = 'pending';  // Always pending regardless of timing
+      if (endTime && now > endTime) {
+        statusCategory = 'expired';
+      } else {
+        statusCategory = 'pending';
+      }
     } else if (numericStatus === 2 || numericStatus === 3 || numericStatus === 4) {
       statusCategory = 'completed';  // USED, COMPLETED, or COLLECTED
     } else if (numericStatus === 1) {
