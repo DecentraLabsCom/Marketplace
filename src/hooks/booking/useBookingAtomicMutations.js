@@ -536,7 +536,10 @@ export const useReservationRequestSSO = (options = {}) => {
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId, { authToken });
+              const result = await pollIntentStatus(intentId, { 
+                authToken, 
+                backendUrl: data?.backendUrl || variables.backendUrl 
+              });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;
@@ -677,8 +680,8 @@ export const useCancelReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { invalidateAllBookings, updateBooking } = useBookingCacheUpdates();
   const [abortController] = [new AbortController()];
-  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
   const { institutionBackendUrl } = useUser();
+  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
     mutationFn: async (reservationKey) => {
@@ -729,6 +732,7 @@ export const useCancelReservationRequestSSO = (options = {}) => {
             try {
               const result = await pollIntentStatus(intentId, {
                 authToken,
+                backendUrl: data?.backendUrl || institutionBackendUrl,
                 signal: abortController.signal,
               });
               const status = result?.status;
@@ -965,7 +969,10 @@ export const useCancelBookingSSO = (options = {}) => {
         if (intentId) {
           (async () => {
             try {
-              const result = await pollIntentStatus(intentId, { authToken });
+              const result = await pollIntentStatus(intentId, {
+                authToken,
+                backendUrl: data?.backendUrl || institutionBackendUrl,
+              });
               const status = result?.status;
               const txHash = result?.txHash;
               const reason = result?.error || result?.reason;

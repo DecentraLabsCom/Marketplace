@@ -100,6 +100,23 @@ export function BookingEventProvider({ children }) {
                 });
             }
         }
+
+        if (isSSO) {
+            queryClient.invalidateQueries({
+                queryKey: bookingQueryKeys.ssoReservationsOf()
+            });
+            queryClient.invalidateQueries({
+                queryKey: ['bookings', 'sso', 'reservationKeyOfUser']
+            });
+            queryClient.invalidateQueries({
+                queryKey: bookingQueryKeys.ssoHasActiveBookingSession()
+            });
+            if (tokenId) {
+                queryClient.invalidateQueries({
+                    queryKey: bookingQueryKeys.ssoActiveReservationKeySession(tokenId)
+                });
+            }
+        }
     };
 
     // ReservationRequested event listener

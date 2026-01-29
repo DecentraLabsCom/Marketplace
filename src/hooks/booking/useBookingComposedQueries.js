@@ -140,77 +140,88 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
       now
     });
 
-    // Use statusCategory if available, otherwise derive from status and timing
+    // Determine a single bucket so totals always match
+    let bucket = null;
+
     if (statusCategory) {
       switch (statusCategory) {
         case 'active':
-          summary.activeBookings++;
-          break;
         case 'upcoming':
-          if (includeUpcoming) summary.upcomingBookings++;
-          break;
         case 'completed':
-          summary.completedBookings++;
+        case 'pending':
+          bucket = statusCategory;
           break;
         case 'cancelled':
-          if (includeCancelled) summary.cancelledBookings++;
+          if (includeCancelled) bucket = 'cancelled';
           break;
-        case 'pending':
-          summary.pendingBookings++;
+        default:
+          // fall through to manual calculation
           break;
       }
-    } else {
+    }
+
+    if (!bucket) {
       // Fallback to manual calculation based on contract status
       if (status === 5) {
-        if (includeCancelled) summary.cancelledBookings++;
+        if (includeCancelled) bucket = 'cancelled';
       } else if (status === 0) {
         // PENDING - ignore expired pending in summary
         if (end && Number.isFinite(Number(end)) && now > Number(end)) {
           return;
         }
-        summary.pendingBookings++;
+        bucket = 'pending';
       } else if (status === 4 || status === 3) {
-        // COLLECTED or COMPLETED - treat as completed
-        summary.completedBookings++;
+        bucket = 'completed';
       } else if (status === 2) {
-        // IN_USE - treat as active if within window, otherwise use timing
         if (start && end) {
           if (now >= start && now <= end) {
-            summary.activeBookings++;
+            bucket = 'active';
           } else if (now < start) {
-            if (includeUpcoming) summary.upcomingBookings++;
+            bucket = 'upcoming';
           } else {
-            summary.completedBookings++;
+            bucket = 'completed';
           }
         } else {
-          summary.activeBookings++;
+          bucket = 'active';
         }
       } else if (status === 1) {
-        // CONFIRMED - use timing logic
         if (start && end) {
           if (now >= start && now <= end) {
-            summary.activeBookings++;
+            bucket = 'active';
           } else if (now < start) {
-            if (includeUpcoming) summary.upcomingBookings++;
+            bucket = 'upcoming';
           } else {
-            summary.completedBookings++;
+            bucket = 'completed';
           }
         } else {
-          // No timing info, assume upcoming
-          if (includeUpcoming) summary.upcomingBookings++;
+          bucket = 'upcoming';
         }
-      } else {
-        // Unknown status - use timing logic as fallback
-        if (start && end) {
-          if (now >= start && now <= end) {
-            summary.activeBookings++;
-          } else if (now < start) {
-            if (includeUpcoming) summary.upcomingBookings++;
-          } else {
-            summary.completedBookings++;
-          }
+      } else if (start && end) {
+        if (now >= start && now <= end) {
+          bucket = 'active';
+        } else if (now < start) {
+          bucket = 'upcoming';
+        } else {
+          bucket = 'completed';
         }
       }
+    }
+
+    // Ensure every included booking lands in one bucket
+    if (!bucket) {
+      bucket = 'completed';
+    }
+
+    if (bucket === 'active') {
+      summary.activeBookings++;
+    } else if (bucket === 'upcoming') {
+      if (includeUpcoming) summary.upcomingBookings++;
+    } else if (bucket === 'pending') {
+      summary.pendingBookings++;
+    } else if (bucket === 'completed') {
+      summary.completedBookings++;
+    } else if (bucket === 'cancelled') {
+      if (includeCancelled) summary.cancelledBookings++;
     }
   });
 
