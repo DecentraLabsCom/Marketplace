@@ -81,6 +81,16 @@ const resolveAuthorizationInfo = (prepareData, backendUrl) => ({
   authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
 });
 
+const resolveAuthorizationStatusBaseUrl = (authorizationUrl, backendUrl) => {
+  if (!authorizationUrl && !backendUrl) return null;
+  try {
+    const parsed = new URL(authorizationUrl || '', backendUrl || undefined);
+    return parsed.origin;
+  } catch {
+    return backendUrl || null;
+  }
+};
+
 const openAuthorizationPopup = (authorizationUrl, popup) => {
   if (!authorizationUrl) return null;
 
@@ -143,8 +153,13 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     throw new Error('Authorization window was blocked');
   }
 
+  const statusBaseUrl = resolveAuthorizationStatusBaseUrl(
+    authorizationUrl,
+    prepareData?.backendUrl || backendUrl
+  );
+
   const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
-    backendUrl: prepareData?.backendUrl || backendUrl,
+    backendUrl: statusBaseUrl || prepareData?.backendUrl || backendUrl,
     authToken: authToken || prepareData?.backendAuthToken,
   });
 

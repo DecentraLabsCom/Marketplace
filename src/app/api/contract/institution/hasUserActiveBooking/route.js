@@ -31,6 +31,7 @@ export async function GET() {
     const hasActiveBooking = await contract.hasInstitutionalUserActiveBooking(
       institutionAddress,
       puc,
+      { from: institutionAddress },
     )
 
     console.log(

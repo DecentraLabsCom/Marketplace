@@ -32,6 +32,7 @@ export async function GET(request) {
     const count = await contract.getInstitutionalUserReservationCount(
       institutionAddress,
       puc,
+      { from: institutionAddress },
     )
 
     const reservationCount = Number(count)
