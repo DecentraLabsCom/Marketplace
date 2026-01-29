@@ -604,6 +604,7 @@ export default function ProviderDashboard() {
       : user?.name;
     const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
     labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
+    const onchainUri = resolveOnchainLabUri(labData.uri);
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
     const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 
