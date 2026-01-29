@@ -65,7 +65,15 @@ export default function BookingCalendarSection({
 
   const unavailableDayClassName = useMemo(() => {
     if (!lab) return undefined
-    return (day) => (isDayFullyUnavailable({ date: day, lab }) ? 'unavailable-day' : '')
+    return (day) => {
+      if (!(day instanceof Date) || isNaN(day.getTime())) return ''
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const dayStart = new Date(day)
+      dayStart.setHours(0, 0, 0, 0)
+      if (dayStart < today) return ''
+      return isDayFullyUnavailable({ date: day, lab }) ? 'unavailable-day' : ''
+    }
   }, [lab])
 
   if (!lab) return null
