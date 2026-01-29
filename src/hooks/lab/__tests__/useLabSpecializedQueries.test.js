@@ -897,6 +897,61 @@ describe("useLabSpecializedQueries", () => {
       expect(result.current.data.labs[0].timeSlots).toEqual([15]);
     });
 
+    test("applies availability attributes from metadata", async () => {
+      mockUseQueries.mockImplementation((config) => {
+        const queries = config.queries || [];
+        const results = queries.map((query, index) => {
+          const queryKey = query.queryKey;
+
+          if (queryKey && (queryKey[0] === "lab" || queryKey[0] === "labs") && queryKey[1] === "isTokenListed") {
+            return { data: { isListed: true }, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+          }
+
+          if (queryKey && (queryKey[0] === "lab" || queryKey[0] === "labs") && queryKey[1] === "getLab") {
+            return { data: { ...mockLabData, labId: mockLabIds[index] || "1" }, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+          }
+
+          if (queryKey && queryKey[0] === "metadata") {
+            const availabilityMetadata = {
+              ...mockMetadata,
+              attributes: [
+                { trait_type: "availableDays", value: ["MONDAY", "WEDNESDAY"] },
+                { trait_type: "availableHours", value: { start: "09:00", end: "17:00" } },
+                { trait_type: "timezone", value: "Europe/Madrid" },
+                { trait_type: "unavailableWindows", value: [{ startUnix: 1000, endUnix: 2000 }] },
+              ],
+            };
+            return { data: availabilityMetadata, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+          }
+
+          return { data: null, isLoading: false, isSuccess: true, isError: false, error: null, refetch: jest.fn() };
+        });
+
+        return config.combine ? config.combine(results) : results;
+      });
+
+      mockUseAllLabs.mockReturnValue({
+        data: [mockLabIds[0]],
+        isLoading: false,
+        isSuccess: true,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabsForReservation(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const lab = result.current.data.labs[0];
+      expect(lab.availableDays).toEqual(["MONDAY", "WEDNESDAY"]);
+      expect(lab.availableHours).toEqual({ start: "09:00", end: "17:00" });
+      expect(lab.timezone).toBe("Europe/Madrid");
+      expect(lab.unavailableWindows).toEqual([{ startUnix: 1000, endUnix: 2000 }]);
+    });
+
     test("handles empty lab list", () => {
       mockUseAllLabs.mockReturnValue({
         data: [],

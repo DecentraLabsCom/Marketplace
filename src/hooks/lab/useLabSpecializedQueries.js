@@ -981,15 +981,11 @@ export const useLabsForReservation = (options = {}) => {
   // Enrich labs with metadata for complete reservation data
   const enrichedLabs = labsWithDetails.map((lab, index) => {
     const metadataData = metadataResults[index]?.data;
-    
-    // Extract images from metadata 
+
+    // Extract images from metadata
     const images = processLabImages(metadataData);
-    
-    // Extract opens and closes dates from metadata attributes
-    const opensAttr = metadataData?.attributes?.find(attr => attr.trait_type === 'opens');
-    const closesAttr = metadataData?.attributes?.find(attr => attr.trait_type === 'closes');
-    
-    return {
+
+    const enrichedLab = {
       id: lab.labId,
       labId: lab.labId,
       // Use metadata name or fallback to Lab ID
@@ -999,26 +995,19 @@ export const useLabsForReservation = (options = {}) => {
       images, // For Carrousel component
       // Essential reservation data
       price: lab.base?.price || '0',
-      // Determine timeSlots from metadata attributes if provided; normalize to numbers
-      // Falls back to default [15, 30, 60] when not specified or invalid
-      timeSlots: (() => {
-        let timeSlotsFromMeta = [15, 30, 60];
-        if (metadataData?.attributes) {
-          const attributeMap = buildAttributeMap(metadataData);
-          if (attributeMap.timeSlots !== undefined && attributeMap.timeSlots !== null) {
-            const raw = attributeMap.timeSlots;
-            const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(',') : [raw]);
-            const normalized = arr.map(Number).filter(n => Number.isFinite(n) && n > 0);
-            if (normalized.length > 0) timeSlotsFromMeta = normalized;
-          }
-        }
-        return timeSlotsFromMeta;
-      })(),
-      opens: opensAttr?.value,
-      closes: closesAttr?.value,
       // Include other base data
       ...lab.base
     };
+
+    // Apply all metadata attributes (timeSlots, availability, timezone, etc.)
+    applyMetadataAttributes(enrichedLab, metadataData);
+
+    // Ensure timeSlots are normalized from metadata (or fallback to defaults)
+    if (!Array.isArray(enrichedLab.timeSlots) || enrichedLab.timeSlots.length === 0) {
+      enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadataData);
+    }
+
+    return enrichedLab;
   });
 
   devLog.log('🎯 useLabsForReservation - Complete result:', {
