@@ -98,8 +98,24 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
 
   const now = Math.floor(Date.now() / 1000);
   
+  const filteredForSummary = bookings.filter((booking) => {
+    const status = parseInt(booking.status);
+    const end = booking.end || booking.endTime;
+    const intentStatus = (booking.intentStatus || '').toLowerCase();
+    if (status === 0 && end && Number.isFinite(Number(end)) && now > Number(end)) {
+      return false;
+    }
+    if (status === 5 || booking.statusCategory === 'cancelled') {
+      return false;
+    }
+    if (intentStatus === 'rejected' || intentStatus === 'failed' || intentStatus === 'denied') {
+      return false;
+    }
+    return true;
+  });
+
   const summary = {
-    totalBookings: bookings.length,
+    totalBookings: filteredForSummary.length,
     activeBookings: 0,
     upcomingBookings: 0,
     completedBookings: 0,
@@ -107,7 +123,7 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
     pendingBookings: 0  // Add pending bookings counter
   };
 
-  bookings.forEach(booking => {
+  filteredForSummary.forEach(booking => {
     const statusCategory = booking.statusCategory;
     const status = parseInt(booking.status); // Ensure status is a number
     const start = booking.start || booking.startTime;
