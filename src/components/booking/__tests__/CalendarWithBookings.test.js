@@ -28,10 +28,13 @@ jest.mock("@/utils/booking/labBookingCalendar", () => ({
 
 jest.mock("react-datepicker", () => {
   return function MockDatePicker(props) {
+    const sampleDay = new Date("2024-06-02");
+    const dayClassName = props.dayClassName ? props.dayClassName(sampleDay) : "";
     return (
       <div data-testid="mock-datepicker">
         <div data-testid="calendar-class">{props.calendarClassName}</div>
         <div data-testid="inline">{props.inline ? "true" : "false"}</div>
+        <div data-testid="day-class">{dayClassName}</div>
         {props.selected && (
           <div data-testid="selected-date">{props.selected.toISOString()}</div>
         )}
@@ -443,6 +446,19 @@ describe("CalendarWithBookings - unit tests", () => {
       // dayClassName is passed as a prop, we verify the component renders correctly
       expect(useBookingFilter).toHaveBeenCalled();
       expect(screen.getByTestId("mock-datepicker")).toBeInTheDocument();
+    });
+
+    test("appends extraDayClassName to base dayClassName", () => {
+      render(
+        <CalendarWithBookings
+          {...defaultProps}
+          extraDayClassName={() => "extra-day-class"}
+        />
+      );
+
+      expect(screen.getByTestId("day-class")).toHaveTextContent(
+        "custom-day-class extra-day-class"
+      );
     });
   });
 });

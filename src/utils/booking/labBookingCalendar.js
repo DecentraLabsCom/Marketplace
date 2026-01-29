@@ -84,6 +84,57 @@ const getZonedTimeInfo = (date, timeZone, fallbackWeekday) => {
   }
 }
 
+const getWeekdayForDate = (date, timeZone) => {
+  const fallbackWeekday = WEEKDAYS[date.getDay()]
+  if (!timeZone) return fallbackWeekday
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'long'
+    }).formatToParts(date)
+    const weekdayPart = parts.find(part => part.type === 'weekday')?.value
+    return weekdayPart ? weekdayPart.toUpperCase() : fallbackWeekday
+  } catch (error) {
+    devLog.warn('getWeekdayForDate: failed to apply timezone', { error, timeZone })
+  }
+
+  return fallbackWeekday
+}
+
+export const isDayFullyUnavailable = ({ date, lab }) => {
+  if (!(date instanceof Date) || isNaN(date.getTime()) || !lab) return false
+
+  const timezone = typeof lab?.timezone === 'string' ? lab.timezone.trim() : undefined
+  const availableDays = Array.isArray(lab?.availableDays)
+    ? lab.availableDays.map(day => day?.toUpperCase?.()).filter(Boolean)
+    : []
+
+  if (availableDays.length > 0) {
+    const weekday = getWeekdayForDate(date, timezone)
+    if (!availableDays.includes(weekday)) return true
+  }
+
+  const unavailableWindows = normalizeUnavailableWindows(lab?.unavailableWindows)
+  if (unavailableWindows.length > 0) {
+    const dayStart = new Date(date)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(date)
+    dayEnd.setHours(23, 59, 59, 999)
+    const dayStartUnix = Math.floor(dayStart.getTime() / 1000)
+    const dayEndUnix = Math.floor(dayEnd.getTime() / 1000)
+
+    const isFullyCovered = unavailableWindows.some(window => {
+      if (!Number.isFinite(window.startUnix) || !Number.isFinite(window.endUnix)) return false
+      return window.startUnix <= dayStartUnix && window.endUnix >= dayEndUnix
+    })
+
+    if (isFullyCovered) return true
+  }
+
+  return false
+}
+
 /**
  * Generates available time slot options for a specific day
  * Filters out past time slots and slots that conflict with existing bookings

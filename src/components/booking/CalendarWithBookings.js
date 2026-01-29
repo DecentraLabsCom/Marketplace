@@ -16,6 +16,7 @@ import { renderDayContents } from '@/utils/booking/labBookingCalendar'
  * @param {boolean} props.inline - Whether to show calendar inline (default: true)
  * @param {string} props.calendarClassName - Additional CSS classes for calendar
  * @param {Function} props.filterDate - Function to filter which dates are selectable (optional)
+ * @param {Function} props.extraDayClassName - Optional day className enhancer (optional)
  * @param {string} props.highlightClassName - CSS class for highlighted days (default: "bg-[#9fc6f5] text-white")
  * @param {string} props.displayMode - Display mode: 'lab-reservation', 'user-dashboard', or 'provider-dashboard'
  */
@@ -28,6 +29,7 @@ export default function CalendarWithBookings({
   inline = true,
   calendarClassName = "custom-datepicker",
   filterDate,
+  extraDayClassName,
   highlightClassName = "bg-[#9fc6f5] text-white",
   displayMode = 'default'
 }) {
@@ -49,6 +51,12 @@ export default function CalendarWithBookings({
       currentDateRender,
       bookingInfo: filteredBookings
     })
+
+  const combinedDayClassName = (day) => {
+    const baseClass = dayClassName(day)
+    const extraClass = extraDayClassName ? extraDayClassName(day) : ''
+    return [baseClass, extraClass].filter(Boolean).join(' ')
+  }
 
   // For user-dashboard and provider-dashboard modes, make calendar read-only (no date selection)
   const isReadOnlyMode = displayMode === 'user-dashboard' || displayMode === 'provider-dashboard';
@@ -76,7 +84,7 @@ export default function CalendarWithBookings({
         maxDate={maxDate}
         inline={inline}
         filterDate={filterDate}
-        dayClassName={dayClassName}
+        dayClassName={combinedDayClassName}
         renderDayContents={dayContents}
       />
     </>
@@ -98,6 +106,7 @@ CalendarWithBookings.propTypes = {
   inline: PropTypes.bool,
   calendarClassName: PropTypes.string,
   filterDate: PropTypes.func,
+  extraDayClassName: PropTypes.func,
   highlightClassName: PropTypes.string,
   displayMode: PropTypes.oneOf(['default', 'lab-reservation', 'user-dashboard', 'provider-dashboard'])
 }

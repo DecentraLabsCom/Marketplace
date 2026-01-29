@@ -30,12 +30,16 @@ jest.mock("@/components/booking/CalendarWithBookings", () => {
     minDate,
     maxDate,
     displayMode,
+    filterDate,
+    extraDayClassName,
   }) {
     return (
       <div data-testid="calendar-component">
         <span data-testid="calendar-date">{selectedDate.toISOString()}</span>
         <span data-testid="calendar-bookings">{bookingInfo?.length || 0}</span>
         <span data-testid="calendar-mode">{displayMode}</span>
+        <span data-testid="calendar-filter">{typeof filterDate}</span>
+        <span data-testid="calendar-extra-day-class">{typeof extraDayClassName}</span>
         <button onClick={() => onDateChange(new Date("2025-12-25"))}>
           Change Date
         </button>
@@ -168,6 +172,13 @@ describe("BookingCalendarSection", () => {
       expect(defaultProps.onDateChange).toHaveBeenCalledWith(
         new Date("2025-12-25")
       );
+    });
+
+    test("passes unavailable day helpers to calendar", () => {
+      render(<BookingCalendarSection {...defaultProps} />);
+
+      expect(screen.getByTestId("calendar-filter")).toHaveTextContent("function");
+      expect(screen.getByTestId("calendar-extra-day-class")).toHaveTextContent("function");
     });
   });
 

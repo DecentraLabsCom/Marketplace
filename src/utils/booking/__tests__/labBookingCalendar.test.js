@@ -10,7 +10,7 @@
  * - Day content rendering
  */
 
-import { generateTimeOptions, renderDayContents } from "../labBookingCalendar";
+import { generateTimeOptions, renderDayContents, isDayFullyUnavailable } from "../labBookingCalendar";
 import * as dateFns from "date-fns";
 import { getBookingStatusText } from "../bookingStatus";
 import { isSameCalendarDay } from "@/utils/dates/parseDateSafe";
@@ -513,5 +513,47 @@ describe("renderDayContents", () => {
         "09:00 - 10:00\nPhysics Lab: 14:00 - 16:00"
       );
     });
+  });
+});
+
+describe("isDayFullyUnavailable", () => {
+  test("returns true when day is outside availableDays", () => {
+    const date = new Date("2025-06-15T12:00:00"); // Sunday
+    const result = isDayFullyUnavailable({
+      date,
+      lab: { availableDays: ["MONDAY", "TUESDAY"] },
+    });
+
+    expect(result).toBe(true);
+  });
+
+  test("returns false when day is included in availableDays", () => {
+    const date = new Date("2025-06-16T12:00:00"); // Monday
+    const result = isDayFullyUnavailable({
+      date,
+      lab: { availableDays: ["MONDAY", "TUESDAY"] },
+    });
+
+    expect(result).toBe(false);
+  });
+
+  test("returns true when unavailable window covers full day", () => {
+    const date = new Date("2025-06-18T12:00:00");
+    const dayStart = new Date("2025-06-18T00:00:00");
+    const dayEnd = new Date("2025-06-18T23:59:59");
+
+    const result = isDayFullyUnavailable({
+      date,
+      lab: {
+        unavailableWindows: [
+          {
+            startUnix: Math.floor(dayStart.getTime() / 1000),
+            endUnix: Math.floor(dayEnd.getTime() / 1000),
+          },
+        ],
+      },
+    });
+
+    expect(result).toBe(true);
   });
 });

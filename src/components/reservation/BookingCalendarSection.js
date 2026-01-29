@@ -7,6 +7,7 @@ import PropTypes from 'prop-types'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import LabTokenInfo from '@/components/reservation/LabTokenInfo'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
+import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 
 /**
  * Calendar section with time slot selection
@@ -57,6 +58,16 @@ export default function BookingCalendarSection({
     return `calendar-${lab?.id}-${forceRefresh}-${date.getTime()}-${bookingSignature}`;
   }, [lab?.id, activeBookings, forceRefresh, date]);
 
+  const filterUnavailableDays = useMemo(() => {
+    if (!lab) return undefined
+    return (day) => !isDayFullyUnavailable({ date: day, lab })
+  }, [lab])
+
+  const unavailableDayClassName = useMemo(() => {
+    if (!lab) return undefined
+    return (day) => (isDayFullyUnavailable({ date: day, lab }) ? 'unavailable-day' : '')
+  }, [lab])
+
   if (!lab) return null
 
   return (
@@ -77,6 +88,8 @@ export default function BookingCalendarSection({
             minDate={minDate}
             maxDate={maxDate}
             displayMode="lab-reservation"
+            filterDate={filterUnavailableDays}
+            extraDayClassName={unavailableDayClassName}
           />
         </div>
       </div>

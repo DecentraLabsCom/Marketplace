@@ -167,6 +167,14 @@ body {
   background-color: #333f63; /* Hover effect */
   color: white;
 }
+.custom-datepicker .react-datepicker__day.unavailable-day {
+  background-color: rgba(148, 163, 184, 0.35);
+  color: #6b7280;
+}
+.custom-datepicker .react-datepicker__day.unavailable-day:hover {
+  background-color: rgba(148, 163, 184, 0.45);
+  color: #6b7280;
+}
 .custom-datepicker .react-datepicker__navigation-icon::before {
   border-color: #715c8c;
 }
