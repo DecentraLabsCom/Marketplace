@@ -28,6 +28,22 @@ const resolveBookingContext = (queryClient, reservationKey) => {
   };
 };
 
+const invalidateInstitutionalReservationQueries = (queryClient, { labId, reservationKey } = {}) => {
+  if (!queryClient) return;
+
+  queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
+  queryClient.invalidateQueries({ queryKey: ['bookings', 'sso', 'reservationKeyOfUser'], exact: false });
+
+  if (labId !== undefined && labId !== null) {
+    queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
+    queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
+  }
+
+  if (reservationKey) {
+    queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+  }
+};
+
 const resolveIntentRequestId = (data) =>
   data?.requestId ||
   data?.intent?.meta?.requestId ||
@@ -572,6 +588,11 @@ export const useReservationRequestSSO = (options = {}) => {
                   });
                 }
 
+                invalidateInstitutionalReservationQueries(queryClient, {
+                  labId: variables.tokenId,
+                  reservationKey: finalKey,
+                });
+
                 devLog.log('✅ Invalidated booking queries after institutional reservation executed:', {
                   finalKey,
                   userAddress: variables.userAddress,
@@ -604,6 +625,11 @@ export const useReservationRequestSSO = (options = {}) => {
                   intentError: reason,
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
+                });
+
+                invalidateInstitutionalReservationQueries(queryClient, {
+                  labId: variables.tokenId,
+                  reservationKey: finalKey,
                 });
               }
             } catch (err) {
@@ -767,6 +793,11 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   intentError: reason,
                   note: reason || 'Rejected by institution',
                   timestamp: new Date().toISOString(),
+                });
+
+                invalidateInstitutionalReservationQueries(queryClient, {
+                  labId: variables.tokenId,
+                  reservationKey: finalKey,
                 });
 
                 try {

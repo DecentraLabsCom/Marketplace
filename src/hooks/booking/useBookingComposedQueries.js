@@ -148,7 +148,10 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
       if (status === 5) {
         if (includeCancelled) summary.cancelledBookings++;
       } else if (status === 0) {
-        // PENDING - always count as pending regardless of timing
+        // PENDING - ignore expired pending in summary
+        if (end && Number.isFinite(Number(end)) && now > Number(end)) {
+          return;
+        }
         summary.pendingBookings++;
       } else if (status === 4 || status === 3) {
         // COLLECTED or COMPLETED - treat as completed
