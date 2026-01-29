@@ -82,6 +82,10 @@ export function BookingEventProvider({ children }) {
             queryClient.invalidateQueries({ 
                 queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
             });
+            queryClient.invalidateQueries({
+                queryKey: ['bookings', 'reservationOfToken', tokenId],
+                exact: false
+            });
         }
 
         const normalizedUser = address || userAddress;
