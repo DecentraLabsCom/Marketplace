@@ -28,15 +28,17 @@ export default function UserDashboard() {
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
   // It forces API mode (Ethers.js backend) because useQueries cannot extract Wagmi hooks as queryFn
   // API endpoints are read-only blockchain queries that work for any wallet address
+  const canFetchBookings = isLoggedIn && (address || isSSO);
+  const effectiveUserAddress = isSSO ? null : address;
   const { 
     data: userBookingsData, 
     isLoading: bookingsLoading, 
     isError: bookingsError,
     error: bookingsErrorDetails 
-  } = useUserBookingsDashboard(address, {
+  } = useUserBookingsDashboard(effectiveUserAddress, {
     includeLabDetails: true, // ✅ Enable lab details since we need lab.name in bookingInfo
     queryOptions: {
-      enabled: !!address && isLoggedIn,
+      enabled: canFetchBookings,
       staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
       // No need to pass isSSO - hook forces API mode internally for architectural reasons
     }
@@ -339,9 +341,9 @@ export default function UserDashboard() {
               {/* Active booking section - uses optimized hook */}
               <div className="xl:w-2/3 w-full">
                 <ActiveBookingSection 
-                  userAddress={user?.userid || address}
+                  userAddress={isSSO ? null : (user?.userid || address)}
                   options={{
-                    enabled: !!address && isLoggedIn,
+                    enabled: canFetchBookings,
                     staleTime: 5 * 60 * 1000, // 5 minutes
                   }}
                 />
@@ -368,9 +370,9 @@ export default function UserDashboard() {
                 {/* Booking summary section - uses optimized hook */}
                 <div className="w-full">
                   <BookingSummarySection 
-                    userAddress={user?.userid || address}
+                    userAddress={isSSO ? null : (user?.userid || address)}
                     options={{
-                      enabled: !!address && isLoggedIn,
+                      enabled: canFetchBookings,
                       staleTime: 10 * 60 * 1000, // 10 minutes - summary is less dynamic
                     }}
                   />
