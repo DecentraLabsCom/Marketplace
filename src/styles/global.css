@@ -198,9 +198,14 @@ body {
 }
 
 /* Custom scrollbar styles for booking lists */
+/* Firefox-only scrollbars (guarded by @supports to avoid compat warnings) */
+@supports (scrollbar-color: auto) {
+  .bookings-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #715c8c rgba(31, 41, 55, 0.2);
+  }
+}
 .bookings-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #715c8c rgba(31, 41, 55, 0.2);
   /* Move scrollbar to left using RTL direction */
   direction: rtl;
 }
@@ -250,9 +255,11 @@ body {
 }
 
 /* Global custom scrollbar styles for all elements */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #715c8c rgba(31, 41, 55, 0.15);
+@supports (scrollbar-color: auto) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #715c8c rgba(31, 41, 55, 0.15);
+  }
 }
 
 /* WebKit scrollbar styles for all elements (Chrome, Safari, Edge) */
