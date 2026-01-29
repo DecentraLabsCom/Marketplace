@@ -53,6 +53,29 @@ const initialState = (lab) => ({
   clickedToEditUri: false,
 });
 
+const extractInternalLabUri = (uri) => {
+  if (!uri) return null;
+  const trimmed = String(uri).trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) {
+    return trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    const param = parsed.searchParams.get('uri');
+    if (param && param.startsWith('Lab-') && param.endsWith('.json')) {
+      return param;
+    }
+    const match = parsed.pathname.match(/Lab-[^/]+-\d+\.json$/);
+    if (match) {
+      return match[0];
+    }
+  } catch {
+    // Ignore invalid URLs.
+  }
+  return null;
+};
+
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_FIELD':
@@ -233,6 +256,10 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
+    const normalizedUri = extractInternalLabUri(lab?.uri);
+    if (normalizedUri) {
+      labToMerge.uri = normalizedUri;
+    }
     
     // Convert price from per-second (cache format) to per-hour (UI input format)
     if (labToMerge.price && decimals) {
@@ -249,10 +276,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     updates.push({ type: 'MERGE_LOCAL_LAB', value: labToMerge });
     
     // Handle URI flags
-    const hasExternalUri = !!(lab?.uri && (lab.uri.startsWith('http://') || lab.uri.startsWith('https://')));
+    const uiUri = labToMerge?.uri || '';
+    const hasExternalUri = !!(uiUri && (uiUri.startsWith('http://') || uiUri.startsWith('https://')));
     updates.push({ type: 'SET_FIELD', field: 'isExternalURI', value: hasExternalUri });
     
-    const hasLocalUri = !!(lab?.uri && !hasExternalUri && jsonFileRegex.test(lab.uri));
+    const hasLocalUri = !!(uiUri && !hasExternalUri && jsonFileRegex.test(uiUri));
     updates.push({ type: 'SET_FIELD', field: 'isLocalURI', value: hasLocalUri });
     
     updates.push({ type: 'SET_FIELD', field: 'clickedToEditUri', value: false });

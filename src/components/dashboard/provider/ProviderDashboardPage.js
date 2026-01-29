@@ -25,6 +25,7 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
+import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
 
 const sanitizeProviderNameForUri = (name) => {
@@ -35,6 +36,25 @@ const sanitizeProviderNameForUri = (name) => {
     .replace(/^-|-$/g, '')
 
   return sanitized || 'Provider'
+}
+
+const resolveOnchainLabUri = (uri) => {
+  if (!uri) return uri
+  const trimmed = String(uri).trim()
+  if (!trimmed) return trimmed
+  if (/^https?:\/\//i.test(trimmed) || /^ipfs:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  if (trimmed.startsWith('Lab-')) {
+    const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
+    if (blobBase && typeof blobBase === 'string' && blobBase.trim().length > 0) {
+      const normalizedBase = blobBase.replace(/\/+$/, '')
+      return `${normalizedBase}/data/${trimmed}`
+    }
+    const baseUrl = getBaseUrl().replace(/\/+$/, '')
+    return `${baseUrl}/api/metadata?uri=${encodeURIComponent(trimmed)}`
+  }
+  return trimmed
 }
 
 /**
@@ -340,6 +360,7 @@ export default function ProviderDashboard() {
       : user?.name;
     const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
     labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
+    const onchainUri = resolveOnchainLabUri(labData.uri);
 
     // Store the original human-readable price before blockchain conversion
     const originalPrice = labData.price;
@@ -356,6 +377,7 @@ export default function ProviderDashboard() {
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
         ...labData,
+        uri: onchainUri,
         providerId: providerOwnerAddress || address, // Add provider info
         isSSO,
         userEmail: user.email,
@@ -594,14 +616,14 @@ export default function ProviderDashboard() {
     // ONLY compare on-chain fields that are stored in the smart contract
     // According to smart contract ABI: uri, price, accessURI, accessKey (auth removed - now per provider)
     const hasChangedOnChainData =
-      normalize(originalLab.uri) !== normalize(labData.uri) ||
+      normalize(originalLab.uri) !== normalize(onchainUri) ||
       normalize(originalLab.price) !== normalize(labData.price) ||
       normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
       normalize(originalLab.accessKey) !== normalize(labData.accessKey);
 
     // Debug logging to help identify what's causing transaction triggers
     devLog.log('🔍 On-chain comparison debug:', {
-      uri: { original: normalize(originalLab.uri), new: normalize(labData.uri), changed: normalize(originalLab.uri) !== normalize(labData.uri) },
+      uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
       accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
       accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
@@ -625,7 +647,7 @@ export default function ProviderDashboard() {
           await updateLabMutation.mutateAsync({
             labId: labData.id,
             labData: {
-              uri: labData.uri,
+              uri: onchainUri,
               price: labData.price, // Already in token units
               accessURI: labData.accessURI,
               accessKey: labData.accessKey
