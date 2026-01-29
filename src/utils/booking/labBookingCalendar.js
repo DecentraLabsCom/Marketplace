@@ -195,7 +195,11 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
     const isPast = isToday(date) && slotStart <= now
     const outsideDayAvailability = availableDays.length > 0 && !availableDays.includes(slotStartInfo.weekday)
     const outsideHours = hasDailyHours
-      ? (slotStartInfo.minutesOfDay < parsedHoursStart || (slotStartInfo.minutesOfDay + durationMinutes) > parsedHoursEnd)
+      ? (
+          slotStartInfo.minutesOfDay < parsedHoursStart ||
+          slotStartInfo.minutesOfDay >= parsedHoursEnd ||
+          (slotStartInfo.minutesOfDay + durationMinutes) > parsedHoursEnd
+        )
       : false
 
     const conflictsWithBooking = dayBookings.some((booking) => {

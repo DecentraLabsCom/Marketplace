@@ -184,6 +184,27 @@ describe("generateTimeOptions", () => {
       expect(sixPM.disabled).toBe(true);
     });
 
+    test("does not allow starting exactly at availableHours end", () => {
+      dateFns.isToday.mockReturnValue(false);
+      const date = new Date("2025-06-16T00:00:00"); // Monday
+
+      const result = generateTimeOptions({
+        date,
+        interval: 30,
+        bookingInfo: [],
+        lab: {
+          availableDays: ["MONDAY"],
+          availableHours: { start: "09:00", end: "17:00" },
+        },
+      });
+
+      const fourThirty = result.find((slot) => slot.value === "16:30");
+      const fivePM = result.find((slot) => slot.value === "17:00");
+
+      expect(fourThirty.disabled).toBe(false);
+      expect(fivePM.disabled).toBe(true);
+    });
+
     test("disables slots overlapping maintenance windows", () => {
       dateFns.isToday.mockReturnValue(false);
       const date = new Date("2025-06-16T00:00:00"); // Monday
