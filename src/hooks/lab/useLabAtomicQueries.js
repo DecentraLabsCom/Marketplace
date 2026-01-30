@@ -97,8 +97,14 @@ export const useAllLabsWallet = (options = {}) => {
       ...options,
     });
 
-  // Normalize tuple [ids, total] into ids array for backward compatibility
-  const rawIds = Array.isArray(result.data?.[0]) ? result.data[0] : result.data;
+  // Normalize tuple [ids, total] or [total, ids] into ids array for backward compatibility
+  const rawIds = Array.isArray(result.data?.[0])
+    ? result.data[0]
+    : Array.isArray(result.data?.[1])
+      ? result.data[1]
+      : Array.isArray(result.data?.ids)
+        ? result.data.ids
+        : result.data;
   const normalizedIds = rawIds ? normalizeLabIds(rawIds) : rawIds;
 
   return {

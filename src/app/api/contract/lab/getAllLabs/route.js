@@ -17,11 +17,19 @@ export async function GET() {
     
     const contract = await getContractInstance();
     
-    // New contract API: paginated labs (ids, total)
+    // New contract API: paginated labs (ids, total) or (total, ids)
     let ids;
     try {
-      const [paginatedIds] = await contract.getLabsPaginated(0, 100);
-      ids = paginatedIds;
+      const result = await contract.getLabsPaginated(0, 100);
+      if (Array.isArray(result?.[0])) {
+        ids = result[0];
+      } else if (Array.isArray(result?.[1])) {
+        ids = result[1];
+      } else if (Array.isArray(result?.ids)) {
+        ids = result.ids;
+      } else {
+        ids = result;
+      }
     } catch (error) {
       if (error.reason === 'FunctionNotFound(bytes4)' || error.message?.includes('FunctionNotFound') || error.code === 'CALL_EXCEPTION') {
         console.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');
