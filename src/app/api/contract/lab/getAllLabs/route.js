@@ -21,7 +21,7 @@ export async function GET() {
     let ids;
     try {
       const result = await contract.getLabsPaginated(0, 100);
-      if (process.env.DEBUG_CONTRACTS === 'true') {
+      if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
         console.log('🧾 getLabsPaginated raw shape:', {
           isArray: Array.isArray(result),
           keys: result && typeof result === 'object' ? Object.keys(result).slice(0, 6) : null,

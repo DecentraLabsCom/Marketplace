@@ -51,6 +51,22 @@ export async function GET(request) {
 
     const reservationKeyStr = reservationKey?.toString() || '0x0000000000000000000000000000000000000000000000000000000000000000'
 
+    if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true' && reservationKeyStr !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      try {
+        const reservation = await contract.getReservation(reservationKeyStr)
+        console.log('🧾 getUserReservationByIndex debug:', {
+          index,
+          key: reservationKeyStr,
+          labId: reservation?.labId?.toString?.(),
+          status: reservation?.status?.toString?.(),
+          start: reservation?.start?.toString?.(),
+          end: reservation?.end?.toString?.(),
+        })
+      } catch (debugError) {
+        console.warn('⚠️ getUserReservationByIndex debug failed:', debugError?.message || debugError)
+      }
+    }
+
     console.log(
       `🔍 Getting reservation at index ${index} for PUC: ${puc.slice(0, 8)}... at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
     )

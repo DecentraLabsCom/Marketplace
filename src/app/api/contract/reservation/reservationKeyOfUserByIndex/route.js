@@ -61,6 +61,22 @@ export async function GET(request) {
     // ATOMIC: Single contract call to reservationKeyOfUserByIndex
     const reservationKey = await contract.reservationKeyOfUserByIndex(userAddress, indexNum);
 
+    if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
+      try {
+        const reservation = await contract.getReservation(reservationKey);
+        console.log('🧾 reservationKeyOfUserByIndex debug:', {
+          index: indexNum,
+          key: reservationKey.toString(),
+          labId: reservation?.labId?.toString?.(),
+          status: reservation?.status?.toString?.(),
+          start: reservation?.start?.toString?.(),
+          end: reservation?.end?.toString?.(),
+        });
+      } catch (debugError) {
+        console.warn('⚠️ reservationKeyOfUserByIndex debug failed:', debugError?.message || debugError);
+      }
+    }
+
     console.log(`🔑 Retrieved reservation key: ${reservationKey.toString().slice(0, 10)}...${reservationKey.toString().slice(-8)}`);
     
     return Response.json({ 
