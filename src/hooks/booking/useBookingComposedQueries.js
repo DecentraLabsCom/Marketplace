@@ -638,12 +638,16 @@ export const useUserBookingsDashboard = (userAddress, {
     return booking;
   });
 
+  const filteredBookings = includeLabDetails && labIdSet.size > 0
+    ? enrichedBookings.filter(booking => labIdSet.has(String(booking.labId)))
+    : enrichedBookings;
+
   // Calculate aggregates using utility function
-  const aggregates = calculateBookingSummary(enrichedBookings);
+  const aggregates = calculateBookingSummary(filteredBookings);
 
   // Calculate recent activity if requested (optional feature)
   const recentActivity = useMemo(() => {
-    if (!includeRecentActivity || !enrichedBookings.length) {
+    if (!includeRecentActivity || !filteredBookings.length) {
       return [];
     }
 
@@ -651,7 +655,7 @@ export const useUserBookingsDashboard = (userAddress, {
     const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
     const activities = [];
 
-    enrichedBookings.forEach(booking => {
+    filteredBookings.forEach(booking => {
       const start = booking.start || booking.startTime;
       const end = booking.end || booking.endTime;
       const status = parseInt(booking.status) || 0;
@@ -688,7 +692,7 @@ export const useUserBookingsDashboard = (userAddress, {
     });
 
     return activities.slice(0, 5); // Keep only top 5
-  }, [includeRecentActivity, enrichedBookings]);
+  }, [includeRecentActivity, filteredBookings]);
 
   // Create summary object with analytics and optional recent activity
   const summary = useMemo(() => {
@@ -712,14 +716,14 @@ export const useUserBookingsDashboard = (userAddress, {
     // Data
     data: {
       reservationKeys,
-      bookings: enrichedBookings,
+      bookings: filteredBookings,
       // Include individual analytics for backward compatibility
       ...aggregates,
       // Include summary object with analytics and optional recent activity
       summary,
       // Include metadata for complete compatibility
       total: totalReservationCount,
-      fetched: enrichedBookings.length,
+      fetched: filteredBookings.length,
       userAddress,
     },
     
