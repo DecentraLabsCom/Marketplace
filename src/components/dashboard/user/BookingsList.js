@@ -68,7 +68,8 @@ export default function BookingsList({
       const endDateTime = new Date(parseInt(booking.end) * 1000);
       
       if (isUpcoming) {
-        const isUpcomingBooking = endDateTime.getTime() > currentTime.getTime();
+        const startDateTime = new Date(parseInt(booking.start) * 1000);
+        const isUpcomingBooking = startDateTime.getTime() > currentTime.getTime();
         return isUpcomingBooking;
       } else {
         // For past bookings, only include confirmed ones (not PENDING)
