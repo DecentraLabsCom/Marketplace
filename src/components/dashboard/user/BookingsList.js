@@ -156,7 +156,7 @@ export default function BookingsList({
         </h2>
       </div>
       
-      <ul className={`w-full flex-1 ${enhancedBookings.length > 5 ? 'max-h-96 overflow-y-auto bookings-scroll' : ''}`}>
+      <ul className={`w-full flex-1 ${enhancedBookings.length > 5 ? 'h-96 overflow-y-auto bookings-scroll' : ''}`}>
           {isLoading ? (
             <DashboardSectionSkeleton title={false} />
           ) : (
