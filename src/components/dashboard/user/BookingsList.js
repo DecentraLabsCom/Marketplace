@@ -2,7 +2,7 @@
  * Bookings list component for user dashboard
  * Displays upcoming and past bookings in separate sections
  */
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import LabBookingItem from '@/components/dashboard/user/LabBookingItem';
 import { isCancelledBooking, isPendingBooking } from '@/utils/booking/bookingStatus';
@@ -44,6 +44,8 @@ export default function BookingsList({
   const isUpcoming = type === 'upcoming';
   const title = isUpcoming ? 'Upcoming Bookings' : 'Past bookings';
   const emptyMessage = isUpcoming ? 'No upcoming bookings found.' : 'No past bookings found.';
+  const listRef = useRef(null);
+  const [maxScrollHeight, setMaxScrollHeight] = useState(null);
 
   /**
    * Filters bookings based on type (upcoming/past) and time
@@ -147,6 +149,36 @@ export default function BookingsList({
       const multiplier = isUpcoming ? 1 : -1;
       return multiplier * (a.startDateTime.getTime() - b.startDateTime.getTime());
     });
+  const shouldScroll = enhancedBookings.length > 5;
+  const displayedBookings = enhancedBookings.slice(0, 10);
+
+  useEffect(() => {
+    if (!shouldScroll) {
+      setMaxScrollHeight(null);
+      return;
+    }
+    if (typeof window === 'undefined') return;
+
+    const measure = () => {
+      if (!listRef.current) return;
+      const items = Array.from(listRef.current.querySelectorAll('li')).slice(0, 5);
+      if (!items.length) return;
+
+      let height = 0;
+      items.forEach((item) => {
+        const styles = window.getComputedStyle(item);
+        const marginTop = parseFloat(styles.marginTop) || 0;
+        const marginBottom = parseFloat(styles.marginBottom) || 0;
+        height += item.getBoundingClientRect().height + marginTop + marginBottom;
+      });
+
+      setMaxScrollHeight(Math.ceil(height));
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [shouldScroll, displayedBookings.length]);
 
   return (
     <div className="min-[1280px]:w-1/2 flex flex-col h-full min-h-[350px]">
@@ -156,12 +188,16 @@ export default function BookingsList({
         </h2>
       </div>
       
-      <ul className={`w-full flex-1 ${enhancedBookings.length > 5 ? 'h-96 overflow-y-auto bookings-scroll' : ''}`}>
+      <ul
+        ref={listRef}
+        className={`w-full flex-1 ${shouldScroll ? 'overflow-y-auto bookings-scroll' : ''}`}
+        style={shouldScroll && maxScrollHeight ? { maxHeight: `${maxScrollHeight}px` } : undefined}
+      >
           {isLoading ? (
             <DashboardSectionSkeleton title={false} />
           ) : (
-          currentTime && enhancedBookings.length > 0 ? (
-            enhancedBookings.map((booking) => {
+          currentTime && displayedBookings.length > 0 ? (
+            displayedBookings.map((booking) => {
               const { startTime, endTime } = formatBookingTimes(booking);
               const bookingKey = `${String(booking.lab.id)}-${booking.reservationKey || booking.id}-${booking.start}`;
               
