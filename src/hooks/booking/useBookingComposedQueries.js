@@ -638,6 +638,12 @@ export const useUserBookingsDashboard = (userAddress, {
     return booking;
   });
 
+  // Debug lab ids flowing into dashboard (first few only)
+  devLog.log('🧪 [useUserBookingsDashboard] booking labIds sample:', {
+    count: bookings.length,
+    sample: bookings.slice(0, 5).map((b) => b.labId)
+  });
+
   // Calculate aggregates using utility function
   const aggregates = calculateBookingSummary(enrichedBookings);
 
