@@ -48,7 +48,7 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
   // Loading state
   if (summaryLoading) {
     return (
-      <div className="text-white p-6 mb-1 h-full">
+      <div className="text-white p-6 h-full">
         <div className="flex-center">
           <div className="spinner-md border-white"></div>
           <span className="ml-2 text-sm">Loading summary...</span>
@@ -60,7 +60,7 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
   // Error state
   if (summaryError) {
     return (
-      <div className="text-white p-6 mb-1 h-full">
+      <div className="text-white p-6 h-full">
         <div className="text-center text-red-300 text-sm">
           Failed to load booking summary
         </div>
@@ -69,7 +69,7 @@ export default function BookingSummarySection({ userAddress, options = {} }) {
   }
 
   return (
-    <div className="text-white mb-1 h-full">
+    <div className="text-white h-full">
       <h3 className="text-base font-semibold mb-3 text-center">Summary</h3>
       
       <div className="2xl:p-2 p-1 2xl:block flex gap-4 items-center">
