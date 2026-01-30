@@ -38,16 +38,6 @@ export async function GET() {
         : Array.isArray(result?.ids) || arrayLike(result?.ids) ? result.ids
         : result;
 
-      // If we accidentally picked the total as ids (e.g. [total] only), avoid poisoning IDs.
-      if (
-        arrayLike(idsCandidate) &&
-        idsCandidate.length === 1 &&
-        totalCandidate !== undefined &&
-        Number(idsCandidate[0]) === Number(totalCandidate)
-      ) {
-        idsCandidate = Array.isArray(result?.[1]) || arrayLike(result?.[1]) ? result[1] : [];
-      }
-
       ids = idsCandidate;
     } catch (error) {
       devLog.warn('⚠️ getLabsPaginated failed:', {

@@ -106,14 +106,6 @@ export const useAllLabsWallet = (options = {}) => {
     : Array.isArray(result.data?.ids) || arrayLike(result.data?.ids) ? result.data.ids
     : result.data;
 
-  if (
-    arrayLike(rawIds) &&
-    rawIds.length === 1 &&
-    totalCandidate !== undefined &&
-    Number(rawIds[0]) === Number(totalCandidate)
-  ) {
-    rawIds = Array.isArray(result.data?.[1]) || arrayLike(result.data?.[1]) ? result.data[1] : [];
-  }
   const normalizedIds = rawIds ? normalizeLabIds(rawIds) : rawIds;
 
   return {
