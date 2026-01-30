@@ -21,6 +21,14 @@ export async function GET() {
     let ids;
     try {
       const result = await contract.getLabsPaginated(0, 100);
+      console.log('🧾 getLabsPaginated raw shape:', {
+        isArray: Array.isArray(result),
+        keys: result && typeof result === 'object' ? Object.keys(result).slice(0, 6) : null,
+        first: Array.isArray(result) ? result[0]?.toString?.() : result?.[0]?.toString?.(),
+        secondIsArray: Array.isArray(result?.[1]) || (result?.[1] && typeof result[1].length === 'number'),
+        idsLen: Array.isArray(result?.ids) ? result.ids.length : undefined,
+        total: typeof result?.total === 'bigint' ? result.total.toString() : result?.total
+      });
       const arrayLike = (value) => value && typeof value.length === 'number';
       const totalCandidate = typeof result?.[0] === 'bigint' ? result[0] : result?.total;
       let idsCandidate =

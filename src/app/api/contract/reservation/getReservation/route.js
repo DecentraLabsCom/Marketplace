@@ -96,7 +96,7 @@ export async function GET(request) {
       }
     }
 
-    console.log(`✅ Successfully fetched reservation: ${reservationState}`);
+    console.log(`✅ Successfully fetched reservation: ${reservationState} (labId=${reservationData.labId?.toString?.() || 'n/a'})`);
 
     return Response.json({ 
       reservation: {
