@@ -353,7 +353,7 @@ export default function UserDashboard() {
               <div className="xl:w-1/3 w-full flex flex-col gap-4">
                 {/* Calendar section */}
                 <div className="w-full">
-                  <div className="shadow text-white mb-1 justify-center">
+                  <div className="text-white mb-1 justify-center">
                     <h3 className="text-base font-semibold mb-3 text-center">Calendar</h3>
                     <div className="flex flex-row justify-center">
                       <CalendarWithBookings
