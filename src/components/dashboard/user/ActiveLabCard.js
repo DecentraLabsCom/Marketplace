@@ -64,14 +64,14 @@ export default function ActiveLabCard({
   return (
     <div className='flex min-[1280px]:flex-row flex-wrap'>
       <div className='flex flex-col items-center'>
-        <div className={`min-[1280px]:w-[320px] w-[305px] group 
+        <div className={`min-[1280px]:w-[360px] w-[330px] group relative overflow-hidden 
           justify-between items-center shadow-md bg-gray-200 
           transition-transform duration-300 
-          hover:scale-105 mr-3 mb-4 p-2 h-[320px] rounded-lg flex 
+          hover:scale-105 mr-3 mb-4 p-2 h-[360px] rounded-lg flex 
           flex-col ${borderClass}`}>
           
-          <div className='rounded-lg h-[150px] w-full mb-4'>
-            <Carrousel lab={lab} maxHeight={210} />
+          <div className='rounded-lg h-[180px] w-full mb-4'>
+            <Carrousel lab={lab} maxHeight={240} />
           </div>
           
           <span className="text-gray-700 block mt-14">

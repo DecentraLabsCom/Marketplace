@@ -385,7 +385,7 @@ export default function UserDashboard() {
               <BookingsList
                 bookings={userBookings}
                 currentTime={now}
-                isLoading={bookingsLoading}
+                isLoading={bookingsLoading && userBookings.length === 0}
                 type="upcoming"
                 onCancel={handleCancellation}
                 onClearError={handleClearCancellationError}
@@ -404,7 +404,7 @@ export default function UserDashboard() {
               <BookingsList
                 bookings={userBookings}
                 currentTime={now}
-                isLoading={bookingsLoading}
+                isLoading={bookingsLoading && userBookings.length === 0}
                 type="past"
                 onRefund={(labId, booking) => openModal('refund', labId, booking)}
                 onConfirmRefund={handleRefund}
