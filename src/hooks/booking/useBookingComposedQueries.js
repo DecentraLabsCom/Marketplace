@@ -26,7 +26,7 @@ import {
   useReservation,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
+import { useAllLabs, useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
 import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
@@ -464,9 +464,15 @@ export const useUserBookingsDashboard = (userAddress, {
   });
 
   // For lab details fetching we need labIds
-  const bookingsWithLabIds = bookings.filter(booking => 
-    booking.labId !== undefined && booking.labId !== null
-  );
+  const allLabsResult = useAllLabs({ enabled: includeLabDetails && (queryOptions.enabled ?? true) });
+  const allLabIds = allLabsResult.data || [];
+  const labIdSet = useMemo(() => new Set(allLabIds.map(id => String(id))), [allLabIds]);
+
+  const bookingsWithLabIds = bookings.filter(booking => {
+    if (booking.labId === undefined || booking.labId === null) return false;
+    if (labIdSet.size === 0) return true;
+    return labIdSet.has(String(booking.labId));
+  });
 
   // Step 5: Get lab details for each booking if requested
   const labDetailsResults = useQueries({
