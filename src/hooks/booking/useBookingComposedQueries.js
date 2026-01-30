@@ -354,6 +354,11 @@ export const useUserBookingsDashboard = (userAddress, {
     .filter(result => result.isSuccess && result.data)
     .map(result => result.data.reservationKey || result.data);
 
+  devLog.log('🔑 [useUserBookingsDashboard] reservationKeys sample:', {
+    total: reservationKeys.length,
+    sample: reservationKeys.slice(0, 10),
+  });
+
   // Step 3: Get booking details for each reservation key
   // Note: useReservationSSO.queryFn works for both SSO and Wallet (read-only endpoint)
   const bookingDetailsResults = useQueries({
