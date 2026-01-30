@@ -21,15 +21,25 @@ export async function GET() {
     let ids;
     try {
       const result = await contract.getLabsPaginated(0, 100);
-      if (Array.isArray(result?.[0])) {
-        ids = result[0];
-      } else if (Array.isArray(result?.[1])) {
-        ids = result[1];
-      } else if (Array.isArray(result?.ids)) {
-        ids = result.ids;
-      } else {
-        ids = result;
+      const arrayLike = (value) => value && typeof value.length === 'number';
+      const totalCandidate = typeof result?.[0] === 'bigint' ? result[0] : result?.total;
+      let idsCandidate =
+        Array.isArray(result?.[0]) || arrayLike(result?.[0]) ? result[0]
+        : Array.isArray(result?.[1]) || arrayLike(result?.[1]) ? result[1]
+        : Array.isArray(result?.ids) || arrayLike(result?.ids) ? result.ids
+        : result;
+
+      // If we accidentally picked the total as ids (e.g. [total] only), avoid poisoning IDs.
+      if (
+        arrayLike(idsCandidate) &&
+        idsCandidate.length === 1 &&
+        totalCandidate !== undefined &&
+        Number(idsCandidate[0]) === Number(totalCandidate)
+      ) {
+        idsCandidate = Array.isArray(result?.[1]) || arrayLike(result?.[1]) ? result[1] : [];
       }
+
+      ids = idsCandidate;
     } catch (error) {
       if (error.reason === 'FunctionNotFound(bytes4)' || error.message?.includes('FunctionNotFound') || error.code === 'CALL_EXCEPTION') {
         console.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');

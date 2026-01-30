@@ -98,13 +98,22 @@ export const useAllLabsWallet = (options = {}) => {
     });
 
   // Normalize tuple [ids, total] or [total, ids] into ids array for backward compatibility
-  const rawIds = Array.isArray(result.data?.[0])
-    ? result.data[0]
-    : Array.isArray(result.data?.[1])
-      ? result.data[1]
-      : Array.isArray(result.data?.ids)
-        ? result.data.ids
-        : result.data;
+  const arrayLike = (value) => value && typeof value.length === 'number';
+  const totalCandidate = typeof result.data?.[0] === 'bigint' ? result.data[0] : result.data?.total;
+  let rawIds =
+    Array.isArray(result.data?.[0]) || arrayLike(result.data?.[0]) ? result.data[0]
+    : Array.isArray(result.data?.[1]) || arrayLike(result.data?.[1]) ? result.data[1]
+    : Array.isArray(result.data?.ids) || arrayLike(result.data?.ids) ? result.data.ids
+    : result.data;
+
+  if (
+    arrayLike(rawIds) &&
+    rawIds.length === 1 &&
+    totalCandidate !== undefined &&
+    Number(rawIds[0]) === Number(totalCandidate)
+  ) {
+    rawIds = Array.isArray(result.data?.[1]) || arrayLike(result.data?.[1]) ? result.data[1] : [];
+  }
   const normalizedIds = rawIds ? normalizeLabIds(rawIds) : rawIds;
 
   return {
