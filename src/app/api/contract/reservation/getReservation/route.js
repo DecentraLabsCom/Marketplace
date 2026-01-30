@@ -8,6 +8,7 @@
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves a specific reservation by its key
@@ -96,7 +97,7 @@ export async function GET(request) {
       }
     }
 
-    console.log(`✅ Successfully fetched reservation: ${reservationState} (labId=${reservationData.labId?.toString?.() || 'n/a'})`);
+    devLog.log(`✅ Successfully fetched reservation: ${reservationState} (labId=${reservationData.labId?.toString?.() || 'n/a'})`);
 
     return Response.json({ 
       reservation: {

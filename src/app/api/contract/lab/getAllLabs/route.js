@@ -6,6 +6,7 @@
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves basic lab list from contract
@@ -21,16 +22,14 @@ export async function GET() {
     let ids;
     try {
       const result = await contract.getLabsPaginated(0, 100);
-      if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
-        console.log('🧾 getLabsPaginated raw shape:', {
-          isArray: Array.isArray(result),
-          keys: result && typeof result === 'object' ? Object.keys(result).slice(0, 6) : null,
-          first: Array.isArray(result) ? result[0]?.toString?.() : result?.[0]?.toString?.(),
-          secondIsArray: Array.isArray(result?.[1]) || (result?.[1] && typeof result[1].length === 'number'),
-          idsLen: Array.isArray(result?.ids) ? result.ids.length : undefined,
-          total: typeof result?.total === 'bigint' ? result.total.toString() : result?.total
-        });
-      }
+      devLog.log('🧾 getLabsPaginated raw shape:', {
+        isArray: Array.isArray(result),
+        keys: result && typeof result === 'object' ? Object.keys(result).slice(0, 6) : null,
+        first: Array.isArray(result) ? result[0]?.toString?.() : result?.[0]?.toString?.(),
+        secondIsArray: Array.isArray(result?.[1]) || (result?.[1] && typeof result[1].length === 'number'),
+        idsLen: Array.isArray(result?.ids) ? result.ids.length : undefined,
+        total: typeof result?.total === 'bigint' ? result.total.toString() : result?.total
+      });
       const arrayLike = (value) => value && typeof value.length === 'number';
       const totalCandidate = typeof result?.[0] === 'bigint' ? result[0] : result?.total;
       let idsCandidate =
@@ -51,6 +50,11 @@ export async function GET() {
 
       ids = idsCandidate;
     } catch (error) {
+      devLog.warn('⚠️ getLabsPaginated failed:', {
+        message: error?.message,
+        code: error?.code,
+        reason: error?.reason,
+      });
       if (error.reason === 'FunctionNotFound(bytes4)' || error.message?.includes('FunctionNotFound') || error.code === 'CALL_EXCEPTION') {
         console.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');
         return createSerializedJsonResponse([], { status: 200 });

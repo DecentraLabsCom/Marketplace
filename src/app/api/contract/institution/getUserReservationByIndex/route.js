@@ -13,6 +13,7 @@ import {
   getSessionPuc,
 } from '../../utils/institutionSession'
 import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Gets a reservation key at a specific index for an institutional user
@@ -51,10 +52,10 @@ export async function GET(request) {
 
     const reservationKeyStr = reservationKey?.toString() || '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true' && reservationKeyStr !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    if (reservationKeyStr !== '0x0000000000000000000000000000000000000000000000000000000000000000') {
       try {
         const reservation = await contract.getReservation(reservationKeyStr)
-        console.log('🧾 getUserReservationByIndex debug:', {
+        devLog.log('🧾 getUserReservationByIndex debug:', {
           index,
           key: reservationKeyStr,
           labId: reservation?.labId?.toString?.(),
@@ -63,7 +64,7 @@ export async function GET(request) {
           end: reservation?.end?.toString?.(),
         })
       } catch (debugError) {
-        console.warn('⚠️ getUserReservationByIndex debug failed:', debugError?.message || debugError)
+        devLog.warn('⚠️ getUserReservationByIndex debug failed:', debugError?.message || debugError)
       }
     }
 

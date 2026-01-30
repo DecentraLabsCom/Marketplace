@@ -13,6 +13,7 @@ import {
   getSessionPuc,
 } from '../../utils/institutionSession'
 import { handleGuardError, requireAuth } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Gets the total count of reservations for an institutional user
@@ -44,6 +45,12 @@ export async function GET(request) {
     console.log(
       `✅ Total reservations: ${reservationCount}`,
     )
+
+    devLog.log('🧾 getUserReservationCount debug:', {
+      institutionAddress,
+      puc: puc ? `${puc.slice(0, 8)}...` : null,
+      count: reservationCount,
+    })
 
     return Response.json(
       {

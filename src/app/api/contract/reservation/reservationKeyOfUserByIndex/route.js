@@ -8,6 +8,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { isAddress } from 'viem'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Get reservation key for a user at specific index
@@ -61,20 +62,18 @@ export async function GET(request) {
     // ATOMIC: Single contract call to reservationKeyOfUserByIndex
     const reservationKey = await contract.reservationKeyOfUserByIndex(userAddress, indexNum);
 
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE === 'true') {
-      try {
-        const reservation = await contract.getReservation(reservationKey);
-        console.log('🧾 reservationKeyOfUserByIndex debug:', {
-          index: indexNum,
-          key: reservationKey.toString(),
-          labId: reservation?.labId?.toString?.(),
-          status: reservation?.status?.toString?.(),
-          start: reservation?.start?.toString?.(),
-          end: reservation?.end?.toString?.(),
-        });
-      } catch (debugError) {
-        console.warn('⚠️ reservationKeyOfUserByIndex debug failed:', debugError?.message || debugError);
-      }
+    try {
+      const reservation = await contract.getReservation(reservationKey);
+      devLog.log('🧾 reservationKeyOfUserByIndex debug:', {
+        index: indexNum,
+        key: reservationKey.toString(),
+        labId: reservation?.labId?.toString?.(),
+        status: reservation?.status?.toString?.(),
+        start: reservation?.start?.toString?.(),
+        end: reservation?.end?.toString?.(),
+      });
+    } catch (debugError) {
+      devLog.warn('⚠️ reservationKeyOfUserByIndex debug failed:', debugError?.message || debugError);
     }
 
     console.log(`🔑 Retrieved reservation key: ${reservationKey.toString().slice(0, 10)}...${reservationKey.toString().slice(-8)}`);
