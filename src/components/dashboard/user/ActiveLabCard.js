@@ -64,7 +64,7 @@ export default function ActiveLabCard({
   return (
     <div className='flex min-[1280px]:flex-row flex-wrap'>
       <div className='flex flex-col items-center'>
-        <div className={`min-[1280px]:w-[360px] w-[330px] group relative overflow-hidden 
+        <div className={`min-[1280px]:w-[360px] w-[330px] group 
           justify-between items-center shadow-md bg-gray-200 
           transition-transform duration-300 
           hover:scale-105 mr-3 mb-4 p-2 h-[360px] rounded-lg flex 
