@@ -159,15 +159,13 @@ export default function LabReservation({ id }) {
         result?.intent?.payload?.reservation_key ||
         result?.intent?.reservationKey ||
         result?.requestId ||
-        null;
-      if (reservationKey) {
-        setPendingData({
-          optimisticId: reservationKey,
-          labId,
-          start: String(start),
-          end: String(start + timeslot)
-        });
-      }
+        `pending-${Date.now()}`;
+      setPendingData({
+        optimisticId: reservationKey,
+        labId,
+        start: String(start),
+        end: String(start + timeslot)
+      });
       await handleBookingSuccess()
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ')

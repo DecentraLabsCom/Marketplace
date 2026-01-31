@@ -226,18 +226,27 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       const tokenId = detail?.tokenId;
       const notified = detail?.notified;
 
-      if (!pendingData) return;
+      const normalizeHex = (value) => {
+        if (!value) return null;
+        const raw = String(value).trim().toLowerCase();
+        return raw.startsWith('0x') ? raw.slice(2) : raw;
+      };
 
-      const pendingLabId = pendingData.labId?.toString?.() ?? pendingData.labId;
+      const normalizedReservationKey = normalizeHex(reservationKey);
+      const normalizedPendingKey = normalizeHex(pendingData?.optimisticId);
       const tokenIdStr = tokenId?.toString?.() ?? tokenId;
-      const matchesReservationKey =
-        reservationKey && pendingData.optimisticId &&
-        String(pendingData.optimisticId) === String(reservationKey);
-      const matchesLabId =
-        tokenIdStr && pendingLabId &&
-        String(tokenIdStr) === String(pendingLabId);
+      const pendingLabId = pendingData?.labId?.toString?.() ?? pendingData?.labId;
+      const selectedLabId = selectedLab?.id?.toString?.() ?? selectedLab?.id;
 
-      if (!matchesReservationKey && !matchesLabId) return;
+      const matchesReservationKey =
+        normalizedReservationKey &&
+        normalizedPendingKey &&
+        normalizedReservationKey === normalizedPendingKey;
+      const matchesLabId =
+        tokenIdStr && (pendingLabId || selectedLabId) &&
+        String(tokenIdStr) === String(pendingLabId || selectedLabId);
+
+      if (!matchesReservationKey && !matchesLabId && !notified) return;
 
       setIsBooking(false);
 
@@ -249,13 +258,13 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       setForceRefresh(prev => prev + 1);
 
       if (!notified) {
-        addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+        addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
       }
     };
 
     window.addEventListener('reservation-request-denied', handleDenied);
     return () => window.removeEventListener('reservation-request-denied', handleDenied);
-  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh])
+  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh, selectedLab])
 
   // Handle transaction errors
   useEffect(() => {
