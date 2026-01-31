@@ -216,6 +216,64 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     }
   }, [labBookings, pendingData, bookingCacheUpdates])
 
+  // Fallback polling for SSO reservation status (avoids reliance on on-chain events)
+  useEffect(() => {
+    const normalizeHex = (value) => {
+      if (!value) return null;
+      const raw = String(value).trim().toLowerCase();
+      return raw.startsWith('0x') ? raw.slice(2) : raw;
+    };
+
+    const rawKey = pendingData?.optimisticId;
+    const normalized = normalizeHex(rawKey);
+    const isValidReservationKey = normalized && /^[0-9a-f]{64}$/i.test(normalized);
+
+    if (!isClient || !isValidReservationKey) return;
+
+    let cancelled = false;
+    const startedAt = Date.now();
+    const reservationKey = normalized.startsWith('0x') ? normalized : `0x${normalized}`;
+    const optimisticId = rawKey;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const response = await fetch(
+          `/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const statusNumber = Number(data?.reservation?.status);
+          if (Number.isFinite(statusNumber) && statusNumber !== 0) {
+            setIsBooking(false);
+            if (optimisticId) {
+              bookingCacheUpdates.removeOptimisticBooking(optimisticId);
+            }
+            setPendingData(null);
+            setForceRefresh(prev => prev + 1);
+            if (statusNumber === 5) {
+              addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
+            }
+            return;
+          }
+        }
+      } catch {
+        // ignore and retry
+      }
+
+      if (Date.now() - startedAt > 120000) {
+        return;
+      }
+
+      setTimeout(poll, 8000);
+    };
+
+    poll();
+    return () => {
+      cancelled = true;
+    };
+  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh])
+
   // Handle reservation denied events from BookingEventContext
   useEffect(() => {
     if (!isClient) return;
