@@ -18,6 +18,7 @@
  */
 
 import { renderHook, act, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useLabReservationState } from "../useLabReservationState";
 
 // External dependencies mocking - isolate the hook from external systems
@@ -46,6 +47,21 @@ jest.mock("@/utils/booking/labBookingCalendar");
 
 // Mock development logger to prevent console noise during test execution
 jest.mock("@/utils/dev/logger");
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  const Wrapper = ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  return Wrapper;
+};
+
+const renderHookWithClient = (callback, options = {}) =>
+  renderHook(callback, { wrapper: createWrapper(), ...options });
 
 describe("useLabReservationState", () => {
   const mockNotifications = {
@@ -112,7 +128,7 @@ describe("useLabReservationState", () => {
 
   describe("Initial State", () => {
     test("initializes with default values", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: null,
           labBookings: [],
@@ -128,7 +144,7 @@ describe("useLabReservationState", () => {
     });
 
     test("sets duration to first timeSlot when lab provided", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -142,7 +158,7 @@ describe("useLabReservationState", () => {
     test("handles lab without timeSlots array", () => {
       const labNoSlots = { ...mockLab, timeSlots: null };
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: labNoSlots,
           labBookings: [],
@@ -158,7 +174,7 @@ describe("useLabReservationState", () => {
     test("sets minDate to today when lab opens in the past", () => {
       const pastLab = { ...mockLab, opens: 1577836800 }; // 2020-01-01
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: pastLab,
           labBookings: [],
@@ -179,7 +195,7 @@ describe("useLabReservationState", () => {
       futureDate.setDate(futureDate.getDate() + 10);
       const futureLab = { ...mockLab, opens: Math.floor(futureDate.getTime() / 1000) };
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: futureLab,
           labBookings: [],
@@ -191,7 +207,7 @@ describe("useLabReservationState", () => {
     });
 
     test("sets maxDate from lab closes date", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -213,7 +229,7 @@ describe("useLabReservationState", () => {
       ) / 1000);
       const labUtc = { ...mockLab, opens: utcOpenSeconds, closes: utcOpenSeconds + 86400 };
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: labUtc,
           labBookings: [],
@@ -233,7 +249,7 @@ describe("useLabReservationState", () => {
     test("handles invalid opens date gracefully", () => {
       const invalidLab = { ...mockLab, opens: "invalid-date" };
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: invalidLab,
           labBookings: [],
@@ -247,7 +263,7 @@ describe("useLabReservationState", () => {
 
   describe("Available Times Generation", () => {
     test("generates available times based on duration and bookings", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: mockBookings,
@@ -271,7 +287,7 @@ describe("useLabReservationState", () => {
         { id: "3", start: "1704117600", labId: "lab-1", status: 2 },
       ];
 
-      renderHook(() =>
+      renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: bookingsWithCancelled,
@@ -284,7 +300,7 @@ describe("useLabReservationState", () => {
     });
 
     test("returns empty array when no lab selected", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: null,
           labBookings: [],
@@ -298,7 +314,7 @@ describe("useLabReservationState", () => {
 
   describe("Cost Calculation", () => {
     test("calculates total cost based on lab price and duration", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -314,7 +330,7 @@ describe("useLabReservationState", () => {
     });
 
     test("returns 0 cost when no lab selected", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: null,
           labBookings: [],
@@ -326,7 +342,7 @@ describe("useLabReservationState", () => {
     });
 
     test("recalculates cost when duration changes", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -347,7 +363,7 @@ describe("useLabReservationState", () => {
 
   describe("Auto Time Selection", () => {
     test("selects first available time automatically", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -364,7 +380,7 @@ describe("useLabReservationState", () => {
         { value: "10:00", label: "10:00 AM", disabled: true },
       ]);
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -378,7 +394,7 @@ describe("useLabReservationState", () => {
 
   describe("Handlers", () => {
     test("handleDateChange updates date", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -396,7 +412,7 @@ describe("useLabReservationState", () => {
     });
 
     test("handleDurationChange updates duration", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -417,7 +433,7 @@ describe("useLabReservationState", () => {
         { value: "14:00", label: "02:00 PM", disabled: false },
       ]);
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: [],
@@ -441,7 +457,7 @@ describe("useLabReservationState", () => {
         start: "1704110400",
       };
 
-      const { result, rerender } = renderHook(
+      const { result, rerender } = renderHookWithClient(
         ({ bookings }) =>
           useLabReservationState({
             selectedLab: mockLab,
@@ -474,7 +490,7 @@ describe("useLabReservationState", () => {
 
   describe("Edge Cases", () => {
     test("handles null labBookings gracefully", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: null,
@@ -489,7 +505,7 @@ describe("useLabReservationState", () => {
     });
 
     test("handles undefined labBookings gracefully", () => {
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: mockLab,
           labBookings: undefined,
@@ -503,7 +519,7 @@ describe("useLabReservationState", () => {
     test("handles lab without opens/closes dates", () => {
       const labNoDates = { ...mockLab, opens: null, closes: null };
 
-      const { result } = renderHook(() =>
+      const { result } = renderHookWithClient(() =>
         useLabReservationState({
           selectedLab: labNoDates,
           labBookings: [],

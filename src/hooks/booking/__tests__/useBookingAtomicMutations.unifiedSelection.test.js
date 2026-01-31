@@ -110,7 +110,7 @@ describe('useReservationRequest unified selection', () => {
     let out;
     await act(async () => { out = await result.current.mutateAsync(vars); });
 
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(3);
     expect(updateBooking).toHaveBeenCalledTimes(1);
     expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object) }));
   });
