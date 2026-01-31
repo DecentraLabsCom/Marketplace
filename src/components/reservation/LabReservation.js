@@ -322,6 +322,7 @@ export default function LabReservation({ id }) {
   }
   
   if (!isClient) return null
+  const isBusy = isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError)
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -372,14 +373,18 @@ export default function LabReservation({ id }) {
             <div className="flex flex-col items-center">
               <button
                 onClick={handleBooking} 
-                disabled={isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedTime}
+                disabled={isBusy || !selectedTime}
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                  isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError) || !selectedTime
+                  isBusy || !selectedTime
                     ? 'bg-gray-500 cursor-not-allowed' 
                     : 'bg-brand hover:bg-hover-dark'
                 }`}
+                aria-busy={isBusy}
               >
-                {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : (isWaitingForReceipt && !isSSO && !isReceiptError ? 'Confirming...' : (isReceiptError ? 'Try Again' : 'Book Now'))}
+                <span className="inline-flex items-center justify-center gap-2">
+                  {isBusy && <div className="spinner-sm border-white" />}
+                  {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : (isWaitingForReceipt && !isSSO && !isReceiptError ? 'Confirming...' : (isReceiptError ? 'Try Again' : 'Book Now'))}
+                </span>
               </button>
             </div>
           </>

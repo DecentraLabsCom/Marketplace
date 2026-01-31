@@ -216,6 +216,47 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     }
   }, [labBookings, pendingData, bookingCacheUpdates])
 
+  // Handle reservation denied events from BookingEventContext
+  useEffect(() => {
+    if (!isClient) return;
+
+    const handleDenied = (event) => {
+      const detail = event?.detail || {};
+      const reservationKey = detail?.reservationKey;
+      const tokenId = detail?.tokenId;
+      const notified = detail?.notified;
+
+      if (!pendingData) return;
+
+      const pendingLabId = pendingData.labId?.toString?.() ?? pendingData.labId;
+      const tokenIdStr = tokenId?.toString?.() ?? tokenId;
+      const matchesReservationKey =
+        reservationKey && pendingData.optimisticId &&
+        String(pendingData.optimisticId) === String(reservationKey);
+      const matchesLabId =
+        tokenIdStr && pendingLabId &&
+        String(tokenIdStr) === String(pendingLabId);
+
+      if (!matchesReservationKey && !matchesLabId) return;
+
+      setIsBooking(false);
+
+      if (pendingData?.optimisticId) {
+        bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
+      }
+
+      setPendingData(null);
+      setForceRefresh(prev => prev + 1);
+
+      if (!notified) {
+        addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+      }
+    };
+
+    window.addEventListener('reservation-request-denied', handleDenied);
+    return () => window.removeEventListener('reservation-request-denied', handleDenied);
+  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh])
+
   // Handle transaction errors
   useEffect(() => {
     if (isReceiptError && receiptError && lastTxHash) {    

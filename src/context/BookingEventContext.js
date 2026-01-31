@@ -46,6 +46,23 @@ export function BookingEventProvider({ children }) {
         });
     };
 
+    const emitReservationDenied = (reservationKey, tokenId, notified = false) => {
+        if (typeof window === 'undefined') return;
+        try {
+            window.dispatchEvent(
+                new CustomEvent('reservation-request-denied', {
+                    detail: {
+                        reservationKey,
+                        tokenId,
+                        notified,
+                    }
+                })
+            );
+        } catch (err) {
+            devLog.warn('Failed to emit reservation-request-denied event:', err);
+        }
+    };
+
     const fetchReservationDetails = async (reservationKey) => {
         if (!reservationKey) {
             return null;
@@ -298,9 +315,12 @@ export function BookingEventProvider({ children }) {
                         if (isCurrentUserReservation) {
                             if (statusNumber === 5) {
                                 addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+                                emitReservationDenied(reservationKey, info.tokenId, true);
                             } else {
                                 addTemporaryNotification('success', '✅ Reservation confirmed!');
                             }
+                        } else if (statusNumber === 5) {
+                            emitReservationDenied(reservationKey, info.tokenId, false);
                         }
                     } else {
                         // Still pending, increment attempt counter
@@ -433,6 +453,7 @@ export function BookingEventProvider({ children }) {
                     if (shouldNotify) {
                         addTemporaryNotification('error', '❌ Reservation denied by the provider.');
                     }
+                    emitReservationDenied(reservationKeyStr, tokenIdStr, shouldNotify);
 
                     // Clear optimistic booking state if present
                     try {
