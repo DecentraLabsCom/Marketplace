@@ -44,6 +44,9 @@ export async function pollIntentAuthorizationStatus(sessionId, {
         ? `/api/backend/intents/authorize/status/${sessionId}`
         : `${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`
       const params = new URLSearchParams()
+      if (isBrowser) {
+        params.set('sessionId', sessionId)
+      }
       if (isBrowser && backendUrl) {
         params.set('backendUrl', backendUrl)
       }

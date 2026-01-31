@@ -38,17 +38,14 @@ async function resolveForwardHeaders(request) {
   return headers
 }
 
-export async function GET(request, { params }) {
+export async function GET(request) {
   try {
     const backendUrl = resolveBackendUrl(request)
     if (!backendUrl) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
-    const sessionId =
-      params?.sessionId ||
-      request.nextUrl.searchParams.get('sessionId') ||
-      null
+    const sessionId = request.nextUrl.searchParams.get('sessionId')
     if (!sessionId || sessionId === 'null' || sessionId === 'undefined') {
       return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
     }

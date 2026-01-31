@@ -3,6 +3,7 @@
  * Handles all state logic for the reservation flow
  */
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useWaitForTransactionReceipt } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabToken } from '@/context/LabTokenContext'
@@ -12,6 +13,7 @@ import {
 } from '@/hooks/booking/useBookings'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
+import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -57,6 +59,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   
   // Cache update hooks
   const bookingCacheUpdates = useBookingCacheUpdates()
+  const queryClient = useQueryClient()
   
   // React Query mutation for booking creation
   const reservationRequestMutation = useReservationRequest()
@@ -251,6 +254,13 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
             }
             setPendingData(null);
             setForceRefresh(prev => prev + 1);
+            const labId = pendingData?.labId;
+            if (labId !== undefined && labId !== null) {
+              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
+              queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
+            }
+            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
             if (statusNumber === 5) {
               addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
             }
@@ -272,7 +282,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     return () => {
       cancelled = true;
     };
-  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh])
+  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh, queryClient])
 
   // Handle reservation denied events from BookingEventContext
   useEffect(() => {
@@ -314,6 +324,15 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
       setPendingData(null);
       setForceRefresh(prev => prev + 1);
+      const targetLabId = tokenId ?? pendingData?.labId;
+      if (targetLabId !== undefined && targetLabId !== null) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(targetLabId) });
+        queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', targetLabId], exact: false });
+      }
+      if (reservationKey) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+      }
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
 
       if (!notified) {
         addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
@@ -322,7 +341,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
     window.addEventListener('reservation-request-denied', handleDenied);
     return () => window.removeEventListener('reservation-request-denied', handleDenied);
-  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh, selectedLab])
+  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh, selectedLab, queryClient])
 
   // Handle transaction errors
   useEffect(() => {
