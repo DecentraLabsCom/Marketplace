@@ -15,7 +15,8 @@ export async function pollIntentStatus(requestId, {
   maxDelayMs = 30000,
   onUpdate,
 } = {}) {
-  if (!backendUrl) {
+  const isBrowser = typeof window !== 'undefined'
+  if (!backendUrl && !isBrowser) {
     throw new Error('Backend URL not configured for intent polling');
   }
   if (!requestId) {
@@ -40,13 +41,37 @@ export async function pollIntentStatus(requestId, {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
-      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/${requestId}`, {
+      
+      // Use API proxy in browser to avoid CORS issues
+      const baseUrl = isBrowser
+        ? `/api/backend/intents/${requestId}`
+        : `${backendUrl.replace(/\/$/, '')}/intents/${requestId}`
+      
+      const params = new URLSearchParams()
+      if (isBrowser) {
+        params.set('requestId', requestId)
+      }
+      if (isBrowser && backendUrl) {
+        params.set('backendUrl', backendUrl)
+      }
+      if (isBrowser && (!authToken || String(authToken).trim().length === 0)) {
+        params.set('useServerToken', '1')
+      }
+      
+      const url = params.toString()
+        ? `${baseUrl}?${params.toString()}`
+        : baseUrl
+      
+      const res = await fetch(url, {
         method: 'GET',
         headers,
         signal,
       });
+      
       if (!res.ok) {
-        throw new Error(`Backend status ${res.status}`);
+        const errorPayload = await res.json().catch(() => ({}));
+        const detail = errorPayload?.error || errorPayload?.message || '';
+        throw new Error(`Backend status ${res.status}${detail ? `: ${detail}` : ''}`);
       }
       const data = await res.json();
       const status = data?.status;
