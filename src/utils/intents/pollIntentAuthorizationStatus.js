@@ -15,7 +15,8 @@ export async function pollIntentAuthorizationStatus(sessionId, {
   maxDelayMs = 15000,
   onUpdate,
 } = {}) {
-  if (!backendUrl) {
+  const isBrowser = typeof window !== 'undefined'
+  if (!backendUrl && !isBrowser) {
     throw new Error('Backend URL not configured for intent authorization polling');
   }
   if (!sessionId) {
@@ -39,7 +40,13 @@ export async function pollIntentAuthorizationStatus(sessionId, {
         const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
         headers.Authorization = value;
       }
-      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`, {
+      const baseUrl = isBrowser
+        ? `/api/backend/intents/authorize/status/${sessionId}`
+        : `${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`
+      const url = isBrowser && backendUrl
+        ? `${baseUrl}?backendUrl=${encodeURIComponent(backendUrl)}`
+        : baseUrl
+      const res = await fetch(url, {
         method: 'GET',
         headers,
         signal,
