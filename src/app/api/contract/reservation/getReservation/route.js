@@ -58,13 +58,22 @@ export async function GET(request) {
     const labProviderAddress = reservationData.labProvider || '0x0000000000000000000000000000000000000000';
     const payerInstitutionAddress = reservationData.payerInstitution || '0x0000000000000000000000000000000000000000';
     const collectorInstitutionAddress = reservationData.collectorInstitution || '0x0000000000000000000000000000000000000000';
-    const exists = renterAddress !== '0x0000000000000000000000000000000000000000';
+    const zeroAddress = '0x0000000000000000000000000000000000000000';
+    const sentinelAddress = '0x0000000000000000000000000000000000000001';
+    const exists = renterAddress !== zeroAddress;
+
+    // Guard against legacy/corrupted reservations that decode with impossible fields
+    const invalidReservation =
+      labProviderAddress === zeroAddress ||
+      renterAddress === zeroAddress ||
+      renterAddress === sentinelAddress;
+    const effectiveExists = exists && !invalidReservation;
 
     // Determine reservation state
     let reservationState = 'Unknown';
     let isConfirmed = false;
     
-    if (!exists) {
+    if (!effectiveExists) {
       reservationState = 'Not Found';
     } else {
       switch (status) {
@@ -127,10 +136,12 @@ export async function GET(request) {
         isActive: status === 1 || status === 2, // Active when confirmed or in-use
         isCompleted: status === 3 || status === 4, // Completed or collected
         isConfirmed: isConfirmed,
-        exists: exists,
+        exists: effectiveExists,
         isInstitutional: payerInstitutionAddress !== '0x0000000000000000000000000000000000000000'
       },
-      reservationKey
+      reservationKey,
+      notFound: !effectiveExists,
+      invalidReservation
     }, {status: 200});
 
   } catch (error) {
