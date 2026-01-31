@@ -144,7 +144,7 @@ export default function LabReservation({ id }) {
     setIsBooking(true)
     
     try {
-      await reservationRequestMutation.mutateAsync({
+      const result = await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
         end: start + timeslot,
@@ -154,6 +154,20 @@ export default function LabReservation({ id }) {
       })
 
       addTemporaryNotification('pending', 'Reservation request sent! Processing...')
+      const reservationKey =
+        result?.intent?.payload?.reservationKey ||
+        result?.intent?.payload?.reservation_key ||
+        result?.intent?.reservationKey ||
+        result?.requestId ||
+        null;
+      if (reservationKey) {
+        setPendingData({
+          optimisticId: reservationKey,
+          labId,
+          start: String(start),
+          end: String(start + timeslot)
+        });
+      }
       await handleBookingSuccess()
     } catch (error) {
       addErrorNotification(error, 'Failed to create reservation: ')

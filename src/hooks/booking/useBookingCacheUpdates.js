@@ -159,7 +159,7 @@ export function useBookingCacheUpdates() {
 
     // Update user bookings
     queryClient.setQueriesData(
-      { queryKey: bookingQueryKeys.byUser("") }, // Match pattern for all users
+      { queryKey: ['bookings', 'user'], exact: false }, // Match all users
       (oldData) => {
         if (!oldData) return [];
         return oldData.filter(booking => booking.id !== optimisticId);
@@ -168,7 +168,7 @@ export function useBookingCacheUpdates() {
 
     // Update lab bookings
     queryClient.setQueriesData(
-      { queryKey: bookingQueryKeys.byLab("") }, // Match pattern for all labs
+      { queryKey: ['bookings', 'lab'], exact: false }, // Match all labs
       (oldData) => {
         if (!oldData) return [];
         return oldData.filter(booking => booking.id !== optimisticId);

@@ -402,7 +402,7 @@ export const useReservationRequestWallet = (options = {}) => {
  */
 export const useReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
-  const { updateBooking, invalidateAllBookings } = useBookingCacheUpdates();
+  const { updateBooking, invalidateAllBookings, addBooking } = useBookingCacheUpdates();
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
@@ -505,8 +505,39 @@ export const useReservationRequestSSO = (options = {}) => {
           data?.intent?.requestId ||
           data?.intent?.request_id ||
           data?.intent?.requestId?.toString?.();
-        const reservationKey = intentId || `intent-${Date.now()}`;
+        const reservationKey =
+          data?.intent?.payload?.reservationKey ||
+          data?.intent?.payload?.reservation_key ||
+          data?.intent?.reservationKey ||
+          intentId ||
+          `intent-${Date.now()}`;
         const authToken = data?.backendAuthToken;
+
+        // Optimistic booking for lab calendars (SSO flow)
+        try {
+          const startDate = new Date(Number(variables.start) * 1000);
+          addBooking({
+            id: reservationKey,
+            reservationKey,
+            labId: variables.tokenId,
+            userAddress: variables.userAddress || undefined,
+            start: String(variables.start),
+            end: String(variables.end),
+            startTime: variables.start,
+            endTime: variables.end,
+            date: isNaN(startDate.getTime()) ? null : startDate.toLocaleDateString('en-CA'),
+            status: 0,
+            statusCategory: 'pending',
+            isPending: true,
+            isOptimistic: true,
+            intentRequestId: intentId,
+            intentStatus: 'requested',
+            note: 'Requested to institution',
+            timestamp: new Date().toISOString(),
+          });
+        } catch (err) {
+          devLog.warn('Failed to add optimistic SSO booking for lab calendar:', err);
+        }
 
         updateBooking(reservationKey, {
           reservationKey,

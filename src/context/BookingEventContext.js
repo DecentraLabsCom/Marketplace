@@ -123,6 +123,16 @@ export function BookingEventProvider({ children }) {
         }
     };
 
+    const removeOptimisticBookingFromLabCache = (reservationKey, tokenId) => {
+        if (!reservationKey || !tokenId) return;
+        queryClient.setQueryData(bookingQueryKeys.byLab(tokenId), (oldData) => {
+            if (!Array.isArray(oldData)) return oldData;
+            return oldData.filter(booking =>
+                booking?.reservationKey !== reservationKey && booking?.id !== reservationKey
+            );
+        });
+    };
+
     // ReservationRequested event listener
     useWatchContractEvent({
         address: contractAddress,
@@ -209,6 +219,7 @@ export function BookingEventProvider({ children }) {
                     removeReconciliationEntry(`booking:confirm:${reservationKeyStr}`);
 
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
 
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                     let shouldNotify = false;
@@ -282,6 +293,7 @@ export function BookingEventProvider({ children }) {
                         pendingConfirmations.current.delete(reservationKey);
 
                         invalidateReservationCaches(reservationKey, info.tokenId);
+                        removeOptimisticBookingFromLabCache(reservationKey, info.tokenId);
 
                         if (isCurrentUserReservation) {
                             if (statusNumber === 5) {
@@ -335,6 +347,7 @@ export function BookingEventProvider({ children }) {
                     pendingConfirmations.current.delete(reservationKeyStr);
                     removeReconciliationEntry(`booking:cancel:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
                     } catch (err) {
@@ -364,6 +377,7 @@ export function BookingEventProvider({ children }) {
                     pendingConfirmations.current.delete(reservationKeyStr);
                     removeReconciliationEntry(`booking:cancel-request:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
                     } catch (err) {
@@ -399,6 +413,7 @@ export function BookingEventProvider({ children }) {
                     removeReconciliationEntry(`booking:confirm:${reservationKeyStr}`);
 
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
 
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                     let shouldNotify = false;
