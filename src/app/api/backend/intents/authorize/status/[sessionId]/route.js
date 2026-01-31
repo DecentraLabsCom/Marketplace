@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 
 function resolveBackendUrl(request) {
   const { searchParams } = request.nextUrl
@@ -7,11 +8,28 @@ function resolveBackendUrl(request) {
   return override || process.env.INSTITUTION_BACKEND_URL || null
 }
 
-function resolveForwardHeaders(request) {
+function shouldUseServerToken(request) {
+  const { searchParams } = request.nextUrl
+  return searchParams.get('useServerToken') === '1'
+}
+
+async function resolveForwardHeaders(request) {
   const headers = { 'Content-Type': 'application/json' }
-  const auth = request.headers.get('authorization')
-  if (auth) {
-    headers.Authorization = auth
+  const rawAuth = request.headers.get('authorization')
+  const normalizedAuth = rawAuth && rawAuth.trim().length > 0 ? rawAuth.trim() : null
+  const looksInvalid =
+    !normalizedAuth ||
+    /^bearer\s+null$/i.test(normalizedAuth) ||
+    /^bearer\s+undefined$/i.test(normalizedAuth)
+  if (normalizedAuth && !looksInvalid && !shouldUseServerToken(request)) {
+    headers.Authorization = normalizedAuth
+  } else {
+    try {
+      const backendAuth = await marketplaceJwtService.generateIntentBackendToken()
+      headers.Authorization = `Bearer ${backendAuth.token}`
+    } catch (error) {
+      devLog.warn('[API] Failed to generate intent backend token for status proxy', error)
+    }
   }
   const apiKey = request.headers.get('x-api-key') || process.env.INSTITUTION_BACKEND_SP_API_KEY
   if (apiKey) {
@@ -32,7 +50,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Missing sessionId' }, { status: 400 })
     }
 
-    const headers = resolveForwardHeaders(request)
+    const headers = await resolveForwardHeaders(request)
     const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`, {
       method: 'GET',
       headers,

@@ -43,8 +43,15 @@ export async function pollIntentAuthorizationStatus(sessionId, {
       const baseUrl = isBrowser
         ? `/api/backend/intents/authorize/status/${sessionId}`
         : `${backendUrl.replace(/\/$/, '')}/intents/authorize/status/${sessionId}`
-      const url = isBrowser && backendUrl
-        ? `${baseUrl}?backendUrl=${encodeURIComponent(backendUrl)}`
+      const params = new URLSearchParams()
+      if (isBrowser && backendUrl) {
+        params.set('backendUrl', backendUrl)
+      }
+      if (isBrowser && (!authToken || String(authToken).trim().length === 0)) {
+        params.set('useServerToken', '1')
+      }
+      const url = params.toString()
+        ? `${baseUrl}?${params.toString()}`
         : baseUrl
       const res = await fetch(url, {
         method: 'GET',
@@ -52,7 +59,9 @@ export async function pollIntentAuthorizationStatus(sessionId, {
         signal,
       });
       if (!res.ok) {
-        throw new Error(`Backend status ${res.status}`);
+        const errorPayload = await res.json().catch(() => ({}));
+        const detail = errorPayload?.error || errorPayload?.message || '';
+        throw new Error(`Backend status ${res.status}${detail ? `: ${detail}` : ''}`);
       }
       const data = await res.json();
 
