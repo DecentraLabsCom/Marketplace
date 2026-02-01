@@ -44,6 +44,8 @@ const customJestConfig = {
     },
   },
 
+  coverageProvider: "v8",
+
   coverageReporters: ["text", "lcov", "html", "json-summary"],
 
   testMatch: [

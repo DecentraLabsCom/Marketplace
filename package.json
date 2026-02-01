@@ -116,7 +116,10 @@
     "@cypress/code-coverage": {
       "js-yaml": "4.1.1"
     },
-    "glob": "^10.5.0",
+    "glob": "7.2.3",
+    "test-exclude": {
+      "glob": "7.2.3"
+    },
     "rimraf": "^4.0.0",
     "@paulmillr/qr": "npm:qr@^0.5.4"
   }
