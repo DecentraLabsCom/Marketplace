@@ -61,8 +61,8 @@
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  /*color: var(--foreground);
+  background: var(--background);*/
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -330,19 +330,20 @@ body::-webkit-scrollbar-thumb:hover {
 
 @layer components {
   .spinner {
-    @apply animate-spin rounded-full border-b-2;
+    @apply rounded-full border-b-2;
+    animation: spin 1s linear infinite;
   }
   .spinner-sm {
-    @apply animate-spin rounded-full border-b-2 size-4;
+    @apply size-4;
   }
   .spinner-md {
-    @apply animate-spin rounded-full border-b-2 size-6;
+    @apply size-6;
   }
   .spinner-lg {
-    @apply animate-spin rounded-full border-b-2 size-8;
+    @apply size-8;
   }
   .spinner-xl {
-    @apply animate-spin rounded-full border-b-2 size-12;
+    @apply size-12;
   }
 
   .flex-center {
