@@ -8,6 +8,7 @@ export default {
     './src/app/**/*.{js,ts,jsx,tsx}',
     './src/components/**/*.{js,ts,jsx,tsx}',
     './src/utils/**/*.{js,ts,jsx,tsx}',
+    './src/styles/**/*.{css,js}',
   ],
   safelist: [
     // Ensure global CSS classes and their dependencies are always included
