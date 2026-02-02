@@ -46,7 +46,7 @@
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.0.0",
     "@wagmi/connectors": "^7.1.5",
-    "@wagmi/core": "^3.2.2",
+    "@wagmi/core": "^3.3.2",
     "@walletconnect/ethereum-provider": "~2.23.3",
     "autoprefixer": "^10.4.23",
     "cookie": "^1.1.1",
