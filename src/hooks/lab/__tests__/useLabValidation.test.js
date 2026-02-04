@@ -288,6 +288,7 @@ describe("useLabValidation", () => {
         "timeSlots",
         "opens",
         "closes",
+        "timezone",
       ]);
     });
   });
