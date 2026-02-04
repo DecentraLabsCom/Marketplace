@@ -79,7 +79,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -96,7 +99,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -116,7 +122,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn().mockResolvedValue({}),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
     })
@@ -145,7 +154,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: mockStartOnboarding,
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -167,7 +179,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: mockReset,
       })
 
@@ -190,7 +205,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -207,7 +225,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -225,7 +246,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: mockSessionData,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -243,7 +267,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -262,7 +289,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: true,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -281,7 +311,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: true,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -300,7 +333,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: false,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -325,7 +361,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: mockStartOnboarding,
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: mockReset,
       })
 
@@ -346,7 +385,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: mockStartOnboarding,
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -367,7 +409,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -386,7 +431,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: mockReset,
       })
 
@@ -406,7 +454,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: false,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 
@@ -428,7 +479,10 @@ describe('InstitutionalOnboardingModal', () => {
         isCompleted: false,
         hasBackend: true,
         sessionData: null,
+        keyStatus: null,
         startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
         reset: jest.fn(),
       })
 

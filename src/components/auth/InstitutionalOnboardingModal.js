@@ -77,9 +77,12 @@ export function InstitutionalOnboardingModal({
     isCompleted,
     hasBackend,
     sessionData,
+    keyStatus,
     startOnboarding,
+    initiateOnboarding,
+    redirectToCeremony,
     reset,
-  } = useInstitutionalOnboarding({ autoPoll: true })
+  } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: true })
 
   // Notify parent when completed
   useEffect(() => {
@@ -90,6 +93,13 @@ export function InstitutionalOnboardingModal({
 
   const handleStart = async () => {
     await startOnboarding()
+  }
+
+  const handleRegisterHere = async () => {
+    const initResult = await initiateOnboarding?.()
+    if (initResult?.ceremonyUrl) {
+      redirectToCeremony?.(initResult.ceremonyUrl)
+    }
   }
 
   const handleSkip = () => {
@@ -105,6 +115,63 @@ export function InstitutionalOnboardingModal({
 
   // Render content based on state
   const renderContent = () => {
+    const advisoryNeeded =
+      keyStatus?.hasCredential &&
+      keyStatus?.hasPlatformCredential === false &&
+      !isLoading &&
+      ![
+        OnboardingState.CHECKING,
+        OnboardingState.INITIATING,
+        OnboardingState.REDIRECTING,
+        OnboardingState.AWAITING_COMPLETION,
+        OnboardingState.POLLING,
+      ].includes(state)
+
+    if (advisoryNeeded) {
+      return (
+        <div className="space-y-4">
+          <div className="text-center">
+            <div className="mx-auto w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Passkey on Another Device?
+            </h3>
+            <p className="text-gray-600 text-sm">
+              We found a credential for your account, but it may live on a different
+              device. If you don&apos;t see a PIN or biometric prompt here, register a
+              passkey on this device.
+            </p>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+            <h4 className="text-sm font-medium text-amber-800 mb-1">What you can do</h4>
+            <ul className="text-sm text-amber-700 space-y-1">
+              <li className="flex items-start">
+                <span className="mr-2">1.</span>
+                Use the device where the passkey was created
+              </li>
+              <li className="flex items-start">
+                <span className="mr-2">2.</span>
+                Or register a passkey on this device now
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <Button variant="secondary" onClick={handleClose}>
+              Continue
+            </Button>
+            <Button variant="primary" onClick={handleRegisterHere}>
+              Register Here
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
     switch (state) {
       case OnboardingState.IDLE:
       case OnboardingState.REQUIRED:

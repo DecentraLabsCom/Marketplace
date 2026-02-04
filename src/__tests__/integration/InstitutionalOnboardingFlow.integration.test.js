@@ -136,7 +136,10 @@ const setupMockHook = (state) => {
     isCompleted: false,
     hasBackend: true,
     sessionData: null,
+    keyStatus: null,
     startOnboarding: mockStartOnboarding,
+    initiateOnboarding: jest.fn(),
+    redirectToCeremony: jest.fn(),
     reset: mockReset,
   };
 

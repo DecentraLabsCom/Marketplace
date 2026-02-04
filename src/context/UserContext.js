@@ -75,7 +75,7 @@ function UserDataCore({ children }) {
     const lastWalletAddressRef = useRef(null);
     
     // Institutional onboarding state (WebAuthn credential at IB)
-    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'no_backend'
+    const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
     const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
     const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
@@ -267,10 +267,18 @@ function UserDataCore({ children }) {
 
                 const statusData = await statusResponse.json();
 
-                // key-status endpoint returns { hasCredential: boolean }
+                // key-status endpoint returns { hasCredential: boolean, ...metadata }
                 if (statusData.hasCredential) {
+                    if (statusData.hasPlatformCredential === false) {
+                        devLog.log('[InstitutionalOnboarding] Credential exists but no platform key detected; showing advisory');
+                        setInstitutionalOnboardingStatus('advisory');
+                        setShowOnboardingModal(true);
+                        return;
+                    }
+
                     devLog.log('[InstitutionalOnboarding] User already onboarded');
                     setInstitutionalOnboardingStatus('completed');
+                    setShowOnboardingModal(false);
                     return;
                 }
 
@@ -783,7 +791,7 @@ function UserDataCore({ children }) {
         institutionalOnboardingStatus,
         showOnboardingModal,
         needsInstitutionalOnboarding: institutionalOnboardingStatus === 'required' || institutionalOnboardingStatus === 'pending',
-        isInstitutionallyOnboarded: institutionalOnboardingStatus === 'completed',
+        isInstitutionallyOnboarded: institutionalOnboardingStatus === 'completed' || institutionalOnboardingStatus === 'advisory',
         institutionRegistrationStatus,
         institutionRegistrationWallet,
         institutionBackendUrl,
@@ -842,7 +850,7 @@ export function UserData({ children }) {
  * @returns {Object|null} returns.user - User data object
  * @returns {boolean} returns.isLoading - General loading state for user data
  * @returns {boolean} returns.isWalletLoading - Specific loading state for wallet connection/reconnection
- * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'no_backend', 'error'
+ * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'advisory', 'no_backend', 'error'
  * @returns {boolean} returns.showOnboardingModal - Whether to show the onboarding modal
  * @returns {boolean} returns.needsInstitutionalOnboarding - Whether user needs institutional onboarding
  * @returns {boolean} returns.isInstitutionallyOnboarded - Whether user has completed institutional onboarding
