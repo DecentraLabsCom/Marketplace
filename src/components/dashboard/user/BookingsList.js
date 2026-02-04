@@ -42,7 +42,7 @@ export default function BookingsList({
   selectedLabId = null
 }) {
   const isUpcoming = type === 'upcoming';
-  const title = isUpcoming ? 'Upcoming Bookings' : 'Past bookings';
+  const title = isUpcoming ? 'Upcoming bookings' : 'Past bookings';
   const emptyMessage = isUpcoming ? 'No upcoming bookings found.' : 'No past bookings found.';
   const listRef = useRef(null);
   const [maxScrollHeight, setMaxScrollHeight] = useState(null);

@@ -76,6 +76,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   const [lastTxHash, setLastTxHash] = useState(null)
   const [pendingData, setPendingData] = useState(null)
   const successNotifiedRef = useRef(false)
+  const optimisticRemovedRef = useRef(false)
   
   // Wait for transaction receipt
   const { 
@@ -97,6 +98,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   // Reset success notification guard when a new pending reservation is set
   useEffect(() => {
     successNotifiedRef.current = false
+    optimisticRemovedRef.current = false
   }, [pendingData?.optimisticId])
 
   // Update the duration when the selected lab changes
@@ -201,7 +203,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
   // Clean up optimistic booking when real booking appears
   useEffect(() => {
-    if (!pendingData?.optimisticId) return
+    if (!pendingData?.optimisticId || !Array.isArray(labBookings)) return
     
     const matchingRealBooking = labBookings.find(booking => {
       if (booking.isOptimistic) return false
@@ -213,22 +215,44 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
              Math.abs(bookingStart - pendingStart) < 60
     })
     
-    if (matchingRealBooking) {
-      devLog.log('✅ Real booking found, removing optimistic booking:', {
-        optimisticId: pendingData.optimisticId,
-        realBookingKey: matchingRealBooking.reservationKey
-      })
+    if (!matchingRealBooking) return
 
-      if (
-        isSSO &&
-        !successNotifiedRef.current &&
-        Number(matchingRealBooking.status) === BOOKING_STATUS.CONFIRMED
-      ) {
+    devLog.log('✅ Real booking found, evaluating optimistic cleanup:', {
+      optimisticId: pendingData.optimisticId,
+      realBookingKey: matchingRealBooking.reservationKey,
+      status: matchingRealBooking.status
+    })
+
+    if (pendingData?.isOptimistic && !optimisticRemovedRef.current) {
+      bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId)
+      optimisticRemovedRef.current = true
+      setForceRefresh(prev => prev + 1)
+    }
+
+    // Wallet flow relies on BookingEventContext for confirmations
+    if (!isSSO) {
+      setPendingData(null)
+      return
+    }
+
+    const statusNumber = Number(matchingRealBooking.status)
+    if (!Number.isFinite(statusNumber)) return
+
+    if (statusNumber === BOOKING_STATUS.CANCELLED) {
+      if (!successNotifiedRef.current) {
+        addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.')
+        successNotifiedRef.current = true
+      }
+      setPendingData(null)
+      setForceRefresh(prev => prev + 1)
+      return
+    }
+
+    if (statusNumber > BOOKING_STATUS.PENDING) {
+      if (!successNotifiedRef.current) {
         addTemporaryNotification('success', '✅ Reservation confirmed!')
         successNotifiedRef.current = true
       }
-      
-      bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId)
       setPendingData(null)
       setForceRefresh(prev => prev + 1)
     }
@@ -264,7 +288,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
           const statusNumber = Number(data?.reservation?.status);
           if (Number.isFinite(statusNumber) && statusNumber !== 0) {
             setIsBooking(false);
-            if (optimisticId) {
+            if (optimisticId && pendingData?.isOptimistic) {
               bookingCacheUpdates.removeOptimisticBooking(optimisticId);
             }
             setPendingData(null);
@@ -278,7 +302,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
             queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
             if (statusNumber === BOOKING_STATUS.CANCELLED) {
               addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
-            } else if (!successNotifiedRef.current && statusNumber === BOOKING_STATUS.CONFIRMED) {
+            } else if (!successNotifiedRef.current && statusNumber > BOOKING_STATUS.PENDING) {
               addTemporaryNotification('success', '✅ Reservation confirmed!');
               successNotifiedRef.current = true
             }
@@ -336,7 +360,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
       setIsBooking(false);
 
-      if (pendingData?.optimisticId) {
+      if (pendingData?.optimisticId && pendingData?.isOptimistic) {
         bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
       }
 
@@ -367,7 +391,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       addErrorNotification(receiptError, 'Transaction')
       setIsBooking(false)
       
-      if (pendingData?.optimisticId) {
+      if (pendingData?.optimisticId && pendingData?.isOptimistic) {
         devLog.log('❌ Transaction error, removing optimistic booking:', pendingData.optimisticId)
         bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId)
       }
