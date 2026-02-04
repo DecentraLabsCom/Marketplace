@@ -110,17 +110,16 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
-    "xmlbuilder2": {
-      "js-yaml": "3.14.2"
-    },
-    "@cypress/code-coverage": {
-      "js-yaml": "4.1.1"
-    },
-    "glob": "7.2.3",
-    "test-exclude": {
-      "glob": "7.2.3"
-    },
-    "rimraf": "^4.0.0",
-    "@paulmillr/qr": "npm:qr@^0.5.4"
-  }
+  "js-yaml": "^4.1.1",
+  "xmlbuilder2": {
+    "js-yaml": "3.14.2"
+  },
+  "glob": "7.2.3",
+  "test-exclude": {
+    "glob": "7.2.3"
+  },
+  "rimraf": "^4.0.0",
+  "@paulmillr/qr": "npm:qr@^0.5.4"
+}
+ 
 }
