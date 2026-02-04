@@ -240,7 +240,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
     if (statusNumber === BOOKING_STATUS.CANCELLED) {
       if (!successNotifiedRef.current) {
-        addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.')
+        addTemporaryNotification('error', '❌ Reservation request denied by the institution.')
         successNotifiedRef.current = true
       }
       setPendingData(null)
@@ -301,7 +301,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
             queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
             queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
             if (statusNumber === BOOKING_STATUS.CANCELLED) {
-              addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
+              addTemporaryNotification('error', '❌ Reservation request denied by the institution.');
             } else if (!successNotifiedRef.current && statusNumber > BOOKING_STATUS.PENDING) {
               addTemporaryNotification('success', '✅ Reservation confirmed!');
               successNotifiedRef.current = true
@@ -377,7 +377,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
 
       if (!notified) {
-        addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
+        addTemporaryNotification('error', '❌ Reservation request denied by the institution.');
       }
     };
 

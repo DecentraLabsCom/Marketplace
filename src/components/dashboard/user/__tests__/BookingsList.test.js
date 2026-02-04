@@ -103,7 +103,7 @@ describe('BookingsList - Unit Tests', () => {
         test('displays upcoming title and empty message', () => {
             renderList({ bookings: [], type: 'upcoming' });
 
-            expect(screen.getByText('Upcoming Bookings')).toBeInTheDocument();
+            expect(screen.getByText('Upcoming bookings')).toBeInTheDocument();
             expect(screen.getByText('No upcoming bookings found.')).toBeInTheDocument();
         });
 

@@ -455,6 +455,7 @@ describe("useLabReservationState", () => {
         optimisticId: "opt-123",
         labId: "lab-1",
         start: "1704110400",
+        isOptimistic: true,
       };
 
       const { result, rerender } = renderHookWithClient(
