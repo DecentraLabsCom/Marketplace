@@ -16,7 +16,14 @@
         "first-contentful-paint": ["warn", {"maxNumericValue": 2000}],
         "largest-contentful-paint": ["warn", {"maxNumericValue": 2500}],
         "cumulative-layout-shift": ["warn", {"maxNumericValue": 0.1}],
-        "total-blocking-time": ["warn", {"maxNumericValue": 300}]
+        "total-blocking-time": ["warn", {"maxNumericValue": 300}],
+        "cls-culprits-insight": ["warn", {"minScore": 0.9}],
+        "errors-in-console": ["warn", {"minScore": 0.9}],
+        "image-delivery-insight": ["warn", {"minScore": 0.9}],
+        "legacy-javascript-insight": ["warn", {"minScore": 0.9}],
+        "network-dependency-tree-insight": ["warn", {"minScore": 0.9}],
+        "unused-javascript": ["warn", {"maxLength": 0}],
+        "valid-source-maps": ["warn", {"minScore": 0.9}]
       }
     },
     "upload": {
