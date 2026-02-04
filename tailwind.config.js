@@ -8,6 +8,7 @@ export default {
     './src/app/**/*.{js,ts,jsx,tsx}',
     './src/components/**/*.{js,ts,jsx,tsx}',
     './src/utils/**/*.{js,ts,jsx,tsx}',
+    './src/styles/**/*.{css,js}',
   ],
   safelist: [
     // Ensure global CSS classes and their dependencies are always included
@@ -79,7 +80,7 @@ export default {
         'booking-cancelled-border': designSystem.colors.booking.cancelled.border,
         
         // Single brand token (for backward compatibility)
-        'brand': designSystem.colors.brand.primary            // #715c8c
+        'brand-legacy': designSystem.colors.brand.primary            // #715c8c
       },
       
       // Typography

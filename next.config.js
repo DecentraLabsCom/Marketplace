@@ -4,6 +4,7 @@ import path from "path";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: true,
   basePath: "", //appendPath,
   assetPrefix: "", //appendPath,
   // Configure Turbopack aliases instead of customizing webpack directly.
@@ -17,7 +18,12 @@ const nextConfig = {
   // To run with webpack instead, use `npm run dev:webpack` which keeps the old webpack hook.
   images: {
     remotePatterns: [
-      { hostname: "n7alj90bp0isqv2j.public.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "**.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "n7alj90bp0isqv2j.public.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "ipfs.io" },
+      { protocol: "https", hostname: "cloudflare-ipfs.com" },
+      { protocol: "https", hostname: "gateway.pinata.cloud" },
+      { protocol: "https", hostname: "nftstorage.link" },
     ],
   },
   async headers() {

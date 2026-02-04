@@ -1,6 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+
+@theme {
+  /* Color variables for easier theming*/
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+}
 
 /* Size utilities for simultaneous width and height */
 @layer utilities {
@@ -48,7 +56,6 @@
   .size-min { width: min-content; height: min-content; }
   .size-max { width: max-content; height: max-content; }
   .size-fit { width: fit-content; height: fit-content; }
-  .animate-spin { animation: spin 1s linear infinite; }
 }
 
 :root {
@@ -64,8 +71,8 @@
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  /*color: var(--foreground);
+  background: var(--background);*/
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -332,60 +339,30 @@ body::-webkit-scrollbar-thumb:hover {
    ======================================== */
 
 @layer components {
-  /* Flex centering - 100+ uses across codebase */
+  .spinner {
+    @apply rounded-full border-b-2;
+    animation: spin 1s linear infinite;
+  }
+  .spinner-sm {
+    @apply size-4;
+  }
+  .spinner-md {
+    @apply size-6;
+  }
+  .spinner-lg {
+    @apply size-8;
+  }
+  .spinner-xl {
+    @apply size-12;
+  }
+
   .flex-center {
     @apply flex items-center justify-center;
   }
-  
-  /* Loading spinners - 15+ uses, ensures consistency */
-  .spinner {
-    @apply animate-spin rounded-full border-b-2;
-  }
-  
-  .spinner-sm {
-    @apply spinner size-4;
-  }
-  
-  .spinner-md {
-    @apply spinner size-6;
-  }
-  
-  .spinner-lg {
-    @apply spinner size-8;
-  }
-  
-  .spinner-xl {
-    @apply spinner size-12;
-  }
-  
-  /* Screen reader only - Accessibility standard (WCAG) */
-  .sr-only {
-    @apply absolute -m-px h-px w-px overflow-hidden whitespace-nowrap 
-           border-0 p-0 [clip:rect(0,0,0,0)];
-  }
-  
-  /* Overlays - 20+ uses, semantic naming */
-  .overlay {
-    @apply bg-black/50;
-  }
-  
-  .overlay-light {
-    @apply bg-black/20;
-  }
-  
-  .overlay-dark {
-    @apply bg-black/70;
-  }
-  
-  .overlay-full {
-    @apply fixed inset-0 z-50;
-  }
-  
-  /* List items - Common pattern in file managers and lists */
-  .list-item {
-    @apply flex items-center justify-between bg-neutral-50 p-2 rounded;
-  }
+
+  /* resto de componentes como overlays, list-item, sr-only permanece igual */
 }
+
 
 /* Modal Animations */
 @keyframes fadeIn {

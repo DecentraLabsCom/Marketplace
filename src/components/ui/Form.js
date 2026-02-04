@@ -2,7 +2,7 @@
  * UI Component Library - Form Components
  * Standardized form components using the design system
  */
-import React, { forwardRef } from 'react'
+import React, { forwardRef, useId } from 'react'
 import PropTypes from 'prop-types'
 import { cn } from '@/utils/cn'
 
@@ -45,7 +45,8 @@ export const Input = forwardRef(({
   id,
   ...props
 }, ref) => {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`
+  const fallbackId = useId()
+  const inputId = id || `input-${fallbackId}`
   const inputState = error ? 'error' : state
 
   const classes = cn(
@@ -108,7 +109,8 @@ export const Textarea = forwardRef(({
   id,
   ...props
 }, ref) => {
-  const textareaId = id || `textarea-${Math.random().toString(36).substr(2, 9)}`
+  const fallbackId = useId()
+  const textareaId = id || `textarea-${fallbackId}`
   const textareaState = error ? 'error' : 'default'
 
   const classes = cn(
@@ -174,7 +176,8 @@ export const Select = forwardRef(({
   id,
   ...props
 }, ref) => {
-  const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`
+  const fallbackId = useId()
+  const selectId = id || `select-${fallbackId}`
   const selectState = error ? 'error' : 'default'
 
   const classes = cn(
@@ -244,7 +247,8 @@ export const Checkbox = forwardRef(({
   id,
   ...props
 }, ref) => {
-  const checkboxId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`
+  const fallbackId = useId()
+  const checkboxId = id || `checkbox-${fallbackId}`
 
   return (
     <div className="relative flex items-start">
