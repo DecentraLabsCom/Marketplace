@@ -1,13 +1,15 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
 
-
-@theme {
-  /* Color variables for easier theming*/
-  --color-primary: var(--primary);
-  --color-secondary: var(--secondary);
-  --color-brand-primary: var(--brand-primary);
-  --color-brand-secondary: var(--brand-secondary);
+@layer base {
+  button,
+  [type='button'],
+  [type='reset'],
+  [type='submit'],
+  [role='button'],
+  a {
+    cursor: pointer;
+  }
 }
 
 /* Size utilities for simultaneous width and height */

@@ -33,7 +33,10 @@ export default {
         info: designSystem.colors.status.info,
         calendar: designSystem.colors.calendar,
         booking: designSystem.colors.booking,
-        brand: designSystem.colors.brand,
+        brand: {
+          ...designSystem.colors.brand,
+          DEFAULT: designSystem.colors.brand.primary,
+        },
         ui: designSystem.colors.ui,
         
         // Direct token aliases for common colors
