@@ -20,6 +20,29 @@ import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 
 const WEEKDAY_VALUES = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
+const extractInternalLabUri = (value) => {
+  if (!value) return null
+  const trimmed = String(value).trim()
+  if (!trimmed) return null
+  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) {
+    return trimmed
+  }
+  try {
+    const parsed = new URL(trimmed)
+    const param = parsed.searchParams.get('uri')
+    if (param && param.startsWith('Lab-') && param.endsWith('.json')) {
+      return param
+    }
+    const match = parsed.pathname.match(/Lab-[^/]+-\d+\.json$/)
+    if (match) {
+      return match[0]
+    }
+  } catch {
+    // Ignore invalid URLs.
+  }
+  return null
+}
+
 const sanitizeAvailableDays = (days) => {
   if (!Array.isArray(days)) return []
   return days
@@ -184,7 +207,9 @@ export async function POST(req) {
       try {
         const contract = await getContractInstance();
         const onchainTokenUri = await contract.tokenURI(labId);
-        if (onchainTokenUri !== uri) {
+        const normalizedOnchainUri = extractInternalLabUri(onchainTokenUri)
+        const matchesLocalUri = onchainTokenUri === uri || normalizedOnchainUri === uri
+        if (!matchesLocalUri) {
           throw new BadRequestError('URI does not match the on-chain tokenURI for this lab');
         }
       } catch (error) {

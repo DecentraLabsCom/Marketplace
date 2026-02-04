@@ -45,7 +45,7 @@
     "@tanstack/react-query-persist-client": "^5.90.21",
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.0.0",
-    "@wagmi/connectors": "^7.1.2",
+    "@wagmi/connectors": "^7.1.5",
     "@wagmi/core": "^3.2.2",
     "@walletconnect/ethereum-provider": "~2.23.3",
     "autoprefixer": "^10.4.23",
@@ -70,7 +70,7 @@
     "react-flags-select": "^2.5.0",
     "react-icons": "^5.5.0",
     "saml2-js": "^4.0.4",
-    "typescript-eslint": "^8.53.1",
+    "typescript-eslint": "^8.54.0",
     "viem": "^2.44.1",
     "wagmi": "^3.3.4",
     "xml2js": "^0.6.2",
@@ -116,7 +116,10 @@
     "@cypress/code-coverage": {
       "js-yaml": "4.1.1"
     },
-    "glob": "^10.5.0",
+    "glob": "7.2.3",
+    "test-exclude": {
+      "glob": "7.2.3"
+    },
     "rimraf": "^4.0.0",
     "@paulmillr/qr": "npm:qr@^0.5.4"
   }
