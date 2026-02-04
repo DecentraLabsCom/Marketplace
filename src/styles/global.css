@@ -1,4 +1,14 @@
 @import "tailwindcss";
+@config "../../tailwind.config.js";
+
+
+@theme {
+  /* Color variables for easier theming*/
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+}
 
 /* Size utilities for simultaneous width and height */
 @layer utilities {

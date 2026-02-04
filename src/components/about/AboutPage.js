@@ -13,6 +13,8 @@ export default function About() {
       <div className="sm:mx-auto sm:max-w-3xl">
         <div className="bg-white shadow-md rounded-lg p-6 mb-6">
           <h2 className="text-2xl font-semibold mb-4 text-accent">Nebsyst</h2>
+          
+          
           <div className="prose prose-neutral prose-lg max-w-none">
             <p>
               Nebsyst is a leading provider of innovative solutions in the field of blockchain technology 

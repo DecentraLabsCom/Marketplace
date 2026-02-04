@@ -2,7 +2,7 @@ const js = require("@eslint/js");
 const globals = require("globals");
 const react = require("eslint-plugin-react");
 const reactHooks = require("eslint-plugin-react-hooks");
-const tailwindcss = require("eslint-plugin-tailwindcss");
+//const tailwindcss = require("eslint-plugin-tailwindcss");
 const jest = require("eslint-plugin-jest");
 const eslintComments = require("eslint-plugin-eslint-comments");
 const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
@@ -10,9 +10,9 @@ const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
 const nextConfigs = Array.isArray(nextCoreWebVitals)
   ? nextCoreWebVitals
   : [nextCoreWebVitals];
-const tailwindConfigs = Array.isArray(tailwindcss.configs["flat/recommended"])
+/*const tailwindConfigs = Array.isArray(tailwindcss.configs["flat/recommended"])
   ? tailwindcss.configs["flat/recommended"]
-  : [tailwindcss.configs["flat/recommended"]];
+  : [tailwindcss.configs["flat/recommended"]];*/
 module.exports = [
   {
     ignores: [
@@ -21,7 +21,7 @@ module.exports = [
       "**/coverage/**",
       "**/out/**",
       "**/build/**",
-      "tailwind.config.js",
+      //"tailwind.config.js",
       "postcss.config.js",
       "next.config.js",
       "jest.config.js",
@@ -39,7 +39,7 @@ module.exports = [
   js.configs.recommended,
   react.configs.flat.recommended,
   reactHooks.configs.flat.recommended,
-  ...tailwindConfigs,
+  //...tailwindConfigs,
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
