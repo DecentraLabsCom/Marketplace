@@ -305,6 +305,7 @@ export default function ProviderDashboard() {
     uri: '',
     availableDays: [],
     availableHours: { start: '', end: '' },
+    timezone: '',
     maxConcurrentUsers: 1,
     unavailableWindows: [],
     termsOfUse: {

@@ -73,6 +73,14 @@ export const fillFullSetupForm = async (labData) => {
   // Trigger blur to process time slots into array
   fireEvent.blur(timeSlotsInput);
 
+  // Timezone
+  if (labData.timezone) {
+    const timezoneSelect = screen.getByLabelText(/timezone/i);
+    fireEvent.change(timezoneSelect, {
+      target: { value: labData.timezone }
+    });
+  }
+
   // Available Days - Click buttons for each day
   labData.availableDays.forEach((day) => {
     const dayAbbrev = day.substring(0, 3); // MON, TUE, etc.

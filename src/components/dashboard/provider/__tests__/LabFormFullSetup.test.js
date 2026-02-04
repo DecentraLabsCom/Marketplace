@@ -107,6 +107,7 @@ const mockLab = {
   closes: 1735603200,
   availableDays: [],
   availableHours: { start: "", end: "" },
+  timezone: "Europe/Madrid",
   unavailableWindows: [],
   maxConcurrentUsers: "",
   termsOfUse: {

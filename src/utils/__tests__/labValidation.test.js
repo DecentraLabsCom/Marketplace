@@ -34,6 +34,7 @@ describe("validateLabFull", () => {
       start: "09:00",
       end: "17:00",
     },
+    timezone: "Europe/Madrid",
     maxConcurrentUsers: 10,
     termsOfUse: {
       effectiveDate: 1704067200,
@@ -49,6 +50,7 @@ describe("validateLabFull", () => {
       ["category", "", "Category is required"],
       ["description", "", "Description is required"],
       ["accessKey", "", "Access Key is required"],
+      ["timezone", "", "Timezone is required"],
       ["name", "   ", "Lab name is required"], // whitespace edge case
     ])("validates %s is required", (field, value, expectedError) => {
       const lab = { ...validLab, [field]: value };

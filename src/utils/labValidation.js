@@ -105,6 +105,17 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         errors.availableDays = 'One or more selected days are invalid';
     }
 
+    const timezone = typeof localLab.timezone === 'string' ? localLab.timezone.trim() : '';
+    if (!timezone) {
+        errors.timezone = 'Timezone is required';
+    } else if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
+        try {
+            new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+        } catch (error) {
+            errors.timezone = 'Timezone must be a valid IANA identifier';
+        }
+    }
+
     const availableHours = normalizeObject(localLab.availableHours);
     if (!availableHours.start?.trim()) {
         errors.availableHoursStart = 'Daily start time is required';

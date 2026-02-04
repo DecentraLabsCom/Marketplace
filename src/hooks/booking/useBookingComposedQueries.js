@@ -279,18 +279,31 @@ export const useUserBookingsDashboard = (userAddress, {
   // - SSO: PUC-based endpoints (no address needed)
   // - Wallet: Address-based endpoints (userAddress required)
   const isSSO = useGetIsSSO(queryOptions);
+  const baseQueryOptions = { ...(queryOptions || {}) };
+  delete baseQueryOptions.enabled;
+  const queryEnabled = queryOptions?.enabled ?? true;
+  const baseBookingQueryOptions = { ...BOOKING_QUERY_CONFIG, ...baseQueryOptions };
+  const bookingDetailsRetry =
+    Object.prototype.hasOwnProperty.call(baseQueryOptions, 'retry')
+      ? baseQueryOptions.retry
+      : (failureCount, error) => {
+          if (error?.message?.includes('404') || 
+              error?.message?.includes('not found') ||
+              error?.message?.includes('400')) {
+            return false;
+          }
+          return failureCount < 1;
+        };
   
   // Step 1: Get user reservation count (using appropriate hook based on user type)
   const ssoCountResult = useReservationsOfSSO({
-    ...BOOKING_QUERY_CONFIG,
-    enabled: isSSO && (queryOptions.enabled ?? true),
-    meta: queryOptions.meta,
+    ...baseBookingQueryOptions,
+    enabled: isSSO && queryEnabled,
   });
   
   const walletCountResult = useReservationsOfWallet(userAddress, {
-    ...BOOKING_QUERY_CONFIG,
-    enabled: !isSSO && !!userAddress && (queryOptions.enabled ?? true),
-    meta: queryOptions.meta,
+    ...baseBookingQueryOptions,
+    enabled: !isSSO && !!userAddress && queryEnabled,
   });
   
   const reservationCountResult = isSSO ? ssoCountResult : walletCountResult;
@@ -333,15 +346,15 @@ export const useUserBookingsDashboard = (userAddress, {
             return {
               queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
               queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
-              enabled: hasReservations && index >= 0 && index < safeReservationCount,
-              ...BOOKING_QUERY_CONFIG,
+              enabled: queryEnabled && hasReservations && index >= 0 && index < safeReservationCount,
+              ...baseBookingQueryOptions,
             };
           } else {
             return {
               queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
               queryFn: () => useReservationKeyOfUserByIndexWallet.queryFn(userAddress, index),
-              enabled: !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
-              ...BOOKING_QUERY_CONFIG,
+              enabled: queryEnabled && !!userAddress && hasReservations && index >= 0 && index < safeReservationCount,
+              ...baseBookingQueryOptions,
             };
           }
         })
@@ -366,16 +379,9 @@ export const useUserBookingsDashboard = (userAddress, {
       ? reservationKeys.map(key => ({
           queryKey: bookingQueryKeys.byReservationKey(key),
           queryFn: () => useReservationSSO.queryFn(key),
-          enabled: !!key,
-          ...BOOKING_QUERY_CONFIG,
-          retry: (failureCount, error) => {
-            if (error?.message?.includes('404') || 
-                error?.message?.includes('not found') ||
-                error?.message?.includes('400')) {
-              return false;
-            }
-            return failureCount < 1;
-          },
+          enabled: queryEnabled && !!key,
+          ...baseBookingQueryOptions,
+          retry: bookingDetailsRetry,
         }))
       : [],
     combine: (results) => results

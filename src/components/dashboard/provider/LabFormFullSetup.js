@@ -16,6 +16,60 @@ const WEEKDAY_OPTIONS = [
   { value: 'SUNDAY', label: 'Sun' }
 ]
 
+const DEFAULT_TIMEZONES = [
+  'UTC',
+  'Europe/Madrid',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Rome',
+  'Europe/Amsterdam',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Mexico_City',
+  'America/Bogota',
+  'America/Sao_Paulo',
+  'America/Argentina/Buenos_Aires',
+  'Africa/Johannesburg',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Shanghai',
+  'Asia/Singapore',
+  'Asia/Kolkata',
+  'Australia/Sydney',
+  'Pacific/Auckland'
+]
+
+function resolveSupportedTimezones() {
+  if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+    try {
+      const values = Intl.supportedValuesOf('timeZone')
+      if (Array.isArray(values) && values.length > 0) {
+        return values
+      }
+    } catch (error) {
+      // Ignore and fall back to defaults.
+    }
+  }
+  return DEFAULT_TIMEZONES
+}
+
+function resolveBrowserTimezone() {
+  if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (timezone && typeof timezone === 'string') {
+        return timezone
+      }
+    } catch (error) {
+      // Ignore and fall back to UTC.
+    }
+  }
+  return 'UTC'
+}
+
 function normalizeArray(value) {
   return Array.isArray(value) ? value : []
 }
@@ -53,6 +107,7 @@ export default function LabFormFullSetup({
   authRef,
   accessURIRef,
   accessKeyRef,
+  timezoneRef,
   timeSlotsRef,
   availableHoursStartRef,
   availableHoursEndRef,
@@ -65,6 +120,7 @@ export default function LabFormFullSetup({
 }) {
   const availableDays = normalizeArray(localLab.availableDays)
   const availableHours = normalizeObject(localLab.availableHours, { start: '', end: '' })
+  const timezoneValue = typeof localLab?.timezone === 'string' ? localLab.timezone.trim() : ''
   const unavailableWindows = normalizeArray(localLab.unavailableWindows)
   const termsOfUse = normalizeObject(localLab.termsOfUse, {
     url: '',
@@ -77,6 +133,7 @@ export default function LabFormFullSetup({
 
   const disabled = isExternalURI
   const [termsFetchState, setTermsFetchState] = useState({ loading: false, error: null })
+  const [timezoneOptions] = useState(() => resolveSupportedTimezones())
   const latestLabRef = useRef(localLab)
   const setLocalLabRef = useRef(setLocalLab)
   const lastFetchedUrlRef = useRef('')
@@ -89,6 +146,20 @@ export default function LabFormFullSetup({
   useEffect(() => {
     setLocalLabRef.current = setLocalLab
   }, [setLocalLab])
+
+  useEffect(() => {
+    if (disabled) return
+    const currentTimezone = typeof latestLabRef.current?.timezone === 'string'
+      ? latestLabRef.current.timezone.trim()
+      : ''
+    if (currentTimezone) return
+    const guessedTimezone = resolveBrowserTimezone()
+    if (!guessedTimezone) return
+    setLocalLabRef.current({
+      ...latestLabRef.current,
+      timezone: guessedTimezone
+    })
+  }, [disabled, timezoneValue])
 
   const handleBasicChange = (field, value) => {
     setLocalLab({ ...localLab, [field]: value })
@@ -163,6 +234,11 @@ export default function LabFormFullSetup({
   const handleAvailableHourChange = (key, value) => {
     if (disabled) return
     handleBasicChange('availableHours', { ...availableHours, [key]: value })
+  }
+
+  const handleTimezoneChange = (value) => {
+    if (disabled) return
+    handleBasicChange('timezone', value)
   }
 
   const handleAddWindow = () => {
@@ -463,9 +539,51 @@ export default function LabFormFullSetup({
         </div>
         {errors.availableDays && <p className="text-red-500 text-sm !mt-1">{errors.availableDays}</p>}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">Daily Start Time</label>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor="lab-timezone" className="block text-sm font-medium text-gray-900 mb-1">Timezone</label>
+            <select
+              id="lab-timezone"
+              value={timezoneValue || ''}
+              onChange={(e) => handleTimezoneChange(e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              ref={timezoneRef}
+            >
+              <option value="">Select timezone</option>
+              {(timezoneValue && !timezoneOptions.includes(timezoneValue))
+                ? [timezoneValue, ...timezoneOptions].map((timezone) => (
+                  <option key={timezone} value={timezone}>
+                    {timezone}
+                  </option>
+                ))
+                : timezoneOptions.map((timezone) => (
+                  <option key={timezone} value={timezone}>
+                    {timezone}
+                  </option>
+                ))}
+            </select>
+            {errors.timezone && <p className="text-red-500 text-sm !mt-1">{errors.timezone}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
+            <input
+              type="text"
+              placeholder="15, 30, 60"
+              value={timeSlotsInput}
+              onChange={(e) => handleTimeSlotsChange(e.target.value)}
+              onBlur={handleTimeSlotsBlur}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              ref={timeSlotsRef}
+            />
+            {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Daily Start Time</label>
             <input
               type="time"
               value={availableHours.start || ''}
@@ -480,7 +598,7 @@ export default function LabFormFullSetup({
             )}
           </div>
           <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">Daily End Time</label>
+            <label className="block text-sm font-medium text-gray-900 mb-1">Daily End Time</label>
             <input
               type="time"
               value={availableHours.end || ''}
@@ -496,37 +614,21 @@ export default function LabFormFullSetup({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
-            <input
-              type="text"
-              placeholder="15, 30, 60"
-              value={timeSlotsInput}
-              onChange={(e) => handleTimeSlotsChange(e.target.value)}
-              onBlur={handleTimeSlotsBlur}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={disabled}
-              ref={timeSlotsRef}
-            />
-            {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
-          </div>
-          <div className="hidden">
-            <label className="block text-sm font-medium text-gray-900 mb-1">Max Concurrent Users</label>
-            <input
-              type="number"
-              min="1"
-              placeholder="Max Concurrent Users"
-              value={localLab?.maxConcurrentUsers || ''}
-              onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-              disabled={true}
-              ref={maxConcurrentUsersRef}
-            />
-            {errors.maxConcurrentUsers && (
-              <p className="text-red-500 text-sm !mt-1">{errors.maxConcurrentUsers}</p>
-            )}
-          </div>
+        <div className="hidden">
+          <label className="block text-sm font-medium text-gray-900 mb-1">Max Concurrent Users</label>
+          <input
+            type="number"
+            min="1"
+            placeholder="Max Concurrent Users"
+            value={localLab?.maxConcurrentUsers || ''}
+            onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
+            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            disabled={true}
+            ref={maxConcurrentUsersRef}
+          />
+          {errors.maxConcurrentUsers && (
+            <p className="text-red-500 text-sm !mt-1">{errors.maxConcurrentUsers}</p>
+          )}
         </div>
       </section>
 
@@ -892,6 +994,7 @@ LabFormFullSetup.propTypes = {
   authRef: PropTypes.object,
   accessURIRef: PropTypes.object,
   accessKeyRef: PropTypes.object,
+  timezoneRef: PropTypes.object,
   timeSlotsRef: PropTypes.object,
   availableHoursStartRef: PropTypes.object,
   availableHoursEndRef: PropTypes.object,

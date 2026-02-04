@@ -40,6 +40,8 @@ export default function UserDashboard() {
     queryOptions: {
       enabled: canFetchBookings,
       staleTime: 5 * 60 * 1000, // 5 minutes - more dynamic bookings
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: 'always',
       // No need to pass isSSO - hook forces API mode internally for architectural reasons
     }
   });

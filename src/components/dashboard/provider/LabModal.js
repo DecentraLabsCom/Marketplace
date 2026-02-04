@@ -36,6 +36,7 @@ const initialState = (lab) => ({
     uri: lab?.uri || '',
     availableDays: lab?.availableDays || [],
     availableHours: lab?.availableHours || { start: '', end: '' },
+    timezone: lab?.timezone || '',
     maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
     unavailableWindows: lab?.unavailableWindows || [],
     termsOfUse: lab?.termsOfUse || {
@@ -140,6 +141,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
   const authRef = useRef(null);
   const accessURIRef = useRef(null);
   const accessKeyRef = useRef(null);
+  const timezoneRef = useRef(null);
   const timeSlotsRef = useRef(null);
   const availableHoursStartRef = useRef(null);
   const availableHoursEndRef = useRef(null);
@@ -615,6 +617,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
             { name: 'accessURI', ref: accessURIRef },
             { name: 'accessKey', ref: accessKeyRef },
             { name: 'timeSlots', ref: timeSlotsRef },
+            { name: 'timezone', ref: timezoneRef },
             { name: 'availableHoursStart', ref: availableHoursStartRef },
             { name: 'availableHoursEnd', ref: availableHoursEndRef },
             { name: 'maxConcurrentUsers', ref: maxConcurrentUsersRef },
@@ -726,7 +729,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 handleDocChange={handleDocChange} removeDoc={removeDoc} localDocs={localDocs} nameRef={nameRef}
                 categoryRef={categoryRef} keywordsRef={keywordsRef} descriptionRef={descriptionRef} 
                 priceRef={priceRef} authRef={authRef} accessURIRef={accessURIRef} accessKeyRef={accessKeyRef}
-                timeSlotsRef={timeSlotsRef}
+                timezoneRef={timezoneRef} timeSlotsRef={timeSlotsRef}
                 availableHoursStartRef={availableHoursStartRef} availableHoursEndRef={availableHoursEndRef}
                 maxConcurrentUsersRef={maxConcurrentUsersRef} termsUrlRef={termsUrlRef} termsShaRef={termsShaRef}
                 onSubmit={handleSubmitFull}

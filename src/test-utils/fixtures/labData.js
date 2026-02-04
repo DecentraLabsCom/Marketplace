@@ -27,6 +27,7 @@ export const createValidLabFormData = (overrides = {}) => ({
     start: "09:00",
     end: "17:00",
   },
+  timezone: "Europe/Madrid",
   maxConcurrentUsers: 5,
   termsOfUse: {
     effectiveDate: "01/01/2025",

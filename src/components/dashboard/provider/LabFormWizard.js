@@ -51,6 +51,7 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
     price: useRef(null),
     accessURI: useRef(null),
     accessKey: useRef(null),
+    timezone: useRef(null),
     timeSlots: useRef(null),
     availableHoursStart: useRef(null),
     availableHoursEnd: useRef(null),
@@ -265,6 +266,7 @@ export default function LabFormWizard({ isOpen, onClose, onSubmit, lab = {}, max
               priceRef={refs.price}
               accessURIRef={refs.accessURI}
               accessKeyRef={refs.accessKey}
+              timezoneRef={refs.timezone}
               timeSlotsRef={refs.timeSlots}
               availableHoursStartRef={refs.availableHoursStart}
               availableHoursEndRef={refs.availableHoursEnd}

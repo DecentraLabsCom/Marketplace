@@ -21,6 +21,7 @@ export const mockLabs = [
       start: "08:00",
       end: "18:00",
     },
+    timezone: "Europe/Madrid",
     maxConcurrentUsers: 10,
     termsOfUse: {
       effectiveDate: 1704067200,
@@ -54,6 +55,7 @@ export const mockLabs = [
       start: "09:00",
       end: "17:00",
     },
+    timezone: "Europe/Madrid",
     maxConcurrentUsers: 5,
     termsOfUse: {
       effectiveDate: 1706745600,

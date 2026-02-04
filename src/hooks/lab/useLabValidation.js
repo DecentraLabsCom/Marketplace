@@ -90,7 +90,7 @@ export function useLabValidation(lab, mode = 'full', refs = {}) {
     }
     return [
       'name', 'category', 'keywords', 'description', 'price', 
-      'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes'
+      'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes', 'timezone'
     ]
   }, [mode])
 
@@ -115,7 +115,7 @@ export function useLabValidation(lab, mode = 'full', refs = {}) {
     // Check all possible fields
     const allFields = [
       'name', 'category', 'keywords', 'description', 'price',
-      'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes',
+      'accessURI', 'accessKey', 'timeSlots', 'opens', 'closes', 'timezone',
       'imageUrls', 'docUrls', 'uri'
     ]
     
