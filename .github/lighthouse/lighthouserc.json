@@ -23,7 +23,8 @@
         "legacy-javascript-insight": ["warn", {"minScore": 0.9}],
         "network-dependency-tree-insight": ["warn", {"minScore": 0.9}],
         "unused-javascript": ["warn", {"maxLength": 0}],
-        "valid-source-maps": ["warn", {"minScore": 0.9}]
+        "valid-source-maps": ["warn", {"minScore": 0.9}],
+        "duplicated-javascript-insight": ["warn", {"minScore": 0.9}]
       }
     },
     "upload": {
