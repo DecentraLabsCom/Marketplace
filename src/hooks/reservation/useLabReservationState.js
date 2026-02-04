@@ -2,7 +2,7 @@
  * Custom hook for lab reservation state management
  * Handles all state logic for the reservation flow
  */
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWaitForTransactionReceipt } from 'wagmi'
 import { useNotifications } from '@/context/NotificationContext'
@@ -11,7 +11,7 @@ import {
   useReservationRequest, 
   useBookingCacheUpdates 
 } from '@/hooks/booking/useBookings'
-import { isCancelledBooking } from '@/utils/booking/bookingStatus'
+import { BOOKING_STATUS, isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
@@ -75,6 +75,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   // Transaction state
   const [lastTxHash, setLastTxHash] = useState(null)
   const [pendingData, setPendingData] = useState(null)
+  const successNotifiedRef = useRef(false)
   
   // Wait for transaction receipt
   const { 
@@ -92,6 +93,11 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Reset success notification guard when a new pending reservation is set
+  useEffect(() => {
+    successNotifiedRef.current = false
+  }, [pendingData?.optimisticId])
 
   // Update the duration when the selected lab changes
   useEffect(() => {
@@ -212,12 +218,21 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
         optimisticId: pendingData.optimisticId,
         realBookingKey: matchingRealBooking.reservationKey
       })
+
+      if (
+        isSSO &&
+        !successNotifiedRef.current &&
+        Number(matchingRealBooking.status) === BOOKING_STATUS.CONFIRMED
+      ) {
+        addTemporaryNotification('success', '✅ Reservation confirmed!')
+        successNotifiedRef.current = true
+      }
       
       bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId)
       setPendingData(null)
       setForceRefresh(prev => prev + 1)
     }
-  }, [labBookings, pendingData, bookingCacheUpdates])
+  }, [labBookings, pendingData, bookingCacheUpdates, isSSO, addTemporaryNotification])
 
   // Fallback polling for SSO reservation status (avoids reliance on on-chain events)
   useEffect(() => {
@@ -256,13 +271,16 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
             setForceRefresh(prev => prev + 1);
             const labId = pendingData?.labId;
             if (labId !== undefined && labId !== null) {
-              queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
-              queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
-            }
+            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
+            queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
+          }
             queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
             queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
-            if (statusNumber === 5) {
+            if (statusNumber === BOOKING_STATUS.CANCELLED) {
               addTemporaryNotification('error', '❌ Solicitud de reserva rechazada por el proveedor.');
+            } else if (!successNotifiedRef.current && statusNumber === BOOKING_STATUS.CONFIRMED) {
+              addTemporaryNotification('success', '✅ Reservation confirmed!');
+              successNotifiedRef.current = true
             }
             return;
           }
