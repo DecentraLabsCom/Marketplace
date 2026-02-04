@@ -34,7 +34,7 @@ export default function ProviderLabsList({
   if (isLoading) {
     return (
       <div className="w-full min-[1080px]:flex-1">
-        <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
+        <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">Your Labs</h2>
         <p className="text-gray-300 text-center">Loading labs...</p>
       </div>
     );
@@ -43,7 +43,7 @@ export default function ProviderLabsList({
   if (ownedLabs.length === 0) {
     return (
       <div className="w-full min-[1080px]:flex-1">
-        <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
+        <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">Your Labs</h2>
         <p className="text-gray-300 text-center">
           You have no labs registered yet. Press &quot;Add New Lab&quot; to get started.
         </p>
@@ -53,7 +53,7 @@ export default function ProviderLabsList({
 
   return (
     <div className="w-full min-[1080px]:flex-1">
-      <h2 className="text-xl font-semibold mb-4 text-center">Your Labs</h2>
+      <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">Your Labs</h2>
       
       {/* Lab Selector */}
       <div className="flex justify-center">

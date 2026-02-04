@@ -25,7 +25,7 @@ export default function ReservationsCalendar({
 }) {
   return (
     <div className="mt-8 min-[1080px]:mt-0">
-      <h2 className="text-xl font-semibold mb-4 text-center">
+      <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">
         Upcoming Lab Reservations
       </h2>
       

@@ -19,7 +19,7 @@ export default function ProviderActions({
 }) {
   return (
     <div className="mt-6">
-      <h3 className="text-lg font-semibold mb-4 text-center">
+      <h3 className="text-lg font-semibold mb-4 text-center text-slate-100">
         Other Actions
       </h3>
       

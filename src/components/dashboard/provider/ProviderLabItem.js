@@ -27,8 +27,8 @@ const ProviderLabItem = React.memo(function ProviderLabItem({ lab, onEdit, onDel
   const isEditing = !!labState.editing;
 
   return (
-    <div className="p-4 border rounded shadow max-w-4xl mx-auto">
-        <h3 className="text-lg font-bold text-center mb-4">
+    <div className="p-4 border border-gray-200 rounded shadow max-w-4xl mx-auto">
+        <h3 className="text-lg font-bold text-center mb-4 text-slate-100">
           {lab.name}
           <span className={`ml-2 text-sm font-normal ${
             isPending 
