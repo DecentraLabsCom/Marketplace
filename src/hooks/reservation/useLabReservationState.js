@@ -181,25 +181,63 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isReceiptSuccess && receipt && lastTxHash) {
-      addTemporaryNotification('success', '✅ Reservation request registered on-chain! Waiting for final confirmation...')
-      
-      setIsBooking(false)
-      
-      // Refresh token data for wallet users
-      if (!isSSO) {
-        refreshTokenData()
-      }
-      
-      // Force UI refresh
-      setForceRefresh(prev => prev + 1)
-      
-      // Reset transaction state
-      setLastTxHash(null)
+    if (!lastTxHash || !receipt || !isReceiptSuccess) return;
 
-      devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the event')
+    const receiptStatus = receipt?.status;
+    const isTxSuccessful = receiptStatus === 'success' || receiptStatus === 1 || receiptStatus === '0x1';
+
+    if (!isTxSuccessful) {
+      addTemporaryNotification('error', '❌ Transaction reverted. Reservation was not created.');
+      setIsBooking(false);
+
+      if (pendingData?.optimisticId && pendingData?.isOptimistic) {
+        bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
+      }
+
+      setPendingData(null);
+      setLastTxHash(null);
+      return;
     }
-  }, [isReceiptSuccess, receipt, lastTxHash, addTemporaryNotification, isSSO, refreshTokenData])
+
+    addTemporaryNotification('success', '✅ Reservation request registered on-chain! Waiting for final confirmation...');
+
+    setIsBooking(false);
+
+    // Refresh token data for wallet users
+    if (!isSSO) {
+      refreshTokenData();
+
+      const labId = pendingData?.labId;
+      const userAddress = pendingData?.userAddress;
+
+      if (labId !== undefined && labId !== null) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
+        queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
+      }
+
+      if (userAddress) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.reservationsOf(userAddress) });
+      }
+    }
+
+    // Force UI refresh
+    setForceRefresh(prev => prev + 1);
+
+    // Reset transaction state
+    setLastTxHash(null);
+
+    devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the event');
+  }, [
+    isReceiptSuccess,
+    receipt,
+    lastTxHash,
+    addTemporaryNotification,
+    isSSO,
+    refreshTokenData,
+    pendingData,
+    bookingCacheUpdates,
+    queryClient
+  ])
 
   // Clean up optimistic booking when real booking appears
   useEffect(() => {
