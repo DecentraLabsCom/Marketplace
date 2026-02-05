@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useAccount, useWaitForTransactionReceipt, useBalance, useReadContract, useWriteContract } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
@@ -131,12 +131,13 @@ export function useLabTokenHook() {
   const [fallbackDecimals, setFallbackDecimals] = useState(null);
   const fallbackFetchInFlight = useRef(false);
 
-  // Read user token balance via wagmi useBalance for better reliability
-  const { data: erc20Balance, refetch: refetchBalance } = useBalance({
-    address,
-    token: resolvedLabTokenAddress,
+  // Read user token balance directly from ERC20 contract to avoid native token fallbacks
+  const { data: balance, refetch: refetchBalance } = useReadContract({
+    abi: labTokenABI,
+    address: resolvedLabTokenAddress,
+    functionName: 'balanceOf',
+    args: [address],
     chainId: safeChain.id,
-    watch: shouldFetchBalance,
     query: {
       enabled: shouldFetchBalance,
       gcTime: 0,
@@ -148,19 +149,6 @@ export function useLabTokenHook() {
       refetchOnMount: 'always',
     },
   });
-  const balanceSymbol = erc20Balance?.symbol;
-  const isNativeLikeSymbol =
-    typeof balanceSymbol === 'string' && balanceSymbol.toLowerCase().includes('eth');
-  const balance = shouldFetchBalance && !isNativeLikeSymbol ? erc20Balance?.value : undefined;
-
-  useEffect(() => {
-    if (shouldFetchBalance && isNativeLikeSymbol) {
-      devLog.warn('LAB balance appears to be native token (ETH). Check LAB token address resolution.', {
-        balanceSymbol,
-        resolvedLabTokenAddress
-      });
-    }
-  }, [shouldFetchBalance, isNativeLikeSymbol, balanceSymbol, resolvedLabTokenAddress]);
 
   // Read allowance for diamond contract from resolved LAB token address
   const shouldFetchAllowance = Boolean(address && resolvedLabTokenAddress && diamondContractAddress);
