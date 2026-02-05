@@ -10,6 +10,8 @@ import devLog from '@/utils/dev/logger'
 
 // Session storage key for decimals cache
 const DECIMALS_CACHE_KEY = 'lab_token_decimals_cache';
+// Safe fallback when on-chain decimals cannot be resolved
+const DEFAULT_LAB_TOKEN_DECIMALS = 6;
 
 /**
  * Utility to get cached decimals or return null
@@ -84,6 +86,8 @@ export function useLabTokenHook() {
   const [lastTxHash, setLastTxHash] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [cachedDecimals, setCachedDecimalsState] = useState(() => getCachedDecimals(chainName));
+  const [fallbackDecimals, setFallbackDecimals] = useState(null);
+  const fallbackFetchInFlight = useRef(false);
 
   // Read user token balance via wagmi useBalance for better reliability
   const { data: erc20Balance, refetch: refetchBalance } = useBalance({
@@ -146,7 +150,59 @@ export function useLabTokenHook() {
   useEffect(() => {
     const newCachedDecimals = getCachedDecimals(chainName);
     setCachedDecimalsState(newCachedDecimals);
+    setFallbackDecimals(null);
+    fallbackFetchInFlight.current = false;
   }, [chainName]);
+
+  // Fetch decimals via API as a fallback when on-chain read isn't available yet
+  useEffect(() => {
+    const hasCached = cachedDecimals !== null && cachedDecimals !== undefined;
+    const hasContract = contractDecimals !== undefined && contractDecimals !== null;
+    const hasFallback = fallbackDecimals !== null && fallbackDecimals !== undefined;
+
+    if (hasCached || hasContract || hasFallback || fallbackFetchInFlight.current) return;
+
+    let isCancelled = false;
+    fallbackFetchInFlight.current = true;
+
+    (async () => {
+      try {
+        const response = await fetch('/api/contract/erc20/decimals', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch token decimals: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const apiDecimals = Number(data?.decimals);
+        const resolved = Number.isFinite(apiDecimals) ? apiDecimals : DEFAULT_LAB_TOKEN_DECIMALS;
+        const isFallback = Boolean(data?.fallback) || !Number.isFinite(apiDecimals);
+
+        if (!isCancelled) {
+          setFallbackDecimals(resolved);
+          if (!isFallback) {
+            setCachedDecimals(chainName, resolved);
+            setCachedDecimalsState(resolved);
+          }
+        }
+      } catch (error) {
+        devLog.warn('Failed to fetch LAB token decimals fallback:', error);
+        if (!isCancelled) {
+          setFallbackDecimals(DEFAULT_LAB_TOKEN_DECIMALS);
+        }
+      } finally {
+        fallbackFetchInFlight.current = false;
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [cachedDecimals, contractDecimals, fallbackDecimals, chainName]);
 
   // Force refetch balance and allowance when wallet address changes
   // This ensures fresh data when user switches wallets in MetaMask
@@ -167,8 +223,15 @@ export function useLabTokenHook() {
     }
   }, [address, safeChain.id, shouldFetchBalance, refetchBalance, refetchAllowance]);
 
-  // Use cached decimals if available, otherwise fall back to contract data
-  const decimals = cachedDecimals !== null ? cachedDecimals : contractDecimals;
+  // Use cached decimals if available, otherwise fall back to contract data, API fallback, or default
+  const decimals =
+    cachedDecimals !== null && cachedDecimals !== undefined
+      ? cachedDecimals
+      : contractDecimals !== undefined && contractDecimals !== null
+        ? contractDecimals
+        : fallbackDecimals !== null && fallbackDecimals !== undefined
+          ? fallbackDecimals
+          : DEFAULT_LAB_TOKEN_DECIMALS;
 
   // Wait for transaction confirmation
   const { isLoading: isWaitingForReceipt, isSuccess: isReceiptSuccess } = useWaitForTransactionReceipt({
