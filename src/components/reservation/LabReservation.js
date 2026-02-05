@@ -5,12 +5,12 @@
 "use client"
 import React, { useState, useMemo, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabsForReservation } from '@/hooks/lab/useLabs'
-import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
+import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking/useBookings'
 import { useLabToken } from '@/context/LabTokenContext'
 import { useLabReservationState } from '@/hooks/reservation/useLabReservationState'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
@@ -36,7 +36,9 @@ export default function LabReservation({ id }) {
   // User context
   const { isSSO, address: userAddress, institutionBackendUrl, hasWalletSession } = useUser()
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
-  const { chain, isConnected, address } = useAccount()
+  const { chain, accounts, status } = useConnection();
+  const address = accounts?.[0];
+  const isConnected = status === 'connected';
   
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
@@ -65,6 +67,17 @@ export default function LabReservation({ id }) {
     labBookingsData?.bookings || [], 
     [labBookingsData]
   )
+
+  const canFetchUserBookings = Boolean(selectedLab?.id && (isSSO || userAddress))
+  const { data: userBookingsData } = useBookingsForCalendar(userAddress, selectedLab?.id, {
+    enabled: canFetchUserBookings,
+    isSSO
+  })
+  const userBookingsForLab = useMemo(() => {
+    if (!selectedLab?.id) return []
+    const bookings = userBookingsData?.userBookings || []
+    return bookings.filter(booking => String(booking.labId) === String(selectedLab.id))
+  }, [userBookingsData, selectedLab?.id])
   
   // Lab reservation state hook (extracted logic)
   const {
@@ -256,42 +269,26 @@ export default function LabReservation({ id }) {
       })
 
       addTemporaryNotification('pending', 'Reservation request sent! Processing...')
-      
-      // Add optimistic booking to cache
       if (result.hash) {
         const userAddr = address || userAddress
         const startDate = new Date(start * 1000)
-        
-        const optimisticBookingData = {
-          labId: selectedLab.id,
-          userAddress: userAddr,
-          start: start.toString(),
-          end: (start + timeslot).toString(),
-          startTime: start,
-          endTime: start + timeslot,
-          cost: cost.toString(),
-          status: 0,
-          statusCategory: 'pending',
-          date: startDate.toLocaleDateString('en-CA'),
-          labName: selectedLab.name,
-          isPending: true,
-          isOptimistic: true,
-          transactionHash: result.hash
-        }
-        
-        const optimisticBooking = bookingCacheUpdates.addOptimisticBooking(optimisticBookingData)
-        
-        devLog.log('📅 Added optimistic booking to cache:', {
-          id: optimisticBooking.id,
+        const optimisticId = result.optimisticId
+
+        devLog.log('Wallet reservation tx sent:', {
+          optimisticId,
           labId,
           start: startDate.toISOString(),
           hash: result.hash
         })
         
         setLastTxHash(result.hash)
-        setPendingData({ 
-          ...optimisticBookingData,
-          optimisticId: optimisticBooking.id
+        setPendingData({
+          optimisticId,
+          labId: selectedLab.id,
+          userAddress: userAddr,
+          start: start.toString(),
+          end: (start + timeslot).toString(),
+          isOptimistic: true
         })
       }
     } catch (error) {
@@ -357,6 +354,7 @@ export default function LabReservation({ id }) {
               date={date}
               onDateChange={handleDateChange}
               bookings={labBookings}
+              userBookings={userBookingsForLab}
               duration={duration}
               onDurationChange={handleDurationChange}
               selectedTime={selectedTime}

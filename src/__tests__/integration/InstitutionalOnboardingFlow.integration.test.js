@@ -93,11 +93,10 @@ jest.mock("wagmi", () => ({
   WagmiProvider: ({ children, config }) => <div data-testid="mock-wagmi-provider">{children}</div>,
   createConfig: jest.fn(() => ({})),
   http: jest.fn(() => ({})),
-  useAccount: jest.fn(() => ({
-    address: null,
-    isConnected: false,
-    isReconnecting: false,
-    isConnecting: false,
+  useConnection: jest.fn(() => ({
+    accounts: [],
+    chain: null,
+    status: 'disconnected',
   })),
   useBalance: jest.fn(() => ({
     data: null,

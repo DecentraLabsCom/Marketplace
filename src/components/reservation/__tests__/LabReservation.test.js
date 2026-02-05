@@ -26,7 +26,7 @@ import * as reservationHooks from "@/hooks/reservation/useLabReservationState";
 
 // Mock all dependencies
 jest.mock("wagmi", () => ({
-  useAccount: jest.fn(),
+  useConnection: jest.fn(),
 }));
 
 jest.mock("@/context/UserContext", () => ({
@@ -47,6 +47,7 @@ jest.mock("@/hooks/lab/useLabs", () => ({
 
 jest.mock("@/hooks/booking/useBookings", () => ({
   useLabBookingsDashboard: jest.fn(),
+  useBookingsForCalendar: jest.fn(),
 }));
 
 jest.mock("@/hooks/reservation/useLabReservationState", () => ({
@@ -147,11 +148,11 @@ describe("LabReservation Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Mock useAccount
-    wagmiHooks.useAccount.mockReturnValue({
+    // Mock useConnection
+    wagmiHooks.useConnection.mockReturnValue({
+      accounts: ["0xUserWallet"],
       chain: { name: "sepolia", id: 11155111 },
-      isConnected: true,
-      address: "0xUserWallet",
+      status: 'connected',
     });
 
     // Mock useUser
@@ -187,6 +188,10 @@ describe("LabReservation Component", () => {
     // Mock useLabBookingsDashboard
     bookingHooks.useLabBookingsDashboard.mockReturnValue({
       data: { bookings: mockBookings },
+    });
+
+    bookingHooks.useBookingsForCalendar.mockReturnValue({
+      data: { userBookings: [] },
     });
 
     // Mock useLabReservationState
@@ -482,10 +487,10 @@ describe("LabReservation Component", () => {
     });
 
     test("validates wallet connection before booking", async () => {
-      wagmiHooks.useAccount.mockReturnValue({
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [],
         chain: { name: "sepolia" },
-        isConnected: false,
-        address: null,
+        status: 'disconnected',
       });
 
       renderWithProviders(<LabReservation id="1" />);
@@ -502,10 +507,10 @@ describe("LabReservation Component", () => {
     });
 
     test("validates contract deployment on current network", async () => {
-      wagmiHooks.useAccount.mockReturnValue({
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: ["0xUserWallet"],
         chain: { name: "unsupportedNetwork" },
-        isConnected: true,
-        address: "0xUserWallet",
+        status: 'connected',
       });
 
       renderWithProviders(<LabReservation id="1" />);
@@ -612,6 +617,7 @@ describe("LabReservation Component", () => {
     test("creates wallet booking with optimistic update", async () => {
       mockReservationRequestMutation.mutateAsync.mockResolvedValueOnce({
         hash: "0xTransactionHash",
+        optimisticId: "optimistic-1",
       });
 
       const mockSetLastTxHash = jest.fn();
@@ -631,9 +637,12 @@ describe("LabReservation Component", () => {
       fireEvent.click(button);
 
       await waitFor(() => {
-        expect(mockBookingCacheUpdates.addOptimisticBooking).toHaveBeenCalled();
         expect(mockSetLastTxHash).toHaveBeenCalledWith("0xTransactionHash");
-        expect(mockSetPendingData).toHaveBeenCalled();
+        expect(mockSetPendingData).toHaveBeenCalledWith(
+          expect.objectContaining({
+            optimisticId: "optimistic-1",
+          })
+        );
       });
     });
 

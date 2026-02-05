@@ -12,7 +12,7 @@ import * as notificationContext from "@/context/NotificationContext";
 // Mock external dependencies
 jest.mock("wagmi", () => ({
   useWatchContractEvent: jest.fn(),
-  useAccount: jest.fn(),
+  useConnection: jest.fn(),
 }));
 
 jest.mock("@/context/UserContext", () => ({
@@ -71,9 +71,10 @@ const createWrapper = (queryClient) => ({ children }) => (
 
 describe("BookingEventContext", () => {
   let eventCallbacks = {};
-  const mockUseAccount = {
+  const mockUseConnection = {
+    accounts: ["0xUserAddress"],
     chain: { id: 11155111, name: "sepolia" },
-    address: "0xUserAddress",
+    status: 'connected',
   };
   const mockUseUser = {
     address: "0xUserAddress",
@@ -98,7 +99,7 @@ describe("BookingEventContext", () => {
     eventCallbacks = {};
     jest.spyOn(Date, "now").mockReturnValue(1700000000000);
 
-    wagmiHooks.useAccount.mockReturnValue(mockUseAccount);
+    wagmiHooks.useConnection.mockReturnValue(mockUseConnection);
     userContext.useUser.mockReturnValue(mockUseUser);
     notificationContext.useNotifications.mockReturnValue({
       addTemporaryNotification: mockAddTemporaryNotification,
@@ -254,13 +255,13 @@ describe("BookingEventContext", () => {
         queryKey: bookingQueryKeys.getReservationsOfToken("7"),
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: bookingQueryKeys.reservationsOf(mockUseAccount.address),
+        queryKey: bookingQueryKeys.reservationsOf(mockUseConnection.accounts[0]),
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: bookingQueryKeys.hasActiveBooking("reservation-999", mockUseAccount.address),
+        queryKey: bookingQueryKeys.hasActiveBooking("reservation-999", mockUseConnection.accounts[0]),
       });
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: bookingQueryKeys.hasActiveBookingByToken("7", mockUseAccount.address),
+        queryKey: bookingQueryKeys.hasActiveBookingByToken("7", mockUseConnection.accounts[0]),
       });
     });
   });

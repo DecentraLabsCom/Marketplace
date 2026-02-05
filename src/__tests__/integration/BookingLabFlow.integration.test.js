@@ -45,6 +45,11 @@ jest.mock("@/hooks/booking/useBookings", () => ({
     isLoading: false,
     isError: false,
   })),
+  useBookingsForCalendar: jest.fn(() => ({
+    data: { userBookings: [] },
+    isLoading: false,
+    isError: false,
+  })),
   useBookingFilter: jest.fn(() => ({
     filteredBookings: [],
     dayClassName: jest.fn(() => ""),

@@ -79,10 +79,10 @@ jest.mock('viem', () => {
 
 jest.mock('wagmi', () => ({
   __esModule: true,
-  useAccount: jest.fn(() => ({
+  useConnection: jest.fn(() => ({
     chain: { name: 'sepolia', id: 11155111 },
-    address: '0xabc',
-    isConnected: true,
+    accounts: ['0xabc'],
+    status: 'connected',
   })),
   usePublicClient: jest.fn(() => ({
     waitForTransactionReceipt: jest.fn(async () => ({

@@ -14,7 +14,7 @@ import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
-import { useAccount, usePublicClient } from 'wagmi'
+import { useConnection, usePublicClient } from 'wagmi'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { decodeEventLog } from 'viem'
@@ -663,7 +663,8 @@ export const useAddLabSSO = (options = {}) => {
 // Wallet hook for adding labs (on-chain tx)
 export const useAddLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const { chain, address: userAddress } = useAccount();
+  const { chain, accounts } = useConnection();
+  const userAddress = accounts?.[0];
   const safeChain = selectChain(chain);
   const chainKey = safeChain.name.toLowerCase();
   const contractAddress = contractAddresses[chainKey];

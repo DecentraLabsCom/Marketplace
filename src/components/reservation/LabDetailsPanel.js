@@ -15,6 +15,7 @@ import BookingCalendarSection from '@/components/reservation/BookingCalendarSect
  * @param {Date} props.date - Currently selected date
  * @param {Function} props.onDateChange - Callback when date changes
  * @param {Array} props.bookings - Lab bookings for calendar display
+ * @param {Array} props.userBookings - User bookings for calendar display
  * @param {number} props.duration - Selected duration in minutes
  * @param {Function} props.onDurationChange - Callback when duration changes
  * @param {string} props.selectedTime - Selected start time
@@ -32,6 +33,7 @@ export default function LabDetailsPanel({
   date,
   onDateChange,
   bookings,
+  userBookings,
   duration,
   onDurationChange,
   selectedTime,
@@ -65,6 +67,7 @@ export default function LabDetailsPanel({
           date={date}
           onDateChange={onDateChange}
           bookings={bookings}
+          userBookings={userBookings}
           duration={duration}
           onDurationChange={onDurationChange}
           selectedTime={selectedTime}
@@ -86,6 +89,7 @@ LabDetailsPanel.propTypes = {
   date: PropTypes.instanceOf(Date).isRequired,
   onDateChange: PropTypes.func.isRequired,
   bookings: PropTypes.array, // Can be null initially before data loads
+  userBookings: PropTypes.array,
   duration: PropTypes.number.isRequired,
   onDurationChange: PropTypes.func.isRequired,
   selectedTime: PropTypes.string, // Can be null initially before user selects

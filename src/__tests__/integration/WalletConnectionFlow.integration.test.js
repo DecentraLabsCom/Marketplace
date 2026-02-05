@@ -55,11 +55,10 @@ jest.mock("wagmi", () => ({
   useDisconnect: jest.fn(() => ({
     disconnect: mockDisconnect,
   })),
-  useAccount: jest.fn(() => ({
-    address: null,
-    isConnected: false,
-    isReconnecting: false,
-    isConnecting: false,
+  useConnection: jest.fn(() => ({
+    accounts: [],
+    chain: null,
+    status: 'disconnected',
   })),
   useEnsName: jest.fn(() => ({
     data: null,
@@ -200,13 +199,12 @@ describe("Wallet Connection Flow Integration", () => {
     jest.clearAllMocks();
 
     // Reset wagmi mocks to default disconnected state
-    const { useAccount, useConnect } = require("wagmi");
+    const { useConnection, useConnect } = require("wagmi");
 
-    useAccount.mockReturnValue({
-      address: null,
-      isConnected: false,
-      isReconnecting: false,
-      isConnecting: false,
+    useConnection.mockReturnValue({
+      accounts: [],
+      chain: null,
+      status: 'disconnected',
     });
 
     useConnect.mockReturnValue({
@@ -329,12 +327,11 @@ describe("Wallet Connection Flow Integration", () => {
    */
   test("syncs wallet address with UserContext after connection", async () => {
     // Mock successful connection
-    const { useAccount } = require("wagmi");
-    useAccount.mockReturnValue({
-      address: mockUser.address,
-      isConnected: true,
-      isReconnecting: false,
-      isConnecting: false,
+    const { useConnection } = require("wagmi");
+    useConnection.mockReturnValue({
+      accounts: [mockUser.address],
+      chain: { id: 11155111, name: 'sepolia' },
+      status: 'connected',
     });
 
     // Update UserContext mock to reflect logged in state
@@ -350,7 +347,7 @@ describe("Wallet Connection Flow Integration", () => {
 
     const { rerender } = renderWithAllProviders(<Login />);
 
-    // Force re-render to pick up new useAccount value
+    // Force re-render to pick up new useConnection value
     rerender(<Login />);
 
     // After connection, Login button should not be visible (replaced by Account)

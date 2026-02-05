@@ -34,8 +34,10 @@ jest.mock("@tanstack/react-query", () => ({
 // Mock wagmi hooks
 const mockWatchContractEventHandlers = {};
 jest.mock("wagmi", () => ({
-  useAccount: jest.fn(() => ({
+  useConnection: jest.fn(() => ({
+    accounts: ['0x123'],
     chain: { id: 11155111, name: "Sepolia" },
+    status: 'connected',
   })),
   usePublicClient: jest.fn(() => ({})),
   useWatchContractEvent: jest.fn((config) => {
@@ -291,7 +293,7 @@ describe("LabEventContext", () => {
 
     test("disables listeners when chain or address missing", () => {
       const wagmi = require("wagmi");
-      wagmi.useAccount.mockReturnValueOnce({ chain: null });
+      wagmi.useConnection.mockReturnValueOnce({ accounts: ['0x123'], chain: null, status: 'connected' });
       wagmi.usePublicClient.mockReturnValueOnce(null);
 
       renderHook(() => useLabEventContext(), {

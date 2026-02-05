@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useRef, useEffect } from 'react'
-import { useWatchContractEvent, useAccount } from 'wagmi'
+import { useWatchContractEvent, useConnection } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
@@ -21,7 +21,8 @@ const BookingEventContext = createContext();
  * @param {React.ReactNode} props.children - Child components
  */
 export function BookingEventProvider({ children }) {
-    const { chain, address } = useAccount();
+    const { chain, accounts } = useConnection();
+    const address = accounts?.[0];
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const queryClient = useQueryClient();
@@ -30,6 +31,7 @@ export function BookingEventProvider({ children }) {
     const { addTemporaryNotification } = useNotifications();
 
     const pendingConfirmations = useRef(new Map()); // Track reservations waiting for provider action (backup polling)
+    const notifiedConfirmations = useRef(new Set()); // Avoid duplicate confirmation toasts
 
     const { clearOptimisticBookingState } = useOptimisticUI();
 
@@ -61,6 +63,13 @@ export function BookingEventProvider({ children }) {
         } catch (err) {
             devLog.warn('Failed to emit reservation-request-denied event:', err);
         }
+    };
+
+    const shouldNotifyConfirmation = (reservationKey) => {
+        if (!reservationKey) return false;
+        if (notifiedConfirmations.current.has(reservationKey)) return false;
+        notifiedConfirmations.current.add(reservationKey);
+        return true;
     };
 
     const fetchReservationDetails = async (reservationKey) => {
@@ -253,7 +262,7 @@ export function BookingEventProvider({ children }) {
                         }
                     }
 
-                    if (shouldNotify) {
+                    if (shouldNotify && shouldNotifyConfirmation(reservationKeyStr)) {
                         addTemporaryNotification('success', '✅ Reservation confirmed!');
                     }
 
@@ -317,7 +326,9 @@ export function BookingEventProvider({ children }) {
                                 addTemporaryNotification('error', '❌ Reservation denied by the provider.');
                                 emitReservationDenied(reservationKey, info.tokenId, true);
                             } else {
-                                addTemporaryNotification('success', '✅ Reservation confirmed!');
+                                if (shouldNotifyConfirmation(reservationKey)) {
+                                    addTemporaryNotification('success', '✅ Reservation confirmed!');
+                                }
                             }
                         } else if (statusNumber === 5) {
                             emitReservationDenied(reservationKey, info.tokenId, false);

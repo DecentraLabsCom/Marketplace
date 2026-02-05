@@ -33,6 +33,7 @@ export default function BookingCalendarSection({
   date,
   onDateChange,
   bookings,
+  userBookings,
   duration,
   onDurationChange,
   selectedTime,
@@ -45,18 +46,18 @@ export default function BookingCalendarSection({
   formatPrice
 }) {
   // Filter out cancelled bookings for calendar display
-  const activeBookings = useMemo(() => 
-    (bookings || []).filter(booking => !isCancelledBooking(booking)),
-    [bookings]
-  )
+  const calendarBookings = useMemo(() => {
+    const sourceBookings = userBookings ?? bookings ?? [];
+    return sourceBookings.filter(booking => !isCancelledBooking(booking));
+  }, [userBookings, bookings])
   
   // Create a stable key that includes booking statuses to force re-render on status changes
   const calendarKey = useMemo(() => {
-    const bookingSignature = activeBookings
+    const bookingSignature = calendarBookings
       .map(b => `${b.reservationKey}-${b.status}`)
       .join('|');
     return `calendar-${lab?.id}-${forceRefresh}-${date.getTime()}-${bookingSignature}`;
-  }, [lab?.id, activeBookings, forceRefresh, date]);
+  }, [lab?.id, calendarBookings, forceRefresh, date]);
 
   const filterUnavailableDays = useMemo(() => {
     if (!lab) return undefined
@@ -88,7 +89,7 @@ export default function BookingCalendarSection({
             key={calendarKey}
             selectedDate={date}
             onDateChange={onDateChange}
-            bookingInfo={activeBookings.map(booking => ({
+            bookingInfo={calendarBookings.map(booking => ({
               ...booking,
               labName: lab?.name,
               status: booking.status
@@ -177,6 +178,7 @@ BookingCalendarSection.propTypes = {
   date: PropTypes.instanceOf(Date).isRequired,
   onDateChange: PropTypes.func.isRequired,
   bookings: PropTypes.array, // Can be null initially before data loads
+  userBookings: PropTypes.array,
   duration: PropTypes.number.isRequired,
   onDurationChange: PropTypes.func.isRequired,
   selectedTime: PropTypes.string, // Can be null initially before user selects

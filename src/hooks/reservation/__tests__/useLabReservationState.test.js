@@ -32,11 +32,13 @@ import * as wagmi from "wagmi";
 import { isCancelledBooking } from "@/utils/booking/bookingStatus";
 import { generateTimeOptions } from "@/utils/booking/labBookingCalendar";
 import devLog from "@/utils/dev/logger";
+import { selectChain } from "@/utils/blockchain/selectChain";
 
 // Mock external contexts to control their behavior and responses
 jest.mock("@/context/NotificationContext");
 jest.mock("@/context/LabTokenContext");
 jest.mock("@/hooks/booking/useBookings");
+jest.mock("@/utils/blockchain/selectChain");
 
 // Mock blockchain/WAGMI hooks to simulate web3 interactions without real connections
 jest.mock("wagmi");
@@ -105,6 +107,13 @@ describe("useLabReservationState", () => {
     useLabToken.mockReturnValue(mockLabToken);
     useReservationRequest.mockReturnValue(mockReservationRequest);
     useBookingCacheUpdates.mockReturnValue(mockCacheUpdates);
+    selectChain.mockReturnValue({ id: 11155111, name: "sepolia" });
+
+    jest.spyOn(wagmi, "useConnection").mockReturnValue({
+      accounts: ['0x123'],
+      chain: { id: 11155111, name: "sepolia" },
+      status: 'connected',
+    });
 
     jest.spyOn(wagmi, "useWaitForTransactionReceipt").mockReturnValue({
       data: null,

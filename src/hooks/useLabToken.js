@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useAccount, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi'
+import { useConnection, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
@@ -93,7 +93,9 @@ export const clearDecimalsCache = () => {
  * @returns {Function} returns.clearDecimalsCache - Clear cached decimals function
  */
 export function useLabTokenHook() {
-  const { address, chain, isConnected } = useAccount();
+  const { accounts, chain, status } = useConnection();
+  const address = accounts?.[0];
+  const isConnected = status === 'connected';
   const safeChain = selectChain(chain);
   const chainName = safeChain.name.toLowerCase();
   const envLabTokenAddress = contractAddressesLAB[chainName];

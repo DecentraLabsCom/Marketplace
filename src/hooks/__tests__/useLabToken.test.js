@@ -17,12 +17,12 @@ jest.mock("@/hooks/contract/useDefaultReadContract", () =>
   require("../../test-utils/mocks/hooks/useDefaultReadContract")
 );
 
-// wagmi mocks (account, tx receipts, etc.)
+// wagmi mocks (connection, tx receipts, etc.)
 jest.mock("wagmi", () => ({
-  useAccount: jest.fn(() => ({
-    address: "0x123",
+  useConnection: jest.fn(() => ({
+    accounts: ["0x123"],
     chain: { id: 1, name: "ethereum" },
-    isConnected: true,
+    status: 'connected',
   })),
   useWaitForTransactionReceipt: jest.fn(),
   useBalance: jest.fn(),

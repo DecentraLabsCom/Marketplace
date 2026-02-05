@@ -24,7 +24,7 @@ import * as errorBoundaries from "@/utils/errorBoundaries";
 
 // Mock external dependencies
 jest.mock("wagmi", () => ({
-  useAccount: jest.fn(),
+  useConnection: jest.fn(),
 }));
 
 jest.mock("@/hooks/user/useUsers", () => ({
@@ -87,11 +87,10 @@ const createWrapper = (queryClient) => {
 
 describe("UserData Context", () => {
   // Default mock implementations
-  const mockUseAccount = {
-    address: null,
-    isConnected: false,
-    isReconnecting: false,
-    isConnecting: false,
+  const mockUseConnection = {
+    accounts: [null],
+    chain: undefined,
+    status: 'disconnected',
   };
 
   const mockUseErrorHandler = {
@@ -108,7 +107,7 @@ describe("UserData Context", () => {
     global.fetch.mockReset();
 
     // Setup default mocks
-    wagmiHooks.useAccount.mockReturnValue(mockUseAccount);
+    wagmiHooks.useConnection.mockReturnValue(mockUseConnection);
     errorBoundaries.useErrorHandler.mockReturnValue(mockUseErrorHandler);
     userHooks.useUserCacheUpdates.mockReturnValue(mockUseCacheUpdates);
 
@@ -186,9 +185,9 @@ describe("UserData Context", () => {
     });
 
     test("initializes with loading state when wallet is reconnecting", () => {
-      wagmiHooks.useAccount.mockReturnValue({
-        ...mockUseAccount,
-        isReconnecting: true,
+      wagmiHooks.useConnection.mockReturnValue({
+        ...mockUseConnection,
+        status: 'reconnecting',
       });
 
       const queryClient = createTestQueryClient();
@@ -427,11 +426,10 @@ describe("UserData Context", () => {
     test("sets user data when wallet is connected", async () => {
       const testAddress = "0x1234567890abcdef";
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: 'sepolia' },
+        status: 'connected',
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -462,11 +460,10 @@ describe("UserData Context", () => {
         isLoading: false,
       });
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -482,7 +479,7 @@ describe("UserData Context", () => {
       await waitFor(() => expect(result.current.isConnected).toBe(true));
 
       // Disconnect wallet
-      wagmiHooks.useAccount.mockReturnValue({
+      wagmiHooks.useConnection.mockReturnValue({
         address: null,
         isConnected: false,
         isReconnecting: false,
@@ -512,7 +509,7 @@ describe("UserData Context", () => {
         refetch: jest.fn(),
       });
 
-      wagmiHooks.useAccount.mockReturnValue({
+      wagmiHooks.useConnection.mockReturnValue({
         address: null,
         isConnected: false,
         isReconnecting: false,
@@ -545,11 +542,10 @@ describe("UserData Context", () => {
         refetch: jest.fn(),
       });
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       const queryClient = createTestQueryClient();
@@ -562,7 +558,7 @@ describe("UserData Context", () => {
         expect(result.current.isConnected).toBe(true);
       });
 
-      wagmiHooks.useAccount.mockReturnValue({
+      wagmiHooks.useConnection.mockReturnValue({
         address: null,
         isConnected: false,
         isReconnecting: false,
@@ -583,11 +579,10 @@ describe("UserData Context", () => {
     test("identifies user as provider when status is true", async () => {
       const testAddress = "0x1234567890abcdef";
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -610,11 +605,10 @@ describe("UserData Context", () => {
     test("fetches provider details when user is provider", async () => {
       const testAddress = "0xprovider123";
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -644,11 +638,10 @@ describe("UserData Context", () => {
       const testAddress = "0x1234567890abcdef";
       const mockRefresh = jest.fn().mockResolvedValue(undefined);
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useUserCacheUpdates.mockReturnValue({
@@ -671,11 +664,10 @@ describe("UserData Context", () => {
     test("does not fetch provider details when user is not provider", () => {
       const testAddress = "0x1234567890abcdef";
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -778,11 +770,10 @@ describe("UserData Context", () => {
     test("shows loading when connected wallet is fetching provider status", () => {
       const testAddress = "0x1234567890abcdef";
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -814,11 +805,10 @@ describe("UserData Context", () => {
         refetch: jest.fn(),
       });
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -858,11 +848,10 @@ describe("UserData Context", () => {
         refetch: jest.fn(),
       });
 
-      wagmiHooks.useAccount.mockReturnValue({
-        address: testAddress,
-        isConnected: true,
-        isReconnecting: false,
-        isConnecting: false,
+      wagmiHooks.useConnection.mockReturnValue({
+        accounts: [testAddress],
+        chain: { id: 11155111, name: "sepolia" },
+        status: "connected",
       });
 
       userHooks.useIsLabProvider.mockReturnValue({
@@ -889,7 +878,7 @@ describe("UserData Context", () => {
     });
 
     test("does not fetch provider status when wallet is loading", () => {
-      wagmiHooks.useAccount.mockReturnValue({
+      wagmiHooks.useConnection.mockReturnValue({
         address: null,
         isConnected: false,
         isReconnecting: true,
@@ -909,7 +898,7 @@ describe("UserData Context", () => {
       });
 
       expect(providerQuerySpy).toHaveBeenCalledWith(
-        null,
+        undefined,
         expect.objectContaining({
           enabled: false,
         })
@@ -917,3 +906,4 @@ describe("UserData Context", () => {
     });
   });
 });
+

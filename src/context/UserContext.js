@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useContext, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
@@ -63,7 +63,11 @@ function isWalletSessionUser(sessionUser) {
  * @returns {JSX.Element} Provider with user data and authentication state
  */
 function UserDataCore({ children }) {
-    const { address, isConnected, isReconnecting, isConnecting } = useAccount();
+    const { accounts, status } = useConnection();
+    const address = accounts?.[0];
+    const isConnected = status === 'connected';
+    const isReconnecting = status === 'reconnecting';
+    const isConnecting = status === 'connecting';
     const queryClient = useQueryClient();
     const { handleError: originalHandleError } = useErrorHandler();
     // undefined = unknown/initializing; prevents early Wallet-mode selection in hooks

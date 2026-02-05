@@ -1,4 +1,4 @@
-import { useReadContract, useAccount } from 'wagmi'
+import { useReadContract, useConnection } from 'wagmi'
 import { contractAddresses, contractABI } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
@@ -18,7 +18,7 @@ import { selectChain } from '@/utils/blockchain/selectChain'
  * @returns {Function} returns.refetch - Function to manually refetch the data
  */
 export default function useDefaultReadContract(contractFunctionName, args = [], options = {}, contractType = 'diamond') {
-  const { chain: currentChain } = useAccount();
+  const { chain: currentChain } = useConnection();
   const safeChain = selectChain(currentChain);
   const chainKey = safeChain.name.toLowerCase();
 

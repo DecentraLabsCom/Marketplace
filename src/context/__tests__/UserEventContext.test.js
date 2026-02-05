@@ -33,8 +33,10 @@ jest.mock("@tanstack/react-query", () => ({
 let mockWatchContractEventHandlers = {};
 
 jest.mock("wagmi", () => ({
-  useAccount: jest.fn(() => ({
+  useConnection: jest.fn(() => ({
+    accounts: ['0x123'],
     chain: { id: 11155111, name: "Sepolia" },
+    status: 'connected',
   })),
   usePublicClient: jest.fn(() => ({
     chain: { id: 11155111 },

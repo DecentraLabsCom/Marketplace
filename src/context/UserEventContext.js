@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext } from 'react'
-import { useWatchContractEvent, useAccount, usePublicClient } from 'wagmi'
+import { useWatchContractEvent, useConnection, usePublicClient } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
@@ -17,7 +17,7 @@ const UserEventContext = createContext();
  * @param {React.ReactNode} props.children - Child components
  */
 export function UserEventProvider({ children }) {
-    const { chain } = useAccount();
+    const { chain } = useConnection();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name?.toLowerCase()];
     const queryClient = useQueryClient();

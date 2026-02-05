@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useCallback, useRef } from 'react'
-import { useWatchContractEvent, useAccount, usePublicClient } from 'wagmi'
+import { useWatchContractEvent, useConnection, usePublicClient } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
@@ -33,7 +33,7 @@ const safeExtractLabId = (log) =>
  * @param {React.ReactNode} props.children - Child components
  */
 export function LabEventProvider({ children }) {
-    const { chain } = useAccount();
+    const { chain } = useConnection();
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name?.toLowerCase()];
     const queryClient = useQueryClient();

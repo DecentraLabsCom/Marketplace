@@ -4,7 +4,8 @@
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useWaitForTransactionReceipt } from 'wagmi'
+import { useConnection, useWaitForTransactionReceipt } from 'wagmi'
+import { decodeEventLog } from 'viem'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabToken } from '@/context/LabTokenContext'
 import { 
@@ -14,6 +15,8 @@ import {
 import { BOOKING_STATUS, isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import { contractABI, contractAddresses } from '@/contracts/diamond'
+import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -50,6 +53,10 @@ const safeParseDate = (value, fallback = new Date()) => {
  * @returns {Object} State and handlers for reservation management
  */
 export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
+  const { chain } = useConnection()
+  const safeChain = selectChain(chain)
+  const chainKey = safeChain?.name?.toLowerCase?.() || 'sepolia'
+  const contractAddress = contractAddresses[chainKey]
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
   const { 
     calculateReservationCost, 
@@ -77,6 +84,32 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   const [pendingData, setPendingData] = useState(null)
   const successNotifiedRef = useRef(false)
   const optimisticRemovedRef = useRef(false)
+
+  const extractReservationRequested = useCallback((receiptData) => {
+    if (!receiptData?.logs || !Array.isArray(receiptData.logs)) return null
+
+    for (const log of receiptData.logs) {
+      try {
+        if (contractAddress && log?.address && log.address.toLowerCase() !== contractAddress.toLowerCase()) {
+          continue
+        }
+
+        const decoded = decodeEventLog({
+          abi: contractABI,
+          data: log.data,
+          topics: log.topics
+        })
+
+        if (decoded?.eventName === 'ReservationRequested') {
+          return decoded.args
+        }
+      } catch {
+        // ignore non-matching logs
+      }
+    }
+
+    return null
+  }, [contractAddress])
   
   // Wait for transaction receipt
   const { 
@@ -199,6 +232,32 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       return;
     }
 
+    // Try to extract reservation key from the tx logs so we can track the real request
+    const requested = extractReservationRequested(receipt);
+    const reservationKey =
+      requested?.reservationKey?.toString?.() ||
+      requested?.reservationKey ||
+      null;
+
+    if (reservationKey && pendingData?.optimisticId && pendingData?.isOptimistic) {
+      try {
+        bookingCacheUpdates.replaceOptimisticBooking(pendingData.optimisticId, {
+          ...pendingData,
+          id: reservationKey,
+          reservationKey,
+          status: 0,
+          statusCategory: 'pending',
+          isPending: true,
+          isOptimistic: true,
+          transactionHash: lastTxHash
+        });
+      } catch (err) {
+        devLog.warn('Failed to replace optimistic booking with reservation key:', err);
+      }
+
+      setPendingData(prev => prev ? { ...prev, optimisticId: reservationKey, reservationKey } : prev);
+    }
+
     addTemporaryNotification('success', '✅ Reservation request registered on-chain! Waiting for final confirmation...');
 
     setIsBooking(false);
@@ -226,7 +285,9 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     // Reset transaction state
     setLastTxHash(null);
 
-    devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the event');
+    devLog.log('✅ Reservation request registered on-chain - BookingEventContext will process the event', {
+      reservationKey
+    });
   }, [
     isReceiptSuccess,
     receipt,
@@ -236,7 +297,8 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     refreshTokenData,
     pendingData,
     bookingCacheUpdates,
-    queryClient
+    queryClient,
+    extractReservationRequested
   ])
 
   // Clean up optimistic booking when real booking appears
