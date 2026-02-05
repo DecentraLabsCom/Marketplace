@@ -17,7 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsWallet } from '@/utils/hooks/authMode'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -125,14 +125,14 @@ export const useAllLabs = (options = {}) => {
   // Use a safe fallback during initialization to avoid throwing when UserContext
   // is not yet mounted. This prevents an early Wallet-mode selection that would
   // trigger on-chain reads before SSO session is resolved (causing flaky E2E).
-  const isSSO = useGetIsSSO({ ...options, fallbackDuringInit: true });
+  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false });
   
-  const ssoQuery = useAllLabsSSO({ ...options, enabled: isSSO && options.enabled !== false });
-  const walletQuery = useAllLabsWallet({ ...options, enabled: !isSSO && options.enabled !== false });
+  const ssoQuery = useAllLabsSSO({ ...options, enabled: !isWallet && options.enabled !== false });
+  const walletQuery = useAllLabsWallet({ ...options, enabled: isWallet && options.enabled !== false });
   
-  devLog.log(`🔀 useAllLabs → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useAllLabs → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useLab Hook Family =====
@@ -220,14 +220,14 @@ export const useLabWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with lab data
  */
 export const useLab = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useLabSSO(labId, { ...options, enabled: isSSO && !!labId });
-  const walletQuery = useLabWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  const ssoQuery = useLabSSO(labId, { ...options, enabled: !isWallet && !!labId });
+  const walletQuery = useLabWallet(labId, { ...options, enabled: isWallet && !!labId });
   
-  devLog.log(`🔀 useLab [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useLab [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useLabBalance Hook Family (renamed from useBalanceOf for clarity) =====
@@ -294,14 +294,14 @@ export const useLabBalanceWallet = (ownerAddress, options = {}) => {
  * @returns {Object} React Query result with balance count
  */
 export const useLabBalance = (ownerAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useLabBalanceSSO(ownerAddress, { ...options, enabled: isSSO && !!ownerAddress });
-  const walletQuery = useLabBalanceWallet(ownerAddress, { ...options, enabled: !isSSO && !!ownerAddress });
+  const ssoQuery = useLabBalanceSSO(ownerAddress, { ...options, enabled: !isWallet && !!ownerAddress });
+  const walletQuery = useLabBalanceWallet(ownerAddress, { ...options, enabled: isWallet && !!ownerAddress });
   
-  devLog.log(`🔀 useLabBalance [${ownerAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useLabBalance [${ownerAddress}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useLabOwner Hook Family (renamed from useOwnerOf for clarity) =====
@@ -368,14 +368,14 @@ export const useLabOwnerWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with owner address
  */
 export const useLabOwner = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useLabOwnerSSO(labId, { ...options, enabled: isSSO && !!labId });
-  const walletQuery = useLabOwnerWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  const ssoQuery = useLabOwnerSSO(labId, { ...options, enabled: !isWallet && !!labId });
+  const walletQuery = useLabOwnerWallet(labId, { ...options, enabled: isWallet && !!labId });
   
-  devLog.log(`🔀 useLabOwner [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useLabOwner [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useTokenOfOwnerByIndex Hook Family =====
@@ -447,15 +447,15 @@ export const useTokenOfOwnerByIndexWallet = (ownerAddress, index, options = {}) 
  * @returns {Object} React Query result with token ID
  */
 export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const enabled = !!ownerAddress && (index !== undefined && index !== null);
-  const ssoQuery = useTokenOfOwnerByIndexSSO(ownerAddress, index, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useTokenOfOwnerByIndexWallet(ownerAddress, index, { ...options, enabled: !isSSO && enabled });
+  const ssoQuery = useTokenOfOwnerByIndexSSO(ownerAddress, index, { ...options, enabled: !isWallet && enabled });
+  const walletQuery = useTokenOfOwnerByIndexWallet(ownerAddress, index, { ...options, enabled: isWallet && enabled });
   
-  devLog.log(`🔀 useTokenOfOwnerByIndex [${ownerAddress}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useTokenOfOwnerByIndex [${ownerAddress}, ${index}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useTokenURI Hook Family =====
@@ -522,14 +522,14 @@ export const useTokenURIWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with token URI
  */
 export const useTokenURI = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useTokenURISSO(labId, { ...options, enabled: isSSO && !!labId });
-  const walletQuery = useTokenURIWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  const ssoQuery = useTokenURISSO(labId, { ...options, enabled: !isWallet && !!labId });
+  const walletQuery = useTokenURIWallet(labId, { ...options, enabled: isWallet && !!labId });
   
-  devLog.log(`🔀 useTokenURI [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useTokenURI [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useIsTokenListed Hook Family =====
@@ -597,14 +597,14 @@ export const useIsTokenListedWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with listing status
  */
 export const useIsTokenListed = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useIsTokenListedSSO(labId, { ...options, enabled: isSSO && !!labId });
-  const walletQuery = useIsTokenListedWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  const ssoQuery = useIsTokenListedSSO(labId, { ...options, enabled: !isWallet && !!labId });
+  const walletQuery = useIsTokenListedWallet(labId, { ...options, enabled: isWallet && !!labId });
   
-  devLog.log(`🔀 useIsTokenListed [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useIsTokenListed [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useLabReputation Hook Family =====
@@ -686,12 +686,12 @@ export const useLabReputationWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with reputation data
  */
 export const useLabReputation = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
 
-  const ssoQuery = useLabReputationSSO(labId, { ...options, enabled: isSSO && !!labId });
-  const walletQuery = useLabReputationWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  const ssoQuery = useLabReputationSSO(labId, { ...options, enabled: !isWallet && !!labId });
+  const walletQuery = useLabReputationWallet(labId, { ...options, enabled: isWallet && !!labId });
 
-  devLog.log(`useLabReputation [${labId}] - ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`useLabReputation [${labId}] - ${isWallet ? 'Wallet' : 'SSO'} mode`);
 
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };

@@ -1,1 +1,1 @@
-export { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+export { useGetIsSSO } from '@/utils/hooks/authMode'

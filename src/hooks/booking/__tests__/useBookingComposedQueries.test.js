@@ -38,7 +38,8 @@ jest.mock("@/utils/dev/logger", () => ({
 }));
 
 // Mock dependencies
-jest.mock("@/utils/hooks/getIsSSO", () => ({
+jest.mock("@/utils/hooks/authMode", () => ({
+  useGetIsWallet: jest.fn(() => false),
   useGetIsSSO: jest.fn(() => true),
 }));
 

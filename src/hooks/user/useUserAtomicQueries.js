@@ -19,7 +19,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsWallet } from '@/utils/hooks/authMode'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -113,12 +113,12 @@ export const useGetLabProvidersWallet = (options = {}) => {
  * @returns {Object} React Query result with providers data
  */
 export const useGetLabProviders = (options = {}) => {
-  const isSSO = useGetIsSSO({ ...options, fallbackDuringInit: true });
+  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false });
   
-  const ssoQuery = useGetLabProvidersSSO({ ...options, enabled: isSSO && options.enabled !== false });
-  const walletQuery = useGetLabProvidersWallet({ ...options, enabled: !isSSO && options.enabled !== false });
+  const ssoQuery = useGetLabProvidersSSO({ ...options, enabled: !isWallet && options.enabled !== false });
+  const walletQuery = useGetLabProvidersWallet({ ...options, enabled: isWallet && options.enabled !== false });
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useIsLabProvider Hook Family =====
@@ -194,12 +194,12 @@ export const useIsLabProviderWallet = (address, options = {}) => {
  * @returns {Object} React Query result with provider status
  */
 export const useIsLabProvider = (address, options = {}) => {
-  const isSSO = useGetIsSSO({ ...options, fallbackDuringInit: true });
+  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false });
   
-  const ssoQuery = useIsLabProviderSSO(address, { ...options, enabled: isSSO && options.enabled !== false });
-  const walletQuery = useIsLabProviderWallet(address, { ...options, enabled: !isSSO && options.enabled !== false });
+  const ssoQuery = useIsLabProviderSSO(address, { ...options, enabled: !isWallet && options.enabled !== false });
+  const walletQuery = useIsLabProviderWallet(address, { ...options, enabled: isWallet && options.enabled !== false });
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== SSO SESSION QUERIES =====

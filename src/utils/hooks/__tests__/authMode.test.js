@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react'
-import { getIsSSOFromOptions, useGetIsSSO } from '../getIsSSO'
+import { getIsSSOFromOptions, useGetIsSSO } from '../authMode'
 
 jest.mock('@/context/UserContext', () => ({
   __esModule: true,

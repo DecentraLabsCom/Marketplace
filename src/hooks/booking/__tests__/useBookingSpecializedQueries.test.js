@@ -26,7 +26,8 @@ jest.mock('../useBookingAtomicQueries', () => ({
   BOOKING_QUERY_CONFIG: { staleTime: 30000 },
 }))
 
-jest.mock('@/utils/hooks/getIsSSO', () => ({
+jest.mock('@/utils/hooks/authMode', () => ({
+  useGetIsWallet: jest.fn(() => false),
   useGetIsSSO: jest.fn(() => true),
 }))
 

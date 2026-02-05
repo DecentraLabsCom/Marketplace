@@ -28,7 +28,7 @@ import {
 } from './useBookingAtomicQueries'
 import { useAllLabs, useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
-import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import devLog from '@/utils/dev/logger'

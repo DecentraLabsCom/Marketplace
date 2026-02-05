@@ -24,7 +24,7 @@ import {
   useReservation,
 } from "@/hooks/booking/useBookingAtomicQueries";
 import useDefaultReadContract from "@/hooks/contract/useDefaultReadContract";
-import { useGetIsSSO } from "@/utils/hooks/getIsSSO";
+import { useGetIsWallet } from "@/utils/hooks/authMode";
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -61,8 +61,8 @@ jest.mock("@/utils/hooks/queryKeys", () => ({
 }));
 
 // Mock dependencies to isolate the test
-jest.mock("@/utils/hooks/getIsSSO", () => ({
-  useGetIsSSO: jest.fn(() => true),
+jest.mock("@/utils/hooks/authMode", () => ({
+  useGetIsWallet: jest.fn(() => false),
 }));
 
 jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
@@ -226,7 +226,7 @@ describe("useBookingAtomicQueries", () => {
 
   describe("Router wallet path normalization", () => {
     test("normalizes BigInt wagmi data to SSO shape and consistent cache key", () => {
-      useGetIsSSO.mockReturnValue(false);
+      useGetIsWallet.mockReturnValue(true);
 
       useDefaultReadContract.mockReturnValue({
         data: {

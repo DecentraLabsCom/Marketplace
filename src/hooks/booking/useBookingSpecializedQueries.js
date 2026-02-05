@@ -16,7 +16,7 @@ import {
   useReservationSSO,
   BOOKING_QUERY_CONFIG 
 } from './useBookingAtomicQueries'
-import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 

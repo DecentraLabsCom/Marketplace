@@ -55,8 +55,8 @@ jest.mock("@/utils/hooks/ssrSafe", () => ({
 }));
 
 // Mock dependencies to isolate the test
-jest.mock("@/utils/hooks/getIsSSO", () => ({
-  useGetIsSSO: jest.fn(() => true),
+jest.mock("@/utils/hooks/authMode", () => ({
+  useGetIsWallet: jest.fn(() => false),
 }));
 
 jest.mock("@/hooks/contract/useDefaultReadContract", () => ({

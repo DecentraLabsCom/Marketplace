@@ -17,7 +17,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsWallet } from '@/utils/hooks/authMode'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
@@ -186,14 +186,14 @@ export const useReservationWallet = (reservationKey, options = {}) => {
  * @returns {Object} React Query result with reservation data
  */
 export const useReservation = (reservationKey, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
-  const walletQuery = useReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
+  const ssoQuery = useReservationSSO(reservationKey, { ...options, enabled: !isWallet && !!reservationKey });
+  const walletQuery = useReservationWallet(reservationKey, { ...options, enabled: isWallet && !!reservationKey });
   
-  devLog.log(`🔀 useReservation [${reservationKey}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useReservation [${reservationKey}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useReservationsOfToken Hook Family =====
@@ -260,14 +260,14 @@ export const useReservationsOfTokenWallet = (labId, options = {}) => {
  * @returns {Object} React Query result with lab reservations
  */
 export const useReservationsOfToken = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useReservationsOfTokenSSO(labId, { ...options, enabled: isSSO && !!labId });
-  const walletQuery = useReservationsOfTokenWallet(labId, { ...options, enabled: !isSSO && !!labId });
+  const ssoQuery = useReservationsOfTokenSSO(labId, { ...options, enabled: !isWallet && !!labId });
+  const walletQuery = useReservationsOfTokenWallet(labId, { ...options, enabled: isWallet && !!labId });
   
-  devLog.log(`🔀 useReservationsOfToken [${labId}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useReservationsOfToken [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useReservationOfTokenByIndex Hook Family =====
@@ -339,15 +339,15 @@ export const useReservationOfTokenByIndexWallet = (labId, index, options = {}) =
  * @returns {Object} React Query result with reservation data
  */
 export const useReservationOfTokenByIndex = (labId, index, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const enabled = !!labId && (index !== undefined && index !== null);
-  const ssoQuery = useReservationOfTokenByIndexSSO(labId, index, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useReservationOfTokenByIndexWallet(labId, index, { ...options, enabled: !isSSO && enabled });
+  const ssoQuery = useReservationOfTokenByIndexSSO(labId, index, { ...options, enabled: !isWallet && enabled });
+  const walletQuery = useReservationOfTokenByIndexWallet(labId, index, { ...options, enabled: isWallet && enabled });
   
-  devLog.log(`🔀 useReservationOfTokenByIndex [${labId}, ${index}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useReservationOfTokenByIndex [${labId}, ${index}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useReservationsOf Hook Family =====
@@ -443,14 +443,14 @@ useReservationsOfWallet.queryFn = getReservationsOfWalletQueryFn;
  * @returns {Object} React Query result with user reservations
  */
 export const useReservationsOf = (userAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useReservationsOfSSO({ ...options, enabled: isSSO && (options.enabled ?? true) });
-  const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: !isSSO && !!userAddress && (options.enabled ?? true) });
+  const ssoQuery = useReservationsOfSSO({ ...options, enabled: !isWallet && (options.enabled ?? true) });
+  const walletQuery = useReservationsOfWallet(userAddress, { ...options, enabled: isWallet && !!userAddress && (options.enabled ?? true) });
   
-  devLog.log(`🔀 useReservationsOf ${isSSO ? '→ SSO (PUC-based)' : `[${userAddress}] → Wallet mode`}`);
+  devLog.log(`🔀 useReservationsOf ${isWallet ? `[${userAddress}] → Wallet mode` : '→ SSO (PUC-based)'}`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useReservationKeyOfUserByIndex Hook Family =====
@@ -547,15 +547,15 @@ useReservationKeyOfUserByIndexWallet.queryFn = getReservationKeyOfUserByIndexWal
  * @returns {Object} React Query result with reservation key
 */
 export const useReservationKeyOfUserByIndex = (userAddress, index, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const indexValid = index !== undefined && index !== null;
-  const ssoQuery = useReservationKeyOfUserByIndexSSO(index, { ...options, enabled: isSSO && indexValid && (options.enabled ?? true) });
-  const walletQuery = useReservationKeyOfUserByIndexWallet(userAddress, index, { ...options, enabled: !isSSO && !!userAddress && indexValid && (options.enabled ?? true) });
+  const ssoQuery = useReservationKeyOfUserByIndexSSO(index, { ...options, enabled: !isWallet && indexValid && (options.enabled ?? true) });
+  const walletQuery = useReservationKeyOfUserByIndexWallet(userAddress, index, { ...options, enabled: isWallet && !!userAddress && indexValid && (options.enabled ?? true) });
   
-  devLog.log(`🔀 useReservationKeyOfUserByIndex ${isSSO ? `[${index}] → SSO (PUC-based)` : `[${userAddress}, ${index}] → Wallet mode`}`);
+  devLog.log(`🔀 useReservationKeyOfUserByIndex ${isWallet ? `[${userAddress}, ${index}] → Wallet mode` : `[${index}] → SSO (PUC-based)`}`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useReservationsOfTokenByUser Hook Family =====
@@ -616,14 +616,14 @@ export const useReservationsOfTokenByUserWallet = (labId, userAddress, options =
 };
 
 export const useReservationsOfTokenByUser = (labId, userAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   const enabled = !!labId && !!userAddress && (options.enabled ?? true);
   const ssoQuery = useReservationsOfTokenByUserSSO(labId, userAddress, { ...options, enabled });
   const walletQuery = useReservationsOfTokenByUserWallet(labId, userAddress, { ...options, enabled });
 
-  devLog.log(`🔀 useReservationsOfTokenByUser [${labId}, ${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useReservationsOfTokenByUser [${labId}, ${userAddress}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
 
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useTotalReservations Hook Family =====
@@ -683,14 +683,14 @@ export const useTotalReservationsWallet = (options = {}) => {
  * @returns {Object} React Query result with total count
  */
 export const useTotalReservations = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useTotalReservationsSSO({ ...options, enabled: isSSO });
-  const walletQuery = useTotalReservationsWallet({ ...options, enabled: !isSSO });
+  const ssoQuery = useTotalReservationsSSO({ ...options, enabled: !isWallet });
+  const walletQuery = useTotalReservationsWallet({ ...options, enabled: isWallet });
   
-  devLog.log(`🔀 useTotalReservations → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useTotalReservations → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useUserOfReservation Hook Family =====
@@ -754,14 +754,14 @@ export const useUserOfReservationWallet = (reservationKey, options = {}) => {
  * @returns {Object} React Query result with user address
  */
 export const useUserOfReservation = (reservationKey, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useUserOfReservationSSO(reservationKey, { ...options, enabled: isSSO && !!reservationKey });
-  const walletQuery = useUserOfReservationWallet(reservationKey, { ...options, enabled: !isSSO && !!reservationKey });
+  const ssoQuery = useUserOfReservationSSO(reservationKey, { ...options, enabled: !isWallet && !!reservationKey });
+  const walletQuery = useUserOfReservationWallet(reservationKey, { ...options, enabled: isWallet && !!reservationKey });
   
-  devLog.log(`🔀 useUserOfReservation [${reservationKey}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useUserOfReservation [${reservationKey}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useCheckAvailable Hook Family =====
@@ -836,15 +836,15 @@ export const useCheckAvailableWallet = (labId, start, duration, options = {}) =>
  * @returns {Object} React Query result with availability status
  */
 export const useCheckAvailable = (labId, start, duration, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const enabled = !!(labId && start && duration);
-  const ssoQuery = useCheckAvailableSSO(labId, start, duration, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useCheckAvailableWallet(labId, start, duration, { ...options, enabled: !isSSO && enabled });
+  const ssoQuery = useCheckAvailableSSO(labId, start, duration, { ...options, enabled: !isWallet && enabled });
+  const walletQuery = useCheckAvailableWallet(labId, start, duration, { ...options, enabled: isWallet && enabled });
   
-  devLog.log(`🔀 useCheckAvailable [${labId}, ${start}, ${duration}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useCheckAvailable [${labId}, ${start}, ${duration}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useHasActiveBooking Hook Family =====
@@ -917,15 +917,15 @@ export const useHasActiveBookingWallet = (reservationKey, userAddress, options =
  * @returns {Object} React Query result with active booking status
  */
 export const useHasActiveBooking = (reservationKey, userAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const enabled = !!reservationKey && !!userAddress;
-  const ssoQuery = useHasActiveBookingSSO(reservationKey, userAddress, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useHasActiveBookingWallet(reservationKey, userAddress, { ...options, enabled: !isSSO && enabled });
+  const ssoQuery = useHasActiveBookingSSO(reservationKey, userAddress, { ...options, enabled: !isWallet && enabled });
+  const walletQuery = useHasActiveBookingWallet(reservationKey, userAddress, { ...options, enabled: isWallet && enabled });
   
-  devLog.log(`?? useHasActiveBooking [${reservationKey}] ? ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`?? useHasActiveBooking [${reservationKey}] ? ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 // ===== useHasActiveBookingByToken Hook Family =====
 
@@ -997,15 +997,15 @@ export const useHasActiveBookingByTokenWallet = (labId, userAddress, options = {
  * @returns {Object} React Query result with active booking status for the lab
  */
 export const useHasActiveBookingByToken = (labId, userAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const enabled = !!labId && !!userAddress;
-  const ssoQuery = useHasActiveBookingByTokenSSO(labId, userAddress, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useHasActiveBookingByTokenWallet(labId, userAddress, { ...options, enabled: !isSSO && enabled });
+  const ssoQuery = useHasActiveBookingByTokenSSO(labId, userAddress, { ...options, enabled: !isWallet && enabled });
+  const walletQuery = useHasActiveBookingByTokenWallet(labId, userAddress, { ...options, enabled: isWallet && enabled });
   
-  devLog.log(`?? useHasActiveBookingByToken [${labId}] ? ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`?? useHasActiveBookingByToken [${labId}] ? ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 // ===== useActiveReservationKeyForUser Hook Family =====
 
@@ -1076,15 +1076,15 @@ export const useActiveReservationKeyForUserWallet = (labId, userAddress, options
  * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
  */
 export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
   const enabled = !!labId && !!userAddress;
-  const ssoQuery = useActiveReservationKeyForUserSSO(labId, userAddress, { ...options, enabled: isSSO && enabled });
-  const walletQuery = useActiveReservationKeyForUserWallet(labId, userAddress, { ...options, enabled: !isSSO && enabled });
+  const ssoQuery = useActiveReservationKeyForUserSSO(labId, userAddress, { ...options, enabled: !isWallet && enabled });
+  const walletQuery = useActiveReservationKeyForUserWallet(labId, userAddress, { ...options, enabled: isWallet && enabled });
   
-  devLog.log(`🔀 useActiveReservationKeyForUser [${labId}, ${userAddress}] → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useActiveReservationKeyForUser [${labId}, ${userAddress}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== SSO session: useActiveReservationKey Hook (SSO-only) =====
@@ -1164,18 +1164,18 @@ useHasActiveBookingForSessionUserSSO.queryFn = getSSOHasActiveBookingQueryFn;
 
 // Router-friendly wrappers (Wallet users have no institutional path, so disable when not SSO)
 export const useActiveReservationKeyForSessionUser = (labId, options = {}) => {
-  const isSSO = useGetIsSSO(options)
+  const isWallet = useGetIsWallet(options)
   return useActiveReservationKeyForSessionUserSSO(labId, {
     ...options,
-    enabled: isSSO && !!labId && (options.enabled ?? true),
+    enabled: !isWallet && !!labId && (options.enabled ?? true),
   })
 }
 
 export const useHasActiveBookingForSessionUser = (options = {}) => {
-  const isSSO = useGetIsSSO(options)
+  const isWallet = useGetIsWallet(options)
   return useHasActiveBookingForSessionUserSSO({
     ...options,
-    enabled: isSSO && (options.enabled ?? true),
+    enabled: !isWallet && (options.enabled ?? true),
   })
 }
 
@@ -1236,14 +1236,14 @@ export const useLabTokenAddressWallet = (options = {}) => {
  * @returns {Object} React Query result with token contract address
  */
 export const useLabTokenAddress = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useLabTokenAddressSSO({ ...options, enabled: isSSO });
-  const walletQuery = useLabTokenAddressWallet({ ...options, enabled: !isSSO });
+  const ssoQuery = useLabTokenAddressSSO({ ...options, enabled: !isWallet });
+  const walletQuery = useLabTokenAddressWallet({ ...options, enabled: isWallet });
   
-  devLog.log(`🔀 useLabTokenAddress → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useLabTokenAddress → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };
 
 // ===== useSafeBalance Hook Family =====
@@ -1303,12 +1303,12 @@ export const useSafeBalanceWallet = (options = {}) => {
  * @returns {Object} React Query result with safe balance
  */
 export const useSafeBalance = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
+  const isWallet = useGetIsWallet(options);
   
-  const ssoQuery = useSafeBalanceSSO({ ...options, enabled: isSSO });
-  const walletQuery = useSafeBalanceWallet({ ...options, enabled: !isSSO });
+  const ssoQuery = useSafeBalanceSSO({ ...options, enabled: !isWallet });
+  const walletQuery = useSafeBalanceWallet({ ...options, enabled: isWallet });
   
-  devLog.log(`🔀 useSafeBalance → ${isSSO ? 'SSO' : 'Wallet'} mode`);
+  devLog.log(`🔀 useSafeBalance → ${isWallet ? 'Wallet' : 'SSO'} mode`);
   
-  return isSSO ? ssoQuery : walletQuery;
+  return isWallet ? walletQuery : ssoQuery;
 };

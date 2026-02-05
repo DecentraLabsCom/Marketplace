@@ -14,7 +14,7 @@ import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizati
 import devLog from '@/utils/dev/logger'
 import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
-import { useGetIsSSO } from '@/utils/hooks/getIsSSO'
+import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 
