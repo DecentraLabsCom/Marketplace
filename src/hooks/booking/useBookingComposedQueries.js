@@ -12,7 +12,7 @@
  * - useUserBookingsDashboard: User bookings with enriched details, analytics, and optional features for user dashboard
  * - useLabBookingsDashboard: Lab bookings with enriched details and analytics for provider dashboard  
  */
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { 
   useReservationsOfSSO,
@@ -301,9 +301,11 @@ export const useUserBookingsDashboard = (userAddress, {
     enabled: isSSO && queryEnabled,
   });
   
-  const walletCountResult = useReservationsOfWallet(userAddress, {
-    ...baseBookingQueryOptions,
+  const walletCountResult = useQuery({
+    queryKey: bookingQueryKeys.reservationsOf(userAddress),
+    queryFn: () => useReservationsOfWallet.queryFn(userAddress),
     enabled: !isSSO && !!userAddress && queryEnabled,
+    ...baseBookingQueryOptions,
   });
   
   const reservationCountResult = isSSO ? ssoCountResult : walletCountResult;
