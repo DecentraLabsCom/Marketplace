@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useAccount, useWaitForTransactionReceipt, useBalance } from 'wagmi'
+import { useAccount, useWaitForTransactionReceipt, useBalance, useReadContract, useWriteContract } from 'wagmi'
 import { formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
-import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
-import { contractAddressesLAB } from '@/contracts/lab'
+import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -16,9 +15,16 @@ const DEFAULT_LAB_TOKEN_DECIMALS = 6;
 /**
  * Utility to get cached decimals or return null
  */
-const getCachedDecimals = (chainName) => {
+const getCachedDecimals = (chainName, tokenAddress) => {
   try {
     const cache = JSON.parse(sessionStorage.getItem(DECIMALS_CACHE_KEY) || '{}');
+    const normalizedToken = typeof tokenAddress === 'string' ? tokenAddress.toLowerCase() : null;
+    if (normalizedToken) {
+      const tokenKey = `${chainName}:${normalizedToken}`;
+      if (cache[tokenKey] !== undefined) {
+        return cache[tokenKey];
+      }
+    }
     return cache[chainName] || null;
   } catch {
     return null;
@@ -28,10 +34,15 @@ const getCachedDecimals = (chainName) => {
 /**
  * Utility to cache decimals for a specific chain
  */
-const setCachedDecimals = (chainName, decimals) => {
+const setCachedDecimals = (chainName, tokenAddress, decimals) => {
   try {
     const cache = JSON.parse(sessionStorage.getItem(DECIMALS_CACHE_KEY) || '{}');
-    cache[chainName] = decimals;
+    const normalizedToken = typeof tokenAddress === 'string' ? tokenAddress.toLowerCase() : null;
+    if (normalizedToken) {
+      cache[`${chainName}:${normalizedToken}`] = decimals;
+    } else {
+      cache[chainName] = decimals;
+    }
     sessionStorage.setItem(DECIMALS_CACHE_KEY, JSON.stringify(cache));
   } catch (error) {
     devLog.warn('Failed to cache decimals:', error);
@@ -39,6 +50,8 @@ const setCachedDecimals = (chainName, decimals) => {
 };
 
 const isValidAddress = (addr) => typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr);
+const isZeroAddress = (addr) => typeof addr === 'string' && /^0x0{40}$/.test(addr);
+const normalizeAddress = (addr) => (isValidAddress(addr) && !isZeroAddress(addr) ? addr : undefined);
 
 /**
  * Clear decimals cache (useful for debugging or network switches)
@@ -75,24 +88,48 @@ export const clearDecimalsCache = () => {
  * @returns {Function} returns.clearDecimalsCache - Clear cached decimals function
  */
 export function useLabTokenHook() {
-  const { address, chain } = useAccount();
+  const { address, chain, isConnected } = useAccount();
   const safeChain = selectChain(chain);
   const chainName = safeChain.name.toLowerCase();
-  const labTokenAddress = contractAddressesLAB[chainName];
+  const envLabTokenAddress = contractAddressesLAB[chainName];
   const diamondContractAddress = contractAddresses[chainName];
-  const normalizedLabTokenAddress = isValidAddress(labTokenAddress) ? labTokenAddress : undefined;
-  const shouldFetchBalance = Boolean(address && normalizedLabTokenAddress);
+  const normalizedLabTokenAddress = normalizeAddress(envLabTokenAddress);
+
+  // Prefer on-chain token address when available (avoids env mismatch)
+  const { data: onChainLabTokenAddress } = useDefaultReadContract(
+    'getLabTokenAddress',
+    [],
+    { enabled: Boolean(diamondContractAddress) }
+  );
+  const resolvedLabTokenAddress = normalizeAddress(onChainLabTokenAddress) || normalizedLabTokenAddress;
+  const shouldFetchBalance = Boolean(address && resolvedLabTokenAddress);
+
+  useEffect(() => {
+    const normalizedOnChain = normalizeAddress(onChainLabTokenAddress);
+    if (
+      normalizedOnChain &&
+      normalizedLabTokenAddress &&
+      normalizedOnChain.toLowerCase() !== normalizedLabTokenAddress.toLowerCase()
+    ) {
+      devLog.warn('LAB token address mismatch (on-chain vs env)', {
+        onChain: normalizedOnChain,
+        env: normalizedLabTokenAddress,
+      });
+    }
+  }, [onChainLabTokenAddress, normalizedLabTokenAddress]);
   
   const [lastTxHash, setLastTxHash] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [cachedDecimals, setCachedDecimalsState] = useState(() => getCachedDecimals(chainName));
+  const [cachedDecimals, setCachedDecimalsState] = useState(() =>
+    getCachedDecimals(chainName, resolvedLabTokenAddress || normalizedLabTokenAddress)
+  );
   const [fallbackDecimals, setFallbackDecimals] = useState(null);
   const fallbackFetchInFlight = useRef(false);
 
   // Read user token balance via wagmi useBalance for better reliability
   const { data: erc20Balance, refetch: refetchBalance } = useBalance({
     address,
-    token: normalizedLabTokenAddress,
+    token: resolvedLabTokenAddress,
     chainId: safeChain.id,
     watch: shouldFetchBalance,
     query: {
@@ -108,13 +145,21 @@ export function useLabTokenHook() {
   });
   const balance = erc20Balance?.value;
 
-  // Read allowance for diamond contract using the updated hook
-  const { data: allowance, refetch: refetchAllowance } = useDefaultReadContract(
-    'allowance', 
-    [address, diamondContractAddress], 
-    false, 
-    'lab'
-  );
+  // Read allowance for diamond contract from resolved LAB token address
+  const shouldFetchAllowance = Boolean(address && resolvedLabTokenAddress && diamondContractAddress);
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    abi: labTokenABI,
+    address: resolvedLabTokenAddress,
+    functionName: 'allowance',
+    args: [address, diamondContractAddress],
+    chainId: safeChain.id,
+    query: {
+      enabled: shouldFetchAllowance,
+      retry: 2,
+      retryOnMount: true,
+      refetchOnReconnect: true,
+    },
+  });
 
   const previousShouldFetchRef = useRef(shouldFetchBalance);
 
@@ -127,32 +172,38 @@ export function useLabTokenHook() {
     previousShouldFetchRef.current = shouldFetchBalance;
   }, [shouldFetchBalance, refetchBalance, refetchAllowance]);
 
-  // Read token decimals only if not cached using the updated hook
-  const { data: contractDecimals } = useDefaultReadContract(
-    'decimals', 
-    [], 
-    cachedDecimals !== null, 
-    'lab'
-  );
+  // Read token decimals only if not cached
+  const { data: contractDecimals } = useReadContract({
+    abi: labTokenABI,
+    address: resolvedLabTokenAddress,
+    functionName: 'decimals',
+    chainId: safeChain.id,
+    query: {
+      enabled: Boolean(resolvedLabTokenAddress) && cachedDecimals === null,
+      retry: 2,
+      retryOnMount: true,
+      refetchOnReconnect: true,
+    },
+  });
 
-  // Get the write function for LAB token contract
-  const { contractWriteFunction: labTokenWrite } = useContractWriteFunction('approve', 'lab');
+  // Get the write function for LAB token contract (resolved address)
+  const { writeContractAsync: writeLabToken } = useWriteContract();
 
   // Update cached decimals when we get them from contract
   useEffect(() => {
     if (contractDecimals !== undefined && cachedDecimals === null) {
-      setCachedDecimals(chainName, contractDecimals);
+      setCachedDecimals(chainName, resolvedLabTokenAddress, contractDecimals);
       setCachedDecimalsState(contractDecimals);
     }
-  }, [contractDecimals, cachedDecimals, chainName]);
+  }, [contractDecimals, cachedDecimals, chainName, resolvedLabTokenAddress]);
 
-  // Update cached decimals when chain changes
+  // Update cached decimals when chain or token changes
   useEffect(() => {
-    const newCachedDecimals = getCachedDecimals(chainName);
+    const newCachedDecimals = getCachedDecimals(chainName, resolvedLabTokenAddress || normalizedLabTokenAddress);
     setCachedDecimalsState(newCachedDecimals);
     setFallbackDecimals(null);
     fallbackFetchInFlight.current = false;
-  }, [chainName]);
+  }, [chainName, resolvedLabTokenAddress, normalizedLabTokenAddress]);
 
   // Fetch decimals via API as a fallback when on-chain read isn't available yet
   useEffect(() => {
@@ -185,7 +236,7 @@ export function useLabTokenHook() {
         if (!isCancelled) {
           setFallbackDecimals(resolved);
           if (!isFallback) {
-            setCachedDecimals(chainName, resolved);
+            setCachedDecimals(chainName, resolvedLabTokenAddress, resolved);
             setCachedDecimalsState(resolved);
           }
         }
@@ -202,7 +253,7 @@ export function useLabTokenHook() {
     return () => {
       isCancelled = true;
     };
-  }, [cachedDecimals, contractDecimals, fallbackDecimals, chainName]);
+  }, [cachedDecimals, contractDecimals, fallbackDecimals, chainName, resolvedLabTokenAddress]);
 
   // Force refetch balance and allowance when wallet address changes
   // This ensures fresh data when user switches wallets in MetaMask
@@ -287,13 +338,21 @@ export function useLabTokenHook() {
    * @returns {Promise<string>} - Transaction hash
    */
   const approveLabTokens = useCallback(async (amount) => {
-    if (!labTokenAddress || !diamondContractAddress) {
+    if (!isConnected) {
+      throw new Error('Wallet not connected');
+    }
+
+    if (!resolvedLabTokenAddress || !diamondContractAddress) {
       throw new Error('Contract addresses not available');
     }
 
     setIsLoading(true);
     try {
-      const txHash = await labTokenWrite([diamondContractAddress, amount], {
+      const txHash = await writeLabToken({
+        address: resolvedLabTokenAddress,
+        abi: labTokenABI,
+        functionName: 'approve',
+        args: [diamondContractAddress, amount],
         chainId: safeChain.id
       });
 
@@ -303,7 +362,7 @@ export function useLabTokenHook() {
       setIsLoading(false);
       throw error;
     }
-  }, [labTokenAddress, diamondContractAddress, labTokenWrite, safeChain.id]);
+  }, [resolvedLabTokenAddress, diamondContractAddress, writeLabToken, safeChain.id, isConnected]);
 
   /**
    * Check if there is sufficient balance and allowance
@@ -410,7 +469,7 @@ export function useLabTokenHook() {
     allowance,
     decimals,
     isLoading: isLoading || isWaitingForReceipt,
-    labTokenAddress,
+    labTokenAddress: resolvedLabTokenAddress,
     
     // Functions
     calculateReservationCost,

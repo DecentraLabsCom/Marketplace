@@ -60,7 +60,16 @@ This project follows a set of coding standards and best practices to ensure code
      * Error Recovery → Clear optimistic state + targeted invalidation
    - **Performance Optimization**: Prefer OptimisticUIContext for UI state, `setQueryData` for known updates, and specific `invalidateQueries` (never global patterns) for lazy refetching. This minimizes unnecessary re-fetches and network requests.
 
-5. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities. In particular, use the `useContractWriteFunction` hook for all contract write operations, and `useDefaultReadContract` for read operations.
+5. **Wagmi Integration**: The project uses Wagmi v.2 for Ethereum wallet connections and interactions from the client side. Ensure that all wallet-related functionality is implemented using Wagmi hooks and utilities.
+   
+   **Contract Interaction Guidelines**:
+   - **Diamond Contract**: Use `useContractWriteFunction` for write operations and `useDefaultReadContract` for read operations. These wrappers handle contract addresses from environment variables and provide consistent error handling.
+   - **Standard ERC20 Contracts (LAB Token)**: Use Wagmi hooks directly (`useReadContract`, `useWriteContract`) when working with standard token operations, especially when:
+     * The contract address is resolved dynamically (e.g., from on-chain reads via `getLabTokenAddress()`)
+     * You need to interact with multiple token addresses
+     * The wrapper abstractions become limiting
+   - **Custom ABIs**: For contracts with custom ABIs or dynamic addresses, prefer direct Wagmi hooks with explicit ABI and address parameters.
+   - **Best Practice**: Choose the approach that provides the best balance between consistency and flexibility. The wrappers are great for the main diamond contract, but direct Wagmi usage is acceptable and often preferable for standard interfaces like ERC20.
 
 6. **Ethers.js Integration**: The project uses Ethers.js v.6 for interacting with the Ethereum blockchain from the server side. Ensure that all blockchain interactions are also implemented using Ethers.js utilities and hooks. This includes creating and signing transactions, as well as reading data from the blockchain. Always use `contractInstance` for interacting with smart contracts.
 

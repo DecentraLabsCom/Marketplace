@@ -16,18 +16,18 @@
 jest.mock("@/hooks/contract/useDefaultReadContract", () =>
   require("../../test-utils/mocks/hooks/useDefaultReadContract")
 );
-jest.mock("@/hooks/contract/useContractWriteFunction", () =>
-  require("../../test-utils/mocks/hooks/useContractWriteFunction")
-);
 
 // wagmi mocks (account, tx receipts, etc.)
 jest.mock("wagmi", () => ({
   useAccount: jest.fn(() => ({
     address: "0x123",
     chain: { id: 1, name: "ethereum" },
+    isConnected: true,
   })),
   useWaitForTransactionReceipt: jest.fn(),
   useBalance: jest.fn(),
+  useReadContract: jest.fn(),
+  useWriteContract: jest.fn(),
 }));
 
 // Utility mocks (chain selector)
@@ -41,7 +41,6 @@ import { useLabTokenHook as useLabToken } from "../useLabToken";
 
 // Mock factories
 const mockReadFactory = require("../../test-utils/mocks/hooks/useDefaultReadContract");
-const mockWriteFactory = require("../../test-utils/mocks/hooks/useContractWriteFunction");
 const wagmi = require("wagmi");
 
 // React Query wrapper for hooks
@@ -74,22 +73,28 @@ describe("useLabTokenHook", () => {
       refetch: refetchBalanceSpy,
     });
 
-    // dynamic mock for read hooks based on function name
+    // useDefaultReadContract mock (for on-chain LAB token address)
     mockReadFactory.mockImplementation((fnName) => {
-      // 'balanceOf' might strictly not be needed if hook uses useBalance,
-      // but keeping it ensures safety if logic switches back or for specific reads.
-      if (fnName === "balanceOf")
-        return { data: 1000n, refetch: refetchBalanceSpy };
-      if (fnName === "allowance")
+      if (fnName === "getLabTokenAddress")
+        return { data: "0x0000000000000000000000000000000000000456" };
+      return { data: undefined, refetch: jest.fn() };
+    });
+
+    // useReadContract mock (for allowance/decimals)
+    wagmi.useReadContract.mockImplementation((args) => {
+      if (args.functionName === "allowance") {
         return { data: 500n, refetch: refetchAllowanceSpy };
-      if (fnName === "decimals") return { data: 18 };
+      }
+      if (args.functionName === "decimals") {
+        return { data: 18 };
+      }
       return { data: undefined, refetch: jest.fn() };
     });
 
     // mock write function
-    mockWriteFactory.mockImplementation(() => ({
-      contractWriteFunction: contractWriteSpy,
-    }));
+    wagmi.useWriteContract.mockReturnValue({
+      writeContractAsync: contractWriteSpy,
+    });
 
     // default tx receipt state
     wagmi.useWaitForTransactionReceipt.mockReturnValue({
