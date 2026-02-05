@@ -5,6 +5,7 @@ import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
 
 // Session storage key for decimals cache
@@ -93,9 +94,10 @@ export const clearDecimalsCache = () => {
  * @returns {Function} returns.clearDecimalsCache - Clear cached decimals function
  */
 export function useLabTokenHook() {
-  const { accounts, chain, status } = useConnection();
-  const address = accounts?.[0];
-  const isConnected = status === 'connected';
+  const connection = useConnection();
+  const { chain } = connection || {};
+  const address = getConnectionAddress(connection);
+  const isConnected = isConnectionConnected(connection);
   const safeChain = selectChain(chain);
   const chainName = safeChain.name.toLowerCase();
   const envLabTokenAddress = contractAddressesLAB[chainName];

@@ -16,6 +16,7 @@ import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
 import { useConnection, usePublicClient } from 'wagmi'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { getConnectionAddress } from '@/utils/blockchain/connection'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { decodeEventLog } from 'viem'
 
@@ -663,8 +664,9 @@ export const useAddLabSSO = (options = {}) => {
 // Wallet hook for adding labs (on-chain tx)
 export const useAddLabWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const { chain, accounts } = useConnection();
-  const userAddress = accounts?.[0];
+  const connection = useConnection();
+  const { chain } = connection || {};
+  const userAddress = getConnectionAddress(connection);
   const safeChain = selectChain(chain);
   const chainKey = safeChain.name.toLowerCase();
   const contractAddress = contractAddresses[chainKey];

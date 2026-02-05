@@ -18,6 +18,7 @@ import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import AccessControl from '@/components/auth/AccessControl'
 import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
 import { contractAddresses } from '@/contracts/diamond'
+import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -36,9 +37,10 @@ export default function LabReservation({ id }) {
   // User context
   const { isSSO, address: userAddress, institutionBackendUrl, hasWalletSession } = useUser()
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
-  const { chain, accounts, status } = useConnection();
-  const address = accounts?.[0];
-  const isConnected = status === 'connected';
+  const connection = useConnection();
+  const { chain } = connection || {};
+  const address = getConnectionAddress(connection);
+  const isConnected = isConnectionConnected(connection);
   
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)

@@ -2,6 +2,7 @@ import { useWriteContract, useConnection } from 'wagmi'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -17,9 +18,10 @@ import devLog from '@/utils/dev/logger'
  * @throws {Error} When wallet is not connected or contract address not found
  */
 export default function useContractWriteFunction(functionName, contractType = 'diamond') {
-  const { chain, accounts, status } = useConnection()
-  const userAddress = accounts?.[0]
-  const isConnected = status === 'connected'
+  const connection = useConnection()
+  const { chain } = connection || {}
+  const userAddress = getConnectionAddress(connection)
+  const isConnected = isConnectionConnected(connection)
   const safeChain = selectChain(chain)
   const chainKey = safeChain.name.toLowerCase()
   const { writeContractAsync, ...rest } = useWriteContract()

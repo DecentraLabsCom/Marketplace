@@ -18,6 +18,12 @@ import {
   ErrorCategory 
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
+import {
+    getConnectionAddress,
+    isConnectionConnected,
+    isConnectionConnecting,
+    isConnectionReconnecting,
+} from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
 import { transformRegistrationOptions, attestationToJSON } from '@/utils/webauthn/client'
 
@@ -63,11 +69,11 @@ function isWalletSessionUser(sessionUser) {
  * @returns {JSX.Element} Provider with user data and authentication state
  */
 function UserDataCore({ children }) {
-    const { accounts, status } = useConnection();
-    const address = accounts?.[0];
-    const isConnected = status === 'connected';
-    const isReconnecting = status === 'reconnecting';
-    const isConnecting = status === 'connecting';
+    const connection = useConnection();
+    const address = getConnectionAddress(connection);
+    const isConnected = isConnectionConnected(connection);
+    const isReconnecting = isConnectionReconnecting(connection);
+    const isConnecting = isConnectionConnecting(connection);
     const queryClient = useQueryClient();
     const { handleError: originalHandleError } = useErrorHandler();
     // undefined = unknown/initializing; prevents early Wallet-mode selection in hooks

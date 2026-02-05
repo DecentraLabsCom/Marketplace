@@ -898,7 +898,7 @@ describe("UserData Context", () => {
       });
 
       expect(providerQuerySpy).toHaveBeenCalledWith(
-        undefined,
+        null,
         expect.objectContaining({
           enabled: false,
         })

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { getConnectionAddress } from '@/utils/blockchain/connection'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import devLog from '@/utils/dev/logger'
@@ -21,8 +22,9 @@ const BookingEventContext = createContext();
  * @param {React.ReactNode} props.children - Child components
  */
 export function BookingEventProvider({ children }) {
-    const { chain, accounts } = useConnection();
-    const address = accounts?.[0];
+    const connection = useConnection();
+    const { chain } = connection || {};
+    const address = getConnectionAddress(connection);
     const safeChain = selectChain(chain);
     const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
     const queryClient = useQueryClient();
