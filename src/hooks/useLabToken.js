@@ -51,7 +51,12 @@ const setCachedDecimals = (chainName, tokenAddress, decimals) => {
 
 const isValidAddress = (addr) => typeof addr === 'string' && /^0x[a-fA-F0-9]{40}$/.test(addr);
 const isZeroAddress = (addr) => typeof addr === 'string' && /^0x0{40}$/.test(addr);
-const normalizeAddress = (addr) => (isValidAddress(addr) && !isZeroAddress(addr) ? addr : undefined);
+const normalizeAddress = (addr) => {
+  if (typeof addr !== 'string') return undefined;
+  const trimmed = addr.trim();
+  const unquoted = trimmed.replace(/^['"]|['"]$/g, '');
+  return isValidAddress(unquoted) && !isZeroAddress(unquoted) ? unquoted : undefined;
+};
 
 /**
  * Clear decimals cache (useful for debugging or network switches)
@@ -143,7 +148,19 @@ export function useLabTokenHook() {
       refetchOnMount: 'always',
     },
   });
-  const balance = erc20Balance?.value;
+  const balanceSymbol = erc20Balance?.symbol;
+  const isNativeLikeSymbol =
+    typeof balanceSymbol === 'string' && balanceSymbol.toLowerCase().includes('eth');
+  const balance = shouldFetchBalance && !isNativeLikeSymbol ? erc20Balance?.value : undefined;
+
+  useEffect(() => {
+    if (shouldFetchBalance && isNativeLikeSymbol) {
+      devLog.warn('LAB balance appears to be native token (ETH). Check LAB token address resolution.', {
+        balanceSymbol,
+        resolvedLabTokenAddress
+      });
+    }
+  }, [shouldFetchBalance, isNativeLikeSymbol, balanceSymbol, resolvedLabTokenAddress]);
 
   // Read allowance for diamond contract from resolved LAB token address
   const shouldFetchAllowance = Boolean(address && resolvedLabTokenAddress && diamondContractAddress);
