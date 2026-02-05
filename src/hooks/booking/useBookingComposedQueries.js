@@ -244,7 +244,11 @@ export const useUserBookingsDashboard = (userAddress, {
   const isSSO = useGetIsSSO(queryOptions);
   const baseQueryOptions = { ...(queryOptions || {}) };
   delete baseQueryOptions.enabled;
-  const queryEnabled = queryOptions?.enabled ?? true;
+  const rawEnabled = queryOptions?.enabled;
+  const queryEnabled =
+    rawEnabled === undefined
+      ? true
+      : (typeof rawEnabled === 'function' ? Boolean(rawEnabled()) : Boolean(rawEnabled));
   const baseBookingQueryOptions = { ...BOOKING_QUERY_CONFIG, ...baseQueryOptions };
   const bookingDetailsRetry =
     Object.prototype.hasOwnProperty.call(baseQueryOptions, 'retry')

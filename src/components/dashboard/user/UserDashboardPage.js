@@ -22,13 +22,15 @@ import devLog from '@/utils/dev/logger'
  * @returns {JSX.Element} Complete user dashboard with access control, bookings list, calendar, and actions
  */
 export default function UserDashboard() {
-  const { isLoggedIn, address, user, isSSO, isConnected } = useUser();
+  const { isLoggedIn, address, user, isSSO, isConnected, hasWalletSession } = useUser();
   
   // 🚀 React Query for user bookings with lab details
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
   // It forces API mode (Ethers.js backend) because useQueries cannot extract Wagmi hooks as queryFn
   // API endpoints are read-only blockchain queries that work for any wallet address
-  const canFetchBookings = isLoggedIn && (address || isSSO);
+  const canFetchBookings = Boolean(
+    isLoggedIn && (isSSO || hasWalletSession) && (isSSO || address)
+  );
   const effectiveUserAddress = isSSO ? null : address;
   const { 
     data: userBookingsData, 
@@ -324,7 +326,7 @@ export default function UserDashboard() {
             <p className="text-gray-700">
               <strong>Name:</strong>{userData?.name || 'N/A'}
             </p>
-            <p className="text-gray-700 break-words">
+            <p className="text-gray-700 wrap-break-word">
               <strong>Email:</strong> {userData?.email || 'N/A'}
             </p>
           </div>
@@ -396,7 +398,7 @@ export default function UserDashboard() {
               />
               
               {/* Vertical divider */}
-              <div className="xl:mt-1 xl:mx-3 xl:w-px xl:self-stretch bg-gradient-to-tr 
+              <div className="xl:mt-1 xl:mx-3 xl:w-px xl:self-stretch bg-linear-to-tr 
                 from-transparent via-neutral-800 to-transparent opacity-90 
                 dark:via-neutral-200 border-l border-neutral-800 
                 dark:border-neutral-200 border-dashed"

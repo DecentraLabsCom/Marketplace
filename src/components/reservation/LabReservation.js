@@ -34,7 +34,7 @@ export default function LabReservation({ id }) {
   const labs = labsData.labs || []
   
   // User context
-  const { isSSO, address: userAddress, institutionBackendUrl } = useUser()
+  const { isSSO, address: userAddress, institutionBackendUrl, hasWalletSession } = useUser()
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
   const { chain, isConnected, address } = useAccount()
   
@@ -57,8 +57,9 @@ export default function LabReservation({ id }) {
   }, [labId, labs, selectedLab])
   
   // Lab bookings data
+  const canFetchLabBookings = Boolean(selectedLab?.id && (isSSO || hasWalletSession));
   const { data: labBookingsData } = useLabBookingsDashboard(selectedLab?.id, {
-    queryOptions: { enabled: !!selectedLab?.id }
+    queryOptions: { enabled: canFetchLabBookings }
   })
   const labBookings = useMemo(() => 
     labBookingsData?.bookings || [], 

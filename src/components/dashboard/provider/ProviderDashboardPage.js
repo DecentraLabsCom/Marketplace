@@ -70,6 +70,7 @@ export default function ProviderDashboard() {
     isProvider,
     isProviderLoading,
     isLoading,
+    hasWalletSession,
     institutionBackendUrl,
     institutionRegistrationWallet
   } = useUser();
@@ -278,12 +279,13 @@ export default function ProviderDashboard() {
   }, [queryClient]);
   
   // 🚀 React Query for lab bookings with user details
+  const canFetchLabBookings = Boolean(selectedLabId && (isSSO || hasWalletSession));
   const { 
     data: labBookingsData, 
     isError: bookingsError
   } = useLabBookingsDashboard(selectedLabId, {
     queryOptions: {
-      enabled: !!selectedLabId
+      enabled: canFetchLabBookings
     }
   });
   const labBookings = labBookingsData?.bookings || [];
