@@ -67,12 +67,6 @@ describe("useLabTokenHook", () => {
     refetchAllowanceSpy = jest.fn();
     contractWriteSpy = jest.fn(() => Promise.resolve("0xabc"));
 
-    // useBalance mock to return the expected balance and refetch spy
-    wagmi.useBalance.mockReturnValue({
-      data: { value: 1000n, decimals: 18 },
-      refetch: refetchBalanceSpy,
-    });
-
     // useDefaultReadContract mock (for on-chain LAB token address)
     mockReadFactory.mockImplementation((fnName) => {
       if (fnName === "getLabTokenAddress")
@@ -80,8 +74,11 @@ describe("useLabTokenHook", () => {
       return { data: undefined, refetch: jest.fn() };
     });
 
-    // useReadContract mock (for allowance/decimals)
+    // useReadContract mock (for balance/allowance/decimals)
     wagmi.useReadContract.mockImplementation((args) => {
+      if (args.functionName === "balanceOf") {
+        return { data: 1000n, refetch: refetchBalanceSpy };
+      }
       if (args.functionName === "allowance") {
         return { data: 500n, refetch: refetchAllowanceSpy };
       }
