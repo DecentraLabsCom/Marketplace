@@ -116,7 +116,7 @@ export default function LabDetail({ id }) {
               )}
             </div>
             <button 
-              className={`px-4 py-2 rounded mt-4 max-h-[45px] w-2/3 mx-auto transition-colors ${
+              className={`px-4 py-2 rounded mt-4 max-h-11.25 w-2/3 mx-auto transition-colors ${
                 lab?.isListed === false 
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                   : 'bg-brand hover:bg-hover-dark text-white'
