@@ -74,7 +74,7 @@ const createTransports = () => {
   };
 
   // Add providers only if they have valid configuration AND valid URLs
-  if (!isBrowser && alchemyProjectId && alchemyNetworks[sepolia.id]) {
+  if (alchemyProjectId && alchemyNetworks[sepolia.id]) {
     const alchemyUrl = constructUrl(alchemyNetworks[sepolia.id], alchemyProjectId);
     if (alchemyUrl) {
       const transport = createValidatedTransport(alchemyUrl, 'alchemy');
@@ -82,7 +82,7 @@ const createTransports = () => {
     }
   }
   
-  if (!isBrowser && moralisProjectId && moralisNetworks[sepolia.id]) {
+  if (moralisProjectId && moralisNetworks[sepolia.id]) {
     const moralisUrl = constructUrl(moralisNetworks[sepolia.id], moralisProjectId);
     if (moralisUrl) {
       const transport = createValidatedTransport(moralisUrl, 'moralis');
@@ -90,7 +90,7 @@ const createTransports = () => {
     }
   }
   
-  if (!isBrowser && ankrProjectId && ankrNetworks[sepolia.id]) {
+  if (ankrProjectId && ankrNetworks[sepolia.id]) {
     const ankrUrl = constructUrl(ankrNetworks[sepolia.id], ankrProjectId);
     if (ankrUrl) {
       const transport = createValidatedTransport(ankrUrl, 'ankr');
@@ -98,7 +98,7 @@ const createTransports = () => {
     }
   }
   
-  if (!isBrowser && quicknodeProjectId && quicknodeNetworks[sepolia.id]) {
+  if (quicknodeProjectId && quicknodeNetworks[sepolia.id]) {
     const quicknodeUrl = constructUrl(quicknodeNetworks[sepolia.id], quicknodeProjectId);
     if (quicknodeUrl) {
       const transport = createValidatedTransport(quicknodeUrl, 'quicknode');
@@ -107,7 +107,7 @@ const createTransports = () => {
   }
   
   // Add these providers with caution as they're showing errors
-  if (!isBrowser && chainstackProjectId && chainstackNetworks[sepolia.id]) {
+  if (chainstackProjectId && chainstackNetworks[sepolia.id]) {
     const chainstackUrl = constructUrl(chainstackNetworks[sepolia.id], chainstackProjectId);
     if (chainstackUrl) {
       const transport = createValidatedTransport(chainstackUrl, 'chainstack');
