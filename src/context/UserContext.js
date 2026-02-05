@@ -483,6 +483,7 @@ function UserDataCore({ children }) {
 
       // Computed values
       const isProvider = Boolean(providerStatus?.isLabProvider);
+      const hasWalletSession = Boolean(sessionIsWallet);
       // Consider user logged in if either:
       // - Wallet is connected and stable, or
       // - We have any user object (SSO session)
@@ -783,6 +784,7 @@ function UserDataCore({ children }) {
         isLoggedIn,
         isConnected,
         address,
+        hasWalletSession,
         hasIncompleteData,
         isLoading,
         isWalletLoading,
@@ -848,6 +850,7 @@ export function UserData({ children }) {
  * @returns {boolean} returns.isConnected - Whether wallet is connected
  * @returns {boolean} returns.isSSO - Whether user is authenticated via SSO
  * @returns {Object|null} returns.user - User data object
+ * @returns {boolean} returns.hasWalletSession - Whether wallet backend session is active
  * @returns {boolean} returns.isLoading - General loading state for user data
  * @returns {boolean} returns.isWalletLoading - Specific loading state for wallet connection/reconnection
  * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'advisory', 'no_backend', 'error'

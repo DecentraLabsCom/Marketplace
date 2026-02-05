@@ -1,10 +1,11 @@
 /**
  * Specialized Lab Hooks - Optimized for specific use cases
- * These hooks use atomic queries + React Query 'select' for maximum performance
- * Following the same pattern as useBookingSpecializedQueries
+ * These hooks use API-based queryFns with useQueries for composition.
+ * This matches the composed/specialized pattern used in booking hooks.
  */
+import { useMemo } from 'react'
 import { 
-  useAllLabs,
+  useAllLabsSSO,
   useLab,
   useLabSSO,
   useLabOwner,
@@ -18,94 +19,15 @@ import {
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
+import { processMetadataImages } from '@/hooks/utils/metadataHelpers'
+import { buildEnrichedLab, collectMetadataImages } from './labEnrichmentHelpers'
 import { useQueries } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
 
-/**
- * Helper function to format wallet address for display
- */
-const formatWalletAddress = (address) => {
-  if (!address || address.length < 7) return address;
-  return `${address.substring(0, 3)}...${address.substring(address.length - 3)}`;
-};
+const EMPTY_ARRAY = [];
 
-const extractProviderFromUri = (uri) => {
-  if (!uri || typeof uri !== 'string') return null;
-  const match = uri.match(/Lab-([A-Za-z0-9-]+)-\d+/);
-  if (!match) return null;
-  const provider = match[1].replace(/-/g, ' ').trim();
-  return provider || match[1];
-};
-
-/**
- * Helper function to extract images from metadata attributes
- * @param {Object} metadataData - Metadata object from API
- * @returns {Array} Array of image URLs
- */
-const processLabImages = (metadataData) => {
-  if (!metadataData?.attributes) return [];
-  
-  const imagesAttribute = metadataData.attributes.find(
-    attr => attr.trait_type === 'additionalImages'
-  );
-  
-  const images = imagesAttribute?.value || [];
-  
-  // Add main image if it exists and not already in images array
-  if (metadataData.image && !images.includes(metadataData.image)) {
-    images.unshift(metadataData.image);
-  }
-  
-  return Array.isArray(images) ? images : [];
-};
-
-const buildAttributeMap = (metadata) => {
-  if (!metadata?.attributes) return {}
-  return metadata.attributes.reduce((acc, attr) => {
-    if (attr?.trait_type) {
-      acc[attr.trait_type] = attr.value
-    }
-    return acc
-  }, {})
-}
-
-const applyMetadataAttributes = (lab, metadata) => {
-  if (!metadata) return {}
-  const attributeMap = buildAttributeMap(metadata)
-
-  if (attributeMap.category !== undefined) lab.category = attributeMap.category
-  if (attributeMap.keywords !== undefined) lab.keywords = attributeMap.keywords
-  if (attributeMap.timeSlots !== undefined) lab.timeSlots = attributeMap.timeSlots
-  if (attributeMap.opens !== undefined) lab.opens = attributeMap.opens
-  if (attributeMap.closes !== undefined) lab.closes = attributeMap.closes
-  if (attributeMap.docs !== undefined) lab.docs = attributeMap.docs
-  if (attributeMap.availableDays !== undefined) lab.availableDays = attributeMap.availableDays
-  if (attributeMap.availableHours !== undefined) lab.availableHours = attributeMap.availableHours
-  if (attributeMap.maxConcurrentUsers !== undefined) lab.maxConcurrentUsers = attributeMap.maxConcurrentUsers
-  if (attributeMap.unavailableWindows !== undefined) lab.unavailableWindows = attributeMap.unavailableWindows
-  if (attributeMap.termsOfUse !== undefined) lab.termsOfUse = attributeMap.termsOfUse
-  if (attributeMap.timezone !== undefined) lab.timezone = attributeMap.timezone
-
-  return attributeMap
-}
-
-/**
- * Extract and normalize timeSlots from metadata attributes
- * Accepts arrays, comma-separated strings, or single numeric values
- * Returns normalized array of positive integers or the provided fallback
- */
-const getTimeSlotsFromMetadata = (metadata, fallback = [15, 30, 60]) => {
-  if (!metadata) return fallback;
-  const attributeMap = buildAttributeMap(metadata);
-  if (attributeMap.timeSlots === undefined || attributeMap.timeSlots === null) return fallback;
-
-  const raw = attributeMap.timeSlots;
-  const arr = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(',') : [raw]);
-  const normalized = arr.map(Number).filter(n => Number.isFinite(n) && n > 0);
-  return normalized.length > 0 ? normalized : fallback;
-}
 
 /**
  * Specialized hook for Market component
@@ -128,8 +50,8 @@ export const useLabsForMarket = (options = {}) => {
   // Get optimistic UI context for listing states
   const { getEffectiveListingState } = useOptimisticUI();
   
-  // Step 1: Get all lab IDs
-  const labIdsResult = useAllLabs({
+  // Step 1: Get all lab IDs - Use SSO variant directly per architecture
+  const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
     enabled: queryOptions.enabled !== false,
     
@@ -140,7 +62,7 @@ export const useLabsForMarket = (options = {}) => {
     }
   });
 
-  const labIds = labIdsResult.data || [];
+  const labIds = labIdsResult.data || EMPTY_ARRAY;
 
   // Step 2: Provider mapping
   const providerMapping = useProviderMapping({
@@ -227,42 +149,28 @@ export const useLabsForMarket = (options = {}) => {
   });
 
   // Step 7: Extract and cache images from metadata
-  const imageUrlsToCache = [];
-  const labImageMap = new Map(); // Map lab index to image URLs
+  const { labImageMap, uniqueImageUrls } = useMemo(() => {
+    if (metadataResults.length === 0) {
+      return { labImageMap: new Map(), uniqueImageUrls: EMPTY_ARRAY };
+    }
 
-  if (metadataResults.length > 0) {
+    const imageUrlsToCache = [];
+    const nextLabImageMap = new Map(); // Map lab index to image URLs
+
     metadataResults.forEach((metadataResult, index) => {
       if (metadataResult.isSuccess && metadataResult.data) {
         const metadata = metadataResult.data;
-        const labImages = [];
-        
-        // Extract main image
-        if (metadata.image) labImages.push(metadata.image);
-        
-        // Extract additional images from images array
-        if (metadata.images && Array.isArray(metadata.images)) {
-          labImages.push(...metadata.images.filter(Boolean));
-        }
-        
-        // Extract images from attributes
-        if (metadata.attributes) {
-          const attributeMap = buildAttributeMap(metadata);
-          const additionalImagesAttr = attributeMap.additionalImages;
-          if (Array.isArray(additionalImagesAttr)) {
-            labImages.push(...additionalImagesAttr.filter(Boolean));
-          }
-        }
-        
-        // Remove duplicates and store mapping
-        const uniqueLabImages = [...new Set(labImages)];
-        labImageMap.set(index, uniqueLabImages);
+        const uniqueLabImages = collectMetadataImages(metadata);
+        nextLabImageMap.set(index, uniqueLabImages);
         imageUrlsToCache.push(...uniqueLabImages);
       }
     });
-  }
 
-  // Remove duplicate URLs across all labs
-  const uniqueImageUrls = [...new Set(imageUrlsToCache)];
+    // Remove duplicate URLs across all labs
+    const uniqueImageUrls = [...new Set(imageUrlsToCache)];
+
+    return { labImageMap: nextLabImageMap, uniqueImageUrls };
+  }, [metadataResults]);
 
   // Step 8: Create image cache queries
   const imageResults = useQueries({
@@ -294,125 +202,72 @@ export const useLabsForMarket = (options = {}) => {
                    ownerResults.some(r => r.error);
 
   // Transform data for market display - Include unlisted labs if requested
-  const labs = labDetailResults
-    .filter((result, index) => {
-      if (!result.isSuccess || !result.data) return false;
-      
-      if (includeUnlisted) {
-        // Include all labs when includeUnlisted is true
-        return true;
-      }
-      
-      const labId = result.data.labId;
-      const serverIsListed = listingResults[index]?.data?.isListed;
-      
-      // Use effective listing state (optimistic overrides server state)
-      const effectiveState = getEffectiveListingState(labId, serverIsListed);
-      
-      return effectiveState.isListed;
-    })
-    .map((labResult, index) => {
-      const lab = labResult.data;
-      
-      // Find the correct indices for results arrays since we filtered some labs
-      const originalIndex = labDetailResults.findIndex(r => r === labResult);
-      const ownerData = ownerResults[originalIndex]?.data;
-      const ownerAddress = ownerData?.owner || ownerData;
-      const metadata = metadataResults[originalIndex]?.data;
-      const reputation = reputationResults[originalIndex]?.data;
+  const labs = useMemo(() => {
+    if (labDetailResults.length === 0) {
+      return EMPTY_ARRAY;
+    }
 
-      // Get listing status for this lab
-      const serverIsListed = listingResults[originalIndex]?.data?.isListed;
-      const effectiveState = getEffectiveListingState(lab.labId, serverIsListed);
-      
-      const enrichedLab = {
-        id: lab.labId,
-        labId: lab.labId,
-        tokenId: lab.labId,
-        isListed: effectiveState.isListed, // Add listing status
-        ...lab.base,
-      };
+    return labDetailResults
+      .filter((result, index) => {
+        if (!result.isSuccess || !result.data) return false;
 
-      if (reputation) {
-        enrichedLab.reputation = reputation;
-      }
-
-      // Add metadata
-      if (metadata) {
-        if (metadata.name) enrichedLab.name = metadata.name;
-        if (metadata.description) enrichedLab.description = metadata.description;
-        if (metadata.image) enrichedLab.image = metadata.image;
-        if (metadata.category) enrichedLab.category = metadata.category;
-        if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
-
-        applyMetadataAttributes(enrichedLab, metadata);
-        
-        // Normalize images array: combine all available images
-        const allImages = [];
-        
-        // Add main image first if exists
-        if (metadata.image) allImages.push(metadata.image);
-        
-        // Add direct images array if exists
-        if (metadata.images && Array.isArray(metadata.images)) {
-          allImages.push(...metadata.images.filter(Boolean));
+        if (includeUnlisted) {
+          // Include all labs when includeUnlisted is true
+          return true;
         }
-        
-        // Add additional images from attributes if exists
-        if (metadata.attributes) {
-          const attributeMap = buildAttributeMap(metadata);
-          const additionalImagesAttr = attributeMap.additionalImages;
-          if (Array.isArray(additionalImagesAttr)) {
-            allImages.push(...additionalImagesAttr.filter(Boolean));
-          }
-        }
-        
-        // Remove duplicates and set as images array
-        enrichedLab.images = [...new Set(allImages)];
-        
-        // Add image URLs mapped to this lab
-        const labImages = labImageMap.get(originalIndex) || [];
-        if (labImages.length > 0) {
-          enrichedLab.imageUrls = labImages;
-          // Set primary image if not already set
-          if (!enrichedLab.image && labImages[0]) {
-            enrichedLab.image = labImages[0];
-          }
-        }
-      }
 
-      // Add provider info with mapping
-      if (ownerAddress) {
-        const providerInfo = providerMapping.mapOwnerToProvider(ownerAddress);
-        
-        if (providerInfo) {
-          enrichedLab.provider = providerInfo.name;
-          enrichedLab.providerInfo = {
+        const labId = result.data.labId;
+        const serverIsListed = listingResults[index]?.data?.isListed;
+
+        // Use effective listing state (optimistic overrides server state)
+        const effectiveState = getEffectiveListingState(labId, serverIsListed);
+
+        return effectiveState.isListed;
+      })
+      .map((labResult) => {
+        const lab = labResult.data;
+
+        // Find the correct indices for results arrays since we filtered some labs
+        const originalIndex = labDetailResults.findIndex(r => r === labResult);
+        const ownerData = ownerResults[originalIndex]?.data;
+        const ownerAddress = ownerData?.owner || ownerData;
+        const metadata = metadataResults[originalIndex]?.data;
+        const reputation = reputationResults[originalIndex]?.data;
+
+        // Get listing status for this lab
+        const serverIsListed = listingResults[originalIndex]?.data?.isListed;
+        const effectiveState = getEffectiveListingState(lab.labId, serverIsListed);
+        const labImages = labImageMap.get(originalIndex) || EMPTY_ARRAY;
+
+        return buildEnrichedLab({
+          lab,
+          metadata,
+          isListed: effectiveState.isListed,
+          reputation,
+          ownerAddress,
+          providerMapping,
+          imageUrls: labImages,
+          includeProviderInfo: true,
+          includeProviderFallback: true,
+          providerInfoSelector: (providerInfo) => ({
             name: providerInfo.name,
             email: providerInfo.email,
             country: providerInfo.country,
             account: providerInfo.account
-          };
-        } else {
-          // Provider not found - use formatted wallet address as fallback
-          enrichedLab.provider = formatWalletAddress(ownerAddress);
-        }
-      }
-
-      // Fallbacks
-      if (!enrichedLab.provider) {
-        const providerFromUri = extractProviderFromUri(lab.base?.uri);
-        enrichedLab.provider = providerFromUri || 'Unknown Provider';
-      }
-
-      if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
-      if (!enrichedLab.price) enrichedLab.price = '0';
-      if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
-        enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadata);
-      }
-
-      return enrichedLab;
-    });
+          })
+        });
+      });
+  }, [
+    includeUnlisted,
+    labDetailResults,
+    listingResults,
+    metadataResults,
+    ownerResults,
+    reputationResults,
+    getEffectiveListingState,
+    labImageMap,
+    providerMapping
+  ]);
 
   return {
     data: { labs, totalLabs: labs.length },
@@ -479,33 +334,8 @@ export const useLabById = (labId, options = {}) => {
   });
 
   // Extract image URLs from metadata for caching
-  const imageUrlsToCache = [];
   const metadata = metadataResult.data;
-  
-  if (metadata) {
-    const labImages = [];
-    
-    // Extract main image
-    if (metadata.image) labImages.push(metadata.image);
-    
-    // Extract additional images from images array
-    if (metadata.images && Array.isArray(metadata.images)) {
-      labImages.push(...metadata.images.filter(Boolean));
-    }
-    
-    // Extract images from attributes
-    if (metadata.attributes) {
-      const attributeMap = buildAttributeMap(metadata);
-      const additionalImagesAttr = attributeMap.additionalImages;
-      if (Array.isArray(additionalImagesAttr)) {
-        labImages.push(...additionalImagesAttr.filter(Boolean));
-      }
-    }
-    
-    // Remove duplicates
-    const uniqueLabImages = [...new Set(labImages)];
-    imageUrlsToCache.push(...uniqueLabImages);
-  }
+  const imageUrlsToCache = useMemo(() => collectMetadataImages(metadata), [metadata]);
 
   // Cache images
   const imageResults = useQueries({
@@ -534,93 +364,33 @@ export const useLabById = (labId, options = {}) => {
   const isListed = listingResult.data?.isListed;
 
   // Transform data - Always return lab if it exists, include listing status
-  const lab = labResult.data ? (() => {
-    const lab = labResult.data;
+  const lab = useMemo(() => {
+    if (!labResult.data) {
+      return null;
+    }
+
     const ownerData = ownerResult.data;
     const ownerAddress = ownerData?.owner || ownerData;
-    const metadata = metadataResult.data;
-    const reputation = reputationResult.data;
-
-    const enrichedLab = {
-      id: lab.labId,
-      labId: lab.labId,
-      tokenId: lab.labId,
-      isListed: isListed, // Add listing status
-      ...lab.base,
-    };
-
-    if (reputation) {
-      enrichedLab.reputation = reputation;
-    }
-
-    // Add metadata
-    if (metadata) {
-      if (metadata.name) enrichedLab.name = metadata.name;
-      if (metadata.description) enrichedLab.description = metadata.description;
-      if (metadata.image) enrichedLab.image = metadata.image;
-      if (metadata.category) enrichedLab.category = metadata.category;
-      if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
-      applyMetadataAttributes(enrichedLab, metadata);
-
-      // Normalize images array: combine all available images
-      const allImages = [];
-      
-      // Add main image first if exists
-      if (metadata.image) allImages.push(metadata.image);
-      
-      // Add direct images array if exists
-      if (metadata.images && Array.isArray(metadata.images)) {
-        allImages.push(...metadata.images.filter(Boolean));
-      }
-      
-      // Add additional images from attributes if exists
-      if (metadata.attributes) {
-        const attributeMap = buildAttributeMap(metadata);
-        const additionalImagesAttr = attributeMap.additionalImages;
-        if (Array.isArray(additionalImagesAttr)) {
-          allImages.push(...additionalImagesAttr.filter(Boolean));
-        }
-      }
-      
-      // Remove duplicates and set as images array
-      enrichedLab.images = [...new Set(allImages)];
-
-      // Add cached image URLs
-      if (imageUrlsToCache.length > 0) {
-        enrichedLab.imageUrls = imageUrlsToCache;
-        // Set primary image if not already set
-        if (!enrichedLab.image && imageUrlsToCache[0]) {
-          enrichedLab.image = imageUrlsToCache[0];
-        }
-      }
-    }
-
-    // Add provider info
-    if (ownerAddress) {
-      const providerInfo = providerMapping.mapOwnerToProvider(ownerAddress);
-      
-      if (providerInfo) {
-        enrichedLab.provider = providerInfo.name;
-        enrichedLab.providerInfo = providerInfo;
-      } else {
-        enrichedLab.provider = formatWalletAddress(ownerAddress);
-      }
-    }
-
-    // Fallbacks
-    if (!enrichedLab.provider) {
-      const providerFromUri = extractProviderFromUri(lab.base?.uri);
-      enrichedLab.provider = providerFromUri || 'Unknown Provider';
-    }
-
-    if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
-    if (!enrichedLab.price) enrichedLab.price = '0';
-    if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
-      enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadata);
-    }
-
-    return enrichedLab;
-  })() : null;
+    return buildEnrichedLab({
+      lab: labResult.data,
+      metadata,
+      isListed,
+      reputation: reputationResult.data,
+      ownerAddress,
+      providerMapping,
+      imageUrls: imageUrlsToCache,
+      includeProviderInfo: true,
+      includeProviderFallback: true
+    });
+  }, [
+    imageUrlsToCache,
+    isListed,
+    labResult.data,
+    metadata,
+    ownerResult.data,
+    providerMapping,
+    reputationResult.data
+  ]);
 
   devLog.log('🔍 useLabById - Result:', {
     labId: normalizedLabId,
@@ -659,8 +429,8 @@ export const useLabById = (labId, options = {}) => {
  * API endpoints work for both SSO and Wallet users - correct pattern for composed hooks
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
-  // Get all lab IDs first - always call hooks, use enabled to control execution
-  const labIdsResult = useAllLabs({
+  // Get all lab IDs first - Use SSO variant directly per architecture
+  const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
     enabled: !!ownerAddress && (options.enabled !== false),
     // Convert BigInt IDs to numbers in select to prevent serialization errors
@@ -670,7 +440,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     }
   });
 
-  const labIds = labIdsResult.data || [];
+  const labIds = labIdsResult.data || EMPTY_ARRAY;
 
   // Get all owner data to filter
   const ownerResults = useQueries({
@@ -686,14 +456,15 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   // Filter lab IDs by ownership and get details only for owned labs
-  const ownedLabIds = labIds.filter((labId, index) => {
-    // Return empty array if no ownerAddress to prevent errors
-    if (!ownerAddress) return false;
-    
-    const ownerData = ownerResults[index]?.data;
-    const labOwner = ownerData?.owner || ownerData;
-    return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
-  });
+  const ownedLabIds = useMemo(() => {
+    if (!ownerAddress) return EMPTY_ARRAY;
+
+    return labIds.filter((labId, index) => {
+      const ownerData = ownerResults[index]?.data;
+      const labOwner = ownerData?.owner || ownerData;
+      return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
+    });
+  }, [labIds, ownerAddress, ownerResults]);
 
   // Get lab details only for owned labs
   const labDetailResults = useQueries({
@@ -739,43 +510,28 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   // Extract and cache images from metadata
-  const imageUrlsToCache = [];
-  const labImageMap = new Map(); // Map lab index to image URLs
+  const { labImageMap, uniqueImageUrls } = useMemo(() => {
+    if (metadataResults.length === 0) {
+      return { labImageMap: new Map(), uniqueImageUrls: EMPTY_ARRAY };
+    }
 
-  if (metadataResults.length > 0) {
+    const imageUrlsToCache = [];
+    const nextLabImageMap = new Map(); // Map lab index to image URLs
+
     metadataResults.forEach((metadataResult, index) => {
       if (metadataResult.isSuccess && metadataResult.data) {
         const metadata = metadataResult.data;
-        const labImages = [];
-        
-        // Extract main image
-        if (metadata.image) labImages.push(metadata.image);
-        
-        // Extract additional images from images array
-        if (metadata.images && Array.isArray(metadata.images)) {
-          labImages.push(...metadata.images.filter(Boolean));
-        }
-        
-        // Extract images from attributes
-        if (metadata.attributes) {
-          const additionalImagesAttr = metadata.attributes.find(
-            attr => attr.trait_type === 'additionalImages'
-          );
-          if (additionalImagesAttr?.value && Array.isArray(additionalImagesAttr.value)) {
-            labImages.push(...additionalImagesAttr.value.filter(Boolean));
-          }
-        }
-        
-        // Remove duplicates and store mapping
-        const uniqueLabImages = [...new Set(labImages)];
-        labImageMap.set(index, uniqueLabImages);
+        const uniqueLabImages = collectMetadataImages(metadata);
+        nextLabImageMap.set(index, uniqueLabImages);
         imageUrlsToCache.push(...uniqueLabImages);
       }
     });
-  }
 
-  // Remove duplicate URLs across all labs
-  const uniqueImageUrls = [...new Set(imageUrlsToCache)];
+    // Remove duplicate URLs across all labs
+    const uniqueImageUrls = [...new Set(imageUrlsToCache)];
+
+    return { labImageMap: nextLabImageMap, uniqueImageUrls };
+  }, [metadataResults]);
 
   // Create image cache queries
   const imageResults = useQueries({
@@ -804,76 +560,38 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
                    labDetailResults.some(r => r.error);
 
   // Transform data
-  const ownedLabs = labDetailResults
-    .filter(result => result.isSuccess && result.data)
-    .map((labResult, index) => {
-      const lab = labResult.data;
-      const metadata = metadataResults[index]?.data;
-      const listingData = listingResults[index]?.data;
+  const ownedLabs = useMemo(() => {
+    if (labDetailResults.length === 0) {
+      return EMPTY_ARRAY;
+    }
 
-      const enrichedLab = {
-        id: lab.labId,
-        labId: lab.labId,
-        tokenId: lab.labId,
-        owner: ownerAddress, // We know the owner
-        isListed: listingData?.isListed || false, // Add listing status
-        ...lab.base,
-      };
+    return labDetailResults
+      .filter(result => result.isSuccess && result.data)
+      .map((labResult, index) => {
+        const lab = labResult.data;
+        const metadata = metadataResults[index]?.data;
+        const listingData = listingResults[index]?.data;
+        const labImages = labImageMap.get(index) || EMPTY_ARRAY;
 
-      // Add metadata
-      if (metadata) {
-        if (metadata.name) enrichedLab.name = metadata.name;
-        if (metadata.description) enrichedLab.description = metadata.description;
-        if (metadata.image) enrichedLab.image = metadata.image;
-        if (metadata.category) enrichedLab.category = metadata.category;
-        if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
-        if (metadata.provider) enrichedLab.provider = metadata.provider;
-
-        applyMetadataAttributes(enrichedLab, metadata);
-
-        // Normalize images array: combine all available images
-        const allImages = [];
-        
-        // Add main image first if exists
-        if (metadata.image) allImages.push(metadata.image);
-        
-        // Add direct images array if exists
-        if (metadata.images && Array.isArray(metadata.images)) {
-          allImages.push(...metadata.images.filter(Boolean));
-        }
-        
-        // Add additional images from attributes if exists
-        if (metadata.attributes) {
-          const attributeMap = buildAttributeMap(metadata);
-          const additionalImagesAttr = attributeMap.additionalImages;
-          if (Array.isArray(additionalImagesAttr)) {
-            allImages.push(...additionalImagesAttr.filter(Boolean));
-          }
-        }
-        
-        // Remove duplicates and set as images array
-        enrichedLab.images = [...new Set(allImages)];
-
-        // Add image URLs mapped to this lab
-        const labImages = labImageMap.get(index) || [];
-        if (labImages.length > 0) {
-          enrichedLab.imageUrls = labImages;
-          // Set primary image if not already set
-          if (!enrichedLab.image && labImages[0]) {
-            enrichedLab.image = labImages[0];
-          }
-        }
-      }
-
-      // Fallbacks
-      if (!enrichedLab.name) enrichedLab.name = `Lab ${enrichedLab.id}`;
-      if (!enrichedLab.price) enrichedLab.price = '0';
-      if (!enrichedLab.timeSlots || !Array.isArray(enrichedLab.timeSlots)) {
-        enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadata);
-      }
-
-      return enrichedLab;
-    });
+        return buildEnrichedLab({
+          lab,
+          metadata,
+          isListed: listingData?.isListed || false,
+          ownerAddress,
+          imageUrls: labImages,
+          includeOwner: true,
+          includeProviderInfo: false,
+          includeProviderFallback: false,
+          useMetadataProvider: true
+        });
+      });
+  }, [
+    labDetailResults,
+    labImageMap,
+    listingResults,
+    metadataResults,
+    ownerAddress
+  ]);
 
   devLog.log('👨‍🔬 useLabsForProvider - Result:', {
     ownerAddress,
@@ -905,10 +623,13 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
  * Includes metadata for names, descriptions, and images but excludes owners/providers for performance
  * @param {Object} options - Configuration options
  * @returns {Object} Labs with complete data needed for reservation functionality
+ * 
+ * ⚠️ ARCHITECTURAL NOTE: Uses SSO variant directly per architecture
+ * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
  */
 export const useLabsForReservation = (options = {}) => {
-  // Step 1: Get all lab IDs
-  const labIdsResult = useAllLabs({
+  // Step 1: Get all lab IDs - Use SSO variant directly per architecture
+  const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
     enabled: options.enabled !== false,
     // Convert BigInt IDs to numbers in select to prevent serialization errors
@@ -918,7 +639,7 @@ export const useLabsForReservation = (options = {}) => {
     }
   });
 
-  const labIds = labIdsResult.data || [];
+  const labIds = labIdsResult.data || EMPTY_ARRAY;
 
   // Step 2: Get lab details for each ID
   const labDetailResults = useQueries({
@@ -947,12 +668,18 @@ export const useLabsForReservation = (options = {}) => {
   });
 
   // Get lab data with IDs - only for listed labs
-  const labsWithDetails = labDetailResults
-    .filter((result, index) => {
-      const isListed = listingResults[index]?.data?.isListed;
-      return result.isSuccess && result.data && isListed;
-    })
-    .map(result => result.data);
+  const labsWithDetails = useMemo(() => {
+    if (labDetailResults.length === 0) {
+      return EMPTY_ARRAY;
+    }
+
+    return labDetailResults
+      .filter((result, index) => {
+        const isListed = listingResults[index]?.data?.isListed;
+        return result.isSuccess && result.data && isListed;
+      })
+      .map(result => result.data);
+  }, [labDetailResults, listingResults]);
 
   // Step 4: Get metadata for each listed lab to get names, descriptions, and images
   const metadataResults = useQueries({
@@ -979,36 +706,28 @@ export const useLabsForReservation = (options = {}) => {
   const hasErrors = labIdsResult.error || labDetailResults.some(r => r.error);
 
   // Enrich labs with metadata for complete reservation data
-  const enrichedLabs = labsWithDetails.map((lab, index) => {
-    const metadataData = metadataResults[index]?.data;
-
-    // Extract images from metadata
-    const images = processLabImages(metadataData);
-
-    const enrichedLab = {
-      id: lab.labId,
-      labId: lab.labId,
-      // Use metadata name or fallback to Lab ID
-      name: metadataData?.name || `Lab ${lab.labId}`,
-      description: metadataData?.description || 'No description available',
-      image: metadataData?.image,
-      images, // For Carrousel component
-      // Essential reservation data
-      price: lab.base?.price || '0',
-      // Include other base data
-      ...lab.base
-    };
-
-    // Apply all metadata attributes (timeSlots, availability, timezone, etc.)
-    applyMetadataAttributes(enrichedLab, metadataData);
-
-    // Ensure timeSlots are normalized from metadata (or fallback to defaults)
-    if (!Array.isArray(enrichedLab.timeSlots) || enrichedLab.timeSlots.length === 0) {
-      enrichedLab.timeSlots = getTimeSlotsFromMetadata(metadataData);
+  const enrichedLabs = useMemo(() => {
+    if (labsWithDetails.length === 0) {
+      return EMPTY_ARRAY;
     }
 
-    return enrichedLab;
-  });
+    return labsWithDetails.map((lab, index) => {
+      const metadataData = metadataResults[index]?.data;
+
+      // Extract images from metadata
+      const images = processMetadataImages(metadataData);
+
+      return buildEnrichedLab({
+        lab,
+        metadata: metadataData,
+        images,
+        includeProviderInfo: false,
+        includeProviderFallback: false,
+        descriptionFallback: 'No description available',
+        ensureNonEmptyTimeSlots: true
+      });
+    });
+  }, [labsWithDetails, metadataResults]);
 
   devLog.log('🎯 useLabsForReservation - Complete result:', {
     totalLabs: enrichedLabs.length,

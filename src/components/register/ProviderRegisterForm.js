@@ -131,7 +131,7 @@ export default function ProviderRegisterForm() {
   return (
     <AccessControl requireWallet message="Please connect your wallet to register as a provider.">
       <Container padding="sm">
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 mt-6">
           <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
             Register as Provider
           </h1>

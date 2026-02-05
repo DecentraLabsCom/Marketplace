@@ -26,50 +26,13 @@ import {
   useReservation,
   BOOKING_QUERY_CONFIG, // ✅ Import shared configuration
 } from './useBookingAtomicQueries'
-import { useAllLabs, useLabSSO, useLabOwnerSSO, useLab, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
+import { useAllLabsSSO, useLabSSO, useLabOwnerSSO, LAB_QUERY_CONFIG } from '@/hooks/lab/useLabAtomicQueries' // ✅ Import lab SSO hooks for useQueries
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata' // ✅ Import metadata hooks
+import { processMetadataImages, processMetadataDocs } from '@/hooks/utils/metadataHelpers'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { bookingQueryKeys, labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import devLog from '@/utils/dev/logger'
-
-/**
- * Helper function to extract images from metadata attributes
- * @param {Object} metadataData - Metadata object from API
- * @returns {Array} Array of image URLs
- */
-const processMetadataImages = (metadataData) => {
-  if (!metadataData?.attributes) return [];
-  
-  const imagesAttribute = metadataData.attributes.find(
-    attr => attr.trait_type === 'additionalImages'
-  );
-  
-  const images = imagesAttribute?.value || [];
-  
-  // Add main image if it exists and not already in images array
-  if (metadataData.image && !images.includes(metadataData.image)) {
-    images.unshift(metadataData.image);
-  }
-  
-  return Array.isArray(images) ? images : [];
-};
-
-/**
- * Helper function to extract docs from metadata attributes
- * @param {Object} metadataData - Metadata object from API
- * @returns {Array} Array of document URLs
- */
-const processMetadataDocs = (metadataData) => {
-  if (!metadataData?.attributes) return [];
-  
-  const docsAttribute = metadataData.attributes.find(
-    attr => attr.trait_type === 'docs'
-  );
-  
-  const docs = docsAttribute?.value || [];
-  return Array.isArray(docs) ? docs : [];
-};
 
 /**
  * Helper function to calculate booking summary analytics
@@ -476,8 +439,8 @@ export const useUserBookingsDashboard = (userAddress, {
     return flat;
   });
 
-  // For lab details fetching we need labIds
-  const allLabsResult = useAllLabs({ enabled: includeLabDetails && (queryOptions.enabled ?? true) });
+  // For lab details fetching we need labIds - Use SSO variant per architecture
+  const allLabsResult = useAllLabsSSO({ enabled: includeLabDetails && (queryOptions.enabled ?? true) });
   const allLabIds = allLabsResult.data || [];
   const labIdSet = useMemo(() => new Set(allLabIds.map(id => String(id))), [allLabIds]);
 

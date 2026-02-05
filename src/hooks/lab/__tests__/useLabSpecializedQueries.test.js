@@ -68,6 +68,7 @@ const mockProviderInfo = {
 // Mock dependencies
 jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useAllLabs: jest.fn(),
+  useAllLabsSSO: jest.fn(),
   useLab: jest.fn(),
   useLabOwner: jest.fn(),
   useLabOwnerSSO: { queryFn: jest.fn() },
@@ -150,6 +151,7 @@ const createWrapper = () => {
 
 describe("useLabSpecializedQueries", () => {
   let mockUseAllLabs;
+  let mockUseAllLabsSSO;
   let mockUseLab;
   let mockUseLabOwner;
   let mockUseIsTokenListed;
@@ -170,6 +172,7 @@ describe("useLabSpecializedQueries", () => {
     const reactQueryModule = require("@tanstack/react-query");
 
     mockUseAllLabs = labAtomicQueries.useAllLabs;
+    mockUseAllLabsSSO = labAtomicQueries.useAllLabsSSO;
     mockUseLab = labAtomicQueries.useLab;
     mockUseLabOwner = labAtomicQueries.useLabOwner;
     mockUseIsTokenListed = labAtomicQueries.useIsTokenListed;
@@ -181,6 +184,14 @@ describe("useLabSpecializedQueries", () => {
 
     // Setup default mocks
     mockUseAllLabs.mockReturnValue({
+      data: mockLabIds,
+      isLoading: false,
+      isSuccess: true,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    mockUseAllLabsSSO.mockReturnValue({
       data: mockLabIds,
       isLoading: false,
       isSuccess: true,
@@ -484,7 +495,7 @@ describe("useLabSpecializedQueries", () => {
     });
 
     test("handles loading state correctly", () => {
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: null,
         isLoading: true,
         isSuccess: false,
@@ -500,7 +511,7 @@ describe("useLabSpecializedQueries", () => {
 
     test("handles errors gracefully", () => {
       const mockError = new Error("Failed to fetch labs");
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: null,
         isLoading: false,
         isSuccess: false,
@@ -518,7 +529,7 @@ describe("useLabSpecializedQueries", () => {
       const wrapper = createWrapper();
       renderHook(() => useLabsForMarket({ enabled: false }), { wrapper });
 
-      expect(mockUseAllLabs).toHaveBeenCalledWith(
+      expect(mockUseAllLabsSSO).toHaveBeenCalledWith(
         expect.objectContaining({
           enabled: false,
         })
@@ -728,7 +739,7 @@ describe("useLabSpecializedQueries", () => {
         wrapper,
       });
 
-      expect(mockUseAllLabs).toHaveBeenCalledWith(
+      expect(mockUseAllLabsSSO).toHaveBeenCalledWith(
         expect.objectContaining({
           enabled: false,
         })
@@ -756,7 +767,7 @@ describe("useLabSpecializedQueries", () => {
         { wrapper }
       );
 
-      expect(mockUseAllLabs).toHaveBeenCalledWith(
+      expect(mockUseAllLabsSSO).toHaveBeenCalledWith(
         expect.objectContaining({
           enabled: false,
         })
@@ -883,7 +894,7 @@ describe("useLabSpecializedQueries", () => {
       });
 
       // For simplicity in this test, return a single lab id
-      mockUseAllLabs.mockReturnValue({ data: [mockLabIds[0]], isLoading: false, isSuccess: true, error: null, refetch: jest.fn() });
+      mockUseAllLabsSSO.mockReturnValue({ data: [mockLabIds[0]], isLoading: false, isSuccess: true, error: null, refetch: jest.fn() });
 
       const wrapper = createWrapper();
       const { result } = renderHook(() => useLabsForReservation(), { wrapper });
@@ -930,7 +941,7 @@ describe("useLabSpecializedQueries", () => {
         return config.combine ? config.combine(results) : results;
       });
 
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: [mockLabIds[0]],
         isLoading: false,
         isSuccess: true,
@@ -953,7 +964,7 @@ describe("useLabSpecializedQueries", () => {
     });
 
     test("handles empty lab list", () => {
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: [],
         isLoading: false,
         isSuccess: true,
@@ -971,7 +982,7 @@ describe("useLabSpecializedQueries", () => {
       const wrapper = createWrapper();
       renderHook(() => useLabsForReservation({ enabled: false }), { wrapper });
 
-      expect(mockUseAllLabs).toHaveBeenCalledWith(
+      expect(mockUseAllLabsSSO).toHaveBeenCalledWith(
         expect.objectContaining({
           enabled: false,
         })
@@ -982,7 +993,7 @@ describe("useLabSpecializedQueries", () => {
   describe("Refetch Functionality", () => {
     test("useLabsForMarket refetch calls all underlying queries", async () => {
       const mockRefetch = jest.fn();
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: mockLabIds,
         isLoading: false,
         isSuccess: true,
@@ -1028,7 +1039,7 @@ describe("useLabSpecializedQueries", () => {
   describe("Error Handling", () => {
     test("handles lab fetch errors", () => {
       const mockError = new Error("Failed to fetch");
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: null,
         isLoading: false,
         isSuccess: false,
@@ -1103,7 +1114,7 @@ describe("useLabSpecializedQueries", () => {
     });
 
     test("handles empty lab IDs array", () => {
-      mockUseAllLabs.mockReturnValue({
+      mockUseAllLabsSSO.mockReturnValue({
         data: [],
         isLoading: false,
         isSuccess: true,

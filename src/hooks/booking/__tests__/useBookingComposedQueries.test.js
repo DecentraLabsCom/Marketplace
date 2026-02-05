@@ -49,6 +49,7 @@ jest.mock("@/utils/hooks/useProviderMapping", () => ({
 
 jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useAllLabs: jest.fn(() => ({ data: [1], isLoading: false })),
+  useAllLabsSSO: jest.fn(() => ({ data: [1], isLoading: false })),
   useLabSSO: jest.fn(() => ({ data: null, isLoading: false })),
   useLabOwnerSSO: jest.fn(() => ({ data: null, isLoading: false })),
   useLab: jest.fn(() => ({ data: null, isLoading: false })),

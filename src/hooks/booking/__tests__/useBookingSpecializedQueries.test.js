@@ -17,12 +17,11 @@ import {
 
 // Mock dependencies
 jest.mock('../useBookingAtomicQueries', () => ({
-  useReservationsOf: jest.fn(),
-  useReservationsOfSSO: jest.fn(),
-  useReservationsOfWallet: jest.fn(),
-  useReservationKeyOfUserByIndexSSO: jest.fn(),
-  useReservationKeyOfUserByIndexWallet: jest.fn(),
-  useReservationSSO: jest.fn(),
+  useReservationsOfSSO: Object.assign(jest.fn(), { queryFn: jest.fn() }),
+  useReservationsOfWallet: Object.assign(jest.fn(), { queryFn: jest.fn() }),
+  useReservationKeyOfUserByIndexSSO: Object.assign(jest.fn(), { queryFn: jest.fn() }),
+  useReservationKeyOfUserByIndexWallet: Object.assign(jest.fn(), { queryFn: jest.fn() }),
+  useReservationSSO: Object.assign(jest.fn(), { queryFn: jest.fn() }),
   BOOKING_QUERY_CONFIG: { staleTime: 30000 },
 }))
 
@@ -37,24 +36,31 @@ jest.mock('@tanstack/react-query', () => {
   return {
     ...actual,
     useQueries: jest.fn(() => []),
+    useQuery: jest.fn(() => ({
+      data: { count: 0 },
+      isLoading: false,
+      isFetching: false,
+      isSuccess: true,
+      isError: false,
+      error: null,
+    })),
   }
 })
 
 jest.mock('@/utils/hooks/queryKeys', () => ({
   bookingQueryKeys: {
+    reservationsOf: jest.fn((address) => ['bookings', 'reservationsOf', address]),
+    ssoReservationsOf: jest.fn(() => ['bookings', 'sso', 'reservationsOf']),
     reservationKeyOfUserByIndex: jest.fn((address, index) => ['bookings', 'user', address, 'key', index]),
     ssoReservationKeyOfUserByIndex: jest.fn((index) => ['bookings', 'sso', 'user', 'key', index]),
     byReservationKey: jest.fn((key) => ['bookings', 'reservation', key]),
   },
 }))
 
-const mockUseReservationsOf = require('../useBookingAtomicQueries').useReservationsOf
-const mockUseReservationsOfSSO = require('../useBookingAtomicQueries').useReservationsOfSSO
-const mockUseReservationsOfWallet = require('../useBookingAtomicQueries').useReservationsOfWallet
 const mockUseReservationKeyOfUserByIndexSSO = require('../useBookingAtomicQueries').useReservationKeyOfUserByIndexSSO
 const mockUseReservationKeyOfUserByIndexWallet = require('../useBookingAtomicQueries').useReservationKeyOfUserByIndexWallet
-const mockUseReservationSSO = require('../useBookingAtomicQueries').useReservationSSO
 const mockUseQueries = require('@tanstack/react-query').useQueries
+const mockUseQuery = require('@tanstack/react-query').useQuery
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -75,61 +81,36 @@ const createWrapper = () => {
 describe('useBookingSpecializedQueries', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    
-    // Setup default mock implementations
-    mockUseReservationsOf.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: null,
-    })
-    
-    mockUseReservationsOfSSO.mockReturnValue({
+
+    mockUseQuery.mockReturnValue({
       data: { count: 0 },
       isLoading: false,
-      error: null,
-    })
-    
-    mockUseReservationsOfWallet.mockReturnValue({
-      data: { count: 0 },
-      isLoading: false,
+      isFetching: false,
+      isSuccess: true,
+      isError: false,
       error: null,
     })
   })
 
   describe('useUserBookingsForMarket', () => {
     it('should initialize with user address', () => {
-      mockUseReservationsOfSSO.mockReturnValue({
-        data: { count: 0 },
-        isLoading: false,
-        error: null,
-      })
-      
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: { count: 0 },
-        isLoading: false,
-        error: null,
-      })
-
       const { result } = renderHook(
         () => useUserBookingsForMarket('0x123'),
         { wrapper: createWrapper() }
       )
 
       expect(result.current).toBeDefined()
-      expect(mockUseReservationsOfSSO).toHaveBeenCalled()
+      expect(mockUseQuery).toHaveBeenCalled()
     })
 
     it('should handle user with reservations', () => {
       // Mock reservation count
-      mockUseReservationsOfSSO.mockReturnValue({
+      mockUseQuery.mockReturnValue({
         data: { count: 2 },
         isLoading: false,
-        error: null,
-      })
-      
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: { count: 2 },
-        isLoading: false,
+        isFetching: false,
+        isSuccess: true,
+        isError: false,
         error: null,
       })
       
@@ -179,15 +160,12 @@ describe('useBookingSpecializedQueries', () => {
     })
 
     it('should handle zero reservations', () => {
-      mockUseReservationsOfSSO.mockReturnValue({
+      mockUseQuery.mockReturnValue({
         data: { count: 0 },
         isLoading: false,
-        error: null,
-      })
-      
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: { count: 0 },
-        isLoading: false,
+        isFetching: false,
+        isSuccess: true,
+        isError: false,
         error: null,
       })
 
@@ -203,15 +181,12 @@ describe('useBookingSpecializedQueries', () => {
     })
 
     it('should respect enabled option', () => {
-      mockUseReservationsOfSSO.mockReturnValue({
+      mockUseQuery.mockReturnValue({
         data: { count: 0 },
         isLoading: false,
-        error: null,
-      })
-      
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: { count: 0 },
-        isLoading: false,
+        isFetching: false,
+        isSuccess: true,
+        isError: false,
         error: null,
       })
       
@@ -220,19 +195,16 @@ describe('useBookingSpecializedQueries', () => {
         { wrapper: createWrapper() }
       )
 
-      expect(mockUseReservationsOfSSO).toHaveBeenCalled()
+      expect(mockUseQuery).toHaveBeenCalled()
     })
 
     it('should handle loading state', () => {
-      mockUseReservationsOfSSO.mockReturnValue({
+      mockUseQuery.mockReturnValue({
         data: undefined,
         isLoading: true,
-        error: null,
-      })
-      
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: undefined,
-        isLoading: true,
+        isFetching: true,
+        isSuccess: false,
+        isError: false,
         error: null,
       })
 
@@ -246,15 +218,12 @@ describe('useBookingSpecializedQueries', () => {
 
     it('should handle error state', () => {
       const mockError = new Error('Failed to fetch reservations')
-      mockUseReservationsOfSSO.mockReturnValue({
+      mockUseQuery.mockReturnValue({
         data: undefined,
         isLoading: false,
-        error: mockError,
-      })
-      
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: undefined,
-        isLoading: false,
+        isFetching: false,
+        isSuccess: false,
+        isError: true,
         error: mockError,
       })
 

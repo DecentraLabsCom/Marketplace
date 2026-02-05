@@ -16,7 +16,7 @@ import LabGrid from '@/components/home/LabGrid'
 import devLog from '@/utils/dev/logger'
 
 export default function Market() {
-  const { isLoggedIn, address, isWalletLoading } = useUser();
+  const { isLoggedIn, address, isWalletLoading, hasWalletSession } = useUser();
   
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
@@ -47,11 +47,11 @@ export default function Market() {
 
   // React Query for user bookings (memoized options) - Only fetch when user is definitely connected
   const userBookingsOptions = useMemo(() => ({
-    enabled: !!address && isLoggedIn && !isWalletLoading, // Wait for wallet to stabilize
+    enabled: !!address && isLoggedIn && !isWalletLoading && hasWalletSession, // Wait for wallet session
     queryOptions: {
       refetchOnMount: false, // Use cached data if available
     }
-  }), [address, isLoggedIn, isWalletLoading]);
+  }), [address, isLoggedIn, isWalletLoading, hasWalletSession]);
   
   const userBookingsQuery = useUserBookingsForMarket(address, userBookingsOptions);
 
