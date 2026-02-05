@@ -58,6 +58,32 @@ const normalizeAddress = (addr) => {
   const unquoted = trimmed.replace(/^['"]|['"]$/g, '');
   return isValidAddress(unquoted) && !isZeroAddress(unquoted) ? unquoted : undefined;
 };
+const tryParseBigInt = (value) => {
+  if (typeof value === 'bigint') return value;
+  if (typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value)) {
+    return BigInt(value);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^[+-]?\d+$/.test(trimmed)) {
+      try {
+        return BigInt(trimmed);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+};
+const formatFixed2FromScaledInt = (scaledValue) => {
+  if (typeof scaledValue !== 'bigint') return '0.00';
+  const sign = scaledValue < 0n ? '-' : '';
+  const absValue = scaledValue < 0n ? -scaledValue : scaledValue;
+  const integerPart = absValue / 100n;
+  const fractionalPart = absValue % 100n;
+  return `${sign}${integerPart.toString()}.${fractionalPart.toString().padStart(2, '0')}`;
+};
 
 /**
  * Clear decimals cache (useful for debugging or network switches)
@@ -431,31 +457,37 @@ export function useLabTokenHook() {
    * @returns {string} - Human-readable price per hour rounded to 2 decimals
    */
   const formatPrice = useCallback((price) => {
-    if (!price || price === '0') return '0.00';
-    
-    // If decimals not loaded yet, return placeholder
-    if (decimals === undefined || decimals === null) {
-      devLog.warn('formatPrice: decimals not loaded yet, using fallback');
+    if (price === null || price === undefined) return '0.00';
+
+    const decimalsValue = Number(decimals);
+    if (!Number.isFinite(decimalsValue) || decimalsValue < 0) {
+      devLog.warn('formatPrice: invalid decimals, using fallback', decimals);
       return '0.00';
     }
-    
+
     try {
-      // Contract provides price in smallest units per second
-      const pricePerSecondUnits = parseFloat(price.toString());
-      
-      if (isNaN(pricePerSecondUnits)) return '0.00';
-      
-      // Convert from contract units to decimal tokens (divide by 10^decimals)
-      const pricePerSecondTokens = pricePerSecondUnits / Math.pow(10, decimals);
-      
-      // Convert from per second to per hour
+      const priceUnits = tryParseBigInt(price);
+      if (priceUnits !== null) {
+        const pricePerHourUnits = priceUnits * 3600n;
+        const divisor = 10n ** BigInt(decimalsValue);
+        if (divisor === 0n) return '0.00';
+
+        const scaledNumerator = pricePerHourUnits * 100n;
+        const quotient = scaledNumerator / divisor;
+        const remainder = scaledNumerator % divisor;
+        const rounded = remainder * 2n >= divisor ? quotient + 1n : quotient;
+
+        return formatFixed2FromScaledInt(rounded);
+      }
+
+      const pricePerSecondUnits = Number(price);
+      if (!Number.isFinite(pricePerSecondUnits)) return '0.00';
+
+      const pricePerSecondTokens = pricePerSecondUnits / Math.pow(10, decimalsValue);
       const pricePerHour = pricePerSecondTokens * 3600;
-      
-      // Round to 2 decimal places
-      const roundedPrice = Math.round(pricePerHour * 100) / 100;
-      
+      const roundedPrice = Math.round((pricePerHour + Number.EPSILON) * 100) / 100;
+
       return roundedPrice.toFixed(2);
-      
     } catch (error) {
       devLog.error('Error formatting price:', error, 'Price:', price, 'Decimals:', decimals);
       return '0.00';

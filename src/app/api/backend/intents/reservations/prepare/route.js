@@ -94,9 +94,12 @@ export async function POST(request) {
     const adminAddress = await getAdminAddress()
     const priceProvider = await getContractInstance()
     const labData = await priceProvider.getLab(labId)
-    const price = labData?.base?.price ?? labData?.price ?? 0n
+    const rawPrice = labData?.base?.price ?? labData?.price ?? 0n
+    const pricePerSecond = BigInt(rawPrice)
 
     const end = BigInt(start) + BigInt(timeslot)
+    const durationSeconds = BigInt(timeslot)
+    const price = pricePerSecond * durationSeconds
     const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), BigInt(start)])
     const assertionHash = computeReservationAssertionHash(samlAssertion)
 
