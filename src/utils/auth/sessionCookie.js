@@ -6,7 +6,7 @@
  * 
  * Security Features:
  * - JWT HS256 signing with SESSION_SECRET
- * - HttpOnly, Secure, SameSite=Strict cookies
+ * - HttpOnly, Secure, SameSite=Lax cookies
  * - 24-hour session expiration
  * - Automatic validation on read
  */

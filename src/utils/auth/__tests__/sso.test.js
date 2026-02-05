@@ -98,7 +98,7 @@ describe("SSO Utilities", () => {
         expect.stringContaining("mock-jwt-"), // JWT token
         expect.objectContaining({
           httpOnly: true,
-          sameSite: "strict",
+          sameSite: "lax",
           path: "/",
         })
       );

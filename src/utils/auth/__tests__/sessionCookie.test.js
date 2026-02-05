@@ -193,7 +193,7 @@ describe('sessionCookie', () => {
       expect(cookie.name).toBe('user_session');
       expect(cookie.value).toBeDefined();
       expect(cookie.httpOnly).toBe(true);
-      expect(cookie.sameSite).toBe('strict');
+      expect(cookie.sameSite).toBe('lax');
       expect(cookie.path).toBe('/');
       expect(cookie.maxAge).toBe(60 * 60 * 24); // 24 hours
     });
@@ -231,7 +231,7 @@ describe('sessionCookie', () => {
       expect(cookie.value).toBe('');
       expect(cookie.maxAge).toBe(0);
       expect(cookie.httpOnly).toBe(true);
-      expect(cookie.sameSite).toBe('strict');
+      expect(cookie.sameSite).toBe('lax');
       expect(cookie.path).toBe('/');
     });
   });
