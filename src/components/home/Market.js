@@ -5,7 +5,7 @@
  * @returns {JSX.Element} Complete marketplace interface with lab grid, search, and user-specific features
  */
 "use client";
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState, useCallback, useEffect } from 'react'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useLabsForMarket } from '@/hooks/lab/useLabs'
@@ -17,6 +17,7 @@ import devLog from '@/utils/dev/logger'
 
 export default function Market() {
   const { isLoggedIn, address, isWalletLoading, hasWalletSession } = useUser();
+  const [isHydrated, setIsHydrated] = useState(false);
   
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
@@ -98,25 +99,31 @@ export default function Market() {
     setShowUnlisted(false);
   }, [resetFilters]);
 
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
   return (
     <Container as="main" padding="sm">
-      <LabFilters
-        categories={categories}
-        providers={providers}
-        selectedCategory={selectedCategory}
-        selectedPrice={selectedPrice}
-        selectedProvider={selectedProvider}
-        selectedFilter={selectedFilter}
-        showUnlisted={showUnlisted}
-        onCategoryChange={setSelectedCategory}
-        onPriceChange={setSelectedPrice}
-        onProviderChange={setSelectedProvider}
-        onFilterChange={setSelectedFilter}
-        onShowUnlistedChange={setShowUnlisted}
-        onReset={handleReset}
-        searchInputRef={searchInputRef}
-        loading={labsLoading}
-      />
+      {isHydrated ? (
+        <LabFilters
+          categories={categories}
+          providers={providers}
+          selectedCategory={selectedCategory}
+          selectedPrice={selectedPrice}
+          selectedProvider={selectedProvider}
+          selectedFilter={selectedFilter}
+          showUnlisted={showUnlisted}
+          onCategoryChange={setSelectedCategory}
+          onPriceChange={setSelectedPrice}
+          onProviderChange={setSelectedProvider}
+          onFilterChange={setSelectedFilter}
+          onShowUnlistedChange={setShowUnlisted}
+          onReset={handleReset}
+          searchInputRef={searchInputRef}
+          loading={labsLoading}
+        />
+      ) : null}
 
       <LabGrid
         labs={searchFilteredLabs}
