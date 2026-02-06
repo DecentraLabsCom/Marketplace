@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useConnection, useWaitForTransactionReceipt } from 'wagmi'
 import { decodeEventLog } from 'viem'
 import { useNotifications } from '@/context/NotificationContext'
+import { useOptionalBookingEventContext } from '@/context/BookingEventContext'
 import { useLabToken } from '@/context/LabTokenContext'
 import { 
   useReservationRequest, 
@@ -18,6 +19,10 @@ import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
+import {
+  notifyReservationOnChainRequested,
+  notifyReservationTxReverted,
+} from '@/utils/notifications/reservationToasts'
 
 /**
  * Safe date parsing utility
@@ -58,6 +63,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   const chainKey = safeChain?.name?.toLowerCase?.() || 'sepolia'
   const contractAddress = contractAddresses[chainKey]
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
+  const { registerPendingConfirmation } = useOptionalBookingEventContext()
   const { 
     calculateReservationCost, 
     formatPrice,
@@ -82,7 +88,6 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   // Transaction state
   const [lastTxHash, setLastTxHash] = useState(null)
   const [pendingData, setPendingData] = useState(null)
-  const successNotifiedRef = useRef(false)
   const optimisticRemovedRef = useRef(false)
 
   const extractReservationRequested = useCallback((receiptData) => {
@@ -128,11 +133,36 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     setIsClient(true)
   }, [])
 
-  // Reset success notification guard when a new pending reservation is set
+  // Reset optimistic cleanup guard when a new pending reservation is set
   useEffect(() => {
-    successNotifiedRef.current = false
     optimisticRemovedRef.current = false
   }, [pendingData?.optimisticId])
+
+  // Register pending SSO reservations in BookingEventContext so centralized polling/events
+  // can drive final toasts and status updates even when an on-chain event is missed locally.
+  useEffect(() => {
+    if (!isSSO || typeof registerPendingConfirmation !== 'function') return
+
+    const rawKey = pendingData?.reservationKey || pendingData?.optimisticId
+    if (!rawKey) return
+
+    const key = String(rawKey).trim()
+    const normalizedKey = key.startsWith('0x') ? key : `0x${key}`
+    if (!/^0x[0-9a-f]{64}$/i.test(normalizedKey)) return
+
+    registerPendingConfirmation(
+      normalizedKey,
+      pendingData?.labId,
+      pendingData?.userAddress
+    )
+  }, [
+    isSSO,
+    pendingData?.reservationKey,
+    pendingData?.optimisticId,
+    pendingData?.labId,
+    pendingData?.userAddress,
+    registerPendingConfirmation
+  ])
 
   // Update the duration when the selected lab changes
   useEffect(() => {
@@ -220,7 +250,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     const isTxSuccessful = receiptStatus === 'success' || receiptStatus === 1 || receiptStatus === '0x1';
 
     if (!isTxSuccessful) {
-      addTemporaryNotification('error', '❌ Transaction reverted. Reservation was not created.');
+      notifyReservationTxReverted(addTemporaryNotification);
       setIsBooking(false);
 
       if (pendingData?.optimisticId && pendingData?.isOptimistic) {
@@ -258,7 +288,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       setPendingData(prev => prev ? { ...prev, optimisticId: reservationKey, reservationKey } : prev);
     }
 
-    addTemporaryNotification('success', '✅ Reservation request registered on-chain! Waiting for final confirmation...');
+    notifyReservationOnChainRequested(addTemporaryNotification, reservationKey || pendingData?.reservationKey || pendingData?.optimisticId);
 
     setIsBooking(false);
 
@@ -339,151 +369,16 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     if (!Number.isFinite(statusNumber)) return
 
     if (statusNumber === BOOKING_STATUS.CANCELLED) {
-      if (!successNotifiedRef.current) {
-        addTemporaryNotification('error', '❌ Reservation request denied by the institution.')
-        successNotifiedRef.current = true
-      }
       setPendingData(null)
       setForceRefresh(prev => prev + 1)
       return
     }
 
     if (statusNumber > BOOKING_STATUS.PENDING) {
-      if (!successNotifiedRef.current) {
-        addTemporaryNotification('success', '✅ Reservation confirmed!')
-        successNotifiedRef.current = true
-      }
       setPendingData(null)
       setForceRefresh(prev => prev + 1)
     }
-  }, [labBookings, pendingData, bookingCacheUpdates, isSSO, addTemporaryNotification])
-
-  // Fallback polling for SSO reservation status (avoids reliance on on-chain events)
-  useEffect(() => {
-    const normalizeHex = (value) => {
-      if (!value) return null;
-      const raw = String(value).trim().toLowerCase();
-      return raw.startsWith('0x') ? raw.slice(2) : raw;
-    };
-
-    const rawKey = pendingData?.optimisticId;
-    const normalized = normalizeHex(rawKey);
-    const isValidReservationKey = normalized && /^[0-9a-f]{64}$/i.test(normalized);
-
-    if (!isClient || !isValidReservationKey) return;
-
-    let cancelled = false;
-    const startedAt = Date.now();
-    const reservationKey = normalized.startsWith('0x') ? normalized : `0x${normalized}`;
-    const optimisticId = rawKey;
-
-    const poll = async () => {
-      if (cancelled) return;
-      try {
-        const response = await fetch(
-          `/api/contract/reservation/getReservation?reservationKey=${encodeURIComponent(reservationKey)}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          const statusNumber = Number(data?.reservation?.status);
-          if (Number.isFinite(statusNumber) && statusNumber !== 0) {
-            setIsBooking(false);
-            if (optimisticId && pendingData?.isOptimistic) {
-              bookingCacheUpdates.removeOptimisticBooking(optimisticId);
-            }
-            setPendingData(null);
-            setForceRefresh(prev => prev + 1);
-            const labId = pendingData?.labId;
-            if (labId !== undefined && labId !== null) {
-            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
-            queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
-          }
-            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
-            if (statusNumber === BOOKING_STATUS.CANCELLED) {
-              addTemporaryNotification('error', '❌ Reservation request denied by the institution.');
-            } else if (!successNotifiedRef.current && statusNumber > BOOKING_STATUS.PENDING) {
-              addTemporaryNotification('success', '✅ Reservation confirmed!');
-              successNotifiedRef.current = true
-            }
-            return;
-          }
-        }
-      } catch {
-        // ignore and retry
-      }
-
-      if (Date.now() - startedAt > 120000) {
-        return;
-      }
-
-      setTimeout(poll, 8000);
-    };
-
-    poll();
-    return () => {
-      cancelled = true;
-    };
-  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh, queryClient])
-
-  // Handle reservation denied events from BookingEventContext
-  useEffect(() => {
-    if (!isClient) return;
-
-    const handleDenied = (event) => {
-      const detail = event?.detail || {};
-      const reservationKey = detail?.reservationKey;
-      const tokenId = detail?.tokenId;
-      const notified = detail?.notified;
-
-      const normalizeHex = (value) => {
-        if (!value) return null;
-        const raw = String(value).trim().toLowerCase();
-        return raw.startsWith('0x') ? raw.slice(2) : raw;
-      };
-
-      const normalizedReservationKey = normalizeHex(reservationKey);
-      const normalizedPendingKey = normalizeHex(pendingData?.optimisticId);
-      const tokenIdStr = tokenId?.toString?.() ?? tokenId;
-      const pendingLabId = pendingData?.labId?.toString?.() ?? pendingData?.labId;
-      const selectedLabId = selectedLab?.id?.toString?.() ?? selectedLab?.id;
-
-      const matchesReservationKey =
-        normalizedReservationKey &&
-        normalizedPendingKey &&
-        normalizedReservationKey === normalizedPendingKey;
-      const matchesLabId =
-        tokenIdStr && (pendingLabId || selectedLabId) &&
-        String(tokenIdStr) === String(pendingLabId || selectedLabId);
-
-      if (!matchesReservationKey && !matchesLabId && !notified) return;
-
-      setIsBooking(false);
-
-      if (pendingData?.optimisticId && pendingData?.isOptimistic) {
-        bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
-      }
-
-      setPendingData(null);
-      setForceRefresh(prev => prev + 1);
-      const targetLabId = tokenId ?? pendingData?.labId;
-      if (targetLabId !== undefined && targetLabId !== null) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(targetLabId) });
-        queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', targetLabId], exact: false });
-      }
-      if (reservationKey) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      }
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
-
-      if (!notified) {
-        addTemporaryNotification('error', '❌ Reservation request denied by the institution.');
-      }
-    };
-
-    window.addEventListener('reservation-request-denied', handleDenied);
-    return () => window.removeEventListener('reservation-request-denied', handleDenied);
-  }, [isClient, pendingData, bookingCacheUpdates, addTemporaryNotification, setForceRefresh, selectedLab, queryClient])
+  }, [labBookings, pendingData, bookingCacheUpdates, isSSO])
 
   // Handle transaction errors
   useEffect(() => {

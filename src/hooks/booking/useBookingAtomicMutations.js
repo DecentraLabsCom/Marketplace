@@ -28,6 +28,18 @@ const resolveBookingContext = (queryClient, reservationKey) => {
   };
 };
 
+const createIntentMutationError = (payload, fallbackMessage) => {
+  const message =
+    payload?.error ||
+    payload?.message ||
+    fallbackMessage;
+  const err = new Error(message);
+  if (payload?.code) {
+    err.code = payload.code;
+  }
+  return err;
+};
+
 const invalidateInstitutionalReservationQueries = (queryClient, { labId, reservationKey } = {}) => {
   if (!queryClient) return;
 
@@ -104,6 +116,16 @@ const resolveAuthorizationStatusBaseUrl = (authorizationUrl, backendUrl) => {
     return parsed.origin;
   } catch {
     return backendUrl || null;
+  }
+};
+
+const emitReservationProgress = (requestData, stage, details = {}) => {
+  const onProgress = requestData?.onProgress;
+  if (typeof onProgress !== 'function') return;
+  try {
+    onProgress({ stage, ...details });
+  } catch (error) {
+    devLog.warn('Reservation progress callback failed:', error);
   }
 };
 
@@ -209,7 +231,10 @@ async function runActionIntent(action, payload) {
 
   const prepareData = await prepareResponse.json();
   if (!prepareResponse.ok) {
-    throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
+    throw createIntentMutationError(
+      prepareData,
+      `Failed to prepare action intent: ${prepareResponse.status}`
+    );
   }
 
   const authToken = prepareData?.backendAuthToken || null;
@@ -262,7 +287,7 @@ async function runActionIntent(action, payload) {
 
   const finalizeData = await finalizeResponse.json();
   if (!finalizeResponse.ok) {
-    throw new Error(finalizeData.error || 'Failed to finalize action intent');
+    throw createIntentMutationError(finalizeData, 'Failed to finalize action intent');
   }
 
   const requestId =
@@ -411,6 +436,8 @@ export const useReservationRequestSSO = (options = {}) => {
         throw new Error('WebAuthn not supported in this environment');
       }
 
+      emitReservationProgress(requestData, 'preparing_intent');
+
       const payload = {
         labId: requestData.tokenId ?? requestData.labId,
         start: requestData.start,
@@ -427,16 +454,23 @@ export const useReservationRequestSSO = (options = {}) => {
 
       const prepareData = await prepareResponse.json()
       if (!prepareResponse.ok) {
-        throw new Error(prepareData.error || `Failed to prepare reservation intent: ${prepareResponse.status}`)
+        throw createIntentMutationError(
+          prepareData,
+          `Failed to prepare reservation intent: ${prepareResponse.status}`
+        )
       }
 
+      emitReservationProgress(requestData, 'intent_prepared');
+
       const authToken = prepareData?.backendAuthToken || null
+      emitReservationProgress(requestData, 'awaiting_authorization');
       const authorizationStatus = await awaitBackendAuthorization(prepareData, {
         backendUrl: payload.backendUrl,
         authToken,
       })
       if (authorizationStatus) {
         const requestId = authorizationStatus?.requestId || resolveIntentRequestId(prepareData)
+        emitReservationProgress(requestData, 'request_submitted', { requestId });
         return {
           ...prepareData,
           requestId,
@@ -459,9 +493,11 @@ export const useReservationRequestSSO = (options = {}) => {
         throw new Error('Unable to build WebAuthn request options')
       }
 
+      emitReservationProgress(requestData, 'awaiting_webauthn_assertion');
       const assertion = await navigator.credentials.get({ publicKey })
       const assertionPayload = assertionToJSON(assertion)
 
+      emitReservationProgress(requestData, 'finalizing_intent');
       const finalizeResponse = await fetch('/api/backend/intents/reservations/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -480,7 +516,7 @@ export const useReservationRequestSSO = (options = {}) => {
 
       const finalizeData = await finalizeResponse.json()
       if (!finalizeResponse.ok) {
-        throw new Error(finalizeData.error || 'Failed to finalize reservation intent')
+        throw createIntentMutationError(finalizeData, 'Failed to finalize reservation intent')
       }
 
       const requestId =
@@ -488,6 +524,8 @@ export const useReservationRequestSSO = (options = {}) => {
         resolveIntentRequestId(prepareData)
       const finalizeAuthToken = finalizeData?.backendAuthToken || prepareData?.backendAuthToken || null
       const finalizeAuthExpiresAt = finalizeData?.backendAuthExpiresAt || prepareData?.backendAuthExpiresAt || null
+
+      emitReservationProgress(requestData, 'request_submitted', { requestId });
 
       return {
         ...finalizeData,
@@ -633,24 +671,8 @@ export const useReservationRequestSSO = (options = {}) => {
                   tokenId: variables.tokenId
                 });
 
-                // Enqueue for reconciliation - will auto-invalidate at scheduled intervals
-                // until blockchain event confirms the reservation (status 0 → 1)
-                const reconciliationQueryKeys = [];
-                if (variables.userAddress) {
-                  reconciliationQueryKeys.push(bookingQueryKeys.reservationsOf(variables.userAddress));
-                }
-                if (variables.tokenId) {
-                  reconciliationQueryKeys.push(bookingQueryKeys.getReservationsOfToken(variables.tokenId));
-                }
-                if (finalKey) {
-                  reconciliationQueryKeys.push(bookingQueryKeys.byReservationKey(finalKey));
-                }
-                
-                enqueueReconciliationEntry({
-                  id: `booking:confirm:${finalKey}`,
-                  category: 'booking-confirmation',
-                  queryKeys: reconciliationQueryKeys,
-                });
+                // Reservation confirmation now relies on BookingEventContext event polling only,
+                // avoiding duplicate polling loops for the same reservation lifecycle.
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
                   reservationKey: finalKey,

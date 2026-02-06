@@ -98,6 +98,7 @@ describe("BookingEventContext", () => {
     jest.clearAllMocks();
     eventCallbacks = {};
     jest.spyOn(Date, "now").mockReturnValue(1700000000000);
+    process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED = "false";
 
     wagmiHooks.useConnection.mockReturnValue(mockUseConnection);
     userContext.useUser.mockReturnValue(mockUseUser);
@@ -122,6 +123,7 @@ describe("BookingEventContext", () => {
     jest.restoreAllMocks();
     jest.useRealTimers();
     global.fetch = originalFetch;
+    delete process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED;
   });
 
   const triggerEvent = async (eventName, logs) => {
@@ -136,7 +138,11 @@ describe("BookingEventContext", () => {
       wrapper: createWrapper(queryClient),
     });
 
-    expect(result.current).toEqual({});
+    expect(result.current).toEqual(
+      expect.objectContaining({
+        registerPendingConfirmation: expect.any(Function),
+      })
+    );
   });
 
   test("throws error when hook used outside provider", () => {
@@ -179,7 +185,12 @@ describe("BookingEventContext", () => {
     await waitFor(() => {
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "success",
-        "✅ Reservation confirmed!"
+        "✅ Reservation confirmed!",
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-confirmed:reservation-123",
+          dedupeWindowMs: 120000,
+        })
       );
     });
 
@@ -203,7 +214,12 @@ describe("BookingEventContext", () => {
     await waitFor(() => {
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "error",
-        "❌ Reservation denied by the provider."
+        "❌ Reservation denied by the provider.",
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-denied:reservation-123",
+          dedupeWindowMs: 120000,
+        })
       );
     });
 
@@ -279,6 +295,7 @@ describe("BookingEventContext", () => {
 
   test("backup polling resolves confirmations when events are missed", async () => {
     jest.useFakeTimers();
+    process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED = "true";
     const queryClient = createTestQueryClient();
     renderHook(() => useBookingEventContext(), {
       wrapper: createWrapper(queryClient),
@@ -303,7 +320,60 @@ describe("BookingEventContext", () => {
     await waitFor(() => {
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "success",
-        "✅ Reservation confirmed!"
+        "✅ Reservation confirmed!",
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-confirmed:reservation-123",
+          dedupeWindowMs: 120000,
+        })
+      );
+    });
+  });
+
+  test("does not emit duplicate confirmation toast when polling and event both resolve", async () => {
+    jest.useFakeTimers();
+    process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED = "true";
+
+    const queryClient = createTestQueryClient();
+    renderHook(() => useBookingEventContext(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reservation: { status: 1, renter: "0xUserAddress" },
+      }),
+    });
+
+    await triggerEvent("ReservationRequested", [reservationRequestedLog()]);
+
+    // First confirmation source: backup polling
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockAddTemporaryNotification).toHaveBeenCalledTimes(1);
+    });
+
+    // Second confirmation source: chain event
+    await triggerEvent("ReservationConfirmed", [
+      { args: { reservationKey: "reservation-123", tokenId: "1" } },
+    ]);
+
+    await waitFor(() => {
+      expect(mockAddTemporaryNotification).toHaveBeenCalledTimes(1);
+      expect(mockAddTemporaryNotification).toHaveBeenNthCalledWith(
+        1,
+        "success",
+        expect.stringContaining("Reservation confirmed"),
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-confirmed:reservation-123",
+          dedupeWindowMs: 120000,
+        })
       );
     });
   });
@@ -326,3 +396,4 @@ describe("BookingEventContext", () => {
     deleteSpy.mockRestore();
   });
 });
+

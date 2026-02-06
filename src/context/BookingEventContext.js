@@ -12,8 +12,28 @@ import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
+import { notifyReservationConfirmed, notifyReservationDenied } from '@/utils/notifications/reservationToasts'
 
 const BookingEventContext = createContext();
+
+const normalizeReservationKey = (reservationKey) => {
+    if (reservationKey === undefined || reservationKey === null) {
+        return null;
+    }
+
+    const raw = String(reservationKey).trim();
+    if (!raw) {
+        return null;
+    }
+
+    const lower = raw.toLowerCase();
+    const withoutPrefix = lower.startsWith('0x') ? lower.slice(2) : lower;
+    if (/^[0-9a-f]{64}$/.test(withoutPrefix)) {
+        return `0x${withoutPrefix}`;
+    }
+
+    return raw;
+};
 
 /**
  * Simplified Booking Event Provider
@@ -31,6 +51,7 @@ export function BookingEventProvider({ children }) {
     // User context and notifications for smart user targeting
     const { address: userAddress, isSSO } = useUser();
     const { addTemporaryNotification } = useNotifications();
+    const backupPollingEnabled = String(process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED || 'false').toLowerCase() === 'true';
 
     const pendingConfirmations = useRef(new Map()); // Track reservations waiting for provider action (backup polling)
     const notifiedConfirmations = useRef(new Set()); // Avoid duplicate confirmation toasts
@@ -38,15 +59,29 @@ export function BookingEventProvider({ children }) {
     const { clearOptimisticBookingState } = useOptimisticUI();
 
     const trackPendingConfirmation = (reservationKey, tokenId, requesterAddress) => {
-        if (!reservationKey) {
+        const normalizedKey = normalizeReservationKey(reservationKey);
+        if (!normalizedKey) {
             return;
         }
 
-        pendingConfirmations.current.set(reservationKey, {
+        pendingConfirmations.current.set(normalizedKey, {
             timestamp: Date.now(),
             tokenId,
             requester: requesterAddress?.toLowerCase?.() ?? requesterAddress,
             attempts: 0
+        });
+    };
+
+    const registerPendingConfirmation = (reservationKey, tokenId, requesterAddress) => {
+        const normalizedKey = normalizeReservationKey(reservationKey);
+        if (!normalizedKey) return;
+
+        const existing = pendingConfirmations.current.get(normalizedKey);
+        pendingConfirmations.current.set(normalizedKey, {
+            timestamp: existing?.timestamp ?? Date.now(),
+            tokenId: tokenId?.toString?.() ?? tokenId ?? existing?.tokenId,
+            requester: requesterAddress?.toLowerCase?.() ?? requesterAddress ?? existing?.requester,
+            attempts: existing?.attempts ?? 0,
         });
     };
 
@@ -224,6 +259,7 @@ export function BookingEventProvider({ children }) {
             logs.forEach(async (log, index) => {
                 const { reservationKey, tokenId } = log.args;
                 const reservationKeyStr = reservationKey?.toString();
+                const normalizedReservationKey = normalizeReservationKey(reservationKeyStr);
                 const tokenIdStr = tokenId?.toString();
                 
                 devLog.log(`✅ [BookingEventContext] Processing ReservationConfirmed #${index + 1}:`, {
@@ -233,44 +269,50 @@ export function BookingEventProvider({ children }) {
                 });
                 
                 // Invalidate all booking queries
-                if (reservationKeyStr) {
-                    devLog.log('🔄 Invalidating booking caches for confirmed reservation:', reservationKeyStr);
+                if (normalizedReservationKey) {
+                    devLog.log('🔄 Invalidating booking caches for confirmed reservation:', normalizedReservationKey);
 
                     // Remove from pending confirmations (event was detected successfully)
-                    const pendingInfo = pendingConfirmations.current.get(reservationKeyStr);
+                    const pendingInfo = pendingConfirmations.current.get(normalizedReservationKey);
                     if (pendingInfo) {
-                        devLog.log('✅ Removing from pending confirmations (event detected):', reservationKeyStr);
-                        pendingConfirmations.current.delete(reservationKeyStr);
+                        devLog.log('✅ Removing from pending confirmations (event detected):', normalizedReservationKey);
+                        pendingConfirmations.current.delete(normalizedReservationKey);
                     }
 
                     // Remove reconciliation entry - event confirmed, no need to keep polling
-                    removeReconciliationEntry(`booking:confirm:${reservationKeyStr}`);
+                    removeReconciliationEntry(`booking:confirm:${normalizedReservationKey}`);
 
-                    invalidateReservationCaches(reservationKeyStr, tokenIdStr);
-                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
+                    invalidateReservationCaches(normalizedReservationKey, tokenIdStr);
+                    removeOptimisticBookingFromLabCache(normalizedReservationKey, tokenIdStr);
 
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                     let shouldNotify = false;
 
-                    if (pendingInfo?.requester && currentUserAddress) {
-                        shouldNotify = pendingInfo.requester === currentUserAddress;
+                    if (pendingInfo) {
+                        if (pendingInfo.requester && currentUserAddress) {
+                            shouldNotify = pendingInfo.requester === currentUserAddress;
+                        } else {
+                            // If a reservation was explicitly registered from this browser session,
+                            // notify even when renter address is not available in client user context.
+                            shouldNotify = true;
+                        }
                     }
 
                     if (!shouldNotify && currentUserAddress) {
-                        const reservationDetails = await fetchReservationDetails(reservationKeyStr);
+                        const reservationDetails = await fetchReservationDetails(normalizedReservationKey);
                         const renterAddress = reservationDetails?.reservation?.renter?.toLowerCase?.();
                         if (renterAddress && renterAddress === currentUserAddress) {
                             shouldNotify = true;
                         }
                     }
 
-                    if (shouldNotify && shouldNotifyConfirmation(reservationKeyStr)) {
-                        addTemporaryNotification('success', '✅ Reservation confirmed!');
+                    if (shouldNotify && shouldNotifyConfirmation(normalizedReservationKey)) {
+                        notifyReservationConfirmed(addTemporaryNotification, normalizedReservationKey);
                     }
 
                     // Clear optimistic booking state if present
                     try {
-                      if (reservationKeyStr) clearOptimisticBookingState(String(reservationKeyStr));
+                      if (normalizedReservationKey) clearOptimisticBookingState(String(normalizedReservationKey));
                     } catch (err) {
                       devLog.warn('Failed to clear optimistic booking state after ReservationConfirmed event:', err);
                     }
@@ -282,6 +324,8 @@ export function BookingEventProvider({ children }) {
     // BACKUP POLLING: Check pending confirmations periodically in case events are missed
     // This ensures confirmations happen even if blockchain events are not detected
     useEffect(() => {
+        if (!backupPollingEnabled) return undefined;
+
         const pollingInterval = setInterval(async () => {
             const now = Date.now();
             const pendingArray = Array.from(pendingConfirmations.current.entries());
@@ -292,6 +336,7 @@ export function BookingEventProvider({ children }) {
             
             // Use Promise.allSettled for proper parallel execution of async operations
             const pollingPromises = pendingArray.map(async ([reservationKey, info]) => {
+                const reservationKeyStr = normalizeReservationKey(reservationKey);
                 const elapsedSeconds = (now - info.timestamp) / 1000;
                 
                 // Poll every 10 seconds for the first 2 minutes, then remove
@@ -315,8 +360,9 @@ export function BookingEventProvider({ children }) {
 
                     if (Number.isFinite(statusNumber) && statusNumber !== 0) {
                         const currentUserAddress = (address || userAddress)?.toLowerCase?.();
-                        const isCurrentUserReservation = info.requester && currentUserAddress && 
-                            info.requester === currentUserAddress;
+                        const isCurrentUserReservation = info.requester
+                            ? (currentUserAddress && info.requester === currentUserAddress)
+                            : true;
 
                         pendingConfirmations.current.delete(reservationKey);
 
@@ -325,11 +371,11 @@ export function BookingEventProvider({ children }) {
 
                         if (isCurrentUserReservation) {
                             if (statusNumber === 5) {
-                                addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+                                notifyReservationDenied(addTemporaryNotification, reservationKey);
                                 emitReservationDenied(reservationKey, info.tokenId, true);
                             } else {
-                                if (shouldNotifyConfirmation(reservationKey)) {
-                                    addTemporaryNotification('success', '✅ Reservation confirmed!');
+                                if (shouldNotifyConfirmation(reservationKeyStr)) {
+                                    notifyReservationConfirmed(addTemporaryNotification, reservationKeyStr);
                                 }
                             }
                         } else if (statusNumber === 5) {
@@ -359,7 +405,7 @@ export function BookingEventProvider({ children }) {
         }, 10000); // Check every 10 seconds
         
         return () => clearInterval(pollingInterval);
-    }, [queryClient, address, userAddress, addTemporaryNotification]);
+    }, [backupPollingEnabled, queryClient, address, userAddress, addTemporaryNotification]);
 
     // BookingCanceled event listener
     useWatchContractEvent({
@@ -373,7 +419,7 @@ export function BookingEventProvider({ children }) {
             
             logs.forEach((log) => {
                 const { reservationKey, tokenId } = log.args;
-                const reservationKeyStr = reservationKey?.toString();
+                const reservationKeyStr = normalizeReservationKey(reservationKey?.toString());
                 const tokenIdStr = tokenId?.toString();
                 
                 if (reservationKeyStr) {
@@ -403,7 +449,7 @@ export function BookingEventProvider({ children }) {
             
             logs.forEach((log) => {
                 const { reservationKey, tokenId } = log.args;
-                const reservationKeyStr = reservationKey?.toString();
+                const reservationKeyStr = normalizeReservationKey(reservationKey?.toString());
                 const tokenIdStr = tokenId?.toString();
                 
                 if (reservationKeyStr) {
@@ -433,7 +479,7 @@ export function BookingEventProvider({ children }) {
             
             logs.forEach(async (log) => {
                 const { reservationKey, tokenId } = log.args;
-                const reservationKeyStr = reservationKey?.toString();
+                const reservationKeyStr = normalizeReservationKey(reservationKey?.toString());
                 const tokenIdStr = tokenId?.toString();
                 
                 if (reservationKeyStr) {
@@ -451,8 +497,12 @@ export function BookingEventProvider({ children }) {
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                     let shouldNotify = false;
 
-                    if (pendingInfo?.requester && currentUserAddress) {
-                        shouldNotify = pendingInfo.requester === currentUserAddress;
+                    if (pendingInfo) {
+                        if (pendingInfo.requester && currentUserAddress) {
+                            shouldNotify = pendingInfo.requester === currentUserAddress;
+                        } else {
+                            shouldNotify = true;
+                        }
                     }
 
                     if (!shouldNotify && currentUserAddress) {
@@ -464,7 +514,7 @@ export function BookingEventProvider({ children }) {
                     }
 
                     if (shouldNotify) {
-                        addTemporaryNotification('error', '❌ Reservation denied by the provider.');
+                        notifyReservationDenied(addTemporaryNotification, reservationKeyStr);
                     }
                     emitReservationDenied(reservationKeyStr, tokenIdStr, shouldNotify);
 
@@ -481,7 +531,7 @@ export function BookingEventProvider({ children }) {
 
 
     return (
-        <BookingEventContext.Provider value={{}}>
+        <BookingEventContext.Provider value={{ registerPendingConfirmation }}>
             {children}
         </BookingEventContext.Provider>
     );
@@ -502,3 +552,8 @@ export function useBookingEventContext() {
     }
     return context;
 }
+
+export function useOptionalBookingEventContext() {
+    return useContext(BookingEventContext) || {};
+}
+

@@ -29,6 +29,18 @@ function getBackendApiKey() {
   return process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 }
 
+function mapAuthorizationErrorCode(message) {
+  const normalized = String(message || '').trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized === 'webauthn_credential_not_registered') {
+    return 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED'
+  }
+  if (normalized === 'missing_puc_for_webauthn') {
+    return 'MISSING_PUC_FOR_WEBAUTHN'
+  }
+  return null
+}
+
 async function getBackendAuthToken() {
   return marketplaceJwtService.generateIntentBackendToken()
 }
@@ -167,8 +179,13 @@ export async function POST(request) {
 
       authorization = await res.json().catch(() => ({}))
       if (!res.ok) {
+        const authError =
+          authorization?.error ||
+          authorization?.message ||
+          'Failed to create authorization session'
+        const code = mapAuthorizationErrorCode(authError)
         return NextResponse.json(
-          { error: authorization?.error || authorization?.message || 'Failed to create authorization session' },
+          code ? { error: authError, code } : { error: authError },
           { status: res.status },
         )
       }

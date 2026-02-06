@@ -5,6 +5,15 @@ import { useUser } from '@/context/UserContext';
 import { useNotifications } from '@/context/NotificationContext';
 import devLog from '@/utils/dev/logger';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
+import {
+  notifyInstitutionClipboardUnavailable,
+  notifyInstitutionProvisioningAccessDenied,
+  notifyInstitutionProvisioningGenerated,
+  notifyInstitutionProvisioningGenerationFailed,
+  notifyInstitutionPublicBaseUrlRequired,
+  notifyInstitutionTokenCopied,
+  notifyInstitutionTokenCopyFailed,
+} from '@/utils/notifications/institutionToasts';
 
 function normalizeInstitutionLabel(name, organizationDomain) {
   if (!name || typeof name !== 'string') {
@@ -35,7 +44,7 @@ export default function InstitutionInviteCard({
   autoGenerate = false,
 }) {
   const { isSSO, user } = useUser();
-  const { addErrorNotification, addSuccessNotification } = useNotifications();
+  const { addTemporaryNotification } = useNotifications();
 
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
@@ -54,12 +63,12 @@ export default function InstitutionInviteCard({
 
   const handleGenerateInvite = useCallback(async () => {
     if (!isSSO || !isInstitutionAdmin) {
-      addErrorNotification('Provisioning token is only available for authorized institutional staff (SSO)', '');
+      notifyInstitutionProvisioningAccessDenied(addTemporaryNotification, 'provider');
       return;
     }
 
     if (!publicBaseUrl || !publicBaseUrl.trim().startsWith('https://')) {
-      addErrorNotification('Public base URL (https://) is required', '');
+      notifyInstitutionPublicBaseUrlRequired(addTemporaryNotification);
       return;
     }
 
@@ -80,7 +89,7 @@ export default function InstitutionInviteCard({
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         const message = data?.error || 'Failed to generate provisioning token';
-        addErrorNotification(message, '');
+        notifyInstitutionProvisioningGenerationFailed(addTemporaryNotification, 'provider', message);
         setToken(null);
         setExpiresAt(null);
         setPayload(null);
@@ -93,10 +102,14 @@ export default function InstitutionInviteCard({
       setPayload(data.payload || null);
 
       devLog.log('InstitutionInviteCard: Provisioning token generated', data);
-      addSuccessNotification('Provisioning token generated successfully', '');
+      notifyInstitutionProvisioningGenerated(addTemporaryNotification, 'provider');
     } catch (error) {
       devLog.error('InstitutionInviteCard: Failed to generate provisioning token', error);
-      addErrorNotification(error, 'Failed to generate provisioning token');
+      notifyInstitutionProvisioningGenerationFailed(
+        addTemporaryNotification,
+        'provider',
+        error?.message || 'Failed to generate provisioning token'
+      );
       setToken(null);
       setExpiresAt(null);
       setPayload(null);
@@ -106,8 +119,7 @@ export default function InstitutionInviteCard({
   }, [
     isSSO,
     isInstitutionAdmin,
-    addErrorNotification,
-    addSuccessNotification,
+    addTemporaryNotification,
     publicBaseUrl,
     providerCountry,
     detectedCountry,
@@ -116,19 +128,19 @@ export default function InstitutionInviteCard({
   const handleCopy = useCallback(async () => {
     if (!token) return false;
     if (!navigator?.clipboard?.writeText) {
-      addErrorNotification('Clipboard is not available', '');
+      notifyInstitutionClipboardUnavailable(addTemporaryNotification);
       return false;
     }
     try {
       await navigator.clipboard.writeText(token);
-      addSuccessNotification('Provisioning token copied to clipboard', '');
+      notifyInstitutionTokenCopied(addTemporaryNotification);
       return true;
     } catch (error) {
       devLog.error('InstitutionInviteCard: Failed to copy provisioning token', error);
-      addErrorNotification('Failed to copy provisioning token to clipboard', '');
+      notifyInstitutionTokenCopyFailed(addTemporaryNotification);
       return false;
     }
-  }, [token, addSuccessNotification, addErrorNotification]);
+  }, [token, addTemporaryNotification]);
 
   const [tokenType, setTokenType] = useState(defaultTokenType); // 'provider' or 'consumer'
   const [consumerName, setConsumerName] = useState('');
@@ -211,12 +223,12 @@ export default function InstitutionInviteCard({
 
   const handleGenerateConsumerToken = useCallback(async () => {
     if (!isSSO || !isInstitutionAdmin) {
-      addErrorNotification('Consumer provisioning token is only available for authorized institutional staff (SSO)', '');
+      notifyInstitutionProvisioningAccessDenied(addTemporaryNotification, 'consumer');
       return;
     }
 
     if (!publicBaseUrl || !publicBaseUrl.trim().startsWith('https://')) {
-      addErrorNotification('Public base URL (https://) is required', '');
+      notifyInstitutionPublicBaseUrlRequired(addTemporaryNotification);
       return;
     }
 
@@ -237,7 +249,7 @@ export default function InstitutionInviteCard({
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         const message = data?.error || 'Failed to generate consumer provisioning token';
-        addErrorNotification(message, '');
+        notifyInstitutionProvisioningGenerationFailed(addTemporaryNotification, 'consumer', message);
         setToken(null);
         setExpiresAt(null);
         setPayload(null);
@@ -250,10 +262,14 @@ export default function InstitutionInviteCard({
       setPayload(data.payload || null);
 
       devLog.log('InstitutionInviteCard: Consumer provisioning token generated', data);
-      addSuccessNotification('Consumer provisioning token generated successfully', '');
+      notifyInstitutionProvisioningGenerated(addTemporaryNotification, 'consumer');
     } catch (error) {
       devLog.error('InstitutionInviteCard: Failed to generate consumer provisioning token', error);
-      addErrorNotification(error, 'Failed to generate consumer provisioning token');
+      notifyInstitutionProvisioningGenerationFailed(
+        addTemporaryNotification,
+        'consumer',
+        error?.message || 'Failed to generate consumer provisioning token'
+      );
       setToken(null);
       setExpiresAt(null);
       setPayload(null);
@@ -263,8 +279,7 @@ export default function InstitutionInviteCard({
   }, [
     isSSO,
     isInstitutionAdmin,
-    addErrorNotification,
-    addSuccessNotification,
+    addTemporaryNotification,
     consumerName,
     publicBaseUrl,
   ]);

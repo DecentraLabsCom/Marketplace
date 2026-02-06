@@ -3,6 +3,13 @@ import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { Button } from '@/components/ui'
 import devLog from '@/utils/dev/logger'
+import {
+  notifyInstitutionProviderInviteGenerated,
+  notifyInstitutionProviderInviteGenerationFailed,
+  notifyInstitutionProviderRegisterMissingUser,
+  notifyInstitutionProviderRegisterWalletRequired,
+  notifyInstitutionProviderRegistrationFailed,
+} from '@/utils/notifications/institutionToasts'
 
 /**
  * Institutional provider registration flow for SSO users
@@ -10,7 +17,7 @@ import devLog from '@/utils/dev/logger'
  */
 export default function InstitutionProviderRegister() {
   const { user, address, isConnected } = useUser()
-  const { addErrorNotification, addSuccessNotification } = useNotifications()
+  const { addTemporaryNotification } = useNotifications()
 
   const [isRegistering, setIsRegistering] = useState(false)
   const [txHash, setTxHash] = useState(null)
@@ -19,12 +26,12 @@ export default function InstitutionProviderRegister() {
 
   const handleRegisterInstitutionProvider = async () => {
     if (!user) {
-      addErrorNotification('User information is not available for institutional registration', '')
+      notifyInstitutionProviderRegisterMissingUser(addTemporaryNotification)
       return
     }
 
     if (!address || !isConnected) {
-      addErrorNotification('Please connect your institutional wallet before registering as a provider', '')
+      notifyInstitutionProviderRegisterWalletRequired(addTemporaryNotification)
       return
     }
 
@@ -49,18 +56,21 @@ export default function InstitutionProviderRegister() {
       if (!inviteResponse.ok) {
         const errorData = await inviteResponse.json().catch(() => ({}))
         const message = errorData?.error || 'Institution registered, but failed to generate invite token'
-        addErrorNotification(message, '')
+        notifyInstitutionProviderInviteGenerationFailed(addTemporaryNotification, message)
         setIsRegistering(false)
         return
       }
 
       const invite = await inviteResponse.json()
       setInviteData(invite)
-      addSuccessNotification('Institution invite token generated', '')
+      notifyInstitutionProviderInviteGenerated(addTemporaryNotification)
       devLog.log('InstitutionProviderRegister: Invite token generated', invite)
     } catch (error) {
       devLog.error('InstitutionProviderRegister: Error during institutional provider registration', error)
-      addErrorNotification(error, 'Institutional provider registration failed')
+      notifyInstitutionProviderRegistrationFailed(
+        addTemporaryNotification,
+        error?.message || 'Institutional provider registration failed'
+      )
     } finally {
       setIsRegistering(false)
     }

@@ -281,6 +281,61 @@ describe('NotificationContext', () => {
 
       jest.useRealTimers();
     });
+
+    test('suppresses duplicates by dedupeKey within custom window', () => {
+      jest.useFakeTimers();
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addTemporaryNotification(
+          'success',
+          '✅ Reservation confirmed!',
+          null,
+          { dedupeKey: 'reservation-confirmed:abc', dedupeWindowMs: 120000 }
+        );
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(10000);
+      });
+
+      act(() => {
+        result.current.addTemporaryNotification(
+          'success',
+          '✅ Reservation confirmed!',
+          null,
+          { dedupeKey: 'reservation-confirmed:abc', dedupeWindowMs: 120000 }
+        );
+      });
+
+      expect(result.current.notifications).toHaveLength(1);
+      jest.useRealTimers();
+    });
+
+    test('allows notifications with different dedupeKey', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addTemporaryNotification(
+          'success',
+          '✅ Reservation confirmed!',
+          null,
+          { dedupeKey: 'reservation-confirmed:a', dedupeWindowMs: 120000 }
+        );
+        result.current.addTemporaryNotification(
+          'success',
+          '✅ Reservation confirmed!',
+          null,
+          { dedupeKey: 'reservation-confirmed:b', dedupeWindowMs: 120000 }
+        );
+      });
+
+      expect(result.current.notifications).toHaveLength(2);
+    });
   });
 
   describe('Priority Sorting', () => {

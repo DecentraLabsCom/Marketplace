@@ -138,6 +138,7 @@ describe("LabReservation Component", () => {
   // Default mock implementations
   const mockAddTemporaryNotification = jest.fn();
   const mockAddErrorNotification = jest.fn();
+  const mockOpenOnboardingModal = jest.fn();
   const mockReservationRequestMutation = {
     mutateAsync: jest.fn(),
   };
@@ -160,6 +161,7 @@ describe("LabReservation Component", () => {
       isSSO: false,
       address: "0xUserWallet",
       institutionBackendUrl: "https://institution.example",
+      openOnboardingModal: mockOpenOnboardingModal,
     });
 
     // Mock useNotifications
@@ -413,6 +415,7 @@ describe("LabReservation Component", () => {
         isSSO: true,
         address: null,
         institutionBackendUrl: "https://institution.example",
+        openOnboardingModal: mockOpenOnboardingModal,
       });
 
       reservationHooks.useLabReservationState.mockReturnValue({
@@ -452,9 +455,46 @@ describe("LabReservation Component", () => {
 
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "pending",
-        "Reservation request sent! Processing..."
+        "Reservation request sent! Processing...",
+        null,
+        expect.objectContaining({
+          dedupeKey: expect.stringContaining("reservation-progress:1:"),
+          dedupeWindowMs: 20000,
+        })
       );
       expect(mockHandleBookingSuccess).toHaveBeenCalled();
+    });
+
+    test("emits progress toasts once per SSO stage", async () => {
+      mockReservationRequestMutation.mutateAsync.mockImplementationOnce(async ({ onProgress }) => {
+        onProgress?.({ stage: "preparing_intent" });
+        onProgress?.({ stage: "preparing_intent" });
+        onProgress?.({ stage: "awaiting_authorization" });
+        onProgress?.({ stage: "awaiting_authorization" });
+        return { success: true };
+      });
+
+      renderWithProviders(<LabReservation id="1" />);
+
+      const button = screen.getByRole("button", { name: /book now/i });
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        const calls = mockAddTemporaryNotification.mock.calls;
+        const preparingCalls = calls.filter((call) =>
+          String(call[1]).includes("Preparing reservation request")
+        );
+        const authCalls = calls.filter((call) =>
+          String(call[1]).includes("security key/passkey signature")
+        );
+        const submittedCalls = calls.filter((call) =>
+          String(call[1]).includes("Reservation request sent")
+        );
+
+        expect(preparingCalls).toHaveLength(1);
+        expect(authCalls).toHaveLength(1);
+        expect(submittedCalls).toHaveLength(1);
+      });
     });
 
     test("handles SSO booking error", async () => {
@@ -474,6 +514,34 @@ describe("LabReservation Component", () => {
           "Failed to create reservation: "
         );
       });
+    });
+
+    test("opens onboarding modal when WebAuthn credential is missing", async () => {
+      const missingCredentialError = new Error("webauthn_credential_not_registered");
+      missingCredentialError.code = "WEBAUTHN_CREDENTIAL_NOT_REGISTERED";
+      mockReservationRequestMutation.mutateAsync.mockRejectedValueOnce(
+        missingCredentialError
+      );
+
+      renderWithProviders(<LabReservation id="1" />);
+
+      const button = screen.getByRole("button", { name: /book now/i });
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          "warning",
+          "WebAuthn credential not registered. Complete Account Setup to continue.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-webauthn-missing-credential",
+            dedupeWindowMs: 20000,
+          })
+        );
+      });
+
+      expect(mockOpenOnboardingModal).toHaveBeenCalled();
+      expect(mockAddErrorNotification).not.toHaveBeenCalled();
     });
   });
 
@@ -501,7 +569,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "error",
-          "🔗 Please connect your wallet first."
+          "🔗 Please connect your wallet first.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-wallet-not-connected",
+            dedupeWindowMs: 20000,
+          })
         );
       });
     });
@@ -521,7 +594,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "error",
-          expect.stringContaining("Contract not deployed")
+          expect.stringContaining("Contract not deployed"),
+          null,
+          expect.objectContaining({
+            dedupeKey: expect.stringContaining("reservation-wallet-unsupported-network"),
+            dedupeWindowMs: 20000,
+          })
         );
       });
     });
@@ -544,7 +622,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "error",
-          expect.stringContaining("Insufficient LAB tokens")
+          expect.stringContaining("Insufficient LAB tokens"),
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-wallet-insufficient-tokens",
+            dedupeWindowMs: 20000,
+          })
         );
       });
     });
@@ -577,11 +660,21 @@ describe("LabReservation Component", () => {
 
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "pending",
-        "Approving LAB tokens..."
+        "Approving LAB tokens...",
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-wallet-approval-pending",
+          dedupeWindowMs: 20000,
+        })
       );
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "success",
-        "✅ Tokens approved!"
+        "✅ Tokens approved!",
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-wallet-approval-success",
+          dedupeWindowMs: 20000,
+        })
       );
     });
 
@@ -606,7 +699,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "warning",
-          "🚫 Token approval rejected by user."
+          "🚫 Token approval rejected by user.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-wallet-approval-rejected",
+            dedupeWindowMs: 20000,
+          })
         );
       });
 
@@ -660,7 +758,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "warning",
-          "🚫 Transaction rejected by user."
+          "🚫 Transaction rejected by user.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-wallet-transaction-rejected",
+            dedupeWindowMs: 20000,
+          })
         );
       });
     });
@@ -681,7 +784,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "error",
-          "❌ Time slot was reserved while you were booking. Please try another time."
+          "❌ Time slot was reserved while you were booking. Please try another time.",
+          null,
+          expect.objectContaining({
+            dedupeKey: expect.stringContaining("reservation-wallet-timeslot-conflict"),
+            dedupeWindowMs: 20000,
+          })
         );
       });
     });
@@ -703,7 +811,12 @@ describe("LabReservation Component", () => {
       await waitFor(() => {
         expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
           "error",
-          "❌ Unable to calculate booking cost."
+          "❌ Unable to calculate booking cost.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-wallet-invalid-cost",
+            dedupeWindowMs: 20000,
+          })
         );
       });
     });

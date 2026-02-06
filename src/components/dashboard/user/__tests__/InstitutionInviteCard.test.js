@@ -2,8 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InstitutionInviteCard from '@/components/dashboard/user/InstitutionInviteCard';
 
-const mockAddErrorNotification = jest.fn();
-const mockAddSuccessNotification = jest.fn();
+const mockAddTemporaryNotification = jest.fn();
 
 let mockUserState = {
   isSSO: true,
@@ -21,8 +20,7 @@ jest.mock('@/context/UserContext', () => ({
 
 jest.mock('@/context/NotificationContext', () => ({
   useNotifications: () => ({
-    addErrorNotification: mockAddErrorNotification,
-    addSuccessNotification: mockAddSuccessNotification,
+    addTemporaryNotification: mockAddTemporaryNotification,
   }),
 }));
 

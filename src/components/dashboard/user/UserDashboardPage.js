@@ -15,6 +15,13 @@ import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSecti
 import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
 import devLog from '@/utils/dev/logger'
+import {
+  notifyUserDashboardAlreadyCanceled,
+  notifyUserDashboardCancellationFailed,
+  notifyUserDashboardCancellationRejected,
+  notifyUserDashboardMissingBookingSelection,
+  notifyUserDashboardWalletRequired,
+} from '@/utils/notifications/userDashboardToasts'
 
 /**
  * User dashboard page component
@@ -54,7 +61,7 @@ export default function UserDashboard() {
     [userBookingsData?.bookings]
   );
 
-  const { addPersistentNotification, addErrorNotification } = useNotifications();
+  const { addTemporaryNotification } = useNotifications();
 
   // 🚀 Unified React Query mutations for cancellation
   const cancelBookingUnified = useCancelBooking();
@@ -156,19 +163,19 @@ export default function UserDashboard() {
   const handleCancellation = async (booking) => {
     if (!booking || !booking.reservationKey) {
       devLog.error('Missing booking or reservation key:', booking);
-      addErrorNotification('No booking selected or missing reservation key', '');
+      notifyUserDashboardMissingBookingSelection(addTemporaryNotification);
       return;
     }
 
     // Check if already canceled
     if (booking.status === "5" || booking.status === 5) {
-      addErrorNotification('This reservation is already canceled', '');
+      notifyUserDashboardAlreadyCanceled(addTemporaryNotification);
       return;
     }
 
     // Require wallet only for wallet path; allow SSO without wallet
     if (!isSSO && !isConnected) {
-      addErrorNotification('Please connect your wallet first', '');
+      notifyUserDashboardWalletRequired(addTemporaryNotification);
       return;
     }
 
@@ -210,11 +217,10 @@ export default function UserDashboard() {
         });
       }, 5000);
       
-  if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        addPersistentNotification('warning', '🚫 Transaction rejected by user.');
+      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        notifyUserDashboardCancellationRejected(addTemporaryNotification);
       } else {
-        // Pass the full error to let NotificationContext derive a concise message
-        addErrorNotification(error, 'Cancellation failed');
+        notifyUserDashboardCancellationFailed(addTemporaryNotification, booking?.reservationKey);
       }
     }
   };

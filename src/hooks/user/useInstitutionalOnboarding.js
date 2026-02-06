@@ -546,6 +546,14 @@ export function useInstitutionalOnboarding({
     }
   }, [autoCheck, isSSO, user, state, checkOnboardingStatus])
 
+  // Recover from early NO_BACKEND when institutionBackendUrl resolves later.
+  useEffect(() => {
+    if (autoCheck && state === OnboardingState.NO_BACKEND && institutionBackendUrl) {
+      setState(OnboardingState.IDLE)
+      setError(null)
+    }
+  }, [autoCheck, state, institutionBackendUrl])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

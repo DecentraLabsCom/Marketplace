@@ -58,8 +58,7 @@ let mockBookingsData = {
 // Mock functions
 const mockCancelBooking = jest.fn();
 const mockCancelReservation = jest.fn();
-const mockAddNotification = jest.fn();
-const mockAddErrorNotification = jest.fn();
+const mockAddTemporaryNotification = jest.fn();
 
 // Context mocks
 jest.mock('@/context/UserContext', () => ({
@@ -68,8 +67,7 @@ jest.mock('@/context/UserContext', () => ({
 
 jest.mock('@/context/NotificationContext', () => ({
     useNotifications: () => ({
-        addPersistentNotification: mockAddNotification,
-        addErrorNotification: mockAddErrorNotification
+        addTemporaryNotification: mockAddTemporaryNotification
     })
 }));
 
@@ -241,7 +239,15 @@ describe('UserDashboard - Unit Tests', () => {
 
             await userEvent.click(await screen.findByText('Cancel'));
 
-            expect(mockAddErrorNotification).toHaveBeenCalled();
+            expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+                'error',
+                'Cancellation failed. Please try again.',
+                null,
+                expect.objectContaining({
+                    dedupeKey: 'user-dashboard-cancellation-failed:1',
+                    dedupeWindowMs: 20000,
+                })
+            );
         });
 
         test('handles user rejection', async () => {
@@ -253,9 +259,14 @@ describe('UserDashboard - Unit Tests', () => {
 
             await userEvent.click(await screen.findByText('Cancel'));
 
-            expect(mockAddNotification).toHaveBeenCalledWith(
+            expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
                 'warning',
-                expect.stringContaining('rejected')
+                expect.stringContaining('rejected'),
+                null,
+                expect.objectContaining({
+                    dedupeKey: 'user-dashboard-cancellation-rejected',
+                    dedupeWindowMs: 20000,
+                })
             );
         });
     });
@@ -292,9 +303,14 @@ describe('UserDashboard - Unit Tests', () => {
 
             await userEvent.click(await screen.findByText('Cancel'));
 
-            expect(mockAddErrorNotification).toHaveBeenCalledWith(
-                'Please connect your wallet first',
-                ''
+            expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+                'error',
+                'Please connect your wallet first.',
+                null,
+                expect.objectContaining({
+                    dedupeKey: 'user-dashboard-wallet-required',
+                    dedupeWindowMs: 20000,
+                })
             );
             expect(mockCancelBooking).not.toHaveBeenCalled();
         });

@@ -43,11 +43,18 @@ function NotificationProviderCore({ children }) {
     // Enhanced addNotification with better deduplication
     const addNotification = useCallback((type, message, options = {}) => {
         try {
+            const now = Date.now();
+            const dedupeWindowMs = Number(options.dedupeWindowMs) > 0
+                ? Number(options.dedupeWindowMs)
+                : 2000;
+            const dedupeKey = options.dedupeKey ? String(options.dedupeKey) : null;
+
             // Check for duplicate notifications by message content
             const isDuplicate = notifications.some(notif => 
-                notif.message === message && 
-                notif.type === type && 
-                Date.now() - notif.timestamp.getTime() < 2000 // Within 2 seconds
+                now - notif.timestamp.getTime() < dedupeWindowMs && (
+                    (dedupeKey && notif.dedupeKey === dedupeKey) ||
+                    (!dedupeKey && notif.message === message && notif.type === type)
+                )
             );
 
             if (isDuplicate && !options.allowDuplicates) {
@@ -63,6 +70,7 @@ function NotificationProviderCore({ children }) {
                 autoHide: options.autoHide !== false,   // Default true
                 duration: options.duration || 6000,     // Default 6 seconds
                 hash: options.hash || null,
+                dedupeKey,
                 priority: options.priority || 'normal', // low, normal, high, critical
                 category: options.category || 'general',
                 ...options

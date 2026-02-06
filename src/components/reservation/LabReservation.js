@@ -20,6 +20,25 @@ import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
 import { contractAddresses } from '@/contracts/diamond'
 import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
+import {
+  notifyReservationMissingInstitutionalBackend,
+  notifyReservationMissingLabSelection,
+  notifyReservationMissingCredential,
+  notifyReservationMissingTimeSelection,
+  notifyReservationProgressAuthorization,
+  notifyReservationProgressPreparing,
+  notifyReservationProgressSubmitted,
+  notifyReservationWalletApprovalPending,
+  notifyReservationWalletApprovalRejected,
+  notifyReservationWalletApprovalSuccess,
+  notifyReservationWalletDisconnected,
+  notifyReservationWalletInsufficientTokens,
+  notifyReservationWalletInvalidCost,
+  notifyReservationWalletSlotUnavailable,
+  notifyReservationWalletTimeslotConflict,
+  notifyReservationWalletTransactionRejected,
+  notifyReservationWalletUnsupportedNetwork,
+} from '@/utils/notifications/reservationToasts'
 
 /**
  * Main lab reservation component that handles booking creation and management
@@ -35,7 +54,13 @@ export default function LabReservation({ id }) {
   const labs = labsData.labs || []
   
   // User context
-  const { isSSO, address: userAddress, institutionBackendUrl, hasWalletSession } = useUser()
+  const {
+    isSSO,
+    address: userAddress,
+    institutionBackendUrl,
+    hasWalletSession,
+    openOnboardingModal,
+  } = useUser()
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
   const connection = useConnection();
   const { chain } = connection || {};
@@ -124,12 +149,12 @@ export default function LabReservation({ id }) {
   // Validation and calculation
   const validateAndCalculateBooking = () => {
     if (!selectedTime) {
-      addTemporaryNotification('error', '⚠️ Please select an available time.')
+      notifyReservationMissingTimeSelection(addTemporaryNotification)
       return null
     }
 
     if (!selectedLab.id) {
-      addTemporaryNotification('error', '⚠️ Please select a lab.')
+      notifyReservationMissingLabSelection(addTemporaryNotification)
       return null
     }
 
@@ -152,11 +177,24 @@ export default function LabReservation({ id }) {
     if (!bookingData) return
 
     if (!institutionBackendUrl) {
-      addTemporaryNotification('error', '❌ Missing institutional backend URL.')
+      notifyReservationMissingInstitutionalBackend(addTemporaryNotification)
       return
     }
 
     const { labId, start, timeslot } = bookingData
+    const progressStagesShown = new Set()
+    const emitProgressToast = ({ stage } = {}) => {
+      if (!stage || progressStagesShown.has(stage)) return
+      progressStagesShown.add(stage)
+      const progressPayload = { labId, start }
+
+      if (stage === 'preparing_intent') {
+        notifyReservationProgressPreparing(addTemporaryNotification, progressPayload)
+      } else if (stage === 'awaiting_authorization' || stage === 'awaiting_webauthn_assertion') {
+        notifyReservationProgressAuthorization(addTemporaryNotification, progressPayload)
+      }
+    }
+
     setIsBooking(true)
     
     try {
@@ -166,10 +204,11 @@ export default function LabReservation({ id }) {
         end: start + timeslot,
         timeslot,
         userAddress, 
-        backendUrl: institutionBackendUrl
+        backendUrl: institutionBackendUrl,
+        onProgress: emitProgressToast
       })
 
-      addTemporaryNotification('pending', 'Reservation request sent! Processing...')
+      notifyReservationProgressSubmitted(addTemporaryNotification, { labId, start })
       const reservationKey =
         result?.intent?.payload?.reservationKey ||
         result?.intent?.payload?.reservation_key ||
@@ -184,6 +223,18 @@ export default function LabReservation({ id }) {
       });
       await handleBookingSuccess()
     } catch (error) {
+      const missingCredential =
+        error?.code === 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED' ||
+        (typeof error?.message === 'string' &&
+          error.message.includes('webauthn_credential_not_registered'))
+
+      if (missingCredential) {
+        notifyReservationMissingCredential(addTemporaryNotification)
+        if (typeof openOnboardingModal === 'function') {
+          openOnboardingModal()
+        }
+        return
+      }
       addErrorNotification(error, 'Failed to create reservation: ')
     } finally {
       setIsBooking(false)
@@ -193,14 +244,13 @@ export default function LabReservation({ id }) {
   // Wallet-based booking
   const handleWalletBooking = async () => {
     if (!isConnected) {
-      addTemporaryNotification('error', '🔗 Please connect your wallet first.')
+      notifyReservationWalletDisconnected(addTemporaryNotification)
       return
     }
 
     const contractAddress = contractAddresses[chain.name.toLowerCase()]
     if (!contractAddress || contractAddress === "0x...") {
-      addTemporaryNotification('error', 
-        `❌ Contract not deployed on ${chain.name || 'this network'}. Please switch to a supported network.`)
+      notifyReservationWalletUnsupportedNetwork(addTemporaryNotification, chain.name)
       return
     }
 
@@ -211,15 +261,18 @@ export default function LabReservation({ id }) {
     const cost = totalCost
     
     if (cost <= 0) {
-      addTemporaryNotification('error', '❌ Unable to calculate booking cost.')
+      notifyReservationWalletInvalidCost(addTemporaryNotification)
       return
     }
 
     const paymentCheck = checkBalanceAndAllowance(cost)
     
     if (!paymentCheck.hasSufficientBalance) {
-      addTemporaryNotification('error', 
-        `❌ Insufficient LAB tokens. Required: ${formatBalance(cost)} LAB, Available: ${formatBalance(paymentCheck.balance)} LAB`)
+      notifyReservationWalletInsufficientTokens(
+        addTemporaryNotification,
+        formatBalance(cost),
+        formatBalance(paymentCheck.balance)
+      )
       return
     }
 
@@ -228,15 +281,15 @@ export default function LabReservation({ id }) {
     try {
       // Handle token approval if needed
       if (!paymentCheck.hasSufficientAllowance) {
-        addTemporaryNotification('pending', 'Approving LAB tokens...')
+        notifyReservationWalletApprovalPending(addTemporaryNotification)
         
         try {
           await approveLabTokens(cost)
-          addTemporaryNotification('success', '✅ Tokens approved!')
+          notifyReservationWalletApprovalSuccess(addTemporaryNotification)
         } catch (approvalError) {
           devLog.error('Token approval failed:', approvalError)
           if (approvalError.code === 4001 || approvalError.code === 'ACTION_REJECTED') {
-            addTemporaryNotification('warning', '🚫 Token approval rejected by user.')
+            notifyReservationWalletApprovalRejected(addTemporaryNotification)
           } else {
             addErrorNotification(approvalError, 'Token approval failed: ')
           }
@@ -257,8 +310,7 @@ export default function LabReservation({ id }) {
       
       const slotStillAvailable = finalAvailableTimes.find(t => t.value === selectedTime && !t.disabled)
       if (!slotStillAvailable) {
-        addTemporaryNotification('error', 
-          '❌ The selected time slot is no longer available. Please select a different time.')
+        notifyReservationWalletSlotUnavailable(addTemporaryNotification, { labId, start })
         setIsBooking(false)
         return
       }
@@ -270,7 +322,7 @@ export default function LabReservation({ id }) {
         end: start + timeslot
       })
 
-      addTemporaryNotification('pending', 'Reservation request sent! Processing...')
+      notifyReservationProgressSubmitted(addTemporaryNotification, { labId, start })
       if (result.hash) {
         const userAddr = address || userAddress
         const startDate = new Date(start * 1000)
@@ -297,9 +349,9 @@ export default function LabReservation({ id }) {
       devLog.error('Error making booking request:', error)
       
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        addTemporaryNotification('warning', '🚫 Transaction rejected by user.')
+        notifyReservationWalletTransactionRejected(addTemporaryNotification)
       } else if (error.message.includes('execution reverted')) {
-        addTemporaryNotification('error', '❌ Time slot was reserved while you were booking. Please try another time.')
+        notifyReservationWalletTimeslotConflict(addTemporaryNotification, { labId: selectedLab?.id, start: bookingData?.start })
       } else {
         addErrorNotification(error, 'Failed to create reservation: ')
       }

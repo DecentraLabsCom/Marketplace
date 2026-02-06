@@ -27,6 +27,32 @@ import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCa
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
+import {
+  notifyLabCollected,
+  notifyLabCollectFailed,
+  notifyLabCollectStarted,
+  notifyLabCreateCancelled,
+  notifyLabCreated,
+  notifyLabCreatedFilesWarning,
+  notifyLabCreatedMetadataWarning,
+  notifyLabCreateFailed,
+  notifyLabDeleted,
+  notifyLabDeletedCascadeWarning,
+  notifyLabDeleteFailed,
+  notifyLabDeleteStarted,
+  notifyLabInvalidPrice,
+  notifyLabListed,
+  notifyLabListingRequested,
+  notifyLabListFailed,
+  notifyLabMetadataSaveFailed,
+  notifyLabMetadataUpdated,
+  notifyLabNoChanges,
+  notifyLabUnlisted,
+  notifyLabUnlistFailed,
+  notifyLabUpdated,
+  notifyLabUpdateFailed,
+  notifyLabUpdateStarted,
+} from '@/utils/notifications/labToasts'
 
 const sanitizeProviderNameForUri = (name) => {
   const base = (name || 'Provider').toString().trim()
@@ -397,7 +423,7 @@ export default function ProviderDashboard() {
       // Close modal and notify success
       try {
         setIsModalOpen(false);
-        addTemporaryNotification('success', '✅ Lab created!');
+        notifyLabCreated(addTemporaryNotification, labData?.id);
       } catch (err) {
         devLog.warn('Failed to close modal or notify success:', err);
       } finally {
@@ -445,7 +471,7 @@ export default function ProviderDashboard() {
           }
         } catch (moveError) {
           devLog.error('❌ Failed to move temp files:', moveError);
-          addTemporaryNotification('warning', `⚠️ Lab created but some files failed to move: ${formatErrorMessage(moveError)}`);
+          notifyLabCreatedFilesWarning(addTemporaryNotification, blockchainLabId, formatErrorMessage(moveError));
           // Continue - lab was created, file move is not critical
         }
       }
@@ -467,7 +493,7 @@ export default function ProviderDashboard() {
           devLog.log('✅ Lab metadata JSON saved successfully');
         } catch (error) {
           devLog.error('❌ Failed to save lab metadata JSON:', error);
-          addTemporaryNotification('warning', `⚠️ Lab created but metadata failed to save: ${formatErrorMessage(error)}`);
+          notifyLabCreatedMetadataWarning(addTemporaryNotification, blockchainLabId, formatErrorMessage(error));
           // Don't return - lab was created successfully, just metadata save failed
         }
       }
@@ -504,7 +530,7 @@ export default function ProviderDashboard() {
       // Close modal and notify success
       try {
         setIsModalOpen(false);
-        addTemporaryNotification('success', '✅ Lab created!');
+        notifyLabCreated(addTemporaryNotification, blockchainLabId || labData?.id);
       } catch (err) {
         devLog.warn('Failed to close modal or notify success:', err);
       } finally {
@@ -512,7 +538,7 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       devLog.error('Error adding lab:', error);
-      addTemporaryNotification('error', `❌ Failed to add lab: ${error.message}`);
+      notifyLabCreateFailed(addTemporaryNotification, error?.message || 'Unknown error');
       clearCreateLabProgress();
     } finally {
       setIsCreatingLab(false);
@@ -536,7 +562,7 @@ export default function ProviderDashboard() {
     if (isCreatingLab && isSSO && createLabAbortControllerRef.current) {
       try {
         createLabAbortControllerRef.current.abort();
-        addTemporaryNotification('warning', '⚠️ Lab creation cancelled (institution request aborted)');
+        notifyLabCreateCancelled(addTemporaryNotification);
       } catch (err) {
         devLog.error('Failed aborting create-lab request:', err);
       } finally {
@@ -584,7 +610,7 @@ export default function ProviderDashboard() {
         labData = { ...labData, price: priceInTokenUnits.toString() };
       } catch (error) {
         devLog.error('Error converting price to token units:', error);
-        addTemporaryNotification('error', '❌ Invalid price format. Please enter a valid number.');
+        notifyLabInvalidPrice(addTemporaryNotification);
         return;
       }
     }
@@ -641,7 +667,7 @@ export default function ProviderDashboard() {
         if (isSSO) {
           setActionProgressNotification(actionKey, 'Updating lab onchain...');
         } else {
-          addTemporaryNotification('pending', 'Updating lab onchain...');
+          notifyLabUpdateStarted(addTemporaryNotification, labData.id);
         }
         setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
         devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
@@ -662,7 +688,7 @@ export default function ProviderDashboard() {
           if (isSSO) {
             clearActionProgressNotification(actionKey);
           }
-          addTemporaryNotification('success', '✅ Lab updated!');
+          notifyLabUpdated(addTemporaryNotification, labData.id);
           // Clear optimistic editing marker
           clearOptimisticLabState(String(labData.id));
         } catch (err) {
@@ -677,7 +703,7 @@ export default function ProviderDashboard() {
           } catch (cacheErr) {
             devLog.warn('Failed to invalidate cache after update error:', cacheErr);
           }
-          addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(err)}`);
+          notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
           return;
         }
       } else {
@@ -695,14 +721,14 @@ export default function ProviderDashboard() {
             // Add a small delay to ensure cache propagation in production
             await new Promise(resolve => setTimeout(resolve, 150));
             
-            addTemporaryNotification('success', '✅ Lab metadata updated!');
+            notifyLabMetadataUpdated(addTemporaryNotification, labData.id);
           } catch (error) {
-            addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
+            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
             return;
           }
         } else {
           // No JSON to save and no on-chain changes - just show success
-          addTemporaryNotification('success', '✅ No changes to save!');
+          notifyLabNoChanges(addTemporaryNotification, labData.id);
         }
       }
       
@@ -718,7 +744,7 @@ export default function ProviderDashboard() {
           await new Promise(resolve => setTimeout(resolve, 150));
           
         } catch (error) {
-          addTemporaryNotification('error', `❌ Failed to save lab data: ${formatErrorMessage(error)}`);
+          notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
           return;
         }
       }
@@ -729,7 +755,7 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       devLog.error('Error updating lab:', error);
-      addTemporaryNotification('error', `❌ Failed to update lab: ${formatErrorMessage(error)}`);
+      notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
     }
   }
 
@@ -741,7 +767,7 @@ export default function ProviderDashboard() {
       if (isSSO) {
         setActionProgressNotification(actionKey, 'Deleting lab...');
       } else {
-        addTemporaryNotification('pending', 'Deleting lab...');
+        notifyLabDeleteStarted(addTemporaryNotification, labId);
       }
       setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
@@ -760,14 +786,12 @@ export default function ProviderDashboard() {
       if (isSSO) {
         clearActionProgressNotification(actionKey);
       }
-      addTemporaryNotification('success', '✅ Lab deleted!');
+      notifyLabDeleted(addTemporaryNotification, labId);
 
       // React Query mutations and event contexts will further ensure cache consistency
       devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
       
-      addTemporaryNotification('warning', 
-        `⚠️ Lab deleted successfully. All associated reservations have been automatically cancelled.`
-      );
+      notifyLabDeletedCascadeWarning(addTemporaryNotification, labId);
 
       // Clear optimistic deleting state
       clearOptimisticLabState(String(labId));
@@ -783,7 +807,7 @@ export default function ProviderDashboard() {
       } catch (cacheErr) {
         devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
       }
-      addTemporaryNotification('error', `❌ Failed to delete lab: ${error.message}`);
+      notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
     }
   };
 
@@ -795,7 +819,7 @@ export default function ProviderDashboard() {
       if (isSSO) {
         setListingProgressNotification(actionKey, 'Listing lab...');
       } else {
-        addTemporaryNotification('pending', 'Sending listing request...');
+        notifyLabListingRequested(addTemporaryNotification, labId);
       }
       setOptimisticListingState(String(labId), true, true);
 
@@ -814,7 +838,7 @@ export default function ProviderDashboard() {
       // Immediately update cache so UI reflects onchain change without waiting for events
       updateListingCache(labId, true);
 
-      addTemporaryNotification('success', '✅ Lab listed successfully!');
+      notifyLabListed(addTemporaryNotification, labId);
     } catch (error) {
       devLog.error('Error listing lab:', error);
       if (isSSO) {
@@ -828,7 +852,7 @@ export default function ProviderDashboard() {
       } catch (cacheErr) {
         devLog.warn('Failed to invalidate cache after list error:', cacheErr);
       }
-      addTemporaryNotification('error', `❌ Failed to list lab: ${error.message}`);
+      notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
     }
   };
   
@@ -852,7 +876,7 @@ export default function ProviderDashboard() {
       // Immediately update cache so UI reflects onchain change without waiting for events
       updateListingCache(labId, false);
 
-      addTemporaryNotification('success', '✅ Lab unlisted!');
+      notifyLabUnlisted(addTemporaryNotification, labId);
     } catch (error) {
       devLog.error('Error unlisting lab:', error);
       clearListingProgressNotification(labId);
@@ -864,7 +888,7 @@ export default function ProviderDashboard() {
       } catch (cacheErr) {
         devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
       }
-      addTemporaryNotification('error', `❌ Failed to unlist lab: ${error.message}`);
+      notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
     }
   };
 
@@ -875,7 +899,7 @@ export default function ProviderDashboard() {
       if (isSSO) {
         setActionProgressNotification(actionKey, 'Collecting all balances...');
       } else {
-        addTemporaryNotification('pending', 'Collecting all balances...');
+        notifyLabCollectStarted(addTemporaryNotification);
       }
       
       await requestFundsMutation.mutateAsync();
@@ -883,13 +907,13 @@ export default function ProviderDashboard() {
       if (isSSO) {
         clearActionProgressNotification(actionKey);
       }
-      addTemporaryNotification('success', '✅ Balance collected!');
+      notifyLabCollected(addTemporaryNotification);
     } catch (err) {
       devLog.error(err);
       if (isSSO) {
         clearActionProgressNotification(actionKey);
       }
-      addTemporaryNotification('error', `❌ Failed to collect balances: ${formatErrorMessage(err)}`);
+      notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
     }
   };
 

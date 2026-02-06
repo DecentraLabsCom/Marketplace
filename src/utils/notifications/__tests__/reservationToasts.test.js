@@ -1,0 +1,166 @@
+import {
+  notifyReservationConfirmed,
+  notifyReservationDenied,
+  notifyReservationMissingCredential,
+  notifyReservationOnChainRequested,
+  notifyReservationProgressAuthorization,
+  notifyReservationProgressPreparing,
+  notifyReservationProgressSubmitted,
+  notifyReservationTxReverted,
+  notifyReservationWalletApprovalPending,
+  notifyReservationWalletApprovalRejected,
+  notifyReservationWalletApprovalSuccess,
+  notifyReservationWalletDisconnected,
+  notifyReservationWalletInsufficientTokens,
+  notifyReservationWalletInvalidCost,
+  notifyReservationWalletSlotUnavailable,
+  notifyReservationWalletTimeslotConflict,
+  notifyReservationWalletTransactionRejected,
+  notifyReservationWalletUnsupportedNetwork,
+  reservationToastIds,
+} from '../reservationToasts'
+
+describe('reservationToasts', () => {
+  const addTemporaryNotification = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  test('normalizes hash-like reservation keys in dedupe ids', () => {
+    const rawHash = '0XABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD'
+    const expected = `reservation-confirmed:0x${rawHash.slice(2).toLowerCase()}`
+
+    expect(reservationToastIds.confirmed(rawHash)).toBe(expected)
+  })
+
+  test('uses long dedupe window for confirmed/denied', () => {
+    notifyReservationConfirmed(addTemporaryNotification, 'reservation-1')
+    notifyReservationDenied(addTemporaryNotification, 'reservation-2')
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      1,
+      'success',
+      expect.stringContaining('Reservation confirmed'),
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-confirmed:reservation-1',
+        dedupeWindowMs: 120000,
+      })
+    )
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      2,
+      'error',
+      expect.stringContaining('Reservation denied'),
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-denied:reservation-2',
+        dedupeWindowMs: 120000,
+      })
+    )
+  })
+
+  test('emits reservation progress toasts with stable dedupe keys and durations', () => {
+    const payload = { labId: 9, start: 1700000000 }
+
+    notifyReservationProgressPreparing(addTemporaryNotification, payload)
+    notifyReservationProgressAuthorization(addTemporaryNotification, payload)
+    notifyReservationProgressSubmitted(addTemporaryNotification, payload)
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      1,
+      'pending',
+      expect.stringContaining('Preparing reservation request'),
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-progress:9:1700000000:prepare',
+        dedupeWindowMs: 20000,
+        duration: 7000,
+      })
+    )
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      2,
+      'pending',
+      expect.stringContaining('security key/passkey'),
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-progress:9:1700000000:authorize',
+        dedupeWindowMs: 20000,
+        duration: 9000,
+      })
+    )
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      3,
+      'pending',
+      expect.stringContaining('Reservation request sent'),
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-progress:9:1700000000:submitted',
+        dedupeWindowMs: 20000,
+      })
+    )
+  })
+
+  test('emits wallet-related toasts through the same notification contract', () => {
+    notifyReservationWalletDisconnected(addTemporaryNotification)
+    notifyReservationWalletUnsupportedNetwork(addTemporaryNotification, 'Sepolia')
+    notifyReservationWalletInvalidCost(addTemporaryNotification)
+    notifyReservationWalletInsufficientTokens(addTemporaryNotification, '100', '50')
+    notifyReservationWalletApprovalPending(addTemporaryNotification)
+    notifyReservationWalletApprovalSuccess(addTemporaryNotification)
+    notifyReservationWalletApprovalRejected(addTemporaryNotification)
+    notifyReservationWalletSlotUnavailable(addTemporaryNotification, { labId: 1, start: 1000 })
+    notifyReservationWalletTransactionRejected(addTemporaryNotification)
+    notifyReservationWalletTimeslotConflict(addTemporaryNotification, { labId: 1, start: 1000 })
+
+    const calls = addTemporaryNotification.mock.calls
+    expect(calls).toHaveLength(10)
+    expect(calls[0][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-not-connected' }))
+    expect(calls[1][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-unsupported-network:sepolia' }))
+    expect(calls[2][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-invalid-cost' }))
+    expect(calls[3][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-insufficient-tokens' }))
+    expect(calls[4][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-approval-pending', duration: 8000 }))
+    expect(calls[5][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-approval-success' }))
+    expect(calls[6][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-approval-rejected' }))
+    expect(calls[7][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-slot-unavailable:1:1000' }))
+    expect(calls[8][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-transaction-rejected' }))
+    expect(calls[9][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-timeslot-conflict:1:1000' }))
+  })
+
+  test('emits remaining booking toasts through unified helper', () => {
+    notifyReservationTxReverted(addTemporaryNotification)
+    notifyReservationOnChainRequested(addTemporaryNotification, 'reservation-xyz')
+    notifyReservationMissingCredential(addTemporaryNotification)
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      1,
+      'error',
+      expect.any(String),
+      null,
+      expect.objectContaining({ dedupeKey: 'reservation-tx-reverted' })
+    )
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      2,
+      'success',
+      expect.any(String),
+      null,
+      expect.objectContaining({ dedupeKey: 'reservation-onchain-requested:reservation-xyz' })
+    )
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      3,
+      'warning',
+      expect.any(String),
+      null,
+      expect.objectContaining({ dedupeKey: 'reservation-webauthn-missing-credential' })
+    )
+  })
+
+  test('no-ops when callback is not provided', () => {
+    expect(() => notifyReservationConfirmed(undefined, 'reservation-1')).not.toThrow()
+    expect(() => notifyReservationWalletTransactionRejected(null)).not.toThrow()
+  })
+})
+

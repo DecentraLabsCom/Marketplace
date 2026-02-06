@@ -13,6 +13,10 @@ let quicknodeProjectId = process.env.NEXT_PUBLIC_QUICKNODE_ID;
 let chainstackProjectId = process.env.NEXT_PUBLIC_CHAINSTACK_ID;
 let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
 let cloudReownId = process.env.NEXT_PUBLIC_CLOUD_REOWN_ID;
+const enableWsEvents = String(process.env.NEXT_PUBLIC_ENABLE_WSS_EVENTS || 'false').toLowerCase() === 'true';
+const sepoliaWsUrl = process.env.NEXT_PUBLIC_SEPOLIA_WS_URL;
+const mainnetWsUrl = process.env.NEXT_PUBLIC_MAINNET_WS_URL;
+const polygonWsUrl = process.env.NEXT_PUBLIC_POLYGON_WS_URL;
 
 const chains = [mainnet, polygon, sepolia];
 
@@ -53,8 +57,37 @@ const createTransports = () => {
     });
   };
 
-  // Create fallback array with the most reliable providers first
+  const createValidatedWsTransport = (url, key) => {
+    if (!isBrowser) return null;
+    if (!enableWsEvents) return null;
+    if (!url || url === 'undefined' || url.includes('undefined')) {
+      return null;
+    }
+
+    const trimmed = String(url).trim();
+    if (!trimmed || !/^wss?:\/\//i.test(trimmed)) {
+      devLog.warn(`[wagmiConfig] Invalid WS URL for ${key}:`, url);
+      return null;
+    }
+
+    try {
+      return webSocket(trimmed, {
+        key,
+        retryCount: 1,
+      });
+    } catch (err) {
+      devLog.warn(`[wagmiConfig] Failed creating WS transport for ${key}:`, err?.message || err);
+      return null;
+    }
+  };
+
+  // Create fallback array with the most reliable providers first.
+  // WS is optional and controlled via NEXT_PUBLIC_ENABLE_WSS_EVENTS.
   const fallbackProviders = [];
+  const wsTransport = createValidatedWsTransport(sepoliaWsUrl, 'sepolia-ws');
+  if (wsTransport) {
+    fallbackProviders.push(wsTransport);
+  }
   const publicSepoliaUrls = [
     'https://ethereum-sepolia-rpc.publicnode.com',
     'https://sepolia.drpc.org',
@@ -154,17 +187,31 @@ const createTransports = () => {
 
   // Generic transports for other chains (we mainly use sepolia)
   // Use public RPC endpoints as fallback for mainnet and polygon
-  const mainnetTransport = http('https://ethereum-rpc.publicnode.com', {
+  const mainnetHttpTransport = http('https://ethereum-rpc.publicnode.com', {
     key: 'mainnet-public',
     batch: { batchSize: 3 },
     pollingInterval: 4_000,
   });
   
-  const polygonTransport = http('https://polygon-rpc.com', {
+  const polygonHttpTransport = http('https://polygon-rpc.com', {
     key: 'polygon-public', 
     batch: { batchSize: 3 },
     pollingInterval: 4_000,
   });
+
+  const mainnetTransport = enableWsEvents
+    ? fallback([
+      createValidatedWsTransport(mainnetWsUrl, 'mainnet-ws'),
+      mainnetHttpTransport,
+    ].filter(Boolean))
+    : mainnetHttpTransport;
+
+  const polygonTransport = enableWsEvents
+    ? fallback([
+      createValidatedWsTransport(polygonWsUrl, 'polygon-ws'),
+      polygonHttpTransport,
+    ].filter(Boolean))
+    : polygonHttpTransport;
 
   _cachedTransports = {
     [mainnet.id]: mainnetTransport,
