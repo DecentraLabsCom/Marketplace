@@ -81,6 +81,18 @@ const mockSaveLabDataMutate = jest.fn();
 const mockDeleteLabDataMutate = jest.fn();
 const mockMoveFilesMutate = jest.fn();
 
+const expectTempNotificationCall = (status, messageMatcher) => {
+  expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+    status,
+    messageMatcher,
+    null,
+    expect.objectContaining({
+      dedupeKey: expect.any(String),
+      dedupeWindowMs: expect.any(Number),
+    })
+  );
+};
+
 // Context mocks
 jest.mock("@/context/UserContext", () => ({
   useUser: () => mockUserData,
@@ -543,7 +555,7 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          expectTempNotificationCall(
             "error",
             expect.stringContaining("Failed to add lab")
           );
@@ -624,10 +636,7 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-            "error",
-            expect.stringContaining("Failed")
-          );
+          expectTempNotificationCall("error", expect.stringContaining("Failed"));
         });
       });
     });
@@ -652,14 +661,8 @@ describe("ProviderDashboard Component", () => {
 
         await waitFor(() => {
           expect(mockDeleteLabMutate).toHaveBeenCalledWith("1");
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-            "pending",
-            "Deleting lab..."
-          );
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-            "success",
-            "✅ Lab deleted!"
-          );
+          expectTempNotificationCall("pending", "Deleting lab...");
+          expectTempNotificationCall("success", expect.stringContaining("Lab deleted"));
           // Ensure optimistic deleting state was set and then cleared
           expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
           expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
@@ -679,7 +682,7 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          expectTempNotificationCall(
             "error",
             expect.stringContaining("Failed to delete lab")
           );
@@ -705,7 +708,7 @@ describe("ProviderDashboard Component", () => {
 
         await waitFor(() => {
           // Ensure user receives immediate feedback
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          expectTempNotificationCall(
             "pending",
             expect.stringContaining("Sending listing request")
           );
@@ -714,10 +717,7 @@ describe("ProviderDashboard Component", () => {
           expect(mockListLabMutate).toHaveBeenCalledWith("1");
 
           // And finally success notification
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-            "success",
-            "✅ Lab listed successfully!"
-          );
+          expectTempNotificationCall("success", expect.stringContaining("Lab listed successfully"));
 
           // Optimistic state was set before mutation
           expect(mockSetOptimisticListingState).toHaveBeenCalledWith("1", true, true);
@@ -768,7 +768,7 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          expectTempNotificationCall(
             "error",
             expect.stringContaining("Failed to list lab")
           );
@@ -799,14 +799,8 @@ describe("ProviderDashboard Component", () => {
 
       await waitFor(() => {
         expect(mockRequestFundsMutate).toHaveBeenCalled();
-        expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-          "pending",
-          "Collecting all balances..."
-        );
-        expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-          "success",
-          "✅ Balance collected!"
-        );
+        expectTempNotificationCall("pending", "Collecting all balances...");
+        expectTempNotificationCall("success", expect.stringContaining("Balance collected"));
       });
     });
 
@@ -823,7 +817,7 @@ describe("ProviderDashboard Component", () => {
       });
 
       await waitFor(() => {
-        expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+        expectTempNotificationCall(
           "error",
           expect.stringContaining("Failed to collect balances")
         );
@@ -940,3 +934,4 @@ describe("ProviderDashboard Component", () => {
     });
   });
 });
+
