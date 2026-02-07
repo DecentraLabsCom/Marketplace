@@ -73,6 +73,7 @@ module.exports = [
     },
     rules: {
       "react/react-in-jsx-scope": "off",
+      "react/display-name": "off",
       "react/prop-types": "off",
       "no-unused-vars": "off",
       "no-unreachable": "warn",
