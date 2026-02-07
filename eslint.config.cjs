@@ -40,10 +40,7 @@ module.exports = [
       },
     },
   },
-  ...nextConfigs,
   js.configs.recommended,
-  react.configs.flat.recommended,
-  reactHooks.configs.flat.recommended,
   //...tailwindConfigs,
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
