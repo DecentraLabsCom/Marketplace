@@ -171,7 +171,7 @@ function updateRotationMetadata() {
     try {
       const existingMetadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
       metadata.rotationCount = (existingMetadata.rotationCount || 0) + 1;
-    } catch (error) {
+    } catch {
       console.log('⚠️  Could not read existing metadata, starting fresh');
     }
   }
@@ -209,7 +209,7 @@ async function rotateKeys() {
             console.log('❓ Use --force flag to rotate anyway');
             process.exit(0);
           }
-        } catch (error) {
+        } catch {
           console.log('⚠️  Could not read rotation metadata');
         }
       }

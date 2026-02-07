@@ -59,13 +59,13 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error(`Metadata fetch timeout: ${metadataUri}`);
+        throw new Error(`Metadata fetch timeout: ${metadataUri}`, { cause: fetchError });
       }
-      throw fetchError;
+      throw new Error(`Metadata fetch failed: ${fetchError && fetchError.message ? fetchError.message : fetchError}`, { cause: fetchError });
     }
   } catch (error) {
     devLog.error('Failed to fetch metadata:', error);
-    throw error;
+    throw new Error(`Metadata fetch failed: ${error && error.message ? error.message : error}`, { cause: error });
   }
 }, null); // Return null during SSR
 

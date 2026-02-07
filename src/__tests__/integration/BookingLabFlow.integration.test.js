@@ -466,7 +466,6 @@ describe("LabReservation Component", () => {
 
     // Simulate user clicking a time slot button
 
-    mockSelectedTime = "10:00";
     mockHandleTimeChange("10:00");
 
     // Update mock to reflect selected time

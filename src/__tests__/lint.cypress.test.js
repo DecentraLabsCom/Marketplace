@@ -14,14 +14,14 @@ describe('ESLint - Cypress files', () => {
     } catch (err) {
       // eslint exits with non-zero code when problems are found. Use stdout if available to inspect messages
       stdout = err.stdout || err && err.message
-      if (!stdout) throw new Error(`ESLint failed to run: ${err && err.message ? err.message : err}`)
+      if (!stdout) throw new Error(`ESLint failed to run: ${err && err.message ? err.message : err}`, { cause: err })
     }
 
     let results
     try {
       results = JSON.parse(stdout || '[]')
     } catch (err) {
-      throw new Error(`Failed to parse ESLint JSON output: ${err && err.message ? err.message : err}`)
+      throw new Error(`Failed to parse ESLint JSON output: ${err && err.message ? err.message : err}`, { cause: err })
     }
 
     const messages = results.flatMap((r) => r.messages || [])

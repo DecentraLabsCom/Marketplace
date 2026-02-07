@@ -53,7 +53,7 @@ const getQueryParam = (url, key) => {
   try {
     const parsed = new URL(url);
     return parsed.searchParams.get(key);
-  } catch (error) {
+  } catch {
     return null;
   }
 };

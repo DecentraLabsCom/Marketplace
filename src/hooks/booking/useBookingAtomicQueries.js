@@ -104,8 +104,8 @@ export const useReservationWallet = (reservationKey, options = {}) => {
       const exists = renterAddress !== '0x0000000000000000000000000000000000000000';
 
       // Determine reservation state (matching SSO logic)
-      let reservationState = 'Unknown';
-      let isConfirmed = false;
+      let reservationState;
+      let isConfirmed;
       
         if (!exists) {
           reservationState = 'Not Found';
@@ -158,7 +158,7 @@ export const useReservationWallet = (reservationKey, options = {}) => {
           projectTreasuryShare: data.projectTreasuryShare?.toString() || null,
           subsidiesShare: data.subsidiesShare?.toString() || null,
           governanceShare: data.governanceShare?.toString() || null,
-          reservationState: reservationState,
+          reservationState: reservationState ?? 'Unknown',
           isPending: status === 0,
           isBooked: status === 1,
           isInUse: status === 2,
@@ -167,7 +167,7 @@ export const useReservationWallet = (reservationKey, options = {}) => {
           isCanceled: status === 5,
           isActive: status === 1 || status === 2,
           isCompleted: status === 3 || status === 4,
-          isConfirmed: isConfirmed,
+          isConfirmed: !!isConfirmed,
           exists: exists,
           isInstitutional: payerInstitutionAddress !== '0x0000000000000000000000000000000000000000'
         },

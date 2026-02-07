@@ -104,10 +104,9 @@ export default function MediaDisplayWithFallback({
       if (docAttemptPhase === 0) { // Phase 0: External URL check
         if (typeof mediaPath === 'string' && (mediaPath.startsWith('http://') 
           || mediaPath.startsWith('https://'))) {
-          urlToAttempt = mediaPath;
           currentAttemptType = 'External';
           // Since we can't fetch external URLs reliably, we'll set it directly for iframe
-          setCurrentDocSrc(urlToAttempt);
+          setCurrentDocSrc(mediaPath);
           setIsLoadingDoc(false);
           return;
         } else {
@@ -116,14 +115,12 @@ export default function MediaDisplayWithFallback({
           return;
         }
       } else if (docAttemptPhase === 1) { // Phase 1: Vercel Blob attempt
-        if (isVercel) {
-          urlToAttempt = getSourceUrl(mediaPath, true, isVercel);
-          currentAttemptType = 'Vercel Blob';
-        } else if (!isVercel) {
-          urlToAttempt = getSourceUrl(mediaPath, true, !isVercel);
-          currentAttemptType = 'Vercel Blob';
-        } else {
-          // If blob fails, skip Blob phase and move to local
+        // Try blob URL first (works for both Vercel and local environments)
+        urlToAttempt = getSourceUrl(mediaPath, true, isVercel);
+        currentAttemptType = 'Vercel Blob';
+      
+        // If no valid URL can be constructed, fall back to Local in next phase
+        if (!urlToAttempt) {
           setDocAttemptPhase(2); // Move to Phase 2 (Local)
           return;
         }
@@ -187,17 +184,19 @@ export default function MediaDisplayWithFallback({
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
       const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '').trim() : '';
-      const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
-      const localUrl = `${mediaPath.trim()}`;
       if (isVercel && !hasVercelBlobFailed) {
-        return blobUrl;
-      } else if (!isVercel && !hasLocalFallbackFailed) {
-        return localUrl;
-      } else if (hasLocalFallbackFailed) {
-        return blobUrl;
-      }else if (isVercel && hasVercelBlobFailed) {
-        return localUrl;
+        return `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
+      } 
+      if (!isVercel && !hasLocalFallbackFailed) {
+        return `${mediaPath.trim()}`;
+      } 
+      if (hasLocalFallbackFailed) {
+        return `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
       }
+      if (isVercel && hasVercelBlobFailed) {
+        return `${mediaPath.trim()}`;
+      }
+      return '';
     }
 
     const currentSrc = getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath });

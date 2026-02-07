@@ -194,7 +194,7 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
       throw error
     }
     devLog.error('[InstitutionalOnboarding] Failed to initiate:', error)
-    throw new Error(`${OnboardingErrorCode.BACKEND_UNREACHABLE}: ${error.message}`)
+    throw new Error(`${OnboardingErrorCode.BACKEND_UNREACHABLE}: ${error.message}`, { cause: error })
   }
 }
 

@@ -169,8 +169,8 @@ class AuthServiceClient {
     } catch (error) {
       devLog.error('❌ Auth service client error:', error.message);
       
-      // Re-throw with more context
-      throw new Error(`Failed to communicate with auth-service: ${error.message}`);
+      // Re-throw with more context (preserve original error)
+      throw new Error(`Failed to communicate with auth-service: ${error.message}`, { cause: error });
     }
   }
 
