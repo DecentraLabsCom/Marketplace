@@ -33,7 +33,7 @@
     "@coinbase/wallet-sdk": "~4.3.7",
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
-    "@fortawesome/react-fontawesome": "^3.1.1",
+    "@fortawesome/react-fontawesome": "^3.2.0",
     "@gemini-wallet/core": "^0.3.2",
     "@metamask/sdk": "^0.34.0",
     "@safe-global/safe-apps-provider": "^0.18.6",
