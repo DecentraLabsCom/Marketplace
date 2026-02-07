@@ -25,6 +25,7 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
+import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
 import {
@@ -368,11 +369,7 @@ export default function ProviderDashboard() {
   
   const bookingInfo = useMemo(() => {
     if (!selectedLab || !labBookings || bookingsError) return [];
-    return labBookings.map(booking => ({
-      ...booking,
-      labName: selectedLab.name,
-      status: booking.status
-    }));
+    return mapBookingsForCalendar(labBookings, { labName: selectedLab.name });
   }, [selectedLab, labBookings, bookingsError]);
 
   // Calendar

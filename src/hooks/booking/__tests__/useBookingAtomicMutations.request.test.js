@@ -30,6 +30,8 @@ jest.mock('@/utils/webauthn/client', () => ({
 }));
 
 import { renderHook, act } from '@testing-library/react';
+import { waitFor } from '@testing-library/react';
+import pollIntentStatus from '@/utils/intents/pollIntentStatus';
 
 // Mock optimistic UI context helpers
 const mockSetOptimisticBookingState = jest.fn();
@@ -53,6 +55,8 @@ import { bookingQueryKeys } from '@/utils/hooks/queryKeys';
 // match the export shape of the centralized mock factories
 const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../../test-utils/mocks/hooks/useBookingCacheUpdates');
 const mockContractWriteFactory = require('../../../test-utils/mocks/hooks/useContractWriteFunction');
+
+jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'processing' })));
 
 /* Shared QueryClient wrapper for stable react-query behavior in tests */
 function createWrapper() {
@@ -291,6 +295,61 @@ describe('useReservationRequest (minimal unit tests)', () => {
     expect(mockSetOptimisticBookingState).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ status: 'requested' }));
 
     expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object), requestId: expect.any(String) }));
+  });
+
+  test('SSO integration: intent executed updates optimistic booking with final reservation key', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentStatus.mockResolvedValueOnce({
+      status: 'executed',
+      txHash: '0xEXEC',
+      reservationKey: 'rk-final',
+    });
+
+    const preparePayload = {
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          webauthnChallenge: 'challenge',
+          allowCredentials: [],
+          intent: {
+            meta: { requestId: 'req-int-1' },
+            payload: { reservationKey: 'rk-int-1' },
+          },
+          adminSignature: '0xadmin',
+          webauthnCredentialId: 'cred',
+        }),
+    };
+    const finalizePayload = {
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          intent: { meta: { requestId: 'req-int-1' }, payload: { reservationKey: 'rk-int-1' } },
+          status: 'dispatched',
+        }),
+    };
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(preparePayload)
+      .mockResolvedValueOnce(finalizePayload);
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
+
+    await act(async () => {
+      await result.current.mutateAsync({ tokenId: 'tk-int', start: 111, end: 222, userAddress: '0xint' });
+    });
+
+    await waitFor(() => {
+      expect(pollIntentStatus).toHaveBeenCalled();
+      expect(bookingMocks.updateBooking).toHaveBeenCalledWith(
+        'rk-final',
+        expect.objectContaining({
+          reservationKey: 'rk-final',
+          intentStatus: 'executed',
+          status: 'pending',
+          transactionHash: '0xEXEC',
+        })
+      );
+    });
   });
 
   test('SSO: prepare failure -> throw and do not call addBooking', async () => {

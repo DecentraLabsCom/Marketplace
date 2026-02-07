@@ -18,12 +18,110 @@ export const BOOKING_STATUS = {
 }
 
 /**
+ * Canonical semantic states used in UI/domain logic.
+ * Numeric contract statuses are mapped to these labels.
+ */
+export const BOOKING_STATE = {
+  REQUESTED: 'requested',
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  IN_USE: 'in_use',
+  COMPLETED: 'completed',
+  COLLECTED: 'collected',
+  CANCELLED: 'cancelled',
+}
+
+const toNumericStatus = (status) => {
+  if (typeof status === 'number' && Number.isFinite(status)) return status
+  if (typeof status === 'string') {
+    const trimmed = status.trim()
+    if (trimmed !== '' && /^-?\d+$/.test(trimmed)) {
+      return Number(trimmed)
+    }
+  }
+  return null
+}
+
+const toSemanticStatus = (status) => {
+  if (typeof status !== 'string') return ''
+  return status.trim().toLowerCase()
+}
+
+export const normalizeBookingStatusCode = (booking) => {
+  const semanticState = normalizeBookingStatusState(booking)
+  switch (semanticState) {
+    case BOOKING_STATE.REQUESTED:
+    case BOOKING_STATE.PENDING:
+      return BOOKING_STATUS.PENDING
+    case BOOKING_STATE.CONFIRMED:
+      return BOOKING_STATUS.CONFIRMED
+    case BOOKING_STATE.IN_USE:
+      return BOOKING_STATUS.IN_USE
+    case BOOKING_STATE.COMPLETED:
+      return BOOKING_STATUS.COMPLETED
+    case BOOKING_STATE.COLLECTED:
+      return BOOKING_STATUS.COLLECTED
+    case BOOKING_STATE.CANCELLED:
+      return BOOKING_STATUS.CANCELLED
+    default:
+      return null
+  }
+}
+
+export const normalizeBookingStatusState = (booking) => {
+  const numericStatus = toNumericStatus(booking?.status)
+  if (numericStatus !== null) {
+    switch (numericStatus) {
+      case BOOKING_STATUS.PENDING:
+        return BOOKING_STATE.PENDING
+      case BOOKING_STATUS.CONFIRMED:
+        return BOOKING_STATE.CONFIRMED
+      case BOOKING_STATUS.IN_USE:
+        return BOOKING_STATE.IN_USE
+      case BOOKING_STATUS.COMPLETED:
+        return BOOKING_STATE.COMPLETED
+      case BOOKING_STATUS.COLLECTED:
+        return BOOKING_STATE.COLLECTED
+      case BOOKING_STATUS.CANCELLED:
+        return BOOKING_STATE.CANCELLED
+      default:
+        return null
+    }
+  }
+
+  const semanticStatus = toSemanticStatus(booking?.status)
+  if (
+    semanticStatus === BOOKING_STATE.REQUESTED ||
+    semanticStatus === 'requesting' ||
+    semanticStatus === 'request_submitted'
+  ) return BOOKING_STATE.REQUESTED
+  if (
+    semanticStatus === BOOKING_STATE.PENDING ||
+    booking?.isPending === true ||
+    booking?.statusCategory === 'pending'
+  ) return BOOKING_STATE.PENDING
+  if (semanticStatus === BOOKING_STATE.CONFIRMED || semanticStatus === 'booked') return BOOKING_STATE.CONFIRMED
+  if (semanticStatus === BOOKING_STATE.IN_USE || semanticStatus === 'in use') return BOOKING_STATE.IN_USE
+  if (semanticStatus === BOOKING_STATE.COMPLETED) return BOOKING_STATE.COMPLETED
+  if (semanticStatus === BOOKING_STATE.COLLECTED) return BOOKING_STATE.COLLECTED
+  if (semanticStatus === BOOKING_STATE.CANCELLED || semanticStatus === 'canceled' || booking?.statusCategory === 'cancelled') return BOOKING_STATE.CANCELLED
+
+  return null
+}
+
+/**
  * Check if a booking is cancelled
  * @param {Object} booking - Booking object
  * @returns {boolean} True if booking is cancelled
  */
 export const isCancelledBooking = (booking) => {
-  return booking.status === 5 || booking.status === "5" || booking.status === BOOKING_STATUS.CANCELLED;
+  const numericStatus = normalizeBookingStatusCode(booking)
+  const semanticStatus = toSemanticStatus(booking?.status)
+  return (
+    numericStatus === BOOKING_STATUS.CANCELLED ||
+    semanticStatus === 'cancelled' ||
+    semanticStatus === 'canceled'
+  )
 }
 
 /**
@@ -32,7 +130,7 @@ export const isCancelledBooking = (booking) => {
  * @returns {boolean} True if booking is used
  */
 export const isUsedBooking = (booking) => {
-  return booking.status === 2 || booking.status === "2";
+  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.IN_USE
 }
 
 /**
@@ -41,7 +139,7 @@ export const isUsedBooking = (booking) => {
  * @returns {boolean} True if booking is collected
  */
 export const isCollectedBooking = (booking) => {
-  return booking.status === 4 || booking.status === "4";
+  return normalizeBookingStatusCode(booking) === BOOKING_STATUS.COLLECTED
 }
 
 /**
@@ -50,13 +148,21 @@ export const isCollectedBooking = (booking) => {
  * @returns {string} Human-readable status
  */
 export const getBookingStatusText = (booking) => {
-  switch (Number(booking.status)) {
-    case 0: return 'Pending';
-    case 1: return 'Confirmed';
-    case 2: return 'In Use';
-    case 3: return 'Completed';
-    case 4: return 'Collected';
-    case 5: return 'Cancelled';
+  const semanticState = normalizeBookingStatusState(booking)
+  switch (semanticState) {
+    case BOOKING_STATE.REQUESTED:
+    case BOOKING_STATE.PENDING:
+      return 'Pending'
+    case BOOKING_STATE.CONFIRMED:
+      return 'Confirmed'
+    case BOOKING_STATE.IN_USE:
+      return 'In Use'
+    case BOOKING_STATE.COMPLETED:
+      return 'Completed'
+    case BOOKING_STATE.COLLECTED:
+      return 'Collected'
+    case BOOKING_STATE.CANCELLED:
+      return 'Cancelled'
     default: return 'Unknown';
   }
 }
@@ -67,7 +173,7 @@ export const getBookingStatusText = (booking) => {
  * @returns {string} CSS class name for status color
  */
 export const getBookingStatusColor = (booking) => {
-  switch (Number(booking.status)) {
+  switch (normalizeBookingStatusCode(booking)) {
     case 0: return 'text-warning';         // Pending - warning yellow
     case 1: return 'text-success';         // Confirmed - success green
     case 2: return 'text-info';            // In use - info blue
@@ -84,7 +190,7 @@ export const getBookingStatusColor = (booking) => {
  * @returns {Object} Display object with text, className, and icon
  */
 export const getBookingStatusDisplay = (booking) => {
-  switch (Number(booking.status)) {
+  switch (normalizeBookingStatusCode(booking)) {
     case 0: return {
       text: "Pending",
       className: "bg-booking-pending-bg text-booking-pending-text border-booking-pending-border",
@@ -129,7 +235,8 @@ export const getBookingStatusDisplay = (booking) => {
  * @returns {boolean} True if booking is pending
  */
 export const isPendingBooking = (booking) => {
-  return booking.status === 0 || booking.status === "0" || booking.status === BOOKING_STATUS.PENDING;
+  const numericStatus = normalizeBookingStatusCode(booking)
+  return numericStatus === BOOKING_STATUS.PENDING
 }
 
 /**
@@ -138,7 +245,8 @@ export const isPendingBooking = (booking) => {
  * @returns {boolean} True if booking is confirmed
  */
 export const isConfirmedBooking = (booking) => {
-  return booking.status === 1 || booking.status === "1" || booking.status === BOOKING_STATUS.CONFIRMED;
+  const numericStatus = normalizeBookingStatusCode(booking)
+  return numericStatus === BOOKING_STATUS.CONFIRMED
 }
 
 /**

@@ -15,6 +15,8 @@
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 import {
   BOOKING_STATUS,
+  BOOKING_STATE,
+  normalizeBookingStatusState,
   isCancelledBooking,
   isUsedBooking,
   isCollectedBooking,
@@ -34,6 +36,21 @@ jest.mock("@/utils/dev/logger", () => ({
 }));
 
 describe("Status Checking Functions", () => {
+  describe("normalizeBookingStatusState", () => {
+    test.each([
+      [{ status: 0 }, BOOKING_STATE.PENDING],
+      [{ status: "0" }, BOOKING_STATE.PENDING],
+      [{ status: "requested" }, BOOKING_STATE.REQUESTED],
+      [{ status: "requesting" }, BOOKING_STATE.REQUESTED],
+      [{ status: "pending" }, BOOKING_STATE.PENDING],
+      [{ status: "confirmed" }, BOOKING_STATE.CONFIRMED],
+      [{ status: "cancelled" }, BOOKING_STATE.CANCELLED],
+      [{ status: "unknown" }, null],
+    ])("maps %o to %s", (booking, expected) => {
+      expect(normalizeBookingStatusState(booking)).toBe(expected);
+    });
+  });
+
   describe("isCancelledBooking", () => {
     test.each([
       [5, true],
@@ -68,12 +85,19 @@ describe("Status Checking Functions", () => {
       [0, true],
       ["0", true],
       [BOOKING_STATUS.PENDING, true],
+      ["pending", true],
+      ["requesting", true],
+      ["requested", true],
       [1, false],
       [4, false],
     ])("returns %s for status=%s", (status, expected) => {
       const booking = { status };
 
       expect(isPendingBooking(booking)).toBe(expected);
+    });
+
+    test("returns true when booking has isPending flag", () => {
+      expect(isPendingBooking({ status: "unknown", isPending: true })).toBe(true);
     });
   });
 
@@ -103,10 +127,19 @@ describe("Display Utilities", () => {
       [5, "Cancelled"],
       [99, "Unknown"],
       ["1", "Confirmed"], // string number
+      ["pending", "Pending"],
+      ["requesting", "Pending"],
+      ["requested", "Pending"],
     ])("returns correct text for status=%s", (status, expected) => {
       const booking = { status };
 
       expect(getBookingStatusText(booking)).toBe(expected);
+    });
+
+    test("returns Pending for isPending flag with non-numeric status", () => {
+      expect(getBookingStatusText({ status: "unknown", isPending: true })).toBe(
+        "Pending"
+      );
     });
   });
 

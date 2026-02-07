@@ -17,6 +17,7 @@ import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
+import createPendingBookingPayload from './utils/createPendingBookingPayload'
 
 const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
@@ -367,20 +368,15 @@ export const useReservationRequestWallet = (options = {}) => {
     onSuccess: (result, variables) => {
       // **NEW: Replace optimistic booking with transaction-pending version**
       try {
-        const transactionPendingBooking = {
+        const transactionPendingBooking = createPendingBookingPayload({
           ...variables,
           reservationKey: result.optimisticId, // Temporary until we get real key
-          tokenId: variables.tokenId,
-          labId: variables.tokenId,
-          start: variables.start,
-          end: variables.end,
-          userAddress: variables.userAddress || 'unknown',
           status: 'pending',
           transactionHash: result.hash,
-          isPending: true, // Still pending blockchain confirmation
-          isProcessing: false, // No longer processing on client side
-          timestamp: new Date().toISOString()
-        };
+          isOptimistic: true,
+          isProcessing: false,
+          extra: variables,
+        });
         
         replaceOptimisticBooking(result.optimisticId, transactionPendingBooking);
         devLog.log('✅ Reservation request transaction sent via wallet, awaiting blockchain confirmation');
@@ -553,26 +549,17 @@ export const useReservationRequestSSO = (options = {}) => {
 
         // Optimistic booking for lab calendars (SSO flow)
         try {
-          const startDate = new Date(Number(variables.start) * 1000);
-          addBooking({
-            id: reservationKey,
-            reservationKey,
-            labId: variables.tokenId,
-            userAddress: variables.userAddress || undefined,
-            start: String(variables.start),
-            end: String(variables.end),
-            startTime: variables.start,
-            endTime: variables.end,
-            date: isNaN(startDate.getTime()) ? null : startDate.toLocaleDateString('en-CA'),
-            status: 0,
-            statusCategory: 'pending',
-            isPending: true,
-            isOptimistic: true,
-            intentRequestId: intentId,
-            intentStatus: 'requested',
-            note: 'Requested to institution',
-            timestamp: new Date().toISOString(),
-          });
+          addBooking(
+            createPendingBookingPayload({
+              ...variables,
+              reservationKey,
+              status: 'requested',
+              intentRequestId: intentId,
+              intentStatus: 'requested',
+              note: 'Requested to institution',
+              isOptimistic: true,
+            })
+          );
         } catch (err) {
           devLog.warn('Failed to add optimistic SSO booking for lab calendar:', err);
         }

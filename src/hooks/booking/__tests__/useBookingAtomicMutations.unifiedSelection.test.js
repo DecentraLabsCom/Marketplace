@@ -29,6 +29,7 @@ jest.mock('@/utils/webauthn/client', () => ({
 }));
 
 import { renderHook, act } from '@testing-library/react';
+import pollIntentStatus from '@/utils/intents/pollIntentStatus';
 
 // Mock optimistic UI context (no-op default for these tests)
 const mockSetOptimisticBookingState = jest.fn();
@@ -47,6 +48,8 @@ import { useReservationRequest } from '../useBookingAtomicMutations';
 const mockContractWriteFactory = require('../../../test-utils/mocks/hooks/useContractWriteFunction');
 const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../../test-utils/mocks/hooks/useBookingCacheUpdates');
 
+jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'processing' })));
+
 /* Shared QueryClient wrapper */
 function createWrapper() {
   const qc = new QueryClient({
@@ -58,6 +61,7 @@ function createWrapper() {
 describe('useReservationRequest unified selection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    pollIntentStatus.mockResolvedValue({ status: 'processing' });
     delete global.fetch;
     global.window = { PublicKeyCredential: true };
     global.navigator = { credentials: { get: jest.fn(() => Promise.resolve({})) } };
@@ -110,7 +114,7 @@ describe('useReservationRequest unified selection', () => {
     let out;
     await act(async () => { out = await result.current.mutateAsync(vars); });
 
-    expect(global.fetch).toHaveBeenCalledTimes(3);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
     expect(updateBooking).toHaveBeenCalledTimes(1);
     expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object) }));
   });

@@ -275,7 +275,7 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
           ...pendingData,
           id: reservationKey,
           reservationKey,
-          status: 0,
+          status: 'pending',
           statusCategory: 'pending',
           isPending: true,
           isOptimistic: true,

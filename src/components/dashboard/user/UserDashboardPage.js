@@ -14,6 +14,7 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSection'
 import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
+import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import devLog from '@/utils/dev/logger'
 import {
   notifyUserDashboardAlreadyCanceled,
@@ -87,35 +88,9 @@ export default function UserDashboard() {
   const [selectedBooking, setSelectedBooking] = useState(null);
 
   const bookingInfo = useMemo(() => {
-    if (!userBookings) return [];
-    
-    return userBookings.map(booking => {
-      // ✅ Use lab details from composed hook instead of manual find()
-      const labName = booking.labDetails?.name || `Lab ${booking.labId}`;
-      
-      // Safe date parsing function
-      const parseTimestamp = (timestamp) => {
-        if (!timestamp) return null;
-        const parsed = parseInt(timestamp);
-        if (isNaN(parsed) || parsed <= 0) return null;
-        const date = new Date(parsed * 1000);
-        return date.getTime() && !isNaN(date.getTime()) ? date : null;
-      };
-      
-      const startDate = parseTimestamp(booking.start);
-      const endDate = parseTimestamp(booking.end);
-      
-      return {
-        ...booking,
-        labName,
-        status: booking.status,
-        // Ensure date field exists for calendar compatibility
-        date: booking.date || (startDate ? startDate.toLocaleDateString('en-CA') : new Date().toLocaleDateString('en-CA')),
-        // Add formatted times for display
-        startTime: startDate ? startDate.toLocaleTimeString() : 'N/A',
-        endTime: endDate ? endDate.toLocaleTimeString() : 'N/A'
-      };
-    });
+    return mapBookingsForCalendar(userBookings, {
+      labName: (booking) => booking?.labDetails?.name || `Lab ${booking?.labId}`
+    })
   }, [userBookings]);
   
   // Additional state variables

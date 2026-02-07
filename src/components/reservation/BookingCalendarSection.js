@@ -8,6 +8,7 @@ import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
 import LabTokenInfo from '@/components/reservation/LabTokenInfo'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
+import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 
 /**
  * Calendar section with time slot selection
@@ -45,10 +46,28 @@ export default function BookingCalendarSection({
   isSSO,
   formatPrice
 }) {
-  // Filter out cancelled bookings for calendar display
+  // Merge user and lab bookings so optimistic updates and on-chain data share one calendar source.
+  // User entries override same-key lab entries when both are present.
   const calendarBookings = useMemo(() => {
-    const sourceBookings = userBookings ?? bookings ?? [];
-    return sourceBookings.filter(booking => !isCancelledBooking(booking));
+    const labEntries = Array.isArray(bookings) ? bookings : []
+    const userEntries = Array.isArray(userBookings) ? userBookings : []
+    const mergedByKey = new Map()
+
+    const getBookingKey = (booking, index) => {
+      if (!booking || typeof booking !== 'object') return `invalid-${index}`
+      if (booking.reservationKey) return `rk-${booking.reservationKey}`
+      if (booking.id) return `id-${booking.id}`
+      return `slot-${booking.labId || 'lab'}-${booking.start || 'start'}-${booking.end || 'end'}-${index}`
+    }
+
+    labEntries.forEach((booking, index) => {
+      mergedByKey.set(getBookingKey(booking, index), booking)
+    })
+    userEntries.forEach((booking, index) => {
+      mergedByKey.set(getBookingKey(booking, index), booking)
+    })
+
+    return Array.from(mergedByKey.values()).filter((booking) => !isCancelledBooking(booking))
   }, [userBookings, bookings])
   
   // Create a stable key that includes booking statuses to force re-render on status changes
@@ -89,11 +108,7 @@ export default function BookingCalendarSection({
             key={calendarKey}
             selectedDate={date}
             onDateChange={onDateChange}
-            bookingInfo={calendarBookings.map(booking => ({
-              ...booking,
-              labName: lab?.name,
-              status: booking.status
-            }))}
+            bookingInfo={mapBookingsForCalendar(calendarBookings, { labName: lab?.name })}
             minDate={minDate}
             maxDate={maxDate}
             displayMode="lab-reservation"

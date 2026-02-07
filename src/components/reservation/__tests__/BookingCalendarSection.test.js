@@ -61,6 +61,10 @@ jest.mock("@/components/reservation/LabTokenInfo", () => {
 
 jest.mock("@/utils/booking/bookingStatus", () => ({
   isCancelledBooking: jest.fn(),
+  normalizeBookingStatusCode: jest.fn((booking) => {
+    const parsed = Number(booking?.status);
+    return Number.isFinite(parsed) ? parsed : null;
+  }),
 }));
 
 describe("BookingCalendarSection", () => {

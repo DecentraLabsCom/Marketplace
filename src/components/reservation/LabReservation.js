@@ -218,8 +218,10 @@ export default function LabReservation({ id }) {
       setPendingData({
         optimisticId: reservationKey,
         labId,
+        userAddress,
         start: String(start),
-        end: String(start + timeslot)
+        end: String(start + timeslot),
+        isOptimistic: true
       });
       await handleBookingSuccess()
     } catch (error) {
