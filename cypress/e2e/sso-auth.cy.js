@@ -82,6 +82,12 @@ describe("SSO Authentication Flow", () => {
         body: { isLabProvider: false, isProvider: false },
       }).as("checkProvider");
 
+      cy.mockInstitutionBookingApis({
+        count: 0,
+        reservationKeys: [],
+        hasActiveBooking: false,
+      });
+
       cy.mockLabApis();
     });
 
@@ -105,6 +111,7 @@ describe("SSO Authentication Flow", () => {
     it("should navigate to user dashboard successfully", () => {
       cy.visit("/userdashboard");
       cy.wait("@getSession");
+      cy.wait("@getUserReservationCount");
 
       // Should be on dashboard page
       cy.location("pathname").should("include", "/userdashboard");
@@ -174,6 +181,14 @@ describe("SSO Authentication Flow", () => {
   });
 
   describe("Session Expiration Handling", () => {
+    beforeEach(() => {
+      cy.mockInstitutionBookingApis({
+        count: 0,
+        reservationKeys: [],
+        hasActiveBooking: false,
+      });
+    });
+
     it("should handle expired session gracefully", () => {
       // First visit with valid session
       cy.fixture("sso-session.json").then((sessionData) => {
@@ -197,7 +212,7 @@ describe("SSO Authentication Flow", () => {
       cy.wait("@expiredSession");
 
       // Should show login option or redirect
-      cy.contains("button", /login/i).should("exist");
+      cy.contains("button", /login/i, { timeout: 20000 }).should("be.visible");
     });
 
     it("should handle session errors gracefully", () => {
@@ -230,6 +245,12 @@ describe("SSO Authentication Flow", () => {
         body: { isLabProvider: false },
       }).as("checkProvider");
 
+      cy.mockInstitutionBookingApis({
+        count: 0,
+        reservationKeys: [],
+        hasActiveBooking: false,
+      });
+
       cy.mockLabApis();
     });
 
@@ -252,6 +273,7 @@ describe("SSO Authentication Flow", () => {
     it("should show user reservations in dashboard", () => {
       cy.visit("/userdashboard");
       cy.wait("@getSession");
+      cy.wait("@getUserReservationCount");
 
       // Reservations should be displayed
       cy.contains("User Dashboard").should("exist");

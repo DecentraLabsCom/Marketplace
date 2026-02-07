@@ -181,3 +181,55 @@ Cypress.Commands.add("visitLabDetail", (id = "1") => {
   cy.visit(`/lab/${id}`);
   cy.wait("@getLab");
 });
+
+/**
+ * Mock institutional booking endpoints used by SSO dashboard flows.
+ * This avoids hitting guarded API routes that require a real signed cookie.
+ *
+ * @param {Object} options
+ * @param {number} [options.count=0] - Number of institutional reservations
+ * @param {string[]} [options.reservationKeys=[]] - Reservation keys by index
+ * @param {boolean} [options.hasActiveBooking=false] - Whether user has active booking
+ */
+Cypress.Commands.add(
+  "mockInstitutionBookingApis",
+  ({
+    count = 0,
+    reservationKeys = [],
+    hasActiveBooking = false,
+  } = {}) => {
+    const safeCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+    const keys =
+      Array.isArray(reservationKeys) && reservationKeys.length > 0
+        ? reservationKeys
+        : [];
+
+    cy.intercept("GET", "/api/contract/institution/getUserReservationCount*", {
+      statusCode: 200,
+      body: { count: safeCount },
+    }).as("getUserReservationCount");
+
+    cy.intercept(
+      "GET",
+      "/api/contract/institution/getUserReservationByIndex*",
+      (req) => {
+        const indexRaw = req.query?.index ?? getQueryParam(req.url, "index");
+        const index = Number(indexRaw);
+        const reservationKey =
+          Number.isInteger(index) && index >= 0 && index < keys.length
+            ? keys[index]
+            : "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+        req.reply({
+          statusCode: 200,
+          body: { reservationKey, index },
+        });
+      }
+    ).as("getUserReservationByIndex");
+
+    cy.intercept("GET", "/api/contract/institution/hasUserActiveBooking*", {
+      statusCode: 200,
+      body: { hasActiveBooking },
+    }).as("hasUserActiveBooking");
+  }
+);
