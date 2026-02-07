@@ -62,7 +62,6 @@ module.exports = [
       },
     },
     plugins: {
-      'eslint-comments': eslintComments,
       unicorn: unicorn,
       node: nodePlugin,
       '@typescript-eslint': tsPlugin,
@@ -85,8 +84,6 @@ module.exports = [
       "@next/next/no-img-element": "off",
       "jsx-a11y/alt-text": "off",
       "import/no-anonymous-default-export": "off",
-      "eslint-comments/no-unused-disable": "error",
-      "eslint-comments/no-unused-enable": "error",
       // Temporarily relax complexity/statements rules introduced by new configs
       "max-statements": "off",
       "complexity": "off",
