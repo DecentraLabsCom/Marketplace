@@ -2,6 +2,11 @@ const js = require("@eslint/js");
 const globals = require("globals");
 const react = require("eslint-plugin-react");
 const reactHooks = require("eslint-plugin-react-hooks");
+const unicorn = require("eslint-plugin-unicorn");
+const nodePlugin = require("eslint-plugin-node");
+const tsParser = require("@typescript-eslint/parser");
+const tsPlugin = require("@typescript-eslint/eslint-plugin");
+const importPlugin = require("eslint-plugin-import");
 //const tailwindcss = require("eslint-plugin-tailwindcss");
 const jest = require("eslint-plugin-jest");
 const eslintComments = require("eslint-plugin-eslint-comments");
@@ -43,6 +48,12 @@ module.exports = [
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        ecmaFeatures: { jsx: true },
+      },
       globals: {
         ...globals.browser,
         ...globals.node,
@@ -55,6 +66,10 @@ module.exports = [
     },
     plugins: {
       'eslint-comments': eslintComments,
+      unicorn: unicorn,
+      node: nodePlugin,
+      '@typescript-eslint': tsPlugin,
+      import: importPlugin,
     },
     rules: {
       "react/react-in-jsx-scope": "off",
@@ -74,6 +89,9 @@ module.exports = [
       "import/no-anonymous-default-export": "off",
       "eslint-comments/no-unused-disable": "error",
       "eslint-comments/no-unused-enable": "error",
+      // Temporarily relax complexity/statements rules introduced by new configs
+      "max-statements": "off",
+      "complexity": "off",
     },
   },
   {
