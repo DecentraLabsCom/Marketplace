@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useState, useCallback } from 'react'
+import { useContext, useState, useCallback, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
 import { createOptimizedContext, useMemoizedValue } from '@/utils/optimizedContext'
@@ -23,6 +23,10 @@ const { Context: NotificationContext, Provider: OptimizedNotificationProvider } 
 function NotificationProviderCore({ children }) {
     const [notifications, setNotifications] = useState([]);
     const { handleError } = useErrorHandler();
+    const notificationTimeoutsRef = useRef(new Map());
+    const dedupeRegistryRef = useRef(new Map());
+    const notificationIdToDedupeKeysRef = useRef(new Map());
+    const isMountedRef = useRef(true);
 
     // Optimized notification ID generation with collision avoidance
     const generateNotificationId = useCallback(() => {
@@ -31,6 +35,20 @@ function NotificationProviderCore({ children }) {
 
     // Optimized removeNotification with batching
     const removeNotification = useCallback((notificationId) => {
+        const timeoutId = notificationTimeoutsRef.current.get(notificationId);
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            notificationTimeoutsRef.current.delete(notificationId);
+        }
+        // Efficiently remove dedupe entries for this notification using inverse map
+        const keysSet = notificationIdToDedupeKeysRef.current.get(notificationId);
+        if (keysSet) {
+            for (const key of keysSet) {
+                dedupeRegistryRef.current.delete(key);
+            }
+            notificationIdToDedupeKeysRef.current.delete(notificationId);
+        }
+
         setNotifications(prev => {
             const filtered = prev.filter(n => n.id !== notificationId);
             if (filtered.length !== prev.length) {
@@ -43,25 +61,13 @@ function NotificationProviderCore({ children }) {
     // Enhanced addNotification with better deduplication
     const addNotification = useCallback((type, message, options = {}) => {
         try {
-            const now = Date.now();
             const dedupeWindowMs = Number(options.dedupeWindowMs) > 0
                 ? Number(options.dedupeWindowMs)
                 : 2000;
             const dedupeKey = options.dedupeKey ? String(options.dedupeKey) : null;
-
-            // Check for duplicate notifications by message content
-            const isDuplicate = notifications.some(notif => 
-                now - notif.timestamp.getTime() < dedupeWindowMs && (
-                    (dedupeKey && notif.dedupeKey === dedupeKey) ||
-                    (!dedupeKey && notif.message === message && notif.type === type)
-                )
-            );
-
-            if (isDuplicate && !options.allowDuplicates) {
-                devLog.log('NotificationContext: Duplicate notification suppressed', { type, message });
-                return null;
-            }
-
+            const dedupeIdentifier = dedupeKey
+                ? `key:${dedupeKey}`
+                : `msg:${type}:${message}`;
             const notification = {
                 id: generateNotificationId(),
                 type,
@@ -75,8 +81,51 @@ function NotificationProviderCore({ children }) {
                 category: options.category || 'general',
                 ...options
             };
-            
+            let addedNotification = notification;
+            const now = Date.now();
+            const cachedDuplicate = dedupeRegistryRef.current.get(dedupeIdentifier);
+            const hasFreshCachedDuplicate = Boolean(
+                cachedDuplicate &&
+                now - cachedDuplicate.timestamp < dedupeWindowMs
+            );
+
+            if (hasFreshCachedDuplicate && !options.allowDuplicates) {
+                devLog.log('NotificationContext: Duplicate notification suppressed (cache-fast-path)', { type, message });
+                return cachedDuplicate.notification;
+            }
+
+            // Register early so burst calls in the same tick can dedupe deterministically.
+            if (!options.allowDuplicates) {
+                dedupeRegistryRef.current.set(dedupeIdentifier, { notification, timestamp: now });
+            }
+
             setNotifications(prev => {
+                const now = Date.now();
+
+                if (hasFreshCachedDuplicate && !options.allowDuplicates) {
+                    addedNotification = cachedDuplicate.notification;
+                    devLog.log('NotificationContext: Duplicate notification suppressed (cache)', { type, message });
+                    return prev;
+                }
+
+                const duplicate = prev.find(notif => 
+                    now - notif.timestamp.getTime() < dedupeWindowMs && (
+                        (dedupeKey && notif.dedupeKey === dedupeKey) ||
+                        (!dedupeKey && notif.message === message && notif.type === type)
+                    )
+                );
+
+                if (duplicate && !options.allowDuplicates) {
+                    addedNotification = duplicate;
+                    dedupeRegistryRef.current.set(dedupeIdentifier, { notification: duplicate, timestamp: now });
+                    // Track inverse mapping for efficient cleanup
+                    const setForDuplicate = notificationIdToDedupeKeysRef.current.get(duplicate.id) || new Set();
+                    setForDuplicate.add(dedupeIdentifier);
+                    notificationIdToDedupeKeysRef.current.set(duplicate.id, setForDuplicate);
+                    devLog.log('NotificationContext: Duplicate notification suppressed', { type, message });
+                    return prev;
+                }
+
                 // Limit total notifications to prevent memory issues
                 const maxNotifications = 50;
                 let newNotifications = [...prev, notification];
@@ -93,24 +142,32 @@ function NotificationProviderCore({ children }) {
                 if (newNotifications.length > maxNotifications) {
                     newNotifications = newNotifications.slice(0, maxNotifications);
                 }
+
+                dedupeRegistryRef.current.set(dedupeIdentifier, { notification, timestamp: now });
+                // Track inverse mapping for efficient cleanup
+                const idSet = notificationIdToDedupeKeysRef.current.get(notification.id) || new Set();
+                idSet.add(dedupeIdentifier);
+                notificationIdToDedupeKeysRef.current.set(notification.id, idSet);
                 
-                return newNotifications;
+                return newNotifications; 
             });
-            
-            // Auto-remove if autoHide is enabled
-            if (notification.autoHide) {
-                setTimeout(() => {
+
+            // Auto-remove only when a new notification has been added
+            if (addedNotification?.id === notification.id && notification.autoHide) {
+                const timeoutId = setTimeout(() => {
+                    if (!isMountedRef.current) return;
                     removeNotification(notification.id);
                 }, notification.duration);
+                notificationTimeoutsRef.current.set(notification.id, timeoutId);
             }
             
             devLog.log('NotificationContext: Added notification', { 
-                id: notification.id, 
+                id: addedNotification?.id, 
                 type, 
                 message: message.substring(0, 50) + (message.length > 50 ? '...' : '')
             });
             
-            return notification;
+            return addedNotification;
         } catch (error) {
             handleError(error, {
                 context: 'addNotification',
@@ -119,10 +176,26 @@ function NotificationProviderCore({ children }) {
             });
             return null;
         }
-    }, [notifications, removeNotification,generateNotificationId, handleError]);
+    }, [removeNotification, generateNotificationId, handleError]);
 
     // Batch remove multiple notifications
     const removeNotifications = useCallback((notificationIds) => {
+        notificationIds.forEach((notificationId) => {
+            const timeoutId = notificationTimeoutsRef.current.get(notificationId);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                notificationTimeoutsRef.current.delete(notificationId);
+            }
+            // Efficient removal using inverse mapping
+            const keysSet = notificationIdToDedupeKeysRef.current.get(notificationId);
+            if (keysSet) {
+                for (const key of keysSet) {
+                    dedupeRegistryRef.current.delete(key);
+                }
+                notificationIdToDedupeKeysRef.current.delete(notificationId);
+            }
+        });
+
         setNotifications(prev => {
             const filtered = prev.filter(n => !notificationIds.includes(n.id));
             devLog.log('NotificationContext: Batch removed notifications', { 
@@ -138,15 +211,52 @@ function NotificationProviderCore({ children }) {
         setNotifications(prev => {
             if (category) {
                 const filtered = prev.filter(n => n.category !== category);
+                prev.forEach((notification) => {
+                    if (notification.category !== category) return;
+                    const timeoutId = notificationTimeoutsRef.current.get(notification.id);
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                        notificationTimeoutsRef.current.delete(notification.id);
+                    }
+                    // Use inverse mapping to clear dedupe entries
+                    const keysSet = notificationIdToDedupeKeysRef.current.get(notification.id);
+                    if (keysSet) {
+                        for (const key of keysSet) {
+                            dedupeRegistryRef.current.delete(key);
+                        }
+                        notificationIdToDedupeKeysRef.current.delete(notification.id);
+                    }
+                });
                 devLog.log('NotificationContext: Cleared notifications by category', { category, count: prev.length - filtered.length });
                 return filtered;
             } else {
+                notificationTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+                notificationTimeoutsRef.current.clear();
+                dedupeRegistryRef.current.clear();
                 devLog.log('NotificationContext: Cleared all notifications', { count: prev.length });
                 return [];
             }
         });
     }, []);
 
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+            notificationTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+            notificationTimeoutsRef.current.clear();
+            dedupeRegistryRef.current.clear();
+        };
+    }, []);
+
+    /**
+     * Notification conventions:
+     * - category: grouping key for selective cleanup and UI filtering.
+     * - priority: visual ordering (critical > high > normal > low).
+     * - dedupeKey: stable key for deterministic dedupe during rapid bursts.
+     * Usage guidance:
+     * - addTemporaryNotification: transient status/feedback expected to disappear.
+     * - addPersistentNotification: actionable or long-lived state; does not auto-hide unless overridden.
+     */
     // Enhanced temporary notification with smart deduplication
     const addTemporaryNotification = useCallback((type, message, hash = null, options = {}) => {
         return addNotification(type, message, { 
@@ -162,7 +272,7 @@ function NotificationProviderCore({ children }) {
     // Enhanced persistent notification
     const addPersistentNotification = useCallback((type, message, options = {}) => {
         return addNotification(type, message, { 
-            autoHide: true, 
+            autoHide: false,
             duration: 10000,
             category: 'persistent',
             priority: 'high',

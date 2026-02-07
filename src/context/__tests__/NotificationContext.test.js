@@ -205,7 +205,7 @@ describe('NotificationContext', () => {
       expect(result.current.notifications).toHaveLength(0);
     });
 
-    test('addPersistentNotification auto-dismisses after 10 seconds', () => {
+    test('addPersistentNotification does not auto-dismiss by default', () => {
       const { result } = renderHook(() => useNotifications(), {
         wrapper: NotificationProvider,
       });
@@ -220,7 +220,32 @@ describe('NotificationContext', () => {
         jest.advanceTimersByTime(10000);
       });
 
-      expect(result.current.notifications).toHaveLength(0);
+      expect(result.current.notifications).toHaveLength(1);
+      expect(result.current.notifications[0]).toMatchObject({
+        type: 'info',
+        message: 'Persistent notification',
+        autoHide: false,
+        category: 'persistent',
+      });
+    });
+
+    test('cleans pending notification timers on unmount', () => {
+      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+      const { result, unmount } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addNotification('success', 'Timer cleanup', {
+          autoHide: true,
+          duration: 10000,
+          allowDuplicates: true,
+        });
+      });
+
+      unmount();
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      clearTimeoutSpy.mockRestore();
     });
   });
 
@@ -240,6 +265,48 @@ describe('NotificationContext', () => {
       });
 
       expect(result.current.notifications).toHaveLength(1);
+    });
+
+    test('deduplicates deterministically for rapid burst calls and returns existing notification', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      let first;
+      let second;
+      act(() => {
+        first = result.current.addNotification('success', 'Burst duplicate');
+        second = result.current.addNotification('success', 'Burst duplicate');
+      });
+
+      expect(result.current.notifications).toHaveLength(1);
+      expect(first).toBeTruthy();
+      expect(second).toBeTruthy();
+      expect(second.id).toBe(first.id);
+    });
+
+    test('allows re-adding same dedupeKey after notification removal', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      let first;
+      act(() => {
+        first = result.current.addTemporaryNotification('success', 'Confirmed!', null, { dedupeKey: 'rk:123' });
+      });
+
+      // Remove the notification and then re-add with same dedupeKey
+      act(() => {
+        result.current.removeNotification(first.id);
+      });
+
+      let second;
+      act(() => {
+        second = result.current.addTemporaryNotification('success', 'Confirmed!', null, { dedupeKey: 'rk:123' });
+      });
+
+      expect(result.current.notifications).toHaveLength(1);
+      expect(second.id).not.toBe(first.id);
     });
 
     test('allows duplicate if allowDuplicates option is true', () => {
