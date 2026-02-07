@@ -12,11 +12,7 @@ updates:
       time: "09:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 5
-    assignees:
-      - "DecentraLabsCom"
-    labels:
-      - "dependencies"
-      - "npm"
+    # Add valid `assignees` or `labels` here if you want Dependabot to set them on PRs.
     versioning-strategy: increase
     # Group non-major updates together
     groups:
@@ -47,6 +43,6 @@ updates:
       time: "09:00"
       timezone: "America/Los_Angeles"
     open-pull-requests-limit: 3
+    # Removed `dependencies` label to avoid Dependabot warnings about missing labels
     labels:
-      - "dependencies"
       - "github-actions"
