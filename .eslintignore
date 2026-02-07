@@ -1,0 +1,10 @@
+.next
+coverage
+out
+build
+public
+node_modules
+dist
+.vscode
+.env.local
+.env.development.local
