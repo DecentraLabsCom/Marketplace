@@ -30,6 +30,13 @@ const toDateFromUnix = (value) => {
   return isNaN(parsed.getTime()) ? null : parsed
 }
 
+const toUnixSeconds = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return null
+  if (numeric > 1e12) return Math.floor(numeric / 1000)
+  return Math.floor(numeric)
+}
+
 const normalizeUnavailableWindows = (unavailableWindows = []) => {
   if (!Array.isArray(unavailableWindows)) return []
   return unavailableWindows
@@ -106,9 +113,22 @@ export const isDayFullyUnavailable = ({ date, lab }) => {
   if (!(date instanceof Date) || isNaN(date.getTime()) || !lab) return false
 
   const timezone = typeof lab?.timezone === 'string' ? lab.timezone.trim() : undefined
+  const opensUnix = toUnixSeconds(lab?.opens)
+  const closesUnix = toUnixSeconds(lab?.closes)
   const availableDays = Array.isArray(lab?.availableDays)
     ? lab.availableDays.map(day => day?.toUpperCase?.()).filter(Boolean)
     : []
+
+  const dayStart = new Date(date)
+  dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(date)
+  dayEnd.setHours(23, 59, 59, 999)
+  const dayStartUnix = Math.floor(dayStart.getTime() / 1000)
+  const dayEndUnix = Math.floor(dayEnd.getTime() / 1000)
+
+  // No slot can start before opens or end after closes.
+  if (Number.isFinite(opensUnix) && dayEndUnix <= opensUnix) return true
+  if (Number.isFinite(closesUnix) && dayStartUnix >= closesUnix) return true
 
   if (availableDays.length > 0) {
     const weekday = getWeekdayForDate(date, timezone)
@@ -117,13 +137,6 @@ export const isDayFullyUnavailable = ({ date, lab }) => {
 
   const unavailableWindows = normalizeUnavailableWindows(lab?.unavailableWindows)
   if (unavailableWindows.length > 0) {
-    const dayStart = new Date(date)
-    dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(date)
-    dayEnd.setHours(23, 59, 59, 999)
-    const dayStartUnix = Math.floor(dayStart.getTime() / 1000)
-    const dayEndUnix = Math.floor(dayEnd.getTime() / 1000)
-
     const isFullyCovered = unavailableWindows.some(window => {
       if (!Number.isFinite(window.startUnix) || !Number.isFinite(window.endUnix)) return false
       return window.startUnix <= dayStartUnix && window.endUnix >= dayEndUnix
@@ -156,6 +169,8 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
   }
 
   const timezone = typeof lab?.timezone === 'string' ? lab.timezone.trim() : undefined
+  const opensUnix = toUnixSeconds(lab?.opens)
+  const closesUnix = toUnixSeconds(lab?.closes)
   const availableDays = Array.isArray(lab?.availableDays) ? lab.availableDays.map(day => day?.toUpperCase?.()).filter(Boolean) : []
   const parsedHoursStart = parseTimeToMinutes(lab?.availableHours?.start)
   const parsedHoursEnd = parseTimeToMinutes(lab?.availableHours?.end)
@@ -214,11 +229,14 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
 
     const slotStartUnix = Math.floor(slotStart.getTime() / 1000)
     const slotEndUnix = Math.floor(slotEnd.getTime() / 1000)
+    const outsideGlobalWindow =
+      (Number.isFinite(opensUnix) && slotStartUnix < opensUnix) ||
+      (Number.isFinite(closesUnix) && slotEndUnix > closesUnix)
     const inMaintenanceWindow = unavailableWindows.some((window) => 
       slotStartUnix < window.endUnix && slotEndUnix > window.startUnix
     )
 
-    const isBlocked = isPast || outsideDayAvailability || outsideHours || conflictsWithBooking || inMaintenanceWindow
+    const isBlocked = isPast || outsideDayAvailability || outsideHours || outsideGlobalWindow || conflictsWithBooking || inMaintenanceWindow
     const isReserved = conflictsWithBooking || inMaintenanceWindow
     const timeFormatted = format(slotStart, "HH:mm")
 

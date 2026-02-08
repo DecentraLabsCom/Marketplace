@@ -235,6 +235,30 @@ describe("generateTimeOptions", () => {
       expect(elevenAM.disabled).toBe(true);
       expect(nineAM.disabled).toBe(false);
     });
+
+    test("disables slots outside opens/closes epoch window", () => {
+      dateFns.isToday.mockReturnValue(false);
+      const date = new Date("2025-06-16T00:00:00");
+      const opens = Math.floor(new Date("2025-06-16T08:00:00").getTime() / 1000);
+      const closes = Math.floor(new Date("2025-06-16T10:00:00").getTime() / 1000);
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [],
+        lab: { opens, closes },
+      });
+
+      const sevenAM = result.find((slot) => slot.value === "07:00");
+      const eightAM = result.find((slot) => slot.value === "08:00");
+      const nineAM = result.find((slot) => slot.value === "09:00");
+      const tenAM = result.find((slot) => slot.value === "10:00");
+
+      expect(sevenAM.disabled).toBe(true);
+      expect(eightAM.disabled).toBe(false);
+      expect(nineAM.disabled).toBe(false);
+      expect(tenAM.disabled).toBe(true);
+    });
   });
 
   describe("Booking overlap detection", () => {
@@ -573,6 +597,30 @@ describe("isDayFullyUnavailable", () => {
           },
         ],
       },
+    });
+
+    expect(result).toBe(true);
+  });
+
+  test("returns true when day is fully after closes instant", () => {
+    const date = new Date("2025-06-18T12:00:00");
+    const closes = Math.floor(new Date("2025-06-18T00:00:00").getTime() / 1000);
+
+    const result = isDayFullyUnavailable({
+      date,
+      lab: { closes },
+    });
+
+    expect(result).toBe(true);
+  });
+
+  test("returns true when day is fully before opens instant", () => {
+    const date = new Date("2025-06-18T12:00:00");
+    const opens = Math.floor(new Date("2025-06-19T00:00:00").getTime() / 1000);
+
+    const result = isDayFullyUnavailable({
+      date,
+      lab: { opens },
     });
 
     expect(result).toBe(true);
