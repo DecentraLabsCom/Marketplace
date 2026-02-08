@@ -3,6 +3,7 @@ import { createContext, useContext, useRef, useEffect } from 'react'
 import { useWatchContractEvent, useConnection } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import { useBookingCacheUpdates } from '@/hooks/booking/useBookingCacheUpdates'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import { getConnectionAddress } from '@/utils/blockchain/connection'
@@ -12,28 +13,14 @@ import devLog from '@/utils/dev/logger'
 import PropTypes from 'prop-types'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
-import { notifyReservationConfirmed, notifyReservationDenied } from '@/utils/notifications/reservationToasts'
+import { normalizeReservationKey } from '@/utils/booking/reservationKey'
+import {
+    notifyReservationConfirmed,
+    notifyReservationDenied,
+    notifyReservationOnChainRequested,
+} from '@/utils/notifications/reservationToasts'
 
 const BookingEventContext = createContext();
-
-const normalizeReservationKey = (reservationKey) => {
-    if (reservationKey === undefined || reservationKey === null) {
-        return null;
-    }
-
-    const raw = String(reservationKey).trim();
-    if (!raw) {
-        return null;
-    }
-
-    const lower = raw.toLowerCase();
-    const withoutPrefix = lower.startsWith('0x') ? lower.slice(2) : lower;
-    if (/^[0-9a-f]{64}$/.test(withoutPrefix)) {
-        return `0x${withoutPrefix}`;
-    }
-
-    return raw;
-};
 
 /**
  * Simplified Booking Event Provider
@@ -46,8 +33,10 @@ export function BookingEventProvider({ children }) {
     const { chain } = connection || {};
     const address = getConnectionAddress(connection);
     const safeChain = selectChain(chain);
-    const contractAddress = contractAddresses[safeChain.name.toLowerCase()];
+    const chainKey = safeChain?.name?.toLowerCase?.() || 'sepolia';
+    const contractAddress = contractAddresses[chainKey];
     const queryClient = useQueryClient();
+    const { removeOptimisticBooking } = useBookingCacheUpdates();
     // User context and notifications for smart user targeting
     const { address: userAddress, isSSO } = useUser();
     const { addTemporaryNotification } = useNotifications();
@@ -85,7 +74,7 @@ export function BookingEventProvider({ children }) {
         });
     };
 
-    const emitReservationDenied = (reservationKey, tokenId, notified = false) => {
+    const emitReservationDenied = (reservationKey, tokenId, notified = false, reason = null) => {
         if (typeof window === 'undefined') return;
         try {
             window.dispatchEvent(
@@ -94,6 +83,7 @@ export function BookingEventProvider({ children }) {
                         reservationKey,
                         tokenId,
                         notified,
+                        reason,
                     }
                 })
             );
@@ -146,7 +136,7 @@ export function BookingEventProvider({ children }) {
                 queryKey: bookingQueryKeys.getReservationsOfToken(tokenId) 
             });
             queryClient.invalidateQueries({
-                queryKey: ['bookings', 'reservationOfToken', tokenId],
+                queryKey: bookingQueryKeys.reservationOfTokenPrefix(tokenId),
                 exact: false
             });
         }
@@ -173,7 +163,7 @@ export function BookingEventProvider({ children }) {
                 queryKey: bookingQueryKeys.ssoReservationsOf()
             });
             queryClient.invalidateQueries({
-                queryKey: ['bookings', 'sso', 'reservationKeyOfUser']
+                queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix()
             });
             queryClient.invalidateQueries({
                 queryKey: bookingQueryKeys.ssoHasActiveBookingSession()
@@ -184,16 +174,6 @@ export function BookingEventProvider({ children }) {
                 });
             }
         }
-    };
-
-    const removeOptimisticBookingFromLabCache = (reservationKey, tokenId) => {
-        if (!reservationKey || !tokenId) return;
-        queryClient.setQueryData(bookingQueryKeys.byLab(tokenId), (oldData) => {
-            if (!Array.isArray(oldData)) return oldData;
-            return oldData.filter(booking =>
-                booking?.reservationKey !== reservationKey && booking?.id !== reservationKey
-            );
-        });
     };
 
     // ReservationRequested event listener
@@ -241,6 +221,7 @@ export function BookingEventProvider({ children }) {
                 ) {
                     devLog.log(`🕒 [BookingEventContext] Tracking reservation ${reservationKeyStr} for fallback polling`);
                     trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterAddress);
+                    notifyReservationOnChainRequested(addTemporaryNotification, reservationKeyStr);
                 }
             });
         }
@@ -283,7 +264,7 @@ export function BookingEventProvider({ children }) {
                     removeReconciliationEntry(`booking:confirm:${normalizedReservationKey}`);
 
                     invalidateReservationCaches(normalizedReservationKey, tokenIdStr);
-                    removeOptimisticBookingFromLabCache(normalizedReservationKey, tokenIdStr);
+                    removeOptimisticBooking(normalizedReservationKey);
 
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                     let shouldNotify = false;
@@ -367,19 +348,19 @@ export function BookingEventProvider({ children }) {
                         pendingConfirmations.current.delete(reservationKey);
 
                         invalidateReservationCaches(reservationKey, info.tokenId);
-                        removeOptimisticBookingFromLabCache(reservationKey, info.tokenId);
+                        removeOptimisticBooking(reservationKey);
 
                         if (isCurrentUserReservation) {
                             if (statusNumber === 5) {
-                                notifyReservationDenied(addTemporaryNotification, reservationKey);
-                                emitReservationDenied(reservationKey, info.tokenId, true);
+                                notifyReservationDenied(addTemporaryNotification, reservationKey, { isSSO });
+                                emitReservationDenied(reservationKey, info.tokenId, true, null);
                             } else {
                                 if (shouldNotifyConfirmation(reservationKeyStr)) {
                                     notifyReservationConfirmed(addTemporaryNotification, reservationKeyStr);
                                 }
                             }
                         } else if (statusNumber === 5) {
-                            emitReservationDenied(reservationKey, info.tokenId, false);
+                            emitReservationDenied(reservationKey, info.tokenId, false, null);
                         }
                     } else {
                         // Still pending, increment attempt counter
@@ -426,7 +407,7 @@ export function BookingEventProvider({ children }) {
                     pendingConfirmations.current.delete(reservationKeyStr);
                     removeReconciliationEntry(`booking:cancel:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
-                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBooking(reservationKeyStr);
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
                     } catch (err) {
@@ -456,7 +437,7 @@ export function BookingEventProvider({ children }) {
                     pendingConfirmations.current.delete(reservationKeyStr);
                     removeReconciliationEntry(`booking:cancel-request:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
-                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBooking(reservationKeyStr);
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
                     } catch (err) {
@@ -478,9 +459,10 @@ export function BookingEventProvider({ children }) {
             devLog.log('⛔ [BookingEventContext] ReservationRequestDenied events detected:', logs.length);
             
             logs.forEach(async (log) => {
-                const { reservationKey, tokenId } = log.args;
+                const { reservationKey, tokenId, reason } = log.args;
                 const reservationKeyStr = normalizeReservationKey(reservationKey?.toString());
                 const tokenIdStr = tokenId?.toString();
+                const denyReason = Number(reason);
                 
                 if (reservationKeyStr) {
                     const pendingInfo = pendingConfirmations.current.get(reservationKeyStr);
@@ -492,7 +474,7 @@ export function BookingEventProvider({ children }) {
                     removeReconciliationEntry(`booking:confirm:${reservationKeyStr}`);
 
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
-                    removeOptimisticBookingFromLabCache(reservationKeyStr, tokenIdStr);
+                    removeOptimisticBooking(reservationKeyStr);
 
                     const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                     let shouldNotify = false;
@@ -514,9 +496,17 @@ export function BookingEventProvider({ children }) {
                     }
 
                     if (shouldNotify) {
-                        notifyReservationDenied(addTemporaryNotification, reservationKeyStr);
+                        notifyReservationDenied(addTemporaryNotification, reservationKeyStr, {
+                            reason: Number.isFinite(denyReason) ? denyReason : undefined,
+                            isSSO,
+                        });
                     }
-                    emitReservationDenied(reservationKeyStr, tokenIdStr, shouldNotify);
+                    emitReservationDenied(
+                        reservationKeyStr,
+                        tokenIdStr,
+                        shouldNotify,
+                        Number.isFinite(denyReason) ? denyReason : null
+                    );
 
                     // Clear optimistic booking state if present
                     try {

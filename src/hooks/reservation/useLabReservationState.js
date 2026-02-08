@@ -15,12 +15,15 @@ import {
 } from '@/hooks/booking/useBookings'
 import { BOOKING_STATUS, isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
+import { normalizeReservationKey } from '@/utils/booking/reservationKey'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { useSsoReservationFlow } from './useSsoReservationFlow'
+import { useWalletReservationFlow } from './useWalletReservationFlow'
+import { useReservationButtonState } from './useReservationButtonState'
 import devLog from '@/utils/dev/logger'
 import {
-  notifyReservationOnChainRequested,
   notifyReservationTxReverted,
 } from '@/utils/notifications/reservationToasts'
 
@@ -57,7 +60,12 @@ const safeParseDate = (value, fallback = new Date()) => {
  * @param {boolean} options.isSSO - Whether user is using SSO
  * @returns {Object} State and handlers for reservation management
  */
-export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
+export function useLabReservationState({
+  selectedLab,
+  labBookings,
+  userBookingsForLab = [],
+  isSSO,
+} = {}) {
   const { chain } = useConnection()
   const safeChain = selectChain(chain)
   const chainKey = safeChain?.name?.toLowerCase?.() || 'sepolia'
@@ -128,6 +136,30 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     enabled: !!lastTxHash
   })
 
+  const {
+    ssoBookingStage,
+    isSSOFlowLocked,
+    startSsoProcessing,
+    markSsoRequestSent,
+    resetSsoReservationFlow,
+  } = useSsoReservationFlow({
+    isSSO,
+    userBookingsForLab,
+    labBookings,
+  })
+
+  const {
+    walletBookingStage,
+    isWalletFlowLocked,
+    startWalletProcessing,
+    markWalletRequestSent,
+    resetWalletReservationFlow,
+  } = useWalletReservationFlow({
+    isWallet: !isSSO,
+    userBookingsForLab,
+    labBookings,
+  })
+
   // Client-side hydration
   useEffect(() => {
     setIsClient(true)
@@ -143,12 +175,10 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
   useEffect(() => {
     if (!isSSO || typeof registerPendingConfirmation !== 'function') return
 
-    const rawKey = pendingData?.reservationKey || pendingData?.optimisticId
-    if (!rawKey) return
-
-    const key = String(rawKey).trim()
-    const normalizedKey = key.startsWith('0x') ? key : `0x${key}`
-    if (!/^0x[0-9a-f]{64}$/i.test(normalizedKey)) return
+    const normalizedKey = normalizeReservationKey(
+      pendingData?.reservationKey || pendingData?.optimisticId
+    )
+    if (!normalizedKey) return
 
     registerPendingConfirmation(
       normalizedKey,
@@ -252,6 +282,9 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     if (!isTxSuccessful) {
       notifyReservationTxReverted(addTemporaryNotification);
       setIsBooking(false);
+      if (!isSSO) {
+        resetWalletReservationFlow();
+      }
 
       if (pendingData?.optimisticId && pendingData?.isOptimistic) {
         bookingCacheUpdates.removeOptimisticBooking(pendingData.optimisticId);
@@ -288,9 +321,16 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       setPendingData(prev => prev ? { ...prev, optimisticId: reservationKey, reservationKey } : prev);
     }
 
-    notifyReservationOnChainRequested(addTemporaryNotification, reservationKey || pendingData?.reservationKey || pendingData?.optimisticId);
-
     setIsBooking(false);
+
+    if (!isSSO) {
+      markWalletRequestSent({
+        reservationKey: reservationKey || pendingData?.reservationKey || pendingData?.optimisticId || null,
+        labId: pendingData?.labId,
+        start: pendingData?.start,
+        end: pendingData?.end,
+      });
+    }
 
     // Refresh token data for wallet users
     if (!isSSO) {
@@ -301,7 +341,10 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
 
       if (labId !== undefined && labId !== null) {
         queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
-        queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
+        queryClient.invalidateQueries({
+          queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId),
+          exact: false,
+        });
       }
 
       if (userAddress) {
@@ -328,7 +371,9 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     pendingData,
     bookingCacheUpdates,
     queryClient,
-    extractReservationRequested
+    extractReservationRequested,
+    resetWalletReservationFlow,
+    markWalletRequestSent,
   ])
 
   // Clean up optimistic booking when real booking appears
@@ -385,6 +430,9 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     if (isReceiptError && receiptError && lastTxHash) {    
       addErrorNotification(receiptError, 'Transaction')
       setIsBooking(false)
+      if (!isSSO) {
+        resetWalletReservationFlow()
+      }
       
       if (pendingData?.optimisticId && pendingData?.isOptimistic) {
         devLog.log('❌ Transaction error, removing optimistic booking:', pendingData.optimisticId)
@@ -394,7 +442,16 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
       setLastTxHash(null)
       setPendingData(null)
     }
-  }, [isReceiptError, receiptError, lastTxHash, addErrorNotification, pendingData, bookingCacheUpdates])
+  }, [
+    isReceiptError,
+    receiptError,
+    lastTxHash,
+    addErrorNotification,
+    pendingData,
+    bookingCacheUpdates,
+    isSSO,
+    resetWalletReservationFlow,
+  ])
 
   // Handlers
   const handleDateChange = useCallback((newDate) => {
@@ -415,6 +472,18 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     devLog.log('✅ Booking success - relying on BookingEventContext for cache updates')
   }, [])
 
+  const reservationButtonState = useReservationButtonState({
+    isSSO,
+    selectedTime,
+    isBooking,
+    isWaitingForReceipt,
+    isReceiptError,
+    ssoBookingStage,
+    isSSOFlowLocked,
+    walletBookingStage,
+    isWalletFlowLocked,
+  })
+
   return {
     // State
     date,
@@ -431,6 +500,11 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     // Transaction state
     isWaitingForReceipt,
     isReceiptError,
+    ssoBookingStage,
+    isSSOFlowLocked,
+    walletBookingStage,
+    isWalletFlowLocked,
+    reservationButtonState,
     
     // Setters
     setIsBooking,
@@ -443,6 +517,12 @@ export function useLabReservationState({ selectedLab, labBookings, isSSO }) {
     handleDurationChange,
     handleTimeChange,
     handleBookingSuccess,
+    startSsoProcessing,
+    markSsoRequestSent,
+    resetSsoReservationFlow,
+    startWalletProcessing,
+    markWalletRequestSent,
+    resetWalletReservationFlow,
     
     // Utilities
     formatPrice,

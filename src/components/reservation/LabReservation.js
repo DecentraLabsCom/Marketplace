@@ -19,6 +19,7 @@ import AccessControl from '@/components/auth/AccessControl'
 import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
 import { contractAddresses } from '@/contracts/diamond'
 import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
+import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationMissingInstitutionalBackend,
@@ -64,6 +65,7 @@ export default function LabReservation({ id }) {
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
   const connection = useConnection();
   const { chain } = connection || {};
+  const safeChain = selectChain(chain);
   const address = getConnectionAddress(connection);
   const isConnected = isConnectionConnected(connection);
   
@@ -105,7 +107,7 @@ export default function LabReservation({ id }) {
     const bookings = userBookingsData?.userBookings || []
     return bookings.filter(booking => String(booking.labId) === String(selectedLab.id))
   }, [userBookingsData, selectedLab?.id])
-  
+
   // Lab reservation state hook (extracted logic)
   const {
     date,
@@ -120,6 +122,11 @@ export default function LabReservation({ id }) {
     totalCost,
     isWaitingForReceipt,
     isReceiptError,
+    ssoBookingStage,
+    isSSOFlowLocked,
+    walletBookingStage,
+    isWalletFlowLocked,
+    reservationButtonState,
     setIsBooking,
     setLastTxHash,
     setPendingData,
@@ -127,10 +134,21 @@ export default function LabReservation({ id }) {
     handleDurationChange,
     handleTimeChange,
     handleBookingSuccess,
+    startSsoProcessing,
+    markSsoRequestSent,
+    resetSsoReservationFlow,
+    startWalletProcessing,
+    resetWalletReservationFlow,
     formatPrice,
     reservationRequestMutation,
-    bookingCacheUpdates
-  } = useLabReservationState({ selectedLab, labBookings, isSSO })
+  } = useLabReservationState({
+    selectedLab,
+    labBookings,
+    userBookingsForLab,
+    isSSO,
+  })
+  const resolvedSsoStage = ssoBookingStage || 'idle'
+  const resolvedWalletStage = walletBookingStage || 'idle'
   
   // Lab token utilities
   const { 
@@ -182,6 +200,10 @@ export default function LabReservation({ id }) {
     }
 
     const { labId, start, timeslot } = bookingData
+    if (typeof startSsoProcessing === 'function') {
+      startSsoProcessing()
+    }
+
     const progressStagesShown = new Set()
     const emitProgressToast = ({ stage } = {}) => {
       if (!stage || progressStagesShown.has(stage)) return
@@ -223,6 +245,14 @@ export default function LabReservation({ id }) {
         end: String(start + timeslot),
         isOptimistic: true
       });
+      if (typeof markSsoRequestSent === 'function') {
+        markSsoRequestSent({
+          reservationKey,
+          labId,
+          start: String(start),
+          end: String(start + timeslot),
+        })
+      }
       await handleBookingSuccess()
     } catch (error) {
       const missingCredential =
@@ -235,9 +265,15 @@ export default function LabReservation({ id }) {
         if (typeof openOnboardingModal === 'function') {
           openOnboardingModal()
         }
+        if (typeof resetSsoReservationFlow === 'function') {
+          resetSsoReservationFlow()
+        }
         return
       }
       addErrorNotification(error, 'Failed to create reservation: ')
+      if (typeof resetSsoReservationFlow === 'function') {
+        resetSsoReservationFlow()
+      }
     } finally {
       setIsBooking(false)
     }
@@ -250,9 +286,11 @@ export default function LabReservation({ id }) {
       return
     }
 
-    const contractAddress = contractAddresses[chain.name.toLowerCase()]
+    const chainName = chain?.name || safeChain?.name || 'unknown network'
+    const chainKey = chain?.name?.toLowerCase?.() || safeChain?.name?.toLowerCase?.() || ''
+    const contractAddress = contractAddresses[chainKey]
     if (!contractAddress || contractAddress === "0x...") {
-      notifyReservationWalletUnsupportedNetwork(addTemporaryNotification, chain.name)
+      notifyReservationWalletUnsupportedNetwork(addTemporaryNotification, chainName)
       return
     }
 
@@ -278,6 +316,9 @@ export default function LabReservation({ id }) {
       return
     }
 
+    if (typeof startWalletProcessing === 'function') {
+      startWalletProcessing()
+    }
     setIsBooking(true)
 
     try {
@@ -296,6 +337,9 @@ export default function LabReservation({ id }) {
             addErrorNotification(approvalError, 'Token approval failed: ')
           }
           setIsBooking(false)
+          if (typeof resetWalletReservationFlow === 'function') {
+            resetWalletReservationFlow()
+          }
           return
         }
       }
@@ -314,6 +358,9 @@ export default function LabReservation({ id }) {
       if (!slotStillAvailable) {
         notifyReservationWalletSlotUnavailable(addTemporaryNotification, { labId, start })
         setIsBooking(false)
+        if (typeof resetWalletReservationFlow === 'function') {
+          resetWalletReservationFlow()
+        }
         return
       }
       
@@ -346,6 +393,11 @@ export default function LabReservation({ id }) {
           end: (start + timeslot).toString(),
           isOptimistic: true
         })
+      } else {
+        setIsBooking(false)
+        if (typeof resetWalletReservationFlow === 'function') {
+          resetWalletReservationFlow()
+        }
       }
     } catch (error) {
       devLog.error('Error making booking request:', error)
@@ -359,12 +411,17 @@ export default function LabReservation({ id }) {
       }
       
       setIsBooking(false)
+      if (typeof resetWalletReservationFlow === 'function') {
+        resetWalletReservationFlow()
+      }
     }
   }
   
   // Main booking handler
   const handleBooking = async () => {
-    if (isBooking) return
+    if (reservationButtonState?.isBusy || isBooking) return
+    if (isSSO && (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
+    if (!isSSO && (isWalletFlowLocked || resolvedWalletStage !== 'idle')) return
     
     if (isSSO) {
       return await handleServerSideBooking()
@@ -374,7 +431,38 @@ export default function LabReservation({ id }) {
   }
   
   if (!isClient) return null
-  const isBusy = isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError)
+  const buttonState = reservationButtonState || (() => {
+    const isBusy = isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError)
+    const isLocked = Boolean(
+      isSSO ? resolvedSsoStage !== 'idle' : resolvedWalletStage !== 'idle'
+    )
+    const isDisabled = isBusy || !selectedTime || isLocked
+
+    let label = 'Book Now'
+    if (isSSO) {
+      if (isBooking || resolvedSsoStage === 'processing') label = 'Processing...'
+      else if (resolvedSsoStage === 'request_sent') label = 'Request Sent'
+      else if (resolvedSsoStage === 'request_registered') label = 'Request Registered'
+    } else if (resolvedWalletStage === 'request_sent') {
+      label = 'Request Sent'
+    } else if (resolvedWalletStage === 'request_registered') {
+      label = 'Request Registered'
+    } else if (resolvedWalletStage === 'processing' || isBooking) {
+      label = 'Processing...'
+    } else if (isWaitingForReceipt && !isReceiptError) {
+      label = 'Processing...'
+    } else if (isReceiptError) {
+      label = 'Try Again'
+    }
+
+    return {
+      label,
+      isBusy,
+      isDisabled,
+      showSpinner: isBusy || isLocked,
+      ariaBusy: isBusy,
+    }
+  })()
 
   return (
     <AccessControl message="Please log in to view and make reservations.">
@@ -426,17 +514,17 @@ export default function LabReservation({ id }) {
             <div className="flex flex-col items-center">
               <button
                 onClick={handleBooking} 
-                disabled={isBusy || !selectedTime}
+                disabled={buttonState.isDisabled}
                 className={`w-1/3 text-white p-3 rounded mt-6 transition-colors ${
-                  isBusy || !selectedTime
+                  buttonState.isDisabled
                     ? 'bg-gray-500 cursor-not-allowed' 
                     : 'bg-brand hover:bg-hover-dark'
                 }`}
-                aria-busy={isBusy}
+                aria-busy={buttonState.ariaBusy}
               >
                 <span className="inline-flex items-center justify-center gap-2">
-                  {isBusy && <div className="spinner-sm border-white" />}
-                  {isBooking ? (isSSO ? 'Processing...' : 'Sending...') : (isWaitingForReceipt && !isSSO && !isReceiptError ? 'Confirming...' : (isReceiptError ? 'Try Again' : 'Book Now'))}
+                  {buttonState.showSpinner && <div className="spinner-sm border-white" />}
+                  {buttonState.label}
                 </span>
               </button>
             </div>

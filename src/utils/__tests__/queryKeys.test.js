@@ -25,7 +25,9 @@ describe('queryKeys', () => {
   describe('booking', () => {
     test('should have correct booking query keys', () => {
       expect(bookingQueryKeys.all()).toEqual(['bookings']);
+      expect(bookingQueryKeys.byUserPrefix()).toEqual(['bookings', 'user']);
       expect(bookingQueryKeys.byUser('0x123')).toEqual(['bookings', 'user', '0x123']);
+      expect(bookingQueryKeys.byLabPrefix()).toEqual(['bookings', 'lab']);
       expect(bookingQueryKeys.byLab('123')).toEqual(['bookings', 'lab', '123']);
       expect(bookingQueryKeys.byReservationKey('key123')).toEqual(['bookings', 'reservation', 'key123']);
       expect(bookingQueryKeys.userComposed('0x123')).toEqual(['bookings', 'user-composed', '0x123', false]);
@@ -33,10 +35,15 @@ describe('queryKeys', () => {
       expect(bookingQueryKeys.multiLab(['1', '2'])).toEqual(['bookings', 'multi-lab', ['1', '2'], false]);
       expect(bookingQueryKeys.userReservationsComplete('0x123', 10)).toEqual(['bookings', 'userReservationsComplete', '0x123', 10]);
       expect(bookingQueryKeys.getReservationsOfToken('123')).toEqual(['bookings', 'reservationsOfToken', '123']);
+      expect(bookingQueryKeys.reservationOfTokenRoot()).toEqual(['bookings', 'reservationOfToken']);
+      expect(bookingQueryKeys.reservationOfTokenPrefix('123')).toEqual(['bookings', 'reservationOfToken', '123']);
       expect(bookingQueryKeys.getReservationsOfTokenByUser('123', '0x123')).toEqual(['bookings', 'reservationsOfTokenByUser', '123', '0x123', 0, 50]);
       expect(bookingQueryKeys.getReservationOfTokenByIndex('123', 5)).toEqual(['bookings', 'reservationOfToken', '123', 5]);
       expect(bookingQueryKeys.reservationsOf('0x123')).toEqual(['bookings', 'reservationsOf', '0x123']);
+      expect(bookingQueryKeys.reservationKeyOfUserPrefix()).toEqual(['bookings', 'reservationKeyOfUser']);
+      expect(bookingQueryKeys.reservationKeyOfUserPrefix('0x123')).toEqual(['bookings', 'reservationKeyOfUser', '0x123']);
       expect(bookingQueryKeys.reservationKeyOfUserByIndex('0x123', 3)).toEqual(['bookings', 'reservationKeyOfUser', '0x123', 3]);
+      expect(bookingQueryKeys.ssoReservationKeyOfUserPrefix()).toEqual(['bookings', 'sso', 'reservationKeyOfUser']);
       expect(bookingQueryKeys.totalReservations()).toEqual(['bookings', 'totalReservations']);
       expect(bookingQueryKeys.userOfReservation('key123')).toEqual(['bookings', 'userOfReservation', 'key123']);
       expect(bookingQueryKeys.checkAvailable('123', 1000, 3600)).toEqual(['bookings', 'checkAvailable', '123', 1000, 3600]);

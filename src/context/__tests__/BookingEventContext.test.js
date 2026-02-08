@@ -178,6 +178,17 @@ describe("BookingEventContext", () => {
     });
 
     await triggerEvent("ReservationRequested", [reservationRequestedLog()]);
+    await waitFor(() => {
+      expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+        "success",
+        expect.stringContaining("Reservation request registered on-chain"),
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-onchain-requested:reservation-123",
+          dedupeWindowMs: 20000,
+        })
+      );
+    });
     await triggerEvent("ReservationConfirmed", [
       { args: { reservationKey: "reservation-123", tokenId: "1" } },
     ]);
@@ -208,7 +219,7 @@ describe("BookingEventContext", () => {
 
     await triggerEvent("ReservationRequested", [reservationRequestedLog()]);
     await triggerEvent("ReservationRequestDenied", [
-      { args: { reservationKey: "reservation-123", tokenId: "1" } },
+      { args: { reservationKey: "reservation-123", tokenId: "1", reason: 1 } },
     ]);
 
     await waitFor(() => {
@@ -225,6 +236,30 @@ describe("BookingEventContext", () => {
 
     // Should clear optimistic booking state for this reservation
     expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("reservation-123");
+  });
+
+  test("maps SSO deny reason to institutional message when request expires", async () => {
+    const queryClient = createTestQueryClient();
+    renderHook(() => useBookingEventContext(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await triggerEvent("ReservationRequested", [reservationRequestedLog()]);
+    await triggerEvent("ReservationRequestDenied", [
+      { args: { reservationKey: "reservation-123", tokenId: "1", reason: 4 } },
+    ]);
+
+    await waitFor(() => {
+      expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+        "error",
+        "❌ Reservation denied by your institution (request expired).",
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-denied:reservation-123",
+          dedupeWindowMs: 120000,
+        })
+      );
+    });
   });
 
   test("requires reservation ownership before showing confirmation notification", async () => {
@@ -355,7 +390,10 @@ describe("BookingEventContext", () => {
     });
 
     await waitFor(() => {
-      expect(mockAddTemporaryNotification).toHaveBeenCalledTimes(1);
+      const confirmationCalls = mockAddTemporaryNotification.mock.calls.filter((call) =>
+        String(call?.[1] || "").includes("Reservation confirmed")
+      );
+      expect(confirmationCalls).toHaveLength(1);
     });
 
     // Second confirmation source: chain event
@@ -364,17 +402,12 @@ describe("BookingEventContext", () => {
     ]);
 
     await waitFor(() => {
-      expect(mockAddTemporaryNotification).toHaveBeenCalledTimes(1);
-      expect(mockAddTemporaryNotification).toHaveBeenNthCalledWith(
-        1,
-        "success",
-        expect.stringContaining("Reservation confirmed"),
-        null,
-        expect.objectContaining({
-          dedupeKey: "reservation-confirmed:reservation-123",
-          dedupeWindowMs: 120000,
-        })
+      const confirmationCalls = mockAddTemporaryNotification.mock.calls.filter((call) =>
+        String(call?.[1] || "").includes("Reservation confirmed")
       );
+      expect(confirmationCalls).toHaveLength(1);
+      expect(confirmationCalls[0][0]).toBe("success");
+      expect(String(confirmationCalls[0][1])).toContain("Reservation confirmed");
     });
   });
 

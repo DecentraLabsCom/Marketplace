@@ -45,11 +45,17 @@ const invalidateInstitutionalReservationQueries = (queryClient, { labId, reserva
   if (!queryClient) return;
 
   queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
-  queryClient.invalidateQueries({ queryKey: ['bookings', 'sso', 'reservationKeyOfUser'], exact: false });
+  queryClient.invalidateQueries({
+    queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(),
+    exact: false,
+  });
 
   if (labId !== undefined && labId !== null) {
     queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) });
-    queryClient.invalidateQueries({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false });
+    queryClient.invalidateQueries({
+      queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId),
+      exact: false,
+    });
   }
 
   if (reservationKey) {

@@ -17,6 +17,7 @@ import {
   notifyReservationWalletTimeslotConflict,
   notifyReservationWalletTransactionRejected,
   notifyReservationWalletUnsupportedNetwork,
+  RESERVATION_DENY_REASON,
   reservationToastIds,
 } from '../reservationToasts'
 
@@ -56,6 +57,79 @@ describe('reservationToasts', () => {
       null,
       expect.objectContaining({
         dedupeKey: 'reservation-denied:reservation-2',
+        dedupeWindowMs: 120000,
+      })
+    )
+  })
+
+  test('maps denied reason codes to user-facing messages', () => {
+    notifyReservationDenied(addTemporaryNotification, 'reservation-1', {
+      reason: RESERVATION_DENY_REASON.PROVIDER_MANUAL,
+      isSSO: true,
+    })
+    notifyReservationDenied(addTemporaryNotification, 'reservation-2', {
+      reason: RESERVATION_DENY_REASON.REQUEST_EXPIRED,
+      isSSO: true,
+    })
+    notifyReservationDenied(addTemporaryNotification, 'reservation-3', {
+      reason: RESERVATION_DENY_REASON.PAYMENT_FAILED,
+      isSSO: false,
+    })
+    notifyReservationDenied(addTemporaryNotification, 'reservation-4', {
+      reason: RESERVATION_DENY_REASON.REQUEST_EXPIRED,
+      isSSO: false,
+    })
+    notifyReservationDenied(addTemporaryNotification, 'reservation-5', {
+      isSSO: true,
+    })
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      1,
+      'error',
+      '❌ Reservation denied by the provider.',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-denied:reservation-1',
+        dedupeWindowMs: 120000,
+      })
+    )
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      2,
+      'error',
+      '❌ Reservation denied by your institution (request expired).',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-denied:reservation-2',
+        dedupeWindowMs: 120000,
+      })
+    )
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      3,
+      'error',
+      '❌ Reservation denied: LAB token payment failed.',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-denied:reservation-3',
+        dedupeWindowMs: 120000,
+      })
+    )
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      4,
+      'error',
+      '❌ Reservation denied.',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-denied:reservation-4',
+        dedupeWindowMs: 120000,
+      })
+    )
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      5,
+      'error',
+      '❌ Reservation denied.',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-denied:reservation-5',
         dedupeWindowMs: 120000,
       })
     )
@@ -163,4 +237,3 @@ describe('reservationToasts', () => {
     expect(() => notifyReservationWalletTransactionRejected(null)).not.toThrow()
   })
 })
-

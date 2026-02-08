@@ -92,6 +92,22 @@ jest.mock("@/utils/dev/logger", () => ({
 
 jest.mock("@/utils/booking/bookingStatus", () => ({
   isCancelledBooking: jest.fn(() => false),
+  BOOKING_STATE: {
+    REQUESTED: "requested",
+    PENDING: "pending",
+    CONFIRMED: "confirmed",
+    IN_USE: "in_use",
+    COMPLETED: "completed",
+    COLLECTED: "collected",
+    CANCELLED: "cancelled",
+  },
+  normalizeBookingStatusState: jest.fn((booking) => {
+    const status = booking?.status;
+    if (status === 0 || status === "0" || status === "pending" || status === "requested") return "pending";
+    if (status === 1 || status === "1" || status === "confirmed") return "confirmed";
+    if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return "cancelled";
+    return null;
+  }),
 }));
 
 jest.mock("@/utils/booking/labBookingCalendar", () => ({
@@ -350,6 +366,7 @@ describe("LabReservation Component", () => {
 
       const button = screen.getByRole("button", { name: /book now/i });
       expect(button).toBeDisabled();
+      expect(button.querySelector(".spinner-sm")).not.toBeInTheDocument();
     });
 
     test("shows Processing... for SSO booking in progress", () => {
@@ -368,9 +385,10 @@ describe("LabReservation Component", () => {
       renderWithProviders(<LabReservation id="1" />);
 
       expect(screen.getByText("Processing...")).toBeInTheDocument();
+      expect(screen.getByRole("button").querySelector(".spinner-sm")).toBeInTheDocument();
     });
 
-    test("shows Sending... for wallet booking in progress", () => {
+    test("shows Processing... for wallet booking in progress", () => {
       reservationHooks.useLabReservationState.mockReturnValue({
         ...reservationHooks.useLabReservationState(),
         selectedTime: "10:00",
@@ -379,10 +397,10 @@ describe("LabReservation Component", () => {
 
       renderWithProviders(<LabReservation id="1" />);
 
-      expect(screen.getByText("Sending...")).toBeInTheDocument();
+      expect(screen.getByText("Processing...")).toBeInTheDocument();
     });
 
-    test("shows Confirming... when waiting for receipt", () => {
+    test("shows Processing... when waiting for receipt", () => {
       reservationHooks.useLabReservationState.mockReturnValue({
         ...reservationHooks.useLabReservationState(),
         selectedTime: "10:00",
@@ -392,7 +410,7 @@ describe("LabReservation Component", () => {
       renderWithProviders(<LabReservation id="1" />);
 
       const button = screen.getByRole("button");
-      expect(button).toHaveTextContent("Confirming...");
+      expect(button).toHaveTextContent("Processing...");
       expect(button).toBeDisabled();
     });
 
@@ -463,6 +481,72 @@ describe("LabReservation Component", () => {
         })
       );
       expect(mockHandleBookingSuccess).toHaveBeenCalled();
+    });
+
+    test("renders SSO button states from hook-provided button state", async () => {
+      reservationHooks.useLabReservationState.mockReturnValue({
+        ...reservationHooks.useLabReservationState(),
+        selectedTime: "10:00",
+        reservationButtonState: {
+          label: "Request Sent",
+          isBusy: false,
+          isDisabled: true,
+          showSpinner: true,
+          ariaBusy: false,
+        },
+      });
+
+      const queryClient = createTestQueryClient();
+      const { rerender } = render(
+        <QueryClientProvider client={queryClient}>
+          <LabReservation id="1" />
+        </QueryClientProvider>
+      );
+
+      expect(screen.getByRole("button")).toHaveTextContent("Request Sent");
+      expect(screen.getByRole("button")).toBeDisabled();
+
+      reservationHooks.useLabReservationState.mockReturnValue({
+        ...reservationHooks.useLabReservationState(),
+        selectedTime: "10:00",
+        reservationButtonState: {
+          label: "Request Registered",
+          isBusy: false,
+          isDisabled: true,
+          showSpinner: true,
+          ariaBusy: false,
+        },
+      });
+
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <LabReservation id="1" />
+        </QueryClientProvider>
+      );
+
+      expect(screen.getByRole("button")).toHaveTextContent("Request Registered");
+      expect(screen.getByRole("button")).toBeDisabled();
+
+      reservationHooks.useLabReservationState.mockReturnValue({
+        ...reservationHooks.useLabReservationState(),
+        selectedTime: "10:00",
+        reservationButtonState: {
+          label: "Book Now",
+          isBusy: false,
+          isDisabled: false,
+          showSpinner: false,
+          ariaBusy: false,
+        },
+      });
+
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <LabReservation id="1" />
+        </QueryClientProvider>
+      );
+
+      expect(screen.getByRole("button")).toHaveTextContent("Book Now");
+      expect(screen.getByRole("button")).not.toBeDisabled();
     });
 
     test("emits progress toasts once per SSO stage", async () => {

@@ -23,9 +23,12 @@ import { bookingQueryKeys } from "@/utils/hooks/queryKeys";
 jest.mock("@/utils/hooks/queryKeys", () => ({
   bookingQueryKeys: {
     all: jest.fn(() => ["bookings", "all"]),
+    byUserPrefix: jest.fn(() => ["bookings", "user"]),
     byUser: jest.fn((address) => ["bookings", "user", address]),
+    byLabPrefix: jest.fn(() => ["bookings", "lab"]),
     byLab: jest.fn((labId) => ["bookings", "lab", labId]),
     byReservationKey: jest.fn((key) => ["bookings", "key", key]),
+    reservationOfTokenRoot: jest.fn(() => ["bookings", "reservationOfToken"]),
   },
 }));
 

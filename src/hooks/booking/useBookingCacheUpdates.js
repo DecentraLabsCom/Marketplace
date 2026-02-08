@@ -7,6 +7,65 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 
+const normalizeBookingReferences = (bookingReference) => {
+  if (Array.isArray(bookingReference)) {
+    return bookingReference
+      .map((ref) => (ref === undefined || ref === null ? null : String(ref)))
+      .filter(Boolean)
+  }
+
+  if (bookingReference && typeof bookingReference === 'object') {
+    return [
+      bookingReference.id,
+      bookingReference.optimisticId,
+      bookingReference.reservationKey,
+      bookingReference.key,
+    ]
+      .map((ref) => (ref === undefined || ref === null ? null : String(ref)))
+      .filter(Boolean)
+  }
+
+  if (bookingReference === undefined || bookingReference === null) return []
+  return [String(bookingReference)]
+}
+
+const bookingMatchesReferences = (booking, references) => {
+  if (!booking || references.length === 0) return false
+
+  const id = booking.id === undefined || booking.id === null ? null : String(booking.id)
+  const reservationKey =
+    booking.reservationKey === undefined || booking.reservationKey === null
+      ? null
+      : String(booking.reservationKey)
+
+  return references.includes(id) || references.includes(reservationKey)
+}
+
+const pruneBookingCollection = (oldData, references) => {
+  if (references.length === 0 || oldData === undefined || oldData === null) return oldData
+
+  if (Array.isArray(oldData)) {
+    return oldData.filter((booking) => !bookingMatchesReferences(booking, references))
+  }
+
+  if (typeof oldData !== 'object') return oldData
+
+  const arrayFields = ['bookings', 'reservations', 'userBookings']
+  let changed = false
+  const nextData = { ...oldData }
+
+  arrayFields.forEach((field) => {
+    if (!Array.isArray(oldData[field])) return
+    const filtered = oldData[field].filter((booking) => !bookingMatchesReferences(booking, references))
+    if (filtered.length !== oldData[field].length) {
+      changed = true
+      nextData[field] = filtered
+    }
+  })
+
+  return changed ? nextData : oldData
+}
+
 /**
  * Hook providing booking-specific cache update functions
  * @returns {Object} Cache update functions for bookings
@@ -150,30 +209,39 @@ export function useBookingCacheUpdates() {
   }, [queryClient])
 
   // Remove optimistic booking (on error)
-  const removeOptimisticBooking = useCallback((optimisticId) => {
+  const removeOptimisticBooking = useCallback((bookingReference) => {
+    const references = normalizeBookingReferences(bookingReference)
+    if (references.length === 0) return
+
     // Update all bookings list
-    queryClient.setQueryData(bookingQueryKeys.all(), (oldData) => {
-      if (!oldData) return [];
-      return oldData.filter(booking => booking.id !== optimisticId);
-    });
+    queryClient.setQueryData(bookingQueryKeys.all(), (oldData) =>
+      pruneBookingCollection(oldData, references)
+    )
 
     // Update user bookings
     queryClient.setQueriesData(
-      { queryKey: ['bookings', 'user'], exact: false }, // Match all users
-      (oldData) => {
-        if (!oldData) return [];
-        return oldData.filter(booking => booking.id !== optimisticId);
-      }
-    );
+      { queryKey: bookingQueryKeys.byUserPrefix(), exact: false },
+      (oldData) => pruneBookingCollection(oldData, references)
+    )
 
     // Update lab bookings
     queryClient.setQueriesData(
-      { queryKey: ['bookings', 'lab'], exact: false }, // Match all labs
-      (oldData) => {
-        if (!oldData) return [];
-        return oldData.filter(booking => booking.id !== optimisticId);
-      }
-    );
+      { queryKey: bookingQueryKeys.byLabPrefix(), exact: false },
+      (oldData) => pruneBookingCollection(oldData, references)
+    )
+
+    // Update reservation-of-token indexed queries
+    queryClient.setQueriesData(
+      { queryKey: bookingQueryKeys.reservationOfTokenRoot(), exact: false },
+      (oldData) => pruneBookingCollection(oldData, references)
+    )
+
+    // Invalidate single-reservation queries for all references
+    references.forEach((key) => {
+      queryClient.invalidateQueries({
+        queryKey: bookingQueryKeys.byReservationKey(key),
+      })
+    })
   }, [queryClient])
 
   // Granular invalidation helper used by BookingEventContext

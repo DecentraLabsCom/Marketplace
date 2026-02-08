@@ -8,7 +8,9 @@
 // Booking query keys
 export const bookingQueryKeys = {
   all: () => ['bookings'],
+  byUserPrefix: () => ['bookings', 'user'],
   byUser: (address) => ['bookings', 'user', address],
+  byLabPrefix: () => ['bookings', 'lab'],
   byLab: (labId) => ['bookings', 'lab', labId],
   byReservationKey: (key) => ['bookings', 'reservation', key],
   userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
@@ -19,11 +21,16 @@ export const bookingQueryKeys = {
   
   // Additional atomic query keys for all booking/reservation endpoints
   getReservationsOfToken: (labId) => ['bookings', 'reservationsOfToken', labId],
+  reservationOfTokenRoot: () => ['bookings', 'reservationOfToken'],
+  reservationOfTokenPrefix: (labId) => ['bookings', 'reservationOfToken', labId],
   getReservationsOfTokenByUser: (labId, userAddress, offset = 0, limit = 50) => ['bookings', 'reservationsOfTokenByUser', labId, userAddress, offset, limit],
   getReservationOfTokenByIndex: (labId, index) => ['bookings', 'reservationOfToken', labId, index],
   reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress],
   ssoReservationsOf: () => ['bookings', 'sso', 'reservationsOf'],
+  reservationKeyOfUserPrefix: (userAddress) =>
+    userAddress ? ['bookings', 'reservationKeyOfUser', userAddress] : ['bookings', 'reservationKeyOfUser'],
   reservationKeyOfUserByIndex: (userAddress, index) => ['bookings', 'reservationKeyOfUser', userAddress, index],
+  ssoReservationKeyOfUserPrefix: () => ['bookings', 'sso', 'reservationKeyOfUser'],
   ssoReservationKeyOfUserByIndex: (index) => ['bookings', 'sso', 'reservationKeyOfUser', index],
   totalReservations: () => ['bookings', 'totalReservations'],
   userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],

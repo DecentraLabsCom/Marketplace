@@ -65,12 +65,12 @@ export function OptimisticUIProvider({ children }) {
       if (labId !== null && labId !== undefined) {
         queryKeys.push(bookingQueryKeys.byLab(labId))
         queryKeys.push(bookingQueryKeys.getReservationsOfToken(labId))
-        queryKeys.push({ queryKey: ['bookings', 'reservationOfToken', labId], exact: false })
+        queryKeys.push({ queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId), exact: false })
       }
       if (userAddress) {
         queryKeys.push(bookingQueryKeys.byUser(userAddress))
         queryKeys.push(bookingQueryKeys.reservationsOf(userAddress))
-        queryKeys.push({ queryKey: ['bookings', 'reservationKeyOfUser', userAddress], exact: false })
+        queryKeys.push({ queryKey: bookingQueryKeys.reservationKeyOfUserPrefix(userAddress), exact: false })
       }
       if (labId !== null && labId !== undefined && userAddress) {
         queryKeys.push(bookingQueryKeys.activeReservationKeyForUser(labId, userAddress))

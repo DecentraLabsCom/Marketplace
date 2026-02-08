@@ -1,17 +1,12 @@
+import { normalizeReservationKey } from '@/utils/booking/reservationKey'
+
 const RESERVATION_CONFIRM_DEDUPE_WINDOW_MS = 120000
-
-const normalizeReservationKey = (reservationKey) => {
-  if (reservationKey === undefined || reservationKey === null) return null
-  const raw = String(reservationKey).trim()
-  if (!raw) return null
-
-  const lower = raw.toLowerCase()
-  const withoutPrefix = lower.startsWith('0x') ? lower.slice(2) : lower
-  if (/^[0-9a-f]{64}$/i.test(withoutPrefix)) {
-    return `0x${withoutPrefix}`
-  }
-
-  return raw
+export const RESERVATION_DENY_REASON = {
+  PROVIDER_MANUAL: 1,
+  PROVIDER_NOT_ELIGIBLE: 2,
+  PAYMENT_FAILED: 3,
+  REQUEST_EXPIRED: 4,
+  TREASURY_SPEND_FAILED: 5,
 }
 
 export const reservationToastIds = {
@@ -47,14 +42,49 @@ const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions
   })
 }
 
+const resolveReservationDeniedMessage = (reason, isSSO) => {
+  const numericReason = Number(reason)
+
+  // Wallet flow currently maps provider/payment failures only.
+  if (
+    isSSO !== true &&
+    (numericReason === RESERVATION_DENY_REASON.REQUEST_EXPIRED ||
+      numericReason === RESERVATION_DENY_REASON.TREASURY_SPEND_FAILED)
+  ) {
+    return '❌ Reservation denied.'
+  }
+
+  switch (numericReason) {
+    case RESERVATION_DENY_REASON.PROVIDER_MANUAL:
+      return '❌ Reservation denied by the provider.'
+    case RESERVATION_DENY_REASON.PROVIDER_NOT_ELIGIBLE:
+      return '❌ Reservation denied: provider cannot fulfill this reservation right now.'
+    case RESERVATION_DENY_REASON.PAYMENT_FAILED:
+      return isSSO
+        ? '❌ Reservation denied due to payment processing failure.'
+        : '❌ Reservation denied: LAB token payment failed.'
+    case RESERVATION_DENY_REASON.REQUEST_EXPIRED:
+      return isSSO
+        ? '❌ Reservation denied by your institution (request expired).'
+        : '❌ Reservation denied.'
+    case RESERVATION_DENY_REASON.TREASURY_SPEND_FAILED:
+      return isSSO
+        ? '❌ Reservation denied by your institution (treasury spend failed).'
+        : '❌ Reservation denied.'
+    default:
+      return '❌ Reservation denied.'
+  }
+}
+
 export const notifyReservationConfirmed = (addTemporaryNotification, reservationKey) => {
   notify(addTemporaryNotification, 'success', '✅ Reservation confirmed!', reservationToastIds.confirmed(reservationKey), {
     dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS,
   })
 }
 
-export const notifyReservationDenied = (addTemporaryNotification, reservationKey) => {
-  notify(addTemporaryNotification, 'error', '❌ Reservation denied by the provider.', reservationToastIds.denied(reservationKey), {
+export const notifyReservationDenied = (addTemporaryNotification, reservationKey, options = {}) => {
+  const deniedMessage = resolveReservationDeniedMessage(options?.reason, options?.isSSO === true)
+  notify(addTemporaryNotification, 'error', deniedMessage, reservationToastIds.denied(reservationKey), {
     dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS,
   })
 }
@@ -166,3 +196,4 @@ export const notifyReservationWalletTimeslotConflict = (addTemporaryNotification
     '❌ Time slot was reserved while you were booking. Please try another time.',
     reservationToastIds.walletTimeslotConflict(payload)
   )
+
