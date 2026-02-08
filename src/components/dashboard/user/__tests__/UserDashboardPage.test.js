@@ -219,7 +219,9 @@ describe('UserDashboard - Unit Tests', () => {
 
             await userEvent.click(await screen.findByText('Cancel'));
 
-            expect(mockCancelBooking).toHaveBeenCalledWith('1');
+            expect(mockCancelBooking).toHaveBeenCalledWith(
+                expect.objectContaining({ reservationKey: '1' })
+            );
         });
 
         test('cancels pending reservation', async () => {
@@ -229,7 +231,9 @@ describe('UserDashboard - Unit Tests', () => {
 
             await userEvent.click(await screen.findByText('Cancel'));
 
-            expect(mockCancelReservation).toHaveBeenCalledWith('2');
+            expect(mockCancelReservation).toHaveBeenCalledWith(
+                expect.objectContaining({ reservationKey: '2' })
+            );
         });
 
         test('shows error on cancellation failure', async () => {
