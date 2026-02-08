@@ -31,6 +31,7 @@ export function LabTokenProvider({ children }) {
   const stableFunctions = useMemo(() => ({
     calculateReservationCost: labTokenData.calculateReservationCost,
     approveLabTokens: labTokenData.approveLabTokens,
+    approveLabTokensAndWait: labTokenData.approveLabTokensAndWait,
     checkBalanceAndAllowance: labTokenData.checkBalanceAndAllowance,
     checkSufficientBalance: labTokenData.checkSufficientBalance,
     formatTokenAmount: labTokenData.formatTokenAmount,
@@ -42,6 +43,7 @@ export function LabTokenProvider({ children }) {
   }), [
     labTokenData.calculateReservationCost,
     labTokenData.approveLabTokens,
+    labTokenData.approveLabTokensAndWait,
     labTokenData.checkBalanceAndAllowance,
     labTokenData.checkSufficientBalance,
     labTokenData.formatTokenAmount,

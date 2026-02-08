@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useConnection, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi'
+import {
+  useConnection,
+  useWaitForTransactionReceipt,
+  useReadContract,
+  useWriteContract,
+  usePublicClient
+} from 'wagmi'
 import { formatUnits } from 'viem'
 import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
@@ -110,6 +116,7 @@ export const clearDecimalsCache = () => {
  * @returns {string} returns.labTokenAddress - LAB token contract address
  * @returns {Function} returns.calculateReservationCost - Calculate booking cost function
  * @returns {Function} returns.approveLabTokens - Approve tokens for spending function
+ * @returns {Function} returns.approveLabTokensAndWait - Approve tokens and wait for on-chain confirmation
  * @returns {Function} returns.checkBalanceAndAllowance - Check balances function
  * @returns {Function} returns.checkSufficientBalance - Check sufficient balance function
  * @returns {Function} returns.formatTokenAmount - Format amount to readable string function
@@ -125,6 +132,7 @@ export function useLabTokenHook() {
   const address = getConnectionAddress(connection);
   const isConnected = isConnectionConnected(connection);
   const safeChain = selectChain(chain);
+  const publicClient = usePublicClient({ chainId: safeChain.id });
   const chainName = safeChain.name.toLowerCase();
   const envLabTokenAddress = contractAddressesLAB[chainName];
   const diamondContractAddress = contractAddresses[chainName];
@@ -193,6 +201,10 @@ export function useLabTokenHook() {
       retry: 2,
       retryOnMount: true,
       refetchOnReconnect: true,
+      refetchInterval: shouldFetchAllowance ? 6_000 : false,
+      refetchIntervalInBackground: true,
+      refetchOnWindowFocus: true,
+      refetchOnMount: 'always',
     },
   });
 
@@ -343,28 +355,21 @@ export function useLabTokenHook() {
    * @returns {bigint} - Total cost in token wei
    */
   const calculateReservationCost = useCallback((labPrice, durationMinutes) => {
-    if (!labPrice || !durationMinutes || !decimals) return 0n;
-    
+    if (!labPrice || !durationMinutes) return 0n;
+
     try {
-      // Contract provides price in smallest units per second
-      const pricePerSecondUnits = parseFloat(labPrice.toString());
-      
-      if (isNaN(pricePerSecondUnits)) return 0n;
-      
-      // Calculate total cost for the duration in seconds (still in contract units)
-      const durationSeconds = durationMinutes * 60;
-      const totalCostUnits = pricePerSecondUnits * durationSeconds;
-      
-      // totalCostUnits is already in the smallest token units (wei)
-      // Convert to bigint for return
-      const costInWei = BigInt(Math.floor(totalCostUnits));
-      
-      return costInWei;
+      const pricePerSecondUnits = tryParseBigInt(labPrice);
+      if (pricePerSecondUnits === null || pricePerSecondUnits < 0n) return 0n;
+
+      const durationSeconds = Number(durationMinutes) * 60;
+      if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return 0n;
+
+      return pricePerSecondUnits * BigInt(Math.floor(durationSeconds));
     } catch (error) {
       devLog.error('Error calculating reservation cost:', error);
       return 0n;
     }
-  }, [decimals]);
+  }, []);
 
   /**
    * Approve LAB tokens for the diamond contract
@@ -398,6 +403,38 @@ export function useLabTokenHook() {
       throw error;
     }
   }, [resolvedLabTokenAddress, diamondContractAddress, writeLabToken, safeChain.id, isConnected]);
+
+  /**
+   * Approve LAB tokens and wait until the approval transaction is mined.
+   * Prevents race conditions where reservation tx is sent before allowance is updated on-chain.
+   * @param {bigint} amount - Amount to approve in wei
+   * @returns {Promise<string>} - Transaction hash
+   */
+  const approveLabTokensAndWait = useCallback(async (amount) => {
+    const txHash = await approveLabTokens(amount);
+
+    if (!publicClient) {
+      throw new Error('Public client not available for approval confirmation');
+    }
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      confirmations: 1
+    });
+
+    const isTxSuccessful =
+      receipt?.status === 'success' ||
+      receipt?.status === 1 ||
+      receipt?.status === '0x1';
+
+    if (!isTxSuccessful) {
+      throw new Error('Approval transaction reverted');
+    }
+
+    refetchBalance();
+    await refetchAllowance();
+    return txHash;
+  }, [approveLabTokens, publicClient, refetchBalance, refetchAllowance]);
 
   /**
    * Check if there is sufficient balance and allowance
@@ -515,6 +552,7 @@ export function useLabTokenHook() {
     // Functions
     calculateReservationCost,
     approveLabTokens,
+    approveLabTokensAndWait,
     checkBalanceAndAllowance,
     checkSufficientBalance,
     formatTokenAmount,

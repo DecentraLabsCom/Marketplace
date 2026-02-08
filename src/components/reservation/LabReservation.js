@@ -156,7 +156,8 @@ export default function LabReservation({ id }) {
   // Lab token utilities
   const { 
     checkBalanceAndAllowance, 
-    approveLabTokens, 
+    approveLabTokensAndWait,
+    refetchAllowance,
     formatTokenAmount: formatBalance
   } = useLabToken()
   
@@ -343,7 +344,11 @@ export default function LabReservation({ id }) {
         notifyReservationWalletApprovalPending(addTemporaryNotification)
         
         try {
-          await approveLabTokens(cost)
+          await approveLabTokensAndWait(cost)
+          const latestAllowance = (await refetchAllowance())?.data ?? 0n
+          if (latestAllowance < cost) {
+            throw new Error('Allowance not updated after approval confirmation')
+          }
           notifyReservationWalletApprovalSuccess(addTemporaryNotification)
         } catch (approvalError) {
           devLog.error('Token approval failed:', approvalError)

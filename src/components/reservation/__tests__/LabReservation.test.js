@@ -193,7 +193,8 @@ describe("LabReservation Component", () => {
         hasSufficientAllowance: true,
         balance: BigInt(1000),
       })),
-      approveLabTokens: jest.fn().mockResolvedValue(true),
+      approveLabTokensAndWait: jest.fn().mockResolvedValue("0xApproveHash"),
+      refetchAllowance: jest.fn().mockResolvedValue({ data: BigInt(1000) }),
       formatTokenAmount: jest.fn((amount) => amount.toString()),
     });
 
@@ -751,7 +752,8 @@ describe("LabReservation Component", () => {
           hasSufficientAllowance: false,
           balance: BigInt(1000),
         })),
-        approveLabTokens: mockApproveLabTokens,
+        approveLabTokensAndWait: mockApproveLabTokens,
+        refetchAllowance: jest.fn().mockResolvedValue({ data: BigInt(100) }),
         formatTokenAmount: jest.fn((amount) => amount.toString()),
       });
 
@@ -797,7 +799,8 @@ describe("LabReservation Component", () => {
           hasSufficientAllowance: false,
           balance: BigInt(1000),
         })),
-        approveLabTokens: jest.fn().mockRejectedValueOnce(rejectionError),
+        approveLabTokensAndWait: jest.fn().mockRejectedValueOnce(rejectionError),
+        refetchAllowance: jest.fn().mockResolvedValue({ data: BigInt(0) }),
         formatTokenAmount: jest.fn((amount) => amount.toString()),
       });
 

@@ -28,6 +28,7 @@ jest.mock("wagmi", () => ({
   useBalance: jest.fn(),
   useReadContract: jest.fn(),
   useWriteContract: jest.fn(),
+  usePublicClient: jest.fn(),
 }));
 
 // Utility mocks (chain selector)
@@ -91,6 +92,11 @@ describe("useLabTokenHook", () => {
     // mock write function
     wagmi.useWriteContract.mockReturnValue({
       writeContractAsync: contractWriteSpy,
+    });
+
+    // mock public client for explicit receipt waits
+    wagmi.usePublicClient.mockReturnValue({
+      waitForTransactionReceipt: jest.fn().mockResolvedValue({ status: 'success' }),
     });
 
     // default tx receipt state
