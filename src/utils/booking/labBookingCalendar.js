@@ -23,11 +23,80 @@ const parseTimeToMinutes = (timeString) => {
 }
 
 const toDateFromUnix = (value) => {
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+
+    const isoCandidate = new Date(trimmed)
+    if (!isNaN(isoCandidate.getTime()) && !/^\d+$/.test(trimmed)) {
+      return isoCandidate
+    }
+  }
+
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return null
   const millis = numeric > 1e12 ? numeric : numeric * 1000
   const parsed = new Date(millis)
   return isNaN(parsed.getTime()) ? null : parsed
+}
+
+const getBoundaryDate = (booking, candidates, reducer) => {
+  const parsed = candidates
+    .map((key) => toDateFromUnix(booking?.[key]))
+    .filter(Boolean)
+
+  if (parsed.length === 0) return null
+
+  return parsed.reduce((selected, current) =>
+    reducer(current.getTime(), selected.getTime()) === current.getTime() ? current : selected
+  )
+}
+
+const toDurationMillis = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) return null
+
+  // Heuristic:
+  // - <= 24h expressed in minutes -> convert minutes to ms
+  // - <= 24h expressed in seconds -> convert seconds to ms
+  if (numeric <= 24 * 60) return numeric * 60 * 1000
+  if (numeric <= 24 * 60 * 60) return numeric * 1000
+  return null
+}
+
+const resolveBookingRange = (booking, durationMinutes) => {
+  const start = getBoundaryDate(
+    booking,
+    ['start', 'startTime', 'startUnix', 'startsAt', 'from'],
+    Math.min
+  )
+  if (!start) return null
+
+  let end = getBoundaryDate(
+    booking,
+    ['end', 'endTime', 'endUnix', 'endsAt', 'to'],
+    Math.max
+  )
+
+  if (!end || end <= start) {
+    const durationMillis =
+      toDurationMillis(booking?.durationSeconds) ||
+      toDurationMillis(booking?.timeslotSeconds) ||
+      toDurationMillis(booking?.timeslot) ||
+      toDurationMillis(booking?.duration) ||
+      (Number.isFinite(durationMinutes) && durationMinutes > 0 ? durationMinutes * 60 * 1000 : null)
+
+    if (durationMillis) {
+      end = new Date(start.getTime() + durationMillis)
+    }
+  }
+
+  if (!end || end <= start) return null
+  return { start, end }
 }
 
 const toUnixSeconds = (value) => {
@@ -186,20 +255,27 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
     })
   }
   
-  const dayBookings = (bookingInfo || []).filter((booking) => {
-    const bookingDate = booking?.date || booking?.dateString
-    if (bookingDate && isSameCalendarDay(bookingDate, date)) return true
-
-    const bookingStart = toDateFromUnix(booking?.start)
-    if (bookingStart && isSameCalendarDay(bookingStart, date)) return true
-
-    return false
-  })
-
   const dayStart = new Date(date)
   dayStart.setHours(0, 0, 0, 0)
   const dayEnd = new Date(date)
   dayEnd.setHours(23, 59, 59, 999)
+  const dayEndExclusive = new Date(dayEnd.getTime() + 1)
+
+  const dayBookings = (bookingInfo || [])
+    .map((booking) => ({
+      booking,
+      range: resolveBookingRange(booking, durationMinutes),
+    }))
+    .filter(({ booking, range }) => {
+      if (range) {
+        return range.start < dayEndExclusive && range.end > dayStart
+      }
+
+      const bookingDate = booking?.date || booking?.dateString
+      if (bookingDate && isSameCalendarDay(bookingDate, date)) return true
+
+      return false
+    })
 
   let slot = new Date(dayStart)
   while (slot <= dayEnd) {
@@ -217,14 +293,9 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
         )
       : false
 
-    const conflictsWithBooking = dayBookings.some((booking) => {
-      if (!booking?.start || !booking?.end) return false
-
-      const bookingStart = toDateFromUnix(booking.start)
-      const bookingEnd = toDateFromUnix(booking.end)
-      if (!bookingStart || !bookingEnd) return false
-
-      return slotStart < bookingEnd && slotEnd > bookingStart
+    const conflictsWithBooking = dayBookings.some(({ range }) => {
+      if (!range) return false
+      return slotStart < range.end && slotEnd > range.start
     })
 
     const slotStartUnix = Math.floor(slotStart.getTime() / 1000)

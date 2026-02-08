@@ -336,6 +336,90 @@ describe("generateTimeOptions", () => {
       const allEnabled = result.every((slot) => !slot.disabled);
       expect(allEnabled).toBe(true);
     });
+
+    test("uses widest range when booking has both end and endTime", () => {
+      dateFns.isToday.mockReturnValue(false);
+      isSameCalendarDay.mockReturnValue(false);
+
+      const date = new Date("2025-06-15T00:00:00");
+      const bookingStart = Math.floor(
+        new Date("2025-06-15T10:00:00").getTime() / 1000
+      );
+      const shortEnd = Math.floor(
+        new Date("2025-06-15T11:00:00").getTime() / 1000
+      );
+      const longEnd = Math.floor(
+        new Date("2025-06-15T13:00:00").getTime() / 1000
+      );
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [
+          {
+            start: bookingStart,
+            end: shortEnd,
+            startTime: bookingStart,
+            endTime: longEnd,
+          },
+        ],
+      });
+
+      expect(result[10].disabled).toBe(true); // 10:00-11:00
+      expect(result[11].disabled).toBe(true); // 11:00-12:00
+      expect(result[12].disabled).toBe(true); // 12:00-13:00
+      expect(result[13].disabled).toBe(false); // 13:00-14:00
+    });
+
+    test("handles booking timestamps in ISO format", () => {
+      dateFns.isToday.mockReturnValue(false);
+      isSameCalendarDay.mockReturnValue(false);
+
+      const date = new Date("2025-06-15T00:00:00");
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [
+          {
+            start: "2025-06-15T14:00:00",
+            end: "2025-06-15T16:00:00",
+          },
+        ],
+      });
+
+      expect(result[14].disabled).toBe(true); // 14:00-15:00
+      expect(result[15].disabled).toBe(true); // 15:00-16:00
+      expect(result[16].disabled).toBe(false); // 16:00-17:00
+    });
+
+    test("blocks slots for bookings that started on previous day but overlap selected day", () => {
+      dateFns.isToday.mockReturnValue(false);
+      isSameCalendarDay.mockReturnValue(false);
+
+      const date = new Date("2025-06-15T00:00:00");
+      const bookingStart = Math.floor(
+        new Date("2025-06-14T23:30:00").getTime() / 1000
+      );
+      const bookingEnd = Math.floor(
+        new Date("2025-06-15T01:30:00").getTime() / 1000
+      );
+
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [
+          {
+            start: bookingStart,
+            end: bookingEnd,
+          },
+        ],
+      });
+
+      expect(result[0].disabled).toBe(true); // 00:00-01:00
+      expect(result[1].disabled).toBe(true); // 01:00-02:00
+      expect(result[2].disabled).toBe(false); // 02:00-03:00
+    });
   });
 
   describe("Edge cases", () => {
