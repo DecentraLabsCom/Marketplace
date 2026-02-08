@@ -6,6 +6,7 @@ import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveInte
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import getProvider from '@/app/api/contract/utils/getProvider'
+import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { defaultChain } from '@/utils/blockchain/networkConfig'
 import { serializeIntent } from '@/utils/intents/serialize'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
@@ -71,6 +72,29 @@ async function resolveChainNowSec() {
   return fallback > 0 ? fallback : 0
 }
 
+function isCancellationAction(action) {
+  return action === ACTION_CODES.CANCEL_BOOKING || action === ACTION_CODES.CANCEL_REQUEST_BOOKING
+}
+
+function isValidReservationKey(value) {
+  return typeof value === 'string' && ethers.isHexString(value, 32)
+}
+
+function normalizeAddress(value) {
+  if (typeof value !== 'string') return ''
+  return value.toLowerCase()
+}
+
+async function resolveCancellationReservationSnapshot(reservationKey) {
+  const contract = await getContractInstance()
+  const reservation = await contract.getReservation(reservationKey)
+  return {
+    labId: reservation?.labId?.toString?.() ?? null,
+    price: reservation?.price?.toString?.() ?? null,
+    renter: reservation?.renter || ethers.ZeroAddress,
+  }
+}
+
 export async function POST(request) {
   try {
     const session = await requireAuth()
@@ -102,6 +126,30 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing institutional backend URL' }, { status: 400 })
     }
 
+    let resolvedLabId = payloadInput.labId
+    let resolvedPrice = payloadInput.price
+    const reservationKey = payloadInput.reservationKey || ethers.ZeroHash
+
+    if (isCancellationAction(action)) {
+      if (!isValidReservationKey(reservationKey)) {
+        return NextResponse.json({ error: 'Missing or invalid reservationKey for cancellation action' }, { status: 400 })
+      }
+      try {
+        const snapshot = await resolveCancellationReservationSnapshot(reservationKey)
+        if (normalizeAddress(snapshot.renter) === normalizeAddress(ethers.ZeroAddress)) {
+          return NextResponse.json({ error: 'Reservation not found for cancellation action' }, { status: 404 })
+        }
+        resolvedLabId = snapshot.labId
+        resolvedPrice = snapshot.price
+      } catch (error) {
+        devLog.error('[API] Failed to resolve reservation snapshot for cancellation intent', error)
+        return NextResponse.json(
+          { error: 'Failed to resolve reservation details for cancellation intent' },
+          { status: 502 },
+        )
+      }
+    }
+
     const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)
     const adminAddress = await getAdminAddress()
 
@@ -113,10 +161,10 @@ export async function POST(request) {
       schacHomeOrganization,
       assertionHash: computeAssertionHash(samlAssertion),
       puc: puc || '',
-      labId: payloadInput.labId || 0,
-      reservationKey: payloadInput.reservationKey || ethers.ZeroHash,
+      labId: resolvedLabId ?? 0,
+      reservationKey,
       uri: payloadInput.uri || '',
-      price: payloadInput.price ?? 0,
+      price: resolvedPrice ?? 0,
       accessURI: payloadInput.accessURI || '',
       accessKey: payloadInput.accessKey || '',
       tokenURI: payloadInput.tokenURI || '',

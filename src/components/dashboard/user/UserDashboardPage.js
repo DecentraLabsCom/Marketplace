@@ -168,10 +168,10 @@ export default function UserDashboard() {
       const isPending = booking.status === 0 || booking.status === '0';
       if (isPending) {
         // Fire transaction but do NOT remove from UI yet; wait for chain event
-        await cancelReservationUnified.mutateAsync(booking.reservationKey);
+        await cancelReservationUnified.mutateAsync(booking);
       } else {
         // Fire transaction but do NOT remove from UI yet; wait for chain event
-        await cancelBookingUnified.mutateAsync(booking.reservationKey);
+        await cancelBookingUnified.mutateAsync(booking);
       }
 
       // UI removal is handled by BookingEventContext upon on-chain confirmation

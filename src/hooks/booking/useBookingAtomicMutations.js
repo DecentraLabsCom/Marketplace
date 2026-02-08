@@ -29,6 +29,31 @@ const resolveBookingContext = (queryClient, reservationKey) => {
   };
 };
 
+const normalizeReservationMutationInput = (input) => {
+  if (typeof input === 'string') {
+    return { reservationKey: input };
+  }
+  if (input && typeof input === 'object') {
+    return {
+      reservationKey: input.reservationKey,
+      labId: input.labId,
+      price: input.price,
+    };
+  }
+  return { reservationKey: null };
+};
+
+const resolveReservationSnapshotFromCache = (queryClient, reservationKey) => {
+  if (!queryClient || !reservationKey) return {};
+  const cached = queryClient.getQueryData(bookingQueryKeys.byReservationKey(reservationKey));
+  const reservation = cached?.reservation || cached || {};
+  return {
+    labId: reservation?.labId,
+    price: reservation?.price,
+    userAddress: reservation?.renter ?? reservation?.userAddress,
+  };
+};
+
 const createIntentMutationError = (payload, fallbackMessage) => {
   const message =
     payload?.error ||
@@ -916,18 +941,36 @@ export const useCancelReservationRequestSSO = (options = {}) => {
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
-    mutationFn: async (reservationKey) => {
+    mutationFn: async (reservationInput) => {
+      const normalizedInput = normalizeReservationMutationInput(reservationInput);
+      const reservationKey = normalizedInput.reservationKey;
       if (!institutionBackendUrl) {
         throw new Error('Missing institutional backend URL');
       }
+      if (!reservationKey) {
+        throw new Error('Missing reservationKey');
+      }
+
+      const snapshot = resolveReservationSnapshotFromCache(queryClient, reservationKey);
+      const resolvedLabId = normalizedInput.labId ?? snapshot.labId;
+      const resolvedPrice = normalizedInput.price ?? snapshot.price;
+
       const data = await runActionIntent(ACTION_CODES.CANCEL_REQUEST_BOOKING, {
         reservationKey,
         backendUrl: institutionBackendUrl,
+        labId: resolvedLabId,
+        price: resolvedPrice ?? 0,
       });
       devLog.log('useCancelReservationRequestSSO intent (webauthn):', data);
-      return data;
+      return { ...data, reservationKey };
     },
-    onSuccess: (data, reservationKey) => {
+    onSuccess: (data, reservationInput) => {
+      const reservationKey =
+        data?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) {
+        devLog.error('Missing reservationKey on cancel reservation request success callback');
+        return;
+      }
       try {
         const intentId =
           data?.requestId ||
@@ -1057,12 +1100,17 @@ export const useCancelReservationRequestSSO = (options = {}) => {
       }
     },
     onError: (error, reservationKey) => {
+      const normalizedReservationKey = normalizeReservationMutationInput(reservationKey).reservationKey;
       try {
-        clearOptimisticBookingState(reservationKey);
+        if (normalizedReservationKey) {
+          clearOptimisticBookingState(normalizedReservationKey);
+        }
       } catch (err) {
         devLog.warn('Failed to clear optimistic booking state on SSO cancel error:', err);
       }
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+      if (normalizedReservationKey) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(normalizedReservationKey) });
+      }
       devLog.error('Failed to cancel reservation request via SSO:', error);
     },
     ...options,
@@ -1152,18 +1200,36 @@ export const useCancelBookingSSO = (options = {}) => {
   const { institutionBackendUrl } = useUser();
 
   return useMutation({
-    mutationFn: async (reservationKey) => {
+    mutationFn: async (reservationInput) => {
+      const normalizedInput = normalizeReservationMutationInput(reservationInput);
+      const reservationKey = normalizedInput.reservationKey;
       if (!institutionBackendUrl) {
         throw new Error('Missing institutional backend URL');
       }
+      if (!reservationKey) {
+        throw new Error('Missing reservationKey');
+      }
+
+      const snapshot = resolveReservationSnapshotFromCache(queryClient, reservationKey);
+      const resolvedLabId = normalizedInput.labId ?? snapshot.labId;
+      const resolvedPrice = normalizedInput.price ?? snapshot.price;
+
       const data = await runActionIntent(ACTION_CODES.CANCEL_BOOKING, {
         reservationKey,
         backendUrl: institutionBackendUrl,
+        labId: resolvedLabId,
+        price: resolvedPrice ?? 0,
       });
       devLog.log('useCancelBookingSSO intent (webauthn):', data);
-      return data;
+      return { ...data, reservationKey };
     },
-    onSuccess: (data, reservationKey) => {
+    onSuccess: (data, reservationInput) => {
+      const reservationKey =
+        data?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) {
+        devLog.error('Missing reservationKey on cancel booking success callback');
+        return;
+      }
       queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
         if (!oldData) return oldData;
         return {
@@ -1293,8 +1359,11 @@ export const useCancelBookingSSO = (options = {}) => {
         devLog.error('Failed to track cancel booking intent:', error);
       }
     },
-    onError: (error, reservationKey) => {
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+    onError: (error, reservationInput) => {
+      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (reservationKey) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
+      }
       devLog.error('Failed to cancel booking via SSO - reverting optimistic update:', error);
     },
     ...options,
