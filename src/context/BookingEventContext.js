@@ -196,6 +196,7 @@ export function BookingEventProvider({ children }) {
             logs.forEach((log, index) => {                
                 const { reservationKey, renter, tokenId, start, end } = log.args;
                 const reservationKeyStr = reservationKey?.toString();
+                const normalizedReservationKey = normalizeReservationKey(reservationKeyStr);
                 const tokenIdStr = tokenId?.toString();
                 const requester = renter?.toString();
                 const startStr = start?.toString();
@@ -212,16 +213,34 @@ export function BookingEventProvider({ children }) {
                 
                 const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                 const requesterAddress = requester?.toLowerCase?.();
+                const isPendingFromCurrentSession = normalizedReservationKey
+                    ? pendingConfirmations.current.has(normalizedReservationKey)
+                    : false;
+                const isCurrentUserRequester = currentUserAddress && requesterAddress === currentUserAddress;
 
                 if (
                     reservationKeyStr &&
                     tokenIdStr &&
-                    currentUserAddress &&
-                    requesterAddress === currentUserAddress
+                    (isCurrentUserRequester || isPendingFromCurrentSession)
                 ) {
                     devLog.log(`🕒 [BookingEventContext] Tracking reservation ${reservationKeyStr} for fallback polling`);
-                    trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterAddress);
+                    const requesterToTrack = requesterAddress || pendingConfirmations.current.get(normalizedReservationKey)?.requester;
+                    trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterToTrack);
                     notifyReservationOnChainRequested(addTemporaryNotification, reservationKeyStr);
+                    try {
+                        if (typeof window !== 'undefined') {
+                            window.dispatchEvent(
+                                new CustomEvent('reservation-requested-onchain', {
+                                    detail: {
+                                        reservationKey: reservationKeyStr,
+                                        tokenId: tokenIdStr,
+                                    }
+                                })
+                            );
+                        }
+                    } catch (err) {
+                        devLog.warn('Failed to emit reservation-requested-onchain event:', err);
+                    }
                 }
             });
         }

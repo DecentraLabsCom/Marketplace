@@ -62,15 +62,15 @@ export default function ActiveLabCard({
   const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
 
   return (
-    <div className='flex min-[1280px]:flex-row flex-wrap'>
+    <div className='flex xl:flex-row flex-wrap'>
       <div className='flex flex-col items-center'>
-        <div className={`min-[1280px]:w-[360px] w-[330px] group 
+          <div className={`xl:w-90 w-82.5 group 
           justify-between items-center shadow-md bg-gray-200 
           transition-transform duration-300 
-          hover:scale-105 mr-3 mb-4 p-2 h-[360px] rounded-lg flex 
-          flex-col ${borderClass}`}>
+          hover:scale-105 mr-3 mb-4 p-2 h-90 rounded-lg flex 
+          flex-col ${borderClass}`}> 
           
-          <div className='rounded-lg h-[180px] w-full mb-4'>
+          <div className='rounded-lg h-45 w-full mb-4'>
             <Carrousel lab={lab} maxHeight={240} />
           </div>
           
@@ -94,8 +94,8 @@ export default function ActiveLabCard({
         </div>
       </div>
       
-      <div className={`w-full ${lab.docs?.length > 0 ? `` : 'h-[100px]'} 
-        min-[1280px]:flex-1 mb-4 flex flex-col justify-center p-2 
+      <div className={`w-full ${lab.docs?.length > 0 ? `` : 'h-25'} 
+        xl:flex-1 mb-4 flex flex-col justify-center p-2 
         text-center rounded-lg shadow-md bg-gray-300`}>
         
         {lab.docs && lab.docs.length > 0 && (

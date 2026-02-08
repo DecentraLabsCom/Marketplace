@@ -69,6 +69,7 @@ export default function LabReservation({ id }) {
   const safeChain = selectChain(chain);
   const address = getConnectionAddress(connection);
   const isConnected = isConnectionConnected(connection);
+  const effectiveUserAddress = userAddress || address;
   
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
@@ -98,8 +99,8 @@ export default function LabReservation({ id }) {
     [labBookingsData]
   )
 
-  const canFetchUserBookings = Boolean(selectedLab?.id && (isSSO || userAddress))
-  const { data: userBookingsData } = useBookingsForCalendar(userAddress, selectedLab?.id, {
+  const canFetchUserBookings = Boolean(selectedLab?.id && (isSSO || effectiveUserAddress))
+  const { data: userBookingsData } = useBookingsForCalendar(effectiveUserAddress, selectedLab?.id, {
     enabled: canFetchUserBookings,
     isSSO
   })
@@ -120,6 +121,7 @@ export default function LabReservation({ id }) {
     minDate,
     maxDate,
     availableTimes,
+    calendarUserBookingsForLab,
     totalCost,
     isWaitingForReceipt,
     isReceiptError,
@@ -382,7 +384,8 @@ export default function LabReservation({ id }) {
       const result = await reservationRequestMutation.mutateAsync({
         tokenId: labId,
         start,
-        end: start + timeslot
+        end: start + timeslot,
+        userAddress: effectiveUserAddress,
       })
 
       notifyReservationProgressSubmitted(addTemporaryNotification, { labId, start })
@@ -512,7 +515,7 @@ export default function LabReservation({ id }) {
               date={date}
               onDateChange={handleDateChange}
               bookings={labBookings}
-              userBookings={userBookingsForLab}
+              userBookings={calendarUserBookingsForLab || userBookingsForLab}
               duration={duration}
               onDurationChange={handleDurationChange}
               selectedTime={selectedTime}

@@ -182,7 +182,7 @@ export default function BookingsList({
   }, [shouldScroll, displayedBookings.length]);
 
   return (
-    <div className="min-[1280px]:w-1/2 flex flex-col h-full min-h-[350px]">
+    <div className="xl:w-1/2 flex flex-col h-full min-h-87.5">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-center flex-1 text-slate-100">
           {title}

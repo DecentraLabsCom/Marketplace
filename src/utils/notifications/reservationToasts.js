@@ -14,6 +14,7 @@ export const reservationToastIds = {
   denied: (reservationKey) => `reservation-denied:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   txReverted: () => 'reservation-tx-reverted',
   onchainRequested: (reservationKey) => `reservation-onchain-requested:${normalizeReservationKey(reservationKey) || 'unknown'}`,
+  onchainPending: (reservationKey) => `reservation-onchain-pending:${normalizeReservationKey(reservationKey) || 'unknown'}`,
   progressPrepare: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:prepare`,
   progressAuthorize: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:authorize`,
   progressSubmitted: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:submitted`,
@@ -100,6 +101,18 @@ export const notifyReservationOnChainRequested = (addTemporaryNotification, rese
     'success',
     '✅ Reservation request registered on-chain! Waiting for final confirmation...',
     reservationToastIds.onchainRequested(reservationKey)
+  )
+}
+
+export const notifyReservationRequestAcceptedAwaitingOnChain = (addTemporaryNotification, reservationKey) => {
+  notify(
+    addTemporaryNotification,
+    'pending',
+    'Reservation request accepted. Waiting for on-chain registration...',
+    reservationToastIds.onchainPending(reservationKey),
+    {
+      dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS,
+    }
   )
 }
 

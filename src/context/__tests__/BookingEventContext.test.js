@@ -238,6 +238,61 @@ describe("BookingEventContext", () => {
     expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("reservation-123");
   });
 
+  test("emits on-chain requested toast for SSO pending reservations even without local wallet address", async () => {
+    userContext.useUser.mockReturnValue({
+      address: null,
+      isSSO: true,
+    });
+
+    const queryClient = createTestQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const contextHook = renderHook(() => useBookingEventContext(), { wrapper });
+
+    act(() => {
+      contextHook.result.current.registerPendingConfirmation("reservation-123", "1", null);
+    });
+
+    await triggerEvent("ReservationRequested", [reservationRequestedLog({ renter: "0xAnotherUser" })]);
+
+    await waitFor(() => {
+      expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+        "success",
+        expect.stringContaining("Reservation request registered on-chain"),
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-onchain-requested:reservation-123",
+          dedupeWindowMs: 20000,
+        })
+      );
+    });
+  });
+
+  test("emits reservation-requested-onchain browser event for tracked requester", async () => {
+    const queryClient = createTestQueryClient();
+    renderHook(() => useBookingEventContext(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    const onChainListener = jest.fn();
+    window.addEventListener("reservation-requested-onchain", onChainListener);
+
+    await triggerEvent("ReservationRequested", [reservationRequestedLog()]);
+
+    await waitFor(() => {
+      expect(onChainListener).toHaveBeenCalledTimes(1);
+    });
+
+    const eventPayload = onChainListener.mock.calls[0][0]?.detail;
+    expect(eventPayload).toEqual(
+      expect.objectContaining({
+        reservationKey: "reservation-123",
+        tokenId: "1",
+      })
+    );
+
+    window.removeEventListener("reservation-requested-onchain", onChainListener);
+  });
+
   test("maps SSO deny reason to institutional message when request expires", async () => {
     const queryClient = createTestQueryClient();
     renderHook(() => useBookingEventContext(), {

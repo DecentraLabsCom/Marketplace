@@ -19,11 +19,12 @@ import { normalizeReservationKey } from '@/utils/booking/reservationKey'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
-import { useSsoReservationFlow } from './useSsoReservationFlow'
+import { useSsoReservationFlow, SSO_BOOKING_STAGE } from './useSsoReservationFlow'
 import { useWalletReservationFlow } from './useWalletReservationFlow'
 import { useReservationButtonState } from './useReservationButtonState'
 import devLog from '@/utils/dev/logger'
 import {
+  notifyReservationRequestAcceptedAwaitingOnChain,
   notifyReservationTxReverted,
 } from '@/utils/notifications/reservationToasts'
 
@@ -50,6 +51,71 @@ const safeParseDate = (value, fallback = new Date()) => {
   }
   
   return fallback
+}
+
+const toEpochSeconds = (value) => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+const buildRequestMatchKey = (booking) => {
+  const reservationKey = normalizeReservationKey(booking?.reservationKey || booking?.id)
+  if (reservationKey) return `key:${reservationKey}`
+
+  const labId = booking?.labId !== undefined && booking?.labId !== null
+    ? String(booking.labId)
+    : null
+  const start = toEpochSeconds(booking?.start)
+  if (labId && Number.isFinite(start)) return `slot:${labId}:${start}`
+
+  return null
+}
+
+const findTrackedBookingForRequest = (bookings, activeRequest) => {
+  if (!activeRequest || !Array.isArray(bookings) || bookings.length === 0) return null
+
+  const normalizedRequestKey = normalizeReservationKey(activeRequest.reservationKey)
+  const requestedLabId = String(activeRequest.labId)
+  const requestedStart = toEpochSeconds(activeRequest.start)
+
+  return bookings.find((booking) => {
+    if (String(booking?.labId) !== requestedLabId) return false
+
+    const bookingKey = normalizeReservationKey(booking?.reservationKey || booking?.id)
+    if (normalizedRequestKey && bookingKey && bookingKey === normalizedRequestKey) return true
+
+    const bookingStart = toEpochSeconds(booking?.start)
+    if (!Number.isFinite(requestedStart) || !Number.isFinite(bookingStart)) return false
+
+    return Math.abs(bookingStart - requestedStart) <= 60
+  }) || null
+}
+
+const buildPendingCalendarBooking = (request) => {
+  if (!request) return null
+
+  const labId = request.labId !== undefined && request.labId !== null
+    ? String(request.labId)
+    : null
+  const start = toEpochSeconds(request.start)
+  const end = toEpochSeconds(request.end)
+  if (!labId || !Number.isFinite(start)) return null
+
+  const normalizedKey = normalizeReservationKey(request.reservationKey)
+  const syntheticKey = normalizedKey || `pending-${labId}-${start}`
+
+  return {
+    id: syntheticKey,
+    reservationKey: syntheticKey,
+    labId,
+    start,
+    end: Number.isFinite(end) ? end : null,
+    date: new Date(start * 1000).toLocaleDateString('en-CA'),
+    status: BOOKING_STATUS.PENDING,
+    statusCategory: 'pending',
+    isPending: true,
+    isOptimistic: true,
+  }
 }
 
 /**
@@ -97,6 +163,8 @@ export function useLabReservationState({
   const [lastTxHash, setLastTxHash] = useState(null)
   const [pendingData, setPendingData] = useState(null)
   const optimisticRemovedRef = useRef(false)
+  const fallbackSsoToastKeysRef = useRef(new Set())
+  const onChainRequestedToastKeysRef = useRef(new Set())
 
   const extractReservationRequested = useCallback((receiptData) => {
     if (!receiptData?.logs || !Array.isArray(receiptData.logs)) return null
@@ -138,6 +206,7 @@ export function useLabReservationState({
 
   const {
     ssoBookingStage,
+    activeSsoRequest,
     isSSOFlowLocked,
     startSsoProcessing,
     markSsoRequestSent,
@@ -150,6 +219,7 @@ export function useLabReservationState({
 
   const {
     walletBookingStage,
+    activeWalletRequest,
     isWalletFlowLocked,
     startWalletProcessing,
     markWalletRequestSent,
@@ -163,6 +233,19 @@ export function useLabReservationState({
   // Client-side hydration
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    const handleOnChainRequested = (event) => {
+      const reservationKey = normalizeReservationKey(event?.detail?.reservationKey)
+      if (!reservationKey) return
+      onChainRequestedToastKeysRef.current.add(reservationKey)
+    }
+
+    window.addEventListener('reservation-requested-onchain', handleOnChainRequested)
+    return () => window.removeEventListener('reservation-requested-onchain', handleOnChainRequested)
   }, [])
 
   // Reset optimistic cleanup guard when a new pending reservation is set
@@ -238,6 +321,56 @@ export function useLabReservationState({
       )
     })
   }, [selectedLab, date, duration, labBookings])
+
+  const calendarUserBookingsForLab = useMemo(() => {
+    const baseUserBookings = Array.isArray(userBookingsForLab) ? userBookingsForLab : []
+    const combinedBookings = [
+      ...baseUserBookings,
+      ...(Array.isArray(labBookings) ? labBookings : []),
+    ]
+
+    let trackedBooking = null
+    let syntheticBooking = null
+
+    if (isSSO && ssoBookingStage === SSO_BOOKING_STAGE.REQUEST_REGISTERED) {
+      trackedBooking = findTrackedBookingForRequest(combinedBookings, activeSsoRequest)
+      syntheticBooking = buildPendingCalendarBooking(activeSsoRequest)
+    } else if (!isSSO && walletBookingStage === SSO_BOOKING_STAGE.REQUEST_REGISTERED) {
+      trackedBooking = findTrackedBookingForRequest(combinedBookings, activeWalletRequest)
+      syntheticBooking = buildPendingCalendarBooking(activeWalletRequest)
+    }
+
+    const merged = [...baseUserBookings]
+    if (trackedBooking) {
+      merged.push(trackedBooking)
+    } else if (syntheticBooking) {
+      merged.push(syntheticBooking)
+    }
+
+    const deduped = new Map()
+    merged.forEach((booking) => {
+      const dedupeKey = buildRequestMatchKey(booking)
+      if (!dedupeKey) {
+        deduped.set(`fallback-${deduped.size}`, booking)
+        return
+      }
+
+      const existing = deduped.get(dedupeKey)
+      if (!existing || existing?.isOptimistic) {
+        deduped.set(dedupeKey, booking)
+      }
+    })
+
+    return Array.from(deduped.values())
+  }, [
+    userBookingsForLab,
+    labBookings,
+    isSSO,
+    ssoBookingStage,
+    walletBookingStage,
+    activeSsoRequest,
+    activeWalletRequest,
+  ])
 
   // Calculate total cost
   const totalCost = useMemo(() => 
@@ -453,6 +586,35 @@ export function useLabReservationState({
     resetWalletReservationFlow,
   ])
 
+  useEffect(() => {
+    if (!isSSO || ssoBookingStage !== SSO_BOOKING_STAGE.REQUEST_REGISTERED) return
+
+    const normalizedReservationKey = normalizeReservationKey(
+      activeSsoRequest?.reservationKey || pendingData?.reservationKey || pendingData?.optimisticId
+    )
+    if (!normalizedReservationKey) return
+    if (fallbackSsoToastKeysRef.current.has(normalizedReservationKey)) return
+
+    const timer = setTimeout(() => {
+      if (onChainRequestedToastKeysRef.current.has(normalizedReservationKey)) return
+
+      notifyReservationRequestAcceptedAwaitingOnChain(
+        addTemporaryNotification,
+        normalizedReservationKey
+      )
+      fallbackSsoToastKeysRef.current.add(normalizedReservationKey)
+    }, 1200)
+
+    return () => clearTimeout(timer)
+  }, [
+    isSSO,
+    ssoBookingStage,
+    activeSsoRequest?.reservationKey,
+    pendingData?.reservationKey,
+    pendingData?.optimisticId,
+    addTemporaryNotification,
+  ])
+
   // Handlers
   const handleDateChange = useCallback((newDate) => {
     setDate(newDate)
@@ -495,6 +657,7 @@ export function useLabReservationState({
     minDate,
     maxDate,
     availableTimes,
+    calendarUserBookingsForLab,
     totalCost,
     
     // Transaction state

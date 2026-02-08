@@ -30,7 +30,8 @@
     ],
     "types": [
       "node",
-      "jest"
+      "jest",
+      "eslint__eslintrc"
     ],
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true

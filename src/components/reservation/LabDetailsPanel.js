@@ -48,16 +48,16 @@ export default function LabDetailsPanel({
   if (!lab) return null
 
   return (
-    <div className="flex flex-col min-[1280px]:flex-row gap-6 p-4 min-[1280px]:items-stretch">
+    <div className="flex flex-col xl:flex-row gap-6 p-4 xl:items-stretch">
       {/* Image Carousel */}
-      <div className="min-[1280px]:w-1/2 flex flex-col items-center justify-center">
-        <div className="w-full flex-1 flex items-center justify-center min-h-[400px]">
+      <div className="xl:w-1/2 flex flex-col items-center justify-center">
+          <div className="w-full flex-1 flex items-center justify-center min-h-100">
           <Carrousel lab={lab} />
         </div>
       </div>
 
       {/* Lab Description + Booking Controls */}
-      <div className="min-[1280px]:w-1/2 flex flex-col justify-between">
+      <div className="xl:w-1/2 flex flex-col justify-between">
         <p className="text-white text-base text-justify mb-2">
           {lab.description}
         </p>

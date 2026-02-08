@@ -4,6 +4,7 @@ import {
   notifyReservationAuthorizationCancelled,
   notifyReservationMissingCredential,
   notifyReservationOnChainRequested,
+  notifyReservationRequestAcceptedAwaitingOnChain,
   notifyReservationProgressAuthorization,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
@@ -244,6 +245,45 @@ describe('reservationToasts', () => {
       expect.any(String),
       null,
       expect.objectContaining({ dedupeKey: 'reservation-webauthn-missing-credential' })
+    )
+  })
+
+  test('emits SSO request-registered fallback toast with pending-onchain dedupe key', () => {
+    notifyReservationRequestAcceptedAwaitingOnChain(addTemporaryNotification, 'reservation-sso-1')
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      'pending',
+      'Reservation request accepted. Waiting for on-chain registration...',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-onchain-pending:reservation-sso-1',
+        dedupeWindowMs: 120000,
+      })
+    )
+  })
+
+  test('allows pending and success on-chain toasts to be displayed independently', () => {
+    notifyReservationRequestAcceptedAwaitingOnChain(addTemporaryNotification, 'reservation-sso-2')
+    notifyReservationOnChainRequested(addTemporaryNotification, 'reservation-sso-2')
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      1,
+      'pending',
+      'Reservation request accepted. Waiting for on-chain registration...',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-onchain-pending:reservation-sso-2',
+      })
+    )
+
+    expect(addTemporaryNotification).toHaveBeenNthCalledWith(
+      2,
+      'success',
+      expect.stringContaining('Reservation request registered on-chain'),
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-onchain-requested:reservation-sso-2',
+      })
     )
   })
 
