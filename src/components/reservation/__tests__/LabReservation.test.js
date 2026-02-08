@@ -398,6 +398,7 @@ describe("LabReservation Component", () => {
       renderWithProviders(<LabReservation id="1" />);
 
       expect(screen.getByText("Processing...")).toBeInTheDocument();
+      expect(screen.getByRole("button").querySelector(".spinner-sm")).toBeInTheDocument();
     });
 
     test("shows Processing... when waiting for receipt", () => {

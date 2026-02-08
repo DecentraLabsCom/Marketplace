@@ -537,7 +537,7 @@ export default function LabReservation({ id }) {
                 aria-busy={buttonState.ariaBusy}
               >
                 <span className="inline-flex items-center justify-center gap-2">
-                  {buttonState.showSpinner && <div className="spinner-sm border-white" />}
+                  {buttonState.showSpinner && <div className="spinner spinner-sm border-white" />}
                   {buttonState.label}
                 </span>
               </button>
