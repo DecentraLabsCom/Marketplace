@@ -25,6 +25,7 @@ import {
   notifyReservationMissingInstitutionalBackend,
   notifyReservationMissingLabSelection,
   notifyReservationMissingCredential,
+  notifyReservationAuthorizationCancelled,
   notifyReservationMissingTimeSelection,
   notifyReservationProgressAuthorization,
   notifyReservationProgressPreparing,
@@ -255,10 +256,23 @@ export default function LabReservation({ id }) {
       }
       await handleBookingSuccess()
     } catch (error) {
+      const errorMessage = typeof error?.message === 'string' ? error.message : ''
+      const isAuthorizationCancelled =
+        error?.code === 'INTENT_AUTH_CANCELLED' ||
+        error?.name === 'NotAllowedError' ||
+        errorMessage.includes('Authorization cancelled by user')
+
+      if (isAuthorizationCancelled) {
+        notifyReservationAuthorizationCancelled(addTemporaryNotification)
+        if (typeof resetSsoReservationFlow === 'function') {
+          resetSsoReservationFlow()
+        }
+        return
+      }
+
       const missingCredential =
         error?.code === 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED' ||
-        (typeof error?.message === 'string' &&
-          error.message.includes('webauthn_credential_not_registered'))
+        errorMessage.includes('webauthn_credential_not_registered')
 
       if (missingCredential) {
         notifyReservationMissingCredential(addTemporaryNotification)

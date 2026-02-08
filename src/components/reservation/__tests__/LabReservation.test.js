@@ -600,6 +600,31 @@ describe("LabReservation Component", () => {
       });
     });
 
+    test("handles SSO authorization cancellation without generic error toast", async () => {
+      const cancelledError = new Error("Authorization cancelled by user");
+      cancelledError.code = "INTENT_AUTH_CANCELLED";
+      mockReservationRequestMutation.mutateAsync.mockRejectedValueOnce(cancelledError);
+
+      renderWithProviders(<LabReservation id="1" />);
+
+      const button = screen.getByRole("button", { name: /book now/i });
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+          "warning",
+          "Reservation authorization was cancelled.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-authorization-cancelled",
+            dedupeWindowMs: 20000,
+          })
+        );
+      });
+
+      expect(mockAddErrorNotification).not.toHaveBeenCalled();
+    });
+
     test("opens onboarding modal when WebAuthn credential is missing", async () => {
       const missingCredentialError = new Error("webauthn_credential_not_registered");
       missingCredentialError.code = "WEBAUTHN_CREDENTIAL_NOT_REGISTERED";
@@ -833,6 +858,15 @@ describe("LabReservation Component", () => {
       mockReservationRequestMutation.mutateAsync.mockRejectedValueOnce(
         rejectionError
       );
+      const mockSetIsBooking = jest.fn();
+      const mockResetWalletReservationFlow = jest.fn();
+
+      reservationHooks.useLabReservationState.mockReturnValue({
+        ...reservationHooks.useLabReservationState(),
+        selectedTime: "10:00",
+        setIsBooking: mockSetIsBooking,
+        resetWalletReservationFlow: mockResetWalletReservationFlow,
+      });
 
       renderWithProviders(<LabReservation id="1" />);
 
@@ -850,6 +884,9 @@ describe("LabReservation Component", () => {
           })
         );
       });
+
+      expect(mockSetIsBooking).toHaveBeenCalledWith(false);
+      expect(mockResetWalletReservationFlow).toHaveBeenCalled();
     });
 
     test("handles execution reverted error", async () => {

@@ -17,6 +17,7 @@ export const reservationToastIds = {
   progressPrepare: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:prepare`,
   progressAuthorize: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:authorize`,
   progressSubmitted: ({ labId, start }) => `reservation-progress:${String(labId)}:${String(start)}:submitted`,
+  authorizationCancelled: () => 'reservation-authorization-cancelled',
   missingCredential: () => 'reservation-webauthn-missing-credential',
   validationMissingTime: () => 'reservation-validation-missing-time',
   validationMissingLab: () => 'reservation-validation-missing-lab',
@@ -124,6 +125,15 @@ export const notifyReservationProgressSubmitted = (addTemporaryNotification, pay
     'pending',
     'Reservation request sent! Processing...',
     reservationToastIds.progressSubmitted(payload)
+  )
+}
+
+export const notifyReservationAuthorizationCancelled = (addTemporaryNotification) => {
+  notify(
+    addTemporaryNotification,
+    'warning',
+    'Reservation authorization was cancelled.',
+    reservationToastIds.authorizationCancelled()
   )
 }
 

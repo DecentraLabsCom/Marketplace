@@ -1,6 +1,7 @@
 import {
   notifyReservationConfirmed,
   notifyReservationDenied,
+  notifyReservationAuthorizationCancelled,
   notifyReservationMissingCredential,
   notifyReservationOnChainRequested,
   notifyReservationProgressAuthorization,
@@ -173,6 +174,20 @@ describe('reservationToasts', () => {
       null,
       expect.objectContaining({
         dedupeKey: 'reservation-progress:9:1700000000:submitted',
+        dedupeWindowMs: 20000,
+      })
+    )
+  })
+
+  test('emits authorization-cancelled toast with stable dedupe key', () => {
+    notifyReservationAuthorizationCancelled(addTemporaryNotification)
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      'warning',
+      'Reservation authorization was cancelled.',
+      null,
+      expect.objectContaining({
+        dedupeKey: 'reservation-authorization-cancelled',
         dedupeWindowMs: 20000,
       })
     )

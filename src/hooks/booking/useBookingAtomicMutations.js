@@ -177,6 +177,9 @@ const openAuthorizationPopupFallback = (authorizationUrl) => {
   return fallback;
 };
 
+const AUTH_POPUP_CLOSE_POLL_MS = 500;
+const AUTH_POPUP_CLOSE_GRACE_MS = 1000;
+
 async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup } = {}) {
   const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData, backendUrl);
   if (!authorizationUrl || !authorizationSessionId) {
@@ -203,22 +206,63 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     prepareData?.backendUrl || backendUrl
   );
 
-  const status = await pollIntentAuthorizationStatus(authorizationSessionId, {
+  const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
     backendUrl: statusBaseUrl || prepareData?.backendUrl || backendUrl,
     authToken: authToken || prepareData?.backendAuthToken,
+  }).catch((error) => ({ __pollError: error }));
+
+  let closeInterval = null;
+  const popupClosedPromise = new Promise((resolve) => {
+    closeInterval = setInterval(() => {
+      if (authPopup.closed) {
+        if (closeInterval) {
+          clearInterval(closeInterval);
+          closeInterval = null;
+        }
+        resolve({ __popupClosed: true });
+      }
+    }, AUTH_POPUP_CLOSE_POLL_MS);
   });
+
+  let status;
+  try {
+    const firstResult = await Promise.race([pollPromise, popupClosedPromise]);
+    if (firstResult?.__popupClosed) {
+      const graceResult = await Promise.race([
+        pollPromise,
+        new Promise((resolve) => setTimeout(() => resolve({ __popupClosed: true }), AUTH_POPUP_CLOSE_GRACE_MS)),
+      ]);
+
+      if (graceResult?.__pollError) {
+        throw graceResult.__pollError;
+      }
+      if (graceResult?.__popupClosed) {
+        const cancelledError = new Error('Authorization cancelled by user');
+        cancelledError.code = 'INTENT_AUTH_CANCELLED';
+        throw cancelledError;
+      }
+      status = graceResult;
+    } else if (firstResult?.__pollError) {
+      throw firstResult.__pollError;
+    } else {
+      status = firstResult;
+    }
+  } finally {
+    if (closeInterval) {
+      clearInterval(closeInterval);
+    }
+    try {
+      if (!authPopup.closed) {
+        authPopup.close();
+      }
+    } catch {
+      // ignore close errors
+    }
+  }
 
   const normalized = (status?.status || '').toUpperCase();
   if (normalized === 'FAILED') {
     throw new Error(status?.error || 'Intent authorization failed');
-  }
-
-  try {
-    if (!authPopup.closed) {
-      authPopup.close();
-    }
-  } catch {
-    // ignore close errors
   }
 
   return status;

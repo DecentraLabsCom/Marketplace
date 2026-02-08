@@ -32,6 +32,7 @@ jest.mock('@/utils/webauthn/client', () => ({
 import { renderHook, act } from '@testing-library/react';
 import { waitFor } from '@testing-library/react';
 import pollIntentStatus from '@/utils/intents/pollIntentStatus';
+import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus';
 
 // Mock optimistic UI context helpers
 const mockSetOptimisticBookingState = jest.fn();
@@ -57,6 +58,7 @@ const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../../te
 const mockContractWriteFactory = require('../../../test-utils/mocks/hooks/useContractWriteFunction');
 
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'processing' })));
+jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS' })));
 
 /* Shared QueryClient wrapper for stable react-query behavior in tests */
 function createWrapper() {
@@ -94,6 +96,7 @@ describe('useReservationRequest (minimal unit tests)', () => {
     jest.clearAllMocks();
     delete global.window;
     delete global.navigator;
+    jest.useRealTimers();
   });
 
   test('wallet: optimistic add -> contract write -> replace optimistic (success)', async () => {
@@ -423,6 +426,51 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     global.window.PublicKeyCredential = originalPKC;
   });
+
+  test('SSO: closing authorization popup rejects mutation and unlocks flow path', async () => {
+    const bookingMocks = makeBookingMocks();
+    mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+
+    const popup = { closed: false, focus: jest.fn(), close: jest.fn(), opener: null };
+    global.window.open = jest.fn(() => popup);
+
+    pollIntentAuthorizationStatus.mockImplementation(
+      () => new Promise(() => {})
+    );
+
+    global.fetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        authorizationUrl: 'https://institution.example/intents/authorize/session-1',
+        authorizationSessionId: 'session-1',
+        backendUrl: 'https://institution.example',
+        intent: { meta: { requestId: 'req-cancel' }, payload: { reservationKey: 'rk-cancel' } },
+      }),
+    });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
+
+    const mutationPromise = result.current.mutateAsync({
+      tokenId: 'tk-cancel',
+      start: 10,
+      end: 20,
+      backendUrl: 'https://institution.example',
+    });
+
+    await waitFor(() => {
+      expect(global.window.open).toHaveBeenCalled();
+    });
+
+    popup.closed = true;
+
+    await expect(mutationPromise).rejects.toMatchObject({
+      message: 'Authorization cancelled by user',
+      code: 'INTENT_AUTH_CANCELLED',
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
+  }, 10000);
 
   test('SSO: navigator.credentials.get throws -> no finalize, no cache update', async () => {
     const bookingMocks = makeBookingMocks();
