@@ -46,10 +46,9 @@ export default function BookingCalendarSection({
   isSSO,
   formatPrice
 }) {
-  // Merge user and lab bookings so optimistic updates and on-chain data share one calendar source.
-  // User entries override same-key lab entries when both are present.
+  // Calendar highlight should reflect only the connected user's bookings.
+  // Lab-wide bookings are still passed separately to block occupied slots in time dropdown generation.
   const calendarBookings = useMemo(() => {
-    const labEntries = Array.isArray(bookings) ? bookings : []
     const userEntries = Array.isArray(userBookings) ? userBookings : []
     const mergedByKey = new Map()
 
@@ -60,15 +59,12 @@ export default function BookingCalendarSection({
       return `slot-${booking.labId || 'lab'}-${booking.start || 'start'}-${booking.end || 'end'}-${index}`
     }
 
-    labEntries.forEach((booking, index) => {
-      mergedByKey.set(getBookingKey(booking, index), booking)
-    })
     userEntries.forEach((booking, index) => {
       mergedByKey.set(getBookingKey(booking, index), booking)
     })
 
     return Array.from(mergedByKey.values()).filter((booking) => !isCancelledBooking(booking))
-  }, [userBookings, bookings])
+  }, [userBookings])
   
   // Create a stable key that includes booking statuses to force re-render on status changes
   const calendarKey = useMemo(() => {

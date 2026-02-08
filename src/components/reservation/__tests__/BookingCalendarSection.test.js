@@ -7,7 +7,8 @@
  *
  * Test Behaviors:
  * - Null Safety: Returns null when lab prop is not provided
- * - Booking Filtering: Filters out cancelled bookings from calendar display
+ * - Booking Filtering: Filters out cancelled user bookings from calendar display
+ * - Calendar Scope: Shows only current user bookings (never lab-wide bookings)
  * - Calendar Rendering: Renders calendar with correct date and triggers callbacks
  * - Duration Selection: Dropdown with lab time slots and default fallback
  * - Time Selection: Available times with disabled states for reserved slots
@@ -100,6 +101,21 @@ describe("BookingCalendarSection", () => {
     },
   ];
 
+  const mockUserBookings = [
+    {
+      reservationKey: "user-booking-1",
+      status: "confirmed",
+      startTime: "10:00",
+      endTime: "11:00",
+    },
+    {
+      reservationKey: "user-booking-2",
+      status: "cancelled",
+      startTime: "14:00",
+      endTime: "15:00",
+    },
+  ];
+
   const mockAvailableTimes = [
     { value: "09:00", label: "09:00 AM", disabled: false, isReserved: false },
     { value: "10:00", label: "10:00 AM", disabled: true, isReserved: true },
@@ -111,6 +127,7 @@ describe("BookingCalendarSection", () => {
     date: mockDate,
     onDateChange: jest.fn(),
     bookings: mockBookings,
+    userBookings: mockUserBookings,
     duration: 30,
     onDurationChange: jest.fn(),
     selectedTime: "09:00",
@@ -141,17 +158,32 @@ describe("BookingCalendarSection", () => {
   });
 
   describe("Booking Filtering", () => {
-    test("filters out cancelled bookings from calendar display", () => {
+    test("filters out cancelled user bookings from calendar display", () => {
       render(<BookingCalendarSection {...defaultProps} />);
 
-      expect(isCancelledBooking).toHaveBeenCalledTimes(3);
-      expect(screen.getByTestId("calendar-bookings")).toHaveTextContent("2");
+      expect(isCancelledBooking).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("calendar-bookings")).toHaveTextContent("1");
     });
 
-    test("handles empty or null bookings array", () => {
-      render(<BookingCalendarSection {...defaultProps} bookings={null} />);
+    test("handles empty or null userBookings array", () => {
+      render(<BookingCalendarSection {...defaultProps} userBookings={null} />);
 
       expect(screen.getByTestId("calendar-bookings")).toHaveTextContent("0");
+    });
+
+    test("does not include lab-wide bookings in highlighted calendar data", () => {
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          bookings={[
+            { reservationKey: "lab-only-1", status: "confirmed" },
+            { reservationKey: "lab-only-2", status: "confirmed" },
+          ]}
+          userBookings={[{ reservationKey: "user-only-1", status: "confirmed" }]}
+        />
+      );
+
+      expect(screen.getByTestId("calendar-bookings")).toHaveTextContent("1");
     });
   });
 
