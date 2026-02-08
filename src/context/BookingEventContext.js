@@ -19,6 +19,7 @@ import {
     notifyReservationDenied,
     notifyReservationOnChainRequested,
 } from '@/utils/notifications/reservationToasts'
+import { notifyUserDashboardCancellationConfirmed } from '@/utils/notifications/userDashboardToasts'
 
 const BookingEventContext = createContext();
 
@@ -43,6 +44,7 @@ export function BookingEventProvider({ children }) {
     const backupPollingEnabled = String(process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED || 'false').toLowerCase() === 'true';
 
     const pendingConfirmations = useRef(new Map()); // Track reservations waiting for provider action (backup polling)
+    const pendingCancellations = useRef(new Map()); // Track reservations currently being cancelled from this session
     const notifiedConfirmations = useRef(new Set()); // Avoid duplicate confirmation toasts
 
     const { clearOptimisticBookingState } = useOptimisticUI();
@@ -74,6 +76,18 @@ export function BookingEventProvider({ children }) {
         });
     };
 
+    const registerPendingCancellation = (reservationKey, tokenId, requesterAddress) => {
+        const normalizedKey = normalizeReservationKey(reservationKey);
+        if (!normalizedKey) return;
+
+        const existing = pendingCancellations.current.get(normalizedKey);
+        pendingCancellations.current.set(normalizedKey, {
+            timestamp: existing?.timestamp ?? Date.now(),
+            tokenId: tokenId?.toString?.() ?? tokenId ?? existing?.tokenId,
+            requester: requesterAddress?.toLowerCase?.() ?? requesterAddress ?? existing?.requester,
+        });
+    };
+
     const emitReservationDenied = (reservationKey, tokenId, notified = false, reason = null) => {
         if (typeof window === 'undefined') return;
         try {
@@ -89,6 +103,24 @@ export function BookingEventProvider({ children }) {
             );
         } catch (err) {
             devLog.warn('Failed to emit reservation-request-denied event:', err);
+        }
+    };
+
+    const emitReservationCancelled = (reservationKey, tokenId, type = 'booking', notified = false) => {
+        if (typeof window === 'undefined') return;
+        try {
+            window.dispatchEvent(
+                new CustomEvent('reservation-cancelled', {
+                    detail: {
+                        reservationKey,
+                        tokenId,
+                        type,
+                        notified,
+                    }
+                })
+            );
+        } catch (err) {
+            devLog.warn('Failed to emit reservation-cancelled event:', err);
         }
     };
 
@@ -423,10 +455,27 @@ export function BookingEventProvider({ children }) {
                 const tokenIdStr = tokenId?.toString();
                 
                 if (reservationKeyStr) {
+                    const pendingCancellationInfo = pendingCancellations.current.get(reservationKeyStr);
+                    if (pendingCancellationInfo) {
+                        pendingCancellations.current.delete(reservationKeyStr);
+                    }
+
                     pendingConfirmations.current.delete(reservationKeyStr);
                     removeReconciliationEntry(`booking:cancel:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
                     removeOptimisticBooking(reservationKeyStr);
+
+                    if (pendingCancellationInfo) {
+                        notifyUserDashboardCancellationConfirmed(addTemporaryNotification, reservationKeyStr, {
+                            isRequest: false,
+                        });
+                    }
+                    emitReservationCancelled(
+                        reservationKeyStr,
+                        tokenIdStr,
+                        'booking',
+                        Boolean(pendingCancellationInfo)
+                    );
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
                     } catch (err) {
@@ -453,10 +502,27 @@ export function BookingEventProvider({ children }) {
                 const tokenIdStr = tokenId?.toString();
                 
                 if (reservationKeyStr) {
+                    const pendingCancellationInfo = pendingCancellations.current.get(reservationKeyStr);
+                    if (pendingCancellationInfo) {
+                        pendingCancellations.current.delete(reservationKeyStr);
+                    }
+
                     pendingConfirmations.current.delete(reservationKeyStr);
                     removeReconciliationEntry(`booking:cancel-request:${reservationKeyStr}`);
                     invalidateReservationCaches(reservationKeyStr, tokenIdStr);
                     removeOptimisticBooking(reservationKeyStr);
+
+                    if (pendingCancellationInfo) {
+                        notifyUserDashboardCancellationConfirmed(addTemporaryNotification, reservationKeyStr, {
+                            isRequest: true,
+                        });
+                    }
+                    emitReservationCancelled(
+                        reservationKeyStr,
+                        tokenIdStr,
+                        'request',
+                        Boolean(pendingCancellationInfo)
+                    );
                     try {
                       clearOptimisticBookingState(String(reservationKeyStr));
                     } catch (err) {
@@ -540,7 +606,7 @@ export function BookingEventProvider({ children }) {
 
 
     return (
-        <BookingEventContext.Provider value={{ registerPendingConfirmation }}>
+        <BookingEventContext.Provider value={{ registerPendingConfirmation, registerPendingCancellation }}>
             {children}
         </BookingEventContext.Provider>
     );

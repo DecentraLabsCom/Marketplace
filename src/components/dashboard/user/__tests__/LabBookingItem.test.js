@@ -160,6 +160,28 @@ describe('LabBookingItem', () => {
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
 
+  test('disables cancel button and shows spinner while cancellation is in progress', async () => {
+    const user = userEvent.setup();
+    const onCancel = jest.fn();
+    const booking = createBooking({ status: '1' });
+
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={booking}
+        onCancel={onCancel}
+        cancelState={{ isBusy: true, label: 'Processing...' }}
+      />
+    );
+
+    const cancelButton = screen.getByRole('button', { name: /Processing.../i });
+    expect(cancelButton).toBeDisabled();
+    expect(cancelButton.querySelector('.spinner')).toBeInTheDocument();
+
+    await user.click(cancelButton);
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
   test('hides cancel button for canceled booking (status 5)', () => {
     render(
       <LabBookingItem

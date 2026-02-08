@@ -2,6 +2,9 @@ export const userDashboardToastIds = {
   missingBookingSelection: () => 'user-dashboard-missing-booking-selection',
   alreadyCanceled: () => 'user-dashboard-already-canceled',
   walletRequired: () => 'user-dashboard-wallet-required',
+  cancellationProcessing: (reservationKey) => `user-dashboard-cancellation-processing:${String(reservationKey || 'unknown')}`,
+  cancellationSubmitted: (reservationKey) => `user-dashboard-cancellation-submitted:${String(reservationKey || 'unknown')}`,
+  cancellationConfirmed: (reservationKey) => `user-dashboard-cancellation-confirmed:${String(reservationKey || 'unknown')}`,
   cancellationRejected: () => 'user-dashboard-cancellation-rejected',
   cancellationFailed: (reservationKey) => `user-dashboard-cancellation-failed:${String(reservationKey || 'unknown')}`,
 }
@@ -55,3 +58,47 @@ export const notifyUserDashboardCancellationFailed = (addTemporaryNotification, 
     userDashboardToastIds.cancellationFailed(reservationKey)
   )
 
+export const notifyUserDashboardCancellationProcessing = (
+  addTemporaryNotification,
+  reservationKey,
+  options = {}
+) =>
+  notify(
+    addTemporaryNotification,
+    'pending',
+    options?.isRequest
+      ? 'Cancelling reservation request...'
+      : 'Cancelling booking...',
+    userDashboardToastIds.cancellationProcessing(reservationKey)
+  )
+
+export const notifyUserDashboardCancellationSubmitted = (
+  addTemporaryNotification,
+  reservationKey,
+  options = {}
+) =>
+  notify(
+    addTemporaryNotification,
+    'pending',
+    options?.isRequest
+      ? 'Cancellation request sent. Waiting for on-chain confirmation...'
+      : 'Booking cancellation sent. Waiting for on-chain confirmation...',
+    userDashboardToastIds.cancellationSubmitted(reservationKey)
+  )
+
+export const notifyUserDashboardCancellationConfirmed = (
+  addTemporaryNotification,
+  reservationKey,
+  options = {}
+) =>
+  notify(
+    addTemporaryNotification,
+    'success',
+    options?.isRequest
+      ? 'Reservation request cancelled successfully.'
+      : 'Booking cancelled successfully.',
+    userDashboardToastIds.cancellationConfirmed(reservationKey),
+    {
+      dedupeWindowMs: 120000,
+    }
+  )

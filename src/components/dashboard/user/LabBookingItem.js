@@ -37,7 +37,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
     onConfirmRefund = null,
     isModalOpen = false,
     closeModal = null,
-    onClearError = null
+    onClearError = null,
+    cancelState = null
 }) {
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
@@ -45,6 +46,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
     const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
     const isCancelled = isCancelledBooking(booking);
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
+    const isCancelling = Boolean(cancelState?.isBusy);
+    const cancelLabel = cancelState?.label || ((booking.status === "1" || booking.status === 1) ? "Cancel Booking" : "Cancel Request");
 
     return (
         <li className={`flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
@@ -94,12 +97,20 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     <button
                         onClick={() => {
                             // Log critical action for debugging
+                            if (isCancelling) return;
                             devLog.log('Cancel booking action:', { labId: lab.id, bookingStatus: booking.status });
                             onCancel(booking);
                         }}
-                        className="bg-[#a87583] text-white px-3 py-1 rounded hover:bg-[#8a5c66] text-sm"
+                        disabled={isCancelling}
+                        className={`text-white px-3 py-1 rounded text-sm inline-flex items-center justify-center gap-2 ${
+                          isCancelling
+                            ? 'bg-gray-500 cursor-not-allowed'
+                            : 'bg-[#a87583] hover:bg-[#8a5c66]'
+                        }`}
+                        aria-busy={isCancelling}
                     >
-                        {(booking.status === "1" || booking.status === 1) ? "Cancel Booking" : "Cancel Request"}
+                        {isCancelling && <div className="spinner spinner-sm border-white" />}
+                        {cancelLabel}
                     </button>
                 )}
                 {/* Only show refund button for reservations that have a key and are not canceled */}
@@ -152,7 +163,11 @@ LabBookingItem.propTypes = {
     onConfirmRefund: PropTypes.func,
     isModalOpen: PropTypes.bool,
     closeModal: PropTypes.func,
-    onClearError: PropTypes.func
+    onClearError: PropTypes.func,
+    cancelState: PropTypes.shape({
+        isBusy: PropTypes.bool,
+        label: PropTypes.string
+    })
 }
 
 export default LabBookingItem;

@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { Container, Stack } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
+import { useOptionalBookingEventContext } from '@/context/BookingEventContext'
 import { 
   useUserBookingsDashboard,
   useCancelBooking, 
@@ -18,6 +19,8 @@ import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import devLog from '@/utils/dev/logger'
 import {
   notifyUserDashboardAlreadyCanceled,
+  notifyUserDashboardCancellationProcessing,
+  notifyUserDashboardCancellationSubmitted,
   notifyUserDashboardCancellationFailed,
   notifyUserDashboardCancellationRejected,
   notifyUserDashboardMissingBookingSelection,
@@ -63,6 +66,7 @@ export default function UserDashboard() {
   );
 
   const { addTemporaryNotification } = useNotifications();
+  const { registerPendingCancellation } = useOptionalBookingEventContext();
 
   // 🚀 Unified React Query mutations for cancellation
   const cancelBookingUnified = useCancelBooking();
@@ -85,7 +89,69 @@ export default function UserDashboard() {
   
   // State for UI feedback only
   const [failedCancellations, setFailedCancellations] = useState(new Set());
+  const [cancellationStates, setCancellationStates] = useState(new Map());
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const cancellingKeysRef = useRef(new Set());
+
+  const setCancellationStage = (reservationKey, stage) => {
+    if (!reservationKey) return;
+    setCancellationStates((prev) => {
+      const next = new Map(prev);
+      if (!stage) {
+        next.delete(reservationKey);
+      } else {
+        const label =
+          stage === 'processing'
+            ? 'Processing...'
+            : 'Cancel Requested';
+        next.set(reservationKey, {
+          stage,
+          isBusy: true,
+          label,
+        });
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleCancelled = (event) => {
+      const reservationKey = event?.detail?.reservationKey;
+      if (!reservationKey) return;
+      cancellingKeysRef.current.delete(reservationKey);
+      setCancellationStage(reservationKey, null);
+      setFailedCancellations((prev) => {
+        const next = new Set(prev);
+        next.delete(reservationKey);
+        return next;
+      });
+    };
+
+    window.addEventListener('reservation-cancelled', handleCancelled);
+    return () => window.removeEventListener('reservation-cancelled', handleCancelled);
+  }, []);
+
+  useEffect(() => {
+    if (!Array.isArray(userBookings) || userBookings.length === 0) {
+      setCancellationStates(new Map());
+      return;
+    }
+
+    const existingKeys = new Set(
+      userBookings.map((booking) => booking?.reservationKey).filter(Boolean)
+    );
+    setCancellationStates((prev) => {
+      const next = new Map();
+      prev.forEach((value, key) => {
+        if (existingKeys.has(key)) {
+          next.set(key, value);
+        }
+      });
+      return next;
+    });
+  }, [userBookings]);
 
   const bookingInfo = useMemo(() => {
     return mapBookingsForCalendar(userBookings, {
@@ -160,12 +226,25 @@ export default function UserDashboard() {
       newSet.delete(booking.reservationKey);
       return newSet;
     });
+    if (cancellationStates.has(booking.reservationKey)) {
+      return;
+    }
+    if (cancellingKeysRef.current.has(booking.reservationKey)) {
+      return;
+    }
+    cancellingKeysRef.current.add(booking.reservationKey);
 
     setSelectedBooking(booking);
+    const isPending = booking.status === 0 || booking.status === '0';
+    setCancellationStage(booking.reservationKey, 'processing');
+    notifyUserDashboardCancellationProcessing(
+      addTemporaryNotification,
+      booking.reservationKey,
+      { isRequest: isPending }
+    );
     
     try {
       // 🚀 Route by status: pending -> cancel reservation request; booked -> cancel booking
-      const isPending = booking.status === 0 || booking.status === '0';
       if (isPending) {
         // Fire transaction but do NOT remove from UI yet; wait for chain event
         await cancelReservationUnified.mutateAsync(booking);
@@ -174,11 +253,28 @@ export default function UserDashboard() {
         await cancelBookingUnified.mutateAsync(booking);
       }
 
+      setCancellationStage(booking.reservationKey, 'submitted');
+      notifyUserDashboardCancellationSubmitted(
+        addTemporaryNotification,
+        booking.reservationKey,
+        { isRequest: isPending }
+      );
+
+      if (typeof registerPendingCancellation === 'function') {
+        registerPendingCancellation(
+          booking.reservationKey,
+          booking.labId,
+          address || user?.userid
+        );
+      }
+
       // UI removal is handled by BookingEventContext upon on-chain confirmation
       // This prevents premature list updates and avoids full list refreshes
 
     } catch (error) {
       devLog.error('Cancellation failed:', error);
+      cancellingKeysRef.current.delete(booking.reservationKey);
+      setCancellationStage(booking.reservationKey, null);
       
       // Add to failed cancellations for visual feedback
       setFailedCancellations(prev => new Set([...prev, booking.reservationKey]));
@@ -193,6 +289,11 @@ export default function UserDashboard() {
       }, 5000);
       
       if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+        notifyUserDashboardCancellationRejected(addTemporaryNotification);
+      } else if (
+        error?.code === 'INTENT_AUTH_CANCELLED' ||
+        error?.name === 'NotAllowedError'
+      ) {
         notifyUserDashboardCancellationRejected(addTemporaryNotification);
       } else {
         notifyUserDashboardCancellationFailed(addTemporaryNotification, booking?.reservationKey);
@@ -375,6 +476,7 @@ export default function UserDashboard() {
                 onCancel={handleCancellation}
                 onClearError={handleClearCancellationError}
                 failedCancellations={failedCancellations}
+                cancellationStates={cancellationStates}
                 closeModal={closeModal}
               />
               

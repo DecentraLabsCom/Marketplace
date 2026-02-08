@@ -38,6 +38,7 @@ export default function BookingsList({
   isModalOpen,
   closeModal,
   failedCancellations = new Set(),
+  cancellationStates = new Map(),
   selectedBooking = null,
   selectedLabId = null
 }) {
@@ -215,6 +216,10 @@ export default function BookingsList({
               if (isUpcoming) {
                 itemProps.onCancel = onCancel;
                 itemProps.onClearError = onClearError;
+                const cancelState = cancellationStates instanceof Map
+                  ? cancellationStates.get(booking.reservationKey)
+                  : null;
+                itemProps.cancelState = cancelState || null;
               } else {
                 itemProps.onRefund = onRefund;
                 itemProps.onConfirmRefund = onConfirmRefund;
@@ -258,6 +263,7 @@ BookingsList.propTypes = {
   isModalOpen: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
   closeModal: PropTypes.func.isRequired,
   failedCancellations: PropTypes.instanceOf(Set),
+  cancellationStates: PropTypes.instanceOf(Map),
   selectedBooking: PropTypes.object,
   selectedLabId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 };

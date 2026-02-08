@@ -137,8 +137,8 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
     expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-csso-1');
   });
 
-  test('Wallet: contract write called and QueryClient.setQueryData attempted', async () => {
-    // Arrange: prepare QueryClient and spy setQueryData
+  test('Wallet: contract write called and cancellation waits for event-driven cache updates', async () => {
+    // Arrange
     const { qc, wrapper } = createWrapper();
     const setSpy = jest.spyOn(qc, 'setQueryData');
 
@@ -153,9 +153,10 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
       await result.current.mutateAsync('rk-wallet-1');
     });
 
-    // Assert: contract function invoked with reservation key and local cache attempted to be patched
+    // Assert: contract function invoked with reservation key
     expect(cancelFn).toHaveBeenCalledWith(['rk-wallet-1']);
-    expect(setSpy).toHaveBeenCalled();
+    // No status=cancelled optimistic cache patch here; UI waits for blockchain event.
+    expect(setSpy).not.toHaveBeenCalled();
 
     // Optimistic UI should be set and completed for the cancellation
     expect(mockSetOptimisticBookingState).toHaveBeenCalledWith('rk-wallet-1', expect.objectContaining({ status: 'cancelling' }));

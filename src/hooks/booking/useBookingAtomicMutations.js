@@ -1129,19 +1129,8 @@ export const useCancelReservationRequestWallet = (options = {}) => {
       return { hash: txHash };
     },
     onSuccess: (result, reservationKey) => {
-      // Optimistic update: mark reservation as cancelled in cache to remove from UI immediately
-      queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          reservation: {
-            ...oldData.reservation,
-            status: '5', // Cancelled status
-            isCancelled: true
-          }
-        };
-      });
-      devLog.log('✅ Reservation request marked as cancelled in cache via wallet (optimistic update)');
+      // Keep reservation visible until BookingEventContext receives ReservationRequestCanceled.
+      devLog.log('✅ Reservation request cancellation tx sent via wallet - waiting for on-chain event');
 
       // Optimistic UI: set cancelling state and complete it after tx sent
       try {
@@ -1230,18 +1219,6 @@ export const useCancelBookingSSO = (options = {}) => {
         devLog.error('Missing reservationKey on cancel booking success callback');
         return;
       }
-      queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          reservation: {
-            ...oldData.reservation,
-            status: '5', // Cancelled status
-            isCancelled: true
-          }
-        };
-      });
-
       try {
         try {
           const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
@@ -1283,8 +1260,8 @@ export const useCancelBookingSSO = (options = {}) => {
                     reservation: {
                       ...oldData.reservation,
                       transactionHash: txHash,
-                      isCancelled: true,
-                      status: '5',
+                      intentStatus: 'executed',
+                      note: 'Cancellation submitted on-chain',
                     },
                   };
                 });
@@ -1382,19 +1359,8 @@ export const useCancelBookingWallet = (options = {}) => {
       return { hash: txHash };
     },
     onSuccess: (result, reservationKey) => {
-      // Optimistic update: mark booking as cancelled in cache to remove from UI immediately
-      queryClient.setQueryData(bookingQueryKeys.byReservationKey(reservationKey), (oldData) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          reservation: {
-            ...oldData.reservation,
-            status: '5', // Cancelled status
-            isCancelled: true
-          }
-        };
-      });
-      devLog.log('✅ Booking marked as cancelled via wallet (optimistic update)');
+      // Keep booking visible until BookingEventContext receives BookingCanceled.
+      devLog.log('✅ Booking cancellation tx sent via wallet - waiting for on-chain event');
 
       try {
         const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);

@@ -141,6 +141,7 @@ describe("BookingEventContext", () => {
     expect(result.current).toEqual(
       expect.objectContaining({
         registerPendingConfirmation: expect.any(Function),
+        registerPendingCancellation: expect.any(Function),
       })
     );
   });
@@ -381,6 +382,68 @@ describe("BookingEventContext", () => {
     ]);
 
     expect(mockClearOptimisticBookingState).toHaveBeenCalledWith("res-cancel-1");
+  });
+
+  test("emits cancellation confirmation toast and browser event for tracked booking cancellation", async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const contextHook = renderHook(() => useBookingEventContext(), { wrapper });
+    const cancelledListener = jest.fn();
+    window.addEventListener("reservation-cancelled", cancelledListener);
+
+    act(() => {
+      contextHook.result.current.registerPendingCancellation("res-cancel-2", "3", "0xUserAddress");
+    });
+
+    await triggerEvent("BookingCanceled", [
+      { args: { reservationKey: "res-cancel-2", tokenId: "3" } },
+    ]);
+
+    expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+      "success",
+      "Booking cancelled successfully.",
+      null,
+      expect.objectContaining({
+        dedupeKey: "user-dashboard-cancellation-confirmed:res-cancel-2",
+        dedupeWindowMs: 120000,
+      })
+    );
+
+    expect(cancelledListener).toHaveBeenCalledTimes(1);
+    expect(cancelledListener.mock.calls[0][0]?.detail).toEqual(
+      expect.objectContaining({
+        reservationKey: "res-cancel-2",
+        tokenId: "3",
+        type: "booking",
+        notified: true,
+      })
+    );
+
+    window.removeEventListener("reservation-cancelled", cancelledListener);
+  });
+
+  test("emits request-cancel confirmation toast for tracked reservation request cancellation", async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const contextHook = renderHook(() => useBookingEventContext(), { wrapper });
+
+    act(() => {
+      contextHook.result.current.registerPendingCancellation("res-cancel-3", "4", "0xUserAddress");
+    });
+
+    await triggerEvent("ReservationRequestCanceled", [
+      { args: { reservationKey: "res-cancel-3", tokenId: "4" } },
+    ]);
+
+    expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+      "success",
+      "Reservation request cancelled successfully.",
+      null,
+      expect.objectContaining({
+        dedupeKey: "user-dashboard-cancellation-confirmed:res-cancel-3",
+        dedupeWindowMs: 120000,
+      })
+    );
   });
 
   test("backup polling resolves confirmations when events are missed", async () => {

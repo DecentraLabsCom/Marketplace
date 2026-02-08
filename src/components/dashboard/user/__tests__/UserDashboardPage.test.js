@@ -59,6 +59,7 @@ let mockBookingsData = {
 const mockCancelBooking = jest.fn();
 const mockCancelReservation = jest.fn();
 const mockAddTemporaryNotification = jest.fn();
+const mockRegisterPendingCancellation = jest.fn();
 
 // Context mocks
 jest.mock('@/context/UserContext', () => ({
@@ -68,6 +69,12 @@ jest.mock('@/context/UserContext', () => ({
 jest.mock('@/context/NotificationContext', () => ({
     useNotifications: () => ({
         addTemporaryNotification: mockAddTemporaryNotification
+    })
+}));
+
+jest.mock('@/context/BookingEventContext', () => ({
+    useOptionalBookingEventContext: () => ({
+        registerPendingCancellation: mockRegisterPendingCancellation
     })
 }));
 
@@ -222,6 +229,25 @@ describe('UserDashboard - Unit Tests', () => {
             expect(mockCancelBooking).toHaveBeenCalledWith(
                 expect.objectContaining({ reservationKey: '1' })
             );
+            expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+                'pending',
+                'Cancelling booking...',
+                null,
+                expect.objectContaining({
+                    dedupeKey: 'user-dashboard-cancellation-processing:1',
+                    dedupeWindowMs: 20000,
+                })
+            );
+            expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+                'pending',
+                'Booking cancellation sent. Waiting for on-chain confirmation...',
+                null,
+                expect.objectContaining({
+                    dedupeKey: 'user-dashboard-cancellation-submitted:1',
+                    dedupeWindowMs: 20000,
+                })
+            );
+            expect(mockRegisterPendingCancellation).toHaveBeenCalledWith('1', '101', '0x123');
         });
 
         test('cancels pending reservation', async () => {
@@ -233,6 +259,15 @@ describe('UserDashboard - Unit Tests', () => {
 
             expect(mockCancelReservation).toHaveBeenCalledWith(
                 expect.objectContaining({ reservationKey: '2' })
+            );
+            expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+                'pending',
+                'Cancellation request sent. Waiting for on-chain confirmation...',
+                null,
+                expect.objectContaining({
+                    dedupeKey: 'user-dashboard-cancellation-submitted:2',
+                    dedupeWindowMs: 20000,
+                })
             );
         });
 
