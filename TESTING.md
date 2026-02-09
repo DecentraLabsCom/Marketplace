@@ -195,10 +195,10 @@ To ensure CI pipeline stability and facilitate deployment, the thresholds (`cove
 
 | Metric     | Configured Threshold | Current Coverage | Status  |
 | ---------- | -------------------- | ---------------- | ------- |
-| Statements | 64%                  | 64.88%           | ✅ Pass |
-| Branches   | 53%                  | 53.46%           | ✅ Pass |
-| Functions  | 57%                  | 57.59%           | ✅ Pass |
-| Lines      | 65%                  | 65.78%           | ✅ Pass |
+| Statements | 63%                  | 64.88%           | ✅ Pass |
+| Branches   | 52%                  | 53.46%           | ✅ Pass |
+| Functions  | 56%                  | 57.59%           | ✅ Pass |
+| Lines      | 64%                  | 65.78%           | ✅ Pass |
 
 **Goal**: The medium-term goal is to raise all thresholds to **70%**. It is recommended to add unit tests in `components/` and `hooks` to achieve this.
 

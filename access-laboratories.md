@@ -11,7 +11,7 @@ All bookings are managed through blockchain smart contracts, ensuring transparen
 
 This guide will walk you through the entire process, from connecting your wallet to accessing your reserved laboratory.
 
-> 📝 **Note:** This guide covers the process for users connecting via **Web3 wallet**. The process for accessing labs using **institutional SSO credentials** will be documented separately once fully implemented.
+> 📝 **Note:** DecentraLabs supports both **Web3 wallet access** and **institutional SSO access**. This guide now includes both paths.
 
 ---
 
@@ -209,16 +209,22 @@ You can reconnect at any time during your allocated period by clicking "Access L
 
 ---
 
-## Coming Soon: Institutional SSO Access
+## Institutional SSO Access
 
-We're developing a streamlined access method for users from partner institutions using **federated Single Sign-On (SSO)** via eduGAIN. This will allow:
+If your institution is integrated with DecentraLabs, you can access laboratories using your federated identity (SAML2/eduGAIN-compatible flow) instead of a personal wallet login.
 
-* Passwordless access using your institutional credentials
-* Automatic verification of your academic/research status
-* Simplified billing and payment through your institution
-* No need for a personal Web3 wallet
+### Typical SSO flow
 
-Stay tuned for updates on institutional access methods!
+1. Use **Institutional Login** in the marketplace.
+2. Authenticate with your institution's Identity Provider.
+3. Return to the marketplace with an active SSO session.
+4. Reserve and access labs according to your institution's policy and enabled integrations.
+
+### Requirements and notes
+
+* Your institution must be registered and configured on-chain as a provider/consumer, and linked to a valid institutional backend.
+* Some high-risk actions may require additional authorization (for example WebAuthn-based intent authorization) before execution.
+* Lab availability, reservation rules, and billing behavior still depend on each provider's configuration.
 
 ---
 
@@ -226,7 +232,7 @@ Stay tuned for updates on institutional access methods!
 
 Accessing laboratories through DecentraLabs is straightforward:
 
-1. ✅ Connect your Web3 wallet
+1. ✅ Connect your Web3 wallet or sign in with Institutional SSO
 2. 🔍 Browse and select a laboratory
 3. 📅 Choose your date and time
 4. ✍️ Sign the blockchain transaction
