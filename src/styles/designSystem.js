@@ -7,39 +7,39 @@
 export const colors = {
   // Primary brand colors
   primary: {
-    50: '#f0f0ff',
-    100: '#e8e5ff',
-    200: '#d6d0ff',
-    300: '#beb3ff',
-    400: '#a08fff',
-    500: '#8068ff',
-    600: '#715c8c', // Main brand color
-    700: '#5a4a70',
-    800: '#4a3d5c',
-    900: '#3d324a',
-    950: '#241d30'
+    50: 'oklch(0.9595 0.02 286.02)',
+    100: 'oklch(0.9321 0.0351 291)',
+    200: 'oklch(0.8776 0.0646 290.86)',
+    300: 'oklch(0.8034 0.1067 290.42)',
+    400: 'oklch(0.7129 0.1598 288.64)',
+    500: 'oklch(0.6206 0.2149 285.55)',
+    600: 'oklch(0.5147 0.0779 303.87)', // Main brand color
+    700: 'oklch(0.4411 0.0639 303.2)',
+    800: 'oklch(0.3868 0.0539 303.2)',
+    900: 'oklch(0.3394 0.0436 305.14)',
+    950: 'oklch(0.2481 0.0365 300.7)'
   },
   
   // Secondary colors
   secondary: {
-    50: '#f8fafc',
-    100: '#f1f5f9',
-    200: '#e2e8f0',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569',
-    700: '#334155',
-    800: '#1e293b',
-    900: '#0f172a',
-    950: '#020617'
+    50: 'oklch(0.9842 0.0034 247.86)',
+    100: 'oklch(0.9683 0.0069 247.9)',
+    200: 'oklch(0.9288 0.0126 255.51)',
+    300: 'oklch(0.869 0.0198 252.89)',
+    400: 'oklch(0.7107 0.0351 256.79)',
+    500: 'oklch(0.5544 0.0407 257.42)',
+    600: 'oklch(0.4455 0.0374 257.28)',
+    700: 'oklch(0.3717 0.0392 257.29)',
+    800: 'oklch(0.2795 0.0368 260.03)',
+    900: 'oklch(0.2077 0.0398 265.75)',
+    950: 'oklch(0.1288 0.0406 264.7)'
   },
   
   // UI Colors  
   background: {
     light: '#ffffff',
     dark: '#0a0a0a',
-    surface: '#262B2D', // Main app background
+    surface: 'oklch(0.2849 0.008 223.72)', // Main app background
     card: '#ffffff',
     overlay: 'rgba(0, 0, 0, 0.5)'
   },
@@ -47,124 +47,124 @@ export const colors = {
   // Text colors
   text: {
     primary: '#171717',     // Main text color (gray-900)
-    secondary: '#335763',   // Secondary color used in the project
-    muted: '#6b7280',       // Muted text (gray-500)
+    secondary: 'oklch(0.4346 0.0458 221.3)',   // Secondary color used in the project
+    muted: 'oklch(0.551 0.0234 264.36)',       // Muted text (gray-500)
     inverse: '#ffffff',     // White text
-    accent: '#715c8c',      // Brand accent text
+    accent: 'oklch(0.5147 0.0779 303.87)',      // Brand accent text
     neutral: {
-      50: '#f9fafb',        // Very light gray
-      100: '#f3f4f6',       // Light gray
-      200: '#e5e7eb',       // Border gray
-      300: '#d1d5db',       // Medium border
-      400: '#9ca3af',       // Muted text
-      500: '#6b7280',       // Standard muted
-      600: '#4b5563',       // Dark muted
-      700: '#374151',       // Darker text
-      800: '#1f2937',       // Very dark text
-      900: '#111827'        // Almost black
+      50: 'oklch(0.9846 0.0017 247.84)',        // Very light gray
+      100: 'oklch(0.967 0.0029 264.54)',       // Light gray
+      200: 'oklch(0.9276 0.0058 264.53)',       // Border gray
+      300: 'oklch(0.8717 0.0093 258.34)',       // Medium border
+      400: 'oklch(0.7137 0.0192 261.32)',       // Muted text
+      500: 'oklch(0.551 0.0234 264.36)',       // Standard muted
+      600: 'oklch(0.4461 0.0263 256.8)',       // Dark muted
+      700: 'oklch(0.3729 0.0306 259.73)',       // Darker text
+      800: 'oklch(0.2781 0.0296 256.85)',       // Very dark text
+      900: 'oklch(0.2101 0.0318 264.66)'        // Almost black
     }
   },
   
   // Status colors
   status: {
     success: {
-      light: '#dcfce7',     // bg-green-50 equivalent 
-      DEFAULT: '#75a887',   // Light green used in the project
-      dark: '#5c8a68',      // Darker green for hover
-      bg: '#f0fdf4',        // Very light background
-      border: '#bbf7d0',    // Light border
-      text: '#15803d'       // Dark text for contrast
+      light: 'oklch(0.9624 0.0434 156.74)',     // bg-green-50 equivalent 
+      DEFAULT: 'oklch(0.6861 0.073 155.61)',   // Light green used in the project
+      dark: 'oklch(0.5903 0.0723 151.91)',      // Darker green for hover
+      bg: 'oklch(0.9819 0.0181 155.83)',        // Very light background
+      border: 'oklch(0.925 0.0806 155.99)',    // Light border
+      text: 'oklch(0.5273 0.1371 150.07)'       // Dark text for contrast
     },
     warning: {
-      light: '#fef3c7',     // bg-yellow-50 equivalent
-      DEFAULT: '#f59e0b',   // Warning yellow
-      dark: '#d97706',      // Darker yellow for hover
-      bg: '#fffbeb',        // Very light background
-      border: '#fed7aa',    // Light border
-      text: '#92400e'       // Dark text for contrast
+      light: 'oklch(0.9619 0.058 95.62)',     // bg-yellow-50 equivalent
+      DEFAULT: 'oklch(0.7686 0.1647 70.08)',   // Warning yellow
+      dark: 'oklch(0.6658 0.1574 58.32)',      // Darker yellow for hover
+      bg: 'oklch(0.9869 0.0214 95.28)',        // Very light background
+      border: 'oklch(0.9015 0.0729 70.7)',    // Light border
+      text: 'oklch(0.4732 0.1247 46.2)'       // Dark text for contrast
     },
     error: {
-      light: '#fef2f2',     // bg-red-50 equivalent
-      DEFAULT: '#a87583',   // Light pink/red used in the project
-      dark: '#8a5c66',      // Darker pink for hover
-      bg: '#fef2f2',        // Very light background (red-50)
-      border: '#fecaca',    // Light border (red-200)
-      text: '#dc2626'       // Dark text for contrast (red-600)
+      light: 'oklch(0.9705 0.0129 17.38)',     // bg-red-50 equivalent
+      DEFAULT: 'oklch(0.6184 0.0666 1.23)',   // Light pink/red used in the project
+      dark: 'oklch(0.5273 0.0618 5.15)',      // Darker pink for hover
+      bg: 'oklch(0.9705 0.0129 17.38)',        // Very light background (red-50)
+      border: 'oklch(0.8845 0.0593 18.33)',    // Light border (red-200)
+      text: 'oklch(0.5771 0.2152 27.33)'       // Dark text for contrast (red-600)
     },
     info: {
-      light: '#dbeafe',     // bg-blue-50 equivalent
-      DEFAULT: '#3b82f6',   // Info blue
-      dark: '#1d4ed8',      // Darker blue for hover
-      bg: '#eff6ff',        // Very light background
-      border: '#bfdbfe',    // Light border
-      text: '#1d4ed8'       // Dark text for contrast
+      light: 'oklch(0.9319 0.0316 255.59)',     // bg-blue-50 equivalent
+      DEFAULT: 'oklch(0.6231 0.188 259.81)',   // Info blue
+      dark: 'oklch(0.4882 0.2172 264.38)',      // Darker blue for hover
+      bg: 'oklch(0.9705 0.0142 254.6)',        // Very light background
+      border: 'oklch(0.8823 0.0571 254.13)',    // Light border
+      text: 'oklch(0.4882 0.2172 264.38)'       // Dark text for contrast
     }
   },
   
   // Calendar and booking colors
   calendar: {
-    header: '#caddff',    // Light blue header background
-    selected: '#715c8c',  // Primary brand color for selected items
-    hover: '#333f63',     // Dark blue for hover states
-    booked: '#9fc6f5',    // Light blue for booked slots
-    pending: '#f59e0b',   // Warning yellow for pending
-    available: '#16a34a'  // Success green for available slots
+    header: 'oklch(0.8943 0.0512 262.12)',    // Light blue header background
+    selected: 'oklch(0.5147 0.0779 303.87)',  // Primary brand color for selected items
+    hover: 'oklch(0.3744 0.064 269.15)',     // Dark blue for hover states
+    booked: 'oklch(0.8151 0.0788 253.4)',    // Light blue for booked slots
+    pending: 'oklch(0.7686 0.1647 70.08)',   // Warning yellow for pending
+    available: 'oklch(0.6271 0.1699 149.21)'  // Success green for available slots
   },
   
   // Booking status colors (semantic)
   booking: {
     pending: {
-      bg: '#fffbeb',        // yellow-50
-      text: '#92400e',      // yellow-800  
-      border: '#fed7aa'     // yellow-200
+      bg: 'oklch(0.9869 0.0214 95.28)',        // yellow-50
+      text: 'oklch(0.4732 0.1247 46.2)',      // yellow-800  
+      border: 'oklch(0.9015 0.0729 70.7)'     // yellow-200
     },
     confirmed: {
-      bg: '#f0fdf4',        // green-50
-      text: '#15803d',      // green-700
-      border: '#bbf7d0'     // green-200
+      bg: 'oklch(0.9819 0.0181 155.83)',        // green-50
+      text: 'oklch(0.5273 0.1371 150.07)',      // green-700
+      border: 'oklch(0.925 0.0806 155.99)'     // green-200
     },
     used: {
-      bg: '#eff6ff',        // blue-50
-      text: '#1d4ed8',      // blue-700
-      border: '#bfdbfe'     // blue-200
+      bg: 'oklch(0.9705 0.0142 254.6)',        // blue-50
+      text: 'oklch(0.4882 0.2172 264.38)',      // blue-700
+      border: 'oklch(0.8823 0.0571 254.13)'     // blue-200
     },
     collected: {
-      bg: '#f9fafb',        // gray-50
-      text: '#374151',      // gray-700
-      border: '#e5e7eb'     // gray-200
+      bg: 'oklch(0.9846 0.0017 247.84)',        // gray-50
+      text: 'oklch(0.3729 0.0306 259.73)',      // gray-700
+      border: 'oklch(0.9276 0.0058 264.53)'     // gray-200
     },
     cancelled: {
-      bg: '#fef2f2',        // red-50
-      text: '#dc2626',      // red-600
-      border: '#fecaca'     // red-200
+      bg: 'oklch(0.9705 0.0129 17.38)',        // red-50
+      text: 'oklch(0.5771 0.2152 27.33)',      // red-600
+      border: 'oklch(0.8845 0.0593 18.33)'     // red-200
     }
   },
   
   // Brand aliases for common use cases
   brand: {
-    primary: '#715c8c',     // Main brand color (same as primary.600)
-    secondary: '#caddff',   // Light brand color for backgrounds
-    dark: '#333f63',        // Dark brand color for hovers/emphasis
-    light: '#f0f0ff'        // Very light brand color
+    primary: 'oklch(0.5147 0.0779 303.87)',     // Main brand color (same as primary.600)
+    secondary: 'oklch(0.8943 0.0512 262.12)',   // Light brand color for backgrounds
+    dark: 'oklch(0.3744 0.064 269.15)',        // Dark brand color for hovers/emphasis
+    light: 'oklch(0.9595 0.02 286.02)'        // Very light brand color
   },
   
   // Additional UI colors used in the application
   ui: {
     // Action colors
     action: {
-      primary: '#7b976e',         // Main green for actions
-      primaryHover: '#83a875',    // Green hover
-      secondary: '#bcc4fc',       // Light blue for secondary actions
-      secondaryHover: '#aab8e6',  // Blue hover
-      neutral: '#759ca8',         // Neutral bluish gray
-      neutralHover: '#5f7a91'     // Neutral bluish gray hover
+      primary: 'oklch(0.6437 0.0672 135.92)',         // Main green for actions
+      primaryHover: 'oklch(0.6908 0.083 137.3)',    // Green hover
+      secondary: 'oklch(0.8334 0.079 278.21)',       // Light blue for secondary actions
+      secondaryHover: 'oklch(0.7877 0.0674 271.58)',  // Blue hover
+      neutral: 'oklch(0.6683 0.0462 218.71)',         // Neutral bluish gray
+      neutralHover: 'oklch(0.5671 0.0475 244.47)'     // Neutral bluish gray hover
     },
     // Label/badge colors
     label: {
-      dark: '#3f3363',        // Dark for labels
-      medium: '#335763',      // Medium for labels
-      light: '#7583ab',       // Light for labels
-      purple: '#7875a8'       // Purple for special labels
+      dark: 'oklch(0.3581 0.0816 293.36)',        // Dark for labels
+      medium: 'oklch(0.4346 0.0458 221.3)',      // Medium for labels
+      light: 'oklch(0.6138 0.0631 269.53)',       // Light for labels
+      purple: 'oklch(0.5852 0.0775 286.43)'       // Purple for special labels
     }
   }
 }
