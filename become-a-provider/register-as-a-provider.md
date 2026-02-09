@@ -4,9 +4,12 @@
 
 In the long term, DecentraLabs aims to support **federated Single Sign-On (SSO)** for institutional providers. This would allow us to automatically recognize verified university or research staff based on identity provider credentials (e.g., via [eduGAIN](https://edugain.org/)), streamlining the onboarding process and reducing the risk of fraud. Additionally, we envision a **DAO-based governance model** in which the community collectively decides who can join as a provider, ensuring openness, fairness, and transparency in provider approval.
 
-However, while these features are under development, the current provider registration process is handled manually and involves a simple but secure verification step performed by the DecentraLabs core team.
+Today, provider onboarding has two active paths:
 
-### 📝 Current Registration Process
+1. **Marketplace self-service request (manual review)** for independent providers submitting the public registration form.
+2. **Institutional onboarding (partner flow)** for integrated institutions, where provisioning and registration can be automated through the institutional backend path.
+
+### 📝 Marketplace Registration Flow (Manual Review)
 
 At present, becoming a provider involves the following steps:
 
@@ -30,5 +33,3 @@ Once approved, you will be able to proceed with publishing and managing your lab
 The image below shows the form in the DecentraLabs Marketplace to register your interest to become a lab provider.
 
 <figure><img src="../.gitbook/assets/image (4).png" alt=""><figcaption></figcaption></figure>
-
-> 💡 In future releases, this process will be streamlined and governed collectively. For now, it ensures trust and security as the ecosystem grows.
