@@ -12,12 +12,120 @@
  */
 
 import jwt from 'jsonwebtoken';
+import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import devLog from '@/utils/dev/logger';
 
 const COOKIE_NAME = 'user_session';
 const COOKIE_CHUNK_COUNT_NAME = `${COOKIE_NAME}.count`;
 const DEFAULT_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
 const MAX_COOKIE_VALUE_LENGTH = 3800;
+const ASSERTION_COMPRESSION_ENCODING = 'deflate-raw-base64url';
+const ASSERTION_COMPRESSION_MIN_LENGTH = 512;
+
+function encodeBase64Url(buffer) {
+  return buffer
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function decodeBase64UrlToBuffer(value) {
+  if (!value || typeof value !== 'string') return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+  try {
+    return Buffer.from(padded, 'base64');
+  } catch {
+    return null;
+  }
+}
+
+function compressSamlAssertion(samlAssertion) {
+  if (typeof samlAssertion !== 'string' || samlAssertion.length < ASSERTION_COMPRESSION_MIN_LENGTH) {
+    return null;
+  }
+
+  try {
+    const compressed = deflateRawSync(Buffer.from(samlAssertion, 'utf8'), { level: 9 });
+    const encoded = encodeBase64Url(compressed);
+
+    // Keep compressed representation only when it is actually smaller.
+    if (!encoded || encoded.length >= samlAssertion.length) {
+      return null;
+    }
+
+    return encoded;
+  } catch (error) {
+    devLog.warn('Failed to compress SAML assertion in session cookie:', error?.message || error);
+    return null;
+  }
+}
+
+function decompressSamlAssertion(compressedAssertion) {
+  if (typeof compressedAssertion !== 'string' || compressedAssertion.length === 0) {
+    return null;
+  }
+
+  try {
+    const compressedBuffer = decodeBase64UrlToBuffer(compressedAssertion);
+    if (!compressedBuffer) {
+      return null;
+    }
+    const restored = inflateRawSync(compressedBuffer);
+    return restored.toString('utf8');
+  } catch (error) {
+    devLog.warn('Failed to decompress SAML assertion in session cookie:', error?.message || error);
+    return null;
+  }
+}
+
+function serializeSessionData(sessionData) {
+  const normalized = { ...sessionData };
+
+  if (typeof normalized.samlAssertion === 'string' && normalized.samlAssertion.length > 0) {
+    const compressed = compressSamlAssertion(normalized.samlAssertion);
+    if (compressed) {
+      normalized.samlAssertionCompressed = compressed;
+      normalized.samlAssertionEncoding = ASSERTION_COMPRESSION_ENCODING;
+      delete normalized.samlAssertion;
+    }
+  }
+
+  return normalized;
+}
+
+function deserializeSessionData(sessionData) {
+  if (!sessionData || typeof sessionData !== 'object') {
+    return null;
+  }
+
+  if (typeof sessionData.samlAssertion === 'string') {
+    return sessionData;
+  }
+
+  const compressedAssertion = sessionData.samlAssertionCompressed;
+  if (typeof compressedAssertion !== 'string' || compressedAssertion.length === 0) {
+    return sessionData;
+  }
+
+  const encoding = sessionData.samlAssertionEncoding || ASSERTION_COMPRESSION_ENCODING;
+  if (encoding !== ASSERTION_COMPRESSION_ENCODING) {
+    devLog.warn('Unsupported SAML assertion encoding in session cookie:', encoding);
+    return null;
+  }
+
+  const samlAssertion = decompressSamlAssertion(compressedAssertion);
+  if (!samlAssertion) {
+    return null;
+  }
+
+  const hydrated = { ...sessionData, samlAssertion };
+  delete hydrated.samlAssertionCompressed;
+  delete hydrated.samlAssertionEncoding;
+  return hydrated;
+}
 
 function decodeBase64Value(value) {
   if (!value || typeof value !== 'string') return null;
@@ -145,9 +253,10 @@ export function createSessionToken(sessionData, maxAgeSec = DEFAULT_MAX_AGE) {
   }
   
   const secret = getSessionSecret();
+  const serializedSession = serializeSessionData(sessionData);
   
   const payload = {
-    ...sessionData,
+    ...serializedSession,
     // Add standard JWT claims
     iat: Math.floor(Date.now() / 1000),
   };
@@ -183,8 +292,8 @@ export function verifySessionToken(token) {
     
     // Remove JWT-specific claims from returned data
     const { iat, exp, iss, ...sessionData } = decoded;
-    
-    return sessionData;
+    const hydratedSession = deserializeSessionData(sessionData);
+    return hydratedSession;
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       devLog.log('Session token expired');

@@ -108,6 +108,26 @@ describe('sessionCookie', () => {
       // exp should be approximately iat + maxAge
       expect(decoded.exp - decoded.iat).toBe(maxAge);
     });
+
+    it('should compress large samlAssertion payloads in token storage', () => {
+      const largeAssertion = Buffer.from(
+        `<Assertion>${'A'.repeat(12000)}</Assertion>`,
+        'utf8'
+      ).toString('base64');
+      const sessionData = {
+        id: 'user123',
+        email: 'test@example.com',
+        samlAssertion: largeAssertion,
+      };
+
+      const token = sessionCookie.createSessionToken(sessionData);
+      const decoded = jwt.decode(token);
+
+      expect(decoded.samlAssertion).toBeUndefined();
+      expect(typeof decoded.samlAssertionCompressed).toBe('string');
+      expect(decoded.samlAssertionCompressed.length).toBeLessThan(largeAssertion.length);
+      expect(decoded.samlAssertionEncoding).toBe('deflate-raw-base64url');
+    });
   });
 
   describe('verifySessionToken', () => {
@@ -176,6 +196,25 @@ describe('sessionCookie', () => {
 
       const result = sessionCookie.verifySessionToken(token);
       expect(result).toBeNull();
+    });
+
+    it('should restore compressed samlAssertion data transparently', () => {
+      const largeAssertion = Buffer.from(
+        `<Assertion>${'B'.repeat(12000)}</Assertion>`,
+        'utf8'
+      ).toString('base64');
+      const sessionData = {
+        id: 'user123',
+        email: 'test@example.com',
+        samlAssertion: largeAssertion,
+      };
+
+      const token = sessionCookie.createSessionToken(sessionData);
+      const verified = sessionCookie.verifySessionToken(token);
+
+      expect(verified.samlAssertion).toBe(largeAssertion);
+      expect(verified.samlAssertionCompressed).toBeUndefined();
+      expect(verified.samlAssertionEncoding).toBeUndefined();
     });
   });
 
