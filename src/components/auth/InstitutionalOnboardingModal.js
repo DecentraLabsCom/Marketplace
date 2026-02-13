@@ -109,6 +109,8 @@ export function InstitutionalOnboardingModal({
   }
 
   const handleClose = () => {
+    // Allow closing even during loading - user can always dismiss the modal
+    // This prevents the modal from becoming a blocking overlay that prevents navigation
     reset()
     onClose()
   }
@@ -351,9 +353,10 @@ export function InstitutionalOnboardingModal({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={isLoading ? undefined : handleClose}
+      onClose={handleClose}
       title={state === OnboardingState.COMPLETED ? undefined : 'Account Setup'}
       size="md"
+      showCloseButton={!isLoading}
     >
       {renderContent()}
     </Modal>

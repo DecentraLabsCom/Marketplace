@@ -30,10 +30,10 @@ jest.mock('@/hooks/user/useInstitutionalOnboarding', () => ({
 
 jest.mock('@/components/ui/Modal', () => ({
   __esModule: true,
-  default: ({ isOpen, onClose, title, children }) =>
+  default: ({ isOpen, onClose, title, children, showCloseButton = true }) =>
     isOpen ? (
       <div data-testid="modal" data-title={title}>
-        {onClose ? (
+        {showCloseButton && onClose ? (
           <button data-testid="modal-close" onClick={onClose}>
             Close
           </button>
