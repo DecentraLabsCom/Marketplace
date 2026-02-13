@@ -45,6 +45,13 @@ export default function UserDashboard() {
         defaultPrevented: e.defaultPrevented,
         href: e.target.href || e.target.closest('a')?.href,
       });
+      
+      // Intercept preventDefault to catch who's calling it
+      const originalPreventDefault = e.preventDefault;
+      e.preventDefault = function() {
+        console.error('[CAUGHT preventDefault] Called by:', new Error().stack);
+        return originalPreventDefault.call(this);
+      };
     };
     
     const handleClickBubble = (e) => {
