@@ -22,7 +22,7 @@ export default function GlobalNotificationStack() {
       {notifications.map((notification, index) => (
         <div 
           key={notification.id}
-          className={`mb-3 p-4 rounded-lg shadow-lg max-w-sm sm:max-w-md animate-slide-in ${
+          className={`mb-3 p-4 rounded-lg shadow-lg max-w-sm sm:max-w-md animate-slide-in transition-transform duration-300 starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 ${
             notification.type === 'success' ? 'bg-success' : 
             notification.type === 'error' ? 'bg-error' : 
             notification.type === 'warning' ? 'bg-warning' : 
