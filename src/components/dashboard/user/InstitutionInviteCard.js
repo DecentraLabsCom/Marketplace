@@ -287,7 +287,7 @@ export default function InstitutionInviteCard({
   }
 
   return (
-    <div className={`bg-white shadow-md rounded-lg p-6 mt-6 mb-6 ${className}`}>
+    <div className={`bg-white shadow-md rounded-lg p-6 mt-6 mb-6 transition-transform duration-300 starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 ${className}`}>
       <h1 className="text-2xl font-bold text-center mb-4 text-gray-800">
         Institutional Provisioning Token
       </h1>
