@@ -33,43 +33,7 @@ import {
  * @returns {JSX.Element} Complete user dashboard with access control, bookings list, calendar, and actions
  */
 export default function UserDashboard() {
-  const { isLoggedIn, address, user, isSSO, isConnected, hasWalletSession } = useUser();
-  
-  // Debug: Log all click events in dashboard (both capture and bubble phases)
-  useEffect(() => {
-    const handleClickCapture = (e) => {
-      console.log('[UserDashboard CAPTURE] Click:', {
-        target: e.target,
-        tagName: e.target.tagName,
-        className: e.target.className,
-        defaultPrevented: e.defaultPrevented,
-        href: e.target.href || e.target.closest('a')?.href,
-      });
-      
-      // Intercept preventDefault to catch who's calling it
-      const originalPreventDefault = e.preventDefault;
-      e.preventDefault = function() {
-        console.error('[CAUGHT preventDefault] Called by:', new Error().stack);
-        return originalPreventDefault.call(this);
-      };
-    };
-    
-    const handleClickBubble = (e) => {
-      console.log('[UserDashboard BUBBLE] Click:', {
-        target: e.target,
-        tagName: e.target.tagName,
-        defaultPrevented: e.defaultPrevented,
-        href: e.target.href || e.target.closest('a')?.href,
-      });
-    };
-    
-    document.addEventListener('click', handleClickCapture, true); // Capture phase
-    document.addEventListener('click', handleClickBubble, false); // Bubble phase
-    return () => {
-      document.removeEventListener('click', handleClickCapture, true);
-      document.removeEventListener('click', handleClickBubble, false);
-    };
-  }, []);
+  const { user, isLoggedIn, isSSO, hasWalletSession, isConnected, address } = useUser();
   
   // 🚀 React Query for user bookings with lab details
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
@@ -187,7 +151,7 @@ export default function UserDashboard() {
       });
       return next;
     });
-  }, [userBookings]);
+  }, [userBookings.length]);
 
   const bookingInfo = useMemo(() => {
     return mapBookingsForCalendar(userBookings, {

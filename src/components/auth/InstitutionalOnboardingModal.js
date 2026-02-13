@@ -84,16 +84,6 @@ export function InstitutionalOnboardingModal({
     reset,
   } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: false })
 
-  // Debug: Log modal render state
-  console.log('[InstitutionalOnboardingModal] Rendered:', {
-    isOpen,
-    state,
-    isLoading,
-    isCompleted,
-    hasBackend,
-    error
-  });
-
   // Notify parent when completed
   useEffect(() => {
     if (isCompleted && onComplete) {

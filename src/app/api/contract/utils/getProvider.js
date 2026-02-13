@@ -45,17 +45,6 @@ export default async function getProvider(network) {
     const infuraSecretKey = process.env.INFURA_SECRET_KEY;
     const rpcUrl = network.rpcUrls?.default?.http?.[0];
     const chainId = network.id;
-
-    // Debug log for environment variables
-    console.log(`📊 Provider availability check for ${network.name}:`, {
-        alchemy: !!alchemyProjectId,
-        ankr: !!ankrProjectId,
-        quicknode: !!quicknodeProjectId,
-        chainstack: !!chainstackProjectId,
-        infura: !!infuraProjectId,
-        rpcUrl: !!rpcUrl,
-        networkConfigExists: !!defaultNetworks[network.id]
-    });
     
     // Optimized options for faster response and better reliability
     const options = {
@@ -252,9 +241,7 @@ export default async function getProvider(network) {
     if (providers.length === 0) {
         throw new Error('No providers could be initialized');
     }
-
-    console.log(`Initialized ${providers.length} providers for ${network.name} with optimized configuration`);
-    
+  
     // ✅ ROBUST FALLBACK CONFIGURATION
     const fallbackProvider = new ethers.FallbackProvider(
         providers.map(p => ({
@@ -280,8 +267,6 @@ export default async function getProvider(network) {
         },
         timestamp: Date.now()
     });
-
-    console.log(`Cached ROBUST FallbackProvider for ${network.name} with ${providers.length} providers`);
-    
+   
     return fallbackProvider;
 }
