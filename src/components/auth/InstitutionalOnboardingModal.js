@@ -82,7 +82,7 @@ export function InstitutionalOnboardingModal({
     initiateOnboarding,
     redirectToCeremony,
     reset,
-  } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: false })
+  } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: isOpen })
 
   // Notify parent when completed
   useEffect(() => {
