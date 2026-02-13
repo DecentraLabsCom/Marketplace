@@ -17,6 +17,7 @@ import ClientOnly from '@/components/layout/ClientOnly'
 
 const GlobalNotificationStack = dynamic(() => import('@/components/layout/GlobalNotificationStack'))
 const DataRefreshIndicator = dynamic(() => import('@/components/layout/DataRefreshIndicator'))
+const PopupBlockerModal = dynamic(() => import('@/components/layout/PopupBlockerModal'))
 const InstitutionalOnboardingWrapper = dynamic(
   () => import('@/components/auth/InstitutionalOnboardingWrapper')
 )
@@ -42,6 +43,7 @@ export default function AppProviders({ children }) {
                       </main>
                       <Footer />
                       <GlobalNotificationStack />
+                      <PopupBlockerModal />
                       <DataRefreshIndicator />
                       <ClientOnly>
                         <InstitutionalOnboardingWrapper />

@@ -19,6 +19,10 @@ import { selectChain } from '@/utils/blockchain/selectChain'
 import { getConnectionAddress } from '@/utils/blockchain/connection'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { decodeEventLog } from 'viem'
+import {
+  createPopupBlockedError,
+  emitPopupBlockedEvent,
+} from '@/utils/browser/popupBlockerGuidance'
 
 const resolveRequestId = (data) =>
   data?.requestId ||
@@ -214,7 +218,11 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     authPopup = openAuthorizationPopupFallback(authorizationUrl, { keepOpener: true });
   }
   if (!authPopup) {
-    throw new Error('Authorization window was blocked');
+    emitPopupBlockedEvent({
+      authorizationUrl,
+      source: 'lab-intent-authorization',
+    });
+    throw createPopupBlockedError();
   }
 
   let closeInterval = null;

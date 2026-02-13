@@ -18,6 +18,10 @@ import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import createPendingBookingPayload from './utils/createPendingBookingPayload'
+import {
+  createPopupBlockedError,
+  emitPopupBlockedEvent,
+} from '@/utils/browser/popupBlockerGuidance'
 
 const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
@@ -274,7 +278,11 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     authPopup = openAuthorizationPopupFallback(authorizationUrl, { keepOpener: true });
   }
   if (!authPopup) {
-    throw new Error('Authorization window was blocked');
+    emitPopupBlockedEvent({
+      authorizationUrl,
+      source: 'booking-intent-authorization',
+    });
+    throw createPopupBlockedError();
   }
 
   const statusBaseUrl = resolveAuthorizationStatusBaseUrl(
