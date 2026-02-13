@@ -136,7 +136,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
         disabled={loading || fetchingAuth}
         aria-busy={loading || fetchingAuth}
         className="absolute bottom-0 inset-x-0 h-1/3 bg-brand/75 
-          opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-lg 
+          opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-300 text-white text-lg 
           font-bold cursor-pointer z-10 disabled:cursor-not-allowed disabled:opacity-70"
       >
         <span

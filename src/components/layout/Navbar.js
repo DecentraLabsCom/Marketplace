@@ -119,10 +119,10 @@ export default function Navbar() {
           )}
           {hasUserContext && (
             <>
-              <div className="hidden md:block">
+              <div className="hidden md:block shrink-0">
                 <div className="h-8 border-l border-gray-600" />
               </div>
-              <div className="hidden md:block">
+              <div className="hidden md:block shrink-0">
                 <Login />
               </div>
             </>

@@ -73,7 +73,7 @@ export default function Account() {
   }
 
   return (
-    <div className="flex items-center space-x-6 ml-auto font-bold">
+    <div className="flex items-center space-x-6 font-bold">
       {isLoggedIn && (
         <div className="pointer-events-none flex flex-col items-center">
           <div className="text-sm text-hover-dark">

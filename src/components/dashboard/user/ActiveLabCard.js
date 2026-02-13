@@ -64,7 +64,7 @@ export default function ActiveLabCard({
   return (
     <div className='flex xl:flex-row flex-wrap'>
       <div className='flex flex-col items-center'>
-          <div className={`xl:w-90 w-82.5 group 
+          <div className={`xl:w-90 w-82.5 group relative 
           justify-between items-center shadow-md bg-gray-200 
           transition-transform duration-300 
           hover:scale-105 mr-3 mb-4 p-2 h-90 rounded-lg flex 
