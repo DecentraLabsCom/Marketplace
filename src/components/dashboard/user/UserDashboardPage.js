@@ -35,6 +35,23 @@ import {
 export default function UserDashboard() {
   const { isLoggedIn, address, user, isSSO, isConnected, hasWalletSession } = useUser();
   
+  // Debug: Log all click events in dashboard
+  useEffect(() => {
+    const handleClick = (e) => {
+      console.log('[UserDashboard] Click detected:', {
+        target: e.target,
+        currentTarget: e.currentTarget,
+        tagName: e.target.tagName,
+        className: e.target.className,
+        defaultPrevented: e.defaultPrevented,
+        propagationStopped: e.cancelBubble,
+      });
+    };
+    
+    document.addEventListener('click', handleClick, true); // Use capture phase
+    return () => document.removeEventListener('click', handleClick, true);
+  }, []);
+  
   // 🚀 React Query for user bookings with lab details
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
   // It forces API mode (Ethers.js backend) because useQueries cannot extract Wagmi hooks as queryFn

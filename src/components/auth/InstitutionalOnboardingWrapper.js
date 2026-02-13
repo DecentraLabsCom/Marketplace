@@ -27,6 +27,12 @@ export function InstitutionalOnboardingWrapper() {
     handleOnboardingSkip,
   } = useUser()
 
+  // Debug: Log modal state
+  console.log('[InstitutionalOnboardingWrapper] Rendered:', {
+    isSSO,
+    showOnboardingModal,
+  });
+
   // Only render for SSO users
   if (!isSSO) {
     return null
