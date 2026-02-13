@@ -82,7 +82,7 @@ export function InstitutionalOnboardingModal({
     initiateOnboarding,
     redirectToCeremony,
     reset,
-  } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: isOpen })
+  } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: false })
 
   // Debug: Log modal render state
   console.log('[InstitutionalOnboardingModal] Rendered:', {

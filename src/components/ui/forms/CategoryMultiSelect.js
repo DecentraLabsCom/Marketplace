@@ -52,7 +52,7 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
       <div
         data-testid="category-multiselect"
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full p-2 border rounded min-h-[42px] flex flex-wrap gap-2 items-center cursor-pointer
+        className={`w-full p-2 border rounded min-h-10.5 flex flex-wrap gap-2 items-center cursor-pointer
           ${disabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300' : 'bg-white hover:border-gray-400'}
           ${error ? 'border-red-500' : 'border-gray-300'}
         `}

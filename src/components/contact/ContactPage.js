@@ -40,7 +40,7 @@ export default function Contact() {
           <label htmlFor="message" className="sr-only">Message</label>
           <textarea id="message" name="message" placeholder="Your Message" required
             className="p-2 border-2 border-brand focus:border-hover-dark rounded 
-            outline-none transition text-black min-h-[120px]" />
+            outline-none transition text-black min-h-30" />
           <button type="submit" 
             className="bg-brand hover:bg-hover-dark text-white font-bold rounded-lg 
             px-4 py-2 transition duration-300 ease-in-out shadow-md">
