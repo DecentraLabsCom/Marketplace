@@ -71,7 +71,8 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = 
     <Card 
       padding="none"
       className={cn(
-        'relative group h-[400px] transition-transform duration-300 hover:scale-105',
+        // Base card + hover and enter animation
+        'relative group h-[400px] transition-transform duration-300 hover:scale-105 starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0',
         {
           'border-4 border-brand animate-glow': activeBooking
         }

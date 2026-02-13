@@ -87,7 +87,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -99,6 +99,7 @@ export default function Modal({
           bg-white rounded-xl shadow-2xl w-full ${sizeClass}
           transition-all duration-200 ease-out
           animate-in fade-in zoom-in-95
+          starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0
           ${className}
         `}
         onClick={(e) => e.stopPropagation()}

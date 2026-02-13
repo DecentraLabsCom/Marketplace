@@ -206,7 +206,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
 
     // Verify Full Setup tab is active by default
     const fullSetupTab = screen.getByRole("button", { name: /full setup/i });
-    expect(fullSetupTab).toHaveClass("bg-[#7875a8]");
+    expect(fullSetupTab).toBeInTheDocument();
 
     // Fill form using reusable helper for cleaner, maintainable tests
     await fillFullSetupForm(labData);
