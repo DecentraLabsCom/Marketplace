@@ -35,21 +35,33 @@ import {
 export default function UserDashboard() {
   const { isLoggedIn, address, user, isSSO, isConnected, hasWalletSession } = useUser();
   
-  // Debug: Log all click events in dashboard
+  // Debug: Log all click events in dashboard (both capture and bubble phases)
   useEffect(() => {
-    const handleClick = (e) => {
-      console.log('[UserDashboard] Click detected:', {
+    const handleClickCapture = (e) => {
+      console.log('[UserDashboard CAPTURE] Click:', {
         target: e.target,
-        currentTarget: e.currentTarget,
         tagName: e.target.tagName,
         className: e.target.className,
         defaultPrevented: e.defaultPrevented,
-        propagationStopped: e.cancelBubble,
+        href: e.target.href || e.target.closest('a')?.href,
       });
     };
     
-    document.addEventListener('click', handleClick, true); // Use capture phase
-    return () => document.removeEventListener('click', handleClick, true);
+    const handleClickBubble = (e) => {
+      console.log('[UserDashboard BUBBLE] Click:', {
+        target: e.target,
+        tagName: e.target.tagName,
+        defaultPrevented: e.defaultPrevented,
+        href: e.target.href || e.target.closest('a')?.href,
+      });
+    };
+    
+    document.addEventListener('click', handleClickCapture, true); // Capture phase
+    document.addEventListener('click', handleClickBubble, false); // Bubble phase
+    return () => {
+      document.removeEventListener('click', handleClickCapture, true);
+      document.removeEventListener('click', handleClickBubble, false);
+    };
   }, []);
   
   // 🚀 React Query for user bookings with lab details
