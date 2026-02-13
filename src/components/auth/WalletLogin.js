@@ -64,7 +64,7 @@ export default function WalletLogin({ setIsModalOpen }) {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 animate-fadeIn"
           onClick={closeModal}>
-          <div className="bg-gradient-to-br from-white via-white to-gray-50 rounded-2xl shadow-2xl p-8 w-[420px] border border-gray-100 transition-all duration-300 scale-100 animate-slideIn" 
+          <div className="bg-linear-to-br from-white via-white to-gray-50 rounded-2xl shadow-2xl p-8 w-105 border border-gray-100 transition-all duration-300 scale-100 animate-slideIn" 
                onClick={(e) => e.stopPropagation()}>
             
             {/* Header with Close Button */}
@@ -163,7 +163,7 @@ function WalletOption({ connector, onClick }) {
     } else {
       // Default wallet icon usando colores del brand
       return (
-        <div className="size-12 bg-gradient-to-br from-brand to-purple-700 rounded-lg flex items-center justify-center shadow-sm">
+        <div className="size-12 bg-linear-to-br from-brand to-purple-700 rounded-lg flex items-center justify-center shadow-sm">
           <FontAwesomeIcon icon={faWallet} className="text-white text-lg" />
         </div>
       );

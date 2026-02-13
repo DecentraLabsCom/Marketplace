@@ -95,7 +95,7 @@ export default function Navbar() {
       <Container className="flex justify-between items-center">
         {/* Logo */}
         <Link href="/">
-          <div className="relative h-14 w-[200px] sm:w-[240px] md:w-[274px]">
+          <div className="relative h-14 w-50 sm:w-60 md:w-68.5">
             <Image
               src="/DecentraLabs.png"
               alt="DecentraLabs Logo"

@@ -1,6 +1,6 @@
 "use client";
-import { useEffect } from 'react'
 import PropTypes from 'prop-types'
+import Modal from '@/components/ui/Modal'
 
 /**
  * Reusable confirmation modal for user actions
@@ -12,35 +12,33 @@ import PropTypes from 'prop-types'
  * @returns {JSX.Element} Modal dialog with confirmation buttons
  */
 export default function ConfirmModal({ isOpen, onClose, onContinue }) {
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e) => {
-          if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
-    
-    if (!isOpen) return null;
-
     return (
-      <div className="overlay-full overlay-light flex-center"
-        onClick={onClose}
+      <Modal 
+        isOpen={isOpen} 
+        onClose={onClose}
+        title="Confirm Action"
+        size="md"
       >
-        <div className="bg-white rounded-lg shadow-lg p-6 w-96"
-        onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg text-gray-800 font-bold mb-4">
-            Are you sure you want to proceed?</h2>
-            <div className="flex flex-row pt-4 justify-between px-10">
+        <div>
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to proceed?
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
             <button
-                className='px-3 mr-3 py-1 text-lg rounded bg-success hover:bg-success-dark text-white'
-                onClick={onContinue}
-                >Continue</button>
-            <button onClick={onClose} className='px-5 mr-3 py-1 text-lg rounded bg-error hover:bg-error-dark
-            text-white'>Cancel</button>
-            </div>
+              className='px-5 py-2 text-base rounded bg-error hover:bg-error-dark text-white transition-colors'
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              className='px-4 py-2 text-base rounded bg-success hover:bg-success-dark text-white transition-colors'
+              onClick={onContinue}
+            >
+              Continue
+            </button>
+          </div>
         </div>
-      </div>
+      </Modal>
     );
 }
 
