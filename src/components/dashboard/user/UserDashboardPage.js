@@ -33,7 +33,7 @@ import {
  * @returns {JSX.Element} Complete user dashboard with access control, bookings list, calendar, and actions
  */
 export default function UserDashboard() {
-  const { isLoggedIn, address, user, isSSO, isConnected, hasWalletSession } = useUser();
+  const { user, isLoggedIn, isSSO, hasWalletSession, isConnected, address } = useUser();
   
   // 🚀 React Query for user bookings with lab details
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
@@ -151,7 +151,7 @@ export default function UserDashboard() {
       });
       return next;
     });
-  }, [userBookings]);
+  }, [userBookings.length]);
 
   const bookingInfo = useMemo(() => {
     return mapBookingsForCalendar(userBookings, {
