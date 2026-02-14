@@ -91,7 +91,7 @@ export default function Market() {
     providers,
     searchInputRef,
     resetFilters
-  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading);
+  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated);
 
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {

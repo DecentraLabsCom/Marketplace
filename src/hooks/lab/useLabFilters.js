@@ -28,8 +28,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
  * @returns {Object} returns.searchInputRef - Ref for search input element
  * @returns {Function} returns.resetFilters - Reset all filters function
  */
-export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false) {
+export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false, isHydrated = true) {
   const searchInputRef = useRef(null)
+  const lastAttachedInput = useRef(null)
   
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState("All")
@@ -63,35 +64,55 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   }, [labs])
 
   // Debounced search effect for better performance
+  // NOTE: depends on `isHydrated` so the listener is attached after the input mounts in the client
   useEffect(() => {
     let timeoutId
 
-    const handleSearchInput = () => {
-      const value = searchInputRef.current?.value?.toLowerCase() || ""
-      
+    if (!isHydrated) {
+      return
+    }
+
+    const handleSearchInput = (event) => {
+      const value = (event?.target?.value ?? searchInputRef.current?.value ?? "").toLowerCase()
+
       // Clear existing timeout
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
-      
+
       // Set new timeout
       timeoutId = setTimeout(() => {
         setSearchDebounce(value)
       }, 300)
     }
 
-    const searchInput = searchInputRef.current
-    if (searchInput) {
-      searchInput.addEventListener('input', handleSearchInput)
-      
+    const inputEl = searchInputRef.current
+
+    // Attach only when the input element exists
+    if (inputEl) {
+      // Avoid double-attaching to the same element
+      if (lastAttachedInput.current === inputEl) {
+        return () => {
+          if (timeoutId) clearTimeout(timeoutId)
+        }
+      }
+
+      inputEl.addEventListener('input', handleSearchInput)
+      lastAttachedInput.current = inputEl
+
       return () => {
         if (timeoutId) {
           clearTimeout(timeoutId)
         }
-        searchInput.removeEventListener('input', handleSearchInput)
+        inputEl.removeEventListener('input', handleSearchInput)
+        lastAttachedInput.current = null
       }
     }
-  }, [])
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [isHydrated, searchInputRef])
 
   // Main filtering logic using useMemo for performance and stability
   const searchFilteredLabs = useMemo(() => {

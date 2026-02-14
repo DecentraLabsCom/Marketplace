@@ -175,7 +175,7 @@ export default function LabFilters({
         <button 
           onClick={handlePriceClick} 
           value={selectedPrice}
-          className="w-[130px] py-[7px] border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-32.5 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={effectiveLoading}
         >
           {selectedPrice}
@@ -186,7 +186,7 @@ export default function LabFilters({
       <div className="w-full md:w-auto flex justify-center md:justify-start items-center">
         <button 
           onClick={handleListingToggle} 
-          className="w-[120px] py-[7px] border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-30 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={effectiveLoading}
         >
           {showUnlisted ? "All labs" : "Listed labs"}

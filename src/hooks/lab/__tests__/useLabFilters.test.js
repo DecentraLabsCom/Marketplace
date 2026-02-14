@@ -338,6 +338,33 @@ describe("useLabFilters", () => {
 
       expect(result.current.searchFilteredLabs).toEqual([]);
     });
+
+    test("attaches input listener after hydration toggles and debounces input", () => {
+      jest.useFakeTimers()
+
+      const { result, rerender } = renderHook(
+        ({ hydrated }) => useLabFilters(mockLabs, null, false, false, hydrated),
+        { initialProps: { hydrated: false } }
+      )
+
+      // Simulate the DOM input element being assigned later (after hydration)
+      const mockInput = document.createElement('input')
+      result.current.searchInputRef.current = mockInput
+
+      // Now toggle hydration to true so the effect runs and attaches listener
+      rerender({ hydrated: true })
+
+      // Simulate typing into the input
+      act(() => {
+        mockInput.value = 'AI'
+        mockInput.dispatchEvent(new Event('input', { bubbles: true }))
+        jest.advanceTimersByTime(300)
+      })
+
+      expect(result.current.searchDebounce).toBe('ai')
+
+      jest.useRealTimers()
+    });
   });
 
   describe("Derived Data Stability", () => {
