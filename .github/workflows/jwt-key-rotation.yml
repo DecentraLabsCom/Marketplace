@@ -109,51 +109,6 @@ jobs:
             echo "⚠️  Manual update required - see PR description for details"
             # Don't fail the workflow - PR will still be created
           fi
-      
-      - name: Trigger Vercel Deployment
-        if: steps.check-rotation.outputs.needs_rotation == 'true'
-        env:
-          # Secrets configured in GitHub repository settings
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} # pragma: allowlist secret
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }} # pragma: allowlist secret
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }} # pragma: allowlist secret
-        run: |
-          echo "🚀 Triggering Vercel production deployment..."
-          
-          # Build deployment payload
-          TEAM_PARAM=""
-          if [ ! -z "$VERCEL_TEAM_ID" ]; then
-            TEAM_PARAM="?teamId=$VERCEL_TEAM_ID"
-          fi
-          
-          # Trigger deployment via Vercel API
-          DEPLOY_RESPONSE=$(curl -s -X POST \
-            "https://api.vercel.com/v13/deployments${TEAM_PARAM}" \
-            -H "Authorization: Bearer $VERCEL_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"name\": \"${VERCEL_PROJECT_ID}\",
-              \"gitSource\": {
-                \"type\": \"github\",
-                \"ref\": \"main\",
-                \"repoId\": \"${{ github.repository_id }}\"
-              },
-              \"target\": \"production\"
-            }")
-          
-          # Extract deployment URL
-          DEPLOY_URL=$(echo $DEPLOY_RESPONSE | jq -r '.url // empty')
-          
-          if [ ! -z "$DEPLOY_URL" ]; then
-            echo "✅ Deployment triggered successfully"
-            echo "🌐 Deployment URL: https://$DEPLOY_URL"
-            echo "deployment_url=https://$DEPLOY_URL" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️  Deployment trigger may have failed"
-            echo "📋 Response: $DEPLOY_RESPONSE"
-            echo "💡 You may need to manually deploy from Vercel dashboard"
-          fi
-        
       - name: Set Rotation Date
         if: steps.check-rotation.outputs.needs_rotation == 'true'
         id: rotation-date
@@ -162,6 +117,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check-rotation.outputs.needs_rotation == 'true'
+        id: create-pr
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.BOT_PR_TOKEN }}
@@ -177,19 +133,19 @@ jobs:
             - 💾 Previous keys backed up to `certificates/jwt/backups/`
             - 📊 Rotation metadata updated
             - 🚀 **Vercel environment variables updated automatically**
-            - 🌐 **Production deployment triggered**
+            - 🌐 **Production deployment will be triggered by merge to main**
             
             ### 🎯 Vercel Integration:
             The following environment variables have been automatically updated in Vercel:
             - `JWT_PRIVATE_KEY` - New private key for JWT signing
             - `JWT_PUBLIC_KEY` - New public key for JWT verification
             
-            A production deployment has been triggered to apply the new keys.
+            A production deployment will be triggered after this PR is merged to `main`.
             
             ### ⚠️ Post-Merge Checklist:
             1. ✅ Review this PR for any issues
             2. ✅ Merge to main branch
-            3. 🧪 Verify deployment completed successfully in Vercel dashboard
+            3. 🧪 Verify deployment completed successfully in Vercel dashboard (after merge)
             4. 🔍 Test authentication flow:
                - SSO login via eduGAIN/RedIRIS
                - JWT token generation
@@ -220,6 +176,14 @@ jobs:
             ```
           branch: automated/jwt-key-rotation-${{ steps.rotation-date.outputs.value }}
           delete-branch: true
+
+      - name: Enable Auto-Merge
+        if: steps.check-rotation.outputs.needs_rotation == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.BOT_PR_TOKEN }}
+          pull-request-number: ${{ steps.create-pr.outputs.pull-request-number }}
+          merge-method: squash
           
       - name: Notify team (optional)
         if: steps.check-rotation.outputs.needs_rotation == 'true'
@@ -227,3 +191,4 @@ jobs:
           echo "JWT key rotation completed and PR created"
           echo "Next steps: Review PR, merge, and monitor deployment"
           # You could add Slack/Teams notification here
+
