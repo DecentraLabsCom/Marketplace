@@ -588,7 +588,7 @@ describe("LabCard - Active Booking Styling", () => {
     const card = screen.getByTestId("card-container");
     expect(card.className).toMatch(/relative/);
     expect(card.className).toMatch(/group/);
-    expect(card.className).toMatch(/h-\[400px\]/);
+    expect(card.className).toMatch(/h-100/);
   });
 
   test("updates styling when activeBooking prop changes", () => {

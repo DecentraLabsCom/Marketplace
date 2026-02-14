@@ -5,7 +5,7 @@
  * - Verifies Listed / All labs toggle shows/hides unlisted labs
  */
 
-describe: ("Market - search and listing toggle", () => {
+describe("Market - search and listing toggle", () => {
   const labs = [
     {
       id: 1,
