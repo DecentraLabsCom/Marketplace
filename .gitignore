@@ -22,6 +22,9 @@
 
 #But allow the rotate-jwt-keys script
 !scripts/rotate-jwt-keys.js
+!scripts/generate-jwt-keys.js
+!scripts/update-vercel-env.js
+!scripts/show-keys-for-vercel.js
 
 # next.js
 /.next/

@@ -107,7 +107,7 @@ function generateNewKeys() {
   
   try {
     // Generate new key pair using the existing script
-    execSync('node scripts/generate-jwt-keys.js', { 
+    execSync('node scripts/generate-jwt-keys.js --force', { 
       stdio: 'inherit',
       cwd: process.cwd()
     });

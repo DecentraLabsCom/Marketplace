@@ -75,8 +75,8 @@ jobs:
           # Create backup suffix with current date
           backup_suffix=$(date +%Y-%m-%d)-automated
           
-          # Run key rotation
-          npm run rotate-jwt-keys -- --force --backup-suffix=$backup_suffix
+          # Run key rotation (call node directly to avoid npm arg passthrough edge cases)
+          node scripts/rotate-jwt-keys.js --force --backup-suffix=$backup_suffix
           
           # Verify new keys were generated
           if [ ! -f "certificates/jwt/marketplace-private-key.pem" ]; then
