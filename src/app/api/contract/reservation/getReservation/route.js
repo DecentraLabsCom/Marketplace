@@ -42,7 +42,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+    devLog.log(`🔍 Fetching reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
     
     const contract = await getContractInstance();
 
@@ -145,11 +145,11 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('❌ Error fetching reservation:', error);
+    devLog.error('❌ Error fetching reservation:', error);
 
     // Gracefully handle decoding failures from mismatched ABI/contract
     if (error.code === 'BAD_DATA' || error.shortMessage?.includes('could not decode result data') || error.message?.includes('could not decode result data')) {
-      console.warn(`⚠️ Reservation decode failed, treating as not found: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+      devLog.warn(`⚠️ Reservation decode failed, treating as not found: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
       return Response.json({
         reservation: {
           labId: null,
@@ -191,7 +191,7 @@ export async function GET(request) {
     if (error.code === 'CALL_EXCEPTION' || 
         error.message?.includes('reverted') ||
         error.message?.includes('execution reverted')) {
-      console.log(`⚠️ Reservation not found or reverted: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+      devLog.log(`⚠️ Reservation not found or reverted: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
       
       // Return a valid response indicating the reservation doesn't exist
       return Response.json({ 

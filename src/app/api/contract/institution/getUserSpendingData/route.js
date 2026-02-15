@@ -8,6 +8,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves institutional user spending data
@@ -46,13 +47,13 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching spending data for PUC: ${puc}`);
+    devLog.log(`🔍 Fetching spending data for PUC: ${puc}`);
     
     const contract = await getContractInstance();
     
     const spendingData = await contract.getInstitutionalUserSpendingData(institutionAddress, puc);
     
-    console.log(`✅ Successfully fetched spending data`);
+    devLog.log(`✅ Successfully fetched spending data`);
     
     // Contract returns: (amount, periodStart)
     return Response.json({ 
@@ -65,7 +66,7 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching spending data:', error);
+    devLog.error('❌ Error fetching spending data:', error)
     
     return Response.json({ 
       error: 'Failed to fetch spending data',

@@ -68,11 +68,11 @@ export async function GET(request) {
       }
     }
 
-    console.log(
+    devLog.log(
       `🔍 Getting reservation at index ${index} for PUC: ${puc.slice(0, 8)}... at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
     )
 
-    console.log(
+    devLog.log(
       `✅ Reservation key: ${reservationKeyStr.slice(0, 10)}...`,
     )
 
@@ -86,7 +86,7 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
-    console.error('❌ [API] Error getting institutional user reservation by index:', error)
+    devLog.error('❌ [API] Error getting institutional user reservation by index:', error)
     return handleGuardError(error)
   }
 }

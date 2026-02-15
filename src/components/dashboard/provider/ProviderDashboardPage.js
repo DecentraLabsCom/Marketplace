@@ -19,12 +19,19 @@ import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
 import { useRequestFunds } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
+import useProviderLabsManager, { DEFAULT_NEW_LAB } from '@/hooks/provider/useProviderLabsManager'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
+import ProviderStakingPanel from '@/components/dashboard/provider/staking/ProviderStakingPanel'
+import PendingPayoutsPanel from '@/components/dashboard/provider/staking/PendingPayoutsPanel'
+import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
+import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
+import StakeHealthIndicator from '@/components/dashboard/provider/staking/StakeHealthIndicator'
+import { useStakeInfo } from '@/hooks/staking/useStakingAtomicQueries'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
@@ -55,34 +62,7 @@ import {
   notifyLabUpdateStarted,
 } from '@/utils/notifications/labToasts'
 
-const sanitizeProviderNameForUri = (name) => {
-  const base = (name || 'Provider').toString().trim()
-  const sanitized = base
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-
-  return sanitized || 'Provider'
-}
-
-const resolveOnchainLabUri = (uri) => {
-  if (!uri) return uri
-  const trimmed = String(uri).trim()
-  if (!trimmed) return trimmed
-  if (/^https?:\/\//i.test(trimmed) || /^ipfs:\/\//i.test(trimmed)) {
-    return trimmed
-  }
-  if (trimmed.startsWith('Lab-')) {
-    const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
-    if (blobBase && typeof blobBase === 'string' && blobBase.trim().length > 0) {
-      const normalizedBase = blobBase.replace(/\/+$/, '')
-      return `${normalizedBase}/data/${trimmed}`
-    }
-    const baseUrl = getBaseUrl().replace(/\/+$/, '')
-    return `${baseUrl}/api/metadata?uri=${encodeURIComponent(trimmed)}`
-  }
-  return trimmed
-}
+import { sanitizeProviderNameForUri, resolveOnchainLabUri } from '@/utils/metadata/helpers'
 
 /**
  * Provider dashboard page component
@@ -156,217 +136,40 @@ export default function ProviderDashboard() {
   const deleteLabDataMutation = useDeleteLabData();
   const moveFilesMutation = useMoveFiles();
   
-  // State declarations
-  const [selectedLabId, setSelectedLabId] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCreatingLab, setIsCreatingLab] = useState(false);
-  const hasInitialized = useRef(false);
-  const createLabAbortControllerRef = useRef(null);
-  const createLabNotificationIdRef = useRef(null);
-  const listingNotificationIdsRef = useRef(new Map());
-  const actionNotificationIdsRef = useRef(new Map());
+  // Local lab manager hook (extracted for readability & testability)
+  const {
+    selectedLabId,
+    setSelectedLabId,
+    selectedLab,
+    maxId,
+    isModalOpen,
+    setIsModalOpen,
+    isCreatingLab,
+    newLab,
+    setNewLab,
+    modalLab,
+    shouldShowModal,
+    labForModal,
+    handleSaveLab,
+    handleDeleteLab,
+    handleList,
+    handleUnlist,
+    handleCollectAll,
+    handleSelectChange,
+    handleCloseModal,
+    formatErrorMessage,
+  } = useProviderLabsManager({ ownedLabs, providerOwnerAddress, isSSO, user, address, institutionBackendUrl, decimals });
 
-  const setCreateLabProgress = useCallback((message, { hash } = {}) => {
-    try {
-      if (createLabNotificationIdRef.current) {
-        removeNotification(createLabNotificationIdRef.current);
-      }
+  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
 
-      const notif = addNotification('pending', message, {
-        autoHide: false,
-        category: 'lab-create',
-        priority: 'high',
-        hash: hash || null,
-        allowDuplicates: true,
-      });
+  // Staking summary (used in compact card)
+  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, { enabled: !!providerOwnerAddress && !isSSO });
 
-      createLabNotificationIdRef.current = notif?.id || null;
-    } catch (err) {
-      devLog.error('Failed to set create-lab progress notification:', err);
-    }
-  }, [addNotification, removeNotification]);
-
-  const clearCreateLabProgress = useCallback(() => {
-    try {
-      if (createLabNotificationIdRef.current) {
-        removeNotification(createLabNotificationIdRef.current);
-        createLabNotificationIdRef.current = null;
-      }
-    } catch (err) {
-      devLog.error('Failed to clear create-lab progress notification:', err);
-    }
-  }, [removeNotification]);
-
-  const setListingProgressNotification = useCallback((labId, message) => {
-    try {
-      const key = String(labId);
-      const existingId = listingNotificationIdsRef.current.get(key);
-      if (existingId) {
-        removeNotification(existingId);
-      }
-
-      const notif = addNotification('pending', message, {
-        autoHide: false,
-        category: 'lab-listing',
-        priority: 'high',
-        allowDuplicates: true,
-      });
-
-      if (notif?.id) {
-        listingNotificationIdsRef.current.set(key, notif.id);
-      }
-    } catch (err) {
-      devLog.error('Failed to set listing progress notification:', err);
-    }
-  }, [addNotification, removeNotification]);
-
-  const clearListingProgressNotification = useCallback((labId) => {
-    try {
-      const key = String(labId);
-      const existingId = listingNotificationIdsRef.current.get(key);
-      if (existingId) {
-        removeNotification(existingId);
-        listingNotificationIdsRef.current.delete(key);
-      }
-    } catch (err) {
-      devLog.error('Failed to clear listing progress notification:', err);
-    }
-  }, [removeNotification]);
-
-  const setActionProgressNotification = useCallback((actionKey, message) => {
-    try {
-      const key = String(actionKey);
-      const existingId = actionNotificationIdsRef.current.get(key);
-      if (existingId) {
-        removeNotification(existingId);
-      }
-
-      const notif = addNotification('pending', message, {
-        autoHide: false,
-        category: 'lab-action',
-        priority: 'high',
-        allowDuplicates: true,
-      });
-
-      if (notif?.id) {
-        actionNotificationIdsRef.current.set(key, notif.id);
-      }
-    } catch (err) {
-      devLog.error('Failed to set action progress notification:', err);
-    }
-  }, [addNotification, removeNotification]);
-
-  const clearActionProgressNotification = useCallback((actionKey) => {
-    try {
-      const key = String(actionKey);
-      const existingId = actionNotificationIdsRef.current.get(key);
-      if (existingId) {
-        removeNotification(existingId);
-        actionNotificationIdsRef.current.delete(key);
-      }
-    } catch (err) {
-      devLog.error('Failed to clear action progress notification:', err);
-    }
-  }, [removeNotification]);
-
-  const updateListingCache = useCallback((labId, isListed) => {
-    if (!queryClient) return;
-
-    const ids = new Set();
-    if (labId !== null && labId !== undefined) {
-      ids.add(labId);
-      ids.add(String(labId));
-
-      const numericId = Number(labId);
-      if (!Number.isNaN(numericId)) {
-        ids.add(numericId);
-      }
-    }
-
-    ids.forEach((id) => {
-      try {
-        queryClient.setQueryData(labQueryKeys.isTokenListed(id), { isListed });
-      } catch (cacheErr) {
-        devLog.warn('Failed to update isTokenListed cache:', cacheErr);
-      }
-    });
-
-    try {
-      queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-        if (!Array.isArray(old)) return old;
-        return old.map((lab) => {
-          const labKey = lab?.labId ?? lab?.id;
-          if (labKey === undefined || labKey === null) return lab;
-          return String(labKey) === String(labId) ? { ...lab, isListed } : lab;
-        });
-      });
-    } catch (cacheErr) {
-      devLog.warn('Failed to update lab list cache:', cacheErr);
-    }
-  }, [queryClient]);
-  
-  // 🚀 React Query for lab bookings with user details
-  const canFetchLabBookings = Boolean(selectedLabId && (isSSO || hasWalletSession));
-  const { 
-    data: labBookingsData, 
-    isError: bookingsError
-  } = useLabBookingsDashboard(selectedLabId, {
-    queryOptions: {
-      enabled: canFetchLabBookings
-    }
-  });
+  // React Query for lab bookings with user details (uses selectedLab from hook)
+  const canFetchLabBookings = Boolean(selectedLab?.id && (isSSO || hasWalletSession));
+  const { data: labBookingsData, isError: bookingsError } = useLabBookingsDashboard(selectedLab?.id, { queryOptions: { enabled: canFetchLabBookings } });
   const labBookings = labBookingsData?.bookings || [];
 
-  const newLabStructure = {
-    name: '',
-    category: '',
-    keywords: [],
-    price: '',
-    description: '',
-    provider: '',
-    accessURI: '',
-    accessKey: '',
-    timeSlots: [],
-    opens: null,
-    closes: null,
-    docs: [],
-    images: [],
-    uri: '',
-    availableDays: [],
-    availableHours: { start: '', end: '' },
-    timezone: '',
-    maxConcurrentUsers: 1,
-    unavailableWindows: [],
-    termsOfUse: {
-      url: '',
-      version: '',
-      effectiveDate: null,
-      sha256: ''
-    }
-  };
-  const [newLab, setNewLab] = useState(newLabStructure);
-  
-  const maxId = useMemo(() => 
-    Array.isArray(ownedLabs) && ownedLabs.length > 0 
-      ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
-      : 0,
-    [ownedLabs]
-  );
-
-  const selectedLab = useMemo(() => 
-    ownedLabs.find(lab => String(lab.id) === String(selectedLabId)),
-    [ownedLabs, selectedLabId]
-  );
-  
-  // Ensure we have a valid lab object to pass to the modal
-  const modalLab = useMemo(() => 
-    selectedLab ? selectedLab : (selectedLabId ? null : newLab),
-    [selectedLab, selectedLabId, newLab]
-  );
-  
-  const shouldShowModal = Boolean(isModalOpen && modalLab);
-  const labForModal = modalLab || newLab;
-  
   const bookingInfo = useMemo(() => {
     if (!selectedLab || !labBookings || bookingsError) return [];
     return mapBookingsForCalendar(labBookings, { labName: selectedLab.name });
@@ -375,200 +178,6 @@ export default function ProviderDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
-
-  // Handle adding a new lab using React Query mutation
-  const handleAddLab = useCallback(async ({ labData }) => {
-    const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
-      ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
-      : 0;
-    const providerSegmentSource = isSSO
-      ? (user?.institutionName || user?.name)
-      : user?.name;
-    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
-    labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
-    const onchainUri = resolveOnchainLabUri(labData.uri);
-
-    // Store the original human-readable price before blockchain conversion
-    const originalPrice = labData.price;
-    
-    // Extract temp files if they exist
-    const tempFiles = labData._tempFiles || [];
-    delete labData._tempFiles; // Remove from labData to avoid sending to blockchain
-
-    try {
-      setIsCreatingLab(true);
-      createLabAbortControllerRef.current = isSSO ? new AbortController() : null;
-      setCreateLabProgress(isSSO ? 'Sending lab to institution for execution...' : 'Confirm the transaction in your wallet...');
-      
-      // 🚀 Use React Query mutation for lab creation (blockchain transaction)
-      const result = await addLabMutation.mutateAsync({
-        ...labData,
-        uri: onchainUri,
-        providerId: providerOwnerAddress || address, // Add provider info
-        isSSO,
-        userEmail: user.email,
-        backendUrl: isSSO ? institutionBackendUrl : undefined,
-        abortSignal: createLabAbortControllerRef.current?.signal,
-        // SSO: be more tolerant to backend propagation delays
-        pollMaxDurationMs: 12 * 60 * 1000,
-        pollInitialDelayMs: 3_000,
-        pollMaxDelayMs: 20_000,
-        postExecutePollMaxDurationMs: 60_000,
-        postExecutePollInitialDelayMs: 2_000,
-        postExecutePollMaxDelayMs: 5_000,
-      });
-      // Close modal and notify success
-      try {
-        setIsModalOpen(false);
-        notifyLabCreated(addTemporaryNotification, labData?.id);
-      } catch (err) {
-        devLog.warn('Failed to close modal or notify success:', err);
-      } finally {
-        clearCreateLabProgress();
-      }      
-      const blockchainLabId = result?.labId?.toString?.() || result?.id?.toString?.();
-      
-      if (!blockchainLabId) {
-        throw new Error('Lab ID not returned from blockchain');
-      }
-      
-      setCreateLabProgress(`✅ Lab created onchain (ID: ${blockchainLabId}). Finalizing...`, { hash: result?.hash || result?.txHash });
-      
-      // Move temp files to correct labId folder
-      if (tempFiles.length > 0) {
-        try {
-          devLog.log(`📁 Moving ${tempFiles.length} temp files to lab ${blockchainLabId}...`);
-          setCreateLabProgress('📁 Moving uploaded files to the lab folder...');
-          const moveResult = await moveFilesMutation.mutateAsync({
-            filePaths: tempFiles,
-            labId: blockchainLabId
-          });
-          
-          devLog.log('✅ Files moved successfully:', moveResult);
-          
-          // Update labData with new file paths
-          if (moveResult.movedFiles) {
-            const newImages = [];
-            const newDocs = [];
-            
-            moveResult.movedFiles.forEach(movedFile => {
-              if (movedFile.original.includes('/images/')) {
-                newImages.push(movedFile.new);
-              } else if (movedFile.original.includes('/docs/')) {
-                newDocs.push(movedFile.new);
-              }
-            });
-            
-            if (newImages.length > 0) {
-              labData.images = newImages;
-            }
-            if (newDocs.length > 0) {
-              labData.docs = newDocs;
-            }
-          }
-        } catch (moveError) {
-          devLog.error('❌ Failed to move temp files:', moveError);
-          notifyLabCreatedFilesWarning(addTemporaryNotification, blockchainLabId, formatErrorMessage(moveError));
-          // Continue - lab was created, file move is not critical
-        }
-      }
-      
-      // Save metadata JSON file for locally-managed URIs
-      if (labData.uri.startsWith('Lab-')) {
-        try {
-          devLog.log('📝 Saving lab metadata JSON after blockchain creation...');
-          setCreateLabProgress('💾 Saving lab metadata (offchain)...');
-          await saveLabDataMutation.mutateAsync({
-            ...labData,
-            id: blockchainLabId, // Use the blockchain labId
-            price: originalPrice // Save with human-readable price for JSON consistency
-          });
-          
-          // Add a small delay to ensure cache propagation in production
-          await new Promise(resolve => setTimeout(resolve, 150));
-          
-          devLog.log('✅ Lab metadata JSON saved successfully');
-        } catch (error) {
-          devLog.error('❌ Failed to save lab metadata JSON:', error);
-          notifyLabCreatedMetadataWarning(addTemporaryNotification, blockchainLabId, formatErrorMessage(error));
-          // Don't return - lab was created successfully, just metadata save failed
-        }
-      }
-
-      // Ensure UI shows the provided lab name immediately by updating the cache
-      try {
-        if (blockchainLabId) {
-          const immediateUpdate = {
-            id: blockchainLabId,
-            labId: blockchainLabId,
-            name: labData.name || undefined,
-            description: labData.description || undefined,
-            image: (labData.images && labData.images[0]) || labData.image || undefined,
-            images: Array.isArray(labData.images) ? labData.images : undefined,
-            price: originalPrice || undefined,
-            timestamp: new Date().toISOString()
-          };
-
-          // Update specific lab query
-          queryClient.setQueryData(labQueryKeys.getLab(blockchainLabId), (old) => ({ ...(old || {}), ...immediateUpdate }));
-
-          // Update list of labs if present
-          queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-            // If lab exists in the list, replace it; otherwise add it to the top
-            const exists = old.some(l => l?.labId === blockchainLabId || l?.id === blockchainLabId);
-            if (exists) return old.map(l => (l?.labId === blockchainLabId || l?.id === blockchainLabId) ? { ...l, ...immediateUpdate } : l);
-            return [{ ...immediateUpdate }, ...old];
-          });
-        }
-      } catch (err) {
-        devLog.warn('Failed to apply immediate lab cache update:', err);
-      }
-
-      // Close modal and notify success
-      try {
-        setIsModalOpen(false);
-        notifyLabCreated(addTemporaryNotification, blockchainLabId || labData?.id);
-      } catch (err) {
-        devLog.warn('Failed to close modal or notify success:', err);
-      } finally {
-        clearCreateLabProgress();
-      }
-    } catch (error) {
-      devLog.error('Error adding lab:', error);
-      notifyLabCreateFailed(addTemporaryNotification, error?.message || 'Unknown error');
-      clearCreateLabProgress();
-    } finally {
-      setIsCreatingLab(false);
-      createLabAbortControllerRef.current = null;
-    }
-  }, [
-    ownedLabs,
-    user?.name,
-    addLabMutation,
-    saveLabDataMutation,
-    moveFilesMutation,
-    address,
-    isSSO,
-    user?.email,
-    addTemporaryNotification,
-    setCreateLabProgress,
-    clearCreateLabProgress,
-  ]);
-
-  const handleCloseModal = useCallback(() => {
-    if (isCreatingLab && isSSO && createLabAbortControllerRef.current) {
-      try {
-        createLabAbortControllerRef.current.abort();
-        notifyLabCreateCancelled(addTemporaryNotification);
-      } catch (err) {
-        devLog.error('Failed aborting create-lab request:', err);
-      } finally {
-        clearCreateLabProgress();
-      }
-    }
-
-    setIsModalOpen(false);
-  }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab, isSSO]);
 
   // Redirect non-providers to home page for wallet users
   useEffect(() => {
@@ -579,374 +188,7 @@ export default function ProviderDashboard() {
     }
   }, [isProvider, isProviderLoading, isLoading, address, isSSO, router]);
 
-  // Automatically set the first lab as the selected lab (only once)
-  useEffect(() => {
-    if (ownedLabs.length > 0 && !selectedLabId && !isModalOpen && !hasInitialized.current) {
-      const firstLabId = ownedLabs[0]?.id;
-      if (firstLabId) {
-        setSelectedLabId(String(firstLabId));
-        hasInitialized.current = true;
-      }
-    }
-  }, [ownedLabs.length, selectedLabId, isModalOpen]);
   
-  // Handle saving a lab (either when editing an existing one or adding a new one)
-  const handleSaveLab = async (labData) => {
-    // Store the original human-readable price for local state updates
-    const originalPrice = labData.price;
-    
-    // Convert price from user input to token units for blockchain operations
-    if (labData.price && decimals) {
-      try {
-        // Convert hourly price (UI) to per-second price (contract format)
-        const pricePerHour = parseFloat(labData.price.toString());
-        const pricePerSecond = pricePerHour / 3600; // Convert to per-second
-        
-        // Convert the per-second price to token units (multiply by decimals)
-        const priceInTokenUnits = parseUnits(pricePerSecond.toString(), decimals);
-        labData = { ...labData, price: priceInTokenUnits.toString() };
-      } catch (error) {
-        devLog.error('Error converting price to token units:', error);
-        notifyLabInvalidPrice(addTemporaryNotification);
-        return;
-      }
-    }
-    
-    if (labData.id) {
-      await handleEditLab({ labData, originalPrice });
-    } else {
-      await handleAddLab({ labData });
-    }
-  };
-
-  // Handle editing/updating a lab
-  async function handleEditLab({ labData, originalPrice }) {
-    const originalLab = ownedLabs.find(lab => lab.id == labData.id);
-    
-    // Use original lab's URI to preserve consistency, regardless of provider name changes
-    // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
-    const providerSegmentSource = isSSO
-      ? (user?.institutionName || user?.name)
-      : user?.name;
-    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
-    labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
-    const onchainUri = resolveOnchainLabUri(labData.uri);
-
-    const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
-    const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 
-                          labData.uri.startsWith('https://'));
-    const mustDeleteOldJson = wasLocalJson && isNowExternal;
-
-    // Helper function to normalize values for comparison (treat undefined/null as empty string)
-    const normalize = (value) => value === undefined || value === null ? '' : value;
-    
-    // ONLY compare on-chain fields that are stored in the smart contract
-    // According to smart contract ABI: uri, price, accessURI, accessKey (auth removed - now per provider)
-    const hasChangedOnChainData =
-      normalize(originalLab.uri) !== normalize(onchainUri) ||
-      normalize(originalLab.price) !== normalize(labData.price) ||
-      normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
-      normalize(originalLab.accessKey) !== normalize(labData.accessKey);
-
-    // Debug logging to help identify what's causing transaction triggers
-    devLog.log('🔍 On-chain comparison debug:', {
-      uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
-      price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
-      accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
-      accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
-      hasChangedOnChainData
-    });
-
-    try {
-      if (hasChangedOnChainData) {
-        // 1a. If there are on-chain changes, update blockchain via mutation
-        const actionKey = `update:${labData.id}`;
-        if (isSSO) {
-          setActionProgressNotification(actionKey, 'Updating lab onchain...');
-        } else {
-          notifyLabUpdateStarted(addTemporaryNotification, labData.id);
-        }
-        setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
-        devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
-
-        // Use React Query mutation - it will route to correct service based on isSSO
-        try {
-          await updateLabMutation.mutateAsync({
-            labId: labData.id,
-            labData: {
-              uri: onchainUri,
-              price: labData.price, // Already in token units
-              accessURI: labData.accessURI,
-              accessKey: labData.accessKey
-            },
-            backendUrl: isSSO ? institutionBackendUrl : undefined
-          });
-
-          if (isSSO) {
-            clearActionProgressNotification(actionKey);
-          }
-          notifyLabUpdated(addTemporaryNotification, labData.id);
-          // Clear optimistic editing marker
-          clearOptimisticLabState(String(labData.id));
-        } catch (err) {
-          devLog.error('Error updating lab onchain:', err);
-          if (isSSO) {
-            clearActionProgressNotification(actionKey);
-          }
-          clearOptimisticLabState(String(labData.id));
-          try {
-            queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labData.id), exact: true });
-            queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
-          } catch (cacheErr) {
-            devLog.warn('Failed to invalidate cache after update error:', cacheErr);
-          }
-          notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
-          return;
-        }
-      } else {
-        // 1b. No on-chain changes - only update off-chain data (JSON file)
-        devLog.log('ProviderDashboard: No on-chain changes detected, updating only off-chain data');
-        
-        // Save the JSON if necessary (for off-chain data only)
-        if (labData.uri.startsWith('Lab-')) {
-          try {
-            await saveLabDataMutation.mutateAsync({
-              ...labData,
-              price: originalPrice // Save with human-readable price for JSON consistency
-            });
-            
-            // Add a small delay to ensure cache propagation in production
-            await new Promise(resolve => setTimeout(resolve, 150));
-            
-            notifyLabMetadataUpdated(addTemporaryNotification, labData.id);
-          } catch (error) {
-            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
-            return;
-          }
-        } else {
-          // No JSON to save and no on-chain changes - just show success
-          notifyLabNoChanges(addTemporaryNotification, labData.id);
-        }
-      }
-      
-      // 2. Save the JSON if there were on-chain changes (to keep metadata in sync)
-      if (hasChangedOnChainData && labData.uri.startsWith('Lab-')) {
-        try {
-          await saveLabDataMutation.mutateAsync({
-            ...labData,
-            price: originalPrice // Save with human-readable price for JSON consistency
-          });
-          
-          // Add a small delay to ensure cache propagation in production
-          await new Promise(resolve => setTimeout(resolve, 150));
-          
-        } catch (error) {
-          notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
-          return;
-        }
-      }
-
-      // 3. Delete the old JSON if necessary
-      if (mustDeleteOldJson) {
-        await deleteLabDataMutation.mutateAsync(originalLab.uri);
-      }
-    } catch (error) {
-      devLog.error('Error updating lab:', error);
-      notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
-    }
-  }
-
-  // Handle delete a lab using React Query mutation
-  const handleDeleteLab = async (labId) => {
-    const actionKey = `delete:${labId}`;
-    try {
-      // Optimistic UI: mark deleting and provide immediate feedback
-      if (isSSO) {
-        setActionProgressNotification(actionKey, 'Deleting lab...');
-      } else {
-        notifyLabDeleteStarted(addTemporaryNotification, labId);
-      }
-      setOptimisticLabState(String(labId), { deleting: true, isPending: true });
-
-      // 🚀 Use React Query mutation for lab deletion
-      await deleteLabMutation.mutateAsync(labId);
-      
-      // Remove from cached list immediately when possible
-      try {
-        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => (
-          Array.isArray(old) ? old.filter(l => (l?.id || l?.labId) !== String(labId)) : old
-        ));
-      } catch (cacheErr) {
-        devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
-      }
-
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
-      notifyLabDeleted(addTemporaryNotification, labId);
-
-      // React Query mutations and event contexts will further ensure cache consistency
-      devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
-      
-      notifyLabDeletedCascadeWarning(addTemporaryNotification, labId);
-
-      // Clear optimistic deleting state
-      clearOptimisticLabState(String(labId));
-    } catch (error) {
-      devLog.error('Error deleting lab:', error);
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
-      clearOptimisticLabState(labId);
-      try {
-        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
-        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
-      } catch (cacheErr) {
-        devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
-      }
-      notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
-    }
-  };
-
-  // Handle listing a lab using React Query mutation
-  const handleList = async (labId) => {
-    const actionKey = `list:${labId}`;
-    try {
-      // Immediate user feedback: notify and set optimistic pending state
-      if (isSSO) {
-        setListingProgressNotification(actionKey, 'Listing lab...');
-      } else {
-        notifyLabListingRequested(addTemporaryNotification, labId);
-      }
-      setOptimisticListingState(String(labId), true, true);
-
-      // ?Ys? Use React Query mutation for lab listing
-      const listPayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await listLabMutation.mutateAsync(listPayload);
-      
-      // Mark optimistic as completed (still keep new state)
-      if (isSSO) {
-        clearListingProgressNotification(actionKey);
-      }
-      completeOptimisticListingState(String(labId));
-
-      // Immediately update cache so UI reflects onchain change without waiting for events
-      updateListingCache(labId, true);
-
-      notifyLabListed(addTemporaryNotification, labId);
-    } catch (error) {
-      devLog.error('Error listing lab:', error);
-      if (isSSO) {
-        clearListingProgressNotification(actionKey);
-      }
-      // Clear optimistic pending state on error
-      clearOptimisticListingState(String(labId));
-      try {
-        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
-        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
-      } catch (cacheErr) {
-        devLog.warn('Failed to invalidate cache after list error:', cacheErr);
-      }
-      notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
-    }
-  };
-  
-  // Handle unlisting a lab using React Query mutation
-  const handleUnlist = async (labId) => {
-    try {
-      // Immediate user feedback: notify and set optimistic pending state
-      setListingProgressNotification(labId, 'Unlisting lab...');
-      setOptimisticListingState(String(labId), false, true);
-
-      // ?Ys? Use React Query mutation for lab unlisting
-      const unlistPayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await unlistLabMutation.mutateAsync(unlistPayload);
-      
-      // Mark optimistic as completed (keep new state)
-      clearListingProgressNotification(labId);
-      completeOptimisticListingState(String(labId));
-
-      // Immediately update cache so UI reflects onchain change without waiting for events
-      updateListingCache(labId, false);
-
-      notifyLabUnlisted(addTemporaryNotification, labId);
-    } catch (error) {
-      devLog.error('Error unlisting lab:', error);
-      clearListingProgressNotification(labId);
-      // Clear optimistic pending state on error
-      clearOptimisticListingState(String(labId));
-      try {
-        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
-        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
-      } catch (cacheErr) {
-        devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
-      }
-      notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
-    }
-  };
-
-// Handle collecting balances from all labs
-  const handleCollectAll = async () => {
-    const actionKey = 'collect:all';
-    try {
-      if (isSSO) {
-        setActionProgressNotification(actionKey, 'Collecting all balances...');
-      } else {
-        notifyLabCollectStarted(addTemporaryNotification);
-      }
-      
-      await requestFundsMutation.mutateAsync();
-      
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
-      notifyLabCollected(addTemporaryNotification);
-    } catch (err) {
-      devLog.error(err);
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
-      notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
-    }
-  };
-
-  const handleSelectChange = (e) => {
-    setSelectedLabId(e.target.value);
-  };
-
-  // Helper function to clean and shorten error messages
-  const formatErrorMessage = (error) => {
-    let message = error.message || 'Unknown error';
-    
-    // Common patterns to simplify
-    const patterns = [
-      { regex: /execution reverted:?\s*/i, replacement: '' },
-      { regex: /VM Exception while processing transaction:?\s*/i, replacement: '' },
-      { regex: /Error:\s*/i, replacement: '' },
-      { regex: /Failed to.*?:\s*/i, replacement: '' },
-      { regex: /HTTP error! status: (\d+)/, replacement: 'Server error ($1)' },
-      { regex: /network.*?error/i, replacement: 'Network error' },
-      { regex: /insufficient.*?funds/i, replacement: 'Insufficient funds' },
-      { regex: /user.*?rejected/i, replacement: 'Transaction rejected' },
-      { regex: /wallet.*?connection/i, replacement: 'Wallet error' }
-    ];
-    
-    // Apply patterns
-    patterns.forEach(({ regex, replacement }) => {
-      message = message.replace(regex, replacement);
-    });
-    
-    // Truncate if still too long
-    if (message.length > 80) {
-      message = message.substring(0, 77) + '...';
-    }
-    
-    return message.trim() || 'Operation failed';
-  };
 
   // ❌ Error handling for React Query
   if (labsError) {
@@ -1004,13 +246,35 @@ export default function ProviderDashboard() {
               isSSO={isSSO}
               onCollectAll={handleCollectAll}
               onAddNewLab={() => {
-                setNewLab(newLabStructure);
+                setNewLab(DEFAULT_NEW_LAB);
                 setSelectedLabId("");
                 setIsModalOpen(true);
               }}
             />
           </div>
         </div>
+
+        {/* Staking & Economics — compact + modal (wallet users only) */}
+        {!isSSO && (
+          <>
+            <ProviderStakingCompactCard
+              stakeInfo={stakeInfo}
+              onManage={() => setIsStakingModalOpen(true)}
+            />
+
+            <ProviderStakingModal
+              isOpen={isStakingModalOpen}
+              onClose={() => setIsStakingModalOpen(false)}
+              providerAddress={providerOwnerAddress}
+              labs={ownedLabs}
+              isSSO={isSSO}
+              labCount={ownedLabs.length}
+              onNotify={(type, message) => addNotification(type, message)}
+              onCollectAll={handleCollectAll}
+              isCollecting={requestFundsMutation.isPending}
+            />
+          </>
+        )}
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
           lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import devLog from '@/utils/dev/logger' 
 /**
  * Get token URI for a lab
  * GET /api/contract/lab/getTokenURI?labId=123
@@ -31,7 +32,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting token URI:', error);
+    devLog.error('Error getting token URI:', error);
     return NextResponse.json(
       { error: `Failed to get token URI: ${error.message}` }, {status: 500 }
     );

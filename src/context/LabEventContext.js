@@ -2,7 +2,7 @@
 import { createContext, useContext, useCallback, useRef } from 'react'
 import { useWatchContractEvent, useConnection, usePublicClient } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
-import { labQueryKeys } from '@/utils/hooks/queryKeys'
+import { labQueryKeys, stakingQueryKeys } from '@/utils/hooks/queryKeys'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import devLog from '@/utils/dev/logger'
@@ -250,6 +250,69 @@ export function LabEventProvider({ children }) {
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
                 queueLabDerivedInvalidations(labId);
             });
+        }
+    });
+
+    // TokensStaked event listener — invalidate staking queries
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'TokensStaked',
+        chainId: safeChain.id,
+        client: publicClient,
+        enabled: isEnabled,
+        onLogs: (logs) => {
+            devLog.log('🔒 [LabEventContext] TokensStaked events detected:', logs.length);
+            logs.forEach((log) => {
+                const provider = log?.args?.provider?.toString?.();
+                if (provider) {
+                    queueInvalidation(stakingQueryKeys.stakeInfo(provider));
+                    queueInvalidation(stakingQueryKeys.requiredStake(provider));
+                }
+            });
+            queueInvalidation(stakingQueryKeys.all());
+        }
+    });
+
+    // TokensUnstaked event listener — invalidate staking queries
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'TokensUnstaked',
+        chainId: safeChain.id,
+        client: publicClient,
+        enabled: isEnabled,
+        onLogs: (logs) => {
+            devLog.log('🔓 [LabEventContext] TokensUnstaked events detected:', logs.length);
+            logs.forEach((log) => {
+                const provider = log?.args?.provider?.toString?.();
+                if (provider) {
+                    queueInvalidation(stakingQueryKeys.stakeInfo(provider));
+                    queueInvalidation(stakingQueryKeys.requiredStake(provider));
+                }
+            });
+            queueInvalidation(stakingQueryKeys.all());
+        }
+    });
+
+    // StakeBurned event listener — invalidate staking queries on slash execution
+    useWatchContractEvent({
+        address: contractAddress,
+        abi: contractABI,
+        eventName: 'StakeBurned',
+        chainId: safeChain.id,
+        client: publicClient,
+        enabled: isEnabled,
+        onLogs: (logs) => {
+            devLog.log('🔥 [LabEventContext] StakeBurned events detected:', logs.length);
+            logs.forEach((log) => {
+                const provider = log?.args?.provider?.toString?.();
+                if (provider) {
+                    queueInvalidation(stakingQueryKeys.stakeInfo(provider));
+                    queueInvalidation(stakingQueryKeys.requiredStake(provider));
+                }
+            });
+            queueInvalidation(stakingQueryKeys.all());
         }
     });
 

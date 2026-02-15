@@ -12,7 +12,7 @@ import { getContractInstance } from '../../utils/contractInstance'
  */
 export async function GET() {
   try {
-    console.log('🔍 Fetching LAB token decimals');
+    devLog.log('🔍 Fetching LAB token decimals');
     
     const labTokenContract = await getContractInstance('lab');
     
@@ -22,7 +22,7 @@ export async function GET() {
     // Convert BigInt to number for compatibility
     const decimalsNumber = Number(decimals);
     
-    console.log(`✅ LAB token decimals: ${decimalsNumber}`);
+    devLog.log(`✅ LAB token decimals: ${decimalsNumber}`);
     
     return Response.json({ 
       decimals: decimalsNumber 
@@ -31,11 +31,11 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching LAB token decimals:', error);
+    devLog.error('❌ Error fetching LAB token decimals:', error);
     
     // Fallback to default value
     const defaultDecimals = 6;
-    console.warn(`Using default decimals: ${defaultDecimals}`);
+    devLog.warn(`Using default decimals: ${defaultDecimals}`);
     
     return Response.json({ 
       decimals: defaultDecimals,

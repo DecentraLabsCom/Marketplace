@@ -41,7 +41,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting user of reservation:', error);
+    devLog.error('Error getting user of reservation:', error);
     return NextResponse.json(
       { error: `Failed to get user of reservation: ${error.message}` }, {status: 500 }
     );

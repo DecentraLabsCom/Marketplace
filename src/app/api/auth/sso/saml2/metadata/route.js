@@ -29,7 +29,7 @@ export async function GET() {
             headers: { "Content-Type": "application/xml" },
         });
     } catch (error) {
-        console.error("Error generating SAML metadata:", error);
+        devLog.error("Error generating SAML metadata:", error);
         return new NextResponse("Unexpected error generating metadata", { status: 500 });
     }
 }

@@ -38,11 +38,11 @@ export async function GET(request) {
 
     const reservationCount = Number(count)
 
-    console.log(
+    devLog.log(
       `📊 Getting reservation count for PUC: ${puc.slice(0, 8)}... at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
     )
 
-    console.log(
+    devLog.log(
       `✅ Total reservations: ${reservationCount}`,
     )
 
@@ -61,7 +61,7 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
-    console.error('❌ [API] Error getting institutional user reservation count:', error)
+    devLog.error('❌ [API] Error getting institutional user reservation count:', error)
     return handleGuardError(error)
   }
 }

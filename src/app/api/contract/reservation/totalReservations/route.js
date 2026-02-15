@@ -28,7 +28,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting total reservations:', error);
+    devLog.error('Error getting total reservations:', error);
     return NextResponse.json(
       { error: `Failed to get total reservations: ${error.message}` }, {status: 500 }
     );

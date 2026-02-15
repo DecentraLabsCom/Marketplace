@@ -11,6 +11,7 @@
 
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import devLog from '@/utils/dev/logger';
 
 export async function GET(request) {
   try {
@@ -77,7 +78,7 @@ export async function GET(request) {
       keys: serializedKeys,
     });
   } catch (error) {
-    console.error('Error getting reservations of token by user:', error);
+    devLog.error('Error getting reservations of token by user:', error);
     return NextResponse.json(
       {
         error: 'Failed to get reservations of token by user',

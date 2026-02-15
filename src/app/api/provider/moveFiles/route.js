@@ -212,7 +212,7 @@ export async function POST(req) {
       return handleGuardError(error);
     }
     
-    console.error('Error in moveFiles endpoint:', error);
+    devLog.error('Error in moveFiles endpoint:', error);
     
     return NextResponse.json(
       {

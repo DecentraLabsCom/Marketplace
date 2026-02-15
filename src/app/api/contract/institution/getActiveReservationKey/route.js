@@ -119,11 +119,11 @@ export async function GET(request) {
     const reservationKeyStr = reservationKey?.toString() || ZERO_BYTES32
     const hasActiveReservation = reservationKeyStr !== ZERO_BYTES32
 
-    console.log(
+    devLog.log(
       `🔍 Getting active reservation key for PUC: ${puc.slice(0, 8)}... in lab ${labIdNum} at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
     )
 
-    console.log(
+    devLog.log(
       `✅ Active reservation key: ${hasActiveReservation ? `${reservationKeyStr.slice(0, 10)}...` : 'none'}`,
     )
 
@@ -143,7 +143,7 @@ export async function GET(request) {
       return handleGuardError(error)
     }
 
-    console.error('❌ Error getting active reservation key:', error)
+    devLog.error('❌ Error getting active reservation key:', error)
 
     return Response.json(
       {

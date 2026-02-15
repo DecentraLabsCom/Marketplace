@@ -119,6 +119,16 @@ export const providerQueryKeys = {
   isLabProvider: (address) => ['providers', 'isLabProvider', address],
 };
 
+// Staking query keys
+export const stakingQueryKeys = {
+  all: () => ['staking'],
+  stakeInfo: (providerAddress) => ['staking', 'stakeInfo', providerAddress],
+  requiredStake: (providerAddress) => ['staking', 'requiredStake', providerAddress],
+  pendingPayout: (labId) => ['staking', 'pendingPayout', labId],
+  pendingPayoutsMulti: (labIds) => ['staking', 'pendingPayouts', ...(labIds || []).sort()],
+  lockPeriod: () => ['staking', 'lockPeriod'],
+};
+
 // Metadata query keys
 export const metadataQueryKeys = {
   all: () => ['metadata'],

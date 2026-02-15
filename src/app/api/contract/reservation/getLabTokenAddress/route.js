@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Get LAB token contract address
@@ -28,7 +29,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting LAB token address:', error);
+    devLog.error('Error getting LAB token address:', error);
     return NextResponse.json(
       { error: `Failed to get LAB token address: ${error.message}` }, {status: 500 }
     );

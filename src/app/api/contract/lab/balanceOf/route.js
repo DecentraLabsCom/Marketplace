@@ -9,6 +9,7 @@
 import { isAddress } from 'viem'
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves count of labs owned by a specific wallet address
@@ -40,7 +41,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching owned lab count for wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
+    devLog.log(`🔍 Fetching owned lab count for wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
     
     const contract = await getContractInstance();
     
@@ -50,7 +51,7 @@ export async function GET(request) {
     // Convert BigInt to number for compatibility
     const count = Number(balance);
     
-    console.log(`✅ Wallet owns ${count} labs`);
+    devLog.log(`✅ Wallet owns ${count} labs`);
     
     return Response.json({
       count,
@@ -58,7 +59,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error(`❌ Error fetching owned lab count for wallet ${wallet}:`, error);
+    devLog.error(`❌ Error fetching owned lab count for wallet ${wallet}:`, error);
     
     return Response.json({ 
       error: `Failed to fetch owned lab count`,

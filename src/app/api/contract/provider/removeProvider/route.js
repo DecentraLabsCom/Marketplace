@@ -45,7 +45,7 @@ export async function POST(request) {
     if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
       return handleGuardError(error);
     }
-    console.error('Error when trying to delete a provider:', error);
+    devLog.error('Error when trying to delete a provider:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

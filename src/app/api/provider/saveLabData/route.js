@@ -231,7 +231,7 @@ export async function POST(req) {
         existingData = JSON.parse(fileContent);
       } catch (error) {
         if (error.code !== 'ENOENT') {
-          console.error(`Error reading existing lab data for ${uri}:`, error);
+          devLog.error(`Error reading existing lab data for ${uri}:`, error);
           return NextResponse.json(
             { 
               error: 'Failed to read existing lab data',
@@ -251,13 +251,13 @@ export async function POST(req) {
           try {
             existingData = await response.json();
           } catch (parseError) {
-            console.warn(`Failed to parse existing blob data for ${blobName}:`, parseError);
+            devLog.warn(`Failed to parse existing blob data for ${blobName}:`, parseError);
             existingData = null; // Treat as new file
           }
         }
         // Non-200 responses are fine - blob might not exist yet
       } catch (error) {
-        console.warn(`Failed to fetch existing blob data for ${blobName}:`, error.message);
+        devLog.warn(`Failed to fetch existing blob data for ${blobName}:`, error.message);
         // Continue with null existingData
       }
     }
@@ -336,7 +336,7 @@ export async function POST(req) {
                   { contentType: 'application/json', allowOverwrite: true, access: 'public' });
       }
     } catch (writeError) {
-      console.error(`Error writing lab data for ${uri}:`, writeError);
+      devLog.error(`Error writing lab data for ${uri}:`, writeError);
       return NextResponse.json(
         { 
           error: 'Failed to save lab data',
@@ -373,7 +373,7 @@ export async function POST(req) {
       return handleGuardError(error);
     }
     
-    console.error('Error in saveLabData endpoint:', error);
+    devLog.error('Error in saveLabData endpoint:', error);
     
     // Handle JSON parsing errors
     if (error instanceof SyntaxError) {

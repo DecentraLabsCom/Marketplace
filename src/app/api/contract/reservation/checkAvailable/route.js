@@ -38,7 +38,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error checking availability:', error);
+    devLog.error('Error checking availability:', error);
     return NextResponse.json(
       { error: `Failed to check availability: ${error.message}` }, {status: 500 }
     );

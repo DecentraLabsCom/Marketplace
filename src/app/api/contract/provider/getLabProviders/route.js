@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getContractInstance } from '../../utils/contractInstance';
-/**
+import { getContractInstance } from '../../utils/contractInstance';import devLog from '@/utils/dev/logger' /**
  * Get all lab providers
  * GET /api/contract/provider/getLabProviders
  * 
@@ -8,7 +7,7 @@ import { getContractInstance } from '../../utils/contractInstance';
  */
 export async function GET() {
   try {
-    console.log('[API] getLabProviders: Fetching all lab providers');
+    devLog.log('[API] getLabProviders: Fetching all lab providers');
 
     const contract = await getContractInstance();
     if (!contract) {
@@ -21,7 +20,7 @@ export async function GET() {
     // Call getLabProviders function
     const providers = await contract.getLabProviders();
 
-    console.log(`[API] getLabProviders: Successfully retrieved ${providers.length} providers`);
+    devLog.log(`[API] getLabProviders: Successfully retrieved ${providers.length} providers`);
 
     return NextResponse.json({
       providers: providers.map(provider => ({
@@ -36,7 +35,7 @@ export async function GET() {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting lab providers:', error);
+    devLog.error('Error getting lab providers:', error);
     
     // Handle specific error types
     if (error.message?.includes('execution reverted')) {

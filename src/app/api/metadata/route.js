@@ -208,7 +208,7 @@ export async function GET(request) {
     return successResponse;
 
   } catch (error) {
-    console.error('Error in metadata endpoint:', error);
+    devLog.error('Error in metadata endpoint:', error);
     
     // Handle JSON parsing errors specifically
     if (error instanceof SyntaxError) {

@@ -3,6 +3,7 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import devLog from '@/utils/dev/logger' 
 /**
  * Checks if the specified wallet address is a registered lab provider
  * @param {Request} request - HTTP request with query parameters
@@ -37,7 +38,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error in isLabProvider:', error);
+    devLog.error('Error in isLabProvider:', error);
     return Response.json({ 
       error: 'Internal server error' 
     }, {status: 500 });

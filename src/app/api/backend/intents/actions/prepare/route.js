@@ -179,7 +179,6 @@ export async function POST(request) {
       onChain = await registerIntentOnChain('action', intentPackage.meta, intentPackage.payload, adminSignature)
     } catch (err) {
       devLog.error('[API] On-chain action intent registration failed', err)
-      console.error('[API] On-chain action intent registration failed', err)
       const onchain = extractOnchainErrorDetails(err)
       return NextResponse.json(
         {

@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 import { defaultNetworks, alchemyNetworks, ankrNetworks, 
         quicknodeNetworks, chainstackNetworks } from '@/utils/blockchain/networkConfig'
+import devLog from '@/utils/dev/logger'
 
 // Provider cache to avoid reinitializing providers unnecessarily
 const providerCache = new Map();
@@ -33,7 +34,7 @@ export default async function getProvider(network) {
     const cached = providerCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp) < PROVIDER_CACHE_TTL) {
-        console.log(`✅ Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers)`);
+        devLog.log(`✅ Using cached FallbackProvider for ${network.name} (contains ${cached.providerCount || 'unknown'} providers)`);
         return cached.provider;
     }
 
@@ -64,9 +65,9 @@ export default async function getProvider(network) {
                 weight: 2,  // Higher weight = higher preference
                 stallTimeout: 1500  // Fast response expected
             });
-            console.log('✅ Added Alchemy provider');
+            devLog.log('✅ Added Alchemy provider');
         } catch (e) {
-            console.warn('❌ Alchemy provider failed to initialize:', e.message);
+            devLog.warn('❌ Alchemy provider failed to initialize:', e.message);
         }
     }
 
@@ -83,9 +84,9 @@ export default async function getProvider(network) {
                 weight: 2,
                 stallTimeout: 1500
             });
-            console.log('✅ Added Infura provider');
+            devLog.log('✅ Added Infura provider');
         } catch (e) {
-            console.warn('❌ Infura provider failed to initialize:', e.message);
+            devLog.warn('❌ Infura provider failed to initialize:', e.message);
         }
     }
 
@@ -109,9 +110,9 @@ export default async function getProvider(network) {
                 weight: 1,
                 stallTimeout: 2000
             });
-            console.log('✅ Added Alchemy HTTP provider');
+            devLog.log('✅ Added Alchemy HTTP provider');
         } catch (e) {
-            console.warn('❌ Alchemy HTTP provider failed to initialize:', e.message);
+            devLog.warn('❌ Alchemy HTTP provider failed to initialize:', e.message);
         }
     }
 
@@ -134,9 +135,9 @@ export default async function getProvider(network) {
                 weight: 1,
                 stallTimeout: 2000
             });
-            console.log('✅ Added Ankr HTTP provider');
+            devLog.log('✅ Added Ankr HTTP provider');
         } catch (e) {
-            console.warn('❌ Ankr provider failed to initialize:', e.message);
+            devLog.warn('❌ Ankr provider failed to initialize:', e.message);
         }
     }
 
@@ -159,9 +160,9 @@ export default async function getProvider(network) {
                 weight: 1,
                 stallTimeout: 2000
             });
-            console.log('✅ Added Quicknode HTTP provider');
+            devLog.log('✅ Added Quicknode HTTP provider');
         } catch (e) {
-            console.warn('❌ Quicknode HTTP provider failed to initialize:', e.message);
+            devLog.warn('❌ Quicknode HTTP provider failed to initialize:', e.message);
         }
     }
 
@@ -184,9 +185,9 @@ export default async function getProvider(network) {
                 weight: 1,
                 stallTimeout: 2000
             });
-            console.log('✅ Added Chainstack HTTP provider');
+            devLog.log('✅ Added Chainstack HTTP provider');
         } catch (e) {
-            console.warn('❌ Chainstack provider failed to initialize:', e.message);
+            devLog.warn('❌ Chainstack provider failed to initialize:', e.message);
         }
     }
 
@@ -206,9 +207,9 @@ export default async function getProvider(network) {
                 weight: 1,
                 stallTimeout: 2000
             });
-            console.log('✅ Added Public RPC provider');
+            devLog.log('✅ Added Public RPC provider');
         } catch (e) {
-            console.warn('❌ Public RPC provider failed to initialize:', e.message);
+            devLog.warn('❌ Public RPC provider failed to initialize:', e.message);
         }
     }
 
@@ -232,9 +233,9 @@ export default async function getProvider(network) {
                 weight: 1,
                 stallTimeout: 2000
             });
-            console.log('✅ Added Default HTTP provider');
+            devLog.log('✅ Added Default HTTP provider');
         } catch (e) {
-            console.warn('❌ Default HTTP provider failed to initialize:', e.message);
+            devLog.warn('❌ Default HTTP provider failed to initialize:', e.message);
         }
     }
 

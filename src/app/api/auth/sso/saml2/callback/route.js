@@ -29,7 +29,7 @@ export async function POST(request) {
     await createSession(response, userData);
     return response;
   } catch (error) {
-    console.error("Error processing SAML response:", error);
+    devLog.error("Error processing SAML response:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

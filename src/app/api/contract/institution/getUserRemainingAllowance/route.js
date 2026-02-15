@@ -46,13 +46,13 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching remaining allowance for PUC: ${puc}`);
+    devLog.log(`🔍 Fetching remaining allowance for PUC: ${puc}`);
     
     const contract = await getContractInstance();
     
     const allowance = await contract.getInstitutionalUserRemainingAllowance(institutionAddress, puc);
     
-    console.log(`✅ Successfully fetched remaining allowance`);
+    devLog.log(`✅ Successfully fetched remaining allowance`);
     
     return Response.json({ 
       remainingAllowance: allowance?.toString() || '0',
@@ -61,7 +61,7 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching remaining allowance:', error);
+    devLog.error('❌ Error fetching remaining allowance:', error);
     
     return Response.json({ 
       error: 'Failed to fetch remaining allowance',

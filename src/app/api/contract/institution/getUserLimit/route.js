@@ -8,6 +8,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Retrieves institutional user spending limit
@@ -38,13 +39,13 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching institutional user limit for: ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)}`);
+    devLog.log(`🔍 Fetching institutional user limit for: ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)}`);
     
     const contract = await getContractInstance();
     
     const limit = await contract.getInstitutionalUserLimit(institutionAddress);
     
-    console.log(`✅ Successfully fetched user limit`);
+    devLog.log(`✅ Successfully fetched user limit`);
     
     return Response.json({ 
       limit: limit?.toString() || '0',
@@ -52,7 +53,7 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching user limit:', error);
+    devLog.error('❌ Error fetching user limit:', error);
     
     return Response.json({ 
       error: 'Failed to fetch user limit',

@@ -95,7 +95,7 @@ export async function POST(request) {
           providers = JSON.parse(file);
         }
       } catch (parseError) {
-        console.error('Error parsing existing providers file:', parseError);
+        devLog.error('Error parsing existing providers file:', parseError);
         return Response.json(
           { 
             error: 'Failed to read existing provider data',
@@ -114,12 +114,12 @@ export async function POST(request) {
           try {
             providers = await response.json();
           } catch (parseError) {
-            console.warn('Failed to parse existing providers blob, starting with empty array');
+            devLog.warn('Failed to parse existing providers blob, starting with empty array');
             providers = [];
           }
         }
       } catch (error) {
-        console.warn('Failed to fetch existing providers blob:', error.message);
+        devLog.warn('Failed to fetch existing providers blob:', error.message);
         // Continue with empty array
       }
     }
@@ -160,7 +160,7 @@ export async function POST(request) {
                   { contentType: 'application/json', allowOverwrite: true, access: 'public' });
       }
     } catch (writeError) {
-      console.error('Error saving provider registration:', writeError);
+      devLog.error('Error saving provider registration:', writeError);
       return Response.json(
         { 
           error: 'Failed to save provider registration',
@@ -185,7 +185,7 @@ export async function POST(request) {
     );
 
   } catch (error) {
-    console.error('Error in saveRegistration endpoint:', error);
+    devLog.error('Error in saveRegistration endpoint:', error);
     
     // Handle JSON parsing errors
     if (error instanceof SyntaxError) {

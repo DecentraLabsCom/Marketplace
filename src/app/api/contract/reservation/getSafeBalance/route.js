@@ -28,7 +28,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting safe balance:', error);
+    devLog.error('Error getting safe balance:', error);
     return NextResponse.json(
       { error: `Failed to get safe balance: ${error.message}` }, {status: 500 }
     );

@@ -44,7 +44,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error checking active booking by token:', error);
+    devLog.error('Error checking active booking by token:', error);
     return NextResponse.json(
       { error: `Failed to check active booking by token: ${error.message}` }, {status: 500 }
     );

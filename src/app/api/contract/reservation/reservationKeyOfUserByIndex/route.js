@@ -55,7 +55,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Getting reservation key for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)} at index ${index}`);
+    devLog.log(`🔍 Getting reservation key for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)} at index ${index}`);
     
     const contract = await getContractInstance();
     
@@ -76,7 +76,7 @@ export async function GET(request) {
       devLog.warn('⚠️ reservationKeyOfUserByIndex debug failed:', debugError?.message || debugError);
     }
 
-    console.log(`🔑 Retrieved reservation key: ${reservationKey.toString().slice(0, 10)}...${reservationKey.toString().slice(-8)}`);
+    devLog.log(`🔑 Retrieved reservation key: ${reservationKey.toString().slice(0, 10)}...${reservationKey.toString().slice(-8)}`);
     
     return Response.json({ 
       reservationKey: reservationKey.toString(),
@@ -85,8 +85,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('❌ Error getting reservation key:', error);
-        
+    devLog.error('❌ Error getting reservation key:', error);
     // Handle specific contract errors gracefully
     const isIndexOutOfRange = error.message && (
       error.message.includes('out of bounds') ||
@@ -97,7 +96,7 @@ export async function GET(request) {
     );
     
     if (isIndexOutOfRange) {
-      console.log(`🔍 Index ${indexNum} appears to be out of range for user`);
+      devLog.log(`🔍 Index ${indexNum} appears to be out of range for user`);
       return Response.json({ 
         error: 'Index out of range',
         details: `Requested index ${indexNum} is not available for this user`,

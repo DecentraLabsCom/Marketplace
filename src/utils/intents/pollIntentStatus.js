@@ -87,12 +87,14 @@ export async function pollIntentStatus(requestId, {
       }
     } catch (err) {
       // Log and continue
-      console.warn('[pollIntentStatus] poll error:', err?.message || err);
+      devLog.warn('[pollIntentStatus] poll error:', err?.message || err);
     }
 
     await sleep(delay);
     delay = Math.min(delay * 1.5, maxDelayMs);
   }
 }
+
+import devLog from '@/utils/dev/logger'
 
 export default pollIntentStatus;

@@ -137,7 +137,6 @@ export async function POST(request) {
       onChain = await registerIntentOnChain('reservation', intentPackage.meta, intentPackage.payload, adminSignature)
     } catch (err) {
       devLog.error('[API] On-chain reservation intent registration failed', err)
-      console.error('[API] On-chain reservation intent registration failed', err)
       const onchain = extractOnchainErrorDetails(err)
       return NextResponse.json(
         {

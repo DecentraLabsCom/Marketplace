@@ -1,5 +1,6 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Retrieves the active reservation key for a user in a specific lab
@@ -45,7 +46,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching active reservation key for user ${userAddress.slice(0, 6)}...${userAddress.slice(-4)} in lab ${labId}`);
+    devLog.log(`🔍 Fetching active reservation key for user ${userAddress.slice(0, 6)}...${userAddress.slice(-4)} in lab ${labId}`);
     
     const contract = await getContractInstance();
 
@@ -56,9 +57,9 @@ export async function GET(request) {
     const isZeroKey = reservationKey === '0x0000000000000000000000000000000000000000000000000000000000000000';
     
     if (isZeroKey) {
-      console.log(`✅ No active reservation found for user in lab ${labId}`);
+      devLog.log(`✅ No active reservation found for user in lab ${labId}`);
     } else {
-      console.log(`✅ Found active reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
+      devLog.log(`✅ Found active reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
     }
 
     return Response.json({ 
@@ -69,13 +70,13 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching active reservation key:', error);
+    devLog.error('❌ Error fetching active reservation key:', error);
     
     // Handle contract revert gracefully
     if (error.code === 'CALL_EXCEPTION' || 
         error.message?.includes('reverted') ||
         error.message?.includes('execution reverted')) {
-      console.log(`⚠️ Contract call reverted for lab ${labId}, user ${userAddress}`);
+      devLog.log(`⚠️ Contract call reverted for lab ${labId}, user ${userAddress}`);
       
       // Return zero key (no active booking) instead of error
       return Response.json({ 

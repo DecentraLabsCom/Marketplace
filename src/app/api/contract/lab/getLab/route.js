@@ -6,6 +6,7 @@
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves specific lab data from contract
@@ -33,7 +34,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching lab data for ID: ${labId}`);
+    devLog.log(`🔍 Fetching lab data for ID: ${labId}`);
     
     const contract = await getContractInstance();
     
@@ -55,14 +56,14 @@ export async function GET(request) {
       }
     };
     
-    console.log(`✅ Successfully fetched lab ${labId} data`);
+    devLog.log(`✅ Successfully fetched lab ${labId} data`);
     
     return createSerializedJsonResponse(transformedData, { 
       status: 200
     });
 
   } catch (error) {
-    console.error(`❌ Error fetching lab ${labId} data:`, error);
+    devLog.error(`❌ Error fetching lab ${labId} data:`, error);
     
     return Response.json({ 
       error: `Failed to fetch lab ${labId} data`,

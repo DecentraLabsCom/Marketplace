@@ -14,7 +14,7 @@ import devLog from '@/utils/dev/logger'
  */
 export async function GET() {
   try {
-    console.log('🔍 Fetching basic lab list from contract');
+    devLog.log('🔍 Fetching basic lab list from contract');
     
     const contract = await getContractInstance();
     
@@ -46,7 +46,7 @@ export async function GET() {
         reason: error?.reason,
       });
       if (error.reason === 'FunctionNotFound(bytes4)' || error.message?.includes('FunctionNotFound') || error.code === 'CALL_EXCEPTION') {
-        console.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');
+        devLog.warn('⚠️ getLabsPaginated not available on this contract version, returning empty list');
         return createSerializedJsonResponse([], { status: 200 });
       }
       throw error;
@@ -55,19 +55,19 @@ export async function GET() {
     // Convert all BigInt lab IDs to numbers for JSON serialization
     const convertedLabList = ids.map(labId => Number(labId));
     
-    console.log(`✅ Successfully fetched ${convertedLabList.length} labs from contract`);
+    devLog.log(`✅ Successfully fetched ${convertedLabList.length} labs from contract`);
     
     return createSerializedJsonResponse(convertedLabList, { 
       status: 200
     });
 
   } catch (error) {
-    console.error('❌ Error fetching lab list:', error);
+    devLog.error('❌ Error fetching lab list:', error);
     
     const shouldFallback =
       process.env.NODE_ENV === 'production' || process.env.CI === 'true';
     if (shouldFallback) {
-      console.warn('ƒsÿ‹÷? Returning empty lab list due to provider error');
+        devLog.warn('ƒsÿ‹÷? Returning empty lab list due to provider error');
       return createSerializedJsonResponse([], {
         status: 200,
         headers: { 'x-labs-unavailable': '1' },

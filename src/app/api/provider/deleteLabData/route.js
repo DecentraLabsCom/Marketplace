@@ -74,7 +74,7 @@ export async function POST(req) {
           }, { status: 200 });
           
         } catch (fsError) {
-          console.error('Local file deletion error:', fsError);
+          devLog.error('Local file deletion error:', fsError);
           
           if (fsError.code === 'ENOENT') {
             return NextResponse.json(
@@ -112,7 +112,7 @@ export async function POST(req) {
             }, { status: 200 });
             
         } catch (blobError) {
-            console.error('Vercel blob deletion error:', blobError);
+            devLog.error('Vercel blob deletion error:', blobError);
             
             return NextResponse.json(
               { 
@@ -131,7 +131,7 @@ export async function POST(req) {
       return handleGuardError(parseError);
     }
     
-    console.error('Request parsing error:', parseError);
+    devLog.error('Request parsing error:', parseError);
     
     return NextResponse.json({ 
       error: 'Invalid request format',

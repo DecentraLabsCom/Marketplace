@@ -176,7 +176,7 @@ export async function POST(req) {
       );
 
     } catch (uploadError) {
-      console.error('Error during file upload:', uploadError);
+      devLog.error('Error during file upload:', uploadError);
       return NextResponse.json(
         {
           error: 'Failed to upload file',
@@ -193,7 +193,7 @@ export async function POST(req) {
       return handleGuardError(error);
     }
     
-    console.error('Error in uploadFile endpoint:', error);
+    devLog.error('Error in uploadFile endpoint:', error);
     
     // Handle form data parsing errors
     if (error.message?.includes('FormData')) {

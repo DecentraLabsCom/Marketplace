@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Update provider information
@@ -38,7 +39,7 @@ export async function POST(request) {
     if (error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
       return handleGuardError(error);
     }
-    console.error('Error updating provider:', error);
+    devLog.error('Error updating provider:', error);
     return NextResponse.json(
       { error: `Failed to update provider: ${error.message}` }, {status: 500 }
     );

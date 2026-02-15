@@ -106,6 +106,8 @@ const updateListingCache = (queryClient, labId, isListed) => {
   });
 };
 
+export { updateListingCache };
+
 const openAuthorizationPopup = (authorizationUrl, popup, { keepOpener = false } = {}) => {
   if (!authorizationUrl) return null;
 

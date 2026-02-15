@@ -5,6 +5,7 @@
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
+import devLog from '@/utils/dev/logger'
 
 const toNumber = (value) => {
   if (value === null || value === undefined) return 0
@@ -37,7 +38,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`Fetching lab reputation for ID: ${labId}`)
+    devLog.log(`Fetching lab reputation for ID: ${labId}`)
     
     const contract = await getContractInstance()
     const reputation = await contract.getLabReputation(numericLabId)
@@ -50,11 +51,11 @@ export async function GET(request) {
       lastUpdated: toNumber(reputation?.lastUpdated ?? reputation?.[4])
     }
 
-    console.log(`Successfully fetched lab reputation for ID: ${labId}`)
+    devLog.log(`Successfully fetched lab reputation for ID: ${labId}`)
 
     return createSerializedJsonResponse(transformedData, { status: 200 })
   } catch (error) {
-    console.error(`Error fetching lab reputation ${labId}:`, error)
+    devLog.error(`Error fetching lab reputation ${labId}:`, error)
     
     return Response.json({ 
       error: `Failed to fetch lab reputation ${labId}`,

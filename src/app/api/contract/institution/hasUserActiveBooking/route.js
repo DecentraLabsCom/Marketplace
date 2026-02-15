@@ -13,6 +13,7 @@ import {
   getSessionPuc,
 } from '../../utils/institutionSession'
 import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Checks if institutional user has active booking
@@ -34,11 +35,11 @@ export async function GET() {
       { from: institutionAddress },
     )
 
-    console.log(
+    devLog.log(
       `🔍 Checking active institutional booking for PUC: ${puc.slice(0, 8)}... at institution ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)} (${normalizedDomain})`,
     )
 
-    console.log(`✅ Active booking check complete: ${hasActiveBooking}`)
+    devLog.log(`✅ Active booking check complete: ${hasActiveBooking}`)
 
     return Response.json(
       {
@@ -54,7 +55,7 @@ export async function GET() {
       return handleGuardError(error)
     }
 
-    console.error('❌ Error checking active booking:', error)
+    devLog.error('❌ Error checking active booking:', error)
 
     return Response.json(
       {

@@ -38,13 +38,13 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching treasury balance for institution: ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)}`);
+    devLog.log(`🔍 Fetching treasury balance for institution: ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)}`);
     
     const contract = await getContractInstance();
     
     const balance = await contract.getInstitutionalTreasuryBalance(institutionAddress);
     
-    console.log(`✅ Successfully fetched treasury balance`);
+    devLog.log(`✅ Successfully fetched treasury balance`);
     
     return Response.json({ 
       balance: balance?.toString() || '0',
@@ -52,7 +52,7 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching treasury balance:', error);
+    devLog.error('❌ Error fetching treasury balance:', error);
     
     return Response.json({ 
       error: 'Failed to fetch treasury balance',

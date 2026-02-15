@@ -39,13 +39,13 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching institutions (offset: ${offset}, limit: ${limit})`);
+    devLog.log(`🔍 Fetching institutions (offset: ${offset}, limit: ${limit})`);
     
     const contract = await getContractInstance();
     
     const [institutions, total] = await contract.getInstitutionsPaginated(offset, limit);
     
-    console.log(`✅ Successfully fetched ${institutions.length} institutions (total: ${total})`);
+    devLog.log(`✅ Successfully fetched ${institutions.length} institutions (total: ${total})`);
     
     return Response.json({ 
       institutions: institutions.map(addr => addr.toString()),
@@ -55,7 +55,7 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching institutions:', error);
+    devLog.error('❌ Error fetching institutions:', error);
     
     return Response.json({ 
       error: 'Failed to fetch institutions',

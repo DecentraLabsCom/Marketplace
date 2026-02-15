@@ -8,6 +8,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { isAddress } from 'viem'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Get total number of reservations for a user address
@@ -39,7 +40,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Getting reservation count for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
+    devLog.log(`🔍 Getting reservation count for user: ${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`);
     
     const contract = await getContractInstance();
     
@@ -47,7 +48,7 @@ export async function GET(request) {
     const reservationsCount = await contract.reservationsOf(userAddress);
     const totalReservations = Number(reservationsCount);
     
-    console.log(`📊 User has ${totalReservations} total reservations`);
+    devLog.log(`📊 User has ${totalReservations} total reservations`);
     
     return Response.json({ 
       count: totalReservations,
@@ -55,7 +56,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('❌ Error getting reservation count:', error);
+    devLog.error('❌ Error getting reservation count:', error);
     
     return Response.json({ 
       error: 'Failed to get reservation count',

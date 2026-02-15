@@ -9,6 +9,7 @@
 import { isAddress } from 'viem'
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger' 
 
 /**
  * Retrieves lab ID owned by a wallet at a specific index
@@ -57,7 +58,7 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching owned lab at index ${index} for wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
+    devLog.log(`🔍 Fetching owned lab at index ${index} for wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}`);
     
     const contract = await getContractInstance();
     
@@ -67,7 +68,7 @@ export async function GET(request) {
     // Convert BigInt to string for compatibility
     const labIdStr = labId.toString();
     
-    console.log(`✅ Lab at index ${index} is ID: ${labIdStr}`);
+    devLog.log(`✅ Lab at index ${index} is ID: ${labIdStr}`);
     
     return Response.json({
       labId: labIdStr,
@@ -76,7 +77,7 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error(`❌ Error fetching lab at index ${index} for wallet ${wallet}:`, error);
+    devLog.error(`❌ Error fetching lab at index ${index} for wallet ${wallet}:`, error);
     
     return Response.json({ 
       error: `Failed to fetch lab at index ${index}`,

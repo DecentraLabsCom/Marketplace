@@ -79,12 +79,14 @@ export async function pollIntentAuthorizationStatus(sessionId, {
         return data;
       }
     } catch (err) {
-      console.warn('[pollIntentAuthorizationStatus] poll error:', err?.message || err);
+      devLog.warn('[pollIntentAuthorizationStatus] poll error:', err?.message || err);
     }
 
     await sleep(delay);
     delay = Math.min(delay * 1.5, maxDelayMs);
   }
 }
+
+import devLog from '@/utils/dev/logger'
 
 export default pollIntentAuthorizationStatus;
