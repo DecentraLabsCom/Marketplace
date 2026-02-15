@@ -7,6 +7,7 @@
 
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves all registered institutions (paginated)

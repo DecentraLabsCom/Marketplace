@@ -5,6 +5,7 @@
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves LAB token decimals from contract

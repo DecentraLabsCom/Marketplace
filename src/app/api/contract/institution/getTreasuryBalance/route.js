@@ -8,6 +8,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Retrieves institutional treasury balance

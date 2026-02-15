@@ -20,7 +20,7 @@ export default function ProviderStakingModal({
   isCollecting = false,
 }) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Staking & Economics" size="xl" className="max-h-[80vh] overflow-auto">
+    <Modal isOpen={isOpen} onClose={onClose} title="Staking & Economics" size="xl" className="max-h-[80vh] overflow-auto max-w-180">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ProviderStakingPanel
           providerAddress={providerAddress}

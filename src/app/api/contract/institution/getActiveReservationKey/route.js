@@ -14,6 +14,7 @@ import {
   requireAuth,
 } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
+import devLog from '@/utils/dev/logger'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 

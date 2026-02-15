@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
+import devLog from '@/utils/dev/logger';
 
 /**
  * Check if time slot is available for reservation

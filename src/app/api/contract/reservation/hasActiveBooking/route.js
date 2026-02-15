@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getContractInstance } from '../../utils/contractInstance';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
+import devLog from '@/utils/dev/logger';
 
 /**
  * Check if user has active booking for a reservation

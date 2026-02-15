@@ -6,6 +6,7 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { requireAuth, handleGuardError, ForbiddenError } from '@/utils/auth/guards'
 import { hasAdminRole } from '@/utils/auth/roleValidation'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Removes a lab provider from the blockchain registry

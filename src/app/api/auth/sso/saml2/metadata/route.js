@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { createServiceProvider } from '@/utils/auth/sso'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Generates and returns SAML2 metadata XML for service provider configuration

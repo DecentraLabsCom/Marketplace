@@ -6,6 +6,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import getIsVercel from '@/utils/isVercel'
 import { NextResponse } from 'next/server'
+import devLog from '@/utils/dev/logger'
 
 // Timeout for metadata fetches (2 seconds for fast failure)
 const METADATA_FETCH_TIMEOUT = 2000;

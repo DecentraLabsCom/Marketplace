@@ -9,6 +9,7 @@ import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import getIsVercel from '@/utils/isVercel'
+import devLog from '@/utils/dev/logger'
 import { 
   requireAuth, 
   requireLabOwner, 

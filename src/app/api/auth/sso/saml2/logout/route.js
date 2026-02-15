@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { clearSessionCookies } from '@/utils/auth/sessionCookie'
 import { parseStringPromise } from 'xml2js'
+import devLog from '@/utils/dev/logger'
 
 // Validate SAML logout request structure
 function isValidSamlLogoutRequest(parsedXml) {

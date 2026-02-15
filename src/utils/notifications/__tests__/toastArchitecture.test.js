@@ -9,6 +9,12 @@ const ALLOWED_FILES = new Set([
   'src/utils/notifications/reservationToasts.js',
   'src/utils/notifications/userDashboardToasts.js',
   'src/utils/notifications/stakingToasts.js',
+])
+
+function collectJsFiles(dirPath) {
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+  const files = []
+
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name)
     if (entry.isDirectory()) {

@@ -4,6 +4,7 @@
  */
 import { NextResponse } from 'next/server'
 import { parseSAMLResponse, createSession } from '@/utils/auth/sso'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Processes SAML2 callback response and creates user session
