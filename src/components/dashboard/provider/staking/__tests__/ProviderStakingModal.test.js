@@ -51,8 +51,8 @@ describe('ProviderStakingModal', () => {
     // modal wrapper should reflect the widened max-width (prevent regressions)
     const overlay = screen.getByRole('dialog')
     const modalContent = overlay.querySelector('div')
-    expect(modalContent?.className || '').toMatch(/max-w-\[64rem\]/)
-
+    // modal width intentionally uses the project-specific utility class `max-w-180`
+    expect(modalContent?.className || '').toMatch(/max-w-180/)
     // grid gap reduced to better utilize modal width
     const grid = overlay.querySelector('.grid')
     expect(grid?.className || '').toMatch(/gap-4/) 
