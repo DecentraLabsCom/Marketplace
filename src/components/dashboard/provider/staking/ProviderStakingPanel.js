@@ -9,7 +9,7 @@ import { parseUnits } from 'viem'
 import { useStakeInfo, useRequiredStake } from '@/hooks/staking/useStakingAtomicQueries'
 import { useStakeTokens, useUnstakeTokens } from '@/hooks/staking/useStakingAtomicMutations'
 import { useLabToken } from '@/context/LabTokenContext'
-import StakeHealthIndicator from './StakeHealthIndicator'
+import StakeHealthIndicator, { computeStakeHealth } from './StakeHealthIndicator'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -194,20 +194,25 @@ export default function ProviderStakingPanel({
     )
   }
 
+  const health = computeStakeHealth(stakedAmount, requiredStake, slashedAmount)
+
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+    <div data-testid="staking-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
           <span className="text-base">🔒</span>
           Staking
         </h3>
-        <StakeHealthIndicator
-          stakedAmount={stakedAmount}
-          requiredStake={requiredStake}
-          slashedAmount={slashedAmount}
-          variant="compact"
-        />
+        {/* Only show compact label in header when there is actual stake info (avoid duplicate 'No stake required') */}
+        {health.status !== 'none' && (
+          <StakeHealthIndicator
+            stakedAmount={stakedAmount}
+            requiredStake={requiredStake}
+            slashedAmount={slashedAmount}
+            variant="compact"
+          />
+        )}
       </div>
 
       {/* Health bar */}
@@ -284,7 +289,7 @@ export default function ProviderStakingPanel({
             <button
               onClick={handleStake}
               disabled={!stakeAmount || activeAction === 'stake' || Number(stakeAmount) <= 0}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-32 text-center px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {activeAction === 'stake' ? (
                 <span className="inline-flex items-center gap-1">
@@ -312,7 +317,7 @@ export default function ProviderStakingPanel({
             <button
               onClick={handleUnstake}
               disabled={!unstakeAmount || activeAction === 'unstake' || !canUnstake || Number(unstakeAmount) <= 0}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-32 text-center px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {activeAction === 'unstake' ? (
                 <span className="inline-flex items-center gap-1">

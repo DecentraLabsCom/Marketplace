@@ -688,9 +688,7 @@ describe("ProviderDashboard Component", () => {
 
       test("handles edit error", async () => {
         const error = new Error("Update failed");
-        mockSaveLabDataMutate.mockRejectedValueOnce(error);
-        // ensure price normalization doesn't trigger on-chain update (force stored price to token units)
-        mockLabsData.data.labs[0].price = '100000000000000000000';
+        mockUpdateLabMutate.mockRejectedValueOnce(error);
 
         renderWithClient(<ProviderDashboard />);
 
@@ -706,7 +704,7 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockSaveLabDataMutate).toHaveBeenCalled();
+          expect(mockUpdateLabMutate).toHaveBeenCalled();
           expectTempNotificationCall("error", expect.stringContaining("Failed"));
         });
       });

@@ -87,7 +87,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background-overlay backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -96,7 +96,7 @@ export default function Modal({
       <div
         ref={modalRef}
         className={`
-          bg-white rounded-xl shadow-2xl w-full ${sizeClass}
+          bg-(--color-background-card) rounded-xl shadow-2xl w-full ${sizeClass}
           transition-all duration-200 ease-out
           animate-in fade-in zoom-in-95
           starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0
@@ -120,7 +120,7 @@ export default function Modal({
             {showCloseButton && onClose && (
               <button
                 onClick={onClose}
-                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-1 rounded-full transition-colors text-(--color-ui-label-medium) hover:text-text-primary hover:bg-background-surface"
                 aria-label="Close modal"
               >
                 <svg

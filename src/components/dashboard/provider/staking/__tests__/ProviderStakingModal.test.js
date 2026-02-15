@@ -45,7 +45,17 @@ describe('ProviderStakingModal', () => {
     )
 
     // modal title
-    expect(screen.getByRole('heading', { name: /Staking & Economics/i })).toBeInTheDocument()
+    const title = screen.getByRole('heading', { name: /Staking & Economics/i })
+    expect(title).toBeInTheDocument()
+
+    // modal wrapper should reflect the widened max-width (prevent regressions)
+    const overlay = screen.getByRole('dialog')
+    const modalContent = overlay.querySelector('div')
+    expect(modalContent?.className || '').toMatch(/max-w-\[64rem\]/)
+
+    // grid gap reduced to better utilize modal width
+    const grid = overlay.querySelector('.grid')
+    expect(grid?.className || '').toMatch(/gap-4/) 
 
     // mocked panels render and receive props
     const stakingPanel = screen.getByTestId('mock-provider-staking-panel')

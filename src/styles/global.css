@@ -388,30 +388,30 @@ body {
 
 /* Style override for DatePicker external component: react-datepicker */
 .custom-datepicker .react-datepicker__header {
-  background-color: oklch(0.8943 0.0512 262.12); /* Header background color */
+  background-color: #caddff;
   color: white !important;
 }
 .custom-datepicker .react-datepicker__day--selected {
-  background-color: oklch(0.5147 0.0779 303.87); /* For selected day */
+  background-color: #715c8c;
   color: white;
 }
 .custom-datepicker .react-datepicker__day:hover {
-  background-color: oklch(0.3744 0.064 269.15); /* Hover effect */
+  background-color: #333f63;
   color: white;
 }
 .custom-datepicker .react-datepicker__day.unavailable-day {
   background-color: rgba(148, 163, 184, 0.35);
-  color: oklch(0.551 0.0234 264.36);
+  color: #6b7280;
 }
 .custom-datepicker .react-datepicker__day.unavailable-day:hover {
   background-color: rgba(148, 163, 184, 0.45);
-  color: oklch(0.551 0.0234 264.36);
+  color: #6b7280;
 }
 .custom-datepicker .react-datepicker__navigation-icon::before {
-  border-color: oklch(0.5147 0.0779 303.87);
+  border-color: #715c8c;
 }
 .custom-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
-  border-color: oklch(0.3744 0.064 269.15) !important;
+  border-color: #333f63 !important;
 }
 .react-datepicker__day.react-datepicker__day--keyboard-selected {
   background: none;
@@ -420,13 +420,13 @@ body {
 
 /* Calendar booking highlights */
 .react-datepicker__day.pending-booking {
-  background-color: oklch(0.7686 0.1647 70.08) !important; /* Orange background for pending bookings */
+  background-color: #f59e0b !important;
   color: white !important;
-  border: 2px dashed oklch(0.6658 0.1574 58.32) !important; /* Dashed border to indicate pending status */
+  border: 2px dashed #d97706 !important;
 }
 
 .react-datepicker__day.pending-booking:hover {
-  background-color: oklch(0.6658 0.1574 58.32) !important; /* Darker orange on hover */
+  background-color: #d97706 !important;
 }
 
 /* Custom scrollbar styles for booking lists */
@@ -434,7 +434,7 @@ body {
 @supports (scrollbar-color: auto) {
   .bookings-scroll {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.5147 0.0779 303.87) rgba(31, 41, 55, 0.2);
+    scrollbar-color: #715c8c rgba(31, 41, 55, 0.2);
   }
 }
 .bookings-scroll {
@@ -460,7 +460,7 @@ body {
 }
 
 .bookings-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(45deg, oklch(0.5147 0.0779 303.87) 0%, oklch(0.5807 0.091 309.9) 50%, oklch(0.5147 0.0779 303.87) 100%);
+  background: linear-gradient(45deg, #715c8c 0%, #8b6ba3 50%, #715c8c 100%);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 
@@ -470,7 +470,7 @@ body {
 }
 
 .bookings-scroll::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(45deg, oklch(0.5807 0.091 309.9) 0%, oklch(0.6698 0.0952 308.7) 50%, oklch(0.5807 0.091 309.9) 100%);
+  background: linear-gradient(45deg, #8b6ba3 0%, #a685c2 50%, #8b6ba3 100%);
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 2px 4px rgba(113, 92, 140, 0.3),
@@ -479,7 +479,7 @@ body {
 }
 
 .bookings-scroll::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(45deg, oklch(0.4457 0.0693 305.01) 0%, oklch(0.5147 0.0779 303.87) 50%, oklch(0.4457 0.0693 305.01) 100%);
+  background: linear-gradient(45deg, #5d4a73 0%, #715c8c 50%, #5d4a73 100%);
   box-shadow: 
     inset 0 1px 2px rgba(0, 0, 0, 0.2),
     0 1px 2px rgba(0, 0, 0, 0.15);
@@ -490,7 +490,7 @@ body {
 @supports (scrollbar-color: auto) {
   * {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.5147 0.0779 303.87) rgba(31, 41, 55, 0.15);
+    scrollbar-color: #715c8c rgba(31, 41, 55, 0.15);
   }
 }
 
@@ -506,7 +506,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, oklch(0.5147 0.0779 303.87) 0%, oklch(0.5807 0.091 309.9) 50%, oklch(0.5147 0.0779 303.87) 100%);
+  background: linear-gradient(135deg, #715c8c 0%, #8b6ba3 50%, #715c8c 100%);
   border-radius: 0px; /* Square corners */
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
@@ -516,14 +516,14 @@ body {
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, oklch(0.5807 0.091 309.9) 0%, oklch(0.6698 0.0952 308.7) 50%, oklch(0.5807 0.091 309.9) 100%);
+  background: linear-gradient(135deg, #8b6ba3 0%, #a685c2 50%, #8b6ba3 100%);
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     0 2px 4px rgba(113, 92, 140, 0.25);
 }
 
 *::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(135deg, oklch(0.4457 0.0693 305.01) 0%, oklch(0.5147 0.0779 303.87) 50%, oklch(0.4457 0.0693 305.01) 100%);
+  background: linear-gradient(135deg, #5d4a73 0%, #715c8c 50%, #5d4a73 100%);
   box-shadow: 
     inset 0 1px 2px rgba(0, 0, 0, 0.15);
 }
@@ -544,17 +544,98 @@ body::-webkit-scrollbar {
 }
 
 body::-webkit-scrollbar-thumb {
-  background: linear-gradient(135deg, oklch(0.5147 0.0779 303.87) 0%, oklch(0.5807 0.091 309.9) 50%, oklch(0.5147 0.0779 303.87) 100%);
+  background: linear-gradient(135deg, #715c8c 0%, #8b6ba3 50%, #715c8c 100%);
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     0 2px 3px rgba(0, 0, 0, 0.1);
 }
 
 body::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(135deg, oklch(0.5807 0.091 309.9) 0%, oklch(0.6698 0.0952 308.7) 50%, oklch(0.5807 0.091 309.9) 100%);
+  background: linear-gradient(135deg, #8b6ba3 0%, #a685c2 50%, #8b6ba3 100%);
   box-shadow: 
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 3px 6px rgba(113, 92, 140, 0.2);
+}
+
+@supports (color: oklch(0 0 0)) {
+  .custom-datepicker .react-datepicker__header {
+    background-color: oklch(0.8943 0.0512 262.12);
+  }
+
+  .custom-datepicker .react-datepicker__day--selected {
+    background-color: oklch(0.5147 0.0779 303.87);
+  }
+
+  .custom-datepicker .react-datepicker__day:hover {
+    background-color: oklch(0.3744 0.064 269.15);
+  }
+
+  .custom-datepicker .react-datepicker__day.unavailable-day {
+    color: oklch(0.551 0.0234 264.36);
+  }
+
+  .custom-datepicker .react-datepicker__day.unavailable-day:hover {
+    color: oklch(0.551 0.0234 264.36);
+  }
+
+  .custom-datepicker .react-datepicker__navigation-icon::before {
+    border-color: oklch(0.5147 0.0779 303.87);
+  }
+
+  .custom-datepicker .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+    border-color: oklch(0.3744 0.064 269.15) !important;
+  }
+
+  .react-datepicker__day.pending-booking {
+    background-color: oklch(0.7686 0.1647 70.08) !important;
+    border: 2px dashed oklch(0.6658 0.1574 58.32) !important;
+  }
+
+  .react-datepicker__day.pending-booking:hover {
+    background-color: oklch(0.6658 0.1574 58.32) !important;
+  }
+
+  @supports (scrollbar-color: auto) {
+    .bookings-scroll {
+      scrollbar-color: oklch(0.5147 0.0779 303.87) rgba(31, 41, 55, 0.2);
+    }
+
+    * {
+      scrollbar-color: oklch(0.5147 0.0779 303.87) rgba(31, 41, 55, 0.15);
+    }
+  }
+
+  .bookings-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, oklch(0.5147 0.0779 303.87) 0%, oklch(0.5807 0.091 309.9) 50%, oklch(0.5147 0.0779 303.87) 100%);
+  }
+
+  .bookings-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(45deg, oklch(0.5807 0.091 309.9) 0%, oklch(0.6698 0.0952 308.7) 50%, oklch(0.5807 0.091 309.9) 100%);
+  }
+
+  .bookings-scroll::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(45deg, oklch(0.4457 0.0693 305.01) 0%, oklch(0.5147 0.0779 303.87) 50%, oklch(0.4457 0.0693 305.01) 100%);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, oklch(0.5147 0.0779 303.87) 0%, oklch(0.5807 0.091 309.9) 50%, oklch(0.5147 0.0779 303.87) 100%);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, oklch(0.5807 0.091 309.9) 0%, oklch(0.6698 0.0952 308.7) 50%, oklch(0.5807 0.091 309.9) 100%);
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(135deg, oklch(0.4457 0.0693 305.01) 0%, oklch(0.5147 0.0779 303.87) 50%, oklch(0.4457 0.0693 305.01) 100%);
+  }
+
+  body::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, oklch(0.5147 0.0779 303.87) 0%, oklch(0.5807 0.091 309.9) 50%, oklch(0.5147 0.0779 303.87) 100%);
+  }
+
+  body::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, oklch(0.5807 0.091 309.9) 0%, oklch(0.6698 0.0952 308.7) 50%, oklch(0.5807 0.091 309.9) 100%);
+  }
 }
 
 /* ========================================

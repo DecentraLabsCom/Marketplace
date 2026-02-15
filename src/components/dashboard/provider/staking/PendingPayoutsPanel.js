@@ -127,7 +127,8 @@ export default function PendingPayoutsPanel({
   const hasLabs = labs.length > 0
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 space-y-4">
+    <div data-testid="pending-payouts-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
@@ -154,18 +155,23 @@ export default function PendingPayoutsPanel({
 
       {/* Revenue split info */}
       <div className="flex gap-1.5">
-        {Object.entries(REVENUE_SPLIT).map(([key, pct]) => (
-          <div
-            key={key}
-            className="flex-1 text-center py-1.5 rounded bg-slate-900/40"
-            title={`${key}: ${pct}% of each reservation payment`}
-          >
-            <p className="text-[10px] uppercase tracking-wider text-slate-500">{key}</p>
-            <p className={`text-xs font-semibold ${key === 'provider' ? 'text-emerald-400' : 'text-slate-400'}`}>
-              {pct}%
-            </p>
-          </div>
-        ))}
+        {Object.entries(REVENUE_SPLIT).map(([key, pct]) => {
+          // all boxes share the same base flex so widths match; governance is 10% larger
+          const flexValue = key === 'governance' ? 1.1 : 1
+          return (
+            <div
+              key={key}
+              style={{ flex: flexValue }}
+              className="text-center py-1.5 rounded bg-slate-900/40"
+              title={`${key}: ${pct}% of each reservation payment`}
+            >
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">{key}</p>
+              <p className={`text-xs font-semibold ${key === 'provider' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                {pct}%
+              </p>
+            </div>
+          )
+        })}
       </div>
 
       {/* Per-lab payouts */}
