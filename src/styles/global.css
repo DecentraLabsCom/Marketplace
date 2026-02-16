@@ -113,27 +113,31 @@
   --color-brand-dark: oklch(0.3744 0.064 269.15);
   --color-brand-light: oklch(0.9595 0.02 286.02);
 
-  /* Notification/Toast colors - Consolidated with existing status tokens */
-  /* For toasts/buttons with white text, use -text variants (dark backgrounds) */
-  --color-success: var(--color-success-text); /* Dark green from existing success-text */
-  --color-success-dark: oklch(0.42 0.13 150); /* Darker green for hover */
-  --color-success-light: var(--color-success-bg); /* Light green from existing success-bg */
+  /* Notification/Toast colors - Using theme colors (primary palette) */
+  /* Success: Use primary-500/600 (purple/magenta tones from theme) */
+  --color-success: var(--color-primary-600); /* Main purple - for success toasts/buttons */
+  --color-success-dark: var(--color-primary-700); /* Darker purple - for hover states */
+  --color-success-light: var(--color-success-bg); /* Light green - for alerts/badges (keep existing) */
   
-  --color-error: var(--color-error-text); /* Dark red from existing error-text */
-  --color-error-dark: oklch(0.47 0.20 27); /* Darker red for hover */
-  --color-error-light: var(--color-error-bg); /* Light red from existing error-bg */
+  /* Error: Use primary-400 (lighter purple/pink from theme) */
+  --color-error: var(--color-primary-400); /* Pink/magenta - for error toasts/buttons */
+  --color-error-dark: var(--color-primary-500); /* Slightly darker pink - for hover states */
+  --color-error-light: var(--color-error-bg); /* Light red - for alerts/badges (keep existing) */
   
-  --color-warning: var(--color-warning-text); /* Dark orange from existing warning-text */
-  --color-warning-dark: oklch(0.38 0.12 46); /* Darker orange for hover */
-  --color-warning-light: var(--color-warning-bg); /* Light orange from existing warning-bg */
+  /* Warning: Use primary-300 (light purple from theme) */
+  --color-warning: var(--color-primary-500); /* Medium purple - for warning toasts/buttons */
+  --color-warning-dark: var(--color-primary-600); /* Darker purple - for hover states */
+  --color-warning-light: var(--color-warning-bg); /* Light orange - for alerts/badges (keep existing) */
   
-  --color-info: var(--color-info-text); /* Dark blue from existing info-text */
-  --color-info-dark: oklch(0.40 0.20 264); /* Darker blue for hover */
-  --color-info-light: var(--color-info-bg); /* Light blue from existing info-bg */
+  /* Info: Use secondary tones (blue-gray from theme) */
+  --color-info: var(--color-secondary-600); /* Dark blue-gray - for info toasts/buttons */
+  --color-info-dark: var(--color-secondary-700); /* Darker blue-gray - for hover states */
+  --color-info-light: var(--color-info-bg); /* Light blue - for alerts/badges (keep existing) */
   
-  --color-pending: oklch(0.45 0.10 285); /* Dark purple for pending/processing toasts */
-  --color-pending-dark: oklch(0.38 0.09 285); /* Darker purple for hover */
-  --color-pending-light: oklch(0.95 0.03 285); /* Light purple for alerts/badges */
+  /* Pending: Use brand-dark (dark purple from theme) */
+  --color-pending: var(--color-brand-dark); /* Dark purple - for pending/processing toasts */
+  --color-pending-dark: var(--color-primary-800); /* Even darker purple - for hover states */
+  --color-pending-light: var(--color-primary-50); /* Very light purple - for alerts/badges */
 
   /* UI tokens */
   --color-ui-action-primary: oklch(0.6437 0.0672 135.92);
