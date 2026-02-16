@@ -291,45 +291,21 @@ function UserDataCore({ children }) {
 
                 // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {
-                    // If IB explicitly indicates platform credential absence, show advisory
-                    if (statusData.hasPlatformCredential === false) {
-                        devLog.log('[InstitutionalOnboarding] Credential exists but no platform key detected; showing advisory');
-                        setInstitutionalOnboardingStatus('advisory');
-                        setShowOnboardingModal(true);
-                        return;
-                    }
+                    const hasMarker = hasBrowserCredentialMarker(browserMarker);
+                    const shouldShowAdvisory = !hasMarker && statusData.hasPlatformCredential !== true;
 
                     // Browser-level marker: if this browser has never acknowledged/used
                     // the passkey for this institutional account, force advisory.
-                    if (!hasBrowserCredentialMarker(browserMarker)) {
+                    if (shouldShowAdvisory) {
                         devLog.log('[InstitutionalOnboarding] IB has credential but browser marker is missing; showing advisory');
                         setInstitutionalOnboardingStatus('advisory');
                         setShowOnboardingModal(true);
                         return;
                     }
 
-                    // Otherwise, check local browser for a registered credential so we can
-                    // surface the "Passkey on Another Device" advisory if needed.
-                    try {
-                        const localRes = await fetch('/api/auth/webauthn/status', {
-                            method: 'GET',
-                            credentials: 'include',
-                        });
-                        const localData = await localRes.json().catch(() => ({}));
-
-                        if (!localData?.registered) {
-                            devLog.log('[InstitutionalOnboarding] IB has credential but not registered in this browser; showing advisory');
-                            setInstitutionalOnboardingStatus('advisory');
-                            setShowOnboardingModal(true);
-                            return;
-                        }
-
-                        setBrowserCredentialMarker(browserMarker);
-                    } catch (err) {
-                        devLog.warn('[InstitutionalOnboarding] Local webauthn status check failed, assuming onboarded', err);
-                    }
-
-                    devLog.log('[InstitutionalOnboarding] User already onboarded (local credential present)');
+                    // Browser is already recognized (marker) or IB explicitly confirms platform credential.
+                    devLog.log('[InstitutionalOnboarding] User already onboarded (recognized browser/platform credential)');
+                    setBrowserCredentialMarker(browserMarker);
                     setInstitutionalOnboardingStatus('completed');
                     setShowOnboardingModal(false);
                     return;

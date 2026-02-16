@@ -157,19 +157,14 @@ export function useInstitutionalOnboarding({
         hasPlatformCredential: typeof statusData.hasPlatformCredential === 'boolean' ? statusData.hasPlatformCredential : null,
       }
 
-      // If IB reports the user has a credential, determine whether this browser
-      // also holds a platform credential by checking our local status endpoint.
+      // If IB reports the user has a credential, rely on browser marker
+      // to decide whether this browser has already acknowledged/used it.
       if (statusData.hasCredential) {
-        // If IB explicitly tells us there's no platform credential, set advisory
-        if (statusData.hasPlatformCredential === false) {
-          setKeyStatus(resolvedKeyStatus)
-          setState(OnboardingState.NOT_NEEDED)
-          setIsOnboarded(true)
-          return { needed: false, isOnboarded: true }
-        }
+        const hasMarker = hasBrowserCredentialMarker(markerPayload)
+        const shouldShowAdvisory = !hasMarker && statusData.hasPlatformCredential !== true
 
         // New browser for this user/institution: force advisory until acknowledged here.
-        if (!hasBrowserCredentialMarker(markerPayload)) {
+        if (shouldShowAdvisory) {
           resolvedKeyStatus.hasPlatformCredential = false
           setKeyStatus(resolvedKeyStatus)
           setState(OnboardingState.NOT_NEEDED)
@@ -177,32 +172,12 @@ export function useInstitutionalOnboarding({
           return { needed: false, isOnboarded: true }
         }
 
-        // Otherwise probe local browser registration to infer "passkey on another device"
-        try {
-          const localRes = await fetch('/api/auth/webauthn/status', {
-            method: 'GET',
-            credentials: 'include',
-          })
-          const localData = await localRes.json().catch(() => ({}))
-          const hasPlatform = Boolean(localData?.registered)
-          resolvedKeyStatus.hasPlatformCredential = hasPlatform
-          setKeyStatus(resolvedKeyStatus)
-          if (hasPlatform) {
-            markBrowserCredentialSeen(markerPayload)
-          }
-
-          // We still consider the user institutionally onboarded (IB hasCredential)
-          setState(OnboardingState.NOT_NEEDED)
-          setIsOnboarded(true)
-          return { needed: false, isOnboarded: true }
-        } catch (err) {
-          // If local check fails, don't block the user — expose IB status and continue
-          resolvedKeyStatus.hasPlatformCredential = null
-          setKeyStatus(resolvedKeyStatus)
-          setState(OnboardingState.NOT_NEEDED)
-          setIsOnboarded(true)
-          return { needed: false, isOnboarded: true }
-        }
+        resolvedKeyStatus.hasPlatformCredential = true
+        setKeyStatus(resolvedKeyStatus)
+        markBrowserCredentialSeen(markerPayload)
+        setState(OnboardingState.NOT_NEEDED)
+        setIsOnboarded(true)
+        return { needed: false, isOnboarded: true }
       }
 
       setKeyStatus(resolvedKeyStatus)

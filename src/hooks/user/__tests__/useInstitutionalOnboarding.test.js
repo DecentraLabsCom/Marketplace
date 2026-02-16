@@ -294,6 +294,34 @@ describe('useInstitutionalOnboarding', () => {
       })
     })
 
+    it('should treat browser as known when IB reports hasPlatformCredential=true even without marker', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true, hasPlatformCredential: true })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: true,
+      })
+      expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
+      expect(result.current.isOnboarded).toBe(true)
+    })
+
     it('should handle NO_BACKEND error', async () => {
       // Mock no backend URL - set institutionBackendUrl to null
       mockUseUser.mockReturnValueOnce({ ...mockUserContext, institutionBackendUrl: null })
