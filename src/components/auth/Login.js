@@ -60,12 +60,12 @@ export default function Login() {
       {/* Modal */}
       {isModalOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 animate-fadeIn transition starting:opacity-0 opacity-100"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 animate-fadeIn transition starting:opacity-0 opacity-100 sm:items-center sm:p-4"
           onClick={toggleModal}
         >
           <Card 
             variant="modal"
-            className="w-96 transition duration-300 starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0"
+            className="my-auto w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-1.5rem)] overflow-y-auto transition duration-300 starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0 sm:max-h-[calc(100dvh-2rem)]"
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader title="Choose Login Method" />

@@ -15,30 +15,30 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
           <div className="flex justify-center">
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
               <Image
                 src="/eu_funded_en.jpg"
                 alt="EU Funded"
                 width={220}
                 height={50}
-                sizes="(max-width: 640px) 120px, 160px"
-                className="h-10 w-auto"
+                sizes="(max-width: 640px) 96px, 160px"
+                className="h-5 w-auto sm:h-10"
               />
               <Image
                 src="/ngi_sargasso.jpg"
                 alt="NGI Sargasso"
                 width={200}
                 height={46}
-                sizes="(max-width: 640px) 120px, 160px"
-                className="h-10 w-auto"
+                sizes="(max-width: 640px) 88px, 160px"
+                className="h-5 w-auto sm:h-10"
               />
               <Image
                 src="/vietsch-logo.jpg"
                 alt="Vietsch"
                 width={160}
                 height={40}
-                sizes="(max-width: 640px) 120px, 140px"
-                className="h-10 w-auto"
+                sizes="(max-width: 640px) 72px, 140px"
+                className="h-5 w-auto sm:h-10"
               />
             </div>
           </div>
