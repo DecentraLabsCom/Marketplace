@@ -14,6 +14,7 @@ import {
   hasBrowserCredentialMarker,
   setBrowserCredentialMarker,
 } from '@/utils/onboarding/browserCredentialMarker'
+import { emitPopupBlockedEvent, createPopupBlockedError } from '@/utils/browser/popupBlockerGuidance'
 
 /**
  * Onboarding flow states
@@ -63,6 +64,7 @@ export function useInstitutionalOnboarding({
   const pollControllerRef = useRef(null)
   const pollStartTimeRef = useRef(null)
   const eventSourceRef = useRef(null)
+  const awaitCompletionRef = useRef(null)
 
   const markBrowserCredentialSeen = useCallback((session = null) => {
     const markerPayload = {
@@ -291,29 +293,60 @@ export function useInstitutionalOnboarding({
   /**
    * Redirect to the IB ceremony page
    */
-  const redirectToCeremony = useCallback((ceremonyUrl) => {
+  const redirectToCeremony = useCallback((ceremonyUrl, popup = null, sessionOverride = null) => {
     if (!ceremonyUrl) {
       setError('No ceremony URL available')
       setState(OnboardingState.FAILED)
-      return
+      return { opened: false, error: new Error('No ceremony URL available') }
     }
 
+    const sessionForTracking = sessionOverride || sessionData || null
+
     // Store session data for when we return
-    if (sessionData) {
+    if (sessionForTracking) {
       try {
-        sessionStorage.setItem('onboarding_session', JSON.stringify(sessionData))
+        sessionStorage.setItem('onboarding_session', JSON.stringify(sessionForTracking))
       } catch {
         // Ignore storage errors
       }
     }
 
-    // Redirect to IB
-    if (typeof window !== 'undefined' && typeof window.location?.assign === 'function') {
-      window.location.assign(ceremonyUrl)
-    } else {
-      window.location.href = ceremonyUrl
+    let onboardingPopup = popup && !popup.closed ? popup : null
+
+    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+      try {
+        const popupWindow = window.open(
+          ceremonyUrl,
+          'institutional-onboarding',
+          'width=480,height=720'
+        )
+        if (popupWindow) {
+          onboardingPopup = popupWindow
+          onboardingPopup.focus?.()
+        }
+      } catch {
+        // ignore and handle below
+      }
     }
-  }, [sessionData])
+
+    if (!onboardingPopup) {
+      emitPopupBlockedEvent({
+        authorizationUrl: ceremonyUrl,
+        source: 'onboarding-webauthn',
+      })
+      const popupError = createPopupBlockedError('Onboarding window was blocked')
+      setError(popupError.message)
+      setState(OnboardingState.FAILED)
+      return { opened: false, blocked: true, error: popupError }
+    }
+
+    if (autoPoll && sessionForTracking) {
+      setState(OnboardingState.AWAITING_COMPLETION)
+      awaitCompletionRef.current?.(sessionForTracking)
+    }
+
+    return { opened: true, popup: onboardingPopup }
+  }, [sessionData, autoPoll])
 
   /**
    * Poll for onboarding completion
@@ -539,6 +572,8 @@ export function useInstitutionalOnboarding({
     return pollForCompletion(session)
   }, [listenForCompletionViaSSE, pollForCompletion, markBrowserCredentialSeen]) // Removed sessionData to prevent infinite loop
 
+  awaitCompletionRef.current = awaitCompletion
+
   /**
    * Reset state
    */
@@ -571,7 +606,22 @@ export function useInstitutionalOnboarding({
     }
 
     // Redirect to ceremony
-    redirectToCeremony(initResult.ceremonyUrl)
+    const popupResult = redirectToCeremony(initResult.ceremonyUrl, null, {
+      sessionId: initResult.sessionId,
+      ceremonyUrl: initResult.ceremonyUrl,
+      backendUrl: initResult.backendUrl,
+      stableUserId: initResult.stableUserId,
+      institutionId: initResult.institutionId,
+    })
+
+    if (!popupResult?.opened) {
+      return {
+        completed: false,
+        blocked: Boolean(popupResult?.blocked),
+        error: popupResult?.error?.message || 'Unable to open onboarding window',
+      }
+    }
+
     return { redirecting: true, ceremonyUrl: initResult.ceremonyUrl }
   }, [checkOnboardingStatus, initiateOnboarding, redirectToCeremony, error])
 

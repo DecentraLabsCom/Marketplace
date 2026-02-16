@@ -219,9 +219,9 @@ function UserDataCore({ children }) {
 
         // Need backend URL to check onboarding status
         if (!institutionBackendUrl) {
-            devLog.log('[InstitutionalOnboarding] No backend URL available');
-            setInstitutionalOnboardingStatus('no_backend');
-            setShowOnboardingModal(false);
+            // Avoid locking the flow in "no_backend" during transient state propagation.
+            // institutionBackendUrl can be populated a tick after institutionRegistrationStatus.
+            devLog.log('[InstitutionalOnboarding] Waiting for backend URL before onboarding check');
             return;
         }
 

@@ -258,7 +258,7 @@ describe("InstitutionalOnboardingFlow", () => {
 
       renderWithAllProviders(<InstitutionalOnboardingModal isOpen={true} onClose={jest.fn()} />);
 
-      expect(screen.getByText("Redirecting to your institution...")).toBeInTheDocument();
+      expect(screen.getByText("Opening your institution's pop-up...")).toBeInTheDocument();
     });
 
     test("renders loading spinner during polling state", () => {

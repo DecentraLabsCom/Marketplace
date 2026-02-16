@@ -76,7 +76,6 @@ export function InstitutionalOnboardingModal({
     isLoading,
     isCompleted,
     hasBackend,
-    sessionData,
     keyStatus,
     startOnboarding,
     initiateOnboarding,
@@ -100,7 +99,13 @@ export function InstitutionalOnboardingModal({
   const handleRegisterHere = async () => {
     const initResult = await initiateOnboarding?.()
     if (initResult?.ceremonyUrl) {
-      redirectToCeremony?.(initResult.ceremonyUrl)
+      redirectToCeremony?.(initResult.ceremonyUrl, null, {
+        sessionId: initResult.sessionId,
+        ceremonyUrl: initResult.ceremonyUrl,
+        backendUrl: initResult.backendUrl,
+        stableUserId: initResult.stableUserId,
+        institutionId: initResult.institutionId,
+      })
     }
   }
 
@@ -202,7 +207,7 @@ export function InstitutionalOnboardingModal({
               <ul className="text-sm text-blue-700 space-y-1">
                 <li className="flex items-start">
                   <span className="mr-2">1.</span>
-                  You&apos;ll be redirected to your institution&apos;s secure portal
+                  We&apos;ll open your institution&apos;s secure portal in a pop-up window
                 </li>
                 <li className="flex items-start">
                   <span className="mr-2">2.</span>
@@ -252,15 +257,9 @@ export function InstitutionalOnboardingModal({
         return (
           <div className="flex flex-col items-center py-8">
             <Spinner size="lg" />
-            <p className="mt-4 text-gray-600">Redirecting to your institution...</p>
+            <p className="mt-4 text-gray-600">Opening your institution&apos;s pop-up...</p>
             <p className="text-sm text-gray-500 mt-2">
-              If not redirected automatically,{' '}
-              <a 
-                href={sessionData?.ceremonyUrl} 
-                className="text-primary-600 hover:underline"
-              >
-                click here
-              </a>
+              If the window does not open, allow pop-ups for this site and try again.
             </p>
           </div>
         )

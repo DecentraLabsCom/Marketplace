@@ -14,7 +14,6 @@ import devLog from '@/utils/dev/logger'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
-import { transformAssertionOptions, assertionToJSON } from '@/utils/webauthn/client'
 import { useConnection, usePublicClient } from 'wagmi'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import { getConnectionAddress } from '@/utils/blockchain/connection'
@@ -229,7 +228,11 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     } catch {
       // ignore close errors
     }
-    return null;
+    emitPopupBlockedEvent({
+      authorizationUrl: authorizationUrl || null,
+      source: 'lab-intent-authorization',
+    });
+    throw createPopupBlockedError('Authorization window unavailable');
   }
 
   let authPopup = openAuthorizationPopup(authorizationUrl, popup, { keepOpener: true });
@@ -427,57 +430,7 @@ async function runActionIntent(action, payload) {
       backendAuthExpiresAt: prepareData?.backendAuthExpiresAt || null,
     };
   }
-
-  const publicKey = transformAssertionOptions({
-    challenge: prepareData.webauthnChallenge,
-    allowCredentials: prepareData.allowCredentials || [],
-    rpId: prepareData.webauthnRpId || undefined,
-    userVerification: 'required',
-    timeout: 90_000,
-  });
-
-  if (!publicKey) {
-    throw new Error('Unable to build WebAuthn request options');
-  }
-
-  const assertion = await navigator.credentials.get({ publicKey });
-  const assertionPayload = assertionToJSON(assertion);
-
-  const finalizeResponse = await fetch('/api/backend/intents/actions/finalize', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({
-      meta: prepareData.intent?.meta,
-      payload: prepareData.intent?.payload,
-      adminSignature: prepareData.adminSignature,
-      webauthnCredentialId: prepareData.webauthnCredentialId,
-      webauthnClientDataJSON: assertionPayload?.response?.clientDataJSON,
-      webauthnAuthenticatorData: assertionPayload?.response?.authenticatorData,
-      webauthnSignature: assertionPayload?.response?.signature,
-      backendUrl: payload.backendUrl,
-    }),
-  });
-
-  const finalizeData = await finalizeResponse.json();
-  if (!finalizeResponse.ok) {
-    throw createIntentMutationError(finalizeData, 'Failed to finalize action intent');
-  }
-
-  const requestId =
-    finalizeData?.intent?.meta?.requestId ||
-    resolveRequestId(prepareData);
-
-  const finalizeAuthToken = finalizeData?.backendAuthToken || authToken;
-  const finalizeAuthExpiresAt = finalizeData?.backendAuthExpiresAt || prepareData?.backendAuthExpiresAt || null;
-
-  return {
-    ...finalizeData,
-    requestId,
-    intent: finalizeData.intent || prepareData.intent,
-    backendAuthToken: finalizeAuthToken,
-    backendAuthExpiresAt: finalizeAuthExpiresAt,
-  };
+  throw createAuthorizationCancelledError('Authorization session unavailable');
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

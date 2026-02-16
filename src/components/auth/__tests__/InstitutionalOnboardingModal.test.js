@@ -260,14 +260,13 @@ describe('InstitutionalOnboardingModal', () => {
     })
 
     it('renders redirecting state', () => {
-      const mockSessionData = { ceremonyUrl: 'https://example.com/ceremony' }
       mockUseInstitutionalOnboarding.mockReturnValue({
         state: OnboardingState.REDIRECTING,
         error: null,
         isLoading: true,
         isCompleted: false,
         hasBackend: true,
-        sessionData: mockSessionData,
+        sessionData: null,
         keyStatus: null,
         startOnboarding: jest.fn(),
         initiateOnboarding: jest.fn(),
@@ -277,8 +276,8 @@ describe('InstitutionalOnboardingModal', () => {
 
       render(<InstitutionalOnboardingModal {...defaultProps} />)
 
-      expect(screen.getByText('Redirecting to your institution...')).toBeInTheDocument()
-      expect(screen.getByText('click here')).toHaveAttribute('href', 'https://example.com/ceremony')
+      expect(screen.getByText("Opening your institution's pop-up...")).toBeInTheDocument()
+      expect(screen.getByText('If the window does not open, allow pop-ups for this site and try again.')).toBeInTheDocument()
     })
 
     it('renders polling state', () => {

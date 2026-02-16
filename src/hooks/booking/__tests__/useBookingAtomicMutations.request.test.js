@@ -83,10 +83,14 @@ describe('useReservationRequest (minimal unit tests)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete global.fetch;
-    global.window = { PublicKeyCredential: true };
-    global.navigator = {
-      credentials: { get: jest.fn(() => Promise.resolve({})) },
-    };
+    global.window.PublicKeyCredential = function PublicKeyCredential() {};
+    global.window.open = jest.fn(() => ({
+      closed: false,
+      focus: jest.fn(),
+      close: jest.fn(),
+      opener: null,
+    }));
+    global.navigator.credentials = { get: jest.fn(() => Promise.resolve({})) };
   });
 
   afterEach(() => {
@@ -94,8 +98,6 @@ describe('useReservationRequest (minimal unit tests)', () => {
     if (global.fetch && global.fetch.mockRestore) global.fetch.mockRestore();
     delete global.fetch;
     jest.clearAllMocks();
-    delete global.window;
-    delete global.navigator;
     jest.useRealTimers();
   });
 
@@ -248,35 +250,25 @@ describe('useReservationRequest (minimal unit tests)', () => {
     expect(bookingMocks.replaceOptimisticBooking).not.toHaveBeenCalled();
   });
 
-  test('SSO: prepare/finalize intent -> addBooking on success', async () => {
+  test('SSO: prepare + popup authorization -> addBooking on success', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-1' });
 
     const preparePayload = {
       ok: true,
       json: () =>
         Promise.resolve({
-          webauthnChallenge: 'challenge',
-          allowCredentials: [],
+          authorizationUrl: 'https://institution.example/intents/authorize/session-1',
+          authorizationSessionId: 'session-1',
+          backendUrl: 'https://institution.example',
           intent: {
             meta: { requestId: 'req-1' },
             payload: { reservationKey: 'rk-1' },
           },
-          adminSignature: '0xadmin',
-          webauthnCredentialId: 'cred',
         }),
     };
-    const finalizePayload = {
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          intent: { meta: { requestId: 'req-1' }, payload: { reservationKey: 'rk-1' } },
-          status: 'dispatched',
-        }),
-    };
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(preparePayload)
-      .mockResolvedValueOnce(finalizePayload);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
 
@@ -285,9 +277,9 @@ describe('useReservationRequest (minimal unit tests)', () => {
     let out;
     await act(async () => { out = await result.current.mutateAsync(vars); });
 
-    // Key assertions: prepare/finalize called, cache updated, and response returned
+    // Key assertions: prepare called, cache updated, and response returned
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/prepare', expect.any(Object));
-    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/reservations/finalize', expect.any(Object));
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(bookingMocks.updateBooking).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
       reservationKey: expect.any(String),
       labId: vars.tokenId,
@@ -297,7 +289,7 @@ describe('useReservationRequest (minimal unit tests)', () => {
     // Optimistic booking UI state should be set for the reservation
     expect(mockSetOptimisticBookingState).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ status: 'requested' }));
 
-    expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object), requestId: expect.any(String) }));
+    expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object), requestId: 'req-1' }));
   });
 
   test('SSO integration: intent executed updates optimistic booking with final reservation key', async () => {
@@ -308,32 +300,22 @@ describe('useReservationRequest (minimal unit tests)', () => {
       txHash: '0xEXEC',
       reservationKey: 'rk-final',
     });
+    pollIntentAuthorizationStatus.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-int-1' });
 
     const preparePayload = {
       ok: true,
       json: () =>
         Promise.resolve({
-          webauthnChallenge: 'challenge',
-          allowCredentials: [],
+          authorizationUrl: 'https://institution.example/intents/authorize/session-int',
+          authorizationSessionId: 'session-int',
+          backendUrl: 'https://institution.example',
           intent: {
             meta: { requestId: 'req-int-1' },
             payload: { reservationKey: 'rk-int-1' },
           },
-          adminSignature: '0xadmin',
-          webauthnCredentialId: 'cred',
         }),
     };
-    const finalizePayload = {
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          intent: { meta: { requestId: 'req-int-1' }, payload: { reservationKey: 'rk-int-1' } },
-          status: 'dispatched',
-        }),
-    };
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(preparePayload)
-      .mockResolvedValueOnce(finalizePayload);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
 
@@ -376,26 +358,24 @@ describe('useReservationRequest (minimal unit tests)', () => {
     expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
   });
 
-  test('SSO: finalize timeout bubbles error and skips cache update', async () => {
+  test('SSO: authorization status timeout bubbles error and skips cache update', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
 
     const preparePayload = {
       ok: true,
       json: () => Promise.resolve({
-        webauthnChallenge: 'challenge',
-        allowCredentials: [],
-        intent: { meta: { requestId: 'req-timeout' }, payload: { reservationKey: 'rk-timeout' } },
-        adminSignature: '0xadmin',
-        webauthnCredentialId: 'cred',
+        authorizationUrl: 'https://institution.example/intents/authorize/session-timeout',
+        authorizationSessionId: 'session-timeout',
+        backendUrl: 'https://institution.example',
+        intent: { meta: {}, payload: {} },
       }),
     };
 
     const timeoutError = Object.assign(new Error('timeout'), { name: 'TimeoutError' });
+    pollIntentAuthorizationStatus.mockRejectedValueOnce(timeoutError);
 
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(preparePayload)
-      .mockRejectedValueOnce(timeoutError);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
 
@@ -525,20 +505,19 @@ describe('useReservationRequest (minimal unit tests)', () => {
     );
   });
 
-  test('SSO: navigator.credentials.get throws -> no finalize, no cache update', async () => {
+  test('SSO: popup blocked -> no cache update', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
 
-    global.navigator.credentials.get = jest.fn(() => Promise.reject(new Error('cred boom')));
+    global.window.open = jest.fn(() => null);
 
     const preparePayload = {
       ok: true,
       json: () => Promise.resolve({
-        webauthnChallenge: 'challenge',
-        allowCredentials: [],
+        authorizationUrl: 'https://institution.example/intents/authorize/session-blocked',
+        authorizationSessionId: 'session-blocked',
+        backendUrl: 'https://institution.example',
         intent: { meta: { requestId: 'req-cred' }, payload: { reservationKey: 'rk-cred' } },
-        adminSignature: '0xadmin',
-        webauthnCredentialId: 'cred',
       }),
     };
 
@@ -548,43 +527,32 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     await act(async () => {
       await expect(result.current.mutateAsync({ tokenId: 'tk-cred', start: 1, end: 2 }))
-        .rejects.toThrow('cred boom');
+        .rejects.toMatchObject({ code: 'INTENT_AUTH_POPUP_BLOCKED' });
     });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1); // finalize not called
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
   });
 
-  test('SSO: finalize non-ok -> throws and skips cache update', async () => {
+  test('SSO: missing authorization session -> throws and skips cache update', async () => {
     const bookingMocks = makeBookingMocks();
     mockBookingCacheFactory.mockImplementation(() => bookingMocks);
 
     const preparePayload = {
       ok: true,
       json: () => Promise.resolve({
-        webauthnChallenge: 'challenge',
-        allowCredentials: [],
+        backendUrl: 'https://institution.example',
         intent: { meta: { requestId: 'req-finalize-bad' }, payload: { reservationKey: 'rk-finalize-bad' } },
-        adminSignature: '0xadmin',
-        webauthnCredentialId: 'cred',
       }),
     };
 
-    const finalizePayload = {
-      ok: false,
-      status: 400,
-      json: () => Promise.resolve({ error: 'finalize-fail' }),
-    };
-
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(preparePayload)
-      .mockResolvedValueOnce(finalizePayload);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper() });
 
     await act(async () => {
       await expect(result.current.mutateAsync({ tokenId: 'tk-finalize', start: 1, end: 2 }))
-        .rejects.toThrow('finalize-fail');
+        .rejects.toThrow('Authorization window unavailable');
     });
 
     expect(bookingMocks.updateBooking).not.toHaveBeenCalled();

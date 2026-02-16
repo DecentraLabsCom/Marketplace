@@ -111,6 +111,7 @@ describe('useLabAtomicMutations (add lab)', () => {
 
     // WebAuthn availability
     window.PublicKeyCredential = window.PublicKeyCredential || function PublicKeyCredential() {}
+    window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }))
     navigator.credentials = navigator.credentials || {}
     navigator.credentials.get = jest.fn(async () => ({}))
   })
@@ -123,22 +124,18 @@ describe('useLabAtomicMutations (add lab)', () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
     pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '42', txHash: '0xtx' })
 
-    // Prepare + finalize action intent
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-1' })
+
+    // Prepare action intent (popup authorization only)
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          webauthnChallenge: 'challenge',
-          allowCredentials: [],
+          authorizationUrl: 'https://backend.example/auth',
+          authorizationSessionId: 'auth-1',
           intent: { meta: { requestId: 'req-1' }, payload: {} },
-          adminSignature: 'adminSig',
-          webauthnCredentialId: 'cred',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          intent: { meta: { requestId: 'req-1' } },
+          backendAuthToken: 'auth-token-1',
         }),
       })
 
@@ -168,23 +165,18 @@ describe('useLabAtomicMutations (add lab)', () => {
 
   test('SSO add-lab performs a follow-up poll when executed without labId', async () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
     pollIntentStatus.mockResolvedValueOnce({ status: 'executed' })
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-2' })
 
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          webauthnChallenge: 'challenge',
-          allowCredentials: [],
+          authorizationUrl: 'https://backend.example/auth',
+          authorizationSessionId: 'auth-2',
           intent: { meta: { requestId: 'req-2' }, payload: {} },
-          adminSignature: 'adminSig',
-          webauthnCredentialId: 'cred',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          intent: { meta: { requestId: 'req-2' } },
+          backendAuthToken: 'auth-token-2',
         }),
       })
       .mockResolvedValueOnce({
@@ -318,12 +310,13 @@ describe('useLabAtomicMutations (add lab)', () => {
     expect(pollIntentStatus).not.toHaveBeenCalled()
   })
 
-  test('SSO add-lab aborts when authorization returns UNKNOWN and does not poll', async () => {
+  test('SSO add-lab continues when authorization returns UNKNOWN with requestId', async () => {
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
 
     // Simulate authorization returning UNKNOWN (e.g., popup closed by backend/user)
     pollAuth.mockResolvedValueOnce({ status: 'UNKNOWN', requestId: 'req-unknown', error: 'Authorization window closed' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '42', txHash: '0xtx' })
 
     // Prepare response includes authorization info so awaitBackendAuthorization uses pollAuth
     global.fetch.mockResolvedValueOnce({
@@ -347,22 +340,20 @@ describe('useLabAtomicMutations (add lab)', () => {
       wrapper: createWrapper(queryClient),
     })
 
+    let data
     await act(async () => {
-      await expect(
-        result.current.mutateAsync({
-          uri: 'Lab-Provider-1.json',
-          price: '0',
-          auth: '',
-          accessURI: '',
-          accessKey: '',
-          backendUrl: 'https://backend.example',
-        })
-      ).rejects.toThrow()
+      data = await result.current.mutateAsync({
+        uri: 'Lab-Provider-1.json',
+        price: '0',
+        auth: '',
+        accessURI: '',
+        accessKey: '',
+        backendUrl: 'https://backend.example',
+      })
     })
 
-    // Ensure the mutation failed as expected (polling may or may not have been invoked depending on timing)
-    // We assert at least that the mutation rejected and that the test scenario reflects a cancelled/unknown auth.
-    expect(pollIntentStatus).toBeDefined()
+    expect(data.requestId).toBe('req-unknown')
+    expect(pollIntentStatus).toHaveBeenCalled()
   })
 
   test('SSO add-lab succeeds when backend authorizes and auto-closes popup (grace window allows success)', async () => {

@@ -10,6 +10,7 @@ import {
 const resolveActionLabel = (source) => {
   if (!source) return 'this action';
   const value = String(source).toLowerCase();
+  if (value.includes('onboarding')) return 'account setup';
   if (value.includes('lab')) return 'lab registration or signature';
   if (value.includes('booking')) return 'booking authorization';
   return 'this action';

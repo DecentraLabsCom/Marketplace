@@ -35,6 +35,7 @@ jest.mock('@/utils/webauthn/client', () => ({
   })),
 }));
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'executed' })));
+jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS', requestId: 'req-1' })));
 
 import { renderHook, act } from '@testing-library/react';
 
@@ -71,10 +72,14 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     delete global.fetch;
-    global.window = { PublicKeyCredential: true };
-    global.navigator = {
-      credentials: { get: jest.fn(() => Promise.resolve({})) },
-    };
+    global.window.PublicKeyCredential = function PublicKeyCredential() {};
+    global.window.open = jest.fn(() => ({
+      closed: false,
+      focus: jest.fn(),
+      close: jest.fn(),
+      opener: null,
+    }));
+    global.navigator.credentials = { get: jest.fn(() => Promise.resolve({})) };
   });
 
   afterEach(() => {
@@ -82,41 +87,26 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
     if (global.fetch && global.fetch.mockRestore) global.fetch.mockRestore();
     delete global.fetch;
     jest.clearAllMocks();
-    delete global.window;
-    delete global.navigator;
   });
 
-  test('SSO: intent prepare/finalize and updateBooking called', async () => {
+  test('SSO: intent prepare + popup authorization and updateBooking called', async () => {
     // Arrange: mock booking cache utilities used by the hook
     const updateBooking = jest.fn();
     const invalidateAllBookings = jest.fn();
     mockBookingCacheFactory.mockImplementation(() => ({ updateBooking, invalidateAllBookings }));
 
-    // Simulate prepare/finalize flow
+    // Simulate prepare + popup authorization flow
     const preparePayload = {
       ok: true,
       json: () =>
         Promise.resolve({
-          webauthnChallenge: 'challenge',
-          allowCredentials: [],
+          authorizationUrl: 'https://institution.example/intents/authorize/session-1',
+          authorizationSessionId: 'session-1',
+          backendUrl: 'https://institution.example',
           intent: { meta: { requestId: 'req-1' }, payload: {} },
-          adminSignature: '0xadmin',
-          webauthnCredentialId: 'cred',
         }),
     };
-    const finalizePayload = {
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          intent: { meta: { requestId: 'req-1' } },
-          status: 'executed',
-        }),
-    };
-    global.fetch = jest.fn()
-      // prepare
-      .mockResolvedValueOnce(preparePayload)
-      // finalize
-      .mockResolvedValueOnce(finalizePayload);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { wrapper } = createWrapper();
     const { result } = renderHook(() => useCancelReservationRequestSSO(), { wrapper });
@@ -126,10 +116,9 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
       await result.current.mutateAsync('rk-csso-1');
     });
 
-    // Assert: prepare + finalize called and cache update invoked
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    // Assert: prepare called and cache update invoked
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/prepare', expect.any(Object));
-    expect(global.fetch).toHaveBeenCalledWith('/api/backend/intents/actions/finalize', expect.any(Object));
     expect(updateBooking).toHaveBeenCalled();
 
     // Optimistic booking UI state should be set and then completed after executed status

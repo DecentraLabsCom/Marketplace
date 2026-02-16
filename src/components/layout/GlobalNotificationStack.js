@@ -5,6 +5,25 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import { useNotifications } from '@/context/NotificationContext'
 
 /**
+ * Maps notification types to their corresponding background color classes
+ * All toasts use solid, dark backgrounds with white text for readability
+ * @param {string} type - Notification type (success, error, warning, info, pending)
+ * @returns {string} Tailwind background color class
+ */
+const getNotificationBgClass = (type) => {
+  const bgMap = {
+    'success': 'bg-success',      // Dark green
+    'error': 'bg-error',          // Dark red
+    'warning': 'bg-warning',      // Dark orange
+    'info': 'bg-info',            // Dark blue
+    'pending': 'bg-pending',      // Dark purple
+  };
+  
+  // Default to info color if type is not recognized
+  return bgMap[type] || 'bg-info';
+};
+
+/**
  * Global notification system for displaying user feedback messages
  * Manages toast-style notifications with auto-dismiss and manual close options
  * @returns {JSX.Element|null} Notification stack positioned in bottom-left corner, or null if no notifications
@@ -22,13 +41,7 @@ export default function GlobalNotificationStack() {
       {notifications.map((notification, index) => (
         <div 
           key={notification.id}
-          className={`mb-3 p-4 rounded-lg shadow-lg max-w-sm sm:max-w-md animate-slide-in transition-transform duration-300 starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 ${
-            notification.type === 'success' ? 'bg-success' : 
-            notification.type === 'error' ? 'bg-error' : 
-            notification.type === 'warning' ? 'bg-warning' : 
-            notification.type === 'pending' ? 'bg-brand' : 
-            'bg-text-secondary'
-          }`}
+          className={`mb-3 p-4 rounded-lg shadow-lg max-w-sm sm:max-w-md animate-slide-in transition-transform duration-300 starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 ${getNotificationBgClass(notification.type)}`}
           style={{
             animationDelay: `${index * 100}ms`
           }}

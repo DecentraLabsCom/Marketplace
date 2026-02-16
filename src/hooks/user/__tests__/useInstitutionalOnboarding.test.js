@@ -50,6 +50,7 @@ describe('useInstitutionalOnboarding', () => {
     mockSessionStorage.getItem.mockReturnValue(null)
     mockSessionStorage.setItem.mockImplementation(() => {})
     mockSessionStorage.removeItem.mockImplementation(() => {})
+    window.open = jest.fn(() => null)
     window.localStorage.clear()
   })
 
@@ -497,15 +498,10 @@ describe('useInstitutionalOnboarding', () => {
   })
 
   describe('redirectToCeremony', () => {
-    it('should store session data and redirect', async () => {
+    it('should store session data and open popup', async () => {
       const mockCeremonyUrl = 'https://ceremony.example.com'
-      const mockSessionData = {
-        sessionId: 'session123',
-        ceremonyUrl: mockCeremonyUrl,
-        backendUrl: 'https://backend.example.com',
-        stableUserId: 'stable123',
-        institutionId: 'university.edu'
-      }
+      const popup = { closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }
+      window.open = jest.fn(() => popup)
 
       // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
@@ -525,7 +521,7 @@ describe('useInstitutionalOnboarding', () => {
         })
       })
 
-      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
 
       await act(async () => {
         await result.current.initiateOnboarding()
@@ -538,6 +534,34 @@ describe('useInstitutionalOnboarding', () => {
       const [key, value] = mockSessionStorage.setItem.mock.calls[0]
       expect(key).toBe('onboarding_session')
       expect(JSON.parse(value)).toEqual(expect.objectContaining({ sessionId: 'session123' }))
+      expect(window.open).toHaveBeenCalledWith(
+        mockCeremonyUrl,
+        'institutional-onboarding',
+        'width=480,height=720'
+      )
+    })
+
+    it('should emit popup-blocked guidance and fail when popup cannot be opened', () => {
+      const popupBlockedEvents = []
+      const listener = (event) => {
+        popupBlockedEvents.push(event.detail)
+      }
+      window.addEventListener('marketplace:popup-blocked', listener)
+
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
+
+      act(() => {
+        result.current.redirectToCeremony('https://ceremony.example.com')
+      })
+
+      window.removeEventListener('marketplace:popup-blocked', listener)
+
+      expect(result.current.state).toBe(OnboardingState.FAILED)
+      expect(result.current.error).toBe('Onboarding window was blocked')
+      expect(popupBlockedEvents.length).toBe(1)
+      expect(popupBlockedEvents[0]).toEqual(expect.objectContaining({
+        source: 'onboarding-webauthn',
+      }))
     })
 
     it('should handle missing ceremony URL', () => {
@@ -706,7 +730,7 @@ describe('useInstitutionalOnboarding', () => {
         json: () => Promise.resolve({ hasCredential: true })
       })
 
-      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
 
       let flowResult
       await act(async () => {
@@ -718,6 +742,8 @@ describe('useInstitutionalOnboarding', () => {
     })
 
     it('should complete full flow with redirect when onboarding needed', async () => {
+      window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }))
+
       // Mock session endpoint (for checkOnboardingStatus)
       mockFetch.mockResolvedValueOnce({
         ok: true,
