@@ -10,6 +10,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
+import {
+  hasBrowserCredentialMarker,
+  setBrowserCredentialMarker,
+} from '@/utils/onboarding/browserCredentialMarker'
 
 /**
  * Onboarding flow states
@@ -52,10 +56,28 @@ export function useInstitutionalOnboarding({
   const [error, setError] = useState(null)
   const [sessionData, setSessionData] = useState(null)
   const [isOnboarded, setIsOnboarded] = useState(null) // null = unknown
+  // keyStatus reflects IB + local-browser presence for passkeys
+  // { hasCredential: boolean, hasPlatformCredential: boolean|null }
+  const [keyStatus, setKeyStatus] = useState(null)
   
   const pollControllerRef = useRef(null)
   const pollStartTimeRef = useRef(null)
   const eventSourceRef = useRef(null)
+
+  const markBrowserCredentialSeen = useCallback((session = null) => {
+    const markerPayload = {
+      stableUserId:
+        session?.stableUserId ||
+        user?.schacPersonalUniqueCode ||
+        user?.personalUniqueCode ||
+        user?.personal_unique_code ||
+        user?.email ||
+        user?.id ||
+        null,
+      institutionId: session?.institutionId || institutionDomain || null,
+    }
+    setBrowserCredentialMarker(markerPayload)
+  }, [user, institutionDomain])
 
   /**
    * Check if user needs onboarding.
@@ -91,13 +113,18 @@ export function useInstitutionalOnboarding({
 
       const sessionData = await sessionResponse.json()
       const stableUserId = sessionData.meta?.stableUserId
+      const markerPayload = {
+        stableUserId,
+        institutionId: sessionData.meta?.institutionId || institutionDomain || null,
+      }
 
       if (!stableUserId) {
         throw new Error('Cannot determine stable user ID')
       }
 
       // Check if user has credentials directly with IB
-      const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}`
+      const resolvedInstitutionId = sessionData.meta?.institutionId || institutionDomain || ''
+      const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(resolvedInstitutionId)}`
       
       const statusResponse = await fetch(statusUrl, {
         method: 'GET',
@@ -123,13 +150,37 @@ export function useInstitutionalOnboarding({
 
       const statusData = await statusResponse.json()
 
-      // key-status endpoint returns { hasCredential: boolean }
+      // Build initial keyStatus from IB response
+      const resolvedKeyStatus = {
+        hasCredential: Boolean(statusData.hasCredential),
+        // IB may optionally report platform credential presence
+        hasPlatformCredential: typeof statusData.hasPlatformCredential === 'boolean' ? statusData.hasPlatformCredential : null,
+      }
+
+      // If IB reports the user has a credential, rely on browser marker
+      // to decide whether this browser has already acknowledged/used it.
       if (statusData.hasCredential) {
+        const hasMarker = hasBrowserCredentialMarker(markerPayload)
+        const shouldShowAdvisory = !hasMarker && statusData.hasPlatformCredential !== true
+
+        // New browser for this user/institution: force advisory until acknowledged here.
+        if (shouldShowAdvisory) {
+          resolvedKeyStatus.hasPlatformCredential = false
+          setKeyStatus(resolvedKeyStatus)
+          setState(OnboardingState.NOT_NEEDED)
+          setIsOnboarded(true)
+          return { needed: false, isOnboarded: true }
+        }
+
+        resolvedKeyStatus.hasPlatformCredential = true
+        setKeyStatus(resolvedKeyStatus)
+        markBrowserCredentialSeen(markerPayload)
         setState(OnboardingState.NOT_NEEDED)
         setIsOnboarded(true)
         return { needed: false, isOnboarded: true }
       }
 
+      setKeyStatus(resolvedKeyStatus)
       setState(OnboardingState.REQUIRED)
       setIsOnboarded(false)
       return { needed: true, backendUrl: institutionBackendUrl }
@@ -140,7 +191,7 @@ export function useInstitutionalOnboarding({
       setState(OnboardingState.FAILED)
       return { needed: false, error: err.message }
     }
-  }, [isSSO, user, institutionBackendUrl])
+  }, [isSSO, user, institutionBackendUrl, institutionDomain, markBrowserCredentialSeen])
 
   /**
    * Start the onboarding process using browser-direct IB calls.
@@ -295,6 +346,7 @@ export function useInstitutionalOnboarding({
           // If we got a definitive result from callback cache, use it
           if (localData.source === 'callback') {
             if (localData.status === 'SUCCESS' || localData.status === 'COMPLETED') {
+              markBrowserCredentialSeen(session)
               setState(OnboardingState.COMPLETED)
               setIsOnboarded(true)
               setSessionData(null)
@@ -324,6 +376,7 @@ export function useInstitutionalOnboarding({
             const ibData = await ibResponse.json()
 
             if (ibData.status === 'SUCCESS' || ibData.status === 'COMPLETED') {
+              markBrowserCredentialSeen(session)
               setState(OnboardingState.COMPLETED)
               setIsOnboarded(true)
               setSessionData(null)
@@ -357,7 +410,7 @@ export function useInstitutionalOnboarding({
     }
 
     return poll()
-  }, [pollInterval, pollTimeout]) // Removed sessionData since it's passed as parameter
+  }, [pollInterval, pollTimeout, markBrowserCredentialSeen]) // Removed sessionData since it's passed as parameter
 
   /**
    * Cancel ongoing polling
@@ -468,6 +521,7 @@ export function useInstitutionalOnboarding({
       const sseResult = await listenForCompletionViaSSE(session)
       if (sseResult) {
         if (sseResult.success) {
+          markBrowserCredentialSeen(session)
           setState(OnboardingState.COMPLETED)
           setIsOnboarded(true)
           setSessionData(null)
@@ -483,7 +537,7 @@ export function useInstitutionalOnboarding({
     }
 
     return pollForCompletion(session)
-  }, [listenForCompletionViaSSE, pollForCompletion]) // Removed sessionData to prevent infinite loop
+  }, [listenForCompletionViaSSE, pollForCompletion, markBrowserCredentialSeen]) // Removed sessionData to prevent infinite loop
 
   /**
    * Reset state
@@ -569,6 +623,7 @@ export function useInstitutionalOnboarding({
     sessionData,
     institutionBackendUrl,
     institutionDomain,
+    keyStatus,
     
     // Computed
     isLoading: [

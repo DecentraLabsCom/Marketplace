@@ -141,6 +141,16 @@ describe("useLabCacheUpdates", () => {
       expect(specificLab.price).toBe(200);
     });
 
+    test("updates specific lab cache when key uses numeric id and update uses string id", () => {
+      queryClient.setQueryData(["labs", "detail", 2], { ...mockLab, id: 2, labId: 2, price: 100 });
+      const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
+
+      result.current.updateLab("2", { price: 210 });
+
+      const specificLab = queryClient.getQueryData(["labs", "detail", 2]);
+      expect(specificLab.price).toBe(210);
+    });
+
     // ID matching fallback: matches by 'id' when 'labId' differs
     test("matches lab by id when labId does not match", () => {
       const labWithId = { ...mockLab, labId: undefined };
@@ -193,6 +203,17 @@ describe("useLabCacheUpdates", () => {
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.removeLab("lab-1");
+
+      const allLabs = queryClient.getQueryData(["labs", "all"]);
+      expect(allLabs).toEqual([]);
+    });
+
+    test("removes lab when cached id is numeric and remove input is string", () => {
+      const numericLab = { ...mockLab, id: 2, labId: 2 };
+      queryClient.setQueryData(["labs", "all"], [numericLab]);
+      const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
+
+      result.current.removeLab("2");
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
       expect(allLabs).toEqual([]);

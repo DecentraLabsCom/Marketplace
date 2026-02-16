@@ -197,9 +197,10 @@ export const useLabsForMarket = (options = {}) => {
                    imageResults.some(r => r.isLoading) ||
                    providerMapping.isLoading;
 
-  const hasErrors = labIdsResult.error || 
-                   labDetailResults.some(r => r.error) ||
-                   ownerResults.some(r => r.error);
+  const hasCriticalError = Boolean(labIdsResult.error);
+  const hasRecoverableErrors =
+    labDetailResults.some(r => r.error) ||
+    ownerResults.some(r => r.error);
 
   // Transform data for market display - Include unlisted labs if requested
   const labs = useMemo(() => {
@@ -217,7 +218,13 @@ export const useLabsForMarket = (options = {}) => {
         }
 
         const labId = result.data.labId;
-        const serverIsListed = listingResults[index]?.data?.isListed;
+        const listingResult = listingResults[index];
+        const serverIsListed = listingResult?.data?.isListed;
+
+        // If listing status is temporarily unavailable, do not hide valid labs.
+        if (listingResult?.error) {
+          return true;
+        }
 
         // Use effective listing state (optimistic overrides server state)
         const effectiveState = getEffectiveListingState(labId, serverIsListed);
@@ -235,8 +242,11 @@ export const useLabsForMarket = (options = {}) => {
         const reputation = reputationResults[originalIndex]?.data;
 
         // Get listing status for this lab
-        const serverIsListed = listingResults[originalIndex]?.data?.isListed;
-        const effectiveState = getEffectiveListingState(lab.labId, serverIsListed);
+        const listingResult = listingResults[originalIndex];
+        const serverIsListed = listingResult?.data?.isListed;
+        const effectiveState = listingResult?.error
+          ? { isListed: true, isPending: false, operation: null }
+          : getEffectiveListingState(lab.labId, serverIsListed);
         const labImages = labImageMap.get(originalIndex) || EMPTY_ARRAY;
 
         return buildEnrichedLab({
@@ -269,12 +279,19 @@ export const useLabsForMarket = (options = {}) => {
     providerMapping
   ]);
 
+  const shouldReportError =
+    hasCriticalError || (labs.length === 0 && hasRecoverableErrors);
+  const firstRecoverableError =
+    labDetailResults.find(r => r.error)?.error ||
+    ownerResults.find(r => r.error)?.error ||
+    null;
+
   return {
     data: { labs, totalLabs: labs.length },
     isLoading,
-    isSuccess: !hasErrors && labs.length > 0,
-    isError: hasErrors,
-    error: labIdsResult.error || labDetailResults.find(r => r.error)?.error || null,
+    isSuccess: !shouldReportError,
+    isError: shouldReportError,
+    error: hasCriticalError ? labIdsResult.error : (shouldReportError ? firstRecoverableError : null),
     refetch: () => {
       labIdsResult.refetch();
       labDetailResults.forEach(r => r.refetch && r.refetch());
@@ -556,8 +573,10 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
                    metadataResults.some(r => r.isLoading) ||
                    imageResults.some(r => r.isLoading);
 
-  const hasErrors = labIdsResult.error || 
-                   labDetailResults.some(r => r.error);
+  const hasCriticalError = Boolean(labIdsResult.error);
+  const hasRecoverableErrors =
+    ownerResults.some(r => r.error) ||
+    labDetailResults.some(r => r.error);
 
   // Transform data
   const ownedLabs = useMemo(() => {
@@ -593,6 +612,13 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     ownerAddress
   ]);
 
+  const shouldReportError =
+    hasCriticalError || (ownedLabs.length === 0 && hasRecoverableErrors);
+  const firstRecoverableError =
+    labDetailResults.find(r => r.error)?.error ||
+    ownerResults.find(r => r.error)?.error ||
+    null;
+
   devLog.log('👨‍🔬 useLabsForProvider - Result:', {
     ownerAddress,
     totalLabsChecked: labIds.length,
@@ -603,9 +629,9 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   return {
     data: { labs: ownedLabs, totalLabs: ownedLabs.length },
     isLoading,
-    isSuccess: !hasErrors,
-    isError: hasErrors,
-    error: labIdsResult.error || labDetailResults.find(r => r.error)?.error || null,
+    isSuccess: !shouldReportError,
+    isError: shouldReportError,
+    error: hasCriticalError ? labIdsResult.error : (shouldReportError ? firstRecoverableError : null),
     refetch: () => {
       labIdsResult.refetch();
       ownerResults.forEach(r => r.refetch && r.refetch());
@@ -675,7 +701,11 @@ export const useLabsForReservation = (options = {}) => {
 
     return labDetailResults
       .filter((result, index) => {
-        const isListed = listingResults[index]?.data?.isListed;
+        const listingResult = listingResults[index];
+        const isListed = listingResult?.data?.isListed;
+        if (listingResult?.error) {
+          return result.isSuccess && result.data;
+        }
         return result.isSuccess && result.data && isListed;
       })
       .map(result => result.data);
@@ -703,7 +733,8 @@ export const useLabsForReservation = (options = {}) => {
                    listingResults.some(r => r.isLoading) ||
                    metadataResults.some(r => r.isLoading);
   
-  const hasErrors = labIdsResult.error || labDetailResults.some(r => r.error);
+  const hasCriticalError = Boolean(labIdsResult.error);
+  const hasRecoverableErrors = labDetailResults.some(r => r.error);
 
   // Enrich labs with metadata for complete reservation data
   const enrichedLabs = useMemo(() => {
@@ -729,6 +760,10 @@ export const useLabsForReservation = (options = {}) => {
     });
   }, [labsWithDetails, metadataResults]);
 
+  const shouldReportError =
+    hasCriticalError || (enrichedLabs.length === 0 && hasRecoverableErrors);
+  const firstRecoverableError = labDetailResults.find(r => r.error)?.error || null;
+
   devLog.log('🎯 useLabsForReservation - Complete result:', {
     totalLabs: enrichedLabs.length,
     sampleLabs: enrichedLabs.slice(0, 2).map(lab => ({ 
@@ -744,9 +779,9 @@ export const useLabsForReservation = (options = {}) => {
   return {
     data: { labs: enrichedLabs, totalLabs: enrichedLabs.length },
     isLoading,
-    isSuccess: !hasErrors && enrichedLabs.length > 0,
-    isError: hasErrors,
-    error: labIdsResult.error || labDetailResults.find(r => r.error)?.error || null,
+    isSuccess: !shouldReportError,
+    isError: shouldReportError,
+    error: hasCriticalError ? labIdsResult.error : (shouldReportError ? firstRecoverableError : null),
     refetch: () => {
       labIdsResult.refetch();
       labDetailResults.forEach(r => r.refetch && r.refetch());

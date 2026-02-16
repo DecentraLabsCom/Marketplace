@@ -188,7 +188,377 @@ export default function ProviderDashboard() {
     }
   }, [isProvider, isProviderLoading, isLoading, address, isSSO, router]);
 
+  // Automatically set the first lab as the selected lab (only once)
+  useEffect(() => {
+    if (ownedLabs.length > 0 && !selectedLabId && !isModalOpen && !hasInitialized.current) {
+      const firstLabId = ownedLabs[0]?.id;
+      if (firstLabId) {
+        setSelectedLabId(String(firstLabId));
+        hasInitialized.current = true;
+      }
+    }
+  }, [ownedLabs.length, selectedLabId, isModalOpen]);
   
+  // Handle saving a lab (either when editing an existing one or adding a new one)
+  const handleSaveLab = async (labData) => {
+    // Store the original human-readable price for local state updates
+    const originalPrice = labData.price;
+    
+    // Convert price from user input to token units for blockchain operations
+    if (labData.price && decimals) {
+      try {
+        // Convert hourly price (UI) to per-second price (contract format)
+        const pricePerHour = parseFloat(labData.price.toString());
+        const pricePerSecond = pricePerHour / 3600; // Convert to per-second
+        
+        // Convert the per-second price to token units (multiply by decimals)
+        const priceInTokenUnits = parseUnits(pricePerSecond.toString(), decimals);
+        labData = { ...labData, price: priceInTokenUnits.toString() };
+      } catch (error) {
+        devLog.error('Error converting price to token units:', error);
+        notifyLabInvalidPrice(addTemporaryNotification);
+        return;
+      }
+    }
+    
+    if (labData.id) {
+      await handleEditLab({ labData, originalPrice });
+    } else {
+      await handleAddLab({ labData });
+    }
+  };
+
+  // Handle editing/updating a lab
+  async function handleEditLab({ labData, originalPrice }) {
+    const originalLab = ownedLabs.find(lab => lab.id == labData.id);
+    
+    // Use original lab's URI to preserve consistency, regardless of provider name changes
+    // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
+    const providerSegmentSource = isSSO
+      ? (user?.institutionName || user?.name)
+      : user?.name;
+    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
+    labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
+    const onchainUri = resolveOnchainLabUri(labData.uri);
+
+    const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
+    const isNowExternal = labData.uri && (labData.uri.startsWith('http://') || 
+                          labData.uri.startsWith('https://'));
+    const mustDeleteOldJson = wasLocalJson && isNowExternal;
+
+    // Helper function to normalize values for comparison (treat undefined/null as empty string)
+    const normalize = (value) => value === undefined || value === null ? '' : value;
+    
+    // ONLY compare on-chain fields that are stored in the smart contract
+    // According to smart contract ABI: uri, price, accessURI, accessKey (auth removed - now per provider)
+    const hasChangedOnChainData =
+      normalize(originalLab.uri) !== normalize(onchainUri) ||
+      normalize(originalLab.price) !== normalize(labData.price) ||
+      normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
+      normalize(originalLab.accessKey) !== normalize(labData.accessKey);
+
+    // Debug logging to help identify what's causing transaction triggers
+    devLog.log('🔍 On-chain comparison debug:', {
+      uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
+      price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
+      accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
+      accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
+      hasChangedOnChainData
+    });
+
+    try {
+      if (hasChangedOnChainData) {
+        // 1a. If there are on-chain changes, update blockchain via mutation
+        const actionKey = `update:${labData.id}`;
+        if (isSSO) {
+          setActionProgressNotification(actionKey, 'Updating lab onchain...');
+        } else {
+          notifyLabUpdateStarted(addTemporaryNotification, labData.id);
+        }
+        setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
+        devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
+
+        // Use React Query mutation - it will route to correct service based on isSSO
+        try {
+          await updateLabMutation.mutateAsync({
+            labId: labData.id,
+            labData: {
+              uri: onchainUri,
+              price: labData.price, // Already in token units
+              accessURI: labData.accessURI,
+              accessKey: labData.accessKey
+            },
+            backendUrl: isSSO ? institutionBackendUrl : undefined
+          });
+
+          if (isSSO) {
+            clearActionProgressNotification(actionKey);
+          }
+          notifyLabUpdated(addTemporaryNotification, labData.id);
+          // Clear optimistic editing marker
+          clearOptimisticLabState(String(labData.id));
+        } catch (err) {
+          devLog.error('Error updating lab onchain:', err);
+          if (isSSO) {
+            clearActionProgressNotification(actionKey);
+          }
+          clearOptimisticLabState(String(labData.id));
+          try {
+            queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labData.id), exact: true });
+            queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+          } catch (cacheErr) {
+            devLog.warn('Failed to invalidate cache after update error:', cacheErr);
+          }
+          notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
+          return;
+        }
+      } else {
+        // 1b. No on-chain changes - only update off-chain data (JSON file)
+        devLog.log('ProviderDashboard: No on-chain changes detected, updating only off-chain data');
+        
+        // Save the JSON if necessary (for off-chain data only)
+        if (labData.uri.startsWith('Lab-')) {
+          try {
+            await saveLabDataMutation.mutateAsync({
+              ...labData,
+              price: originalPrice // Save with human-readable price for JSON consistency
+            });
+            
+            // Add a small delay to ensure cache propagation in production
+            await new Promise(resolve => setTimeout(resolve, 150));
+            
+            notifyLabMetadataUpdated(addTemporaryNotification, labData.id);
+          } catch (error) {
+            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+            return;
+          }
+        } else {
+          // No JSON to save and no on-chain changes - just show success
+          notifyLabNoChanges(addTemporaryNotification, labData.id);
+        }
+      }
+      
+      // 2. Save the JSON if there were on-chain changes (to keep metadata in sync)
+      if (hasChangedOnChainData && labData.uri.startsWith('Lab-')) {
+        try {
+          await saveLabDataMutation.mutateAsync({
+            ...labData,
+            price: originalPrice // Save with human-readable price for JSON consistency
+          });
+          
+          // Add a small delay to ensure cache propagation in production
+          await new Promise(resolve => setTimeout(resolve, 150));
+          
+        } catch (error) {
+          notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+          return;
+        }
+      }
+
+      // 3. Delete the old JSON if necessary
+      if (mustDeleteOldJson) {
+        await deleteLabDataMutation.mutateAsync(originalLab.uri);
+      }
+    } catch (error) {
+      devLog.error('Error updating lab:', error);
+      notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+    }
+  }
+
+  // Handle delete a lab using React Query mutation
+  const handleDeleteLab = async (labId) => {
+    const actionKey = `delete:${labId}`;
+    try {
+      // Optimistic UI: mark deleting and provide immediate feedback
+      if (isSSO) {
+        setActionProgressNotification(actionKey, 'Deleting lab...');
+      } else {
+        notifyLabDeleteStarted(addTemporaryNotification, labId);
+      }
+      setOptimisticLabState(String(labId), { deleting: true, isPending: true });
+
+      // 🚀 Use React Query mutation for lab deletion
+      const deletePayload = isSSO
+        ? { labId, backendUrl: institutionBackendUrl }
+        : labId;
+      await deleteLabMutation.mutateAsync(deletePayload);
+      
+      // Remove from cached list immediately when possible
+      try {
+        queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => (
+          Array.isArray(old) ? old.filter(l => (l?.id || l?.labId) !== String(labId)) : old
+        ));
+      } catch (cacheErr) {
+        devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
+      }
+
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
+      notifyLabDeleted(addTemporaryNotification, labId);
+
+      // React Query mutations and event contexts will further ensure cache consistency
+      devLog.log('🗑️ Lab deleted, cache cleanup will be handled automatically by event contexts');
+      
+      notifyLabDeletedCascadeWarning(addTemporaryNotification, labId);
+
+      // Clear optimistic deleting state
+      clearOptimisticLabState(String(labId));
+    } catch (error) {
+      devLog.error('Error deleting lab:', error);
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
+      clearOptimisticLabState(labId);
+      try {
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+      } catch (cacheErr) {
+        devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
+      }
+      notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+    }
+  };
+
+  // Handle listing a lab using React Query mutation
+  const handleList = async (labId) => {
+    const actionKey = `list:${labId}`;
+    try {
+      // Immediate user feedback: notify and set optimistic pending state
+      if (isSSO) {
+        setListingProgressNotification(actionKey, 'Listing lab...');
+      } else {
+        notifyLabListingRequested(addTemporaryNotification, labId);
+      }
+      setOptimisticListingState(String(labId), true, true);
+
+      // ?Ys? Use React Query mutation for lab listing
+      const listPayload = isSSO
+        ? { labId, backendUrl: institutionBackendUrl }
+        : labId;
+      await listLabMutation.mutateAsync(listPayload);
+      
+      // Mark optimistic as completed (still keep new state)
+      if (isSSO) {
+        clearListingProgressNotification(actionKey);
+      }
+      completeOptimisticListingState(String(labId));
+
+      // Immediately update cache so UI reflects onchain change without waiting for events
+      updateListingCache(labId, true);
+
+      notifyLabListed(addTemporaryNotification, labId);
+    } catch (error) {
+      devLog.error('Error listing lab:', error);
+      if (isSSO) {
+        clearListingProgressNotification(actionKey);
+      }
+      // Clear optimistic pending state on error
+      clearOptimisticListingState(String(labId));
+      try {
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+      } catch (cacheErr) {
+        devLog.warn('Failed to invalidate cache after list error:', cacheErr);
+      }
+      notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+    }
+  };
+  
+  // Handle unlisting a lab using React Query mutation
+  const handleUnlist = async (labId) => {
+    try {
+      // Immediate user feedback: notify and set optimistic pending state
+      setListingProgressNotification(labId, 'Unlisting lab...');
+      setOptimisticListingState(String(labId), false, true);
+
+      // ?Ys? Use React Query mutation for lab unlisting
+      const unlistPayload = isSSO
+        ? { labId, backendUrl: institutionBackendUrl }
+        : labId;
+      await unlistLabMutation.mutateAsync(unlistPayload);
+      
+      // Mark optimistic as completed (keep new state)
+      clearListingProgressNotification(labId);
+      completeOptimisticListingState(String(labId));
+
+      // Immediately update cache so UI reflects onchain change without waiting for events
+      updateListingCache(labId, false);
+
+      notifyLabUnlisted(addTemporaryNotification, labId);
+    } catch (error) {
+      devLog.error('Error unlisting lab:', error);
+      clearListingProgressNotification(labId);
+      // Clear optimistic pending state on error
+      clearOptimisticListingState(String(labId));
+      try {
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient?.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+      } catch (cacheErr) {
+        devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
+      }
+      notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+    }
+  };
+
+// Handle collecting balances from all labs
+  const handleCollectAll = async () => {
+    const actionKey = 'collect:all';
+    try {
+      if (isSSO) {
+        setActionProgressNotification(actionKey, 'Collecting all balances...');
+      } else {
+        notifyLabCollectStarted(addTemporaryNotification);
+      }
+      
+      await requestFundsMutation.mutateAsync();
+      
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
+      notifyLabCollected(addTemporaryNotification);
+    } catch (err) {
+      devLog.error(err);
+      if (isSSO) {
+        clearActionProgressNotification(actionKey);
+      }
+      notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
+    }
+  };
+
+  const handleSelectChange = (e) => {
+    setSelectedLabId(e.target.value);
+  };
+
+  // Helper function to clean and shorten error messages
+  const formatErrorMessage = (error) => {
+    let message = error.message || 'Unknown error';
+    
+    // Common patterns to simplify
+    const patterns = [
+      { regex: /execution reverted:?\s*/i, replacement: '' },
+      { regex: /VM Exception while processing transaction:?\s*/i, replacement: '' },
+      { regex: /Error:\s*/i, replacement: '' },
+      { regex: /Failed to.*?:\s*/i, replacement: '' },
+      { regex: /HTTP error! status: (\d+)/, replacement: 'Server error ($1)' },
+      { regex: /network.*?error/i, replacement: 'Network error' },
+      { regex: /insufficient.*?funds/i, replacement: 'Insufficient funds' },
+      { regex: /user.*?rejected/i, replacement: 'Transaction rejected' },
+      { regex: /wallet.*?connection/i, replacement: 'Wallet error' }
+    ];
+    
+    // Apply patterns
+    patterns.forEach(({ regex, replacement }) => {
+      message = message.replace(regex, replacement);
+    });
+    
+    // Truncate if still too long
+    if (message.length > 80) {
+      message = message.substring(0, 77) + '...';
+    }
+    
+    return message.trim() || 'Operation failed';
+  };
 
   // ❌ Error handling for React Query
   if (labsError) {

@@ -26,6 +26,10 @@ import {
 } from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
 import { transformRegistrationOptions, attestationToJSON } from '@/utils/webauthn/client'
+import {
+    hasBrowserCredentialMarker,
+    setBrowserCredentialMarker,
+} from '@/utils/onboarding/browserCredentialMarker'
 
 // Create optimized context with automatic memoization
 const { Context: UserContextInternal, Provider: OptimizedUserProvider, useContext: useUserContext } =
@@ -90,6 +94,7 @@ function UserDataCore({ children }) {
     const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
     const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
     const [institutionBackendUrl, setInstitutionBackendUrl] = useState(null);
+    const onboardingStableUserIdRef = useRef(null);
 
     // Track initial connection state to prevent flash of authenticated content
     const isWalletLoading = isReconnecting || isConnecting;
@@ -242,15 +247,21 @@ function UserDataCore({ children }) {
 
                 const sessionData = await sessionResponse.json();
                 const stableUserId = sessionData.meta?.stableUserId;
+                const institutionIdFromSession = sessionData.meta?.institutionId || institutionDomain || null;
 
                 if (!stableUserId) {
                     devLog.warn('[InstitutionalOnboarding] No stableUserId in session');
                     setInstitutionalOnboardingStatus('error');
                     return;
                 }
+                onboardingStableUserIdRef.current = stableUserId;
+                const browserMarker = {
+                    stableUserId,
+                    institutionId: institutionIdFromSession,
+                };
 
                 // Step 2: Check if user has credentials directly with IB
-                const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}`;
+                const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(institutionIdFromSession || '')}`;
                 
                 const statusResponse = await fetch(statusUrl, {
                     method: 'GET',
@@ -268,25 +279,33 @@ function UserDataCore({ children }) {
                 }
 
                 if (!statusResponse.ok) {
-                    // Backend unreachable or errored; do not block the user with a modal
-                    devLog.warn('[InstitutionalOnboarding] Status check failed, skipping modal:', statusResponse.status);
-                    setInstitutionalOnboardingStatus('error');
-                    setShowOnboardingModal(false);
+                    // Backend returned an unexpected status. Show a non-blocking modal so
+                    // users on new browsers/devices still receive onboarding guidance.
+                    devLog.warn('[InstitutionalOnboarding] Status check failed, showing advisory modal:', statusResponse.status);
+                    setInstitutionalOnboardingStatus('advisory');
+                    setShowOnboardingModal(true);
                     return;
                 }
 
                 const statusData = await statusResponse.json();
 
-                // key-status endpoint returns { hasCredential: boolean, ...metadata }
+                // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {
-                    if (statusData.hasPlatformCredential === false) {
-                        devLog.log('[InstitutionalOnboarding] Credential exists but no platform key detected; showing advisory');
+                    const hasMarker = hasBrowserCredentialMarker(browserMarker);
+                    const shouldShowAdvisory = !hasMarker && statusData.hasPlatformCredential !== true;
+
+                    // Browser-level marker: if this browser has never acknowledged/used
+                    // the passkey for this institutional account, force advisory.
+                    if (shouldShowAdvisory) {
+                        devLog.log('[InstitutionalOnboarding] IB has credential but browser marker is missing; showing advisory');
                         setInstitutionalOnboardingStatus('advisory');
                         setShowOnboardingModal(true);
                         return;
                     }
 
-                    devLog.log('[InstitutionalOnboarding] User already onboarded');
+                    // Browser is already recognized (marker) or IB explicitly confirms platform credential.
+                    devLog.log('[InstitutionalOnboarding] User already onboarded (recognized browser/platform credential)');
+                    setBrowserCredentialMarker(browserMarker);
                     setInstitutionalOnboardingStatus('completed');
                     setShowOnboardingModal(false);
                     return;
@@ -309,7 +328,7 @@ function UserDataCore({ children }) {
         return () => {
             cancelled = true;
         };
-    }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl]);
+    }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl, institutionDomain]);
 
     // Check whether the institution is already registered on-chain (for SSO users)
     // Using React Query for automatic caching, retry, and deduplication
@@ -371,6 +390,7 @@ function UserDataCore({ children }) {
             setInstitutionRegistrationStatus(null);
             setInstitutionRegistrationWallet(null);
             setInstitutionBackendUrl(null);
+            onboardingStableUserIdRef.current = null;
         }
     }, [isSSO, user]);
 
@@ -763,11 +783,19 @@ function UserDataCore({ children }) {
     }, [queryClient, handleError, clearSSOSession]);
 
     // Institutional onboarding handlers
+    const markBrowserPasskeySeen = useCallback(() => {
+        setBrowserCredentialMarker({
+            stableUserId: onboardingStableUserIdRef.current || user?.email || user?.id || null,
+            institutionId: institutionDomain || null,
+        });
+    }, [user, institutionDomain]);
+
     const handleOnboardingComplete = useCallback(() => {
         devLog.log('[InstitutionalOnboarding] Onboarding completed successfully');
+        markBrowserPasskeySeen();
         setInstitutionalOnboardingStatus('completed');
         setShowOnboardingModal(false);
-    }, []);
+    }, [markBrowserPasskeySeen]);
 
     const handleOnboardingSkip = useCallback(() => {
         devLog.log('[InstitutionalOnboarding] User skipped onboarding');
@@ -782,8 +810,11 @@ function UserDataCore({ children }) {
     }, [institutionalOnboardingStatus]);
 
     const closeOnboardingModal = useCallback(() => {
+        if (institutionalOnboardingStatus === 'advisory' || institutionalOnboardingStatus === 'completed') {
+            markBrowserPasskeySeen();
+        }
         setShowOnboardingModal(false);
-    }, []);
+    }, [institutionalOnboardingStatus, markBrowserPasskeySeen]);
 
     const value = {
         // User state

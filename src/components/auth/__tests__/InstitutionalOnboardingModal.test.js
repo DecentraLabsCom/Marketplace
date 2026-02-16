@@ -111,6 +111,28 @@ describe('InstitutionalOnboardingModal', () => {
       expect(screen.getByTestId('modal')).toBeInTheDocument()
       expect(screen.getByText('Account Setup')).toBeInTheDocument()
     })
+
+    it('renders advisory content when keyStatus indicates passkey lives on another device', () => {
+      mockUseInstitutionalOnboarding.mockReturnValue({
+        state: OnboardingState.IDLE,
+        error: null,
+        isLoading: false,
+        isCompleted: false,
+        hasBackend: true,
+        sessionData: null,
+        keyStatus: { hasCredential: true, hasPlatformCredential: false },
+        startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
+        reset: jest.fn(),
+      })
+
+      render(<InstitutionalOnboardingModal {...defaultProps} />)
+
+      expect(screen.getByText('Passkey on Another Device?')).toBeInTheDocument()
+      expect(screen.getByText(/Use the device where the passkey was created/)).toBeInTheDocument()
+      expect(screen.getByTestId('button-primary')).toHaveTextContent('Register Here')
+    })
   })
 
   describe('REQUIRED state', () => {
@@ -321,6 +343,27 @@ describe('InstitutionalOnboardingModal', () => {
       render(<InstitutionalOnboardingModal {...defaultProps} />)
 
       expect(defaultProps.onComplete).toHaveBeenCalled()
+    })
+
+    it('does not auto-complete in advisory mode even if hook reports isCompleted', () => {
+      mockUseInstitutionalOnboarding.mockReturnValue({
+        state: OnboardingState.NOT_NEEDED,
+        error: null,
+        isLoading: false,
+        isCompleted: true,
+        hasBackend: true,
+        sessionData: null,
+        keyStatus: { hasCredential: true, hasPlatformCredential: false },
+        startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
+        reset: jest.fn(),
+      })
+
+      render(<InstitutionalOnboardingModal {...defaultProps} />)
+
+      expect(screen.getByText('Passkey on Another Device?')).toBeInTheDocument()
+      expect(defaultProps.onComplete).not.toHaveBeenCalled()
     })
   })
 

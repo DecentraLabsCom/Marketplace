@@ -45,10 +45,12 @@ const wrapper = ({ children }) => children
 describe('useInstitutionalOnboarding', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockFetch.mockReset()
     mockUseUser.mockReturnValue(mockUserContext)
     mockSessionStorage.getItem.mockReturnValue(null)
     mockSessionStorage.setItem.mockImplementation(() => {})
     mockSessionStorage.removeItem.mockImplementation(() => {})
+    window.localStorage.clear()
   })
 
   describe('initial state', () => {
@@ -135,6 +137,35 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.backendUrl).toBe('https://backend.example.com')
     })
 
+    it('should include institutionId query parameter in key-status request', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://backend.example.com/onboarding/webauthn/key-status/user123?institutionId=university.edu',
+        expect.objectContaining({
+          method: 'GET',
+        })
+      )
+    })
+
     it('should handle successful check - already onboarded', async () => {
       // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
@@ -162,6 +193,133 @@ describe('useInstitutionalOnboarding', () => {
       expect(result.current.isOnboarded).toBe(true)
       expect(statusResult.needed).toBe(false)
       expect(statusResult.isOnboarded).toBe(true)
+    })
+
+    it('should set keyStatus when IB reports credential but local browser not registered', async () => {
+      // Mock session endpoint
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB key-status - has credentials
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true })
+      })
+      // Mock local browser check -> not registered here
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ registered: false })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      let statusResult
+      await act(async () => {
+        statusResult = await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: false,
+      })
+      expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
+      expect(result.current.isOnboarded).toBe(true)
+      expect(statusResult.needed).toBe(false)
+    })
+
+    it('should treat a brand new browser as advisory even when local endpoint says registered', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ registered: true })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: false,
+      })
+    })
+
+    it('should treat browser as known when marker exists and local endpoint is registered', async () => {
+      window.localStorage.setItem('institutional_browser_passkey:university.edu:user123', '1')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ registered: true })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: true,
+      })
+    })
+
+    it('should treat browser as known when IB reports hasPlatformCredential=true even without marker', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true, hasPlatformCredential: true })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: true,
+      })
+      expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
+      expect(result.current.isOnboarded).toBe(true)
     })
 
     it('should handle NO_BACKEND error', async () => {
