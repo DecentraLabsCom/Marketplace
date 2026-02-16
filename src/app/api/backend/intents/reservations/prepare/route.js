@@ -41,6 +41,25 @@ function mapAuthorizationErrorCode(message) {
   return null
 }
 
+function normalizeAuthorizationResponse(payload) {
+  const candidate = payload?.data || payload?.authorization || payload
+  if (!candidate || typeof candidate !== 'object') {
+    return { sessionId: null, ceremonyUrl: null, authorizationUrl: null, expiresAt: null }
+  }
+
+  return {
+    sessionId:
+      candidate.sessionId ||
+      candidate.session_id ||
+      candidate.authorizationSessionId ||
+      candidate.authorization_session_id ||
+      null,
+    ceremonyUrl: candidate.ceremonyUrl || candidate.ceremony_url || null,
+    authorizationUrl: candidate.authorizationUrl || candidate.authorization_url || null,
+    expiresAt: candidate.expiresAt || candidate.expires_at || null,
+  }
+}
+
 async function getBackendAuthToken() {
   return marketplaceJwtService.generateIntentBackendToken()
 }
@@ -189,6 +208,24 @@ export async function POST(request) {
           { status: res.status },
         )
       }
+
+      const normalizedAuthorization = normalizeAuthorizationResponse(authorization)
+      const hasUsableAuthorization =
+        Boolean(normalizedAuthorization.sessionId) ||
+        Boolean(normalizedAuthorization.ceremonyUrl) ||
+        Boolean(normalizedAuthorization.authorizationUrl)
+
+      if (!hasUsableAuthorization) {
+        devLog.error('[API] Reservation authorization response missing session/url', { authorization })
+        return NextResponse.json(
+          {
+            error: 'Invalid authorization response from institutional backend',
+            code: 'INTENT_AUTHORIZATION_RESPONSE_INVALID',
+          },
+          { status: 502 },
+        )
+      }
+      authorization = normalizedAuthorization
     } catch (err) {
       devLog.error('[API] Failed to request reservation authorization', err)
       return NextResponse.json(

@@ -61,6 +61,12 @@ const createAuthorizationCancelledError = (message = 'Authorization cancelled by
   return err;
 };
 
+const createAuthorizationSessionUnavailableError = (message = 'Authorization session unavailable') => {
+  const err = new Error(message);
+  err.code = 'INTENT_AUTH_SESSION_UNAVAILABLE';
+  return err;
+};
+
 const markBrowserCredentialVerifiedFromIntent = (prepareData) => {
   try {
     const actionPayload =
@@ -250,11 +256,7 @@ async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, p
     } catch {
       // ignore close errors
     }
-    emitPopupBlockedEvent({
-      authorizationUrl: authorizationUrl || null,
-      source: 'lab-intent-authorization',
-    });
-    throw createPopupBlockedError('Authorization window unavailable');
+    throw createAuthorizationSessionUnavailableError('Authorization session unavailable');
   }
 
   let authPopup = openAuthorizationPopup(authorizationUrl, popup, { keepOpener: true });

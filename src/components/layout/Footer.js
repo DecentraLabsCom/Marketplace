@@ -12,17 +12,17 @@ export default function Footer() {
   return (
     <footer className="bg-hover-dark text-slate-100 text-center p-3 mt-8 relative">
       <Container padding="none" className="p-1">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[1.25fr_1fr_1fr] lg:grid-cols-[1.5fr_1fr_1fr] gap-6 place-items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 place-items-center">
           {/* Left: Support */}
-          <div className="flex w-full justify-center md:justify-start">
-            <div className="flex flex-wrap lg:flex-nowrap items-center justify-center md:justify-start gap-2 sm:gap-3 lg:gap-4">
+          <div className="flex w-full justify-center">
+            <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-2 sm:gap-3 md:gap-2 lg:gap-3">
               <Image
                 src="/eu_funded_en.jpg"
                 alt="EU Funded"
                 width={220}
                 height={50}
                 sizes="(max-width: 640px) 96px, 160px"
-                className="h-5 w-auto sm:h-8 lg:h-10"
+                className="h-5 w-auto sm:h-8 md:h-7 lg:h-8 2xl:h-10"
               />
               <Image
                 src="/ngi_sargasso.jpg"
@@ -30,7 +30,7 @@ export default function Footer() {
                 width={200}
                 height={46}
                 sizes="(max-width: 640px) 88px, 160px"
-                className="h-5 w-auto sm:h-8 lg:h-10"
+                className="h-5 w-auto sm:h-8 md:h-7 lg:h-8 2xl:h-10"
               />
               <Image
                 src="/vietsch-logo.jpg"
@@ -38,7 +38,7 @@ export default function Footer() {
                 width={160}
                 height={40}
                 sizes="(max-width: 640px) 72px, 140px"
-                className="h-5 w-auto sm:h-8 lg:h-10"
+                className="h-5 w-auto sm:h-8 md:h-7 lg:h-8 2xl:h-10"
               />
             </div>
           </div>

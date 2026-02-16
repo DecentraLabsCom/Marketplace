@@ -552,7 +552,7 @@ describe('useReservationRequest (minimal unit tests)', () => {
 
     await act(async () => {
       await expect(result.current.mutateAsync({ tokenId: 'tk-finalize', start: 1, end: 2 }))
-        .rejects.toThrow('Authorization window unavailable');
+        .rejects.toThrow('Authorization session unavailable');
     });
 
     expect(bookingMocks.updateBooking).not.toHaveBeenCalled();
