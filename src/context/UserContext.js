@@ -261,7 +261,7 @@ function UserDataCore({ children }) {
                 };
 
                 // Step 2: Check if user has credentials directly with IB
-                const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}`;
+                const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(institutionIdFromSession || '')}`;
                 
                 const statusResponse = await fetch(statusUrl, {
                     method: 'GET',
@@ -279,10 +279,11 @@ function UserDataCore({ children }) {
                 }
 
                 if (!statusResponse.ok) {
-                    // Backend unreachable or errored; do not block the user with a modal
-                    devLog.warn('[InstitutionalOnboarding] Status check failed, skipping modal:', statusResponse.status);
-                    setInstitutionalOnboardingStatus('error');
-                    setShowOnboardingModal(false);
+                    // Backend returned an unexpected status. Show a non-blocking modal so
+                    // users on new browsers/devices still receive onboarding guidance.
+                    devLog.warn('[InstitutionalOnboarding] Status check failed, showing advisory modal:', statusResponse.status);
+                    setInstitutionalOnboardingStatus('advisory');
+                    setShowOnboardingModal(true);
                     return;
                 }
 

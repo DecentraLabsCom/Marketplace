@@ -512,6 +512,73 @@ describe("UserData Context", () => {
       });
     });
 
+    test("shows advisory modal when key-status endpoint errors and includes institutionId in request", async () => {
+      const mockSSOUser = {
+        name: "Test User",
+        email: "test@uned.es",
+        affiliation: "uned.es",
+      };
+
+      userHooks.useSSOSessionQuery.mockReturnValue({
+        data: { user: mockSSOUser, isSSO: true },
+        isLoading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      userHooks.useInstitutionResolve.mockReturnValue({
+        data: {
+          registered: true,
+          wallet: "0xabc",
+          domain: "uned.es",
+          backendUrl: "https://sarlab.dia.uned.es",
+        },
+        isLoading: false,
+        error: null,
+      });
+
+      let keyStatusRequestUrl = null;
+      global.fetch.mockImplementation((url) => {
+        const u = String(url);
+        if (u.includes('/api/onboarding/session')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              status: 'ok',
+              payload: { stableUserId: 'test@uned.es' },
+              meta: { stableUserId: 'test@uned.es', institutionId: 'uned.es' },
+            }),
+          });
+        }
+
+        if (u.includes("/onboarding/webauthn/key-status/")) {
+          keyStatusRequestUrl = u;
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: async () => ({}),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({}),
+        });
+      });
+
+      const queryClient = createTestQueryClient();
+      const { result } = renderHook(() => useUser(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      await waitFor(() => {
+        expect(result.current.institutionalOnboardingStatus).toBe("advisory");
+        expect(result.current.showOnboardingModal).toBe(true);
+      });
+
+      expect(keyStatusRequestUrl).toContain("institutionId=uned.es");
+    });
+
     test("marks institution as unregistered when resolve returns no wallet", async () => {
       const mockSSOUser = {
         name: "Test User",

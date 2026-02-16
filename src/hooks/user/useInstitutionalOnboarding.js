@@ -123,7 +123,8 @@ export function useInstitutionalOnboarding({
       }
 
       // Check if user has credentials directly with IB
-      const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}`
+      const resolvedInstitutionId = sessionData.meta?.institutionId || institutionDomain || ''
+      const statusUrl = `${institutionBackendUrl}/onboarding/webauthn/key-status/${encodeURIComponent(stableUserId)}?institutionId=${encodeURIComponent(resolvedInstitutionId)}`
       
       const statusResponse = await fetch(statusUrl, {
         method: 'GET',

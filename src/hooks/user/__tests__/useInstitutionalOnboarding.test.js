@@ -137,6 +137,35 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.backendUrl).toBe('https://backend.example.com')
     })
 
+    it('should include institutionId query parameter in key-status request', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://backend.example.com/onboarding/webauthn/key-status/user123?institutionId=university.edu',
+        expect.objectContaining({
+          method: 'GET',
+        })
+      )
+    })
+
     it('should handle successful check - already onboarded', async () => {
       // Mock session endpoint
       mockFetch.mockResolvedValueOnce({
