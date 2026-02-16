@@ -241,7 +241,8 @@ function UserDataCore({ children }) {
 
                 if (!sessionResponse.ok) {
                     devLog.warn('[InstitutionalOnboarding] Session fetch failed:', sessionResponse.status);
-                    setInstitutionalOnboardingStatus('error');
+                    setInstitutionalOnboardingStatus('advisory');
+                    setShowOnboardingModal(true);
                     return;
                 }
 
@@ -251,7 +252,8 @@ function UserDataCore({ children }) {
 
                 if (!stableUserId) {
                     devLog.warn('[InstitutionalOnboarding] No stableUserId in session');
-                    setInstitutionalOnboardingStatus('error');
+                    setInstitutionalOnboardingStatus('advisory');
+                    setShowOnboardingModal(true);
                     return;
                 }
                 onboardingStableUserIdRef.current = stableUserId;
@@ -318,8 +320,9 @@ function UserDataCore({ children }) {
 
             } catch (error) {
                 devLog.warn('[InstitutionalOnboarding] Check failed:', error);
-                // Don't block the user, just mark as checked
-                setInstitutionalOnboardingStatus('error');
+                // Fallback to advisory so user can still register a passkey on this browser/device.
+                setInstitutionalOnboardingStatus('advisory');
+                setShowOnboardingModal(true);
             }
         };
 

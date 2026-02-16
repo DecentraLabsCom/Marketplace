@@ -43,6 +43,24 @@ const resolveLabId = (data) => {
   }
 };
 
+const createIntentMutationError = (payload, fallbackMessage) => {
+  const message =
+    payload?.error ||
+    payload?.message ||
+    fallbackMessage;
+  const err = new Error(message);
+  if (payload?.code) {
+    err.code = payload.code;
+  }
+  return err;
+};
+
+const createAuthorizationCancelledError = (message = 'Authorization cancelled by user') => {
+  const err = new Error(message);
+  err.code = 'INTENT_AUTH_CANCELLED';
+  return err;
+};
+
 const normalizeAuthorizationUrl = (authorizationUrl, backendUrl) => {
   if (!authorizationUrl) return null;
   const raw = String(authorizationUrl).trim();
@@ -372,7 +390,10 @@ async function runActionIntent(action, payload) {
 
   const prepareData = await prepareResponse.json();
   if (!prepareResponse.ok) {
-    throw new Error(prepareData.error || `Failed to prepare action intent: ${prepareResponse.status}`);
+    throw createIntentMutationError(
+      prepareData,
+      `Failed to prepare action intent: ${prepareResponse.status}`
+    );
   }
 
   const authToken = prepareData?.backendAuthToken || null;
@@ -389,10 +410,10 @@ async function runActionIntent(action, payload) {
       throw new Error(authorizationStatus?.error || 'Authorization cancelled');
     }
     if (normalizedStatus === 'CANCELLED') {
-      throw new Error(authorizationStatus?.error || 'Authorization cancelled');
+      throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled');
     }
     if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
-      throw new Error(authorizationStatus?.error || 'Authorization cancelled');
+      throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled');
     }
   }
   if (authorizationStatus) {
@@ -440,7 +461,7 @@ async function runActionIntent(action, payload) {
 
   const finalizeData = await finalizeResponse.json();
   if (!finalizeResponse.ok) {
-    throw new Error(finalizeData.error || 'Failed to finalize action intent');
+    throw createIntentMutationError(finalizeData, 'Failed to finalize action intent');
   }
 
   const requestId =

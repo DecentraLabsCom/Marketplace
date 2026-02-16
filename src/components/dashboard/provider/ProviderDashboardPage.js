@@ -99,7 +99,8 @@ export default function ProviderDashboard() {
     isLoading,
     hasWalletSession,
     institutionBackendUrl,
-    institutionRegistrationWallet
+    institutionRegistrationWallet,
+    openOnboardingModal,
   } = useUser();
   const router = useRouter();
 
@@ -268,6 +269,23 @@ export default function ProviderDashboard() {
       devLog.error('Failed to clear action progress notification:', err);
     }
   }, [removeNotification]);
+
+  const isMissingWebauthnCredentialError = useCallback((error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return (
+      error?.code === 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED' ||
+      message.includes('webauthn_credential_not_registered')
+    );
+  }, []);
+
+  const handleMissingWebauthnCredential = useCallback((error) => {
+    if (!isSSO) return false;
+    if (!isMissingWebauthnCredentialError(error)) return false;
+    if (typeof openOnboardingModal === 'function') {
+      openOnboardingModal();
+    }
+    return true;
+  }, [isSSO, isMissingWebauthnCredentialError, openOnboardingModal]);
 
   const updateListingCache = useCallback((labId, isListed) => {
     if (!queryClient) return;
@@ -535,6 +553,7 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       devLog.error('Error adding lab:', error);
+      handleMissingWebauthnCredential(error);
       notifyLabCreateFailed(addTemporaryNotification, error?.message || 'Unknown error');
       clearCreateLabProgress();
     } finally {
@@ -553,6 +572,7 @@ export default function ProviderDashboard() {
     addTemporaryNotification,
     setCreateLabProgress,
     clearCreateLabProgress,
+    handleMissingWebauthnCredential,
   ]);
 
   const handleCloseModal = useCallback(() => {
@@ -700,6 +720,7 @@ export default function ProviderDashboard() {
           } catch (cacheErr) {
             devLog.warn('Failed to invalidate cache after update error:', cacheErr);
           }
+          handleMissingWebauthnCredential(err);
           notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
           return;
         }
@@ -752,6 +773,7 @@ export default function ProviderDashboard() {
       }
     } catch (error) {
       devLog.error('Error updating lab:', error);
+      handleMissingWebauthnCredential(error);
       notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
     }
   }
@@ -807,6 +829,7 @@ export default function ProviderDashboard() {
       } catch (cacheErr) {
         devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
       }
+      handleMissingWebauthnCredential(error);
       notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
     }
   };
@@ -852,6 +875,7 @@ export default function ProviderDashboard() {
       } catch (cacheErr) {
         devLog.warn('Failed to invalidate cache after list error:', cacheErr);
       }
+      handleMissingWebauthnCredential(error);
       notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
     }
   };
@@ -888,6 +912,7 @@ export default function ProviderDashboard() {
       } catch (cacheErr) {
         devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
       }
+      handleMissingWebauthnCredential(error);
       notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
     }
   };
@@ -913,6 +938,7 @@ export default function ProviderDashboard() {
       if (isSSO) {
         clearActionProgressNotification(actionKey);
       }
+      handleMissingWebauthnCredential(err);
       notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
     }
   };
