@@ -344,6 +344,27 @@ describe('InstitutionalOnboardingModal', () => {
 
       expect(defaultProps.onComplete).toHaveBeenCalled()
     })
+
+    it('does not auto-complete in advisory mode even if hook reports isCompleted', () => {
+      mockUseInstitutionalOnboarding.mockReturnValue({
+        state: OnboardingState.NOT_NEEDED,
+        error: null,
+        isLoading: false,
+        isCompleted: true,
+        hasBackend: true,
+        sessionData: null,
+        keyStatus: { hasCredential: true, hasPlatformCredential: false },
+        startOnboarding: jest.fn(),
+        initiateOnboarding: jest.fn(),
+        redirectToCeremony: jest.fn(),
+        reset: jest.fn(),
+      })
+
+      render(<InstitutionalOnboardingModal {...defaultProps} />)
+
+      expect(screen.getByText('Passkey on Another Device?')).toBeInTheDocument()
+      expect(defaultProps.onComplete).not.toHaveBeenCalled()
+    })
   })
 
   describe('NO_BACKEND state', () => {

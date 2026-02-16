@@ -84,12 +84,14 @@ export function InstitutionalOnboardingModal({
     reset,
   } = useInstitutionalOnboarding({ autoPoll: true, autoCheck: isOpen })
 
-  // Notify parent when completed
+  // Notify parent only when an onboarding ceremony actually completes.
+  // "Advisory" paths can report isCompleted=true (IB has credential) but
+  // still need to keep this modal open for the user.
   useEffect(() => {
-    if (isCompleted && onComplete) {
+    if (state === OnboardingState.COMPLETED && isCompleted && onComplete) {
       onComplete()
     }
-  }, [isCompleted, onComplete])
+  }, [state, isCompleted, onComplete])
 
   const handleStart = async () => {
     await startOnboarding()
