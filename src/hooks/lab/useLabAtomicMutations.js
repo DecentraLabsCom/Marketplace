@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
+import { useOptionalUser } from '@/context/UserContext'
 import { labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
@@ -1006,17 +1007,38 @@ export const useUpdateLab = (options = {}) => {
 // Intent hook for deleting labs (institutional wallet executes)
 export const useDeleteLabSSO = (options = {}) => {
   const { updateLab, invalidateAllLabs, removeLab } = useLabCacheUpdates();
+  const userContext = useOptionalUser();
+  const institutionBackendUrl = userContext?.institutionBackendUrl;
+
+  const resolveDeletePayload = (input) => {
+    if (input && typeof input === 'object') {
+      return {
+        labId: input.labId,
+        backendUrl: input.backendUrl || institutionBackendUrl,
+        presenceFn: input.presenceFn,
+      };
+    }
+
+    return {
+      labId: input,
+      backendUrl: institutionBackendUrl,
+      presenceFn: undefined,
+    };
+  };
 
   return useMutation({
-    mutationFn: async (labId) => {
+    mutationFn: async (input) => {
+      const { labId, backendUrl, presenceFn } = resolveDeletePayload(input);
       const data = await runActionIntent(ACTION_CODES.LAB_DELETE, {
         labId,
-        backendUrl: undefined,
+        backendUrl,
+        presenceFn,
       });
       devLog.log('useDeleteLabSSO intent (webauthn):', data);
       return data;
     },
-    onSuccess: (_data, labId) => {
+    onSuccess: (_data, input) => {
+      const { labId } = resolveDeletePayload(input);
       try {
         const requestId =
           _data?.requestId ||
