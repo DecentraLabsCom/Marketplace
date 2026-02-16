@@ -5,7 +5,7 @@
  * @returns {JSX.Element} Complete marketplace interface with lab grid, search, and user-specific features
  */
 "use client";
-import React, { useMemo, useState, useCallback, useEffect } from 'react'
+import React, { useMemo, useState, useCallback, useEffect, useDeferredValue, useTransition} from 'react'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useLabsForMarket } from '@/hooks/lab/useLabs'
@@ -22,6 +22,9 @@ export default function Market() {
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
   
+  // Deferred value for showUnlisted to prevent UI blocking during rapid toggling
+  const [isPending, startTransition] = useTransition();
+
   // React Query for labs optimized for market display (with conditional unlisted inclusion)
   const labsQuery = useLabsForMarket({ 
     includeUnlisted: showUnlisted 
@@ -90,20 +93,42 @@ export default function Market() {
     categories,
     providers,
     searchInputRef,
-    resetFilters
+    resetFilters,
+    setSearchTerm
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated);
+
+  const deferredLabs = useDeferredValue(searchFilteredLabs);
+
+  const handleCategoryChange = useCallback((val) => {
+    startTransition(() => setSelectedCategory(val));
+  }, [setSelectedCategory]);
+
+  const handlePriceChange = useCallback((val) => {
+    startTransition(() => setSelectedPrice(val));
+  }, [setSelectedPrice]);
+
+  const handleProviderChange = useCallback((val) => {
+    startTransition(() => setSelectedProvider(val));
+  }, [setSelectedProvider]);
+
+  const handleFilterChange = useCallback((val) => {
+    startTransition(() => setSelectedFilter(val));
+  }, [setSelectedFilter]);
+
 
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {
+  startTransition(() => {
     resetFilters();
     setShowUnlisted(false);
-  }, [resetFilters]);
+  });
+}, [resetFilters]);
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  return (
+return (
     <Container as="main" padding="sm">
       {isHydrated ? (
         <LabFilters
@@ -114,19 +139,20 @@ export default function Market() {
           selectedProvider={selectedProvider}
           selectedFilter={selectedFilter}
           showUnlisted={showUnlisted}
-          onCategoryChange={setSelectedCategory}
-          onPriceChange={setSelectedPrice}
-          onProviderChange={setSelectedProvider}
-          onFilterChange={setSelectedFilter}
+          onCategoryChange={handleCategoryChange} // Handler con startTransition
+          onPriceChange={handlePriceChange}       // Handler con startTransition
+          onProviderChange={handleProviderChange} // Handler con startTransition
+          onFilterChange={handleFilterChange}     // Handler con startTransition
           onShowUnlistedChange={setShowUnlisted}
           onReset={handleReset}
           searchInputRef={searchInputRef}
-          loading={labsLoading}
+          loading={labsLoading || isPending}      // Feedback visual integrado en filtros
+          onSearchChange={setSearchTerm}
         />
       ) : null}
 
       <LabGrid
-        labs={searchFilteredLabs}
+        labs={deferredLabs} // Valor diferido para evitar bloqueos
         loading={labsLoading}
         error={labsError}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."

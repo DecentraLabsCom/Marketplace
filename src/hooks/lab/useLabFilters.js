@@ -1,36 +1,20 @@
 /**
  * Hook for managing lab filtering and search functionality
- * Centralizes search state, filtering logic, and debounced search
+ * Centralizes search state, filtering logic, and concurrent search
  */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useDeferredValue } from 'react'
 
 /**
  * Custom hook for lab filtering and search
  * @param {Array} labs - Array of lab objects
- * @param {Object} userBookingsData - User bookings data from useUserBookingsForMarket (with Set and helper methods)
+ * @param {Object} userBookingsData - User bookings data from useUserBookingsForMarket
  * @param {boolean} isLoggedIn - User login status
  * @param {boolean} bookingsLoading - Whether bookings are still loading
+ * @param {boolean} isHydrated - Client hydration status
  * @returns {Object} Filter state, handlers, and filtered results
- * @returns {string} returns.selectedCategory - Currently selected category filter
- * @returns {string} returns.selectedPrice - Currently selected price sorting
- * @returns {string} returns.selectedProvider - Currently selected provider filter
- * @returns {string} returns.selectedFilter - Currently selected search filter type
- * @returns {boolean} returns.showUnlisted - Whether to show unlisted labs
- * @returns {Array} returns.searchFilteredLabs - Filtered and enriched labs array
- * @returns {string} returns.searchDebounce - Current debounced search term
- * @returns {Function} returns.setSelectedCategory - Set category filter function
- * @returns {Function} returns.setSelectedPrice - Set price sorting function
- * @returns {Function} returns.setSelectedProvider - Set provider filter function
- * @returns {Function} returns.setSelectedFilter - Set search filter type function
- * @returns {Function} returns.setShowUnlisted - Set show unlisted labs function
- * @returns {Array} returns.categories - Available categories for filtering
- * @returns {Array} returns.providers - Available providers for filtering
- * @returns {Object} returns.searchInputRef - Ref for search input element
- * @returns {Function} returns.resetFilters - Reset all filters function
  */
 export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false, isHydrated = true) {
   const searchInputRef = useRef(null)
-  const lastAttachedInput = useRef(null)
   
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState("All")
@@ -38,7 +22,10 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   const [selectedProvider, setSelectedProvider] = useState("All")
   const [selectedFilter, setSelectedFilter] = useState("Keyword")
   const [showUnlisted, setShowUnlisted] = useState(false)
-  const [searchDebounce, setSearchDebounce] = useState("")
+  
+  // New Search State: searchTerm is immediate, deferredSearchTerm is for the heavy filtering
+  const [searchTerm, setSearchTerm] = useState("")
+  const deferredSearchTerm = useDeferredValue(searchTerm)
 
   // Get all lab categories and providers using memoization
   const categories = useMemo(() => {
@@ -62,57 +49,6 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     })
     return Array.from(uniqueProviders).sort()
   }, [labs])
-
-  // Debounced search effect for better performance
-  // NOTE: depends on `isHydrated` so the listener is attached after the input mounts in the client
-  useEffect(() => {
-    let timeoutId
-
-    if (!isHydrated) {
-      return
-    }
-
-    const handleSearchInput = (event) => {
-      const value = (event?.target?.value ?? searchInputRef.current?.value ?? "").toLowerCase()
-
-      // Clear existing timeout
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
-
-      // Set new timeout
-      timeoutId = setTimeout(() => {
-        setSearchDebounce(value)
-      }, 300)
-    }
-
-    const inputEl = searchInputRef.current
-
-    // Attach only when the input element exists
-    if (inputEl) {
-      // Avoid double-attaching to the same element
-      if (lastAttachedInput.current === inputEl) {
-        return () => {
-          if (timeoutId) clearTimeout(timeoutId)
-        }
-      }
-
-      inputEl.addEventListener('input', handleSearchInput)
-      lastAttachedInput.current = inputEl
-
-      return () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-        }
-        inputEl.removeEventListener('input', handleSearchInput)
-        lastAttachedInput.current = null
-      }
-    }
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [isHydrated, searchInputRef])
 
   // Main filtering logic using useMemo for performance and stability
   const searchFilteredLabs = useMemo(() => {
@@ -142,18 +78,19 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
       filtered = filtered.filter((lab) => lab.provider === selectedProvider)
     }
 
-    // Apply text search based on selected filter type
-    if (searchDebounce) {
+    // Apply text search based on selected filter type using the DEFERRED term
+    if (deferredSearchTerm) {
+      const term = deferredSearchTerm.toLowerCase()
       filtered = filtered.filter((lab) => {
         switch (selectedFilter) {
           case "Keyword":
             return (Array.isArray(lab.keywords) 
-                     ? lab.keywords.some(keyword => keyword?.toLowerCase().includes(searchDebounce))
-                     : lab.keywords?.toLowerCase().includes(searchDebounce)) ||
-                   lab.name?.toLowerCase().includes(searchDebounce) ||
-                   lab.description?.toLowerCase().includes(searchDebounce)
+                    ? lab.keywords.some(keyword => keyword?.toLowerCase().includes(term))
+                    : lab.keywords?.toLowerCase().includes(term)) ||
+                   lab.name?.toLowerCase().includes(term) ||
+                   lab.description?.toLowerCase().includes(term)
           case "Name":
-            return lab.name?.toLowerCase().includes(searchDebounce)
+            return lab.name?.toLowerCase().includes(term)
           default:
             return true
         }
@@ -167,7 +104,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     selectedPrice, 
     selectedProvider, 
     selectedFilter, 
-    searchDebounce
+    deferredSearchTerm // Dependency updated
   ])
 
   // Separate memo for active booking marking to minimize re-renders
@@ -185,7 +122,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedProvider("All")
     setSelectedFilter("Keyword")
     setShowUnlisted(false)
-    setSearchDebounce("")
+    setSearchTerm("") // Reset the immediate search state
     if (searchInputRef.current) {
       searchInputRef.current.value = ""
     }
@@ -198,8 +135,9 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     selectedProvider,
     selectedFilter,
     showUnlisted,
-    searchFilteredLabs: enrichedLabs, // Return enriched labs with active booking marks
-    searchDebounce,
+    searchFilteredLabs: enrichedLabs,
+    searchTerm, // Immediate value for the input
+    isStale: searchTerm !== deferredSearchTerm, // Indicates if the filter is lagging behind the input
     
     // Setters
     setSelectedCategory,
@@ -207,6 +145,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedProvider,
     setSelectedFilter,
     setShowUnlisted,
+    setSearchTerm, // Exported to be used by the input onChange
     
     // Derived data
     categories,

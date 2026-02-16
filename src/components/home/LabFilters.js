@@ -39,7 +39,8 @@ export default function LabFilters({
   onShowUnlistedChange,
   onReset,
   searchInputRef,
-  loading = false
+  loading = false,
+  onSearchChange
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
@@ -153,6 +154,7 @@ export default function LabFilters({
             type="text" 
             placeholder="Type here..." 
             onKeyDown={handleKeyDown}
+            onChange={(e) => onSearchChange(e.target.value)}
             className="w-full bg-transparent placeholder:text-slate-500 text-header-bg text-sm border border-slate-200 rounded-md pl-28 pr-24 py-2 transition duration-300 ease focus:outline-none focus:border-header-bg shadow-sm focus:shadow"
             disabled={effectiveLoading}
           />
