@@ -52,6 +52,9 @@ export function useInstitutionalOnboarding({
   const [error, setError] = useState(null)
   const [sessionData, setSessionData] = useState(null)
   const [isOnboarded, setIsOnboarded] = useState(null) // null = unknown
+  // keyStatus reflects IB + local-browser presence for passkeys
+  // { hasCredential: boolean, hasPlatformCredential: boolean|null }
+  const [keyStatus, setKeyStatus] = useState(null)
   
   const pollControllerRef = useRef(null)
   const pollStartTimeRef = useRef(null)
@@ -123,13 +126,50 @@ export function useInstitutionalOnboarding({
 
       const statusData = await statusResponse.json()
 
-      // key-status endpoint returns { hasCredential: boolean }
-      if (statusData.hasCredential) {
-        setState(OnboardingState.NOT_NEEDED)
-        setIsOnboarded(true)
-        return { needed: false, isOnboarded: true }
+      // Build initial keyStatus from IB response
+      const resolvedKeyStatus = {
+        hasCredential: Boolean(statusData.hasCredential),
+        // IB may optionally report platform credential presence
+        hasPlatformCredential: typeof statusData.hasPlatformCredential === 'boolean' ? statusData.hasPlatformCredential : null,
       }
 
+      // If IB reports the user has a credential, determine whether this browser
+      // also holds a platform credential by checking our local status endpoint.
+      if (statusData.hasCredential) {
+        // If IB explicitly tells us there's no platform credential, set advisory
+        if (statusData.hasPlatformCredential === false) {
+          setKeyStatus(resolvedKeyStatus)
+          setState(OnboardingState.NOT_NEEDED)
+          setIsOnboarded(true)
+          return { needed: false, isOnboarded: true }
+        }
+
+        // Otherwise probe local browser registration to infer "passkey on another device"
+        try {
+          const localRes = await fetch('/api/auth/webauthn/status', {
+            method: 'GET',
+            credentials: 'include',
+          })
+          const localData = await localRes.json().catch(() => ({}))
+          const hasPlatform = Boolean(localData?.registered)
+          resolvedKeyStatus.hasPlatformCredential = hasPlatform
+          setKeyStatus(resolvedKeyStatus)
+
+          // We still consider the user institutionally onboarded (IB hasCredential)
+          setState(OnboardingState.NOT_NEEDED)
+          setIsOnboarded(true)
+          return { needed: false, isOnboarded: true }
+        } catch (err) {
+          // If local check fails, don't block the user — expose IB status and continue
+          resolvedKeyStatus.hasPlatformCredential = null
+          setKeyStatus(resolvedKeyStatus)
+          setState(OnboardingState.NOT_NEEDED)
+          setIsOnboarded(true)
+          return { needed: false, isOnboarded: true }
+        }
+      }
+
+      setKeyStatus(resolvedKeyStatus)
       setState(OnboardingState.REQUIRED)
       setIsOnboarded(false)
       return { needed: true, backendUrl: institutionBackendUrl }
@@ -569,6 +609,7 @@ export function useInstitutionalOnboarding({
     sessionData,
     institutionBackendUrl,
     institutionDomain,
+    keyStatus,
     
     // Computed
     isLoading: [

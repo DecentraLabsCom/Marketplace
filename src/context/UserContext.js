@@ -277,8 +277,9 @@ function UserDataCore({ children }) {
 
                 const statusData = await statusResponse.json();
 
-                // key-status endpoint returns { hasCredential: boolean, ...metadata }
+                // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {
+                    // If IB explicitly indicates platform credential absence, show advisory
                     if (statusData.hasPlatformCredential === false) {
                         devLog.log('[InstitutionalOnboarding] Credential exists but no platform key detected; showing advisory');
                         setInstitutionalOnboardingStatus('advisory');
@@ -286,7 +287,26 @@ function UserDataCore({ children }) {
                         return;
                     }
 
-                    devLog.log('[InstitutionalOnboarding] User already onboarded');
+                    // Otherwise, check local browser for a registered credential so we can
+                    // surface the "Passkey on Another Device" advisory if needed.
+                    try {
+                        const localRes = await fetch('/api/auth/webauthn/status', {
+                            method: 'GET',
+                            credentials: 'include',
+                        });
+                        const localData = await localRes.json().catch(() => ({}));
+
+                        if (!localData?.registered) {
+                            devLog.log('[InstitutionalOnboarding] IB has credential but not registered in this browser; showing advisory');
+                            setInstitutionalOnboardingStatus('advisory');
+                            setShowOnboardingModal(true);
+                            return;
+                        }
+                    } catch (err) {
+                        devLog.warn('[InstitutionalOnboarding] Local webauthn status check failed, assuming onboarded', err);
+                    }
+
+                    devLog.log('[InstitutionalOnboarding] User already onboarded (local credential present)');
                     setInstitutionalOnboardingStatus('completed');
                     setShowOnboardingModal(false);
                     return;

@@ -361,6 +361,88 @@ describe("UserData Context", () => {
       });
     });
 
+    test("shows advisory modal when IB has credential but local browser not registered", async () => {
+        const mockSSOUser = {
+          name: "Test User",
+          email: "test@uned.es",
+          affiliation: "uned.es",
+        };
+
+        userHooks.useSSOSessionQuery.mockReturnValue({
+          data: { user: mockSSOUser, isSSO: true },
+          isLoading: false,
+          error: null,
+          refetch: jest.fn(),
+        });
+
+        userHooks.useInstitutionResolve.mockReturnValue({
+          data: {
+            registered: true,
+            wallet: "0xabc",
+            domain: "uned.es",
+            backendUrl: "https://sarlab.dia.uned.es",
+          },
+          isLoading: false,
+          error: null,
+        });
+
+        userHooks.useOnboardingSession.mockReturnValue({
+          data: {
+            status: 'ok',
+            payload: { stableUserId: 'test@uned.es' },
+            meta: { stableUserId: 'test@uned.es', institutionId: 'uned.es' }
+          },
+          isLoading: false,
+          error: null,
+        });
+
+        global.fetch.mockImplementation((url) => {
+          const u = String(url);
+
+          // Provide session payload required by UserContext check
+          if (u.includes('/api/onboarding/session')) {
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({
+                status: 'ok',
+                payload: { stableUserId: 'test@uned.es' },
+                meta: { stableUserId: 'test@uned.es', institutionId: 'uned.es' },
+              }),
+            });
+          }
+
+          if (u.includes("/onboarding/webauthn/key-status/")) {
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({ hasCredential: true }),
+            });
+          }
+
+          if (u.includes("/api/auth/webauthn/status")) {
+            return Promise.resolve({
+              ok: true,
+              json: async () => ({ registered: false }),
+            });
+          }
+
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({}),
+          });
+        });
+
+        const queryClient = createTestQueryClient();
+        const { result } = renderHook(() => useUser(), {
+          wrapper: createWrapper(queryClient),
+        });
+
+        await waitFor(() => {
+          expect(result.current.institutionalOnboardingStatus).toBe("advisory");
+          expect(result.current.showOnboardingModal).toBe(true);
+        });
+      });
+    });
+
     test("marks institution as unregistered when resolve returns no wallet", async () => {
       const mockSSOUser = {
         name: "Test User",
@@ -645,8 +727,8 @@ describe("UserData Context", () => {
       });
 
       userHooks.useUserCacheUpdates.mockReturnValue({
-        ...mockUseCacheUpdates,
         refreshProviderStatus: mockRefresh,
+        clearSSOSession: jest.fn(),
       });
 
       const queryClient = createTestQueryClient();
@@ -710,7 +792,7 @@ describe("UserData Context", () => {
       });
 
       await waitFor(() => {
-        expect(mockUseErrorHandler.handleError).not.toHaveBeenCalled();
+        expect(errorBoundaries.useErrorHandler().handleError).not.toHaveBeenCalled();
       });
     });
 
@@ -728,7 +810,7 @@ describe("UserData Context", () => {
       });
 
       await waitFor(() => {
-        expect(mockUseErrorHandler.handleError).not.toHaveBeenCalled();
+        expect(errorBoundaries.useErrorHandler().handleError).not.toHaveBeenCalled();
       });
     });
 
@@ -905,5 +987,3 @@ describe("UserData Context", () => {
       );
     });
   });
-});
-

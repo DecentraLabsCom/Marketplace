@@ -164,6 +164,43 @@ describe('useInstitutionalOnboarding', () => {
       expect(statusResult.isOnboarded).toBe(true)
     })
 
+    it('should set keyStatus when IB reports credential but local browser not registered', async () => {
+      // Mock session endpoint
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      // Mock IB key-status - has credentials
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true })
+      })
+      // Mock local browser check -> not registered here
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ registered: false })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      let statusResult
+      await act(async () => {
+        statusResult = await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: false,
+      })
+      expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
+      expect(result.current.isOnboarded).toBe(true)
+      expect(statusResult.needed).toBe(false)
+    })
+
     it('should handle NO_BACKEND error', async () => {
       // Mock no backend URL - set institutionBackendUrl to null
       mockUseUser.mockReturnValueOnce({ ...mockUserContext, institutionBackendUrl: null })
