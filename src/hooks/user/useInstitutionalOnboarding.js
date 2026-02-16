@@ -161,7 +161,7 @@ export function useInstitutionalOnboarding({
       // to decide whether this browser has already acknowledged/used it.
       if (statusData.hasCredential) {
         const hasMarker = hasBrowserCredentialMarker(markerPayload)
-        const shouldShowAdvisory = !hasMarker && statusData.hasPlatformCredential !== true
+        const shouldShowAdvisory = !hasMarker
 
         // New browser for this user/institution: force advisory until acknowledged here.
         if (shouldShowAdvisory) {

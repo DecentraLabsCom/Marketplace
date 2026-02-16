@@ -294,7 +294,7 @@ describe('useInstitutionalOnboarding', () => {
       })
     })
 
-    it('should treat browser as known when IB reports hasPlatformCredential=true even without marker', async () => {
+    it('should keep advisory when marker is missing even if IB reports hasPlatformCredential=true', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({
@@ -316,7 +316,7 @@ describe('useInstitutionalOnboarding', () => {
 
       expect(result.current.keyStatus).toEqual({
         hasCredential: true,
-        hasPlatformCredential: true,
+        hasPlatformCredential: false,
       })
       expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
       expect(result.current.isOnboarded).toBe(true)

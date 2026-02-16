@@ -8,18 +8,16 @@ function toPlainString(value) {
 
 /**
  * Build the deterministic WebAuthn challenge string for intents:
- * puc|credentialId|requestId|payloadHash|nonce|requestedAt|expiresAt|action
+ * puc|requestId|payloadHash|nonce|requestedAt|expiresAt|action
  * @param {Object} params
  * @param {string} params.puc
- * @param {string} params.credentialId
  * @param {Object} params.meta
  * @param {string} params.payloadHash
  * @returns {{ challengeString: string, challenge: string }}
  */
-export function buildIntentChallenge({ puc, credentialId, meta, payloadHash }) {
+export function buildIntentChallenge({ puc, meta, payloadHash }) {
   const challengeString = [
     puc ? puc.toLowerCase() : '',
-    credentialId,
     meta?.requestId,
     payloadHash || meta?.payloadHash || '',
     toPlainString(meta?.nonce),

@@ -292,7 +292,7 @@ function UserDataCore({ children }) {
                 // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {
                     const hasMarker = hasBrowserCredentialMarker(browserMarker);
-                    const shouldShowAdvisory = !hasMarker && statusData.hasPlatformCredential !== true;
+                    const shouldShowAdvisory = !hasMarker;
 
                     // Browser-level marker: if this browser has never acknowledged/used
                     // the passkey for this institutional account, force advisory.
@@ -303,8 +303,8 @@ function UserDataCore({ children }) {
                         return;
                     }
 
-                    // Browser is already recognized (marker) or IB explicitly confirms platform credential.
-                    devLog.log('[InstitutionalOnboarding] User already onboarded (recognized browser/platform credential)');
+                    // Browser is already recognized for this user/institution.
+                    devLog.log('[InstitutionalOnboarding] User already onboarded (recognized browser marker)');
                     setBrowserCredentialMarker(browserMarker);
                     setInstitutionalOnboardingStatus('completed');
                     setShowOnboardingModal(false);
@@ -804,9 +804,11 @@ function UserDataCore({ children }) {
     }, []);
 
     const openOnboardingModal = useCallback(() => {
-        if (institutionalOnboardingStatus !== 'completed' && institutionalOnboardingStatus !== 'no_backend') {
-            setShowOnboardingModal(true);
+        if (institutionalOnboardingStatus === 'no_backend') return;
+        if (institutionalOnboardingStatus === 'completed') {
+            setInstitutionalOnboardingStatus('advisory');
         }
+        setShowOnboardingModal(true);
     }, [institutionalOnboardingStatus]);
 
     const closeOnboardingModal = useCallback(() => {
