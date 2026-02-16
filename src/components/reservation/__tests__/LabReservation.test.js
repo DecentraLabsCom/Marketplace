@@ -627,6 +627,29 @@ describe("LabReservation Component", () => {
       expect(mockAddErrorNotification).not.toHaveBeenCalled();
     });
 
+    test("re-opens onboarding advisory after cancellation on unverified browser", async () => {
+      const cancelledError = new Error("Authorization cancelled by user");
+      cancelledError.code = "INTENT_AUTH_CANCELLED";
+      mockReservationRequestMutation.mutateAsync.mockRejectedValueOnce(cancelledError);
+
+      userContext.useUser.mockReturnValue({
+        isSSO: true,
+        address: null,
+        institutionBackendUrl: "https://institution.example",
+        institutionalOnboardingStatus: "advisory",
+        openOnboardingModal: mockOpenOnboardingModal,
+      });
+
+      renderWithProviders(<LabReservation id="1" />);
+
+      const button = screen.getByRole("button", { name: /book now/i });
+      fireEvent.click(button);
+
+      await waitFor(() => {
+        expect(mockOpenOnboardingModal).toHaveBeenCalled();
+      });
+    });
+
     test("opens onboarding modal when WebAuthn credential is missing", async () => {
       const missingCredentialError = new Error("webauthn_credential_not_registered");
       missingCredentialError.code = "WEBAUTHN_CREDENTIAL_NOT_REGISTERED";

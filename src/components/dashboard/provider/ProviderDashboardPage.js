@@ -100,6 +100,7 @@ export default function ProviderDashboard() {
     hasWalletSession,
     institutionBackendUrl,
     institutionRegistrationWallet,
+    institutionalOnboardingStatus,
     openOnboardingModal,
   } = useUser();
   const router = useRouter();
@@ -278,14 +279,32 @@ export default function ProviderDashboard() {
     );
   }, []);
 
+  const isAuthorizationCancelledError = useCallback((error) => {
+    return error?.code === 'INTENT_AUTH_CANCELLED';
+  }, []);
+
   const handleMissingWebauthnCredential = useCallback((error) => {
     if (!isSSO) return false;
-    if (!isMissingWebauthnCredentialError(error)) return false;
-    if (typeof openOnboardingModal === 'function') {
-      openOnboardingModal();
+    if (isMissingWebauthnCredentialError(error)) {
+      if (typeof openOnboardingModal === 'function') {
+        openOnboardingModal();
+      }
+      return true;
     }
-    return true;
-  }, [isSSO, isMissingWebauthnCredentialError, openOnboardingModal]);
+    if (isAuthorizationCancelledError(error) && institutionalOnboardingStatus === 'advisory') {
+      if (typeof openOnboardingModal === 'function') {
+        openOnboardingModal();
+      }
+      return true;
+    }
+    return false;
+  }, [
+    institutionalOnboardingStatus,
+    isAuthorizationCancelledError,
+    isMissingWebauthnCredentialError,
+    isSSO,
+    openOnboardingModal,
+  ]);
 
   const updateListingCache = useCallback((labId, isListed) => {
     if (!queryClient) return;

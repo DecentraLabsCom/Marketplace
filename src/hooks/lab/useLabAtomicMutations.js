@@ -23,6 +23,7 @@ import {
   createPopupBlockedError,
   emitPopupBlockedEvent,
 } from '@/utils/browser/popupBlockerGuidance'
+import { markBrowserCredentialVerified } from '@/utils/onboarding/browserCredentialMarker'
 
 const resolveRequestId = (data) =>
   data?.requestId ||
@@ -58,6 +59,27 @@ const createAuthorizationCancelledError = (message = 'Authorization cancelled by
   const err = new Error(message);
   err.code = 'INTENT_AUTH_CANCELLED';
   return err;
+};
+
+const markBrowserCredentialVerifiedFromIntent = (prepareData) => {
+  try {
+    const actionPayload =
+      prepareData?.intent?.payload ||
+      prepareData?.intent?.actionPayload ||
+      null;
+    const stableUserId = actionPayload?.puc || actionPayload?.stableUserId || null;
+    if (!stableUserId) return;
+
+    markBrowserCredentialVerified({
+      stableUserId,
+      institutionId:
+        actionPayload?.schacHomeOrganization ||
+        actionPayload?.institutionId ||
+        null,
+    });
+  } catch {
+    // Marker updates are best-effort and must never break write flows.
+  }
 };
 
 const normalizeAuthorizationUrl = (authorizationUrl, backendUrl) => {
@@ -417,6 +439,9 @@ async function runActionIntent(action, payload) {
     }
     if (normalizedStatus === 'UNKNOWN' && !resolveRequestId(authorizationStatus) && !resolveRequestId(prepareData)) {
       throw createAuthorizationCancelledError(authorizationStatus?.error || 'Authorization cancelled');
+    }
+    if (normalizedStatus === 'SUCCESS') {
+      markBrowserCredentialVerifiedFromIntent(prepareData);
     }
   }
   if (authorizationStatus) {

@@ -27,8 +27,10 @@ import {
 import devLog from '@/utils/dev/logger'
 import { transformRegistrationOptions, attestationToJSON } from '@/utils/webauthn/client'
 import {
-    hasBrowserCredentialMarker,
-    setBrowserCredentialMarker,
+    hasBrowserCredentialMarkerVerified,
+    markBrowserCredentialAdvisoryDismissed,
+    markBrowserCredentialVerified,
+    shouldShowBrowserCredentialAdvisory,
 } from '@/utils/onboarding/browserCredentialMarker'
 
 // Create optimized context with automatic memoization
@@ -57,6 +59,17 @@ function getInstitutionName(userData) {
     
     return null;
 }
+
+function resolveAdvisoryCooldownMs() {
+    const rawHours = process.env.NEXT_PUBLIC_WEBAUTHN_ADVISORY_COOLDOWN_HOURS;
+    const parsedHours = Number(rawHours);
+    if (!Number.isFinite(parsedHours) || parsedHours < 0) {
+        return 12 * 60 * 60 * 1000;
+    }
+    return parsedHours * 60 * 60 * 1000;
+}
+
+const WEBAUTHN_ADVISORY_COOLDOWN_MS = resolveAdvisoryCooldownMs();
 
 function isWalletSessionUser(sessionUser) {
     return Boolean(
@@ -293,21 +306,23 @@ function UserDataCore({ children }) {
 
                 // key-status endpoint returns { hasCredential: boolean, hasPlatformCredential?: boolean }
                 if (statusData.hasCredential) {
-                    const hasMarker = hasBrowserCredentialMarker(browserMarker);
-                    const shouldShowAdvisory = !hasMarker;
+                    const isVerifiedBrowser = hasBrowserCredentialMarkerVerified(browserMarker);
 
                     // Browser-level marker: if this browser has never acknowledged/used
                     // the passkey for this institutional account, force advisory.
-                    if (shouldShowAdvisory) {
+                    if (!isVerifiedBrowser) {
+                        const shouldShowAdvisory = shouldShowBrowserCredentialAdvisory(browserMarker, {
+                            cooldownMs: WEBAUTHN_ADVISORY_COOLDOWN_MS,
+                        });
                         devLog.log('[InstitutionalOnboarding] IB has credential but browser marker is missing; showing advisory');
                         setInstitutionalOnboardingStatus('advisory');
-                        setShowOnboardingModal(true);
+                        setShowOnboardingModal(shouldShowAdvisory);
                         return;
                     }
 
                     // Browser is already recognized for this user/institution.
                     devLog.log('[InstitutionalOnboarding] User already onboarded (recognized browser marker)');
-                    setBrowserCredentialMarker(browserMarker);
+                    markBrowserCredentialVerified(browserMarker);
                     setInstitutionalOnboardingStatus('completed');
                     setShowOnboardingModal(false);
                     return;
@@ -786,19 +801,34 @@ function UserDataCore({ children }) {
     }, [queryClient, handleError, clearSSOSession]);
 
     // Institutional onboarding handlers
-    const markBrowserPasskeySeen = useCallback(() => {
-        setBrowserCredentialMarker({
-            stableUserId: onboardingStableUserIdRef.current || user?.email || user?.id || null,
-            institutionId: institutionDomain || null,
-        });
-    }, [user, institutionDomain]);
+    const resolveBrowserMarkerIdentity = useCallback(() => ({
+        stableUserId:
+            onboardingStableUserIdRef.current ||
+            user?.schacPersonalUniqueCode ||
+            user?.personalUniqueCode ||
+            user?.personal_unique_code ||
+            null,
+        institutionId: institutionDomain || null,
+    }), [user, institutionDomain]);
+
+    const markBrowserPasskeyVerified = useCallback(() => {
+        const markerIdentity = resolveBrowserMarkerIdentity();
+        if (!markerIdentity.stableUserId) return;
+        markBrowserCredentialVerified(markerIdentity);
+    }, [resolveBrowserMarkerIdentity]);
+
+    const dismissBrowserAdvisory = useCallback(() => {
+        const markerIdentity = resolveBrowserMarkerIdentity();
+        if (!markerIdentity.stableUserId) return;
+        markBrowserCredentialAdvisoryDismissed(markerIdentity);
+    }, [resolveBrowserMarkerIdentity]);
 
     const handleOnboardingComplete = useCallback(() => {
         devLog.log('[InstitutionalOnboarding] Onboarding completed successfully');
-        markBrowserPasskeySeen();
+        markBrowserPasskeyVerified();
         setInstitutionalOnboardingStatus('completed');
         setShowOnboardingModal(false);
-    }, [markBrowserPasskeySeen]);
+    }, [markBrowserPasskeyVerified]);
 
     const handleOnboardingSkip = useCallback(() => {
         devLog.log('[InstitutionalOnboarding] User skipped onboarding');
@@ -815,11 +845,14 @@ function UserDataCore({ children }) {
     }, [institutionalOnboardingStatus]);
 
     const closeOnboardingModal = useCallback(() => {
-        if (institutionalOnboardingStatus === 'advisory' || institutionalOnboardingStatus === 'completed') {
-            markBrowserPasskeySeen();
+        if (institutionalOnboardingStatus === 'advisory') {
+            dismissBrowserAdvisory();
+        }
+        if (institutionalOnboardingStatus === 'completed') {
+            markBrowserPasskeyVerified();
         }
         setShowOnboardingModal(false);
-    }, [institutionalOnboardingStatus, markBrowserPasskeySeen]);
+    }, [dismissBrowserAdvisory, institutionalOnboardingStatus, markBrowserPasskeyVerified]);
 
     const value = {
         // User state

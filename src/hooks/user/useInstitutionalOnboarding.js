@@ -11,8 +11,8 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
 import {
-  hasBrowserCredentialMarker,
-  setBrowserCredentialMarker,
+  hasBrowserCredentialMarkerVerified,
+  markBrowserCredentialVerified,
 } from '@/utils/onboarding/browserCredentialMarker'
 import { emitPopupBlockedEvent, createPopupBlockedError } from '@/utils/browser/popupBlockerGuidance'
 
@@ -82,12 +82,11 @@ export function useInstitutionalOnboarding({
         user?.schacPersonalUniqueCode ||
         user?.personalUniqueCode ||
         user?.personal_unique_code ||
-        user?.email ||
-        user?.id ||
         null,
       institutionId: session?.institutionId || institutionDomain || null,
     }
-    setBrowserCredentialMarker(markerPayload)
+    if (!markerPayload.stableUserId) return
+    markBrowserCredentialVerified(markerPayload)
   }, [user, institutionDomain])
 
   /**
@@ -188,7 +187,7 @@ export function useInstitutionalOnboarding({
       // If IB reports the user has a credential, rely on browser marker
       // to decide whether this browser has already acknowledged/used it.
       if (statusData.hasCredential) {
-        const hasMarker = hasBrowserCredentialMarker(markerPayload)
+        const hasMarker = hasBrowserCredentialMarkerVerified(markerPayload)
         const shouldShowAdvisory = !hasMarker
 
         // New browser for this user/institution: force advisory until acknowledged here.

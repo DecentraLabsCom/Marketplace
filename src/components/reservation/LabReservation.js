@@ -60,6 +60,7 @@ export default function LabReservation({ id }) {
     isSSO,
     address: userAddress,
     institutionBackendUrl,
+    institutionalOnboardingStatus,
     hasWalletSession,
     openOnboardingModal,
   } = useUser()
@@ -267,6 +268,12 @@ export default function LabReservation({ id }) {
 
       if (isAuthorizationCancelled) {
         notifyReservationAuthorizationCancelled(addTemporaryNotification)
+        if (
+          institutionalOnboardingStatus === 'advisory' &&
+          typeof openOnboardingModal === 'function'
+        ) {
+          openOnboardingModal()
+        }
         if (typeof resetSsoReservationFlow === 'function') {
           resetSsoReservationFlow()
         }
