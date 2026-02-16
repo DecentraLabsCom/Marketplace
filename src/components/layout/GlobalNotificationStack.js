@@ -59,11 +59,6 @@ export default function GlobalNotificationStack() {
                   Hash: {notification.hash.slice(0, 10)}...{notification.hash.slice(-8)}
                 </p>
               )}
-              {notification.timestamp && (
-                <p className="text-gray-200 text-xs mt-1">
-                  {notification.timestamp.toLocaleTimeString()}
-                </p>
-              )}
             </div>
             <button 
               onClick={() => removeNotification(notification.id)}
