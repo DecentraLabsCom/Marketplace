@@ -769,7 +769,10 @@ export default function ProviderDashboard() {
       setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
       // 🚀 Use React Query mutation for lab deletion
-      await deleteLabMutation.mutateAsync(labId);
+      const deletePayload = isSSO
+        ? { labId, backendUrl: institutionBackendUrl }
+        : labId;
+      await deleteLabMutation.mutateAsync(deletePayload);
       
       // Remove from cached list immediately when possible
       try {

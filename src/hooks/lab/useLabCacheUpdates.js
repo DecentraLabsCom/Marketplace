@@ -9,6 +9,36 @@ import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import devLog from '@/utils/dev/logger'
 
+const normalizeLabId = (value) => {
+  if (value === undefined || value === null) return null;
+  return String(value);
+};
+
+const buildLabIdCandidates = (labId) => {
+  const candidates = new Set();
+  if (labId === undefined || labId === null) {
+    return [];
+  }
+
+  candidates.add(labId);
+  candidates.add(String(labId));
+
+  const numericId = Number(labId);
+  if (!Number.isNaN(numericId)) {
+    candidates.add(numericId);
+  }
+
+  return Array.from(candidates);
+};
+
+const hasSameLabId = (lab, targetLabId) => {
+  const target = normalizeLabId(targetLabId);
+  if (!target) return false;
+
+  const candidate = lab?.labId ?? lab?.id ?? lab;
+  return normalizeLabId(candidate) === target;
+};
+
 /**
  * Hook providing lab-specific cache update functions
  * @returns {Object} Cache update functions for labs
@@ -60,7 +90,7 @@ export function useLabCacheUpdates() {
         return []
       }
       const updated = oldData.map((lab) => {
-        if (lab.labId !== labId && lab.id !== labId) return lab;
+        if (!hasSameLabId(lab, labId)) return lab;
         return { ...lab, ...updatedLab, ...onchainUpdates };
       });
       devLog.log('🔄 Updated all labs cache:', { count: updated.length });
@@ -68,23 +98,26 @@ export function useLabCacheUpdates() {
     })
 
     // Update specific lab query
-    queryClient.setQueryData(labQueryKeys.getLab(labId), (oldData) => {
-      if (!oldData) {
-        devLog.log('⚠️ No existing specific lab data found for ID:', labId);
-        // When there's no existing specific cache, return the updates directly.
-        // This preserves the expected plain shape (e.g., { price: 150 }) and avoids
-        // introducing a nested `base` object unexpectedly in newly created entries.
-        return updatedLab;
-      }
-      const nextBase = Object.keys(onchainUpdates).length > 0
-        ? { ...(oldData.base || {}), ...onchainUpdates }
-        : oldData.base;
-      const result = nextBase
-        ? { ...oldData, ...updatedLab, base: nextBase }
-        : { ...oldData, ...updatedLab };
-      devLog.log('🔄 Updated specific lab cache:', { labId, result });
-      return result;
-    })
+    const candidateIds = buildLabIdCandidates(labId);
+    candidateIds.forEach((candidateId) => {
+      queryClient.setQueryData(labQueryKeys.getLab(candidateId), (oldData) => {
+        if (!oldData) {
+          devLog.log('⚠️ No existing specific lab data found for ID:', candidateId);
+          // When there's no existing specific cache, return the updates directly.
+          // This preserves the expected plain shape (e.g., { price: 150 }) and avoids
+          // introducing a nested `base` object unexpectedly in newly created entries.
+          return updatedLab;
+        }
+        const nextBase = Object.keys(onchainUpdates).length > 0
+          ? { ...(oldData.base || {}), ...onchainUpdates }
+          : oldData.base;
+        const result = nextBase
+          ? { ...oldData, ...updatedLab, base: nextBase }
+          : { ...oldData, ...updatedLab };
+        devLog.log('🔄 Updated specific lab cache:', { labId: candidateId, result });
+        return result;
+      })
+    });
   }, [queryClient])
 
   // Remove lab from cache
@@ -92,13 +125,17 @@ export function useLabCacheUpdates() {
     // Update all labs list
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
       if (!oldData) return []
-      return oldData.filter(lab => lab.labId !== labId && lab.id !== labId)
+      return oldData.filter((lab) => !hasSameLabId(lab, labId))
     })
 
-    // Invalidate specific lab query
-    queryClient.invalidateQueries({
-      queryKey: labQueryKeys.getLab(labId)
-    })
+    // Invalidate specific lab query across common key variants
+    const candidateIds = buildLabIdCandidates(labId);
+    candidateIds.forEach((candidateId) => {
+      queryClient.invalidateQueries({
+        queryKey: labQueryKeys.getLab(candidateId),
+        exact: true,
+      })
+    });
   }, [queryClient])
 
   // Add optimistic lab (for immediate UI feedback)

@@ -669,6 +669,27 @@ describe("ProviderDashboard Component", () => {
         });
       });
 
+      test("passes backendUrl in SSO delete payload", async () => {
+        mockUserData.isSSO = true;
+        mockUserData.institutionBackendUrl = "https://institution.example";
+        mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
+
+        render(<ProviderDashboard />);
+
+        const deleteButton = await screen.findByTestId("delete-1");
+
+        await act(async () => {
+          fireEvent.click(deleteButton);
+        });
+
+        await waitFor(() => {
+          expect(mockDeleteLabMutate).toHaveBeenCalledWith({
+            labId: "1",
+            backendUrl: "https://institution.example",
+          });
+        });
+      });
+
       test("handles delete error", async () => {
         const error = new Error("Delete failed");
         mockDeleteLabMutate.mockRejectedValueOnce(error);
