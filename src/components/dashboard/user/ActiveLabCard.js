@@ -62,12 +62,12 @@ export default function ActiveLabCard({
   const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
 
   return (
-    <div className='flex min-[1280px]:flex-row flex-wrap starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
+    <div className='flex min-[1280px]:flex-row flex-wrap justify-center min-[1280px]:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
       <div className='flex flex-col items-center'>
           <div className={`xl:w-90 w-82.5 group relative 
           justify-between items-center shadow-md bg-gray-200 
           transition-transform duration-300 
-          hover:scale-105 mr-3 mb-4 p-2 h-90 rounded-lg flex 
+          hover:scale-105 mx-auto min-[1280px]:mx-0 min-[1280px]:mr-3 mb-4 p-2 h-90 rounded-lg flex 
           flex-col ${borderClass}`}> 
           
           <div className='rounded-lg h-45 w-full mb-4'>
