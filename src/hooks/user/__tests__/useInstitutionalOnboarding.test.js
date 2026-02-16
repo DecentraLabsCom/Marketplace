@@ -45,10 +45,12 @@ const wrapper = ({ children }) => children
 describe('useInstitutionalOnboarding', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockFetch.mockReset()
     mockUseUser.mockReturnValue(mockUserContext)
     mockSessionStorage.getItem.mockReturnValue(null)
     mockSessionStorage.setItem.mockImplementation(() => {})
     mockSessionStorage.removeItem.mockImplementation(() => {})
+    window.localStorage.clear()
   })
 
   describe('initial state', () => {
@@ -199,6 +201,68 @@ describe('useInstitutionalOnboarding', () => {
       expect(result.current.state).toBe(OnboardingState.NOT_NEEDED)
       expect(result.current.isOnboarded).toBe(true)
       expect(statusResult.needed).toBe(false)
+    })
+
+    it('should treat a brand new browser as advisory even when local endpoint says registered', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ registered: true })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: false,
+      })
+    })
+
+    it('should treat browser as known when marker exists and local endpoint is registered', async () => {
+      window.localStorage.setItem('institutional_browser_passkey:university.edu:user123', '1')
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: 'ok',
+          payload: { stableUserId: 'user123' },
+          meta: { stableUserId: 'user123', institutionId: 'university.edu' }
+        })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ hasCredential: true })
+      })
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ registered: true })
+      })
+
+      const { result } = renderHook(() => useInstitutionalOnboarding(), { wrapper })
+
+      await act(async () => {
+        await result.current.checkOnboardingStatus()
+      })
+
+      expect(result.current.keyStatus).toEqual({
+        hasCredential: true,
+        hasPlatformCredential: true,
+      })
     })
 
     it('should handle NO_BACKEND error', async () => {
