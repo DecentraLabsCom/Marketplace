@@ -87,7 +87,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm transition-opacity starting:opacity-0 opacity-100 sm:items-center sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -96,7 +96,7 @@ export default function Modal({
       <div
         ref={modalRef}
         className={`
-          bg-white rounded-xl shadow-2xl w-full ${sizeClass}
+          my-auto flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] ${sizeClass}
           transition-all duration-200 ease-out
           animate-in fade-in zoom-in-95
           starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0
@@ -107,7 +107,7 @@ export default function Modal({
       >
         {/* Header */}
         {(title || (showCloseButton && onClose)) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
             {title && (
               <h2 
                 id="modal-title" 
@@ -142,7 +142,7 @@ export default function Modal({
         )}
 
         {/* Content */}
-        <div className="px-6 py-4">
+        <div className="overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
           {children}
         </div>
       </div>

@@ -35,6 +35,15 @@ export const OnboardingState = {
   NO_BACKEND: 'no_backend',
 }
 
+const isSessionWarmupError = (status, message) => {
+  const normalized = String(message || '').toLowerCase()
+  if (status !== 401 && status !== 403) return false
+  return (
+    normalized.includes('sso session required') ||
+    normalized.includes('institutional onboarding')
+  )
+}
+
 /**
  * Hook for managing institutional onboarding
  * 
@@ -110,7 +119,24 @@ export function useInstitutionalOnboarding({
 
       if (!sessionResponse.ok) {
         const err = await sessionResponse.json().catch(() => ({}))
-        throw new Error(err.error || `Session fetch failed: ${sessionResponse.status}`)
+        const message = err.error || `Session fetch failed: ${sessionResponse.status}`
+
+        // Right after SSO callback, cookie/session propagation can be briefly delayed.
+        // Keep onboarding in REQUIRED mode instead of failing the whole modal.
+        if (isSessionWarmupError(sessionResponse.status, message)) {
+          devLog.warn('[useInstitutionalOnboarding] Session still warming up, keeping onboarding required')
+          setState(OnboardingState.REQUIRED)
+          setIsOnboarded(false)
+          setError(null)
+          return {
+            needed: true,
+            backendUrl: institutionBackendUrl,
+            reason: 'Session still initializing',
+            transient: true,
+          }
+        }
+
+        throw new Error(message)
       }
 
       const sessionData = await sessionResponse.json()
@@ -226,7 +252,16 @@ export function useInstitutionalOnboarding({
 
       if (!sessionResponse.ok) {
         const sessionError = await sessionResponse.json().catch(() => ({}))
-        throw new Error(sessionError.error || `Session fetch failed: ${sessionResponse.status}`)
+        const message = sessionError.error || `Session fetch failed: ${sessionResponse.status}`
+
+        if (isSessionWarmupError(sessionResponse.status, message)) {
+          devLog.warn('[useInstitutionalOnboarding] Session still warming up during initiate')
+          setState(OnboardingState.REQUIRED)
+          setError(null)
+          return null
+        }
+
+        throw new Error(message)
       }
 
       const sessionData = await sessionResponse.json()

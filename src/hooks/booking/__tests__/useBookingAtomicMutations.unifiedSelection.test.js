@@ -30,6 +30,7 @@ jest.mock('@/utils/webauthn/client', () => ({
 
 import { renderHook, act } from '@testing-library/react';
 import pollIntentStatus from '@/utils/intents/pollIntentStatus';
+import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus';
 
 // Mock optimistic UI context (no-op default for these tests)
 const mockSetOptimisticBookingState = jest.fn();
@@ -49,6 +50,7 @@ const mockContractWriteFactory = require('../../../test-utils/mocks/hooks/useCon
 const { useBookingCacheUpdates: mockBookingCacheFactory } = require('../../../test-utils/mocks/hooks/useBookingCacheUpdates');
 
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'processing' })));
+jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS' })));
 
 /* Shared QueryClient wrapper */
 function createWrapper() {
@@ -62,9 +64,16 @@ describe('useReservationRequest unified selection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     pollIntentStatus.mockResolvedValue({ status: 'processing' });
+    pollIntentAuthorizationStatus.mockResolvedValue({ status: 'SUCCESS' });
     delete global.fetch;
-    global.window = { PublicKeyCredential: true };
-    global.navigator = { credentials: { get: jest.fn(() => Promise.resolve({})) } };
+    global.window.PublicKeyCredential = function PublicKeyCredential() {};
+    global.window.open = jest.fn(() => ({
+      closed: false,
+      focus: jest.fn(),
+      close: jest.fn(),
+      opener: null,
+    }));
+    global.navigator.credentials = { get: jest.fn(() => Promise.resolve({})) };
   });
 
   afterEach(() => {
@@ -72,8 +81,6 @@ describe('useReservationRequest unified selection', () => {
     if (global.fetch && global.fetch.mockRestore) global.fetch.mockRestore();
     delete global.fetch;
     jest.clearAllMocks();
-    delete global.window;
-    delete global.navigator;
   });
 
   test('SSO path: uses fetch and calls addBooking', async () => {
@@ -85,27 +92,17 @@ describe('useReservationRequest unified selection', () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          webauthnChallenge: 'Y2hhbGxlbmdl', // base64 encoded 'challenge'
-          allowCredentials: [],
+          authorizationUrl: 'https://institution.example/intents/authorize/session-u-1',
+          authorizationSessionId: 'session-u-1',
+          backendUrl: 'https://institution.example',
+          backendAuthToken: 'auth-u-1',
           intent: {
             meta: { requestId: 'req-u-1' },
             payload: { reservationKey: 'rk-u-1' },
           },
-          adminSignature: '0xadmin',
-          webauthnCredentialId: 'Y3JlZA', // base64 encoded
         }),
     };
-    const finalizePayload = {
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          intent: { meta: { requestId: 'req-u-1' }, payload: { reservationKey: 'rk-u-1' } },
-          status: 'dispatched',
-        }),
-    };
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(preparePayload)
-      .mockResolvedValueOnce(finalizePayload);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { result } = renderHook(() => useReservationRequest({ isSSO: true }), { wrapper: createWrapper() });
 
@@ -114,7 +111,7 @@ describe('useReservationRequest unified selection', () => {
     let out;
     await act(async () => { out = await result.current.mutateAsync(vars); });
 
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(updateBooking).toHaveBeenCalledTimes(1);
     expect(out).toEqual(expect.objectContaining({ intent: expect.any(Object) }));
   });
@@ -130,23 +127,14 @@ describe('useReservationRequest unified selection', () => {
     const preparePayload = {
       ok: true,
       json: () => Promise.resolve({
-        webauthnChallenge: 'Y2hhbGxlbmdl',
-        allowCredentials: [],
+        authorizationUrl: 'https://institution.example/intents/authorize/session-ssopath',
+        authorizationSessionId: 'session-ssopath',
+        backendUrl: 'https://institution.example',
+        backendAuthToken: 'auth-ssopath',
         intent: { meta: { requestId: 'req-ssopath' }, payload: { reservationKey: 'rk-ssopath' } },
-        adminSignature: '0xadmin',
-        webauthnCredentialId: 'cred',
       }),
     };
-    const finalizePayload = {
-      ok: true,
-      json: () => Promise.resolve({
-        intent: { meta: { requestId: 'req-ssopath' }, payload: { reservationKey: 'rk-ssopath' } },
-        status: 'dispatched',
-      }),
-    };
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(preparePayload)
-      .mockResolvedValueOnce(finalizePayload);
+    global.fetch = jest.fn().mockResolvedValueOnce(preparePayload);
 
     const { result } = renderHook(() => useReservationRequest({ isSSO: true }), { wrapper: createWrapper() });
 
