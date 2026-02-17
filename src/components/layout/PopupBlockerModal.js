@@ -73,7 +73,7 @@ export default function PopupBlockerModal() {
   const locationLabel = guidance.locationLabel.toLowerCase();
   const compactMessage = isMobileGuidance
     ? `Pop-up blocked: your browser may open this flow in a new tab. Allow pop-ups/redirects in browser settings, then retry ${actionLabel}.`
-    : `Pop-up blocked: click the icon on the ${locationLabel}, allow this site, and retry ${actionLabel}.`;
+    : `Pop-up blocked: click the icon on the ${locationLabel}, allow this site, and retry.`;
 
   if (!isOpen) return null;
 

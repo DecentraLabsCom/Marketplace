@@ -65,7 +65,7 @@ export const getPopupGuidance = (userAgent = '') => {
       description:
         'Edge blocked the approval window. Use the blocked pop-up icon next to the URL.',
       steps: [
-        'Click the blocked pop-up icon on the right side of the address bar.',
+        'Click the blocked pop-up icon on the address bar.',
         'Allow pop-ups and redirects for this site.',
         'Retry the action from the app.',
       ],
