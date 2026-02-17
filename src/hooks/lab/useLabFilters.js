@@ -137,6 +137,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     showUnlisted,
     searchFilteredLabs: enrichedLabs,
     searchTerm, // Immediate value for the input
+    searchDebounce: deferredSearchTerm, // Deferred value for the heavy filtering
     isStale: searchTerm !== deferredSearchTerm, // Indicates if the filter is lagging behind the input
     
     // Setters
