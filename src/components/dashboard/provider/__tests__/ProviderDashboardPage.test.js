@@ -121,6 +121,12 @@ jest.mock("@/context/LabTokenContext", () => ({
   useLabToken: () => ({ decimals: 18 }),
 }));
 
+
+jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
+  useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
+  useStakeInfoSSO: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
+}));
+
 // Mock Optimistic UI context to prevent provider dependency and spy on optimistic state methods
 const mockSetOptimisticListingState = jest.fn();
 const mockCompleteOptimisticListingState = jest.fn();
@@ -739,25 +745,26 @@ describe("ProviderDashboard Component", () => {
       });
 
       test("passes backendUrl in SSO delete payload", async () => {
-        mockUserData.isSSO = true;
-        mockUserData.institutionBackendUrl = "https://institution.example";
-        mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
+      mockUserData.isSSO = true;
+      mockUserData.institutionBackendUrl = "https://institution.example";
+      mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+      // CAMBIO: Usar renderWithClient en lugar de render
+      renderWithClient(<ProviderDashboard />); 
 
-        const deleteButton = await screen.findByTestId("delete-1");
+      const deleteButton = await screen.findByTestId("delete-1");
 
-        await act(async () => {
-          fireEvent.click(deleteButton);
-        });
+      await act(async () => {
+        fireEvent.click(deleteButton);
+      });
 
-        await waitFor(() => {
-          expect(mockDeleteLabMutate).toHaveBeenCalledWith({
-            labId: "1",
-            backendUrl: "https://institution.example",
-          });
+      await waitFor(() => {
+        expect(mockDeleteLabMutate).toHaveBeenCalledWith({
+          labId: "1",
+          backendUrl: "https://institution.example",
         });
       });
+    });
 
       test("handles delete error", async () => {
         const error = new Error("Delete failed");
