@@ -3,15 +3,13 @@
  * Displays provider's labs, reservations calendar, and provides lab management tools
  * @returns {JSX.Element} Complete provider dashboard
  */
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { parseUnits } from 'viem'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
-import { labQueryKeys } from '@/utils/hooks/queryKeys'
-import { globalQueryClient } from '@/context/ClientQueryProvider'
 import { 
   useAddLab, 
   useUpdateLab, 
@@ -31,43 +29,14 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
-import ProviderStakingPanel from '@/components/dashboard/provider/staking/ProviderStakingPanel'
-import PendingPayoutsPanel from '@/components/dashboard/provider/staking/PendingPayoutsPanel'
 import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
 import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
-import StakeHealthIndicator from '@/components/dashboard/provider/staking/StakeHealthIndicator'
 import { useStakeInfo } from '@/hooks/staking/useStakingAtomicQueries'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
-import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
 import {
-  notifyLabCollected,
-  notifyLabCollectFailed,
-  notifyLabCollectStarted,
-  notifyLabCreateCancelled,
-  notifyLabCreated,
-  notifyLabCreatedFilesWarning,
-  notifyLabCreatedMetadataWarning,
-  notifyLabCreateFailed,
-  notifyLabDeleted,
-  notifyLabDeletedCascadeWarning,
-  notifyLabDeleteFailed,
-  notifyLabDeleteStarted,
   notifyLabInvalidPrice,
-  notifyLabListed,
-  notifyLabListingRequested,
-  notifyLabListFailed,
-  notifyLabMetadataSaveFailed,
-  notifyLabMetadataUpdated,
-  notifyLabNoChanges,
-  notifyLabUnlisted,
-  notifyLabUnlistFailed,
-  notifyLabUpdated,
-  notifyLabUpdateFailed,
-  notifyLabUpdateStarted,
 } from '@/utils/notifications/labToasts'
-
-import { sanitizeProviderNameForUri, resolveOnchainLabUri } from '@/utils/metadata/helpers'
 
 export default function ProviderDashboard() {
   const {
@@ -104,20 +73,9 @@ export default function ProviderDashboard() {
   }, [allLabsData]);
 
   const { addTemporaryNotification, addNotification } = useNotifications();
-  const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
   const { decimals } = useLabToken();
 
-  const queryClient = globalQueryClient || null;
-
-  const addLabMutation = useAddLab();
-  const updateLabMutation = useUpdateLab();
-  const deleteLabMutation = useDeleteLab();
-  const listLabMutation = useListLab();
-  const unlistLabMutation = useUnlistLab();
   const requestFundsMutation = useRequestFunds();
-  const saveLabDataMutation = useSaveLabData();
-  const deleteLabDataMutation = useDeleteLabData();
-  
 
   const {
     selectedLabId,
@@ -126,7 +84,6 @@ export default function ProviderDashboard() {
     maxId,
     isModalOpen,
     setIsModalOpen,
-    newLab,
     setNewLab,
     shouldShowModal,
     labForModal,
@@ -137,13 +94,25 @@ export default function ProviderDashboard() {
     handleCollectAll,
     handleSelectChange,
     handleCloseModal,
-  } = useProviderLabsManager({ ownedLabs, providerOwnerAddress, isSSO, user, address, institutionBackendUrl, decimals });
+  } = useProviderLabsManager({ 
+    ownedLabs, 
+    providerOwnerAddress, 
+    isSSO, 
+    user, 
+    address, 
+    institutionBackendUrl, 
+    decimals 
+  });
 
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
-  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, { enabled: !!providerOwnerAddress && !isSSO });
+  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, { 
+    enabled: !!providerOwnerAddress && !isSSO 
+  });
 
   const canFetchLabBookings = Boolean(selectedLab?.id && (isSSO || hasWalletSession));
-  const { data: labBookingsData, isError: bookingsError } = useLabBookingsDashboard(selectedLab?.id, { queryOptions: { enabled: canFetchLabBookings } });
+  const { data: labBookingsData, isError: bookingsError } = useLabBookingsDashboard(selectedLab?.id, { 
+    queryOptions: { enabled: canFetchLabBookings } 
+  });
   const labBookings = labBookingsData?.bookings || [];
 
   const bookingInfo = useMemo(() => {
@@ -169,7 +138,6 @@ export default function ProviderDashboard() {
       }
     }
   }, [ownedLabs.length, selectedLabId, isModalOpen, setSelectedLabId]);
-  
   
   const onModalSubmit = async (labData) => {
     const originalPrice = labData.price;
@@ -208,7 +176,6 @@ export default function ProviderDashboard() {
       </Container>
     );
   }
-  
 
   return (
     <AccessControl requireProvider message="Please log in to manage your labs.">
