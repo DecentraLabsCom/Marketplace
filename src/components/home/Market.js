@@ -139,20 +139,20 @@ return (
           selectedProvider={selectedProvider}
           selectedFilter={selectedFilter}
           showUnlisted={showUnlisted}
-          onCategoryChange={handleCategoryChange} // Handler con startTransition
-          onPriceChange={handlePriceChange}       // Handler con startTransition
-          onProviderChange={handleProviderChange} // Handler con startTransition
-          onFilterChange={handleFilterChange}     // Handler con startTransition
+          onCategoryChange={handleCategoryChange} // Handler with startTransition
+          onPriceChange={handlePriceChange}       // Handler with startTransition
+          onProviderChange={handleProviderChange} // Handler with startTransition
+          onFilterChange={handleFilterChange}     // Handler with startTransition
           onShowUnlistedChange={setShowUnlisted}
           onReset={handleReset}
           searchInputRef={searchInputRef}
-          loading={labsLoading || isPending}      // Feedback visual integrado en filtros
+          loading={labsLoading || isPending}      
           onSearchChange={setSearchTerm}
         />
       ) : null}
 
       <LabGrid
-        labs={deferredLabs} // Valor diferido para evitar bloqueos
+        labs={deferredLabs} 
         loading={labsLoading}
         error={labsError}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."

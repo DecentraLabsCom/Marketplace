@@ -749,7 +749,7 @@ describe("ProviderDashboard Component", () => {
       mockUserData.institutionBackendUrl = "https://institution.example";
       mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
 
-      // CAMBIO: Usar renderWithClient en lugar de render
+     
       renderWithClient(<ProviderDashboard />); 
 
       const deleteButton = await screen.findByTestId("delete-1");

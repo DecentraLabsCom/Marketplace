@@ -1,6 +1,7 @@
 /**
  * Unit Tests for useLabFilters hook.
- * Corregido para soportar React 18 concurrent rendering (useDeferredValue).
+ * Covers initial state, category filtering, price sorting, active booking marking, reset functionality, edge cases, and derived data stability.
+ * Uses React Testing Library's renderHook and act for testing hook behavior.
  */
 
 import { renderHook, act } from "@testing-library/react";
@@ -54,7 +55,7 @@ describe("useLabFilters", () => {
       expect(result.current.selectedProvider).toBe("All");
       expect(result.current.selectedFilter).toBe("Keyword");
       expect(result.current.showUnlisted).toBe(false);
-      // searchDebounce debe estar mapeado a deferredSearchTerm en el hook
+     
       expect(result.current.searchDebounce).toBe("");
     });
 
@@ -189,9 +190,9 @@ describe("useLabFilters", () => {
       expect(result.current.searchFilteredLabs).toEqual([]);
     });
 
-    // TEST CORREGIDO PARA USEDEFERREDVALUE
+    
     test("attaches input listener after hydration toggles and debounces input", async () => {
-      // Usamos timers reales para no interferir con useDeferredValue
+      
       jest.useRealTimers();
 
       const { result, rerender } = renderHook(
@@ -202,20 +203,20 @@ describe("useLabFilters", () => {
       const mockInput = document.createElement('input');
       result.current.searchInputRef.current = mockInput;
 
-      // Cambiamos a hidratado para que se dispare la lógica de búsqueda
+      
       rerender({ hydrated: true });
 
-      // 1. Simular escritura inmediata
+      
       act(() => {
         result.current.setSearchTerm('ai');
       });
 
-      // 2. Esperar un ciclo de microtareas para que useDeferredValue se actualice
+      
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 0));
       });
 
-      // 3. Verificar que el valor diferido (mapeado a searchDebounce) sea correcto
+      
       expect(result.current.searchDebounce).toBe('ai');
     });
   });
