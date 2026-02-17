@@ -33,7 +33,7 @@ export const getPopupGuidance = (userAgent = '') => {
       description:
         'Firefox blocked the approval window. Use the pop-up permission indicator next to the URL.',
       steps: [
-        'Click the pop-up permission indicator on the left side of the address bar.',
+        'Click the pop-up permission indicator on the address bar.',
         'Choose to allow pop-ups for this site.',
         'Retry the action from the app.',
       ],
@@ -96,7 +96,7 @@ export const getPopupGuidance = (userAgent = '') => {
     description:
       'Your browser blocked the approval window. Use the blocked pop-up icon next to the URL.',
     steps: [
-      'Click the blocked pop-up icon on the right side of the address bar.',
+      'Click the blocked pop-up icon on the the address bar.',
       'Allow pop-ups and redirects for this site.',
       'Retry the action from the app.',
     ],
