@@ -41,6 +41,7 @@ describe('PopupBlockerModal', () => {
     expect(
       screen.getByText(/Pop-up blocked: click the icon on the right side of the address bar/i)
     ).toBeInTheDocument()
+    expect(screen.getByTestId('popup-icon-zone-highlight')).toHaveClass('ml-auto')
 
     fireEvent.click(screen.getByLabelText('Dismiss pop-up guidance'))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -64,6 +65,8 @@ describe('PopupBlockerModal', () => {
     const bubble = screen.getByRole('alert')
     expect(bubble).toHaveClass('left-2')
     expect(bubble).not.toHaveClass('right-2')
+    expect(screen.getByTestId('popup-icon-zone')).toBeInTheDocument()
+    expect(screen.getByTestId('popup-icon-zone-highlight')).not.toHaveClass('ml-auto')
   })
 
   test('closes with Escape key and outside click', async () => {
@@ -105,8 +108,8 @@ describe('PopupBlockerModal', () => {
     expect(bubble).not.toHaveClass('left-2')
     expect(bubble).not.toHaveClass('right-2')
     expect(
-      screen.getByText(/mobile browser may open this flow in a new tab/i)
+      screen.getByText(/may open this flow in a new tab/i)
     ).toBeInTheDocument()
-    expect(container.querySelector('.rotate-45')).not.toBeInTheDocument()
+    expect(container.querySelector('[data-testid="popup-icon-zone"]')).not.toBeInTheDocument()
   })
 })

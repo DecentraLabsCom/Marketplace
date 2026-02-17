@@ -79,7 +79,6 @@ export default function PopupBlockerModal() {
 
   const isLeft = guidance.iconSide === 'left';
   const containerSideClass = isLeft ? 'left-2 sm:left-4' : 'right-2 sm:right-4';
-  const pointerSideClass = isLeft ? 'left-8 sm:left-10' : 'right-8 sm:right-10';
   const containerClass = isMobileGuidance
     ? 'fixed inset-x-2 bottom-2 z-[70] sm:bottom-3'
     : `fixed ${containerSideClass} top-2 z-[70] w-[min(26rem,calc(100vw-1rem))] sm:top-3`;
@@ -99,16 +98,15 @@ export default function PopupBlockerModal() {
         className="relative rounded-lg bg-warning px-4 py-3 pr-10 text-sm text-white shadow-lg animate-slide-in"
       >
         {!isMobileGuidance && (
-          <>
-            <span
-              aria-hidden="true"
-              className={`absolute ${pointerSideClass} -top-2 size-4 rotate-45 bg-warning`}
-            />
-            <span
-              aria-hidden="true"
-              className={`absolute ${pointerSideClass} -top-5 size-2 rounded-full bg-warning ring-4 ring-warning/30`}
-            />
-          </>
+          <div className="mb-2" data-testid="popup-icon-zone">
+            <div className="flex h-2 w-full rounded-full bg-white/25 p-0.5">
+              <span
+                aria-hidden="true"
+                data-testid="popup-icon-zone-highlight"
+                className={`h-full w-[42%] rounded-full bg-white/85 ${isLeft ? '' : 'ml-auto'}`}
+              />
+            </div>
+          </div>
         )}
         <p className="font-medium leading-snug">
           {compactMessage}
