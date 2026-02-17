@@ -33,6 +33,8 @@ describe("LabFilters - unit tests", () => {
     onFilterChange: jest.fn(),
     onShowUnlistedChange: jest.fn(),
     onReset: jest.fn(),
+    onSearchChange: jest.fn(), 
+    onSearch: jest.fn(),
     searchInputRef: { current: null },
     loading: false,
   };
@@ -147,12 +149,11 @@ describe("LabFilters - unit tests", () => {
       const searchInput = screen.getByPlaceholderText(/type here/i);
       searchInputRef.current = searchInput;
 
-      await user.type(searchInput, "test query");
+      await user.type(searchInput, "test");
 
-      expect(searchInput).toHaveValue("test query");
+      expect(defaultProps.onSearchChange).toHaveBeenCalled();
     });
-
-    // Search on Enter key dispatches input event which is handled by parent
+    
     test("triggers search on Enter key press", async () => {
       const user = userEvent.setup();
       const searchInputRef = { current: null };

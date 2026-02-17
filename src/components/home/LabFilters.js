@@ -40,7 +40,8 @@ export default function LabFilters({
   onReset,
   searchInputRef,
   loading = false,
-  onSearchChange
+  onSearchChange = () => {},
+  onSearch = () => {}
 }) {
   // Prevent hydration mismatch by ensuring consistent initial render
   const [isHydrated, setIsHydrated] = useState(false)
