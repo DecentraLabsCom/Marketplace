@@ -534,11 +534,12 @@ describe('useInstitutionalOnboarding', () => {
       const [key, value] = mockSessionStorage.setItem.mock.calls[0]
       expect(key).toBe('onboarding_session')
       expect(JSON.parse(value)).toEqual(expect.objectContaining({ sessionId: 'session123' }))
-      expect(window.open).toHaveBeenCalledWith(
-        mockCeremonyUrl,
-        'institutional-onboarding',
-        'width=480,height=720'
-      )
+      const [openedUrl, popupName, popupFeatures] = window.open.mock.calls[0]
+      const parsedUrl = new URL(openedUrl)
+      expect(parsedUrl.origin).toBe(new URL(mockCeremonyUrl).origin)
+      expect(parsedUrl.searchParams.get('parentOrigin')).toBe(window.location.origin)
+      expect(popupName).toBe('institutional-onboarding')
+      expect(popupFeatures).toBe('width=480,height=720')
     })
 
     it('should emit popup-blocked guidance and fail when popup cannot be opened', () => {
@@ -710,6 +711,70 @@ describe('useInstitutionalOnboarding', () => {
 
       expect(result.current.error).toBe('No session data for polling')
       expect(pollResult).toBeNull()
+    })
+  })
+
+  describe('popup message handling', () => {
+    it('should mark onboarding completed when popup posts success message', async () => {
+      const popup = { closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }
+      window.open = jest.fn(() => popup)
+
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
+
+      act(() => {
+        result.current.redirectToCeremony('https://backend.example.com/onboarding/webauthn/ceremony/session123', null, {
+          sessionId: 'session123',
+          backendUrl: 'https://backend.example.com',
+          stableUserId: 'stable123',
+          institutionId: 'university.edu',
+        })
+      })
+
+      act(() => {
+        window.dispatchEvent(new MessageEvent('message', {
+          origin: 'https://backend.example.com',
+          data: {
+            type: 'institutional-onboarding',
+            status: 'SUCCESS',
+            sessionId: 'session123',
+          },
+        }))
+      })
+
+      expect(result.current.state).toBe(OnboardingState.COMPLETED)
+      expect(result.current.isOnboarded).toBe(true)
+      expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('onboarding_session')
+    })
+
+    it('should mark onboarding failed when popup posts cancelled message', async () => {
+      const popup = { closed: false, focus: jest.fn(), location: { assign: jest.fn(), href: '' } }
+      window.open = jest.fn(() => popup)
+
+      const { result } = renderHook(() => useInstitutionalOnboarding({ autoPoll: false }), { wrapper })
+
+      act(() => {
+        result.current.redirectToCeremony('https://backend.example.com/onboarding/webauthn/ceremony/session123', null, {
+          sessionId: 'session123',
+          backendUrl: 'https://backend.example.com',
+          stableUserId: 'stable123',
+          institutionId: 'university.edu',
+        })
+      })
+
+      act(() => {
+        window.dispatchEvent(new MessageEvent('message', {
+          origin: 'https://backend.example.com',
+          data: {
+            type: 'institutional-onboarding',
+            status: 'CANCELLED',
+            sessionId: 'session123',
+            error: 'Registration cancelled',
+          },
+        }))
+      })
+
+      expect(result.current.state).toBe(OnboardingState.FAILED)
+      expect(result.current.error).toBe('Registration cancelled')
     })
   })
 

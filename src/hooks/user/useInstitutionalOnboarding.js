@@ -44,6 +44,21 @@ const isSessionWarmupError = (status, message) => {
   )
 }
 
+const ONBOARDING_POPUP_MESSAGE_TYPE = 'institutional-onboarding'
+
+const resolvePopupCeremonyUrl = (ceremonyUrl) => {
+  if (typeof window === 'undefined') return ceremonyUrl
+  try {
+    const normalized = new URL(ceremonyUrl, window.location.origin)
+    if (!normalized.searchParams.has('parentOrigin')) {
+      normalized.searchParams.set('parentOrigin', window.location.origin)
+    }
+    return normalized.toString()
+  } catch {
+    return ceremonyUrl
+  }
+}
+
 /**
  * Hook for managing institutional onboarding
  * 
@@ -74,6 +89,7 @@ export function useInstitutionalOnboarding({
   const pollStartTimeRef = useRef(null)
   const eventSourceRef = useRef(null)
   const awaitCompletionRef = useRef(null)
+  const sessionDataRef = useRef(null)
 
   const markBrowserCredentialSeen = useCallback((session = null) => {
     const markerPayload = {
@@ -333,6 +349,7 @@ export function useInstitutionalOnboarding({
       setState(OnboardingState.FAILED)
       return { opened: false, error: new Error('No ceremony URL available') }
     }
+    const popupCeremonyUrl = resolvePopupCeremonyUrl(ceremonyUrl)
 
     const sessionForTracking = sessionOverride || sessionData || null
 
@@ -350,7 +367,7 @@ export function useInstitutionalOnboarding({
     if (typeof window !== 'undefined' && typeof window.open === 'function') {
       try {
         const popupWindow = window.open(
-          ceremonyUrl,
+          popupCeremonyUrl,
           'institutional-onboarding',
           'width=480,height=720'
         )
@@ -365,7 +382,7 @@ export function useInstitutionalOnboarding({
 
     if (!onboardingPopup) {
       emitPopupBlockedEvent({
-        authorizationUrl: ceremonyUrl,
+        authorizationUrl: popupCeremonyUrl,
         source: 'onboarding-webauthn',
       })
       const popupError = createPopupBlockedError('Onboarding window was blocked')
@@ -608,6 +625,10 @@ export function useInstitutionalOnboarding({
 
   awaitCompletionRef.current = awaitCompletion
 
+  useEffect(() => {
+    sessionDataRef.current = sessionData
+  }, [sessionData])
+
   /**
    * Reset state
    */
@@ -676,6 +697,60 @@ export function useInstitutionalOnboarding({
       }
     }
   }, [autoPoll]) // Removed awaitCompletion from dependencies to prevent infinite loop
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+
+    let expectedOrigin = null
+    if (institutionBackendUrl) {
+      try {
+        expectedOrigin = new URL(institutionBackendUrl).origin
+      } catch {
+        expectedOrigin = null
+      }
+    }
+
+    const handlePopupMessage = (event) => {
+      if (expectedOrigin && event.origin !== expectedOrigin) return
+
+      const payload = event?.data
+      if (!payload || payload.type !== ONBOARDING_POPUP_MESSAGE_TYPE) return
+
+      const activeSession = sessionDataRef.current
+      if (
+        payload.sessionId &&
+        activeSession?.sessionId &&
+        payload.sessionId !== activeSession.sessionId
+      ) {
+        return
+      }
+
+      const status = String(payload.status || '').toUpperCase()
+      if (status === 'SUCCESS' || status === 'COMPLETED') {
+        if (activeSession) {
+          markBrowserCredentialSeen(activeSession)
+        }
+        cancelPolling()
+        setState(OnboardingState.COMPLETED)
+        setError(null)
+        setIsOnboarded(true)
+        setSessionData(null)
+        sessionStorage.removeItem('onboarding_session')
+        return
+      }
+
+      if (status === 'FAILED' || status === 'EXPIRED' || status === 'CANCELLED') {
+        cancelPolling()
+        setState(OnboardingState.FAILED)
+        setError(payload.error || 'Onboarding failed')
+      }
+    }
+
+    window.addEventListener('message', handlePopupMessage)
+    return () => {
+      window.removeEventListener('message', handlePopupMessage)
+    }
+  }, [cancelPolling, institutionBackendUrl, markBrowserCredentialSeen])
 
   // Auto-check on mount if enabled
   useEffect(() => {
