@@ -62,25 +62,25 @@ export default function ActiveLabCard({
   const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
 
   return (
-    <div className='flex min-[1280px]:flex-row flex-wrap justify-center min-[1280px]:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
+    <div className='flex xl:flex-row flex-wrap justify-center xl:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
       <div className='flex flex-col items-center'>
           <div className={`xl:w-90 w-82.5 group relative 
           shadow-md bg-gray-200 
           transition-transform duration-300 
-          hover:scale-105 mx-auto min-[1280px]:mx-0 min-[1280px]:mr-3 mb-4 h-100 rounded-lg ${borderClass}`}> 
+          hover:scale-105 mx-auto xl:mx-0 xl:mr-3 mb-4 h-90 rounded-lg ${borderClass}`}> 
           
           <div className='relative h-3/4 overflow-hidden rounded-t-lg'>
             <Carrousel lab={lab} maxHeight={240} />
           </div>
           
-          <div className='px-4 py-2 h-1/4 flex flex-col justify-center'>
-            <span className="text-gray-700 text-sm font-semibold">
+          <div className='px-3 py-1.5 h-1/4 flex flex-col justify-center'>
+            <span className="text-gray-700 text-xs font-semibold">
               {statusText}
             </span>
             
-            <div className='text-gray-500 flex flex-col text-xs mt-1'>
-              <span>Start time: {bookingTimes.start}</span>
-              <span>End time: {bookingTimes.end}</span>
+            <div className='text-gray-500 flex flex-col text-[0.65rem] mt-0.5'>
+              <span>Start: {bookingTimes.start}</span>
+              <span>End: {bookingTimes.end}</span>
             </div>
           </div>
           
