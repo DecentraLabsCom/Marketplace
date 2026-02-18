@@ -74,13 +74,13 @@ export default function ActiveLabCard({
           </div>
           
           <div className='px-3 py-1.5 h-1/4 flex flex-col justify-center'>
-            <span className="text-gray-700 text-xs font-semibold">
+            <span className="text-gray-700 text-sm font-semibold">
               {statusText}
             </span>
             
-            <div className='text-gray-500 flex flex-col text-[0.65rem] mt-0.5'>
-              <span>Start: {bookingTimes.start}</span>
-              <span>End: {bookingTimes.end}</span>
+            <div className='flex flex-col text-sm mt-1'>
+              <span className="text-brand font-medium">Start: {bookingTimes.start}</span>
+              <span className="text-brand font-medium">End: {bookingTimes.end}</span>
             </div>
           </div>
           

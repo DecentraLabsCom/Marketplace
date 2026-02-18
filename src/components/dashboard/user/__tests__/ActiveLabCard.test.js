@@ -122,8 +122,8 @@ describe("ActiveLabCard", () => {
     test("displays booking start and end times", () => {
       renderCard();
 
-      expect(screen.getByText("Start time: 08:00")).toBeInTheDocument();
-      expect(screen.getByText("End time: 10:00")).toBeInTheDocument();
+      expect(screen.getByText("Start: 08:00")).toBeInTheDocument();
+      expect(screen.getByText("End: 10:00")).toBeInTheDocument();
     });
 
     test("renders explore lab link with correct href", () => {
@@ -228,8 +228,8 @@ describe("ActiveLabCard", () => {
         bookingTimes: { start: "14:30", end: "16:45" },
       });
 
-      expect(screen.getByText("Start time: 14:30")).toBeInTheDocument();
-      expect(screen.getByText("End time: 16:45")).toBeInTheDocument();
+      expect(screen.getByText("Start: 14:30")).toBeInTheDocument();
+      expect(screen.getByText("End: 16:45")).toBeInTheDocument();
     });
 
     test("handles null booking times gracefully", () => {
@@ -237,8 +237,8 @@ describe("ActiveLabCard", () => {
         bookingTimes: { start: null, end: null },
       });
 
-      expect(screen.getByText("Start time:")).toBeInTheDocument();
-      expect(screen.getByText("End time:")).toBeInTheDocument();
+      expect(screen.getByText("Start:")).toBeInTheDocument();
+      expect(screen.getByText("End:")).toBeInTheDocument();
     });
   });
 
