@@ -141,6 +141,16 @@ describe("Display Utilities", () => {
         "Pending"
       );
     });
+
+    test("returns Completed for confirmed booking whose end is in the past", () => {
+      const pastEnd = Math.floor(Date.now() / 1000) - 60;
+      expect(getBookingStatusText({ status: 1, end: pastEnd })).toBe("Completed");
+    });
+
+    test("returns Completed for in-use booking whose end is in the past", () => {
+      const pastEnd = Math.floor(Date.now() / 1000) - 60;
+      expect(getBookingStatusText({ status: 2, end: pastEnd })).toBe("Completed");
+    });
   });
 
   describe("getBookingStatusDisplay", () => {
@@ -169,6 +179,13 @@ describe("Display Utilities", () => {
       ])("returns correct color for status=%s", (status, expected) => {
         expect(getBookingStatusColor({ status })).toBe(expected);
       });
+
+      test("returns completed color for in-use booking whose end is in the past", () => {
+        const pastEnd = Math.floor(Date.now() / 1000) - 60;
+        expect(getBookingStatusColor({ status: 2, end: pastEnd })).toBe(
+          "text-neutral-600"
+        );
+      });
     });
 
     test("returns correct display object for confirmed status", () => {
@@ -178,6 +195,16 @@ describe("Display Utilities", () => {
 
       expect(display.text).toBe("Confirmed");
       expect(display.icon).toBe("✓");
+    });
+
+    test("returns completed display for in-use booking whose end is in the past", () => {
+      const pastEnd = Math.floor(Date.now() / 1000) - 60;
+      const display = getBookingStatusDisplay({ status: 2, end: pastEnd });
+
+      expect(display.text).toBe("Completed");
+      expect(display.className).toBe(
+        "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border"
+      );
     });
 
     test("returns unknown display for invalid status", () => {

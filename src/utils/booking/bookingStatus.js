@@ -47,6 +47,22 @@ const toSemanticStatus = (status) => {
   return status.trim().toLowerCase()
 }
 
+const isTemporallyCompletedBooking = (booking) => {
+  const numericStatus = normalizeBookingStatusCode(booking)
+  if (numericStatus !== BOOKING_STATUS.CONFIRMED && numericStatus !== BOOKING_STATUS.IN_USE) {
+    return false
+  }
+
+  const endRaw = booking?.end ?? booking?.endTime
+  const end = Number(endRaw)
+  if (!Number.isFinite(end) || end <= 0) {
+    return false
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+  return now > end
+}
+
 export const normalizeBookingStatusCode = (booking) => {
   const semanticState = normalizeBookingStatusState(booking)
   switch (semanticState) {
@@ -148,6 +164,10 @@ export const isCollectedBooking = (booking) => {
  * @returns {string} Human-readable status
  */
 export const getBookingStatusText = (booking) => {
+  if (isTemporallyCompletedBooking(booking)) {
+    return 'Completed'
+  }
+
   const semanticState = normalizeBookingStatusState(booking)
   switch (semanticState) {
     case BOOKING_STATE.REQUESTED:
@@ -173,6 +193,10 @@ export const getBookingStatusText = (booking) => {
  * @returns {string} CSS class name for status color
  */
 export const getBookingStatusColor = (booking) => {
+  if (isTemporallyCompletedBooking(booking)) {
+    return 'text-neutral-600'
+  }
+
   switch (normalizeBookingStatusCode(booking)) {
     case 0: return 'text-warning';         // Pending - warning yellow
     case 1: return 'text-success';         // Confirmed - success green
@@ -190,6 +214,14 @@ export const getBookingStatusColor = (booking) => {
  * @returns {Object} Display object with text, className, and icon
  */
 export const getBookingStatusDisplay = (booking) => {
+  if (isTemporallyCompletedBooking(booking)) {
+    return {
+      text: "Completed",
+      className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
+      icon: "🎯"
+    }
+  }
+
   switch (normalizeBookingStatusCode(booking)) {
     case 0: return {
       text: "Pending",
