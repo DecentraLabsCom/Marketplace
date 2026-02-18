@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { getPucFromSession } from '@/utils/webauthn/service'
 import {
   BadRequestError,
   handleGuardError,
@@ -78,7 +79,7 @@ async function resolveInstitutionWallet(domain) {
 }
 
 function resolveUserId(session) {
-  return session?.userid || session?.uid || session?.id || session?.email || null
+  return session?.personalUniqueCode || session?.schacPersonalUniqueCode || session?.userid || session?.uid || session?.id || session?.email || null
 }
 
 function resolveAffiliation(session) {
@@ -124,7 +125,7 @@ export async function POST(req) {
       throw new BadRequestError('Institution wallet not registered')
     }
 
-    const puc = session.personalUniqueCode || session.schacPersonalUniqueCode || undefined
+    const puc = getPucFromSession(session) || undefined
 
     const marketplaceToken = await marketplaceJwtService.generateSamlAuthToken({
       userId,

@@ -564,7 +564,7 @@ describe("SSO Utilities", () => {
         scopedRole: "student@university.edu",
         organizationType:
           "urn:schac:homeOrganizationType:eu:higherEducationalInstitution",
-        personalUniqueCode: "urn:schac:personalUniqueCode:es:dni:12345678A",
+        personalUniqueCode: "12345678A",
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
       });

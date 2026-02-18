@@ -5,6 +5,7 @@
 
 import { BadRequestError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
+import { getNormalizedPucFromSession } from '@/utils/auth/puc'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -57,13 +58,13 @@ export function normalizeOrganizationDomain(domain) {
  * @throws {BadRequestError} If PUC is missing or invalid
  */
 export function getSessionPuc(session) {
-  const puc = session?.personalUniqueCode || session?.schacPersonalUniqueCode
+  const puc = getNormalizedPucFromSession(session)
 
-  if (!puc || typeof puc !== 'string' || puc.trim() === '') {
+  if (!puc || typeof puc !== 'string') {
     throw new BadRequestError('SSO session missing personalUniqueCode')
   }
 
-  return puc.trim()
+  return puc
 }
 
 /**

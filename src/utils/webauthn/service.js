@@ -5,6 +5,7 @@ import {
 import { convertCOSEtoPKCS, isoBase64URL } from '@simplewebauthn/server/helpers'
 import devLog from '@/utils/dev/logger'
 import { getOriginFromRequest, getRpId, getRpName } from './config'
+import { getNormalizedPucFromSession } from '@/utils/auth/puc'
 import {
   consumeRegistrationChallenge,
   getCredentialForUser,
@@ -18,13 +19,7 @@ import {
  * @returns {string}
  */
 export function getPucFromSession(session) {
-  return (
-    session?.schacPersonalUniqueCode ||
-    session?.personalUniqueCode ||
-    session?.puc ||
-    session?.personal_unique_code ||
-    null
-  )
+  return getNormalizedPucFromSession(session)
 }
 
 /**

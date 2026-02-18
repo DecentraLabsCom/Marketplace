@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import devLog from '@/utils/dev/logger'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { getPucFromSession } from '@/utils/webauthn/service'
 import {
   BadRequestError,
   handleGuardError,
@@ -53,7 +54,7 @@ export async function POST(req) {
       samlAssertion: session.samlAssertion,
       reservationKey,
       labId,
-      puc: session.personalUniqueCode || session.schacPersonalUniqueCode || undefined,
+      puc: getPucFromSession(session) || undefined,
     }
 
     const response = await fetch(`${authBase}/checkin-institutional`, {

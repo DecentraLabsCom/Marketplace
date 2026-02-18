@@ -19,6 +19,7 @@
 import devLog from '@/utils/dev/logger'
 import { resolveInstitutionalBackendUrl } from './institutionalBackend'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
+import { normalizePuc } from '@/utils/auth/puc'
 
 const getSpApiKey = () => process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 
@@ -79,7 +80,10 @@ export function extractStableUserId(userData) {
   
   // Priority 1: schacPersonalUniqueCode (most stable across institutions)
   if (userData.personalUniqueCode || userData.schacPersonalUniqueCode) {
-    return userData.personalUniqueCode || userData.schacPersonalUniqueCode
+    const normalizedPuc = normalizePuc(userData.personalUniqueCode || userData.schacPersonalUniqueCode)
+    if (normalizedPuc) {
+      return normalizedPuc
+    }
   }
   
   // Priority 2: eduPersonPrincipalName (scoped identifier)

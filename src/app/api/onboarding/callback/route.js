@@ -38,6 +38,7 @@ import {
 import devLog from '@/utils/dev/logger'
 import { onboardingEventBus } from '../_eventBus'
 import { saveCredential } from '@/utils/webauthn/store'
+import { normalizePuc } from '@/utils/auth/puc'
 
 /**
  * POST /api/onboarding/callback
@@ -49,10 +50,11 @@ import { saveCredential } from '@/utils/webauthn/store'
 export async function POST(request) {
   try {
     const body = await request.json()
+    const stableUserId = normalizePuc(body?.stableUserId)
 
     devLog.log('[Onboarding/Callback] Received callback:', {
       status: body.status,
-      stableUserId: body.stableUserId,
+      stableUserId,
       institutionId: body.institutionId,
       hasCredentialId: !!body.credentialId,
     })
@@ -84,7 +86,7 @@ export async function POST(request) {
     const result = {
       status: body.status,
       success: isSuccess,
-      stableUserId: body.stableUserId || null,
+      stableUserId: stableUserId || null,
       institutionId: body.institutionId || null,
       sessionId: body.sessionId || null,
       credentialId: body.credentialId || null,
@@ -115,22 +117,22 @@ export async function POST(request) {
     }
 
     // Store by multiple keys for flexible lookup
-    if (body.stableUserId) {
-      storeOnboardingResult(`user:${body.stableUserId}`, result)
+    if (stableUserId) {
+      storeOnboardingResult(`user:${stableUserId}`, result)
     }
     if (body.sessionId) {
       storeOnboardingResult(`session:${body.sessionId}`, result)
     }
-    if (body.stableUserId && body.institutionId) {
-      storeOnboardingResult(`${body.institutionId}:${body.stableUserId}`, result)
+    if (stableUserId && body.institutionId) {
+      storeOnboardingResult(`${body.institutionId}:${stableUserId}`, result)
     }
 
     // Notify SSE subscribers (best-effort, instance-local)
     onboardingEventBus.publish(
       [
-        body.stableUserId ? `user:${body.stableUserId}` : null,
+        stableUserId ? `user:${stableUserId}` : null,
         body.sessionId ? `session:${body.sessionId}` : null,
-        body.stableUserId && body.institutionId ? `${body.institutionId}:${body.stableUserId}` : null,
+        stableUserId && body.institutionId ? `${body.institutionId}:${stableUserId}` : null,
       ],
       result,
     )
@@ -175,7 +177,7 @@ export async function POST(request) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
-    const stableUserId = searchParams.get('stableUserId')
+    const stableUserId = normalizePuc(searchParams.get('stableUserId'))
     const sessionId = searchParams.get('sessionId')
     const institutionId = searchParams.get('institutionId')
 

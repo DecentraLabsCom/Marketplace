@@ -46,6 +46,11 @@ describe('institutionalOnboarding', () => {
   test('extractStableUserId respects priority order', () => {
     expect(extractStableUserId({ personalUniqueCode: 'puc' })).toBe('puc')
     expect(extractStableUserId({ schacPersonalUniqueCode: 'spuc' })).toBe('spuc')
+    expect(
+      extractStableUserId({
+        personalUniqueCode: 'urn:schac:personalUniqueCode:es:dni:12345678A',
+      }),
+    ).toBe('12345678A')
     expect(extractStableUserId({ scopedRole: 'user@uned.es' })).toBe('user@uned.es')
     expect(extractStableUserId({ id: 'uid', affiliation: 'uned.es' })).toBe('uid@uned.es')
     expect(extractStableUserId({ email: 'a@uned.es' })).toBe('a@uned.es')
