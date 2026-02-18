@@ -69,16 +69,16 @@ export default function ActiveLabCard({
           transition-transform duration-300 
           hover:scale-105 mx-auto min-[1280px]:mx-0 min-[1280px]:mr-3 mb-4 h-100 rounded-lg ${borderClass}`}> 
           
-          <div className='relative h-2/3 overflow-hidden rounded-t-lg'>
+          <div className='relative h-3/4 overflow-hidden rounded-t-lg'>
             <Carrousel lab={lab} maxHeight={240} />
           </div>
           
-          <div className='p-4 h-1/3 flex flex-col'>
+          <div className='px-4 py-2 h-1/4 flex flex-col justify-center'>
             <span className="text-gray-700 text-sm font-semibold">
               {statusText}
             </span>
             
-            <div className='text-gray-500 flex flex-col text-xs mt-2'>
+            <div className='text-gray-500 flex flex-col text-xs mt-1'>
               <span>Start time: {bookingTimes.start}</span>
               <span>End time: {bookingTimes.end}</span>
             </div>
