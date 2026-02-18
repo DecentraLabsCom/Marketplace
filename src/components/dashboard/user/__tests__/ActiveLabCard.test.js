@@ -122,8 +122,15 @@ describe("ActiveLabCard", () => {
     test("displays booking start and end times", () => {
       renderCard();
 
-      expect(screen.getByText("Start: 08:00")).toBeInTheDocument();
-      expect(screen.getByText("End: 10:00")).toBeInTheDocument();
+      const startEl = screen.getByText("Start: 08:00");
+      const endEl = screen.getByText("End: 10:00");
+
+      expect(startEl).toBeInTheDocument();
+      expect(endEl).toBeInTheDocument();
+
+      // visual/style assertions
+      expect(startEl).toHaveClass("text-text-secondary");
+      expect(endEl).toHaveClass("text-text-secondary");
     });
 
     test("renders explore lab link with correct href", () => {
@@ -138,7 +145,13 @@ describe("ActiveLabCard", () => {
     test('displays "Available today" for active lab', () => {
       renderCard({ isActive: true });
 
-      expect(screen.getByText("Available today")).toBeInTheDocument();
+      const status = screen.getByText("Available today");
+      expect(status).toBeInTheDocument();
+
+      // reduced top padding between image and status text
+      expect(status.parentElement).toHaveClass('py-1');
+      // ensure status has the larger text size we expect
+      expect(status).toHaveClass('text-sm');
     });
 
     test("renders LabAccess component when lab is active", () => {

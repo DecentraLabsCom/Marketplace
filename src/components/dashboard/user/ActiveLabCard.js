@@ -73,14 +73,14 @@ export default function ActiveLabCard({
             <Carrousel lab={lab} maxHeight={240} />
           </div>
           
-          <div className='px-3 py-1.5 h-1/4 flex flex-col justify-center'>
+          <div className='px-3 py-1 h-1/4 flex flex-col justify-center'>
             <span className="text-gray-700 text-sm font-semibold">
               {statusText}
             </span>
             
-            <div className='flex flex-col text-sm mt-1'>
-              <span className="text-brand font-medium">Start: {bookingTimes.start}</span>
-              <span className="text-brand font-medium">End: {bookingTimes.end}</span>
+            <div className='flex flex-col text-sm mt-0.5'>
+              <span className="text-text-secondary font-medium">Start: {bookingTimes.start}</span>
+              <span className="text-text-secondary font-medium">End: {bookingTimes.end}</span>
             </div>
           </div>
           
