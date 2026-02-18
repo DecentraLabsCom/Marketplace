@@ -13,10 +13,11 @@ import { useUserBookingsForMarket } from '@/hooks/booking/useBookings'
 import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
+import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import devLog from '@/utils/dev/logger'
 
 export default function Market() {
-  const { isLoggedIn, address, isWalletLoading, hasWalletSession } = useUser();
+  const { isLoggedIn, address, isWalletLoading, hasWalletSession, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
   
   // State for show unlisted option
@@ -46,15 +47,28 @@ export default function Market() {
   // Memoize labs to prevent infinite re-renders
   const labs = useMemo(() => labsArray, [labsArray]);
 
-  // React Query for user bookings (memoized options) - Only fetch when user is definitely connected
+  // React Query for user bookings (memoized options) - supports both SSO and wallet sessions
+  const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
+    isLoggedIn,
+    isSSO,
+    address,
+    hasWalletSession,
+    isWalletLoading,
+  }), [isLoggedIn, isSSO, address, hasWalletSession, isWalletLoading]);
+
+  const bookingsUserAddress = useMemo(
+    () => resolveBookingsUserAddress({ isSSO, address }),
+    [isSSO, address]
+  );
+
   const userBookingsOptions = useMemo(() => ({
-    enabled: !!address && isLoggedIn && !isWalletLoading && hasWalletSession, // Wait for wallet session
+    enabled: shouldFetchUserBookings,
     queryOptions: {
       refetchOnMount: false, // Use cached data if available
     }
-  }), [address, isLoggedIn, isWalletLoading, hasWalletSession]);
+  }), [shouldFetchUserBookings]);
   
-  const userBookingsQuery = useUserBookingsForMarket(address, userBookingsOptions);
+  const userBookingsQuery = useUserBookingsForMarket(bookingsUserAddress, userBookingsOptions);
 
   const {
     data: userBookingsData,

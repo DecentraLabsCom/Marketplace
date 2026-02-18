@@ -43,7 +43,9 @@ const mockUser = {
     },
     isLoggedIn: true,
     isSSO: false,
-    isConnected: true
+    isConnected: true,
+    hasWalletSession: true,
+    isWalletLoading: false
 };
 
 // Mock state
@@ -80,7 +82,7 @@ jest.mock('@/context/BookingEventContext', () => ({
 
 // Data Hooks Mocks - Bookings data and mutations
 jest.mock('@/hooks/booking/useBookings', () => ({
-    useUserBookingsDashboard: () => mockBookingsData,
+    useUserBookingsDashboard: jest.fn(() => mockBookingsData),
     useCancelBooking: () => ({ mutateAsync: mockCancelBooking }),
     useCancelReservationRequest: () => ({ mutateAsync: mockCancelReservation })
 }));
@@ -153,6 +155,7 @@ jest.mock('@/utils/dev/logger', () => ({
 }));
 
 import UserDashboard from '@/components/dashboard/user/UserDashboardPage';
+const mockUseUserBookingsDashboard = require('@/hooks/booking/useBookings').useUserBookingsDashboard;
 
 describe('UserDashboard - Unit Tests', () => {
     beforeEach(() => {
@@ -199,6 +202,45 @@ describe('UserDashboard - Unit Tests', () => {
     });
 
     describe('Dashboard Render', () => {
+        test('keeps booking query enabled and addressed correctly for wallet users', async () => {
+            render(<UserDashboard />);
+
+            expect(await screen.findByText('User Dashboard')).toBeInTheDocument();
+            expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
+                '0x123',
+                expect.objectContaining({
+                    includeLabDetails: true,
+                    queryOptions: expect.objectContaining({ enabled: true })
+                })
+            );
+        });
+
+        test('keeps booking query enabled and null-addressed for SSO users', async () => {
+            mockUserData = {
+                ...mockUser,
+                isSSO: true,
+                address: null,
+                isConnected: false,
+                hasWalletSession: false,
+                isWalletLoading: false,
+                user: {
+                    ...mockUser.user,
+                    userid: 'sso-user-id'
+                }
+            };
+
+            render(<UserDashboard />);
+
+            expect(await screen.findByText('User Dashboard')).toBeInTheDocument();
+            expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
+                null,
+                expect.objectContaining({
+                    includeLabDetails: true,
+                    queryOptions: expect.objectContaining({ enabled: true })
+                })
+            );
+        });
+
         test('renders all main sections', async () => {
             render(<UserDashboard />);
 

@@ -16,6 +16,7 @@ import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSecti
 import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
+import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import devLog from '@/utils/dev/logger'
 import {
   notifyUserDashboardAlreadyCanceled,
@@ -33,16 +34,20 @@ import {
  * @returns {JSX.Element} Complete user dashboard with access control, bookings list, calendar, and actions
  */
 export default function UserDashboard() {
-  const { user, isLoggedIn, isSSO, hasWalletSession, isConnected, address } = useUser();
+  const { user, isLoggedIn, isSSO, hasWalletSession, isWalletLoading, isConnected, address } = useUser();
   
   // 🚀 React Query for user bookings with lab details
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
   // It forces API mode (Ethers.js backend) because useQueries cannot extract Wagmi hooks as queryFn
   // API endpoints are read-only blockchain queries that work for any wallet address
-  const canFetchBookings = Boolean(
-    isLoggedIn && (isSSO || hasWalletSession) && (isSSO || address)
-  );
-  const effectiveUserAddress = isSSO ? null : address;
+  const canFetchBookings = canFetchUserBookings({
+    isLoggedIn,
+    isSSO,
+    address,
+    hasWalletSession,
+    isWalletLoading,
+  });
+  const effectiveUserAddress = resolveBookingsUserAddress({ isSSO, address });
   const { 
     data: userBookingsData, 
     isLoading: bookingsLoading, 
