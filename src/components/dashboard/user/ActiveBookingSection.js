@@ -14,7 +14,12 @@ import ActiveLabCard from './ActiveLabCard';
  * @param {Object} [props.options] - Hook options
  * @returns {JSX.Element} Active booking section
  */
-export default function ActiveBookingSection({ userAddress, options = {} }) {
+export default function ActiveBookingSection({
+  userAddress,
+  options = {},
+  onBookingAction = null,
+  cancellationStates = new Map()
+}) {
   // Force re-render every minute to check if booking status changed
   const [, setTick] = useState(0);
   
@@ -44,21 +49,22 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
   const { activeBooking, nextBooking, hasActiveBooking, labData } = useMemo(() => {
     const bookings = userBookingsData?.bookings || [];
     const now = Math.floor(Date.now() / 1000);
+    const parseStatus = (value) => Number.parseInt(value, 10);
     
     // Find current active booking
     const active = bookings.find(booking => {
       const start = parseInt(booking.start);
       const end = parseInt(booking.end);
-      const status = parseInt(booking.status);
+      const status = parseStatus(booking.status);
       
-      return status === 1 && start <= now && end >= now;
+      return (status === 1 || status === 2) && start <= now && now < end;
     }) || null;
 
     // Find next upcoming booking (if no active booking)
     const next = !active ? bookings
       .filter(booking => {
         const start = parseInt(booking.start);
-        const status = parseInt(booking.status);
+        const status = parseStatus(booking.status);
         
         return (status === 0 || status === 1) && start > now;
       })
@@ -76,6 +82,17 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
       labData: enrichedLabData
     };
   }, [userBookingsData?.bookings]);
+
+  const displayedBooking = hasActiveBooking ? activeBooking : nextBooking;
+  const displayedReservationKey = displayedBooking?.reservationKey;
+  const cancellationState = displayedReservationKey && cancellationStates instanceof Map
+    ? cancellationStates.get(displayedReservationKey)
+    : null;
+  const bookingStatus = Number.parseInt(displayedBooking?.status, 10);
+  const canTriggerBookingAction =
+    typeof onBookingAction === 'function' &&
+    Boolean(displayedReservationKey) &&
+    (bookingStatus === 0 || bookingStatus === 1 || bookingStatus === 2);
 
   // Loading state
   if (activeBookingLoading) {
@@ -146,6 +163,9 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
               userAddress={userAddress}
               isActive={true}
               bookingTimes={getBookingTimes(activeBooking)}
+              actionLabel="Request for Refund"
+              onBookingAction={canTriggerBookingAction ? onBookingAction : null}
+              actionState={cancellationState || null}
             />
           ) : nextBooking && labData ? (
             <ActiveLabCard
@@ -154,6 +174,9 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
               userAddress={userAddress}
               isActive={false}
               bookingTimes={getBookingTimes(nextBooking)}
+              actionLabel="Cancel Booking"
+              onBookingAction={canTriggerBookingAction ? onBookingAction : null}
+              actionState={cancellationState || null}
             />
           ) : (
             <span className="text-gray-300 text-center">
@@ -167,6 +190,8 @@ export default function ActiveBookingSection({ userAddress, options = {} }) {
 }
 
 ActiveBookingSection.propTypes = {
-  userAddress: PropTypes.string.isRequired,
-  options: PropTypes.object
+  userAddress: PropTypes.string,
+  options: PropTypes.object,
+  onBookingAction: PropTypes.func,
+  cancellationStates: PropTypes.instanceOf(Map)
 };

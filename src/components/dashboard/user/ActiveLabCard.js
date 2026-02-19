@@ -5,8 +5,10 @@
 import React from 'react';
 import Link from 'next/link';
 import PropTypes from 'prop-types';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Carrousel from '@/components/ui/Carrousel';
 import LabAccess from '@/components/home/LabAccess';
+import { getBookingStatusDisplay, isConfirmedBooking } from '@/utils/booking/bookingStatus';
 import devLog from '@/utils/dev/logger';
 
 /**
@@ -26,7 +28,10 @@ export default function ActiveLabCard({
   booking, 
   userAddress = null, 
   isActive = false, 
-  bookingTimes = { start: null, end: null } 
+  bookingTimes = { start: null, end: null },
+  actionLabel = null,
+  onBookingAction = null,
+  actionState = null
 }) {
   // Debug log to see what lab data is being passed
   devLog.log('🔍 ActiveLabCard received lab data:', {
@@ -60,6 +65,30 @@ export default function ActiveLabCard({
   const formattedDate = formatBookingDate(booking);
   const statusText = isActive ? "Available today" : `Available: ${formattedDate}`;
   const borderClass = isActive ? "border-4 border-brand animate-glow" : "border-2";
+  const isActionBusy = Boolean(actionState?.isBusy);
+  const effectiveActionLabel = actionState?.label || actionLabel;
+  const parseUnixTime = (value) => {
+    const num = Number(value);
+    return Number.isFinite(num) && num > 0 ? num : null;
+  };
+  const now = Math.floor(Date.now() / 1000);
+  const startTimeUnix = parseUnixTime(booking?.start ?? booking?.startTime);
+  const endTimeUnix = parseUnixTime(booking?.end ?? booking?.endTime);
+  const isTemporallyActive =
+    startTimeUnix !== null &&
+    endTimeUnix !== null &&
+    startTimeUnix <= now &&
+    now < endTimeUnix;
+  const effectiveStatusDisplay = isTemporallyActive && isConfirmedBooking(booking)
+    ? {
+        text: "In Use",
+        className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
+        icon: "InUse",
+      }
+    : getBookingStatusDisplay(booking);
+  const statusIcon = effectiveStatusDisplay?.icon;
+  const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
+  const statusTextIcon = !shouldRenderIcon && statusIcon === "InUse" ? "OK" : statusIcon;
 
   return (
     <div className='flex xl:flex-row flex-wrap justify-center xl:justify-start starting:opacity-0 starting:translate-y-2 opacity-100 translate-y-0 transition-transform duration-300'>
@@ -73,14 +102,46 @@ export default function ActiveLabCard({
             <Carrousel lab={lab} maxHeight={240} />
           </div>
           
-          <div className='px-3 py-1 h-1/4 flex flex-col justify-center'>
-            <span className="text-gray-700 text-sm font-semibold">
-              {statusText}
-            </span>
-            
-            <div className='flex flex-col text-sm mt-0.5'>
-              <span className="text-text-secondary font-medium">Start: {bookingTimes.start}</span>
-              <span className="text-text-secondary font-medium">End: {bookingTimes.end}</span>
+          <div className='px-3 py-1 h-1/4 flex items-center justify-between gap-2'>
+            <div className='flex flex-col text-sm'>
+              <span className="text-gray-700 text-sm font-semibold">
+                {statusText}
+              </span>
+              <div className='flex flex-col mt-0.5'>
+                <span className="text-text-secondary font-medium">Start: {bookingTimes.start}</span>
+                <span className="text-text-secondary font-medium">End: {bookingTimes.end}</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${effectiveStatusDisplay.className}`}>
+                <span className="mr-1">
+                  {shouldRenderIcon ? (
+                    <FontAwesomeIcon icon={statusIcon} className="animate-spin" />
+                  ) : (
+                    statusTextIcon
+                  )}
+                </span>
+                {effectiveStatusDisplay.text}
+              </span>
+              {effectiveActionLabel && typeof onBookingAction === 'function' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isActionBusy) return;
+                    onBookingAction(booking);
+                  }}
+                  disabled={isActionBusy}
+                  className={`px-3 py-1 rounded text-sm text-white whitespace-nowrap inline-flex items-center justify-center gap-2 ${
+                    isActionBusy
+                      ? 'bg-gray-500 cursor-not-allowed'
+                      : 'bg-[#a87583] hover:bg-[#8a5c66]'
+                  }`}
+                  aria-busy={isActionBusy}
+                >
+                  {isActionBusy && <div className="spinner spinner-sm border-white" />}
+                  {effectiveActionLabel}
+                </button>
+              )}
             </div>
           </div>
           
@@ -146,5 +207,11 @@ ActiveLabCard.propTypes = {
   bookingTimes: PropTypes.shape({
     start: PropTypes.string,
     end: PropTypes.string
+  }),
+  actionLabel: PropTypes.string,
+  onBookingAction: PropTypes.func,
+  actionState: PropTypes.shape({
+    isBusy: PropTypes.bool,
+    label: PropTypes.string
   })
 };

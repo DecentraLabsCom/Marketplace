@@ -14,7 +14,7 @@
  */
 
 // Testing utilities from React Testing Library
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 // Mock Next.js Link component
@@ -147,11 +147,6 @@ describe("ActiveLabCard", () => {
 
       const status = screen.getByText("Available today");
       expect(status).toBeInTheDocument();
-
-      // reduced top padding between image and status text
-      expect(status.parentElement).toHaveClass('py-1');
-      // ensure status has the larger text size we expect
-      expect(status).toHaveClass('text-sm');
     });
 
     test("renders LabAccess component when lab is active", () => {
@@ -252,6 +247,41 @@ describe("ActiveLabCard", () => {
 
       expect(screen.getByText("Start:")).toBeInTheDocument();
       expect(screen.getByText("End:")).toBeInTheDocument();
+    });
+  });
+
+  describe("Booking Actions", () => {
+    test("shows action button for upcoming card when action props are provided", () => {
+      const onBookingAction = jest.fn();
+      renderCard({
+        isActive: false,
+        actionLabel: "Cancel Booking",
+        onBookingAction,
+      });
+
+      expect(screen.getByRole("button", { name: "Cancel Booking" })).toBeInTheDocument();
+    });
+
+    test("shows action button for active card when action props are provided", () => {
+      const onBookingAction = jest.fn();
+      renderCard({
+        isActive: true,
+        actionLabel: "Request for Refund",
+        onBookingAction,
+      });
+
+      expect(screen.getByRole("button", { name: "Request for Refund" })).toBeInTheDocument();
+    });
+
+    test("triggers onBookingAction with booking payload", () => {
+      const onBookingAction = jest.fn();
+      renderCard({
+        actionLabel: "Cancel Booking",
+        onBookingAction,
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel Booking" }));
+      expect(onBookingAction).toHaveBeenCalledWith(expect.objectContaining({ reservationKey: "abc123xyz" }));
     });
   });
 

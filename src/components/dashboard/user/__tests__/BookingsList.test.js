@@ -138,6 +138,13 @@ describe('BookingsList - Unit Tests', () => {
             expect(screen.queryByText('Past Lab')).not.toBeInTheDocument();
         });
 
+        test('excludes booking highlighted in next section from upcoming list', () => {
+            renderList({ type: 'upcoming', excludeReservationKey: 'k1' });
+
+            expect(screen.queryByText('Future Lab')).not.toBeInTheDocument();
+            expect(screen.getByText('No upcoming bookings found.')).toBeInTheDocument();
+        });
+
         test('excludes currently active bookings from upcoming list', () => {
             const activeBooking = {
                 id: '4',

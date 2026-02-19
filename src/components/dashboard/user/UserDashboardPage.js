@@ -178,6 +178,41 @@ export default function UserDashboard() {
   const [now, setNow] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
+
+  const highlightedUpcomingReservationKey = useMemo(() => {
+    if (!now || !Array.isArray(userBookings) || userBookings.length === 0) {
+      return null;
+    }
+
+    const nowUnix = Math.floor(now.getTime() / 1000);
+    const parseUnix = (value) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const parseStatus = (value) => Number.parseInt(value, 10);
+
+    const hasActiveBooking = userBookings.some((booking) => {
+      const status = parseStatus(booking?.status);
+      const start = parseUnix(booking?.start);
+      const end = parseUnix(booking?.end);
+      if (start === null || end === null) return false;
+      return (status === 1 || status === 2) && start <= nowUnix && nowUnix < end;
+    });
+
+    if (hasActiveBooking) {
+      return null;
+    }
+
+    const nextUpcomingBooking = userBookings
+      .filter((booking) => {
+        const status = parseStatus(booking?.status);
+        const start = parseUnix(booking?.start);
+        return start !== null && start > nowUnix && (status === 0 || status === 1);
+      })
+      .sort((a, b) => Number(a.start) - Number(b.start))[0];
+
+    return nextUpcomingBooking?.reservationKey || null;
+  }, [userBookings, now]);
   
   // Initialize time on client side and update every minute to auto-move bookings from upcoming to past
   useEffect(() => {
@@ -443,7 +478,9 @@ export default function UserDashboard() {
               {/* Active booking section - uses optimized hook */}
               <div className="xl:w-2/3 w-full">
                 <ActiveBookingSection 
-                  userAddress={isSSO ? null : (user?.userid || address)}
+                  userAddress={effectiveUserAddress}
+                  onBookingAction={handleCancellation}
+                  cancellationStates={cancellationStates}
                   options={{
                     enabled: canFetchBookings,
                     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -493,6 +530,7 @@ export default function UserDashboard() {
                 onClearError={handleClearCancellationError}
                 failedCancellations={failedCancellations}
                 cancellationStates={cancellationStates}
+                excludeReservationKey={!isSSO && canFetchBookings ? highlightedUpcomingReservationKey : null}
                 closeModal={closeModal}
               />
               

@@ -42,7 +42,8 @@ export default function BookingsList({
   selectedBooking = null,
   selectedLabId = null,
   isSSOUser = false,
-  userInstitutionWallet = null
+  userInstitutionWallet = null,
+  excludeReservationKey = null
 }) {
   const isUpcoming = type === 'upcoming';
   const title = isUpcoming ? 'Upcoming bookings' : 'Past bookings';
@@ -73,7 +74,9 @@ export default function BookingsList({
       if (isUpcoming) {
         const startDateTime = new Date(parseInt(booking.start) * 1000);
         const isUpcomingBooking = startDateTime.getTime() > currentTime.getTime();
-        return isUpcomingBooking;
+        if (!isUpcomingBooking) return false;
+        if (excludeReservationKey && booking.reservationKey === excludeReservationKey) return false;
+        return true;
       } else {
         // For past bookings, only include confirmed ones (not PENDING)
         const hasReservationKey = booking.reservationKey;
@@ -271,5 +274,6 @@ BookingsList.propTypes = {
   selectedBooking: PropTypes.object,
   selectedLabId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   isSSOUser: PropTypes.bool,
-  userInstitutionWallet: PropTypes.string
+  userInstitutionWallet: PropTypes.string,
+  excludeReservationKey: PropTypes.string
 };
