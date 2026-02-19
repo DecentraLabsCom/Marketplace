@@ -1061,13 +1061,20 @@ export const useCancelReservationRequestWallet = (options = {}) => {
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
-    mutationFn: async (reservationKey) => {
+    mutationFn: async (reservationInput) => {
+      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) {
+        throw new Error('Missing reservationKey');
+      }
       const txHash = await cancelReservationRequest([reservationKey]);
       
       devLog.log('🔍 useCancelReservationRequestWallet - Transaction Hash:', txHash);
-      return { hash: txHash };
+      return { hash: txHash, reservationKey };
     },
-    onSuccess: (result, reservationKey) => {
+    onSuccess: (result, reservationInput) => {
+      const reservationKey =
+        result?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) return;
       // Keep reservation visible until BookingEventContext receives ReservationRequestCanceled.
       devLog.log('✅ Reservation request cancellation tx sent via wallet - waiting for on-chain event');
 
@@ -1086,7 +1093,9 @@ export const useCancelReservationRequestWallet = (options = {}) => {
         devLog.warn('Failed to set/complete optimistic booking state for cancellation (non-fatal):', err);
       }
     },
-    onError: (error, reservationKey) => {
+    onError: (error, reservationInput) => {
+      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) return;
       // Revert optimistic update on error
       try {
         clearOptimisticBookingState(reservationKey);
@@ -1291,13 +1300,20 @@ export const useCancelBookingWallet = (options = {}) => {
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
 
   return useMutation({
-    mutationFn: async (reservationKey) => {
+    mutationFn: async (reservationInput) => {
+      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) {
+        throw new Error('Missing reservationKey');
+      }
       const txHash = await cancelBooking([reservationKey]);
       
       devLog.log('🔍 useCancelBookingWallet - Transaction Hash:', txHash);
-      return { hash: txHash };
+      return { hash: txHash, reservationKey };
     },
-    onSuccess: (result, reservationKey) => {
+    onSuccess: (result, reservationInput) => {
+      const reservationKey =
+        result?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) return;
       // Keep booking visible until BookingEventContext receives BookingCanceled.
       devLog.log('✅ Booking cancellation tx sent via wallet - waiting for on-chain event');
 
@@ -1315,7 +1331,9 @@ export const useCancelBookingWallet = (options = {}) => {
         devLog.warn('Failed to set/complete optimistic booking state for booking cancellation (non-fatal):', err);
       }
     },
-    onError: (error, reservationKey) => {
+    onError: (error, reservationInput) => {
+      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
+      if (!reservationKey) return;
       // Revert optimistic update on error
       try {
         clearOptimisticBookingState(reservationKey);

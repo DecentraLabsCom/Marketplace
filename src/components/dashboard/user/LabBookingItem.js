@@ -46,6 +46,13 @@ const LabBookingItem = React.memo(function LabBookingItem({
     const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
     const isCancelled = isCancelledBooking(booking);
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
+    const isInUse = booking.status === "2" || booking.status === 2;
+    const canRefund = Boolean(
+      typeof onRefund === "function" &&
+      booking.reservationKey &&
+      !isCancelled &&
+      (isConfirmedBooking(booking) || isInUse)
+    );
     const isCancelling = Boolean(cancelState?.isBusy);
     const cancelLabel = cancelState?.label || ((booking.status === "1" || booking.status === 1) ? "Cancel Booking" : "Cancel Request");
 
@@ -114,7 +121,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     </button>
                 )}
                 {/* Only show refund button for reservations that have a key and are not canceled */}
-                {typeof onRefund === "function" && booking.reservationKey && !isCancelled && (
+                {canRefund && (
                     <button
                         onClick={() => onRefund(lab.id, booking)}
                         className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"

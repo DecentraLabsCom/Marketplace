@@ -314,8 +314,10 @@ export default function UserDashboard() {
   // 🚀 React Query handles all transaction management automatically
   // No manual transaction state or confirmation handling needed
 
-  const handleRefund = () => {
+  const handleRefund = async () => {
+    const bookingToRefund = selectedBooking;
     closeModal();
+    await handleCancellation(bookingToRefund);
   };
 
   // Calendar

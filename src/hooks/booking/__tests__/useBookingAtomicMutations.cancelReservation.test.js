@@ -53,6 +53,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useCancelReservationRequestSSO,
   useCancelReservationRequestWallet,
+  useCancelBookingWallet,
 } from '../useBookingAtomicMutations';
 
 // Centralized mock factories (match your test-utils)
@@ -152,6 +153,44 @@ describe('cancelReservation hooks (minimal unit tests)', () => {
     expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-wallet-1');
 
     setSpy.mockRestore();
+  });
+
+  test('Wallet cancelReservationRequest: accepts booking object input and uses reservationKey', async () => {
+    const { wrapper } = createWrapper();
+    const cancelFn = jest.fn(() => Promise.resolve('0xOBJ1'));
+    mockContractWriteFactory.mockImplementation(() => ({ contractWriteFunction: cancelFn }));
+
+    const { result } = renderHook(() => useCancelReservationRequestWallet(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ reservationKey: 'rk-wallet-obj-1', labId: '11' });
+    });
+
+    expect(cancelFn).toHaveBeenCalledWith(['rk-wallet-obj-1']);
+    expect(mockSetOptimisticBookingState).toHaveBeenCalledWith(
+      'rk-wallet-obj-1',
+      expect.objectContaining({ status: 'cancelling' })
+    );
+    expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-wallet-obj-1');
+  });
+
+  test('Wallet cancelBooking: accepts booking object input and uses reservationKey', async () => {
+    const { wrapper } = createWrapper();
+    const cancelFn = jest.fn(() => Promise.resolve('0xOBJ2'));
+    mockContractWriteFactory.mockImplementation(() => ({ contractWriteFunction: cancelFn }));
+
+    const { result } = renderHook(() => useCancelBookingWallet(), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ reservationKey: 'rk-wallet-obj-2', labId: '12' });
+    });
+
+    expect(cancelFn).toHaveBeenCalledWith(['rk-wallet-obj-2']);
+    expect(mockSetOptimisticBookingState).toHaveBeenCalledWith(
+      'rk-wallet-obj-2',
+      expect.objectContaining({ status: 'cancelling' })
+    );
+    expect(mockCompleteOptimisticBookingState).toHaveBeenCalledWith('rk-wallet-obj-2');
   });
 });
 

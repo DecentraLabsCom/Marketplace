@@ -242,6 +242,18 @@ describe('LabBookingItem', () => {
     expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
   });
 
+  test('hides refund button for completed booking (non-cancelable)', () => {
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({ status: '3' })}
+        onRefund={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
+  });
+
   test('hides refund button when reservationKey is missing', () => {
     render(
       <LabBookingItem
