@@ -145,6 +145,16 @@ describe('BookingsList - Unit Tests', () => {
             expect(screen.getByText('No upcoming bookings found.')).toBeInTheDocument();
         });
 
+        test('excludes booking highlighted in next section by identity when key is missing', () => {
+            renderList({
+                type: 'upcoming',
+                excludeBooking: { labId: '101', start: future, end: future + 3600 }
+            });
+
+            expect(screen.queryByText('Future Lab')).not.toBeInTheDocument();
+            expect(screen.getByText('No upcoming bookings found.')).toBeInTheDocument();
+        });
+
         test('excludes currently active bookings from upcoming list', () => {
             const activeBooking = {
                 id: '4',

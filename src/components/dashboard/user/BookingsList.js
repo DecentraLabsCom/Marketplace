@@ -43,7 +43,8 @@ export default function BookingsList({
   selectedLabId = null,
   isSSOUser = false,
   userInstitutionWallet = null,
-  excludeReservationKey = null
+  excludeReservationKey = null,
+  excludeBooking = null
 }) {
   const isUpcoming = type === 'upcoming';
   const title = isUpcoming ? 'Upcoming bookings' : 'Past bookings';
@@ -61,6 +62,16 @@ export default function BookingsList({
       return [];
     }
 
+    const normalizeKey = (value) => {
+      if (value === null || value === undefined) return null;
+      const raw = String(value).trim();
+      return raw ? raw.toLowerCase() : null;
+    };
+    const excludedKey = normalizeKey(excludeReservationKey || excludeBooking?.reservationKey);
+    const excludedLabId = excludeBooking?.labId != null ? String(excludeBooking.labId) : null;
+    const excludedStart = excludeBooking?.start != null ? String(excludeBooking.start) : null;
+    const excludedEnd = excludeBooking?.end != null ? String(excludeBooking.end) : null;
+
     const filtered = bookings.filter(booking => {
       if (!booking.start || !booking.end) {
         return false;
@@ -75,7 +86,16 @@ export default function BookingsList({
         const startDateTime = new Date(parseInt(booking.start) * 1000);
         const isUpcomingBooking = startDateTime.getTime() > currentTime.getTime();
         if (!isUpcomingBooking) return false;
-        if (excludeReservationKey && booking.reservationKey === excludeReservationKey) return false;
+        const bookingKey = normalizeKey(booking.reservationKey);
+        if (excludedKey && bookingKey && bookingKey === excludedKey) return false;
+        if (
+          excludedLabId &&
+          excludedStart &&
+          excludedEnd &&
+          String(booking.labId) === excludedLabId &&
+          String(booking.start) === excludedStart &&
+          String(booking.end) === excludedEnd
+        ) return false;
         return true;
       } else {
         // For past bookings, only include confirmed ones (not PENDING)
@@ -275,5 +295,11 @@ BookingsList.propTypes = {
   selectedLabId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   isSSOUser: PropTypes.bool,
   userInstitutionWallet: PropTypes.string,
-  excludeReservationKey: PropTypes.string
+  excludeReservationKey: PropTypes.string,
+  excludeBooking: PropTypes.shape({
+    reservationKey: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    labId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    start: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    end: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  })
 };

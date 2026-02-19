@@ -179,9 +179,13 @@ export default function UserDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
 
-  const highlightedUpcomingReservationKey = useMemo(() => {
+  const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking } = useMemo(() => {
     if (!now || !Array.isArray(userBookings) || userBookings.length === 0) {
-      return null;
+      return {
+        activeBookingForDashboard: null,
+        nextBookingForDashboard: null,
+        highlightedUpcomingBooking: null,
+      };
     }
 
     const nowUnix = Math.floor(now.getTime() / 1000);
@@ -199,19 +203,30 @@ export default function UserDashboard() {
       return (status === 1 || status === 2) && start <= nowUnix && nowUnix < end;
     });
 
-    if (hasActiveBooking) {
-      return null;
-    }
+    const activeBooking = hasActiveBooking
+      ? userBookings.find((booking) => {
+          const status = parseStatus(booking?.status);
+          const start = parseUnix(booking?.start);
+          const end = parseUnix(booking?.end);
+          return start !== null && end !== null && (status === 1 || status === 2) && start <= nowUnix && nowUnix < end;
+        }) || null
+      : null;
 
-    const nextUpcomingBooking = userBookings
-      .filter((booking) => {
-        const status = parseStatus(booking?.status);
-        const start = parseUnix(booking?.start);
-        return start !== null && start > nowUnix && (status === 0 || status === 1);
-      })
-      .sort((a, b) => Number(a.start) - Number(b.start))[0];
+    const nextUpcomingBooking = activeBooking
+      ? null
+      : userBookings
+        .filter((booking) => {
+          const status = parseStatus(booking?.status);
+          const start = parseUnix(booking?.start);
+          return start !== null && start > nowUnix && (status === 0 || status === 1);
+        })
+        .sort((a, b) => Number(a.start) - Number(b.start))[0] || null;
 
-    return nextUpcomingBooking?.reservationKey || null;
+    return {
+      activeBookingForDashboard: activeBooking,
+      nextBookingForDashboard: nextUpcomingBooking,
+      highlightedUpcomingBooking: nextUpcomingBooking,
+    };
   }, [userBookings, now]);
   
   // Initialize time on client side and update every minute to auto-move bookings from upcoming to past
@@ -478,13 +493,11 @@ export default function UserDashboard() {
               {/* Active booking section - uses optimized hook */}
               <div className="xl:w-2/3 w-full">
                 <ActiveBookingSection 
+                  activeBooking={activeBookingForDashboard}
+                  nextBooking={nextBookingForDashboard}
                   userAddress={effectiveUserAddress}
                   onBookingAction={handleCancellation}
                   cancellationStates={cancellationStates}
-                  options={{
-                    enabled: canFetchBookings,
-                    staleTime: 5 * 60 * 1000, // 5 minutes
-                  }}
                 />
               </div>
               
@@ -530,7 +543,8 @@ export default function UserDashboard() {
                 onClearError={handleClearCancellationError}
                 failedCancellations={failedCancellations}
                 cancellationStates={cancellationStates}
-                excludeReservationKey={!isSSO && canFetchBookings ? highlightedUpcomingReservationKey : null}
+                excludeReservationKey={highlightedUpcomingBooking?.reservationKey || null}
+                excludeBooking={highlightedUpcomingBooking}
                 closeModal={closeModal}
               />
               
