@@ -253,13 +253,17 @@ export function useLabReservationState({
     optimisticRemovedRef.current = false
   }, [pendingData?.optimisticId])
 
-  // Register pending SSO reservations in BookingEventContext so centralized polling/events
+  // Register pending reservations in BookingEventContext so centralized polling/events
   // can drive final toasts and status updates even when an on-chain event is missed locally.
   useEffect(() => {
-    if (!isSSO || typeof registerPendingConfirmation !== 'function') return
+    if (typeof registerPendingConfirmation !== 'function') return
+
+    const candidateReservationKey = isSSO
+      ? (pendingData?.reservationKey || pendingData?.optimisticId)
+      : pendingData?.reservationKey
 
     const normalizedKey = normalizeReservationKey(
-      pendingData?.reservationKey || pendingData?.optimisticId
+      candidateReservationKey
     )
     if (!normalizedKey) return
 

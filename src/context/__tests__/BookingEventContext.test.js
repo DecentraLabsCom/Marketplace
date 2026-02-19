@@ -483,6 +483,46 @@ describe("BookingEventContext", () => {
     });
   });
 
+  test("backup polling emits on-chain requested and confirmed toasts for registered pending reservations", async () => {
+    jest.useFakeTimers();
+    process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED = "true";
+    const queryClient = createTestQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const contextHook = renderHook(() => useBookingEventContext(), { wrapper });
+
+    act(() => {
+      contextHook.result.current.registerPendingConfirmation(
+        "reservation-777",
+        "9",
+        "0xUserAddress"
+      );
+    });
+
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reservation: { status: 1, renter: "0xUserAddress" },
+      }),
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const requestedCalls = mockAddTemporaryNotification.mock.calls.filter(
+        (call) => call?.[3]?.dedupeKey === "reservation-onchain-requested:reservation-777"
+      );
+      const confirmedCalls = mockAddTemporaryNotification.mock.calls.filter(
+        (call) => call?.[3]?.dedupeKey === "reservation-confirmed:reservation-777"
+      );
+
+      expect(requestedCalls).toHaveLength(1);
+      expect(confirmedCalls).toHaveLength(1);
+    });
+  });
+
   test("does not emit duplicate confirmation toast when polling and event both resolve", async () => {
     jest.useFakeTimers();
     process.env.NEXT_PUBLIC_BOOKING_BACKUP_POLLING_ENABLED = "true";

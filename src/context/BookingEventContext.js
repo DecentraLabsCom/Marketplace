@@ -46,6 +46,7 @@ export function BookingEventProvider({ children }) {
     const pendingConfirmations = useRef(new Map()); // Track reservations waiting for provider action (backup polling)
     const pendingCancellations = useRef(new Map()); // Track reservations currently being cancelled from this session
     const notifiedConfirmations = useRef(new Set()); // Avoid duplicate confirmation toasts
+    const notifiedOnChainRequested = useRef(new Set()); // Avoid duplicate on-chain requested toasts
 
     const { clearOptimisticBookingState } = useOptimisticUI();
 
@@ -125,10 +126,44 @@ export function BookingEventProvider({ children }) {
     };
 
     const shouldNotifyConfirmation = (reservationKey) => {
-        if (!reservationKey) return false;
-        if (notifiedConfirmations.current.has(reservationKey)) return false;
-        notifiedConfirmations.current.add(reservationKey);
+        const normalizedKey = normalizeReservationKey(reservationKey);
+        if (!normalizedKey) return false;
+        if (notifiedConfirmations.current.has(normalizedKey)) return false;
+        notifiedConfirmations.current.add(normalizedKey);
         return true;
+    };
+
+    const shouldNotifyOnChainRequested = (reservationKey) => {
+        const normalizedKey = normalizeReservationKey(reservationKey);
+        if (!normalizedKey) return false;
+        if (notifiedOnChainRequested.current.has(normalizedKey)) return false;
+        notifiedOnChainRequested.current.add(normalizedKey);
+        return true;
+    };
+
+    const emitReservationRequestedOnChain = (reservationKey, tokenId) => {
+        if (typeof window === 'undefined') return;
+        try {
+            window.dispatchEvent(
+                new CustomEvent('reservation-requested-onchain', {
+                    detail: {
+                        reservationKey,
+                        tokenId,
+                    }
+                })
+            );
+        } catch (err) {
+            devLog.warn('Failed to emit reservation-requested-onchain event:', err);
+        }
+    };
+
+    const notifyOnChainRequestedIfNeeded = (reservationKey, tokenId) => {
+        const normalizedKey = normalizeReservationKey(reservationKey);
+        if (!normalizedKey) return;
+        if (!shouldNotifyOnChainRequested(normalizedKey)) return;
+
+        notifyReservationOnChainRequested(addTemporaryNotification, normalizedKey);
+        emitReservationRequestedOnChain(normalizedKey, tokenId);
     };
 
     const fetchReservationDetails = async (reservationKey) => {
@@ -258,21 +293,7 @@ export function BookingEventProvider({ children }) {
                     devLog.log(`🕒 [BookingEventContext] Tracking reservation ${reservationKeyStr} for fallback polling`);
                     const requesterToTrack = requesterAddress || pendingConfirmations.current.get(normalizedReservationKey)?.requester;
                     trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterToTrack);
-                    notifyReservationOnChainRequested(addTemporaryNotification, reservationKeyStr);
-                    try {
-                        if (typeof window !== 'undefined') {
-                            window.dispatchEvent(
-                                new CustomEvent('reservation-requested-onchain', {
-                                    detail: {
-                                        reservationKey: reservationKeyStr,
-                                        tokenId: tokenIdStr,
-                                    }
-                                })
-                            );
-                        }
-                    } catch (err) {
-                        devLog.warn('Failed to emit reservation-requested-onchain event:', err);
-                    }
+                    notifyOnChainRequestedIfNeeded(reservationKeyStr, tokenIdStr);
                 }
             });
         }
@@ -389,13 +410,12 @@ export function BookingEventProvider({ children }) {
                     
                     const data = await fetchReservationDetails(reservationKey);
                     const statusNumber = Number(data?.reservation?.status);
+                    const currentUserAddress = (address || userAddress)?.toLowerCase?.();
+                    const isCurrentUserReservation = info.requester
+                        ? (currentUserAddress && info.requester === currentUserAddress)
+                        : true;
 
                     if (Number.isFinite(statusNumber) && statusNumber !== 0) {
-                        const currentUserAddress = (address || userAddress)?.toLowerCase?.();
-                        const isCurrentUserReservation = info.requester
-                            ? (currentUserAddress && info.requester === currentUserAddress)
-                            : true;
-
                         pendingConfirmations.current.delete(reservationKey);
 
                         invalidateReservationCaches(reservationKey, info.tokenId);
@@ -406,6 +426,8 @@ export function BookingEventProvider({ children }) {
                                 notifyReservationDenied(addTemporaryNotification, reservationKey, { isSSO });
                                 emitReservationDenied(reservationKey, info.tokenId, true, null);
                             } else {
+                                // If live ReservationRequested was missed, recover the toast via polling.
+                                notifyOnChainRequestedIfNeeded(reservationKeyStr, info.tokenId);
                                 if (shouldNotifyConfirmation(reservationKeyStr)) {
                                     notifyReservationConfirmed(addTemporaryNotification, reservationKeyStr);
                                 }
@@ -414,6 +436,10 @@ export function BookingEventProvider({ children }) {
                             emitReservationDenied(reservationKey, info.tokenId, false, null);
                         }
                     } else {
+                        if (Number.isFinite(statusNumber) && statusNumber === 0 && isCurrentUserReservation) {
+                            // Pending status confirms request exists on-chain even if event listener missed it.
+                            notifyOnChainRequestedIfNeeded(reservationKeyStr, info.tokenId);
+                        }
                         // Still pending, increment attempt counter
                         pendingConfirmations.current.set(reservationKey, {
                             ...info,
