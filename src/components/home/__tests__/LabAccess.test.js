@@ -20,6 +20,7 @@ import {
   authenticateLabAccessSSO,
   getAuthErrorMessage,
 } from "@/utils/auth/labAuth";
+import { useReservation } from "@/hooks/booking/useBookings";
 
 // Mock dependencies
 jest.mock("next/navigation", () => ({
@@ -41,6 +42,10 @@ jest.mock("@/utils/auth/labAuth", () => ({
   getAuthErrorMessage: jest.fn(),
 }));
 
+jest.mock("@/hooks/booking/useBookings", () => ({
+  useReservation: jest.fn(),
+}));
+
 jest.mock("@/utils/dev/logger", () => ({
   log: jest.fn(),
   error: jest.fn(),
@@ -54,6 +59,7 @@ describe("LabAccess Component", () => {
   const mockSignMessageAsync = jest.fn();
   const mockSignTypedDataAsync = jest.fn();
   const mockUseUser = useUser;
+  const mockUseReservation = useReservation;
   const originalConsoleError = console.error;
 
   const defaultProps = {
@@ -83,6 +89,7 @@ describe("LabAccess Component", () => {
       signTypedDataAsync: mockSignTypedDataAsync,
     });
     mockUseUser.mockReturnValue({ isSSO: false });
+    mockUseReservation.mockReturnValue({ data: null });
     // Mock fetch to return authURI
     global.fetch.mockResolvedValue({
       ok: true,
@@ -163,7 +170,7 @@ describe("LabAccess Component", () => {
           defaultProps.id,
           mockSignMessageAsync,
           null,
-          { signTypedDataAsync: mockSignTypedDataAsync }
+          { signTypedDataAsync: mockSignTypedDataAsync, skipCheckIn: false }
         );
       });
     });
@@ -195,6 +202,64 @@ describe("LabAccess Component", () => {
           labId: defaultProps.id,
           reservationKey: defaultProps.reservationKey,
           authEndpoint: "https://auth.example.com/auth",
+          skipCheckIn: false,
+        });
+      });
+    });
+
+    test("passes skipCheckIn=true when reservation is already in use (wallet)", async () => {
+      mockUseReservation.mockReturnValue({
+        data: { reservation: { status: 2, isInUse: true } },
+      });
+      authenticateLabAccess.mockResolvedValue({ error: "Invalid booking credentials" });
+
+      render(<LabAccess {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
+
+      await waitFor(() => {
+        expect(authenticateLabAccess).toHaveBeenCalledWith(
+          "https://auth.example.com/auth",
+          defaultProps.userWallet,
+          defaultProps.id,
+          mockSignMessageAsync,
+          defaultProps.reservationKey,
+          { signTypedDataAsync: mockSignTypedDataAsync, skipCheckIn: true }
+        );
+      });
+    });
+
+    test("passes skipCheckIn=true when reservation is already in use (SSO)", async () => {
+      useUser.mockReturnValue({ isSSO: true });
+      mockUseReservation.mockReturnValue({
+        data: { reservation: { status: 2, isInUse: true } },
+      });
+      authenticateLabAccessSSO.mockResolvedValue({ error: "Invalid booking credentials" });
+
+      render(<LabAccess {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `/api/contract/lab/getLabAuthURI?labId=${defaultProps.id}`
+        );
+      });
+
+      const accessButton = await getAccessButton();
+      fireEvent.click(accessButton);
+
+      await waitFor(() => {
+        expect(authenticateLabAccessSSO).toHaveBeenCalledWith({
+          labId: defaultProps.id,
+          reservationKey: defaultProps.reservationKey,
+          authEndpoint: "https://auth.example.com/auth",
+          skipCheckIn: true,
         });
       });
     });

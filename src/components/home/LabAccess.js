@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useSignMessage, useSignTypedData } from 'wagmi'
 import { useUser } from '@/context/UserContext'
+import { useReservation } from '@/hooks/booking/useBookings'
 import { authenticateLabAccess, authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
 
@@ -24,6 +25,15 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
   const { isSSO } = useUser();
   const { signMessageAsync } = useSignMessage();
   const { signTypedDataAsync } = useSignTypedData();
+  const { data: reservationData, isFetching: isFetchingReservation } = useReservation(reservationKey, {
+    enabled: !!reservationKey && !!hasActiveBooking,
+    staleTime: 60 * 1000,
+  });
+
+  const isReservationInUse =
+    reservationData?.reservation?.isInUse === true ||
+    Number(reservationData?.reservation?.status) === 2;
+  const waitingReservationState = !!reservationKey && !!hasActiveBooking && !!isFetchingReservation;
 
   // Fetch authURI when component mounts or lab ID changes
   useEffect(() => {
@@ -78,6 +88,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
             labId: id,
             reservationKey,
             authEndpoint: authURI,
+            skipCheckIn: isReservationInUse,
           })
         : await authenticateLabAccess(
             authURI,
@@ -85,7 +96,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
             id,
             signMessageAsync,
             reservationKey,
-            { signTypedDataAsync }
+            { signTypedDataAsync, skipCheckIn: isReservationInUse }
           );
 
       // Handle successful authentication
@@ -133,8 +144,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
       <button
         type="button"
         onClick={handleAccess}
-        disabled={loading || fetchingAuth}
-        aria-busy={loading || fetchingAuth}
+        disabled={loading || fetchingAuth || waitingReservationState}
+        aria-busy={loading || fetchingAuth || waitingReservationState}
         className="absolute bottom-0 inset-x-0 h-1/3 bg-brand/75 
           opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-300 text-white text-lg 
           font-bold cursor-pointer z-10 disabled:cursor-not-allowed disabled:opacity-70"
@@ -144,8 +155,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
             duration-300 hover:scale-110"
           style={{ bottom: '-15%' }}
         >
-          <span className="text-white px-4 py-2 rounded mt-3">
-            {loading ? "Verifying..." : "Access"}
+            <span className="text-white px-4 py-2 rounded mt-3">
+            {(loading || waitingReservationState) ? "Verifying..." : "Access"}
           </span>
         </span>
       </button>
