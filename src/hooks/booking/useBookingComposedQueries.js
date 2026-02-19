@@ -396,6 +396,9 @@ export const useUserBookingsDashboard = (userAddress, {
     const startTime = r.start != null ? parseInt(r.start) : undefined;
     const endTime = r.end != null ? parseInt(r.end) : undefined;
     const statusNumeric = r.status;
+    const price = r.price != null ? r.price.toString() : null;
+    const payerInstitution = r.payerInstitution || null;
+    const collectorInstitution = r.collectorInstitution || null;
 
     // Derive status category for analytics/filters (keep numeric status for business rules)
     let statusCategory = 'unknown';
@@ -433,6 +436,9 @@ export const useUserBookingsDashboard = (userAddress, {
       reservationKey: payload.reservationKey,
       labId,
       status: statusNumeric, // keep numeric/string code (0,1,2,3,4,5)
+      price,
+      payerInstitution,
+      collectorInstitution,
       statusCategory,
       start: startTime,
       end: endTime,

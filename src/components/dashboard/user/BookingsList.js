@@ -40,7 +40,9 @@ export default function BookingsList({
   failedCancellations = new Set(),
   cancellationStates = new Map(),
   selectedBooking = null,
-  selectedLabId = null
+  selectedLabId = null,
+  isSSOUser = false,
+  userInstitutionWallet = null
 }) {
   const isUpcoming = type === 'upcoming';
   const title = isUpcoming ? 'Upcoming bookings' : 'Past bookings';
@@ -209,7 +211,9 @@ export default function BookingsList({
                 startTime,
                 endTime,
                 isModalOpen: false,
-                closeModal
+                closeModal,
+                isSSOUser,
+                userInstitutionWallet,
               };
 
               // Add type-specific props
@@ -265,5 +269,7 @@ BookingsList.propTypes = {
   failedCancellations: PropTypes.instanceOf(Set),
   cancellationStates: PropTypes.instanceOf(Map),
   selectedBooking: PropTypes.object,
-  selectedLabId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+  selectedLabId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  isSSOUser: PropTypes.bool,
+  userInstitutionWallet: PropTypes.string
 };

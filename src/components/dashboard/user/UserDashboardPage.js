@@ -34,7 +34,16 @@ import {
  * @returns {JSX.Element} Complete user dashboard with access control, bookings list, calendar, and actions
  */
 export default function UserDashboard() {
-  const { user, isLoggedIn, isSSO, hasWalletSession, isWalletLoading, isConnected, address } = useUser();
+  const {
+    user,
+    isLoggedIn,
+    isSSO,
+    hasWalletSession,
+    isWalletLoading,
+    isConnected,
+    address,
+    institutionRegistrationWallet,
+  } = useUser();
   
   // 🚀 React Query for user bookings with lab details
   // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
@@ -505,6 +514,8 @@ export default function UserDashboard() {
                 isModalOpen={isModalOpen}
                 selectedBooking={selectedBooking}
                 selectedLabId={selectedLabId}
+                isSSOUser={Boolean(isSSO)}
+                userInstitutionWallet={institutionRegistrationWallet}
                 closeModal={closeModal}
               />
             </div>

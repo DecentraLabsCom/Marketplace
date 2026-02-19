@@ -53,6 +53,7 @@ const bookings = [
 ];
 
 
+
 // Mocks
 
 
@@ -134,6 +135,24 @@ describe('BookingsList - Unit Tests', () => {
             renderList({ type: 'upcoming' });
 
             expect(screen.getByText('Future Lab')).toBeInTheDocument();
+            expect(screen.queryByText('Past Lab')).not.toBeInTheDocument();
+        });
+
+        test('excludes currently active bookings from upcoming list', () => {
+            const activeBooking = {
+                id: '4',
+                labId: '104',
+                reservationKey: 'k4',
+                start: Math.floor(new Date('2024-01-15T11:00:00Z').getTime() / 1000),
+                end: Math.floor(new Date('2024-01-15T13:00:00Z').getTime() / 1000),
+                status: '1',
+                labDetails: { id: '104', name: 'Active Lab' }
+            };
+
+            renderList({ bookings: [...bookings, activeBooking], type: 'upcoming' });
+
+            expect(screen.getByText('Future Lab')).toBeInTheDocument();
+            expect(screen.queryByText('Active Lab')).not.toBeInTheDocument();
             expect(screen.queryByText('Past Lab')).not.toBeInTheDocument();
         });
 

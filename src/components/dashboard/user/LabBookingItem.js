@@ -38,23 +38,83 @@ const LabBookingItem = React.memo(function LabBookingItem({
     isModalOpen = false,
     closeModal = null,
     onClearError = null,
-    cancelState = null
+    cancelState = null,
+    isSSOUser = false,
+    userInstitutionWallet = null
 }) {
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+    const normalizeAddress = (value) => (typeof value === 'string' ? value.toLowerCase() : '');
+    const hasNonZeroAddress = (value) => {
+      const normalized = normalizeAddress(value);
+      return Boolean(normalized) && normalized !== ZERO_ADDRESS;
+    };
+    const isZeroLike = (value) => {
+      if (value === null || value === undefined || value === '') return false;
+      try {
+        return BigInt(value) === 0n;
+      } catch {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) && numeric === 0;
+      }
+    };
+
     // Determine status display using utility function
     const statusDisplay = getBookingStatusDisplay(booking);
-    const statusIcon = statusDisplay?.icon;
-    const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
+    const parseUnixTime = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) && num > 0 ? num : null;
+    };
+    const now = Math.floor(Date.now() / 1000);
+    const startTimeUnix = parseUnixTime(booking?.start ?? booking?.startTime);
+    const endTimeUnix = parseUnixTime(booking?.end ?? booking?.endTime);
+
     const isCancelled = isCancelledBooking(booking);
     const canCancel = !isCancelled && (isPendingBooking(booking) || isConfirmedBooking(booking));
     const isInUse = booking.status === "2" || booking.status === 2;
+    const isTemporallyActive =
+      startTimeUnix !== null &&
+      endTimeUnix !== null &&
+      startTimeUnix <= now &&
+      now < endTimeUnix;
+    const isBookingInUseNow = (isConfirmedBooking(booking) || isInUse) && isTemporallyActive;
+    const effectiveStatusDisplay = isBookingInUseNow
+      ? {
+          text: "In Use",
+          className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
+          icon: "✅",
+        }
+      : statusDisplay;
+    const statusIcon = effectiveStatusDisplay?.icon;
+    const shouldRenderIcon = statusIcon && typeof statusIcon === 'object';
+    const normalizedCollector = normalizeAddress(booking.collectorInstitution);
+    const normalizedPayer = normalizeAddress(booking.payerInstitution);
+    const normalizedUserInstitution = normalizeAddress(userInstitutionWallet);
+    const isSameInstitutionBooking = Boolean(
+      isSSOUser &&
+      hasNonZeroAddress(normalizedCollector) &&
+      (
+        (hasNonZeroAddress(normalizedUserInstitution) && normalizedCollector === normalizedUserInstitution) ||
+        (hasNonZeroAddress(normalizedPayer) && normalizedCollector === normalizedPayer)
+      )
+    );
+    const isFreeReservation = isZeroLike(booking.price);
+    const shouldUseRefundAction =
+      typeof onCancel === "function" &&
+      typeof onRefund === "function" &&
+      isBookingInUseNow;
     const canRefund = Boolean(
       typeof onRefund === "function" &&
       booking.reservationKey &&
       !isCancelled &&
-      (isConfirmedBooking(booking) || isInUse)
+      !isFreeReservation &&
+      !isSameInstitutionBooking &&
+      (isConfirmedBooking(booking) || isInUse) &&
+      (shouldUseRefundAction || typeof onCancel !== "function")
     );
+    const showCancelButton = typeof onCancel === "function" && canCancel && !shouldUseRefundAction;
     const isCancelling = Boolean(cancelState?.isBusy);
     const cancelLabel = cancelState?.label || ((booking.status === "1" || booking.status === 1) ? "Cancel Booking" : "Cancel Request");
+    const refundLabel = shouldUseRefundAction ? "Request for Refund" : "Apply for Refund";
 
     return (
         <li className={`flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
@@ -89,7 +149,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                 </div>
                 <div className="flex flex-col md:flex-row gap-2 mt-2 md:mt-0 items-center">
                 {/* Reservation Status */}
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusDisplay.className}`}>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${effectiveStatusDisplay.className}`}>
                     <span className="mr-1">
                       {shouldRenderIcon ? (
                         <FontAwesomeIcon icon={statusIcon} className="animate-spin" />
@@ -97,10 +157,10 @@ const LabBookingItem = React.memo(function LabBookingItem({
                         statusIcon
                       )}
                     </span>
-                    {statusDisplay.text}
+                    {effectiveStatusDisplay.text}
                 </span>
                 {/* Show cancel button for booked or pending reservations (not canceled) */}
-                {typeof onCancel === "function" && canCancel && (
+                {showCancelButton && (
                     <button
                         onClick={() => {
                             // Log critical action for debugging
@@ -126,7 +186,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
                         onClick={() => onRefund(lab.id, booking)}
                         className="bg-[#bcc4fc] text-white px-3 py-1 rounded hover:bg-[#aab8e6] text-sm"
                     >
-                        Apply for Refund
+                        {refundLabel}
                     </button>
                 )}
                 </div>
@@ -174,7 +234,9 @@ LabBookingItem.propTypes = {
     cancelState: PropTypes.shape({
         isBusy: PropTypes.bool,
         label: PropTypes.string
-    })
+    }),
+    isSSOUser: PropTypes.bool,
+    userInstitutionWallet: PropTypes.string
 }
 
 export default LabBookingItem;

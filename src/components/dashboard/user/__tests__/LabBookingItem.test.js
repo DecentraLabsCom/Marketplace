@@ -160,6 +160,28 @@ describe('LabBookingItem', () => {
     expect(onCancel).toHaveBeenCalledWith(booking);
   });
 
+  test('shows "Request for Refund" instead of "Cancel Booking" when confirmed booking is currently active', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const booking = createBooking({
+      status: '1',
+      start: now - 120,
+      end: now + 1800
+    });
+
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={booking}
+        onCancel={jest.fn()}
+        onRefund={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Cancel Booking/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Request for Refund/i })).toBeInTheDocument();
+    expect(screen.getByText('In Use')).toBeInTheDocument();
+  });
+
   test('disables cancel button and shows spinner while cancellation is in progress', async () => {
     const user = userEvent.setup();
     const onCancel = jest.fn();
@@ -248,6 +270,38 @@ describe('LabBookingItem', () => {
         lab={mockLab}
         booking={createBooking({ status: '3' })}
         onRefund={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
+  });
+
+  test('hides refund button for free reservation (price = 0)', () => {
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({ status: '1', price: '0' })}
+        onRefund={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: /Apply for Refund/i })).not.toBeInTheDocument();
+  });
+
+  test('hides refund button for SSO booking in same institution', () => {
+    const institutionWallet = '0x1111111111111111111111111111111111111111';
+    render(
+      <LabBookingItem
+        lab={mockLab}
+        booking={createBooking({
+          status: '1',
+          price: '100',
+          payerInstitution: institutionWallet,
+          collectorInstitution: institutionWallet,
+        })}
+        onRefund={jest.fn()}
+        isSSOUser={true}
+        userInstitutionWallet={institutionWallet}
       />
     );
 
