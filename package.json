@@ -50,6 +50,7 @@
     "@walletconnect/ethereum-provider": "~2.23.3",
     "cookie": "^1.1.1",
     "date-fns": "^4.1.0",
+    "decentralabs-marketplace": "file:",
     "eslint-plugin-drizzle": "^0.2.3",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -69,7 +70,7 @@
     "react-icons": "^5.5.0",
     "saml2-js": "^4.0.4",
     "typescript-eslint": "^8.55.0",
-    "viem": "^2.45.3",
+    "viem": "^2.46.1",
     "wagmi": "^3.4.4",
     "xml2js": "^0.6.2",
     "zod": "^4.3.5"
