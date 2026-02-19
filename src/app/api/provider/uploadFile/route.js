@@ -8,6 +8,7 @@ import path from 'path'
 import { promises as fs } from 'fs'
 import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
+import sharp from 'sharp'
 import devLog from '@/utils/dev/logger'
 import getIsVercel from '@/utils/isVercel'
 import { 
@@ -16,6 +17,74 @@ import {
   handleGuardError,
   HttpError 
 } from '@/utils/auth/guards'
+
+const IMAGE_OPTIMIZATION = {
+  minBytesToOptimize: 250 * 1024, // Keep small files untouched to preserve fidelity.
+  maxWidth: 2200,
+  maxHeight: 2200,
+  jpegQuality: 88,
+  webpQuality: 88,
+  pngCompressionLevel: 9,
+}
+
+const OPTIMIZABLE_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+])
+
+const shouldOptimizeImageUpload = ({ destinationFolder, contentType, fileSize }) => {
+  return (
+    destinationFolder === 'images' &&
+    OPTIMIZABLE_IMAGE_TYPES.has(contentType) &&
+    fileSize >= IMAGE_OPTIMIZATION.minBytesToOptimize
+  )
+}
+
+const optimizeImageForUpload = async (buffer, contentType) => {
+  const image = sharp(buffer, { failOn: 'none' }).rotate()
+  const metadata = await image.metadata()
+
+  let pipeline = image.resize(IMAGE_OPTIMIZATION.maxWidth, IMAGE_OPTIMIZATION.maxHeight, {
+    fit: 'inside',
+    withoutEnlargement: true,
+  })
+
+  if (contentType === 'image/jpeg') {
+    pipeline = pipeline.jpeg({
+      quality: IMAGE_OPTIMIZATION.jpegQuality,
+      mozjpeg: true,
+      progressive: true,
+      chromaSubsampling: '4:4:4',
+    })
+  } else if (contentType === 'image/webp') {
+    pipeline = pipeline.webp({
+      quality: IMAGE_OPTIMIZATION.webpQuality,
+      effort: 5,
+    })
+  } else if (contentType === 'image/png') {
+    pipeline = pipeline.png({
+      compressionLevel: IMAGE_OPTIMIZATION.pngCompressionLevel,
+      effort: 8,
+      adaptiveFiltering: true,
+      palette: false,
+    })
+  }
+
+  const optimizedBuffer = await pipeline.toBuffer()
+  const useOptimized = optimizedBuffer.length < buffer.length
+
+  return {
+    buffer: useOptimized ? optimizedBuffer : buffer,
+    useOptimized,
+    originalBytes: buffer.length,
+    outputBytes: useOptimized ? optimizedBuffer.length : buffer.length,
+    dimensions: {
+      width: metadata.width || null,
+      height: metadata.height || null,
+    },
+  }
+}
 
 /**
  * Uploads files for lab providers with support for local and cloud storage
@@ -145,17 +214,48 @@ export async function POST(req) {
 
     try {
       const buffer = await file.arrayBuffer();
+      const sourceBuffer = Buffer.from(buffer);
+      let uploadBuffer = sourceBuffer;
+      let optimization = {
+        applied: false,
+        originalBytes: sourceBuffer.length,
+        outputBytes: sourceBuffer.length,
+        dimensions: null,
+      };
+
+      if (shouldOptimizeImageUpload({
+        destinationFolder,
+        contentType: detectedContentType,
+        fileSize: sourceBuffer.length,
+      })) {
+        try {
+          const result = await optimizeImageForUpload(sourceBuffer, detectedContentType);
+          uploadBuffer = result.buffer;
+          optimization = {
+            applied: result.useOptimized,
+            originalBytes: result.originalBytes,
+            outputBytes: result.outputBytes,
+            dimensions: result.dimensions,
+          };
+        } catch (optimizationError) {
+          devLog.warn('Image optimization failed; uploading original file', {
+            fileName: sanitizedFileName,
+            error: optimizationError?.message,
+          });
+        }
+      }
+
       let filePath; // This will be the URL returned to the client
       
       if (!isVercel) {
         // Local development: save to public folder and return relative path
         await fs.mkdir(path.dirname(localFilePath), { recursive: true });
-        await fs.writeFile(localFilePath, Buffer.from(buffer));
+        await fs.writeFile(localFilePath, uploadBuffer);
         filePath = relativePath; // For local, use relative path
       } else {
         // Production: upload to Vercel Blob and return full blob URL
         const blobPath = `data${relativePath}`;
-        const blob = await put(blobPath, Buffer.from(buffer), 
+        const blob = await put(blobPath, uploadBuffer, 
                   { contentType: detectedContentType, allowOverwrite: true, access: 'public' });
         filePath = blob.url; // ✅ Return the full blob URL for production
         devLog.info(`📤 File uploaded to blob: ${blob.url}`);
@@ -167,10 +267,12 @@ export async function POST(req) {
           filePath: filePath, // ✅ Now returns full blob URL in production, relative path locally
           originalName: file.name,
           sanitizedName: sanitizedFileName,
-          size: file.size,
+          size: uploadBuffer.length,
+          originalSize: file.size,
           contentType: detectedContentType,
           timestamp: timestamp,
-          uploadedTo: isVercel ? 'blob' : 'local'
+          uploadedTo: isVercel ? 'blob' : 'local',
+          optimization
         }, 
         { status: 201 } // Created
       );

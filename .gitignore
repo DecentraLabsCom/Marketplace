@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/\.lighthouseci
 /scripts/*
 
 # Cypress artifacts (do not commit test screenshots/videos)

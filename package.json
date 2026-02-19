@@ -69,6 +69,7 @@
     "react-flags-select": "^2.5.0",
     "react-icons": "^5.5.0",
     "saml2-js": "^4.0.4",
+    "sharp": "^0.34.5",
     "typescript-eslint": "^8.55.0",
     "viem": "^2.46.1",
     "wagmi": "^3.4.4",

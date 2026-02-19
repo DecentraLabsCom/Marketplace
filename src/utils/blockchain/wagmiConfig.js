@@ -14,6 +14,9 @@ let chainstackProjectId = process.env.NEXT_PUBLIC_CHAINSTACK_ID;
 let infuraProjectId = process.env.NEXT_PUBLIC_INFURA_ID;
 let cloudReownId = process.env.NEXT_PUBLIC_CLOUD_REOWN_ID;
 const enableWsEvents = String(process.env.NEXT_PUBLIC_ENABLE_WSS_EVENTS || 'false').toLowerCase() === 'true';
+const enableOptionalRpcProviders = String(
+  process.env.NEXT_PUBLIC_ENABLE_OPTIONAL_RPC_PROVIDERS || 'false'
+).toLowerCase() === 'true';
 const sepoliaWsUrl = process.env.NEXT_PUBLIC_SEPOLIA_WS_URL;
 const mainnetWsUrl = process.env.NEXT_PUBLIC_MAINNET_WS_URL;
 const polygonWsUrl = process.env.NEXT_PUBLIC_POLYGON_WS_URL;
@@ -106,54 +109,57 @@ const createTransports = () => {
     return url.includes('undefined') ? null : url;
   };
 
-  // Add providers only if they have valid configuration AND valid URLs
-  if (alchemyProjectId && alchemyNetworks[sepolia.id]) {
-    const alchemyUrl = constructUrl(alchemyNetworks[sepolia.id], alchemyProjectId);
-    if (alchemyUrl) {
-      const transport = createValidatedTransport(alchemyUrl, 'alchemy');
-      if (transport) fallbackProviders.push(transport);
+  // Optional RPC providers are disabled by default to keep initial client work light.
+  if (enableOptionalRpcProviders) {
+    if (alchemyProjectId && alchemyNetworks[sepolia.id]) {
+      const alchemyUrl = constructUrl(alchemyNetworks[sepolia.id], alchemyProjectId);
+      if (alchemyUrl) {
+        const transport = createValidatedTransport(alchemyUrl, 'alchemy');
+        if (transport) fallbackProviders.push(transport);
+      }
     }
-  }
-  
-  if (moralisProjectId && moralisNetworks[sepolia.id]) {
-    const moralisUrl = constructUrl(moralisNetworks[sepolia.id], moralisProjectId);
-    if (moralisUrl) {
-      const transport = createValidatedTransport(moralisUrl, 'moralis');
-      if (transport) fallbackProviders.push(transport);
+    
+    if (moralisProjectId && moralisNetworks[sepolia.id]) {
+      const moralisUrl = constructUrl(moralisNetworks[sepolia.id], moralisProjectId);
+      if (moralisUrl) {
+        const transport = createValidatedTransport(moralisUrl, 'moralis');
+        if (transport) fallbackProviders.push(transport);
+      }
     }
-  }
-  
-  if (ankrProjectId && ankrNetworks[sepolia.id]) {
-    const ankrUrl = constructUrl(ankrNetworks[sepolia.id], ankrProjectId);
-    if (ankrUrl) {
-      const transport = createValidatedTransport(ankrUrl, 'ankr');
-      if (transport) fallbackProviders.push(transport);
+    
+    if (ankrProjectId && ankrNetworks[sepolia.id]) {
+      const ankrUrl = constructUrl(ankrNetworks[sepolia.id], ankrProjectId);
+      if (ankrUrl) {
+        const transport = createValidatedTransport(ankrUrl, 'ankr');
+        if (transport) fallbackProviders.push(transport);
+      }
     }
-  }
-  
-  if (quicknodeProjectId && quicknodeNetworks[sepolia.id]) {
-    const quicknodeUrl = constructUrl(quicknodeNetworks[sepolia.id], quicknodeProjectId);
-    if (quicknodeUrl) {
-      const transport = createValidatedTransport(quicknodeUrl, 'quicknode');
-      if (transport) fallbackProviders.push(transport);
+    
+    if (quicknodeProjectId && quicknodeNetworks[sepolia.id]) {
+      const quicknodeUrl = constructUrl(quicknodeNetworks[sepolia.id], quicknodeProjectId);
+      if (quicknodeUrl) {
+        const transport = createValidatedTransport(quicknodeUrl, 'quicknode');
+        if (transport) fallbackProviders.push(transport);
+      }
     }
-  }
-  
-  // Add these providers with caution as they're showing errors
-  if (chainstackProjectId && chainstackNetworks[sepolia.id]) {
-    const chainstackUrl = constructUrl(chainstackNetworks[sepolia.id], chainstackProjectId);
-    if (chainstackUrl) {
-      const transport = createValidatedTransport(chainstackUrl, 'chainstack');
-      if (transport) fallbackProviders.push(transport);
+    
+    if (chainstackProjectId && chainstackNetworks[sepolia.id]) {
+      const chainstackUrl = constructUrl(chainstackNetworks[sepolia.id], chainstackProjectId);
+      if (chainstackUrl) {
+        const transport = createValidatedTransport(chainstackUrl, 'chainstack');
+        if (transport) fallbackProviders.push(transport);
+      }
     }
-  }
-  
-  if (infuraProjectId && infuraNetworks[sepolia.id]) {
-    const infuraUrl = constructUrl(infuraNetworks[sepolia.id], infuraProjectId);
-    if (infuraUrl) {
-      const transport = createValidatedTransport(infuraUrl, 'infura');
-      if (transport) fallbackProviders.push(transport);
+    
+    if (infuraProjectId && infuraNetworks[sepolia.id]) {
+      const infuraUrl = constructUrl(infuraNetworks[sepolia.id], infuraProjectId);
+      if (infuraUrl) {
+        const transport = createValidatedTransport(infuraUrl, 'infura');
+        if (transport) fallbackProviders.push(transport);
+      }
     }
+  } else {
+    devLog.log('[wagmiConfig] Optional RPC providers disabled; using default/public transports only');
   }
   
   // Always add default providers as fallback

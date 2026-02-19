@@ -30,8 +30,10 @@ export default function LabGrid({
     setIsHydrated(true)
   }, [])
   
-  // During SSR and initial hydration, always show loading to prevent mismatch
-  if (!isHydrated || loading) {
+  const shouldDeferUntilHydrated = !isHydrated && labs.length === 0
+
+  // Keep skeleton for empty client-first renders, but allow SSR content when labs are already available.
+  if (loading || shouldDeferUntilHydrated) {
     return <LabCardGridSkeleton />
   }
 
@@ -55,7 +57,7 @@ export default function LabGrid({
   return (
     <section>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {labs.map((lab) => (
+        {labs.map((lab, index) => (
           <LabCard
             key={lab.id}
             id={lab.id}
@@ -65,6 +67,7 @@ export default function LabGrid({
             activeBooking={lab.hasActiveBooking}
             isListed={lab.isListed}
             image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}
+            imagePriority={index < 3}
             reputation={lab.reputation}
             createdAt={lab.createdAt}
           />

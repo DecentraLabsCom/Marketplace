@@ -22,6 +22,7 @@ import devLog from '@/utils/dev/logger'
  * @param {string} props.sizes - Responsive image sizes
  * @param {boolean} props.priority - Whether to prioritize loading
  * @param {boolean} props.fill - Whether to fill container
+ * @param {number} props.quality - Next.js image quality (1-100)
  * @param {Object} props.style - Inline styles
  * @param {string} props.fallbackSrc - Fallback image URL
  * @param {Function} props.onLoad - Callback when image loads
@@ -37,6 +38,7 @@ const LabImage = ({
   sizes,
   priority = false,
   fill = false,
+  quality = 82,
   style = {},
   fallbackSrc = '/labs/lab_placeholder.png',
   onLoad,
@@ -44,7 +46,7 @@ const LabImage = ({
   ...props
 }) => {
   const [imageFailed, setImageFailed] = useState(false)
-  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(priority)
 
   // Determine which image to show
   const displayImageUrl = imageFailed ? fallbackSrc : src
@@ -74,7 +76,7 @@ const LabImage = ({
   const imageProps = {
     src: displayImageUrl,
     alt,
-    className: `${className} ${!imageLoaded ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`,
+    className: `${className} ${priority ? 'opacity-100' : (!imageLoaded ? 'opacity-0' : 'opacity-100')} transition-opacity duration-300`,
     onLoad: handleLoad,
     onError: handleError,
     style,
@@ -86,7 +88,12 @@ const LabImage = ({
   if (width && !fill) imageProps.width = width
   if (height && !fill) imageProps.height = height
   if (sizes) imageProps.sizes = sizes
-  if (priority) imageProps.priority = priority
+  if (Number.isFinite(quality)) imageProps.quality = quality
+  if (priority) {
+    imageProps.priority = true
+    imageProps.fetchPriority = 'high'
+    imageProps.loading = 'eager'
+  }
   if (fill) imageProps.fill = fill
 
   return (
@@ -94,7 +101,7 @@ const LabImage = ({
       <Image {...imageProps} />
       
       {/* Loading placeholder */}
-      {!imageLoaded && (
+      {!priority && !imageLoaded && (
         <div className="absolute inset-0 bg-neutral-200 animate-pulse flex items-center justify-center">
           <Spinner 
             size="md" 
@@ -117,6 +124,7 @@ LabImage.propTypes = {
   sizes: PropTypes.string,
   priority: PropTypes.bool,
   fill: PropTypes.bool,
+  quality: PropTypes.number,
   style: PropTypes.object,
   fallbackSrc: PropTypes.string,
   onLoad: PropTypes.func,

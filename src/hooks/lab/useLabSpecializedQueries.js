@@ -45,7 +45,11 @@ const EMPTY_ARRAY = [];
  */
 export const useLabsForMarket = (options = {}) => {
   // Extract includeUnlisted option
-  const { includeUnlisted = false, ...queryOptions } = options;
+  const {
+    includeUnlisted = false,
+    prefetchImages = false,
+    ...queryOptions
+  } = options;
   
   // Get optimistic UI context for listing states
   const { getEffectiveListingState } = useOptimisticUI();
@@ -174,7 +178,7 @@ export const useLabsForMarket = (options = {}) => {
 
   // Step 8: Create image cache queries
   const imageResults = useQueries({
-    queries: uniqueImageUrls.length > 0
+    queries: prefetchImages && uniqueImageUrls.length > 0
       ? uniqueImageUrls.map(imageUrl => ({
           queryKey: labImageQueryKeys.byUrl(imageUrl),
           queryFn: () => useLabImageQuery.queryFn(imageUrl),

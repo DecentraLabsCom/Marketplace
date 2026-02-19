@@ -41,6 +41,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="preconnect" href="https://mm-sdk-analytics.api.cx.metamask.io" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://ethereum-sepolia-rpc.publicnode.com" crossOrigin="anonymous" />
+      </head>
       <body className="flex flex-col min-h-screen bg-[#262B2D]">
         {children}
       </body>

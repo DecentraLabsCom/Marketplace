@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic'
+import { getMarketLabsSnapshot } from '@/server/market/getMarketLabsSnapshot'
 
 const Market = dynamic(() => import('@/components/home/Market'), {
   loading: () => (
@@ -12,7 +13,9 @@ const Market = dynamic(() => import('@/components/home/Market'), {
   )
 })
 
-export default function HomePage() {
+export default async function HomePage() {
+  const initialMarketSnapshot = await getMarketLabsSnapshot({ includeUnlisted: false })
+  const initialLabs = Array.isArray(initialMarketSnapshot?.labs) ? initialMarketSnapshot.labs : []
 
   return (
     <div>
@@ -24,7 +27,7 @@ export default function HomePage() {
           <div className="mt-4 border-t-4 border-brand w-80 mx-auto" />
         </div>
       </div>
-      <Market />
+      <Market initialLabs={initialLabs} />
     </div>
   )
 }

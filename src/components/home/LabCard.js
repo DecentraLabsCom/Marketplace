@@ -30,7 +30,19 @@ const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: fa
  * @param {string|number} props.createdAt - Lab creation timestamp (seconds)
  * @returns {JSX.Element} Lab card with image, details, and action buttons
  */
-const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = null, activeBooking = false, isListed = true, image = '', reputation = null, createdAt = null }) {
+const LabCard = React.memo(function LabCard({
+  id,
+  name,
+  provider,
+  price,
+  auth = null,
+  activeBooking = false,
+  isListed = true,
+  image = '',
+  imagePriority = false,
+  reputation = null,
+  createdAt = null
+}) {
   const { address, isConnected, isSSO } = useUser();
   const { formatPrice } = useLabToken();
   const ratingValue = getLabRatingValue(reputation);
@@ -85,14 +97,14 @@ const LabCard = React.memo(function LabCard({ id, name, provider, price, auth = 
             src={image}
             alt={name}
             labId={id}
-            priority={false}
+            priority={imagePriority}
           />
         ) : (
           <LabCardImage 
             src={'/labs/lab_placeholder.png'}
             alt={name}
             labId={id}
-            priority={false}
+            priority={imagePriority}
           />
         )}
         
@@ -170,6 +182,7 @@ LabCard.propTypes = {
   activeBooking: PropTypes.bool,
   isListed: PropTypes.bool,
   image: PropTypes.string,
+  imagePriority: PropTypes.bool,
   reputation: PropTypes.shape({
     score: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     totalEvents: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

@@ -6,6 +6,7 @@
  */
 "use client";
 import React, { useMemo, useState, useCallback, useEffect } from 'react'
+import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useLabsForMarket } from '@/hooks/lab/useLabs'
@@ -14,18 +15,24 @@ import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
-import devLog from '@/utils/dev/logger'
 
-export default function Market() {
+export default function Market({ initialLabs = [] }) {
   const { isLoggedIn, address, isWalletLoading, hasWalletSession, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
   
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
+  const snapshotLabs = useMemo(
+    () => (Array.isArray(initialLabs) ? initialLabs : []),
+    [initialLabs]
+  );
+  const hasInitialSnapshot = !showUnlisted && snapshotLabs.length > 0;
+  const shouldFetchLiveLabs = showUnlisted || !hasInitialSnapshot;
   
   // React Query for labs optimized for market display (with conditional unlisted inclusion)
   const labsQuery = useLabsForMarket({ 
-    includeUnlisted: showUnlisted 
+    includeUnlisted: showUnlisted,
+    enabled: shouldFetchLiveLabs
   });
   
   const { 
@@ -33,19 +40,29 @@ export default function Market() {
     isLoading: labsInitialLoading,
     isFetching: labsFetching,
     isError: labsError,
-    error: labsErrorDetails 
   } = labsQuery;
   
   // Extract labs array from composed result and memoize
-  const labsArray = useMemo(() => labsData?.labs || [], [labsData?.labs]);
+  const labsArray = useMemo(() => {
+    if (hasInitialSnapshot && !shouldFetchLiveLabs) {
+      return snapshotLabs;
+    }
+
+    return labsData?.labs || [];
+  }, [hasInitialSnapshot, shouldFetchLiveLabs, snapshotLabs, labsData?.labs]);
   
   // Determine labs loading state (stable) - Show labs immediately, don't wait for bookings
   const labsLoading = useMemo(() => {
+    if (hasInitialSnapshot && !shouldFetchLiveLabs) {
+      return false;
+    }
+
     return labsInitialLoading || (labsFetching && labsArray.length === 0);
-  }, [labsInitialLoading, labsFetching, labsArray.length]);
+  }, [hasInitialSnapshot, shouldFetchLiveLabs, labsInitialLoading, labsFetching, labsArray.length]);
 
   // Memoize labs to prevent infinite re-renders
   const labs = useMemo(() => labsArray, [labsArray]);
+  const shouldShowLabsError = shouldFetchLiveLabs ? labsError : false;
 
   // React Query for user bookings (memoized options) - supports both SSO and wallet sessions
   const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
@@ -142,9 +159,13 @@ export default function Market() {
       <LabGrid
         labs={searchFilteredLabs}
         loading={labsLoading}
-        error={labsError}
+        error={shouldShowLabsError}
         emptyMessage="No labs found matching your search criteria. Try adjusting your filters."
       />
     </Container>
   )
+}
+
+Market.propTypes = {
+  initialLabs: PropTypes.array,
 }
