@@ -57,7 +57,7 @@ export async function POST(req) {
     
     const isVercel = getIsVercel();
 
-    devLog('DELETE_LAB_DATA', `Attempting to delete lab data: ${sanitizedLabURI} on ${isVercel ? 'Vercel' : 'local'}`);
+    devLog.log('DELETE_LAB_DATA', `Attempting to delete lab data: ${sanitizedLabURI} on ${isVercel ? 'Vercel' : 'local'}`);
 
     if (!isVercel) {
         // Local filesystem deletion
@@ -65,7 +65,7 @@ export async function POST(req) {
         
         try {
           await fs.unlink(filePath);
-          devLog('DELETE_LAB_DATA', `Successfully deleted local file: ${filePath}`);
+          devLog.log('DELETE_LAB_DATA', `Successfully deleted local file: ${filePath}`);
           
           return NextResponse.json({ 
             message: 'Lab data deleted successfully',
@@ -102,7 +102,7 @@ export async function POST(req) {
             const blobPath = `data/${sanitizedLabURI}`;
             const result = await del(blobPath);
             
-            devLog('DELETE_LAB_DATA', `Blob deletion result for ${blobPath}:`, result);
+            devLog.log('DELETE_LAB_DATA', `Blob deletion result for ${blobPath}:`, result);
             
             return NextResponse.json({ 
               message: 'Lab data deleted successfully',
