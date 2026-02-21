@@ -62,9 +62,9 @@ export default function WalletLogin({ setIsModalOpen }) {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-50 animate-fadeIn"
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-3 backdrop-blur-sm animate-fadeIn sm:items-center sm:p-4"
           onClick={closeModal}>
-          <div className="bg-linear-to-br from-white via-white to-gray-50 rounded-2xl shadow-2xl p-8 w-105 border border-gray-100 transition-all duration-300 scale-100 animate-slideIn" 
+          <div className="my-auto min-h-[26rem] w-[min(26.25rem,calc(100vw-1.5rem))] rounded-2xl border border-gray-100 bg-linear-to-br from-white via-white to-gray-50 p-8 shadow-2xl transition-all duration-300 scale-100 animate-slideIn sm:min-h-[28rem]" 
                onClick={(e) => e.stopPropagation()}>
             
             {/* Header with Close Button */}

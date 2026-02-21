@@ -39,6 +39,7 @@ const getCountryLabel = (value) => {
  * @returns {JSX.Element} Complete lab detail view with images, docs, and metadata
  */
 export default function LabDetail({ id }) {
+  const topSpacingClass = 'mt-4'
   const { 
     data: lab,
     isLoading: loading, 
@@ -74,7 +75,9 @@ export default function LabDetail({ id }) {
   if (loading) {
     return (
       <Container as="main" padding="sm">
-        <LabHeroSkeleton />
+        <div className={topSpacingClass}>
+          <LabHeroSkeleton />
+        </div>
       </Container>
     );
   }
@@ -92,7 +95,7 @@ export default function LabDetail({ id }) {
 
   return (
     <Container as="main" padding="sm">
-      <section className="flex flex-col md:flex-row md:justify-center gap-6 md:gap-10">
+      <section className={`flex flex-col md:flex-row md:justify-center gap-6 md:gap-10 ${topSpacingClass}`}>
         {/* Carousel Section */}
         <article className="w-full md:w-1/2 flex flex-col p-4">
           <div className="size-full flex flex-col justify-center">

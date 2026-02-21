@@ -65,7 +65,7 @@ export default function Login() {
         >
           <Card 
             variant="modal"
-            className="my-auto w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-1.5rem)] overflow-y-auto transition duration-300 starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0 sm:max-h-[calc(100dvh-2rem)]"
+            className="my-auto w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-1.5rem)] overflow-y-auto transition duration-300 starting:opacity-0 opacity-100 sm:max-h-[calc(100dvh-2rem)]"
             onClick={(e) => e.stopPropagation()}
           >
             <CardHeader title="Choose Login Method" />
