@@ -17,37 +17,10 @@ import {
   notifyUnstakeStarted,
   notifyUnstakeSuccess,
 } from '@/utils/notifications/stakingToasts'
+import { formatRawAmount } from '@/utils/blockchain/formatTokens'
+import { BASE_STAKE_DISPLAY, STAKE_PER_ADDITIONAL_LAB_DISPLAY, FREE_LABS_COUNT } from '@/constants/staking'
 import StakeHealthIndicator, { computeStakeHealth } from './StakeHealthIndicator'
 import devLog from '@/utils/dev/logger'
-
-/**
- * Constants from the smart contracts (LibStaking.sol)
- * BASE_STAKE = 800 tokens, STAKE_PER_ADDITIONAL_LAB = 200 tokens
- * FREE_LABS_COUNT = 10 (first 10 labs don't require additional stake beyond base)
- */
-const BASE_STAKE_DISPLAY = 800
-const STAKE_PER_ADDITIONAL_LAB_DISPLAY = 200
-const FREE_LABS_COUNT = 10
-
-/**
- * Formats a raw token amount (smallest units) to a human-readable string
- * @param {string} rawAmount - Amount in smallest token units
- * @param {number} decimals - Token decimals (default 6 for $LAB)
- * @returns {string} Formatted amount with 2 decimal places
- */
-function formatRawAmount(rawAmount, decimals = 6) {
-  if (!rawAmount || rawAmount === '0') return '0.00'
-  try {
-    const value = BigInt(rawAmount)
-    const divisor = 10n ** BigInt(decimals)
-    const whole = value / divisor
-    const fraction = value % divisor
-    const fractionStr = fraction.toString().padStart(decimals, '0').slice(0, 2)
-    return `${whole}.${fractionStr}`
-  } catch {
-    return '0.00'
-  }
-}
 
 /**
  * Formats a timestamp to relative time string

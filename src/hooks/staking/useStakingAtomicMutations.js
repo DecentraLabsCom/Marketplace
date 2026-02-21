@@ -63,7 +63,10 @@ export const useStakeTokensWallet = (options = {}) => {
       return { hash: txHash, amount: amountBigInt.toString() }
     },
     onSuccess: () => {
-      // Invalidate staking queries after successful stake
+      // Invalidate only the specific staking queries that changed after a stake.
+      // Intentionally NOT using stakingQueryKeys.all() — per project guidelines, global
+      // invalidations are redundant when specific keys already cover the changed data.
+      // If new staking queries are added, add their specific key here.
       if (userAddress) {
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.stakeInfo(userAddress) })
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.requiredStake(userAddress) })
@@ -88,7 +91,6 @@ export const useStakeTokensWallet = (options = {}) => {
           })
         }
       }
-      queryClient.invalidateQueries({ queryKey: stakingQueryKeys.all() })
     },
     onError: (error) => {
       devLog.error('stakeTokens mutation failed:', error)
@@ -143,7 +145,10 @@ export const useUnstakeTokensWallet = (options = {}) => {
       return { hash: txHash, amount: amountBigInt.toString() }
     },
     onSuccess: () => {
-      // Invalidate staking queries after successful unstake
+      // Invalidate only the specific staking queries that changed after an unstake.
+      // Intentionally NOT using stakingQueryKeys.all() — per project guidelines, global
+      // invalidations are redundant when specific keys already cover the changed data.
+      // If new staking queries are added, add their specific key here.
       if (userAddress) {
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.stakeInfo(userAddress) })
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.requiredStake(userAddress) })
@@ -168,7 +173,6 @@ export const useUnstakeTokensWallet = (options = {}) => {
           })
         }
       }
-      queryClient.invalidateQueries({ queryKey: stakingQueryKeys.all() })
     },
     onError: (error) => {
       devLog.error('unstakeTokens mutation failed:', error)

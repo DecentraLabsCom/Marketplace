@@ -27,7 +27,7 @@ import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCa
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
 import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
-import { useRequiredStakeWallet, useStakeInfoWallet } from '@/hooks/staking/useStakingAtomicQueries'
+import { useStakeInfo, useRequiredStake } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
@@ -416,10 +416,10 @@ export default function ProviderDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false)
-  const { data: stakeInfo } = useStakeInfoWallet(providerOwnerAddress, {
+  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, {
     enabled: !!providerOwnerAddress && !isSSO,
   })
-  const { data: requiredStakeData } = useRequiredStakeWallet(providerOwnerAddress, {
+  const { data: requiredStakeData } = useRequiredStake(providerOwnerAddress, {
     enabled: !!providerOwnerAddress && !isSSO,
   })
   const compactStakeInfo = useMemo(() => ({

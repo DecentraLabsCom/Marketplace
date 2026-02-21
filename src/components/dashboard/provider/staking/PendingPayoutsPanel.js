@@ -7,6 +7,7 @@ import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { usePendingLabPayouts } from '@/hooks/staking/useStakingAtomicQueries'
 import { useLabToken } from '@/context/LabTokenContext'
+import { formatRawAmount } from '@/utils/blockchain/formatTokens'
 
 /**
  * Revenue split percentages from LibRevenue.sol
@@ -17,26 +18,6 @@ const REVENUE_SPLIT = {
   treasury: 15,
   subsidies: 10,
   governance: 5,
-}
-
-/**
- * Formats a raw token amount to human-readable string
- * @param {string} rawAmount - Amount in smallest token units
- * @param {number} decimals - Token decimals
- * @returns {string} Formatted amount
- */
-function formatRawAmount(rawAmount, decimals = 6) {
-  if (!rawAmount || rawAmount === '0') return '0.00'
-  try {
-    const value = BigInt(rawAmount)
-    const divisor = 10n ** BigInt(decimals)
-    const whole = value / divisor
-    const fraction = value % divisor
-    const fractionStr = fraction.toString().padStart(decimals, '0').slice(0, 2)
-    return `${whole}.${fractionStr}`
-  } catch {
-    return '0.00'
-  }
 }
 
 const getLabId = (lab) => lab?.id ?? lab?.tokenId ?? lab?.labId

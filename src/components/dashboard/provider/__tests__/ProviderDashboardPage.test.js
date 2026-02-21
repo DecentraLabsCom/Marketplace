@@ -286,6 +286,12 @@ jest.mock('@/components/dashboard/provider/staking/StakeHealthIndicator', () => 
   ),
 }));
 
+// Mock staking hooks barrel to avoid pulling in @wagmi/core ESM (not transformable by Jest)
+jest.mock('@/hooks/staking/useStaking', () => ({
+  useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
+  useRequiredStake: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
+}));
+
 jest.mock("@/components/dashboard/provider/LabModal", () => ({
   __esModule: true,
   default: ({ isOpen, onClose, onSubmit, lab }) =>
@@ -743,7 +749,7 @@ describe("ProviderDashboard Component", () => {
         mockUserData.institutionBackendUrl = "https://institution.example";
         mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const deleteButton = await screen.findByTestId("delete-1");
 

@@ -7,12 +7,6 @@ import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
 import devLog from '@/utils/dev/logger'
 
-const toNumber = (value) => {
-  if (value === null || value === undefined) return 0
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 /**
  * Retrieves pending payout data for a specific lab
  * @param {Request} request - HTTP request with query parameters
@@ -43,11 +37,12 @@ export async function GET(request) {
     const contract = await getContractInstance()
     const payout = await contract.getPendingLabPayout(numericLabId)
 
+    const rawCount = Number(payout?.institutionalCollectorCount ?? payout?.[3] ?? 0)
     const transformedData = {
       walletPayout: (payout?.walletPayout ?? payout?.[0])?.toString() || '0',
       institutionalPayout: (payout?.institutionalPayout ?? payout?.[1])?.toString() || '0',
       totalPayout: (payout?.totalPayout ?? payout?.[2])?.toString() || '0',
-      institutionalCollectorCount: toNumber(payout?.institutionalCollectorCount ?? payout?.[3])
+      institutionalCollectorCount: Number.isFinite(rawCount) ? rawCount : 0
     }
 
     devLog.log(`Successfully fetched pending payout for lab ID: ${labId}`)
