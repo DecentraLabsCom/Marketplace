@@ -166,6 +166,21 @@ jest.mock("@/hooks/booking/useBookings", () => ({
   })),
 }));
 
+// ===== Mock staking hooks (integration) =====
+jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
+  useStakeInfo: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
+  useStakeInfoWallet: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
+  useRequiredStake: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
+  useRequiredStakeWallet: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
+  usePendingLabPayout: jest.fn(() => ({ data: { totalPayout: '0', walletPayout: '0', institutionalPayout: '0' }, isLoading: false })),
+  usePendingLabPayouts: jest.fn(() => ({ data: { payoutsByLabId: {}, items: [] }, isLoading: false })),
+}));
+
+jest.mock('@/hooks/staking/useStakingAtomicMutations', () => ({
+  useStakeTokens: jest.fn(() => ({ mutateAsync: jest.fn(), isLoading: false })),
+  useUnstakeTokens: jest.fn(() => ({ mutateAsync: jest.fn(), isLoading: false })),
+}));
+
 /**
  * Mock next/navigation router
  */
@@ -489,6 +504,43 @@ describe("Provider Dashboard Flow Integration", () => {
     await waitFor(() => {
       expect(mockRequestFundsMutation.mutateAsync).toHaveBeenCalled();
     });
+  });
+
+  test("opens staking modal from compact card for wallet users", async () => {
+    const { useUser } = require("@/context/UserContext");
+    useUser.mockReturnValue({
+      isProvider: true,
+      isProviderLoading: false,
+      address: "0x1234567890123456789012345678901234567890",
+      isSSO: false,
+      isAuthenticated: true,
+      isInstitutionRegistered: true,
+      isInstitutionRegistrationLoading: false,
+      institutionRegistrationStatus: "registered",
+      user: {
+        name: "Dr. Provider",
+        email: "provider@university.edu",
+        role: "faculty",
+      },
+    });
+
+    renderWithAllProviders(<ProviderDashboardPage />);
+
+    // compact staking card should be visible
+    const manageBtn = await screen.findByRole('button', { name: /manage staking/i });
+    expect(manageBtn).toBeInTheDocument();
+
+    // open modal
+    fireEvent.click(manageBtn);
+
+    // wait for modal title (ensures modal opened)
+    const modalTitle = await screen.findByRole('heading', { name: /Staking & Economics/i });
+    const dialog = modalTitle.closest('[role="dialog"]') || document.body;
+
+    // assert panels inside modal using semantic headings to avoid ambiguous matches
+    const { within } = require('@testing-library/react');
+    expect(within(dialog).getByRole('heading', { name: /Staking/i, level: 3 })).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: /Pending Payouts/i, level: 3 })).toBeInTheDocument();
   });
 
   /**
