@@ -490,11 +490,17 @@ describe("Provider Dashboard Flow Integration", () => {
       },
     });
 
+    const { usePendingLabPayout } = require('@/hooks/staking/useStakingAtomicQueries');
+    usePendingLabPayout.mockReturnValue({
+      data: { totalPayout: '5000000000000000000', walletPayout: '5000000000000000000', institutionalPayout: '0' },
+      isLoading: false,
+    });
+
     renderWithAllProviders(<ProviderDashboardPage />);
 
-    // Wait for Collect All button to appear
+    // Wait for Collect button to appear
     const collectButton = await screen.findByRole("button", {
-      name: /collect all/i,
+      name: /collect/i,
     });
 
     // Click Collect All button
