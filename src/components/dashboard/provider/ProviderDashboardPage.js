@@ -25,6 +25,9 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
+import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
+import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
+import { useStakeInfo, useRequiredStake } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
@@ -412,6 +415,17 @@ export default function ProviderDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
+  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false)
+  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, {
+    enabled: !!providerOwnerAddress && !isSSO,
+  })
+  const { data: requiredStakeData } = useRequiredStake(providerOwnerAddress, {
+    enabled: !!providerOwnerAddress && !isSSO,
+  })
+  const compactStakeInfo = useMemo(() => ({
+    ...stakeInfo,
+    requiredStake: requiredStakeData?.requiredStake || '0',
+  }), [stakeInfo, requiredStakeData])
 
   // Handle adding a new lab using React Query mutation
   const handleAddLab = useCallback(async ({ labData }) => {
@@ -1059,6 +1073,27 @@ export default function ProviderDashboard() {
             />
           </div>
         </div>
+
+        {!isSSO && (
+          <>
+            <ProviderStakingCompactCard
+              stakeInfo={compactStakeInfo}
+              onManage={() => setIsStakingModalOpen(true)}
+            />
+
+            <ProviderStakingModal
+              isOpen={isStakingModalOpen}
+              onClose={() => setIsStakingModalOpen(false)}
+              providerAddress={providerOwnerAddress}
+              labs={ownedLabs}
+              isSSO={isSSO}
+              labCount={ownedLabs.length}
+              addTemporaryNotification={addTemporaryNotification}
+              onCollectAll={handleCollectAll}
+              isCollecting={requestFundsMutation.isPending}
+            />
+          </>
+        )}
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
           lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />

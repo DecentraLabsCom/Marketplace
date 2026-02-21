@@ -203,8 +203,7 @@ export const useLabsForMarket = (options = {}) => {
 
   const hasCriticalError = Boolean(labIdsResult.error);
   const hasRecoverableErrors =
-    labDetailResults.some(r => r.error) ||
-    ownerResults.some(r => r.error);
+    labDetailResults.some(r => r.error);
 
   // Transform data for market display - Include unlisted labs if requested
   const labs = useMemo(() => {
@@ -287,7 +286,6 @@ export const useLabsForMarket = (options = {}) => {
     hasCriticalError || (labs.length === 0 && hasRecoverableErrors);
   const firstRecoverableError =
     labDetailResults.find(r => r.error)?.error ||
-    ownerResults.find(r => r.error)?.error ||
     null;
 
   return {
@@ -579,7 +577,6 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   const hasCriticalError = Boolean(labIdsResult.error);
   const hasRecoverableErrors =
-    ownerResults.some(r => r.error) ||
     labDetailResults.some(r => r.error);
 
   // Transform data
@@ -620,7 +617,6 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     hasCriticalError || (ownedLabs.length === 0 && hasRecoverableErrors);
   const firstRecoverableError =
     labDetailResults.find(r => r.error)?.error ||
-    ownerResults.find(r => r.error)?.error ||
     null;
 
   devLog.log('👨‍🔬 useLabsForProvider - Result:', {
