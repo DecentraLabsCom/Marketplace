@@ -12,7 +12,7 @@ import { labQueryKeys, metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import { useLabCacheUpdates } from './useLabCacheUpdates'
 import devLog from '@/utils/dev/logger'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
-import pollIntentAuthorizationStatus from '@/utils/intents/pollIntentAuthorizationStatus'
+import { awaitIntentAuthorization } from '@/utils/intents/authorizationOrchestrator'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
 import { useConnection, usePublicClient } from 'wagmi'
 import { selectChain } from '@/utils/blockchain/selectChain'
@@ -20,17 +20,13 @@ import { getConnectionAddress } from '@/utils/blockchain/connection'
 import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { decodeEventLog } from 'viem'
 import {
-  createPopupBlockedError,
-  emitPopupBlockedEvent,
-} from '@/utils/browser/popupBlockerGuidance'
-import { markBrowserCredentialVerified } from '@/utils/onboarding/browserCredentialMarker'
+  resolveIntentRequestId,
+  createIntentMutationError,
+  createAuthorizationCancelledError,
+  markBrowserCredentialVerifiedFromIntent,
+} from '@/utils/intents/clientFlowShared'
 
-const resolveRequestId = (data) =>
-  data?.requestId ||
-  data?.intent?.meta?.requestId ||
-  data?.intent?.requestId ||
-  data?.intent?.request_id ||
-  data?.intent?.requestId?.toString?.();
+const resolveRequestId = resolveIntentRequestId
 
 const resolveLabId = (data) => {
   const candidate = data?.labId ?? data?.lab_id ?? data?.labID;
@@ -42,97 +38,6 @@ const resolveLabId = (data) => {
     return null;
   }
 };
-
-const createIntentMutationError = (payload, fallbackMessage) => {
-  const message =
-    payload?.error ||
-    payload?.message ||
-    fallbackMessage;
-  const err = new Error(message);
-  if (payload?.code) {
-    err.code = payload.code;
-  }
-  return err;
-};
-
-const createAuthorizationCancelledError = (message = 'Authorization cancelled by user') => {
-  const err = new Error(message);
-  err.code = 'INTENT_AUTH_CANCELLED';
-  return err;
-};
-
-const createAuthorizationSessionUnavailableError = (message = 'Authorization session unavailable') => {
-  const err = new Error(message);
-  err.code = 'INTENT_AUTH_SESSION_UNAVAILABLE';
-  return err;
-};
-
-const markBrowserCredentialVerifiedFromIntent = (prepareData) => {
-  try {
-    const actionPayload =
-      prepareData?.intent?.payload ||
-      prepareData?.intent?.actionPayload ||
-      null;
-    const stableUserId = actionPayload?.puc || actionPayload?.stableUserId || null;
-    if (!stableUserId) return;
-
-    markBrowserCredentialVerified({
-      stableUserId,
-      institutionId:
-        actionPayload?.schacHomeOrganization ||
-        actionPayload?.institutionId ||
-        null,
-    });
-  } catch {
-    // Marker updates are best-effort and must never break write flows.
-  }
-};
-
-const normalizeAuthorizationUrl = (authorizationUrl, backendUrl) => {
-  if (!authorizationUrl) return null;
-  const raw = String(authorizationUrl).trim();
-  if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) {
-    if (!backendUrl) return raw;
-    try {
-      const parsed = new URL(raw);
-      const hostname = parsed.hostname.toLowerCase();
-      const isLocal =
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname === '0.0.0.0';
-
-      if (hostname === 'intents' || (!hostname.includes('.') && !isLocal)) {
-        let path = parsed.pathname || '';
-        if (!path.startsWith('/intents')) {
-          path = `/intents${path.startsWith('/') ? '' : '/'}${path}`;
-        }
-        return new URL(`${path}${parsed.search || ''}${parsed.hash || ''}`, backendUrl).toString();
-      }
-
-      return raw;
-    } catch {
-      return raw;
-    }
-  }
-  const normalized = raw.startsWith('//') ? raw.replace(/^\/+/, '/') : raw;
-  if (backendUrl) {
-    try {
-      return new URL(normalized, backendUrl).toString();
-    } catch {
-      // fall through
-    }
-  }
-  return normalized;
-};
-
-const resolveAuthorizationInfo = (prepareData, backendUrl) => ({
-  authorizationUrl: normalizeAuthorizationUrl(
-    prepareData?.authorizationUrl || prepareData?.ceremonyUrl || null,
-    prepareData?.backendUrl || backendUrl
-  ),
-  authorizationSessionId: prepareData?.authorizationSessionId || prepareData?.sessionId || null,
-});
 
 const updateListingCache = (queryClient, labId, isListed) => {
   if (!queryClient) return;
@@ -152,251 +57,17 @@ const updateListingCache = (queryClient, labId, isListed) => {
   });
 };
 
-const openAuthorizationPopup = (authorizationUrl, popup, { keepOpener = false } = {}) => {
-  if (!authorizationUrl) return null;
-
-  let authPopup = popup && !popup.closed ? popup : null;
-  if (!authPopup) {
-    authPopup = window.open(
-      authorizationUrl,
-      'intent-authorization',
-      'width=480,height=720'
-    );
-  }
-
-  if (authPopup) {
-    try {
-      if (!keepOpener) {
-        authPopup.opener = null;
-      }
-      authPopup.focus();
-    } catch {
-      // ignore opener errors
-    }
-  }
-
-  return authPopup;
-};
-
-const openAuthorizationPopupFallback = (authorizationUrl, { keepOpener = false } = {}) => {
-  if (!authorizationUrl) return null;
-  const fallback = window.open(
-    authorizationUrl,
-    'intent-authorization',
-    'width=480,height=720'
-  );
-  if (fallback) {
-    try {
-      if (!keepOpener) {
-        fallback.opener = null;
-      }
-    } catch {
-      // ignore opener errors
-    }
-  }
-  return fallback;
-};
-
-const pollIntentPresence = async (requestId, {
-  backendUrl,
-  authToken,
-  maxDurationMs = 2500,
-  initialDelayMs = 300,
-  maxDelayMs = 800,
-} = {}) => {
-  if (!backendUrl || !requestId) return 'unknown';
-
-  let delay = initialDelayMs;
-  const start = Date.now();
-  const normalizedBackend = backendUrl.replace(/\/$/, '');
-
-  while (Date.now() - start <= maxDurationMs) {
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (typeof authToken === 'string' && authToken.trim().length > 0) {
-        const value = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-        headers.Authorization = value;
-      }
-      const res = await fetch(`${normalizedBackend}/intents/${requestId}`, {
-        method: 'GET',
-        headers,
-      });
-      if (res.ok) {
-        return 'present';
-      }
-      if (res.status === 404) {
-        return 'absent';
-      }
-      if (res.status === 401 || res.status === 403) {
-        return 'unknown';
-      }
-      if (res.status >= 500) {
-        // Backend is unhealthy; try again until timeout.
-      } else {
-        return 'unknown';
-      }
-    } catch {
-      // Ignore transient errors and keep polling.
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, delay));
-    delay = Math.min(delay * 1.5, maxDelayMs);
-  }
-
-  return 'unknown';
-};
-
-async function awaitBackendAuthorization(prepareData, { backendUrl, authToken, popup, presenceFn } = {}) {
-  const { authorizationUrl, authorizationSessionId } = resolveAuthorizationInfo(prepareData, backendUrl);
-  if (!authorizationUrl || !authorizationSessionId) {
-    try {
-      if (popup && !popup.closed) {
-        popup.close();
-      }
-    } catch {
-      // ignore close errors
-    }
-    throw createAuthorizationSessionUnavailableError('Authorization session unavailable');
-  }
-
-  let authPopup = openAuthorizationPopup(authorizationUrl, popup, { keepOpener: true });
-  if (!authPopup) {
-    authPopup = openAuthorizationPopupFallback(authorizationUrl, { keepOpener: true });
-  }
-  if (!authPopup) {
-    emitPopupBlockedEvent({
-      authorizationUrl,
-      source: 'lab-intent-authorization',
-    });
-    throw createPopupBlockedError();
-  }
-
-  let closeInterval = null;
-  let messageHandler = null;
-  const expectedOrigin = (() => {
-    try {
-      return authorizationUrl ? new URL(authorizationUrl).origin : null;
-    } catch {
-      return null;
-    }
-  })();
-  const messagePromise = new Promise((resolve) => {
-    messageHandler = (event) => {
-      if (expectedOrigin && event.origin !== expectedOrigin) return;
-      const payload = event?.data;
-      if (!payload || payload.type !== 'intent-authorization') return;
-      resolve({
-        __message: true,
-        status: payload.status,
-        requestId: payload.requestId,
-        error: payload.error,
-      });
-    };
-    window.addEventListener('message', messageHandler);
-  });
-  const popupClosedPromise = new Promise((resolve) => {
-    closeInterval = setInterval(() => {
-      if (authPopup.closed) {
-        clearInterval(closeInterval);
-        closeInterval = null;
-        resolve({ __closed: true });
-      }
-    }, 500);
-  });
-
-  const pollPromise = pollIntentAuthorizationStatus(authorizationSessionId, {
-    backendUrl: prepareData?.backendUrl || backendUrl,
-    authToken: authToken || prepareData?.backendAuthToken,
-  }).catch((error) => ({ __pollError: error }));
-
-  let status;
-  try {
-    const firstResult = await Promise.race([pollPromise, popupClosedPromise, messagePromise]);
-    if (firstResult && firstResult.__closed) {
-      const graceMs = 800;
-      try {
-        const requestId = resolveRequestId(prepareData);
-        const graceResultPromise = Promise.race([
-          pollPromise,
-          messagePromise,
-          new Promise((resolve) => setTimeout(() => resolve({ __closed: true }), graceMs)),
-        ]);
-        const presenceChecker = presenceFn || pollIntentPresence;
-        const intentPresencePromise = presenceChecker(requestId, {
-          backendUrl: prepareData?.backendUrl || backendUrl,
-          authToken: authToken || prepareData?.backendAuthToken,
-        });
-        const graceResult = await graceResultPromise;
-
-        if (graceResult && graceResult.__pollError) {
-          status = {
-            status: 'UNKNOWN',
-            requestId,
-            error: graceResult.__pollError?.message || 'Authorization status unavailable',
-          };
-        } else if (graceResult && graceResult.__message) {
-          status = graceResult;
-        } else if (graceResult && graceResult.__closed) {
-          const intentPresence = await intentPresencePromise;
-          if (intentPresence === 'present') {
-            status = { status: 'SUCCESS', requestId };
-          } else if (intentPresence === 'absent') {
-            status = {
-              status: 'CANCELLED',
-              requestId,
-              error: 'Authorization window closed',
-            };
-          } else {
-            status = {
-              status: 'UNKNOWN',
-              requestId,
-              error: 'Authorization window closed',
-            };
-          }
-        } else {
-          status = graceResult;
-        }
-      } catch (err) {
-        status = {
-          status: 'UNKNOWN',
-          requestId: resolveRequestId(prepareData),
-          error: err?.message || 'Authorization window closed',
-        };
-      }
-    } else if (firstResult && firstResult.__pollError) {
-      status = {
-        status: 'UNKNOWN',
-        requestId: resolveRequestId(prepareData),
-        error: firstResult.__pollError?.message || 'Authorization status unavailable',
-      };
-    } else if (firstResult && firstResult.status) {
-      status = firstResult;
-    } else {
-      status = firstResult;
-    }
-  } finally {
-    if (closeInterval) {
-      clearInterval(closeInterval);
-    }
-    if (messageHandler) {
-      window.removeEventListener('message', messageHandler);
-    }
-  }
-
-  const normalized = (status?.status || '').toUpperCase();
-  if (normalized === 'FAILED') {
-    throw new Error(status?.error || 'Intent authorization failed');
-  }
-
-  try {
-    if (!authPopup.closed) {
-      authPopup.close();
-    }
-  } catch {
-    // ignore close errors
-  }
-
-  return status;
+const awaitBackendAuthorization = async (prepareData, { backendUrl, authToken, popup, presenceFn } = {}) => {
+  return awaitIntentAuthorization(prepareData, {
+    backendUrl,
+    authToken,
+    popup,
+    presenceFn,
+    source: 'lab-intent-authorization',
+    requestIdResolver: resolveRequestId,
+    closePopupInFinally: false,
+    stopOnUnexpected4xx: true,
+  })
 }
 
 async function runActionIntent(action, payload) {

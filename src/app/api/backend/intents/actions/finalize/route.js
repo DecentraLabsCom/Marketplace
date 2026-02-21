@@ -8,16 +8,11 @@ import { getAssertionChallenge, clearAssertionChallenge, getCredentialById, save
 import { registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { getPucFromSession } from '@/utils/webauthn/service'
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import {
+  getIntentBackendAuthToken,
+  submitIntentExecutionToBackend,
+} from '@/utils/intents/backendClient'
 import devLog from '@/utils/dev/logger'
-
-function getBackendApiKey() {
-  return process.env.INSTITUTION_BACKEND_SP_API_KEY || null
-}
-
-async function getBackendAuthToken() {
-  return marketplaceJwtService.generateIntentBackendToken()
-}
 
 export async function POST(request) {
   try {
@@ -140,35 +135,26 @@ export async function POST(request) {
     let backendAuth = null
     if (backendUrl) {
       try {
-        backendAuth = await getBackendAuthToken()
-        const apiKey = getBackendApiKey()
-        const headers = {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${backendAuth.token}`,
-        }
-        if (apiKey) {
-          headers['x-api-key'] = apiKey
-        }
-        const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            meta: serializedMeta,
-            actionPayload: serializedPayload,
-            signature: adminSignatureForUse,
-            samlAssertion,
-            webauthnCredentialId: credential.credentialId,
-            webauthnClientDataJSON,
-            webauthnAuthenticatorData,
-            webauthnSignature,
-          }),
+        backendAuth = await getIntentBackendAuthToken()
+        const result = await submitIntentExecutionToBackend({
+          backendUrl,
+          backendAuthToken: backendAuth.token,
+          payloadKey: 'actionPayload',
+          meta: serializedMeta,
+          payload: serializedPayload,
+          signature: adminSignatureForUse,
+          samlAssertion,
+          webauthnCredentialId: credential.credentialId,
+          webauthnClientDataJSON,
+          webauthnAuthenticatorData,
+          webauthnSignature,
         })
-        backendResponse = { status: res.status }
-        if (res.ok) {
-          backendResponse.body = await res.json().catch(() => ({}))
+        backendResponse = { status: result.status }
+        if (result.ok) {
+          backendResponse.body = result.body
         } else {
-          backendError = `Backend responded with status ${res.status}`
-          backendResponse.body = await res.json().catch(() => ({}))
+          backendError = `Backend responded with status ${result.status}`
+          backendResponse.body = result.body
         }
       } catch (err) {
         backendError = err?.message || 'Failed to call backend'

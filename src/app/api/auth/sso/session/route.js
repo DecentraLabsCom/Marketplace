@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
+import { sanitizeSessionUserForClient } from '@/utils/auth/publicSessionUser'
 
 /**
  * Retrieves current user session from cookies
@@ -14,11 +15,12 @@ import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
  */
 export async function GET() {
   const cookieStore = await cookies();
-  const user = getSessionFromCookies(cookieStore);
+  const sessionUser = getSessionFromCookies(cookieStore);
 
-  if (!user) {
+  if (!sessionUser) {
     return NextResponse.json({ user: null });
   }
 
+  const user = sanitizeSessionUserForClient(sessionUser);
   return NextResponse.json({ user });
 }

@@ -73,6 +73,7 @@ next-env.d.ts
 
 # development documentation
 dev/
+TODO.md
 
 # labs data
 data/

@@ -26,3 +26,15 @@ export {
   clearUserResults,
   getStoreStats,
 } from './onboardingResultStore'
+
+export {
+  isOnboardingCallbackSignatureRequired,
+  getOnboardingCallbackSecret,
+  canVerifyOnboardingCallbackSignature,
+  issueOnboardingCallbackToken,
+  extractCallbackTokenFromRequest,
+  verifyOnboardingCallbackToken,
+  computeOnboardingCallbackHmac,
+  verifyOnboardingCallbackHmac,
+  buildSignedOnboardingCallbackUrl,
+} from './callbackAuth'

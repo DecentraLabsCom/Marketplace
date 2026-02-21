@@ -18,6 +18,7 @@ import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { extractStableUserId } from '@/utils/onboarding'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import devLog from '@/utils/dev/logger'
+import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 
 /**
  * GET /api/onboarding/session
@@ -66,7 +67,11 @@ export async function GET() {
 
     // Build the callback URL for the IB
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://decentralabs.io'
-    const callbackUrl = `${baseUrl}/api/onboarding/callback`
+    const unsignedCallbackUrl = `${baseUrl}/api/onboarding/callback`
+    const callbackUrl = buildSignedOnboardingCallbackUrl(unsignedCallbackUrl, {
+      stableUserId,
+      institutionId: userData.affiliation,
+    })
 
     // Build the response payload (same structure as what server would send to IB)
     const payload = {

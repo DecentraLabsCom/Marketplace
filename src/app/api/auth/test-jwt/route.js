@@ -9,8 +9,50 @@
 
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import authServiceClient from '@/utils/auth/authServiceClient';
+import { timingSafeEqual } from 'crypto';
+
+const isTestJwtEndpointEnabled = () =>
+  process.env.NODE_ENV !== 'production' ||
+  String(process.env.ENABLE_TEST_JWT_ENDPOINT || '').toLowerCase() === 'true';
+
+const isAuthorizedTestJwtRequest = (request) => {
+  const configuredKey = process.env.TEST_JWT_API_KEY || '';
+  if (!configuredKey) return true;
+
+  const providedKey =
+    request.headers.get('x-test-jwt-key') ||
+    request.headers.get('x-api-key') ||
+    '';
+
+  const configuredBuffer = Buffer.from(configuredKey);
+  const providedBuffer = Buffer.from(providedKey);
+  if (configuredBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+  return timingSafeEqual(configuredBuffer, providedBuffer);
+};
+
+const getBlockedResponse = () =>
+  Response.json(
+    { success: false, error: 'Not found' },
+    { status: 404 }
+  );
+
+const getUnauthorizedResponse = () =>
+  Response.json(
+    { success: false, error: 'Unauthorized' },
+    { status: 401 }
+  );
 
 export async function POST(request) {
+  if (!isTestJwtEndpointEnabled()) {
+    return getBlockedResponse();
+  }
+
+  if (!isAuthorizedTestJwtRequest(request)) {
+    return getUnauthorizedResponse();
+  }
+
   try {
     const body = await request.json();
     const { testUser, labId } = body;
@@ -116,7 +158,15 @@ export async function POST(request) {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
+  if (!isTestJwtEndpointEnabled()) {
+    return getBlockedResponse();
+  }
+
+  if (!isAuthorizedTestJwtRequest(request)) {
+    return getUnauthorizedResponse();
+  }
+
   return Response.json({
     message: 'JWT Test Endpoint',
     usage: 'POST with { "testUser": { "username": "test@example.com" }, "labId": "optional-lab-id" }',

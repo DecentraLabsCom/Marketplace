@@ -39,6 +39,61 @@ import devLog from '@/utils/dev/logger'
 import { onboardingEventBus } from '../_eventBus'
 import { saveCredential } from '@/utils/webauthn/store'
 import { normalizePuc } from '@/utils/auth/puc'
+import {
+  extractCallbackTokenFromRequest,
+  isOnboardingCallbackSignatureRequired,
+  verifyOnboardingCallbackHmac,
+  verifyOnboardingCallbackToken,
+} from '@/utils/onboarding/callbackAuth'
+
+function validateCallbackAuth({ request, body, rawBody, stableUserId }) {
+  const required = isOnboardingCallbackSignatureRequired()
+  const token = extractCallbackTokenFromRequest(request)
+  const tokenProvided = Boolean(token)
+  const hmacProvided = Boolean(request.headers.get('x-onboarding-signature'))
+
+  const tokenValidation = tokenProvided
+    ? verifyOnboardingCallbackToken(token, {
+      stableUserId: stableUserId || undefined,
+      institutionId: body?.institutionId || undefined,
+      sessionId: body?.sessionId || undefined,
+    })
+    : { ok: false, code: 'MISSING_TOKEN' }
+
+  const hmacValidation = hmacProvided
+    ? verifyOnboardingCallbackHmac(request, rawBody)
+    : { ok: false, code: 'MISSING_HMAC' }
+
+  const isValid = tokenValidation.ok || hmacValidation.ok
+  const anyAuthProvided = tokenProvided || hmacProvided
+
+  if (required && !isValid) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Missing or invalid callback authentication',
+      code: 'CALLBACK_AUTH_REQUIRED',
+      tokenCode: tokenValidation.code,
+      hmacCode: hmacValidation.code,
+    }
+  }
+
+  if (anyAuthProvided && !isValid) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Invalid callback authentication',
+      code: 'CALLBACK_AUTH_INVALID',
+      tokenCode: tokenValidation.code,
+      hmacCode: hmacValidation.code,
+    }
+  }
+
+  return {
+    ok: true,
+    method: tokenValidation.ok ? 'token' : (hmacValidation.ok ? 'hmac' : 'none'),
+  }
+}
 
 /**
  * POST /api/onboarding/callback
@@ -49,14 +104,46 @@ import { normalizePuc } from '@/utils/auth/puc'
  */
 export async function POST(request) {
   try {
-    const body = await request.json()
+    const rawBody = await request.text()
+    let body
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {}
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      )
+    }
+
     const stableUserId = normalizePuc(body?.stableUserId)
+
+    const callbackAuth = validateCallbackAuth({
+      request,
+      body,
+      rawBody,
+      stableUserId,
+    })
+    if (!callbackAuth.ok) {
+      devLog.warn('[Onboarding/Callback] Rejected callback auth:', {
+        code: callbackAuth.code,
+        tokenCode: callbackAuth.tokenCode,
+        hmacCode: callbackAuth.hmacCode,
+      })
+      return NextResponse.json(
+        {
+          error: callbackAuth.error,
+          code: callbackAuth.code,
+        },
+        { status: callbackAuth.status }
+      )
+    }
 
     devLog.log('[Onboarding/Callback] Received callback:', {
       status: body.status,
       stableUserId,
       institutionId: body.institutionId,
       hasCredentialId: !!body.credentialId,
+      authMethod: callbackAuth.method,
     })
 
     // Validate required fields

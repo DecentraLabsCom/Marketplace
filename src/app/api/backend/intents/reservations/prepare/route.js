@@ -7,78 +7,16 @@ import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
-import getProvider from '@/app/api/contract/utils/getProvider'
-import { defaultChain } from '@/utils/blockchain/networkConfig'
-import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import {
+  getIntentBackendAuthToken,
+  requestIntentAuthorizationSession,
+  mapAuthorizationErrorCode,
+  normalizeAuthorizationResponse,
+  hasUsableAuthorizationSession,
+  resolveAuthorizationUrl,
+} from '@/utils/intents/backendClient'
+import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import devLog from '@/utils/dev/logger'
-
-function extractOnchainErrorDetails(err) {
-  return {
-    message: err?.message || null,
-    shortMessage: err?.shortMessage || null,
-    reason: err?.reason || null,
-    code: err?.code || null,
-    errorName: err?.errorName || null,
-    errorSignature: err?.errorSignature || null,
-    data: err?.data || null,
-    rpcMessage: err?.info?.error?.message || null,
-  }
-}
-
-function getBackendApiKey() {
-  return process.env.INSTITUTION_BACKEND_SP_API_KEY || null
-}
-
-function mapAuthorizationErrorCode(message) {
-  const normalized = String(message || '').trim().toLowerCase()
-  if (!normalized) return null
-  if (normalized === 'webauthn_credential_not_registered') {
-    return 'WEBAUTHN_CREDENTIAL_NOT_REGISTERED'
-  }
-  if (normalized === 'missing_puc_for_webauthn') {
-    return 'MISSING_PUC_FOR_WEBAUTHN'
-  }
-  return null
-}
-
-function normalizeAuthorizationResponse(payload) {
-  const candidate = payload?.data || payload?.authorization || payload
-  if (!candidate || typeof candidate !== 'object') {
-    return { sessionId: null, ceremonyUrl: null, authorizationUrl: null, expiresAt: null }
-  }
-
-  return {
-    sessionId:
-      candidate.sessionId ||
-      candidate.session_id ||
-      candidate.authorizationSessionId ||
-      candidate.authorization_session_id ||
-      null,
-    ceremonyUrl: candidate.ceremonyUrl || candidate.ceremony_url || null,
-    authorizationUrl: candidate.authorizationUrl || candidate.authorization_url || null,
-    expiresAt: candidate.expiresAt || candidate.expires_at || null,
-  }
-}
-
-async function getBackendAuthToken() {
-  return marketplaceJwtService.generateIntentBackendToken()
-}
-
-async function resolveChainNowSec() {
-  try {
-    const provider = await getProvider(defaultChain)
-    const block = await provider.getBlock('latest')
-    const timestamp = Number(block?.timestamp)
-    if (Number.isFinite(timestamp) && timestamp > 0) {
-      return Math.max(0, timestamp - 30)
-    }
-  } catch (error) {
-    devLog.warn('[API] Failed to resolve chain timestamp, falling back to local time:', error?.message || error)
-  }
-
-  const fallback = Math.floor(Date.now() / 1000) - 30
-  return fallback > 0 ? fallback : 0
-}
 
 export async function POST(request) {
   try {
@@ -171,33 +109,24 @@ export async function POST(request) {
     let authorization = null
     let backendAuth = null
     try {
-      backendAuth = await getBackendAuthToken()
-      const apiKey = getBackendApiKey()
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${backendAuth.token}`,
-      }
-      if (apiKey) {
-        headers['x-api-key'] = apiKey
-      }
+      backendAuth = await getIntentBackendAuthToken()
 
       const serializedMeta = serializeIntent(intentPackage.meta)
       const serializedPayload = serializeIntent(intentPackage.payload)
 
-      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/intents/authorize`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          meta: serializedMeta,
-          reservationPayload: serializedPayload,
-          signature: adminSignature,
-          samlAssertion,
-          returnUrl: returnUrl || null,
-        }),
+      const authResponse = await requestIntentAuthorizationSession({
+        backendUrl,
+        backendAuthToken: backendAuth.token,
+        payloadKey: 'reservationPayload',
+        meta: serializedMeta,
+        payload: serializedPayload,
+        signature: adminSignature,
+        samlAssertion,
+        returnUrl: returnUrl || null,
       })
 
-      authorization = await res.json().catch(() => ({}))
-      if (!res.ok) {
+      authorization = authResponse.data
+      if (!authResponse.ok) {
         const authError =
           authorization?.error ||
           authorization?.message ||
@@ -205,15 +134,12 @@ export async function POST(request) {
         const code = mapAuthorizationErrorCode(authError)
         return NextResponse.json(
           code ? { error: authError, code } : { error: authError },
-          { status: res.status },
+          { status: authResponse.status },
         )
       }
 
       const normalizedAuthorization = normalizeAuthorizationResponse(authorization)
-      const hasUsableAuthorization =
-        Boolean(normalizedAuthorization.sessionId) ||
-        Boolean(normalizedAuthorization.ceremonyUrl) ||
-        Boolean(normalizedAuthorization.authorizationUrl)
+      const hasUsableAuthorization = hasUsableAuthorizationSession(normalizedAuthorization)
 
       if (!hasUsableAuthorization) {
         devLog.error('[API] Reservation authorization response missing session/url', { authorization })
@@ -235,10 +161,7 @@ export async function POST(request) {
     }
 
     const intentForTransport = serializeIntent(intentPackage)
-    const fallbackUrl = authorization?.sessionId
-      ? `${backendUrl.replace(/\/$/, '')}/intents/authorize/ceremony/${authorization.sessionId}`
-      : null
-    const authorizationUrl = authorization?.ceremonyUrl || authorization?.authorizationUrl || fallbackUrl
+    const authorizationUrl = resolveAuthorizationUrl(backendUrl, authorization)
 
     return NextResponse.json({
       kind: 'reservation',
