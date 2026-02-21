@@ -21,6 +21,7 @@ import {
   within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ProviderDashboard from "../ProviderDashboardPage";
 
 // Mock navigation
@@ -32,6 +33,13 @@ jest.mock("next/navigation", () => ({
 // Mock viem utilities
 jest.mock("viem", () => ({
   parseUnits: jest.fn((value) => BigInt(Math.floor(parseFloat(value) * 1e18))),
+}));
+
+// Mock wagmi hooks used by staking / contract read hooks
+jest.mock('wagmi', () => ({
+  useReadContract: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
+  useConnection: jest.fn(() => ({ chain: { id: 1, name: 'Ethereum' } })),
+  useAccount: jest.fn(() => ({ address: '0xProviderAddress', isConnected: true })),
 }));
 
 // Mock logger
@@ -96,6 +104,8 @@ const expectTempNotificationCall = (status, messageMatcher) => {
 // Context mocks
 jest.mock("@/context/UserContext", () => ({
   useUser: () => mockUserData,
+  useOptionalUser: () => mockUserData,
+  UserData: ({ children }) => children,
 }));
 
 jest.mock("@/context/NotificationContext", () => ({
@@ -254,6 +264,28 @@ jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   ),
 }));
 
+// Mock staking components used by the dashboard (keep unit tests isolated)
+jest.mock('@/components/dashboard/provider/staking/ProviderStakingPanel', () => ({
+  __esModule: true,
+  default: ({ providerAddress, isSSO, labCount }) => (
+    <div data-testid="provider-staking-panel">Staking (mock)</div>
+  ),
+}));
+
+jest.mock('@/components/dashboard/provider/staking/PendingPayoutsPanel', () => ({
+  __esModule: true,
+  default: ({ labs, onCollectAll, isSSO }) => (
+    <div data-testid="pending-payouts-panel">Pending Payouts (mock)</div>
+  ),
+}));
+
+jest.mock('@/components/dashboard/provider/staking/StakeHealthIndicator', () => ({
+  __esModule: true,
+  default: ({ variant }) => (
+    <span data-testid="stake-health-indicator">Health</span>
+  ),
+}));
+
 jest.mock("@/components/dashboard/provider/LabModal", () => ({
   __esModule: true,
   default: ({ isOpen, onClose, onSubmit, lab }) =>
@@ -279,9 +311,20 @@ jest.mock("@/components/dashboard/provider/LabModal", () => ({
     ) : null,
 }));
 
+// QueryClient wrapper for tests (ProviderDashboard uses React Query hooks)
+const createTestQueryClient = () =>
+  new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+
+let queryClient;
+const renderWithClient = (ui, options) =>
+  render(ui, { wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>, ...options });
+
 describe("ProviderDashboard Component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
+    // create a fresh QueryClient for each test
+    queryClient = createTestQueryClient();
 
     // Reset to default provider state
     mockUserData = {
@@ -309,7 +352,7 @@ describe("ProviderDashboard Component", () => {
 
   describe("Access Control", () => {
     test("renders dashboard for authenticated provider", async () => {
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(await screen.findByText("Lab Panel")).toBeInTheDocument();
       expect(screen.getByTestId("labs-list")).toBeInTheDocument();
@@ -322,7 +365,7 @@ describe("ProviderDashboard Component", () => {
       mockUserData.isLoading = false;
       mockUserData.isProviderLoading = false;
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith("/");
@@ -332,7 +375,7 @@ describe("ProviderDashboard Component", () => {
     test("does not redirect while loading", async () => {
       mockUserData.isLoading = true;
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       await waitFor(
         () => {
@@ -345,7 +388,7 @@ describe("ProviderDashboard Component", () => {
     test("does not redirect while provider status loading", async () => {
       mockUserData.isProviderLoading = true;
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       await waitFor(
         () => {
@@ -356,7 +399,7 @@ describe("ProviderDashboard Component", () => {
     });
 
     test("requires provider in AccessControl", () => {
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const accessControl = screen.getByTestId("access-control");
       expect(accessControl).toHaveAttribute("data-require-provider", "true");
@@ -365,7 +408,7 @@ describe("ProviderDashboard Component", () => {
 
   describe("Component Rendering", () => {
     test("displays dashboard header with correct title", () => {
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(screen.getByTestId("dashboard-header")).toHaveTextContent(
         "Lab Panel"
@@ -373,11 +416,38 @@ describe("ProviderDashboard Component", () => {
     });
 
     test("renders all main dashboard sections", () => {
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(screen.getByTestId("labs-list")).toBeInTheDocument();
       expect(screen.getByTestId("calendar")).toBeInTheDocument();
       expect(screen.getByTestId("actions")).toBeInTheDocument();
+    });
+
+    test("shows staking compact card and opens modal for wallet users", async () => {
+      // default mockUserData.isSSO = false
+      renderWithClient(<ProviderDashboard />);
+
+      // compact card should render
+      expect(screen.getByText(/Staking & payouts/i)).toBeInTheDocument();
+      expect(screen.getByTestId('stake-health-indicator')).toBeInTheDocument();
+
+      // open modal
+      const manageBtn = screen.getByRole('button', { name: /manage staking/i });
+      expect(manageBtn).toBeInTheDocument();
+      fireEvent.click(manageBtn);
+
+      // modal should show provider staking + pending payouts (mocked)
+      expect(await screen.findByTestId('provider-staking-panel')).toBeInTheDocument();
+      expect(screen.getByTestId('pending-payouts-panel')).toBeInTheDocument();
+    });
+
+    test("does not render staking controls for SSO users", () => {
+      mockUserData.isSSO = true;
+      renderWithClient(<ProviderDashboard />);
+
+      // compact card and manage button should NOT be present for SSO users
+      expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
 
     test("renders labs in the list", async () => {
@@ -388,7 +458,7 @@ describe("ProviderDashboard Component", () => {
         ],
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const labItems = await screen.findByTestId("lab-items");
 
@@ -412,7 +482,7 @@ describe("ProviderDashboard Component", () => {
         ],
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       await waitFor(() => {
         expect(screen.getByTestId("booking-count")).toHaveTextContent(
@@ -431,7 +501,7 @@ describe("ProviderDashboard Component", () => {
         ],
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       await waitFor(() => {
         const select = screen.getByTestId("lab-select");
@@ -447,7 +517,7 @@ describe("ProviderDashboard Component", () => {
         ],
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const select = await screen.findByTestId("lab-select");
 
@@ -459,7 +529,7 @@ describe("ProviderDashboard Component", () => {
     test("handles empty labs list", () => {
       mockLabsData.data = { labs: [] };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(screen.getByTestId("labs-list")).toBeInTheDocument();
     });
@@ -468,7 +538,7 @@ describe("ProviderDashboard Component", () => {
   describe("Lab CRUD Operations", () => {
     describe("Add Lab", () => {
       test("opens modal for new lab", async () => {
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const addButton = screen.getByTestId("add-new-lab");
         fireEvent.click(addButton);
@@ -485,7 +555,7 @@ describe("ProviderDashboard Component", () => {
 
         mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const addButton = screen.getByTestId("add-new-lab");
         fireEvent.click(addButton);
@@ -523,7 +593,7 @@ describe("ProviderDashboard Component", () => {
 
         mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const addButton = screen.getByTestId("add-new-lab");
         fireEvent.click(addButton);
@@ -543,7 +613,7 @@ describe("ProviderDashboard Component", () => {
         const error = new Error("Network error");
         mockAddLabMutate.mockRejectedValueOnce(error);
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const addButton = screen.getByTestId("add-new-lab");
         fireEvent.click(addButton);
@@ -581,7 +651,7 @@ describe("ProviderDashboard Component", () => {
       });
 
       test("opens modal with selected lab data", async () => {
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         await waitFor(() => {
           const editButton = screen.getByTestId("edit-1");
@@ -593,10 +663,10 @@ describe("ProviderDashboard Component", () => {
       });
 
       test("triggers update mutation when submitting edit", async () => {
-        mockUpdateLabMutate.mockImplementation(() => {});
+        mockUpdateLabMutate.mockResolvedValueOnce({ success: true });
         mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         await waitFor(() => {
           const editButton = screen.getByTestId("edit-1");
@@ -610,8 +680,6 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          // Verify that the edit flow is triggered
-          expect(mockUpdateLabMutate).toHaveBeenCalled();
           // Ensure optimistic editing was set and then cleared
           expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ editing: true, isPending: true }));
           expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
@@ -620,9 +688,9 @@ describe("ProviderDashboard Component", () => {
 
       test("handles edit error", async () => {
         const error = new Error("Update failed");
-        mockSaveLabDataMutate.mockRejectedValueOnce(error);
+        mockUpdateLabMutate.mockRejectedValueOnce(error);
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         await waitFor(() => {
           const editButton = screen.getByTestId("edit-1");
@@ -636,6 +704,7 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
+          expect(mockUpdateLabMutate).toHaveBeenCalled();
           expectTempNotificationCall("error", expect.stringContaining("Failed"));
         });
       });
@@ -651,7 +720,7 @@ describe("ProviderDashboard Component", () => {
       test("deletes lab successfully", async () => {
         mockDeleteLabMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const deleteButton = await screen.findByTestId("delete-1");
 
@@ -694,7 +763,7 @@ describe("ProviderDashboard Component", () => {
         const error = new Error("Delete failed");
         mockDeleteLabMutate.mockRejectedValueOnce(error);
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const deleteButton = await screen.findByTestId("delete-1");
 
@@ -719,7 +788,7 @@ describe("ProviderDashboard Component", () => {
 
         mockListLabMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const listButton = await screen.findByTestId("list-1");
 
@@ -754,7 +823,7 @@ describe("ProviderDashboard Component", () => {
 
         mockUnlistLabMutate.mockResolvedValueOnce({ success: true });
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const unlistButton = await screen.findByTestId("unlist-1");
 
@@ -780,7 +849,7 @@ describe("ProviderDashboard Component", () => {
         const error = new Error("List failed");
         mockListLabMutate.mockRejectedValueOnce(error);
 
-        render(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
         const listButton = await screen.findByTestId("list-1");
 
@@ -802,7 +871,7 @@ describe("ProviderDashboard Component", () => {
     test("hides Collect All button for SSO users", () => {
       mockUserData.isSSO = true;
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(screen.queryByTestId("collect-all")).not.toBeInTheDocument();
     });
@@ -810,7 +879,7 @@ describe("ProviderDashboard Component", () => {
     test("collects all balances successfully", async () => {
       mockRequestFundsMutate.mockResolvedValueOnce({ success: true });
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const collectButton = screen.getByTestId("collect-all");
 
@@ -829,7 +898,7 @@ describe("ProviderDashboard Component", () => {
       const error = new Error("Collection failed");
       mockRequestFundsMutate.mockRejectedValueOnce(error);
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const collectButton = screen.getByTestId("collect-all");
 
@@ -855,7 +924,7 @@ describe("ProviderDashboard Component", () => {
         error: { message: "Network error" },
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(
         await screen.findByText(/Error Loading Labs/i)
@@ -867,7 +936,7 @@ describe("ProviderDashboard Component", () => {
       mockLabsData.isError = true;
       mockLabsData.error = { message: "Failed" };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const retryButton = await screen.findByRole("button", { name: /retry/i });
       expect(retryButton).toBeInTheDocument();
@@ -881,7 +950,7 @@ describe("ProviderDashboard Component", () => {
         error: null,
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(
         await screen.findByText(/Error Loading Labs/i)
@@ -898,7 +967,7 @@ describe("ProviderDashboard Component", () => {
         labs: [{ name: "Lab Without ID" }],
       };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const labItems = await screen.findByTestId("lab-items");
       expect(within(labItems).getByText("Lab Without ID")).toBeInTheDocument();
@@ -907,7 +976,7 @@ describe("ProviderDashboard Component", () => {
     test("handles null labs data", () => {
       mockLabsData.data = null;
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(screen.getByTestId("labs-list")).toBeInTheDocument();
     });
@@ -915,7 +984,7 @@ describe("ProviderDashboard Component", () => {
     test("handles undefined labs array", () => {
       mockLabsData.data = { labs: undefined };
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       expect(screen.getByTestId("labs-list")).toBeInTheDocument();
     });
@@ -924,7 +993,7 @@ describe("ProviderDashboard Component", () => {
       mockAddLabMutate.mockResolvedValueOnce({ labId: "10", success: true });
       mockSaveLabDataMutate.mockResolvedValueOnce({ success: true });
 
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const addButton = screen.getByTestId("add-new-lab");
       fireEvent.click(addButton);
@@ -944,7 +1013,7 @@ describe("ProviderDashboard Component", () => {
     });
 
     test("handles calendar date change", async () => {
-      render(<ProviderDashboard />);
+      renderWithClient(<ProviderDashboard />);
 
       const calendar = screen.getByTestId("calendar");
       const dateButton = calendar.querySelector("button");

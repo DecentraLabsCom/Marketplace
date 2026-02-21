@@ -8,9 +8,10 @@ const ALLOWED_FILES = new Set([
   'src/utils/notifications/labToasts.js',
   'src/utils/notifications/reservationToasts.js',
   'src/utils/notifications/userDashboardToasts.js',
+  'src/utils/notifications/stakingToasts.js',
 ])
 
-const collectJsFiles = (dirPath) => {
+function collectJsFiles(dirPath) {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
   const files = []
 

@@ -25,6 +25,9 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
+import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
+import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
+import { useStakeInfo, useStakeInfoWallet } from '@/hooks/staking/useStakingAtomicQueries'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
@@ -54,6 +57,8 @@ import {
   notifyLabUpdateFailed,
   notifyLabUpdateStarted,
 } from '@/utils/notifications/labToasts'
+
+const useStakeInfoForDashboard = useStakeInfoWallet || useStakeInfo
 
 const sanitizeProviderNameForUri = (name) => {
   const base = (name || 'Provider').toString().trim()
@@ -412,6 +417,10 @@ export default function ProviderDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
+  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false)
+  const { data: stakeInfo } = useStakeInfoForDashboard(providerOwnerAddress, {
+    enabled: !!providerOwnerAddress && !isSSO,
+  })
 
   // Handle adding a new lab using React Query mutation
   const handleAddLab = useCallback(async ({ labData }) => {
@@ -1059,6 +1068,27 @@ export default function ProviderDashboard() {
             />
           </div>
         </div>
+
+        {!isSSO && (
+          <>
+            <ProviderStakingCompactCard
+              stakeInfo={stakeInfo}
+              onManage={() => setIsStakingModalOpen(true)}
+            />
+
+            <ProviderStakingModal
+              isOpen={isStakingModalOpen}
+              onClose={() => setIsStakingModalOpen(false)}
+              providerAddress={providerOwnerAddress}
+              labs={ownedLabs}
+              isSSO={isSSO}
+              labCount={ownedLabs.length}
+              onNotify={(type, message) => addNotification(type, message)}
+              onCollectAll={handleCollectAll}
+              isCollecting={requestFundsMutation.isPending}
+            />
+          </>
+        )}
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
           lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />
