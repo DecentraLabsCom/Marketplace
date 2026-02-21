@@ -7,7 +7,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useUser } from '@/context/UserContext'
-import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
+import { bookingQueryKeys, stakingQueryKeys } from '@/utils/hooks/queryKeys'
 import { useBookingCacheUpdates } from './useBookingCacheUpdates'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import {
@@ -109,6 +109,30 @@ const awaitBackendAuthorization = async (prepareData, { backendUrl, authToken, p
       ),
     closePopupInFinally: true,
   })
+}
+
+const DEFAULT_REQUEST_FUNDS_MAX_BATCH = 100
+
+const normalizeRequestFundsInput = (input, { fallbackBackendUrl } = {}) => {
+  const payload = input && typeof input === 'object' ? input : {}
+  const rawLabId = payload.labId ?? payload.tokenId ?? payload.id
+  const parsedLabId = Number(rawLabId)
+
+  if (!Number.isInteger(parsedLabId) || parsedLabId < 0) {
+    throw new Error('Missing or invalid labId for requestFunds')
+  }
+
+  const rawMaxBatch = payload.maxBatch ?? DEFAULT_REQUEST_FUNDS_MAX_BATCH
+  const parsedMaxBatch = Number(rawMaxBatch)
+  if (!Number.isInteger(parsedMaxBatch) || parsedMaxBatch < 1 || parsedMaxBatch > 100) {
+    throw new Error('Invalid maxBatch for requestFunds (expected integer 1-100)')
+  }
+
+  return {
+    labId: parsedLabId,
+    maxBatch: parsedMaxBatch,
+    backendUrl: payload.backendUrl || fallbackBackendUrl || null,
+  }
 }
 
 async function runActionIntent(action, payload) {
@@ -1041,19 +1065,30 @@ export const useRequestFundsSSO = (options = {}) => {
   const { institutionBackendUrl } = useUser();
 
   return useMutation({
-    mutationFn: async () => {
-      if (!institutionBackendUrl) {
+    mutationFn: async (requestInput = {}) => {
+      const { labId, maxBatch, backendUrl } = normalizeRequestFundsInput(requestInput, {
+        fallbackBackendUrl: institutionBackendUrl,
+      })
+      if (!backendUrl) {
         throw new Error('Missing institutional backend URL');
       }
       const data = await runActionIntent(ACTION_CODES.REQUEST_FUNDS, {
-        backendUrl: institutionBackendUrl,
+        backendUrl,
+        labId,
+        maxBatch,
       });
       devLog.log('useRequestFundsSSO intent (webauthn):', data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
+      queryClient.invalidateQueries({ queryKey: ['staking', 'pendingPayouts'], exact: false });
+
+      const normalizedLabId = Number(variables?.labId)
+      if (Number.isInteger(normalizedLabId) && normalizedLabId >= 0) {
+        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.pendingPayout(normalizedLabId) });
+      }
       devLog.log('Funds requested successfully, cache invalidated');
     },
     onError: (error) => {
@@ -1074,14 +1109,21 @@ export const useRequestFundsWallet = (options = {}) => {
   const { contractWriteFunction: requestFunds } = useContractWriteFunction('requestFunds');
 
   return useMutation({
-    mutationFn: async () => {
-      const txHash = await requestFunds([]);
+    mutationFn: async (requestInput = {}) => {
+      const { labId, maxBatch } = normalizeRequestFundsInput(requestInput)
+      const txHash = await requestFunds([BigInt(labId), BigInt(maxBatch)]);
       devLog.log('useRequestFundsWallet - tx sent:', txHash);
-      return { hash: txHash };
+      return { hash: txHash, labId };
     },
-    onSuccess: (result) => {
+    onSuccess: (_result, variables) => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
+      queryClient.invalidateQueries({ queryKey: ['staking', 'pendingPayouts'], exact: false });
+
+      const normalizedLabId = Number(variables?.labId)
+      if (Number.isInteger(normalizedLabId) && normalizedLabId >= 0) {
+        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.pendingPayout(normalizedLabId) });
+      }
       devLog.log('Funds requested successfully via wallet, cache invalidated');
     },
     onError: (error) => {

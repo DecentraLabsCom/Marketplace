@@ -12,10 +12,10 @@ jest.mock('../ProviderStakingPanel', () => ({
 
 jest.mock('../PendingPayoutsPanel', () => ({
   __esModule: true,
-  default: ({ onCollectAll, isCollecting }) => (
+  default: ({ onCollect, isCollecting, isCollectEnabled }) => (
     <div data-testid="mock-pending-payouts-panel">
-      <button data-testid="collect-all-btn" onClick={() => onCollectAll && onCollectAll()}>
-        Collect All (mock)
+      <button data-testid="collect-btn" disabled={!isCollectEnabled} onClick={() => onCollect && onCollect()}>
+        Collect (mock)
       </button>
       <div data-testid="collecting">{String(Boolean(isCollecting))}</div>
     </div>
@@ -27,7 +27,7 @@ import ProviderStakingModal from '../ProviderStakingModal'
 describe('ProviderStakingModal', () => {
   test('renders modal with panels and passes props', () => {
     const onClose = jest.fn()
-    const onCollectAll = jest.fn()
+    const onCollect = jest.fn()
     const addTemporaryNotification = jest.fn()
 
     render(
@@ -39,7 +39,8 @@ describe('ProviderStakingModal', () => {
         isSSO={false}
         labCount={2}
         addTemporaryNotification={addTemporaryNotification}
-        onCollectAll={onCollectAll}
+        onCollect={onCollect}
+        isCollectEnabled={true}
         isCollecting={true}
       />
     )
@@ -67,9 +68,9 @@ describe('ProviderStakingModal', () => {
     expect(screen.getByTestId('collecting')).toHaveTextContent('true')
   })
 
-  test('close button calls onClose and Collect All forwards to handler', () => {
+  test('close button calls onClose and Collect forwards to handler', () => {
     const onClose = jest.fn()
-    const onCollectAll = jest.fn()
+    const onCollect = jest.fn()
 
     render(
       <ProviderStakingModal
@@ -80,7 +81,8 @@ describe('ProviderStakingModal', () => {
         isSSO={false}
         labCount={0}
         addTemporaryNotification={() => {}}
-        onCollectAll={onCollectAll}
+        onCollect={onCollect}
+        isCollectEnabled={true}
         isCollecting={false}
       />
     )
@@ -89,9 +91,9 @@ describe('ProviderStakingModal', () => {
     fireEvent.click(closeBtn)
     expect(onClose).toHaveBeenCalled()
 
-    const collectBtn = screen.getByTestId('collect-all-btn')
+    const collectBtn = screen.getByTestId('collect-btn')
     fireEvent.click(collectBtn)
-    expect(onCollectAll).toHaveBeenCalled()
+    expect(onCollect).toHaveBeenCalled()
   })
 
   test('does not render when isOpen is false', () => {

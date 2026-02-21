@@ -27,7 +27,7 @@ import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCa
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
 import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
-import { useStakeInfo, useRequiredStake } from '@/hooks/staking/useStaking'
+import { useStakeInfo, useRequiredStake, usePendingLabPayout } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
@@ -87,6 +87,37 @@ const resolveOnchainLabUri = (uri) => {
   return trimmed
 }
 
+const DEFAULT_COLLECT_MAX_BATCH = 100
+
+const hasCollectablePayout = (payoutData) => {
+  const totalPayout = payoutData?.totalPayout
+  if (totalPayout === undefined || totalPayout === null) return false
+
+  try {
+    return BigInt(totalPayout) > 0n
+  } catch {
+    return false
+  }
+}
+
+const isNoCompletedReservationsError = (error) => {
+  const rawMessage = [
+    error?.shortMessage,
+    error?.message,
+    error?.reason,
+    error?.cause?.message,
+    error?.data?.message,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  return (
+    rawMessage.includes('no completed reservations')
+    || rawMessage.includes('nothing to process')
+  )
+}
+
 /**
  * Provider dashboard page component
  * Displays provider's labs, reservations calendar, and provides lab management tools
@@ -133,12 +164,6 @@ export default function ProviderDashboard() {
     }
     return allLabsData.labs;
   }, [allLabsData]);
-
-  // Legacy compatibility - derive ownedLabIds from owned labs
-  const ownedLabIds = useMemo(() => 
-    ownedLabs.map(lab => lab.id || lab.tokenId).filter(Boolean), 
-    [ownedLabs]
-  );
 
   const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
   const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
@@ -397,6 +422,34 @@ export default function ProviderDashboard() {
     ownedLabs.find(lab => String(lab.id) === String(selectedLabId)),
     [ownedLabs, selectedLabId]
   );
+
+  const selectedCollectLabId = useMemo(() => {
+    const rawLabId = selectedLab?.id ?? selectedLab?.tokenId ?? selectedLabId
+    const normalizedLabId = Number(rawLabId)
+    if (!Number.isInteger(normalizedLabId) || normalizedLabId < 0) return null
+    return normalizedLabId
+  }, [selectedLab, selectedLabId])
+
+  const {
+    data: selectedLabPendingPayout,
+    isLoading: isSelectedLabPendingPayoutLoading,
+  } = usePendingLabPayout(selectedCollectLabId, {
+    enabled: !isSSO && selectedCollectLabId !== null,
+  })
+
+  const canCollectSelectedLab = useMemo(() => {
+    if (isSSO) return false
+    if (selectedCollectLabId === null) return false
+    if (requestFundsMutation.isPending) return false
+    if (isSelectedLabPendingPayoutLoading) return false
+    return hasCollectablePayout(selectedLabPendingPayout)
+  }, [
+    isSSO,
+    selectedCollectLabId,
+    requestFundsMutation.isPending,
+    isSelectedLabPendingPayoutLoading,
+    selectedLabPendingPayout,
+  ])
   
   // Ensure we have a valid lab object to pass to the modal
   const modalLab = useMemo(() => 
@@ -950,17 +1003,35 @@ export default function ProviderDashboard() {
     }
   };
 
-// Handle collecting balances from all labs
-  const handleCollectAll = async () => {
-    const actionKey = 'collect:all';
+// Handle collecting balance from selected lab
+  const handleCollect = async () => {
+    const actionKey = 'collect:selected';
     try {
       if (isSSO) {
-        setActionProgressNotification(actionKey, 'Collecting all balances...');
+        setActionProgressNotification(actionKey, 'Collecting lab balance...');
       } else {
         notifyLabCollectStarted(addTemporaryNotification);
       }
-      
-      await requestFundsMutation.mutateAsync();
+
+      if (selectedCollectLabId === null) {
+        throw new Error('Select a lab first');
+      }
+      if (!hasCollectablePayout(selectedLabPendingPayout)) {
+        throw new Error('No pending payout for selected lab');
+      }
+
+      try {
+        await requestFundsMutation.mutateAsync({
+          labId: selectedCollectLabId,
+          maxBatch: DEFAULT_COLLECT_MAX_BATCH,
+          ...(isSSO ? { backendUrl: institutionBackendUrl } : {}),
+        });
+      } catch (collectError) {
+        if (!isNoCompletedReservationsError(collectError)) {
+          throw collectError
+        }
+        throw new Error('No completed reservations to collect');
+      }
       
       if (isSSO) {
         clearActionProgressNotification(actionKey);
@@ -1064,7 +1135,9 @@ export default function ProviderDashboard() {
             {/* Provider actions */}
             <ProviderActions
               isSSO={isSSO}
-              onCollectAll={handleCollectAll}
+              onCollect={handleCollect}
+              isCollectEnabled={canCollectSelectedLab}
+              isCollecting={requestFundsMutation.isPending}
               onAddNewLab={() => {
                 setNewLab(newLabStructure);
                 setSelectedLabId("");
@@ -1089,7 +1162,8 @@ export default function ProviderDashboard() {
               isSSO={isSSO}
               labCount={ownedLabs.length}
               addTemporaryNotification={addTemporaryNotification}
-              onCollectAll={handleCollectAll}
+              onCollect={handleCollect}
+              isCollectEnabled={canCollectSelectedLab}
               isCollecting={requestFundsMutation.isPending}
             />
           </>

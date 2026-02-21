@@ -27,14 +27,16 @@ const getLabName = (lab, labId) => lab?.name || lab?.metadata?.name || `Lab #${l
  * Aggregated pending payouts panel for all provider labs
  * @param {Object} props
  * @param {Array} props.labs - Array of lab objects owned by the provider
- * @param {Function} props.onCollectAll - Callback to trigger fund collection
+ * @param {Function} props.onCollect - Callback to trigger fund collection
+ * @param {boolean} props.isCollectEnabled - Whether collect action is enabled
  * @param {boolean} props.isSSO - Whether user is SSO
  * @param {boolean} [props.isCollecting] - Whether collection is in progress
  * @returns {JSX.Element}
  */
 export default function PendingPayoutsPanel({
   labs = [],
-  onCollectAll,
+  onCollect,
+  isCollectEnabled = false,
   isSSO = false,
   isCollecting = false,
 }) {
@@ -66,8 +68,8 @@ export default function PendingPayoutsPanel({
         </h3>
         {hasLabs && !isSSO && (
           <button
-            onClick={onCollectAll}
-            disabled={isCollecting}
+            onClick={onCollect}
+            disabled={isCollecting || !isCollectEnabled}
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#bcc4fc] text-white hover:bg-[#aab8e6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isCollecting ? (
@@ -76,7 +78,7 @@ export default function PendingPayoutsPanel({
                 Collecting...
               </span>
             ) : (
-              'Collect All'
+              'Collect'
             )}
           </button>
         )}
@@ -175,7 +177,8 @@ export default function PendingPayoutsPanel({
 
 PendingPayoutsPanel.propTypes = {
   labs: PropTypes.array,
-  onCollectAll: PropTypes.func,
+  onCollect: PropTypes.func,
+  isCollectEnabled: PropTypes.bool,
   isSSO: PropTypes.bool,
   isCollecting: PropTypes.bool,
 }

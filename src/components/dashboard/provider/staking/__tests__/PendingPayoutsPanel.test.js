@@ -10,7 +10,7 @@ import PendingPayoutsPanel from '../PendingPayoutsPanel'
 
 describe('PendingPayoutsPanel - revenue split boxes', () => {
   test('split boxes have matching base width and governance is 10% larger', () => {
-    const { container } = render(<PendingPayoutsPanel labs={[]} onCollectAll={() => {}} isSSO={false} isCollecting={false} />)
+    const { container } = render(<PendingPayoutsPanel labs={[]} onCollect={() => {}} isCollectEnabled={false} isSSO={false} isCollecting={false} />)
 
     const providerBox = screen.getByText(/^provider$/i).closest('div')
     const treasuryBox = screen.getByText(/^treasury$/i).closest('div')

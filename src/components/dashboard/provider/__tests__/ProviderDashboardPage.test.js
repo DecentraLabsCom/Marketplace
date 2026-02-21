@@ -74,6 +74,12 @@ let mockBookingsData = {
   isError: false,
 };
 
+let mockSelectedLabPendingPayout = {
+  data: { walletPayout: "100", institutionalPayout: "0", totalPayout: "100", institutionalCollectorCount: 0 },
+  isLoading: false,
+  isError: false,
+};
+
 // Mock functions
 const mockAddTemporaryNotification = jest.fn();
 const mockAddPersistentNotification = jest.fn();
@@ -250,11 +256,11 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
 
 jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   __esModule: true,
-  default: ({ onCollectAll, onAddNewLab, isSSO }) => (
+  default: ({ onCollect, onAddNewLab, isSSO, isCollectEnabled, isCollecting }) => (
     <div data-testid="actions">
       {!isSSO && (
-        <button onClick={onCollectAll} data-testid="collect-all">
-          Collect All
+        <button onClick={onCollect} disabled={!isCollectEnabled || isCollecting} data-testid="collect">
+          Collect
         </button>
       )}
       <button onClick={onAddNewLab} data-testid="add-new-lab">
@@ -274,7 +280,7 @@ jest.mock('@/components/dashboard/provider/staking/ProviderStakingPanel', () => 
 
 jest.mock('@/components/dashboard/provider/staking/PendingPayoutsPanel', () => ({
   __esModule: true,
-  default: ({ labs, onCollectAll, isSSO }) => (
+  default: ({ labs, onCollect, isSSO, isCollectEnabled, isCollecting }) => (
     <div data-testid="pending-payouts-panel">Pending Payouts (mock)</div>
   ),
 }));
@@ -290,6 +296,7 @@ jest.mock('@/components/dashboard/provider/staking/StakeHealthIndicator', () => 
 jest.mock('@/hooks/staking/useStaking', () => ({
   useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
   useRequiredStake: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
+  usePendingLabPayout: jest.fn(() => mockSelectedLabPendingPayout),
 }));
 
 jest.mock("@/components/dashboard/provider/LabModal", () => ({
@@ -352,6 +359,12 @@ describe("ProviderDashboard Component", () => {
 
     mockBookingsData = {
       data: { bookings: [] },
+      isError: false,
+    };
+
+    mockSelectedLabPendingPayout = {
+      data: { walletPayout: "100", institutionalPayout: "0", totalPayout: "100", institutionalCollectorCount: 0 },
+      isLoading: false,
       isError: false,
     };
   });
@@ -874,20 +887,23 @@ describe("ProviderDashboard Component", () => {
   });
 
   describe("Funds Collection", () => {
-    test("hides Collect All button for SSO users", () => {
+    test("hides Collect button for SSO users", () => {
       mockUserData.isSSO = true;
 
       renderWithClient(<ProviderDashboard />);
 
-      expect(screen.queryByTestId("collect-all")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("collect")).not.toBeInTheDocument();
     });
 
-    test("collects all balances successfully", async () => {
+    test("collects selected lab balance successfully", async () => {
+      mockLabsData.data = {
+        labs: [{ id: "1", name: "Lab 1", listed: true }],
+      };
       mockRequestFundsMutate.mockResolvedValueOnce({ success: true });
 
       renderWithClient(<ProviderDashboard />);
 
-      const collectButton = screen.getByTestId("collect-all");
+      const collectButton = screen.getByTestId("collect");
 
       await act(async () => {
         fireEvent.click(collectButton);
@@ -900,13 +916,38 @@ describe("ProviderDashboard Component", () => {
       });
     });
 
+    test("disables collect when selected lab has no pending payout", async () => {
+      mockLabsData.data = {
+        labs: [{ id: "1", name: "Lab 1", listed: true }],
+      };
+      mockSelectedLabPendingPayout = {
+        data: { walletPayout: "0", institutionalPayout: "0", totalPayout: "0", institutionalCollectorCount: 0 },
+        isLoading: false,
+        isError: false,
+      };
+
+      renderWithClient(<ProviderDashboard />);
+
+      const collectButton = await screen.findByTestId("collect");
+      expect(collectButton).toBeDisabled();
+
+      await act(async () => {
+        fireEvent.click(collectButton);
+      });
+
+      expect(mockRequestFundsMutate).not.toHaveBeenCalled();
+    });
+
     test("handles collection error", async () => {
+      mockLabsData.data = {
+        labs: [{ id: "1", name: "Lab 1", listed: true }],
+      };
       const error = new Error("Collection failed");
       mockRequestFundsMutate.mockRejectedValueOnce(error);
 
       renderWithClient(<ProviderDashboard />);
 
-      const collectButton = screen.getByTestId("collect-all");
+      const collectButton = screen.getByTestId("collect");
 
       await act(async () => {
         fireEvent.click(collectButton);

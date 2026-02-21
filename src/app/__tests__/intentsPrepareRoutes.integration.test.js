@@ -233,6 +233,44 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
+  test('actions/prepare: request funds requires valid labId and maxBatch payload', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.REQUEST_FUNDS,
+      backendUrl: 'https://ib.example',
+      payload: {
+        labId: '12',
+        maxBatch: 25,
+      },
+    })
+
+    const res = await actionPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(payload.kind).toBe('action')
+    expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
+      action: ACTION_CODES.REQUEST_FUNDS,
+      labId: 12,
+      maxBatch: 25,
+    }))
+  })
+
+  test('actions/prepare: request funds rejects missing maxBatch', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.REQUEST_FUNDS,
+      backendUrl: 'https://ib.example',
+      payload: {
+        labId: 12,
+      },
+    })
+
+    const res = await actionPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(payload.error).toContain('maxBatch')
+  })
+
   test('actions/prepare: propagates mapped backend authorization errors', async () => {
     requestIntentAuthorizationSession.mockResolvedValueOnce({
       ok: false,
