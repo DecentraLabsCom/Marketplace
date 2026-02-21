@@ -11,6 +11,7 @@
  * - refetchOnWindowFocus: true — catch stake changes from external txs
  * - retry: 1
  */
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { stakingQueryKeys } from '@/utils/hooks/queryKeys'
@@ -30,6 +31,24 @@ const STAKING_QUERY_CONFIG = {
 }
 
 export { STAKING_QUERY_CONFIG }
+
+const normalizeLabIds = (labIds = []) => {
+  if (!Array.isArray(labIds)) return []
+
+  const seen = new Set()
+  const normalized = []
+  for (const rawId of labIds) {
+    if (rawId === null || rawId === undefined || rawId === '') continue
+    const asNumber = Number(rawId)
+    if (!Number.isFinite(asNumber) || asNumber < 0) continue
+    const key = String(asNumber)
+    if (seen.has(key)) continue
+    seen.add(key)
+    normalized.push(asNumber)
+  }
+
+  return normalized
+}
 
 // ===== useStakeInfo Hook Family =====
 
@@ -217,6 +236,39 @@ const getPendingLabPayoutQueryFn = createSSRSafeQuery(async (labId) => {
   return data
 }, null)
 
+const getPendingLabPayoutsQueryFn = createSSRSafeQuery(async (labIds = []) => {
+  const normalizedLabIds = normalizeLabIds(labIds)
+  if (!normalizedLabIds.length) {
+    return {
+      payoutsByLabId: {},
+      items: [],
+    }
+  }
+
+  const results = await Promise.all(
+    normalizedLabIds.map(async (labId) => {
+      const payout = await getPendingLabPayoutQueryFn(labId)
+      return {
+        labId,
+        payout,
+      }
+    })
+  )
+
+  const payoutsByLabId = {}
+  for (const result of results) {
+    payoutsByLabId[String(result.labId)] = result.payout
+  }
+
+  return {
+    payoutsByLabId,
+    items: results,
+  }
+}, {
+  payoutsByLabId: {},
+  items: [],
+})
+
 /**
  * Hook for /api/contract/lab/getPendingLabPayout endpoint (SSO users)
  * @param {string|number} labId - Lab ID to check
@@ -281,3 +333,23 @@ export const usePendingLabPayout = (labId, options = {}) => {
 
   return isWallet ? walletQuery : ssoQuery
 }
+
+/**
+ * Hook for retrieving pending payouts for multiple labs in one query
+ * @param {Array<string|number>} labIds - Lab IDs to check
+ * @param {Object} [options={}] - Additional query options
+ * @returns {Object} React Query result with map + ordered items
+ */
+export const usePendingLabPayouts = (labIds = [], options = {}) => {
+  const normalizedLabIds = useMemo(() => normalizeLabIds(labIds), [labIds])
+
+  return useQuery({
+    queryKey: stakingQueryKeys.pendingPayoutsMulti(normalizedLabIds.map(String)),
+    queryFn: () => getPendingLabPayoutsQueryFn(normalizedLabIds),
+    enabled: normalizedLabIds.length > 0 && options.enabled !== false,
+    ...STAKING_QUERY_CONFIG,
+    ...options,
+  })
+}
+
+usePendingLabPayouts.queryFn = getPendingLabPayoutsQueryFn

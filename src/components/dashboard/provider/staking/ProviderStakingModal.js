@@ -15,7 +15,7 @@ export default function ProviderStakingModal({
   labs = [],
   isSSO = false,
   labCount = 0,
-  onNotify,
+  addTemporaryNotification,
   onCollectAll,
   isCollecting = false,
 }) {
@@ -26,7 +26,7 @@ export default function ProviderStakingModal({
           providerAddress={providerAddress}
           isSSO={isSSO}
           labCount={labCount}
-          onNotify={onNotify}
+          addTemporaryNotification={addTemporaryNotification}
         />
         <PendingPayoutsPanel
           labs={labs}
@@ -46,7 +46,7 @@ ProviderStakingModal.propTypes = {
   labs: PropTypes.array,
   isSSO: PropTypes.bool,
   labCount: PropTypes.number,
-  onNotify: PropTypes.func,
+  addTemporaryNotification: PropTypes.func,
   onCollectAll: PropTypes.func,
   isCollecting: PropTypes.bool,
 }

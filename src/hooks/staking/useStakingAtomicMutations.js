@@ -8,9 +8,10 @@
  * when the intent action codes for staking are registered.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { readContractQueryKey } from '@wagmi/core/query'
 import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { stakingQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsWallet } from '@/utils/hooks/authMode'
+import { contractAddresses } from '@/contracts/diamond'
 import { useConnection, usePublicClient } from 'wagmi'
 import { getConnectionAddress } from '@/utils/blockchain/connection'
 import { selectChain } from '@/utils/blockchain/selectChain'
@@ -26,9 +27,12 @@ import devLog from '@/utils/dev/logger'
 export const useStakeTokensWallet = (options = {}) => {
   const queryClient = useQueryClient()
   const connection = useConnection()
+  const safeChain = selectChain(connection?.chain)
+  const chainKey = safeChain.name.toLowerCase()
+  const contractAddress = contractAddresses[chainKey]
   const userAddress = getConnectionAddress(connection)
   const { contractWriteFunction: stakeTokens } = useContractWriteFunction('stakeTokens')
-  const publicClient = usePublicClient({ chainId: selectChain(connection?.chain).id })
+  const publicClient = usePublicClient({ chainId: safeChain.id })
 
   return useMutation({
     mutationFn: async ({ amount }) => {
@@ -63,6 +67,26 @@ export const useStakeTokensWallet = (options = {}) => {
       if (userAddress) {
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.stakeInfo(userAddress) })
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.requiredStake(userAddress) })
+
+        // Also invalidate wagmi readContract cache keys used by wallet query hooks.
+        if (contractAddress) {
+          queryClient.invalidateQueries({
+            queryKey: readContractQueryKey({
+              address: contractAddress,
+              chainId: safeChain.id,
+              functionName: 'getStakeInfo',
+              args: [userAddress],
+            }),
+          })
+          queryClient.invalidateQueries({
+            queryKey: readContractQueryKey({
+              address: contractAddress,
+              chainId: safeChain.id,
+              functionName: 'getRequiredStake',
+              args: [userAddress],
+            }),
+          })
+        }
       }
       queryClient.invalidateQueries({ queryKey: stakingQueryKeys.all() })
     },
@@ -83,9 +107,12 @@ export const useStakeTokensWallet = (options = {}) => {
 export const useUnstakeTokensWallet = (options = {}) => {
   const queryClient = useQueryClient()
   const connection = useConnection()
+  const safeChain = selectChain(connection?.chain)
+  const chainKey = safeChain.name.toLowerCase()
+  const contractAddress = contractAddresses[chainKey]
   const userAddress = getConnectionAddress(connection)
   const { contractWriteFunction: unstakeTokens } = useContractWriteFunction('unstakeTokens')
-  const publicClient = usePublicClient({ chainId: selectChain(connection?.chain).id })
+  const publicClient = usePublicClient({ chainId: safeChain.id })
 
   return useMutation({
     mutationFn: async ({ amount }) => {
@@ -120,6 +147,26 @@ export const useUnstakeTokensWallet = (options = {}) => {
       if (userAddress) {
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.stakeInfo(userAddress) })
         queryClient.invalidateQueries({ queryKey: stakingQueryKeys.requiredStake(userAddress) })
+
+        // Also invalidate wagmi readContract cache keys used by wallet query hooks.
+        if (contractAddress) {
+          queryClient.invalidateQueries({
+            queryKey: readContractQueryKey({
+              address: contractAddress,
+              chainId: safeChain.id,
+              functionName: 'getStakeInfo',
+              args: [userAddress],
+            }),
+          })
+          queryClient.invalidateQueries({
+            queryKey: readContractQueryKey({
+              address: contractAddress,
+              chainId: safeChain.id,
+              functionName: 'getRequiredStake',
+              args: [userAddress],
+            }),
+          })
+        }
       }
       queryClient.invalidateQueries({ queryKey: stakingQueryKeys.all() })
     },
@@ -139,7 +186,6 @@ export const useUnstakeTokensWallet = (options = {}) => {
  * @returns {Object} React Query mutation for staking tokens
  */
 export const useStakeTokens = (options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false })
   const walletMutation = useStakeTokensWallet(options)
 
   // Staking is wallet-only for now; SSO users see a read-only dashboard
@@ -153,7 +199,6 @@ export const useStakeTokens = (options = {}) => {
  * @returns {Object} React Query mutation for unstaking tokens
  */
 export const useUnstakeTokens = (options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false })
   const walletMutation = useUnstakeTokensWallet(options)
 
   // Unstaking is wallet-only for now; SSO users see a read-only dashboard

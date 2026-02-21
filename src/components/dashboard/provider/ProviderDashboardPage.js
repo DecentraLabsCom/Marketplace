@@ -27,7 +27,7 @@ import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCa
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
 import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
-import { useStakeInfo, useStakeInfoWallet } from '@/hooks/staking/useStakingAtomicQueries'
+import { useRequiredStakeWallet, useStakeInfoWallet } from '@/hooks/staking/useStakingAtomicQueries'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
@@ -57,8 +57,6 @@ import {
   notifyLabUpdateFailed,
   notifyLabUpdateStarted,
 } from '@/utils/notifications/labToasts'
-
-const useStakeInfoForDashboard = useStakeInfoWallet || useStakeInfo
 
 const sanitizeProviderNameForUri = (name) => {
   const base = (name || 'Provider').toString().trim()
@@ -418,9 +416,16 @@ export default function ProviderDashboard() {
   const today = new Date();
   const [date, setDate] = useState(new Date());
   const [isStakingModalOpen, setIsStakingModalOpen] = useState(false)
-  const { data: stakeInfo } = useStakeInfoForDashboard(providerOwnerAddress, {
+  const { data: stakeInfo } = useStakeInfoWallet(providerOwnerAddress, {
     enabled: !!providerOwnerAddress && !isSSO,
   })
+  const { data: requiredStakeData } = useRequiredStakeWallet(providerOwnerAddress, {
+    enabled: !!providerOwnerAddress && !isSSO,
+  })
+  const compactStakeInfo = useMemo(() => ({
+    ...stakeInfo,
+    requiredStake: requiredStakeData?.requiredStake || '0',
+  }), [stakeInfo, requiredStakeData])
 
   // Handle adding a new lab using React Query mutation
   const handleAddLab = useCallback(async ({ labData }) => {
@@ -1072,7 +1077,7 @@ export default function ProviderDashboard() {
         {!isSSO && (
           <>
             <ProviderStakingCompactCard
-              stakeInfo={stakeInfo}
+              stakeInfo={compactStakeInfo}
               onManage={() => setIsStakingModalOpen(true)}
             />
 
@@ -1083,7 +1088,7 @@ export default function ProviderDashboard() {
               labs={ownedLabs}
               isSSO={isSSO}
               labCount={ownedLabs.length}
-              onNotify={(type, message) => addNotification(type, message)}
+              addTemporaryNotification={addTemporaryNotification}
               onCollectAll={handleCollectAll}
               isCollecting={requestFundsMutation.isPending}
             />

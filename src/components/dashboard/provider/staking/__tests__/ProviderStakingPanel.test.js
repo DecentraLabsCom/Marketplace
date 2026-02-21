@@ -23,7 +23,14 @@ import ProviderStakingPanel from '../ProviderStakingPanel'
 
 describe('ProviderStakingPanel', () => {
   test('Stake and Unstake buttons have equal fixed width', () => {
-    const { container } = render(<ProviderStakingPanel providerAddress="0xabc" isSSO={false} labCount={2} onNotify={() => {}} />)
+    const { container } = render(
+      <ProviderStakingPanel
+        providerAddress="0xabc"
+        isSSO={false}
+        labCount={2}
+        addTemporaryNotification={() => {}}
+      />
+    )
 
     const stakeBtn = screen.getByRole('button', { name: /^Stake$/i })
     const unstakeBtn = screen.getByRole('button', { name: /^Unstake$/i })
@@ -38,7 +45,14 @@ describe('ProviderStakingPanel', () => {
   })
 
   test('Stake button is disabled when input is empty and becomes enabled when value entered', () => {
-    render(<ProviderStakingPanel providerAddress="0xabc" isSSO={false} labCount={2} onNotify={() => {}} />)
+    render(
+      <ProviderStakingPanel
+        providerAddress="0xabc"
+        isSSO={false}
+        labCount={2}
+        addTemporaryNotification={() => {}}
+      />
+    )
 
     const stakeBtn = screen.getByRole('button', { name: /^Stake$/i })
     const input = screen.getByPlaceholderText(/Amount to stake/i)
@@ -53,7 +67,14 @@ describe('ProviderStakingPanel', () => {
     stakingModule.useStakeInfo = jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', canUnstake: false, unlockTimestamp: 0 }, isLoading: false, isError: false }))
     stakingModule.useRequiredStake = jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false }))
 
-    const { container } = render(<ProviderStakingPanel providerAddress="0xabc" isSSO={false} labCount={0} onNotify={() => {}} />)
+    const { container } = render(
+      <ProviderStakingPanel
+        providerAddress="0xabc"
+        isSSO={false}
+        labCount={0}
+        addTemporaryNotification={() => {}}
+      />
+    )
 
     // The mocked StakeHealthIndicator renders a single element with data-testid="mock-stake-health".
     // After the change, header (compact) should not include it, but the full indicator should still render.

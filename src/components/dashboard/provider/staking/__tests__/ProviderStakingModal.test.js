@@ -27,8 +27,8 @@ import ProviderStakingModal from '../ProviderStakingModal'
 describe('ProviderStakingModal', () => {
   test('renders modal with panels and passes props', () => {
     const onClose = jest.fn()
-    const onNotify = jest.fn()
     const onCollectAll = jest.fn()
+    const addTemporaryNotification = jest.fn()
 
     render(
       <ProviderStakingModal
@@ -38,7 +38,7 @@ describe('ProviderStakingModal', () => {
         labs={[{ id: '1' }]}
         isSSO={false}
         labCount={2}
-        onNotify={onNotify}
+        addTemporaryNotification={addTemporaryNotification}
         onCollectAll={onCollectAll}
         isCollecting={true}
       />
@@ -79,7 +79,7 @@ describe('ProviderStakingModal', () => {
         labs={[]}
         isSSO={false}
         labCount={0}
-        onNotify={() => {}}
+        addTemporaryNotification={() => {}}
         onCollectAll={onCollectAll}
         isCollecting={false}
       />

@@ -9,6 +9,14 @@ import { parseUnits } from 'viem'
 import { useStakeInfo, useRequiredStake } from '@/hooks/staking/useStakingAtomicQueries'
 import { useStakeTokens, useUnstakeTokens } from '@/hooks/staking/useStakingAtomicMutations'
 import { useLabToken } from '@/context/LabTokenContext'
+import {
+  notifyStakeFailed,
+  notifyStakeStarted,
+  notifyStakeSuccess,
+  notifyUnstakeFailed,
+  notifyUnstakeStarted,
+  notifyUnstakeSuccess,
+} from '@/utils/notifications/stakingToasts'
 import StakeHealthIndicator, { computeStakeHealth } from './StakeHealthIndicator'
 import devLog from '@/utils/dev/logger'
 
@@ -67,14 +75,14 @@ function formatRelativeTime(timestamp) {
  * @param {string} props.providerAddress - Provider wallet address
  * @param {boolean} props.isSSO - Whether the user is logged in via SSO
  * @param {number} props.labCount - Number of labs owned by this provider 
- * @param {Function} props.onNotify - Callback for notifications
+ * @param {Function} props.addTemporaryNotification - Temporary notification dispatcher
  * @returns {JSX.Element}
  */
 export default function ProviderStakingPanel({
   providerAddress,
   isSSO = false,
   labCount = 0,
-  onNotify,
+  addTemporaryNotification,
 }) {
   const [stakeAmount, setStakeAmount] = useState('')
   const [unstakeAmount, setUnstakeAmount] = useState('')
@@ -141,34 +149,36 @@ export default function ProviderStakingPanel({
 
     try {
       setActiveAction('stake')
+      notifyStakeStarted(addTemporaryNotification, stakeAmount)
       const amountInUnits = parseUnits(stakeAmount, tokenDecimals)
       await stakeTokensMutation.mutateAsync({ amount: amountInUnits.toString() })
       setStakeAmount('')
-      onNotify?.('success', `Successfully staked ${stakeAmount} $LAB`)
+      notifyStakeSuccess(addTemporaryNotification, stakeAmount)
     } catch (error) {
       devLog.error('Stake failed:', error)
-      onNotify?.('error', `Stake failed: ${error.message || 'Unknown error'}`)
+      notifyStakeFailed(addTemporaryNotification, error?.message || 'Unknown error')
     } finally {
       setActiveAction(null)
     }
-  }, [stakeAmount, isSSO, tokenDecimals, stakeTokensMutation, onNotify])
+  }, [addTemporaryNotification, isSSO, stakeAmount, stakeTokensMutation, tokenDecimals])
 
   const handleUnstake = useCallback(async () => {
     if (!unstakeAmount || isSSO) return
 
     try {
       setActiveAction('unstake')
+      notifyUnstakeStarted(addTemporaryNotification, unstakeAmount)
       const amountInUnits = parseUnits(unstakeAmount, tokenDecimals)
       await unstakeTokensMutation.mutateAsync({ amount: amountInUnits.toString() })
       setUnstakeAmount('')
-      onNotify?.('success', `Successfully unstaked ${unstakeAmount} $LAB`)
+      notifyUnstakeSuccess(addTemporaryNotification, unstakeAmount)
     } catch (error) {
       devLog.error('Unstake failed:', error)
-      onNotify?.('error', `Unstake failed: ${error.message || 'Unknown error'}`)
+      notifyUnstakeFailed(addTemporaryNotification, error?.message || 'Unknown error')
     } finally {
       setActiveAction(null)
     }
-  }, [unstakeAmount, isSSO, tokenDecimals, unstakeTokensMutation, onNotify])
+  }, [addTemporaryNotification, isSSO, tokenDecimals, unstakeAmount, unstakeTokensMutation])
 
   // Loading skeleton
   if (isLoading) {
@@ -352,5 +362,5 @@ ProviderStakingPanel.propTypes = {
   providerAddress: PropTypes.string.isRequired,
   isSSO: PropTypes.bool,
   labCount: PropTypes.number,
-  onNotify: PropTypes.func,
+  addTemporaryNotification: PropTypes.func,
 }

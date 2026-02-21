@@ -5,7 +5,7 @@
  */
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { usePendingLabPayout } from '@/hooks/staking/useStakingAtomicQueries'
+import { usePendingLabPayouts } from '@/hooks/staking/useStakingAtomicQueries'
 import { useLabToken } from '@/context/LabTokenContext'
 
 /**
@@ -39,72 +39,8 @@ function formatRawAmount(rawAmount, decimals = 6) {
   }
 }
 
-/**
- * Single lab payout row
- * @param {Object} props
- * @param {Object} props.lab - Lab object with id and name/uri
- * @param {number} props.decimals - Token decimals
- * @returns {JSX.Element}
- */
-function LabPayoutRow({ lab, decimals }) {
-  const labId = lab?.id ?? lab?.tokenId ?? lab?.labId
-  const labName = lab?.name || lab?.metadata?.name || `Lab #${labId}`
-
-  const { data: payoutData, isLoading } = usePendingLabPayout(labId, {
-    enabled: labId !== undefined && labId !== null,
-  })
-
-  const totalPayout = payoutData?.totalPayout || '0'
-  const walletPayout = payoutData?.walletPayout || '0'
-  const institutionalPayout = payoutData?.institutionalPayout || '0'
-  const hasPayout = BigInt(totalPayout || '0') > 0n
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-between py-2.5 px-3 rounded-lg animate-pulse">
-        <div className="h-4 bg-slate-700 rounded w-24" />
-        <div className="h-4 bg-slate-700 rounded w-16" />
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={`flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors ${
-        hasPayout ? 'bg-emerald-900/10 hover:bg-emerald-900/20' : 'bg-slate-900/20 hover:bg-slate-900/30'
-      }`}
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-slate-200 truncate">{labName}</p>
-        {hasPayout && (
-          <div className="flex gap-3 mt-0.5">
-            {BigInt(walletPayout || '0') > 0n && (
-              <span className="text-[10px] text-slate-400">
-                Wallet: {formatRawAmount(walletPayout, decimals)}
-              </span>
-            )}
-            {BigInt(institutionalPayout || '0') > 0n && (
-              <span className="text-[10px] text-slate-400">
-                Institutional: {formatRawAmount(institutionalPayout, decimals)}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="text-right ml-3">
-        <p className={`text-sm font-semibold ${hasPayout ? 'text-emerald-400' : 'text-slate-500'}`}>
-          {formatRawAmount(totalPayout, decimals)}
-          <span className="text-xs ml-1 opacity-70">$LAB</span>
-        </p>
-      </div>
-    </div>
-  )
-}
-
-LabPayoutRow.propTypes = {
-  lab: PropTypes.object.isRequired,
-  decimals: PropTypes.number.isRequired,
-}
+const getLabId = (lab) => lab?.id ?? lab?.tokenId ?? lab?.labId
+const getLabName = (lab, labId) => lab?.name || lab?.metadata?.name || `Lab #${labId}`
 
 /**
  * Aggregated pending payouts panel for all provider labs
@@ -123,8 +59,20 @@ export default function PendingPayoutsPanel({
 }) {
   const { decimals } = useLabToken()
   const tokenDecimals = decimals || 6
+  const normalizedLabs = useMemo(
+    () =>
+      labs
+        .map((lab) => ({ lab, labId: getLabId(lab) }))
+        .filter(({ labId }) => labId !== undefined && labId !== null && labId !== ''),
+    [labs]
+  )
+  const labIds = useMemo(() => normalizedLabs.map(({ labId }) => labId), [normalizedLabs])
 
-  const hasLabs = labs.length > 0
+  const hasLabs = normalizedLabs.length > 0
+  const { data: payoutData, isLoading: payoutsLoading } = usePendingLabPayouts(labIds, {
+    enabled: hasLabs,
+  })
+  const payoutsByLabId = payoutData?.payoutsByLabId || {}
 
   return (
     <div data-testid="pending-payouts-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
@@ -181,13 +129,56 @@ export default function PendingPayoutsPanel({
         </div>
       ) : (
         <div className="space-y-1 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
-          {labs.map((lab) => (
-            <LabPayoutRow
-              key={lab?.id ?? lab?.tokenId ?? lab?.labId}
-              lab={lab}
-              decimals={tokenDecimals}
-            />
-          ))}
+          {normalizedLabs.map(({ lab, labId }) => {
+            const rowData = payoutsByLabId[String(labId)] || {}
+            const totalPayout = rowData?.totalPayout || '0'
+            const walletPayout = rowData?.walletPayout || '0'
+            const institutionalPayout = rowData?.institutionalPayout || '0'
+            const hasPayout = BigInt(totalPayout || '0') > 0n
+            const isRowLoading = payoutsLoading && !rowData?.totalPayout
+
+            if (isRowLoading) {
+              return (
+                <div key={String(labId)} className="flex items-center justify-between py-2.5 px-3 rounded-lg animate-pulse">
+                  <div className="h-4 bg-slate-700 rounded w-24" />
+                  <div className="h-4 bg-slate-700 rounded w-16" />
+                </div>
+              )
+            }
+
+            return (
+              <div
+                key={String(labId)}
+                className={`flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors ${
+                  hasPayout ? 'bg-emerald-900/10 hover:bg-emerald-900/20' : 'bg-slate-900/20 hover:bg-slate-900/30'
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-200 truncate">{getLabName(lab, labId)}</p>
+                  {hasPayout && (
+                    <div className="flex gap-3 mt-0.5">
+                      {BigInt(walletPayout || '0') > 0n && (
+                        <span className="text-[10px] text-slate-400">
+                          Wallet: {formatRawAmount(walletPayout, tokenDecimals)}
+                        </span>
+                      )}
+                      {BigInt(institutionalPayout || '0') > 0n && (
+                        <span className="text-[10px] text-slate-400">
+                          Institutional: {formatRawAmount(institutionalPayout, tokenDecimals)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right ml-3">
+                  <p className={`text-sm font-semibold ${hasPayout ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {formatRawAmount(totalPayout, tokenDecimals)}
+                    <span className="text-xs ml-1 opacity-70">$LAB</span>
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

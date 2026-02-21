@@ -3,6 +3,9 @@ import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 jest.mock('@/context/LabTokenContext', () => ({ useLabToken: () => ({ decimals: 6 }) }))
+jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
+  usePendingLabPayouts: () => ({ data: { payoutsByLabId: {}, items: [] }, isLoading: false }),
+}))
 import PendingPayoutsPanel from '../PendingPayoutsPanel'
 
 describe('PendingPayoutsPanel - revenue split boxes', () => {

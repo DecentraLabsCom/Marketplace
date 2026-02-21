@@ -169,8 +169,11 @@ jest.mock("@/hooks/booking/useBookings", () => ({
 // ===== Mock staking hooks (integration) =====
 jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
   useStakeInfo: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
+  useStakeInfoWallet: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
   useRequiredStake: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
+  useRequiredStakeWallet: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
   usePendingLabPayout: jest.fn(() => ({ data: { totalPayout: '0', walletPayout: '0', institutionalPayout: '0' }, isLoading: false })),
+  usePendingLabPayouts: jest.fn(() => ({ data: { payoutsByLabId: {}, items: [] }, isLoading: false })),
 }));
 
 jest.mock('@/hooks/staking/useStakingAtomicMutations', () => ({

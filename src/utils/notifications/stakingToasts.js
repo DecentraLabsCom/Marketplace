@@ -50,7 +50,8 @@ export const notifyInsufficientStake = (addTemporaryNotification, deficit) => {
   notify(
     addTemporaryNotification,
     'warning',
-    `Insufficient stake — ${deficit} $LAB more needed to list labs`,
+    `Insufficient stake - ${deficit} $LAB more needed to list labs`,
     stakingToastIds.insufficientStake()
   )
 }
+
