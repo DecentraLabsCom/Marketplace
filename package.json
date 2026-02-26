@@ -47,7 +47,7 @@
     "@vercel/blob": "^2.2.0",
     "@wagmi/connectors": "^7.1.5",
     "@wagmi/core": "^3.2.2",
-    "@walletconnect/ethereum-provider": "~2.23.3",
+    "@walletconnect/ethereum-provider": "~2.23.6",
     "cookie": "^1.1.1",
     "date-fns": "^4.1.0",
     "decentralabs-marketplace": "file:",
