@@ -98,6 +98,7 @@ function UserDataCore({ children }) {
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [walletSessionCreated, setWalletSessionCreated] = useState(false);
+    const walletSessionRequestInFlightRef = useRef(false);
     const [webAuthnBootstrapDone, setWebAuthnBootstrapDone] = useState(false);
     const lastWalletAddressRef = useRef(null);
     
@@ -440,37 +441,108 @@ function UserDataCore({ children }) {
 
     // Cache update utilities
     const { refreshProviderStatus: refreshProviderStatusFromCache, clearSSOSession } = useUserCacheUpdates();
-
     // Create wallet session when wallet connects (only for non-SSO users)
     useEffect(() => {
         const createWalletSession = async () => {
-            // Skip if: logging out, SSO user, no address, already created, or wallet loading
-            if (isLoggingOut || isSSO || !address || walletSessionCreated || isWalletLoading) {
+            // Skip if: logging out, SSO user, no address, already created, wallet loading, or request in-flight
+            if (
+                isLoggingOut ||
+                isSSO ||
+                !address ||
+                walletSessionCreated ||
+                isWalletLoading ||
+                walletSessionRequestInFlightRef.current
+            ) {
                 return;
             }
-
+            walletSessionRequestInFlightRef.current = true;
             try {
-                devLog.log('🔐 Creating wallet session for:', address);
+                devLog.log('Creating wallet session for:', address);
                 const response = await fetch('/api/auth/wallet-session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({ walletAddress: address }),
                 });
-
                 if (response.ok) {
                     setWalletSessionCreated(true);
-                    devLog.log('✅ Wallet session created successfully');
+                    devLog.log('Wallet session created successfully');
                     // Refetch SSO query to pick up the new session
                     refetchSSO();
-                } else {
-                    devLog.warn('⚠️ Failed to create wallet session:', response.status);
+                    return;
                 }
+                let errorPayload = null;
+                try {
+                    errorPayload = await response.json();
+                } catch {
+                    errorPayload = null;
+                }
+                const requiresSignature =
+                    response.status === 401 &&
+                    (errorPayload?.code === 'MISSING_SIGNATURE' ||
+                        String(errorPayload?.error || '').toLowerCase().includes('signature'));
+                if (!requiresSignature) {
+                    devLog.warn('Failed to create wallet session:', response.status, errorPayload);
+                    return;
+                }
+                devLog.log('Wallet session requires signature challenge, requesting challenge...');
+                const challengeResponse = await fetch(
+                    '/api/auth/wallet-session?walletAddress=' + encodeURIComponent(address),
+                    {
+                        method: 'GET',
+                        credentials: 'include',
+                    }
+                );
+                if (!challengeResponse.ok) {
+                    const challengeBody = await challengeResponse.text().catch(() => '');
+                    devLog.warn('Failed to fetch wallet session challenge:', challengeResponse.status, challengeBody);
+                    return;
+                }
+                const challengeData = await challengeResponse.json().catch(() => null);
+                const challenge = challengeData?.challenge;
+                if (!challenge) {
+                    devLog.warn('Wallet session challenge payload missing challenge value');
+                    return;
+                }
+                const provider = typeof window !== 'undefined' ? window.ethereum : null;
+                if (!provider?.request) {
+                    devLog.warn('Wallet provider unavailable for personal_sign');
+                    return;
+                }
+                let signature;
+                try {
+                    signature = await provider.request({
+                        method: 'personal_sign',
+                        params: [challenge, address],
+                    });
+                } catch (signError) {
+                    devLog.warn('Wallet session signature rejected/failed:', signError?.message || signError);
+                    return;
+                }
+                const signedResponse = await fetch('/api/auth/wallet-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        walletAddress: address,
+                        challenge,
+                        signature,
+                    }),
+                });
+                if (signedResponse.ok) {
+                    setWalletSessionCreated(true);
+                    devLog.log('Wallet session created successfully (signed challenge)');
+                    refetchSSO();
+                    return;
+                }
+                const signedErrorBody = await signedResponse.text().catch(() => '');
+                devLog.warn('Failed to create signed wallet session:', signedResponse.status, signedErrorBody);
             } catch (error) {
-                devLog.error('❌ Error creating wallet session:', error);
+                devLog.error('Error creating wallet session:', error);
+            } finally {
+                walletSessionRequestInFlightRef.current = false;
             }
         };
-
         if (isConnected && address && !isSSO) {
             createWalletSession();
         }
@@ -973,3 +1045,4 @@ UserDataCore.propTypes = {
 UserData.propTypes = {
     children: PropTypes.node.isRequired
 }
+
