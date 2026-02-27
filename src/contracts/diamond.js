@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Diamond Contract Addresses
 */
 export const contractAddresses = {
@@ -8,108 +8,6 @@ export const contractAddresses = {
 };
 
 export const contractABI = [
-  {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "owner",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "init",
-            "type": "address"
-          },
-          {
-            "internalType": "bytes",
-            "name": "initCalldata",
-            "type": "bytes"
-          }
-        ],
-        "internalType": "struct DiamondArgs",
-        "name": "_args",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "payable",
-    "type": "constructor"
-  },
-  {
-    "inputs": [],
-    "name": "AccessControlBadConfirmation",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "neededRole",
-        "type": "bytes32"
-      }
-    ],
-    "name": "AccessControlUnauthorizedAccount",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ActionMismatch",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_addressesLength",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_calldataLength",
-        "type": "uint256"
-      }
-    ],
-    "name": "AddressAndCalldataLengthDoNotMatch",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "BackendMissing",
-    "type": "error"
-  },
   {
     "inputs": [
       {
@@ -157,17 +55,6 @@ export const contractABI = [
   {
     "inputs": [
       {
-        "internalType": "bytes4[]",
-        "name": "_selectors",
-        "type": "bytes4[]"
-      }
-    ],
-    "name": "CannotReplaceFunctionsFromFacetWithZeroAddress",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes4",
         "name": "_selector",
         "type": "bytes4"
@@ -190,12 +77,141 @@ export const contractABI = [
   {
     "inputs": [
       {
+        "internalType": "bytes4[]",
+        "name": "_selectors",
+        "type": "bytes4[]"
+      }
+    ],
+    "name": "CannotReplaceFunctionsFromFacetWithZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bytes4",
         "name": "_selector",
         "type": "bytes4"
       }
     ],
     "name": "CannotReplaceImmutableFunction",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint8",
+        "name": "_action",
+        "type": "uint8"
+      }
+    ],
+    "name": "IncorrectFacetCutAction",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InitializationCalldataTooShort",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_initializationContractAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
+      }
+    ],
+    "name": "InitializationFunctionReverted",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_addr",
+        "type": "address"
+      }
+    ],
+    "name": "InitializationNotAllowed",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_contractAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "_message",
+        "type": "string"
+      }
+    ],
+    "name": "NoBytecodeAtAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_facetAddress",
+        "type": "address"
+      }
+    ],
+    "name": "NoSelectorsProvidedForFacetForCut",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_contractOwner",
+        "type": "address"
+      }
+    ],
+    "name": "NotContractOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_facetAddress",
+        "type": "address"
+      }
+    ],
+    "name": "RemoveFacetAddressMustBeZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "AccessControlBadConfirmation",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "neededRole",
+        "type": "bytes32"
+      }
+    ],
+    "name": "AccessControlUnauthorizedAccount",
     "type": "error"
   },
   {
@@ -245,6 +261,21 @@ export const contractABI = [
   },
   {
     "inputs": [],
+    "name": "InvalidInitialization",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotInitializing",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ECDSAInvalidSignature",
     "type": "error"
   },
@@ -272,125 +303,57 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "EmptyPuc",
+    "name": "IntentAlreadyExists",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "EnforcedPause",
+    "name": "IntentExpiredError",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "increasedSupply",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "cap",
-        "type": "uint256"
-      }
-    ],
-    "name": "ERC20ExceededCap",
+    "inputs": [],
+    "name": "IntentNotPending",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "allowance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "needed",
-        "type": "uint256"
-      }
-    ],
-    "name": "ERC20InsufficientAllowance",
+    "inputs": [],
+    "name": "InvalidNonce",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "balance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "needed",
-        "type": "uint256"
-      }
-    ],
-    "name": "ERC20InsufficientBalance",
+    "inputs": [],
+    "name": "InvalidSignature",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "approver",
-        "type": "address"
-      }
-    ],
-    "name": "ERC20InvalidApprover",
+    "inputs": [],
+    "name": "InvalidSignerOrExecutor",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "cap",
-        "type": "uint256"
-      }
-    ],
-    "name": "ERC20InvalidCap",
+    "inputs": [],
+    "name": "OnlySigner",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      }
-    ],
-    "name": "ERC20InvalidReceiver",
+    "inputs": [],
+    "name": "PayloadHashMismatch",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
-    ],
-    "name": "ERC20InvalidSender",
+    "inputs": [],
+    "name": "RequestIdRequired",
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      }
-    ],
-    "name": "ERC20InvalidSpender",
+    "inputs": [],
+    "name": "RequestedAtInFuture",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RequestedAtRequired",
     "type": "error"
   },
   {
@@ -498,126 +461,57 @@ export const contractABI = [
   },
   {
     "inputs": [],
+    "name": "InvalidBooking",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTimeRange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAvailable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyRenter",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "OnlyTokenOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReservationNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReservationNotPending",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TokenNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "Unauthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ActionMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ExecutorMismatch",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ExpectedPause",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "_functionSelector",
-        "type": "bytes4"
-      }
-    ],
-    "name": "FunctionNotFound",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint8",
-        "name": "_action",
-        "type": "uint8"
-      }
-    ],
-    "name": "IncorrectFacetCutAction",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IndexOutOfBounds",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InitializationCalldataTooShort",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_initializationContractAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
-      }
-    ],
-    "name": "InitializationFunctionReverted",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_addr",
-        "type": "address"
-      }
-    ],
-    "name": "InitializationNotAllowed",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InstitutionalBackendMissing",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InstitutionNotRegistered",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InstReservationNotFound",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InsufficientFunds",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InsufficientStake",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IntentAlreadyExists",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IntentExecutorMustBeCaller",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IntentExpiredError",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IntentLabDoesNotExist",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IntentNotAuthorizedInstitution",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "IntentNotPending",
     "type": "error"
   },
   {
@@ -627,12 +521,12 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "IntentUnknownInstitution",
+    "name": "InvalidPaginationLimit",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "IntentUnknownReservation",
+    "name": "IndexOutOfBounds",
     "type": "error"
   },
   {
@@ -642,32 +536,22 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "InvalidBatchSize",
+    "name": "InvalidReservation",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InvalidBooking",
+    "name": "MaxReservationsReached",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "InvalidInitialization",
+    "name": "NotImplemented",
     "type": "error"
   },
   {
     "inputs": [],
     "name": "InvalidInstitutionAddress",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidInstitutionalUserId",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidNonce",
     "type": "error"
   },
   {
@@ -678,149 +562,6 @@ export const contractABI = [
   {
     "inputs": [],
     "name": "InvalidOrgLength",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidPaginationLimit",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidRange",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidReservation",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidSignature",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidSignerOrExecutor",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidStatus",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "InvalidTimeRange",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "LabNotListed",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "LowAllowance",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "MaxReservationsReached",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_contractAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "_message",
-        "type": "string"
-      }
-    ],
-    "name": "NoBytecodeAtAddress",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_facetAddress",
-        "type": "address"
-      }
-    ],
-    "name": "NoSelectorsProvidedForFacetForCut",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotAvailable",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotBackend",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_contractOwner",
-        "type": "address"
-      }
-    ],
-    "name": "NotContractOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotImplemented",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotInitializing",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotPending",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "NotRenter",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OnlyInstitutionalBackend",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OnlyRenter",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OnlySigner",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "OnlyTokenOwner",
     "type": "error"
   },
   {
@@ -845,12 +586,32 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "PayerMismatch",
+    "name": "UnknownInstitution",
     "type": "error"
   },
   {
     "inputs": [],
-    "name": "PayloadHashMismatch",
+    "name": "BackendMissing",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InstReservationNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidStatus",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotPending",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotRenter",
     "type": "error"
   },
   {
@@ -860,53 +621,7 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "PucMissing",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "PucRequired",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ReentrancyGuardReentrantCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_facetAddress",
-        "type": "address"
-      }
-    ],
-    "name": "RemoveFacetAddressMustBeZeroAddress",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "RequestedAtInFuture",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "RequestedAtRequired",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "RequestIdRequired",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ReservationNotFound",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "ReservationNotPending",
+    "name": "UnauthorizedInstitution",
     "type": "error"
   },
   {
@@ -927,3388 +642,69 @@ export const contractABI = [
   },
   {
     "inputs": [],
+    "name": "IntentExecutorMustBeCaller",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IntentLabDoesNotExist",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IntentNotAuthorizedInstitution",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IntentUnknownInstitution",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "IntentUnknownReservation",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientFunds",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InsufficientStake",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidRange",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LabNotListed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LowAllowance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "SlotUnavailable",
     "type": "error"
   },
   {
-    "inputs": [],
-    "name": "TokenNotFound",
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "_functionSelector",
+        "type": "bytes4"
+      }
+    ],
+    "name": "FunctionNotFound",
     "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "Unauthorized",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "UnauthorizedInstitution",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "UnauthorizedInstitutionCall",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "UnknownInstitution",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "UseInstitutionalCancel",
-    "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
-    ],
-    "name": "Approval",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "approved",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Approval",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "approved",
-        "type": "bool"
-      }
-    ],
-    "name": "ApprovalForAll",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "backend",
-        "type": "address"
-      }
-    ],
-    "name": "BackendAuthorized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "backend",
-        "type": "address"
-      }
-    ],
-    "name": "BackendAuthorized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "backend",
-        "type": "address"
-      }
-    ],
-    "name": "BackendRevoked",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "BookingCanceled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
-      }
-    ],
-    "name": "DiamondCut",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalMinted",
-        "type": "uint256"
-      }
-    ],
-    "name": "EcosystemToppedUp",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "EmergencyPause",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "EmergencyUnpause",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "reservationsProcessed",
-        "type": "uint256"
-      }
-    ],
-    "name": "FundsCollected",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint64",
-        "name": "version",
-        "type": "uint64"
-      }
-    ],
-    "name": "Initialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newPeriodStart",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalSpendingPeriodReset",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newPeriod",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalSpendingPeriodUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newBalance",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalTreasuryDeposit",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalTreasuryInitialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newBalance",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalTreasuryWithdrawal",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalUserLimitUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalSpent",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "periodStart",
-        "type": "uint256"
-      }
-    ],
-    "name": "InstitutionalUserSpent",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "organizationHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "InstitutionRoleGranted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "InstitutionRoleRevoked",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
-      }
-    ],
-    "name": "IntentCancelled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
-      }
-    ],
-    "name": "IntentExpired",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint8",
-        "name": "action",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "payloadHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "IntentRegistered",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_uri",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint96",
-        "name": "_price",
-        "type": "uint96"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_accessUri",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_accessKey",
-        "type": "string"
-      }
-    ],
-    "name": "LabAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "LabDeleted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "action",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "success",
-        "type": "bool"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "LabIntentProcessed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "LabListed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_provider",
-        "type": "address"
-      }
-    ],
-    "name": "LabListed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "int32",
-        "name": "delta",
-        "type": "int32"
-      },
-      {
-        "indexed": false,
-        "internalType": "int32",
-        "name": "newScore",
-        "type": "int32"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint32",
-        "name": "totalEvents",
-        "type": "uint32"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "LabReputationAdjusted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "int32",
-        "name": "newScore",
-        "type": "int32"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "LabReputationSet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "LabUnlisted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_provider",
-        "type": "address"
-      }
-    ],
-    "name": "LabUnlisted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_uri",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint96",
-        "name": "_price",
-        "type": "uint96"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_accessUri",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_accessKey",
-        "type": "string"
-      }
-    ],
-    "name": "LabUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_uri",
-        "type": "string"
-      }
-    ],
-    "name": "LabURISet",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "name": "LastReservationUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "providerPayout",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "reservationsProcessed",
-        "type": "uint256"
-      }
-    ],
-    "name": "OrphanedLabPayoutRecovered",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "OwnershipTransferred",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "Paused",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_account",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_email",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_country",
-        "type": "string"
-      }
-    ],
-    "name": "ProviderAdded",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_account",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "ProviderAddedWithoutTokens",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_authURI",
-        "type": "string"
-      }
-    ],
-    "name": "ProviderAuthURIUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_account",
-        "type": "address"
-      }
-    ],
-    "name": "ProviderRemoved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "remainingStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "ProviderSlashed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "remainingStake",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "requiredStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "ProviderStakeInsufficient",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newTotalStake",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "requiredStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "ProviderStakeSufficient",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "_account",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_email",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "_country",
-        "type": "string"
-      }
-    ],
-    "name": "ProviderUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "checker",
-        "type": "address"
-      }
-    ],
-    "name": "ReservationCheckedIn",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "ReservationConfirmed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "action",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "success",
-        "type": "bool"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "ReservationIntentProcessed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "oldProvider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newProvider",
-        "type": "address"
-      }
-    ],
-    "name": "ReservationProviderUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "ReservationRequestCanceled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint8",
-        "name": "reason",
-        "type": "uint8"
-      }
-    ],
-    "name": "ReservationRequestDenied",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "renter",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "start",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "end",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "ReservationRequested",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "count",
-        "type": "uint256"
-      }
-    ],
-    "name": "ReservationsReleased",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalMinted",
-        "type": "uint256"
-      }
-    ],
-    "name": "ReserveMinted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "previousAdminRole",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "newAdminRole",
-        "type": "bytes32"
-      }
-    ],
-    "name": "RoleAdminChanged",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
-    ],
-    "name": "RoleGranted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
-    ],
-    "name": "RoleRevoked",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "organization",
-        "type": "string"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "organizationHash",
-        "type": "bytes32"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "backendUrl",
-        "type": "string"
-      }
-    ],
-    "name": "SchacHomeOrganizationBackendUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "organization",
-        "type": "string"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "organizationHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "SchacHomeOrganizationRegistered",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "organization",
-        "type": "string"
-      },
-      {
-        "indexed": true,
-        "internalType": "bytes32",
-        "name": "organizationHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "SchacHomeOrganizationRemoved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "cancelledBy",
-        "type": "address"
-      }
-    ],
-    "name": "SlashCancelled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "executeAfter",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "SlashQueued",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "StakeBurned",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalMinted",
-        "type": "uint256"
-      }
-    ],
-    "name": "SubsidiesToppedUp",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "projectTreasury",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "treasuryTimelock",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "subsidies",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "liquidity",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "ecosystemGrowth",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "teamVesting",
-        "type": "address"
-      }
-    ],
-    "name": "TokenPoolsInitialized",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalSupply",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokensBurned",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "minter",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "totalSupply",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokensMinted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newTotalStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokensStaked",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "remainingStake",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokensUnstaked",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "node",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "hl",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "hr",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "context",
-        "type": "string"
-      }
-    ],
-    "name": "TraceBHCheck",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "step",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "key",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "keyParent",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "keyGrandparent",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "cursor",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "root",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "rootRed",
-        "type": "bool"
-      }
-    ],
-    "name": "TraceInsertFixup",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "step",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "key",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "cursor",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "parent",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "left",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "right",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "end",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "bool",
-        "name": "red",
-        "type": "bool"
-      }
-    ],
-    "name": "TraceInsertStep",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "root",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "key",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "cursor",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "cursor_parent",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "key_parent",
-        "type": "uint256"
-      }
-    ],
-    "name": "TraceRotateState",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "step",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "key",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "cursor",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "cursorChild",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "parent",
-        "type": "uint256"
-      }
-    ],
-    "name": "TraceRotation",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
-    ],
-    "name": "Transfer",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "Transfer",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "Unpaused",
-    "type": "event"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "fallback"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_uri",
-        "type": "string"
-      },
-      {
-        "internalType": "uint96",
-        "name": "_price",
-        "type": "uint96"
-      },
-      {
-        "internalType": "string",
-        "name": "_accessUri",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_accessKey",
-        "type": "string"
-      }
-    ],
-    "name": "addAndListLab",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "addAndListLabWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_uri",
-        "type": "string"
-      },
-      {
-        "internalType": "uint96",
-        "name": "_price",
-        "type": "uint96"
-      },
-      {
-        "internalType": "string",
-        "name": "_accessUri",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_accessKey",
-        "type": "string"
-      }
-    ],
-    "name": "addLab",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "addLabWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "_account",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "_email",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_country",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_authURI",
-        "type": "string"
-      }
-    ],
-    "name": "addProvider",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "int32",
-        "name": "delta",
-        "type": "int32"
-      },
-      {
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "adjustLabReputation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxBatch",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      }
-    ],
-    "name": "adminRecoverOrphanedPayouts",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      }
-    ],
-    "name": "adminRegisterSchacHomeOrganization",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "newBackend",
-        "type": "address"
-      }
-    ],
-    "name": "adminResetBackend",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "backendUrl",
-        "type": "string"
-      }
-    ],
-    "name": "adminSetSchacHomeOrganizationBackend",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      }
-    ],
-    "name": "adminUnregisterSchacHomeOrganization",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      }
-    ],
-    "name": "allowance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "approve",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "spender",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
-    ],
-    "name": "approve",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "backend",
-        "type": "address"
-      }
-    ],
-    "name": "authorizeBackend",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      }
-    ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "burn",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "burnFrom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "burnStakeOnRemoval",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "burnToken",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "listedLabsCount",
-        "type": "uint256"
-      }
-    ],
-    "name": "calculateRequiredStake",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "labCount",
-        "type": "uint256"
-      }
-    ],
-    "name": "calculateRequiredStake",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "cancelBooking",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "cancelInstitutionalBookingWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institutionalProvider",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "cancelInstitutionalBookingWithPuc",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institutionalProvider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "cancelInstitutionalReservationRequest",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint32",
-            "name": "start",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint32",
-            "name": "end",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          }
-        ],
-        "internalType": "struct ReservationIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "cancelInstitutionalReservationRequestWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      }
-    ],
-    "name": "cancelIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "cancelQueuedSlash",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "cancelReservationRequest",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "canProvideService",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "cap",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_start",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_end",
-        "type": "uint256"
-      }
-    ],
-    "name": "checkAvailable",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "checkInReservation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "signer",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "pucHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "timestamp",
-        "type": "uint64"
-      },
-      {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
-      }
-    ],
-    "name": "checkInReservationWithSignature",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "checkInstitutionalTreasuryAvailability",
-    "outputs": [],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "checkInstitutionalTreasuryAvailability",
-    "outputs": [],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "i",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "k",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "confirmInstitutionalReservationRequestWithPuc",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "confirmReservationRequest",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "p",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "o",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "l",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint32",
-            "name": "s",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint32",
-            "name": "e",
-            "type": "uint32"
-          },
-          {
-            "internalType": "string",
-            "name": "u",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "k",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "address",
-            "name": "t",
-            "type": "address"
-          }
-        ],
-        "internalType": "struct InstitutionalReservationRequestCreationFacet.InstInput",
-        "name": "i",
-        "type": "tuple"
-      }
-    ],
-    "name": "createInstReservation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "p",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "o",
-            "type": "address"
-          },
-          {
-            "internalType": "uint256",
-            "name": "l",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint32",
-            "name": "s",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint32",
-            "name": "e",
-            "type": "uint32"
-          },
-          {
-            "internalType": "string",
-            "name": "u",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "k",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "address",
-            "name": "t",
-            "type": "address"
-          }
-        ],
-        "internalType": "struct InstInput",
-        "name": "i",
-        "type": "tuple"
-      }
-    ],
-    "name": "createInstReservation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "decimals",
-    "outputs": [
-      {
-        "internalType": "uint8",
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "stateMutability": "pure",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "DEFAULT_ADMIN_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "deleteLab",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "deleteLabWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "denyReservationRequest",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "depositToInstitutionalTreasury",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
   },
   {
     "inputs": [
@@ -4346,42 +742,6 @@ export const contractABI = [
       }
     ],
     "name": "diamondCut",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "key",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "end",
-        "type": "uint32"
-      }
-    ],
-    "name": "enqueueViaLib",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "executeQueuedSlash",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -4438,25 +798,6 @@ export const contractABI = [
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_facet",
-        "type": "address"
-      }
-    ],
-    "name": "facetFunctionSelectors",
-    "outputs": [
-      {
-        "internalType": "bytes4[]",
-        "name": "facetFunctionSelectors_",
-        "type": "bytes4[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "facets",
     "outputs": [
@@ -4484,6 +825,64 @@ export const contractABI = [
   {
     "inputs": [
       {
+        "internalType": "bytes4",
+        "name": "_interfaceId",
+        "type": "bytes4"
+      }
+    ],
+    "name": "supportsInterface",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "owner_",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "DEFAULT_ADMIN_ROLE",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "newMinter",
         "type": "address"
@@ -4497,85 +896,12 @@ export const contractABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_rangeStart",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_rangeEnd",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_minDuration",
-        "type": "uint32"
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
       }
     ],
-    "name": "findAvailableSlots",
-    "outputs": [
-      {
-        "internalType": "uint32[]",
-        "name": "slotStarts",
-        "type": "uint32[]"
-      },
-      {
-        "internalType": "uint32[]",
-        "name": "slotEnds",
-        "type": "uint32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_timestamp",
-        "type": "uint32"
-      }
-    ],
-    "name": "findReservationAt",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "start",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "end",
-        "type": "uint32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      }
-    ],
-    "name": "getActiveReservationKeyForUser",
+    "name": "getRoleAdmin",
     "outputs": [
       {
         "internalType": "bytes32",
@@ -4587,297 +913,42 @@ export const contractABI = [
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getAllInstitutions",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "institutions",
-        "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getApproved",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "getAuthorizedBackend",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getBookedSlots",
-    "outputs": [
-      {
-        "internalType": "uint32[]",
-        "name": "starts",
-        "type": "uint32[]"
-      },
-      {
-        "internalType": "uint32[]",
-        "name": "ends",
-        "type": "uint32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "getInstitutionalSpendingPeriod",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "getInstitutionalTreasuryBalance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institutionalProvider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getInstitutionalUserActiveCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "count",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institutionalProvider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getInstitutionalUserActiveReservationKey",
-    "outputs": [
       {
         "internalType": "bytes32",
-        "name": "reservationKey",
+        "name": "role",
         "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "name": "grantRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "getInstitutionalUserFinancialStats",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "currentPeriodSpent",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalHistoricalSpent",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "spendingLimit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "remainingAllowance",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "periodStart",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "periodEnd",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "periodDuration",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "getInstitutionalUserLimit",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "getInstitutionalUserRemainingAllowance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institutionalProvider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "index",
-        "type": "uint256"
-      }
-    ],
-    "name": "getInstitutionalUserReservationByIndex",
-    "outputs": [
       {
         "internalType": "bytes32",
-        "name": "key",
+        "name": "role",
         "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "hasRole",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -4887,125 +958,162 @@ export const contractABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "institutionalProvider",
+        "name": "projectTreasury",
         "type": "address"
       },
       {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "getInstitutionalUserReservationCount",
-    "outputs": [
+        "internalType": "address",
+        "name": "subsidies",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "governance",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "liquidity",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "ecosystemGrowth",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "teamBeneficiary",
+        "type": "address"
+      },
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "timelockDelay",
         "type": "uint256"
       }
     ],
-    "stateMutability": "view",
+    "name": "initializeTokenPools",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
       {
         "internalType": "address",
-        "name": "institution",
+        "name": "to",
         "type": "address"
       },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "getInstitutionalUserSpendingData",
-    "outputs": [
       {
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "periodStart",
-        "type": "uint256"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      }
-    ],
-    "name": "getInstitutionalUserSpent",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getInstitutionsPaginated",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "institutions",
-        "type": "address[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
+    "name": "mintFromReserve",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "organizationHash",
+        "name": "role",
         "type": "bytes32"
-      }
-    ],
-    "name": "getInstitutionWalletByOrganizationHash",
-    "outputs": [
+      },
       {
         "internalType": "address",
-        "name": "",
+        "name": "callerConfirmation",
         "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "name": "renounceRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "revokeRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "topUpEcosystemGrowth",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "topUpSubsidies",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "adminName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "adminEmail",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "adminCountry",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "labToken",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "labName",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "labSymbol",
+        "type": "string"
+      }
+    ],
+    "name": "initializeDiamond",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "cancelIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -5077,2052 +1185,6 @@ export const contractABI = [
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLab",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "components": [
-              {
-                "internalType": "string",
-                "name": "uri",
-                "type": "string"
-              },
-              {
-                "internalType": "uint96",
-                "name": "price",
-                "type": "uint96"
-              },
-              {
-                "internalType": "string",
-                "name": "accessURI",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "accessKey",
-                "type": "string"
-              },
-              {
-                "internalType": "uint32",
-                "name": "createdAt",
-                "type": "uint32"
-              }
-            ],
-            "internalType": "struct LabBase",
-            "name": "base",
-            "type": "tuple"
-          }
-        ],
-        "internalType": "struct Lab",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabAccessKey",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabAccessURI",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabActiveReservationCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "count",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabAge",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabAuthURI",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getLabCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabPrice",
-    "outputs": [
-      {
-        "internalType": "uint96",
-        "name": "",
-        "type": "uint96"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getLabProviders",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "account",
-            "type": "address"
-          },
-          {
-            "components": [
-              {
-                "internalType": "string",
-                "name": "name",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "email",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "country",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "authURI",
-                "type": "string"
-              }
-            ],
-            "internalType": "struct ProviderBase",
-            "name": "base",
-            "type": "tuple"
-          }
-        ],
-        "internalType": "struct Provider[]",
-        "name": "",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabProvidersPaginated",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "account",
-            "type": "address"
-          },
-          {
-            "components": [
-              {
-                "internalType": "string",
-                "name": "name",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "email",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "country",
-                "type": "string"
-              },
-              {
-                "internalType": "string",
-                "name": "authURI",
-                "type": "string"
-              }
-            ],
-            "internalType": "struct ProviderBase",
-            "name": "base",
-            "type": "tuple"
-          }
-        ],
-        "internalType": "struct Provider[]",
-        "name": "providers",
-        "type": "tuple[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabRating",
-    "outputs": [
-      {
-        "internalType": "int32",
-        "name": "rating",
-        "type": "int32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabReputation",
-    "outputs": [
-      {
-        "internalType": "int32",
-        "name": "score",
-        "type": "int32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "totalEvents",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "ownerCancellations",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "institutionalCancellations",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint64",
-        "name": "lastUpdated",
-        "type": "uint64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabReservationCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "count",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabScore",
-    "outputs": [
-      {
-        "internalType": "int32",
-        "name": "score",
-        "type": "int32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getLabsPaginated",
-    "outputs": [
-      {
-        "internalType": "uint256[]",
-        "name": "ids",
-        "type": "uint256[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getLabTokenAddress",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_afterTime",
-        "type": "uint32"
-      }
-    ],
-    "name": "getNextAvailableSlot",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "nextSlotStart",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "blockedUntil",
-        "type": "uint32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getNextExpiration",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "",
-        "type": "uint32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "organizationHash",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getOrganizationByHash",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "organization",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "getOrganizationHashesByInstitution",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "organizationHashes",
-        "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getOrganizationHashesByInstitutionPaginated",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "organizationHashes",
-        "type": "bytes32[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getPendingLabPayout",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "walletPayout",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "institutionalPayout",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalPayout",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "institutionalCollectorCount",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_provider",
-        "type": "address"
-      }
-    ],
-    "name": "getProviderAuthURI",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxCount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxScan",
-        "type": "uint256"
-      }
-    ],
-    "name": "getRecentReservationsOfToken",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "keys",
-        "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxCount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxScan",
-        "type": "uint256"
-      }
-    ],
-    "name": "getRecentReservationsOfTokenByUser",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "keys",
-        "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      }
-    ],
-    "name": "getRegisteredSchacHomeOrganizations",
-    "outputs": [
-      {
-        "internalType": "string[]",
-        "name": "organizations",
-        "type": "string[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getRegisteredSchacHomeOrganizationsPaginated",
-    "outputs": [
-      {
-        "internalType": "string[]",
-        "name": "organizations",
-        "type": "string[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "getRequiredStake",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getReservation",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "renter",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "address",
-            "name": "labProvider",
-            "type": "address"
-          },
-          {
-            "internalType": "uint8",
-            "name": "status",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint32",
-            "name": "start",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint32",
-            "name": "end",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "requestPeriodStart",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "requestPeriodDuration",
-            "type": "uint64"
-          },
-          {
-            "internalType": "address",
-            "name": "payerInstitution",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "collectorInstitution",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "providerShare",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "projectTreasuryShare",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "subsidiesShare",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "governanceShare",
-            "type": "uint96"
-          }
-        ],
-        "internalType": "struct Reservation",
-        "name": "",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getReservation",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "renter",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "address",
-            "name": "labProvider",
-            "type": "address"
-          },
-          {
-            "internalType": "uint8",
-            "name": "status",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint32",
-            "name": "start",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint32",
-            "name": "end",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint64",
-            "name": "requestPeriodStart",
-            "type": "uint64"
-          },
-          {
-            "internalType": "uint64",
-            "name": "requestPeriodDuration",
-            "type": "uint64"
-          },
-          {
-            "internalType": "address",
-            "name": "payerInstitution",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "collectorInstitution",
-            "type": "address"
-          },
-          {
-            "internalType": "uint96",
-            "name": "providerShare",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "projectTreasuryShare",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "subsidiesShare",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "governanceShare",
-            "type": "uint96"
-          }
-        ],
-        "internalType": "struct Reservation",
-        "name": "reservation",
-        "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_index",
-        "type": "uint256"
-      }
-    ],
-    "name": "getReservationOfTokenByIndex",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getReservationPucHash",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "getReservationsOfToken",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getReservationsOfTokenByUserPaginated",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "keys",
-        "type": "bytes32[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "offset",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "getReservationsOfTokenPaginated",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "keys",
-        "type": "bytes32[]"
-      },
-      {
-        "internalType": "uint256",
-        "name": "total",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_startTime",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_endTime",
-        "type": "uint32"
-      }
-    ],
-    "name": "getReservationStats",
-    "outputs": [
-      {
-        "internalType": "uint32",
-        "name": "count",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "firstStart",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "lastEnd",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint256",
-        "name": "totalDuration",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      }
-    ],
-    "name": "getRoleAdmin",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getSafeBalance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      }
-    ],
-    "name": "getSchacHomeOrganizationBackend",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "backendUrl",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      }
-    ],
-    "name": "getStakeInfo",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "stakedAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "slashedAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "lastReservationTimestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "unlockTimestamp",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "canUnstake",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxCount",
-        "type": "uint256"
-      }
-    ],
-    "name": "getUpcomingReservationsOfToken",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "keys",
-        "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxCount",
-        "type": "uint256"
-      }
-    ],
-    "name": "getUpcomingReservationsOfTokenByUser",
-    "outputs": [
-      {
-        "internalType": "bytes32[]",
-        "name": "keys",
-        "type": "bytes32[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "organization",
-        "type": "string"
-      }
-    ],
-    "name": "grantInstitutionRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "grantRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      }
-    ],
-    "name": "hasActiveBooking",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      }
-    ],
-    "name": "hasActiveBookingByToken",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institutionalProvider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "hasInstitutionalUserActiveBooking",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "hasRole",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "heapLength",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "init",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "INITIAL_STAKE_LOCK_PERIOD",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_symbol",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "_diamondAddress",
-        "type": "address"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_email",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_country",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "_labErc20",
-        "type": "address"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_symbol",
-        "type": "string"
-      }
-    ],
-    "name": "initialize",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "adminName",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "adminEmail",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "adminCountry",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "labToken",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "labName",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "labSymbol",
-        "type": "string"
-      }
-    ],
-    "name": "initializeDiamond",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "projectTreasury",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "subsidies",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "governance",
-        "type": "address"
-      }
-    ],
-    "name": "initializeRevenueRecipients",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "projectTreasury",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "subsidies",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "governance",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "liquidity",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "ecosystemGrowth",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "teamBeneficiary",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timelockDelay",
-        "type": "uint256"
-      }
-    ],
-    "name": "initializeTokenPools",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "ip",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "lid",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "st",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "en",
-        "type": "uint32"
-      }
-    ],
-    "name": "institutionalReservationRequest",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint32",
-            "name": "start",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint32",
-            "name": "end",
-            "type": "uint32"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          }
-        ],
-        "internalType": "struct ReservationIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "institutionalReservationRequestWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "invalidCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      }
-    ],
-    "name": "isApprovedForAll",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "isInitializer",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "pure",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isLabBusy",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isLabListed",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_account",
-        "type": "address"
-      }
-    ],
-    "name": "isLabProvider",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "isTokenListed",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "listLab",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "listLabWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "listToken",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "LOCK_PERIOD",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MAX_SLASH_AMOUNT",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "mint",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MINTER_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "mintFromReserve",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address[]",
-        "name": "_addresses",
-        "type": "address[]"
-      },
-      {
-        "internalType": "bytes[]",
-        "name": "_calldata",
-        "type": "bytes[]"
-      }
-    ],
-    "name": "multiInit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "name",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "signer",
         "type": "address"
@@ -7137,222 +1199,6 @@ export const contractABI = [
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "owner_",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "ownerOf",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "pause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "paused",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "PAUSER_ROLE",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "currentTime",
-        "type": "uint256"
-      }
-    ],
-    "name": "popEligible",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "maxIterations",
-        "type": "uint256"
-      }
-    ],
-    "name": "pruneViaLib",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "key",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "end",
-        "type": "uint32"
-      }
-    ],
-    "name": "rawPush",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "l",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "t",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "k",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "st",
-        "type": "uint32"
-      }
-    ],
-    "name": "recordRecentInstReservation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "refundToInstitutionalTreasury",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "refundToInstitutionalTreasury",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -7608,11 +1454,80 @@ export const contractABI = [
     "inputs": [
       {
         "internalType": "string",
-        "name": "schacHomeOrganization",
+        "name": "_uri",
+        "type": "string"
+      },
+      {
+        "internalType": "uint96",
+        "name": "_price",
+        "type": "uint96"
+      },
+      {
+        "internalType": "string",
+        "name": "_accessUri",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_accessKey",
         "type": "string"
       }
     ],
-    "name": "registerSchacHomeOrganization",
+    "name": "addAndListLab",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_uri",
+        "type": "string"
+      },
+      {
+        "internalType": "uint96",
+        "name": "_price",
+        "type": "uint96"
+      },
+      {
+        "internalType": "string",
+        "name": "_accessUri",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_accessKey",
+        "type": "string"
+      }
+    ],
+    "name": "addLab",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "deleteLab",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "listLab",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -7625,24 +1540,2720 @@ export const contractABI = [
         "type": "uint256"
       },
       {
+        "internalType": "string",
+        "name": "_tokenUri",
+        "type": "string"
+      }
+    ],
+    "name": "setTokenURI",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "unlistLab",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_uri",
+        "type": "string"
+      },
+      {
+        "internalType": "uint96",
+        "name": "_price",
+        "type": "uint96"
+      },
+      {
+        "internalType": "string",
+        "name": "_accessUri",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_accessKey",
+        "type": "string"
+      }
+    ],
+    "name": "updateLab",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "approve",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "balanceOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "burnToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "listedLabsCount",
+        "type": "uint256"
+      }
+    ],
+    "name": "calculateRequiredStake",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "cancelBooking",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "cancelReservationRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_start",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_end",
+        "type": "uint256"
+      }
+    ],
+    "name": "checkAvailable",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "confirmReservationRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "denyReservationRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_rangeStart",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_rangeEnd",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_minDuration",
+        "type": "uint32"
+      }
+    ],
+    "name": "findAvailableSlots",
+    "outputs": [
+      {
+        "internalType": "uint32[]",
+        "name": "slotStarts",
+        "type": "uint32[]"
+      },
+      {
+        "internalType": "uint32[]",
+        "name": "slotEnds",
+        "type": "uint32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_timestamp",
+        "type": "uint32"
+      }
+    ],
+    "name": "findReservationAt",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "start",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "end",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getApproved",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getBookedSlots",
+    "outputs": [
+      {
+        "internalType": "uint32[]",
+        "name": "starts",
+        "type": "uint32[]"
+      },
+      {
+        "internalType": "uint32[]",
+        "name": "ends",
+        "type": "uint32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_afterTime",
+        "type": "uint32"
+      }
+    ],
+    "name": "getNextAvailableSlot",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "nextSlotStart",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "blockedUntil",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getNextExpiration",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getReservation",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "renter",
+            "type": "address"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "address",
+            "name": "labProvider",
+            "type": "address"
+          },
+          {
+            "internalType": "uint8",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint32",
+            "name": "start",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "end",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "requestPeriodStart",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "requestPeriodDuration",
+            "type": "uint64"
+          },
+          {
+            "internalType": "address",
+            "name": "payerInstitution",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "collectorInstitution",
+            "type": "address"
+          },
+          {
+            "internalType": "uint96",
+            "name": "providerShare",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "projectTreasuryShare",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "subsidiesShare",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "governanceShare",
+            "type": "uint96"
+          }
+        ],
+        "internalType": "struct Reservation",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      }
+    ],
+    "name": "hasActiveBooking",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_symbol",
+        "type": "string"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "operator",
+        "type": "address"
+      }
+    ],
+    "name": "isApprovedForAll",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isLabBusy",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isTokenListed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "listToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "name",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ownerOf",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_start",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_end",
+        "type": "uint32"
+      }
+    ],
+    "name": "reservationRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "safeMintTo",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "safeTransferFrom",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
+      }
+    ],
+    "name": "safeTransferFrom",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_operator",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "_approved",
+        "type": "bool"
+      }
+    ],
+    "name": "setApprovalForAll",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "symbol",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "tokenURI",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "transferFrom",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "unlistToken",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "userOfReservation",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "addAndListLabWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "addLabWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "deleteLabWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "listLabWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "setTokenURIWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "unlistLabWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "updateLabWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLab",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "components": [
+              {
+                "internalType": "string",
+                "name": "uri",
+                "type": "string"
+              },
+              {
+                "internalType": "uint96",
+                "name": "price",
+                "type": "uint96"
+              },
+              {
+                "internalType": "string",
+                "name": "accessURI",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "accessKey",
+                "type": "string"
+              },
+              {
+                "internalType": "uint32",
+                "name": "createdAt",
+                "type": "uint32"
+              }
+            ],
+            "internalType": "struct LabBase",
+            "name": "base",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct Lab",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabAccessKey",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabAccessURI",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabAge",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabAuthURI",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLabCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabPrice",
+    "outputs": [
+      {
+        "internalType": "uint96",
+        "name": "",
+        "type": "uint96"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabsPaginated",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "ids",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isLabListed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int32",
+        "name": "delta",
+        "type": "int32"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "adjustLabReputation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabRating",
+    "outputs": [
+      {
+        "internalType": "int32",
+        "name": "rating",
+        "type": "int32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabReputation",
+    "outputs": [
+      {
+        "internalType": "int32",
+        "name": "score",
+        "type": "int32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "totalEvents",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "ownerCancellations",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "institutionalCancellations",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "lastUpdated",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabScore",
+    "outputs": [
+      {
+        "internalType": "int32",
+        "name": "score",
+        "type": "int32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int32",
+        "name": "newScore",
+        "type": "int32"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "setLabReputation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "tokenURIWithReputation",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_name",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "_account",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "_email",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_country",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_authURI",
+        "type": "string"
+      }
+    ],
+    "name": "addProvider",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLabProviders",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "string",
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "country",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "authURI",
+                "type": "string"
+              }
+            ],
+            "internalType": "struct ProviderBase",
+            "name": "base",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct Provider[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabProvidersPaginated",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "account",
+            "type": "address"
+          },
+          {
+            "components": [
+              {
+                "internalType": "string",
+                "name": "name",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "country",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "authURI",
+                "type": "string"
+              }
+            ],
+            "internalType": "struct ProviderBase",
+            "name": "base",
+            "type": "tuple"
+          }
+        ],
+        "internalType": "struct Provider[]",
+        "name": "providers",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      }
+    ],
+    "name": "getProviderAuthURI",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_email",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_country",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "_labErc20",
+        "type": "address"
+      }
+    ],
+    "name": "initialize",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_account",
+        "type": "address"
+      }
+    ],
+    "name": "isLabProvider",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      }
+    ],
+    "name": "removeProvider",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_authURI",
+        "type": "string"
+      }
+    ],
+    "name": "setProviderAuthURI",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_email",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_country",
+        "type": "string"
+      }
+    ],
+    "name": "updateProvider",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      }
+    ],
+    "name": "getActiveReservationKeyForUser",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxScan",
+        "type": "uint256"
+      }
+    ],
+    "name": "getRecentReservationsOfToken",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "keys",
+        "type": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
         "internalType": "address",
         "name": "_user",
         "type": "address"
       },
       {
         "internalType": "uint256",
-        "name": "maxBatch",
+        "name": "maxCount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxScan",
         "type": "uint256"
       }
     ],
-    "name": "releaseExpiredReservations",
+    "name": "getRecentReservationsOfTokenByUser",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "keys",
+        "type": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_index",
+        "type": "uint256"
+      }
+    ],
+    "name": "getReservationOfTokenByIndex",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getReservationsOfToken",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "processed",
+        "name": "",
         "type": "uint256"
       }
     ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getReservationsOfTokenByUserPaginated",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "keys",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getReservationsOfTokenPaginated",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "keys",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxCount",
+        "type": "uint256"
+      }
+    ],
+    "name": "getUpcomingReservationsOfToken",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "keys",
+        "type": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxCount",
+        "type": "uint256"
+      }
+    ],
+    "name": "getUpcomingReservationsOfTokenByUser",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "keys",
+        "type": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      }
+    ],
+    "name": "hasActiveBookingByToken",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_index",
+        "type": "uint256"
+      }
+    ],
+    "name": "reservationKeyOfUserByIndex",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      }
+    ],
+    "name": "reservationsOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalReservations",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "checkInstitutionalTreasuryAvailability",
+    "outputs": [],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "refundToInstitutionalTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "spendFromInstitutionalTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "updateLastReservation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      }
+    ],
+    "name": "adminRegisterSchacHomeOrganization",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "backendUrl",
+        "type": "string"
+      }
+    ],
+    "name": "adminSetSchacHomeOrganizationBackend",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      }
+    ],
+    "name": "adminUnregisterSchacHomeOrganization",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "organizationHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getInstitutionWalletByOrganizationHash",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "organizationHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getOrganizationByHash",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "organization",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "getOrganizationHashesByInstitution",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "organizationHashes",
+        "type": "bytes32[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getOrganizationHashesByInstitutionPaginated",
+    "outputs": [
+      {
+        "internalType": "bytes32[]",
+        "name": "organizationHashes",
+        "type": "bytes32[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "getRegisteredSchacHomeOrganizations",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "organizations",
+        "type": "string[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getRegisteredSchacHomeOrganizationsPaginated",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "organizations",
+        "type": "string[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      }
+    ],
+    "name": "getSchacHomeOrganizationBackend",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "backendUrl",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      }
+    ],
+    "name": "registerSchacHomeOrganization",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      }
+    ],
+    "name": "resolveSchacHomeOrganization",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "backendUrl",
+        "type": "string"
+      }
+    ],
+    "name": "setSchacHomeOrganizationBackend",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "schacHomeOrganization",
+        "type": "string"
+      }
+    ],
+    "name": "unregisterSchacHomeOrganization",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "cancelInstitutionalBookingWithPuc",
+    "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -7657,6 +4268,52 @@ export const contractABI = [
         "internalType": "string",
         "name": "puc",
         "type": "string"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "cancelInstitutionalReservationRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "i",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "k",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "confirmInstitutionalReservationRequestWithPuc",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pucHash",
+        "type": "bytes32"
       },
       {
         "internalType": "uint256",
@@ -7684,11 +4341,771 @@ export const contractABI = [
     "inputs": [
       {
         "internalType": "address",
-        "name": "_provider",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getInstitutionalUserActiveCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pucHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getInstitutionalUserActiveCountByHash",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getInstitutionalUserActiveReservationKey",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "index",
+        "type": "uint256"
+      }
+    ],
+    "name": "getInstitutionalUserReservationByIndex",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "key",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "getInstitutionalUserReservationCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabActiveReservationCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getLabReservationCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "_reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getReservationPucHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institutionalProvider",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "hasInstitutionalUserActiveBooking",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "p",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "o",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "l",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "s",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "e",
+            "type": "uint32"
+          },
+          {
+            "internalType": "string",
+            "name": "u",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "k",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "t",
+            "type": "address"
+          }
+        ],
+        "internalType": "struct InstitutionalReservationRequestCreationFacet.InstInput",
+        "name": "i",
+        "type": "tuple"
+      }
+    ],
+    "name": "createInstReservation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "l",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "t",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "k",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "st",
+        "type": "uint32"
+      }
+    ],
+    "name": "recordRecentInstReservation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "ip",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "lid",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "st",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "en",
+        "type": "uint32"
+      }
+    ],
+    "name": "institutionalReservationRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "p",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "u",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "l",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "st",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "en",
+        "type": "uint32"
+      }
+    ],
+    "name": "validateInstRequest",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "o",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "k",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "t",
         "type": "address"
       }
     ],
-    "name": "removeProvider",
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "newBackend",
+        "type": "address"
+      }
+    ],
+    "name": "adminResetBackend",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "backend",
+        "type": "address"
+      }
+    ],
+    "name": "authorizeBackend",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "depositToInstitutionalTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "getAuthorizedBackend",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "getInstitutionalSpendingPeriod",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "getInstitutionalTreasuryBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "getInstitutionalUserFinancialStats",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "currentPeriodSpent",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalHistoricalSpent",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "spendingLimit",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "remainingAllowance",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "periodStart",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "periodEnd",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "periodDuration",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "getInstitutionalUserLimit",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "getInstitutionalUserRemainingAllowance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "getInstitutionalUserSpendingData",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "periodStart",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      }
+    ],
+    "name": "getInstitutionalUserSpent",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "resetInstitutionalSpendingPeriod",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "revokeBackend",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "periodDuration",
+        "type": "uint256"
+      }
+    ],
+    "name": "setInstitutionalSpendingPeriod",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "setInstitutionalUserLimit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawFromInstitutionalTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllInstitutions",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "institutions",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getInstitutionsPaginated",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "institutions",
+        "type": "address[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "total",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "organization",
+        "type": "string"
+      }
+    ],
+    "name": "grantInstitutionRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "organization",
+        "type": "string"
+      }
+    ],
+    "name": "revokeInstitutionRole",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -7697,17 +5114,547 @@ export const contractABI = [
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "role",
+        "name": "reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "checkInReservation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "reservationKey",
         "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "callerConfirmation",
+        "name": "signer",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "pucHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "timestamp",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "checkInReservationWithSignature",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "string",
+            "name": "uri",
+            "type": "string"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "uint96",
+            "name": "maxBatch",
+            "type": "uint96"
+          },
+          {
+            "internalType": "string",
+            "name": "accessURI",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "accessKey",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "tokenURI",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct ActionIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "cancelInstitutionalBookingWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "start",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "end",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct ReservationIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "cancelInstitutionalReservationRequestWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "executor",
+            "type": "address"
+          },
+          {
+            "internalType": "string",
+            "name": "schacHomeOrganization",
+            "type": "string"
+          },
+          {
+            "internalType": "string",
+            "name": "puc",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "assertionHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint256",
+            "name": "labId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint32",
+            "name": "start",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint32",
+            "name": "end",
+            "type": "uint32"
+          },
+          {
+            "internalType": "uint96",
+            "name": "price",
+            "type": "uint96"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "reservationKey",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct ReservationIntentPayload",
+        "name": "payload",
+        "type": "tuple"
+      }
+    ],
+    "name": "institutionalReservationRequestWithIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "startTime",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "endTime",
+        "type": "uint32"
+      }
+    ],
+    "name": "getReservationStats",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "count",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "firstStart",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "lastEnd",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalDuration",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "startTime",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "endTime",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "cursorStartInput",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getReservationStatsPaginated",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "count",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "firstStart",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "lastEnd",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalDuration",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "nextCursorStart",
+        "type": "uint32"
+      },
+      {
+        "internalType": "bool",
+        "name": "hasMore",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxBatch",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "recipient",
         "type": "address"
       }
     ],
-    "name": "renounceRole",
+    "name": "adminRecoverOrphanedPayouts",
     "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLabTokenAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPendingLabPayout",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "walletPayout",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "institutionalPayout",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalPayout",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "institutionalCollectorCount",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "offset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPendingLabPayoutPaginated",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "walletPayoutChunk",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "institutionalPayoutChunk",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalPayoutChunk",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "institutionalCollectorCountChunk",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "nextOffset",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "hasMore",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getSafeBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "projectTreasury",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "subsidies",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "governance",
+        "type": "address"
+      }
+    ],
+    "name": "initializeRevenueRecipients",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxIterations",
+        "type": "uint256"
+      }
+    ],
+    "name": "prunePayoutHeap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "removed",
+        "type": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -7810,48 +5757,22 @@ export const contractABI = [
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_index",
-        "type": "uint256"
-      }
-    ],
-    "name": "reservationKeyOfUserByIndex",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      }
-    ],
-    "stateMutability": "view",
+    "inputs": [],
+    "name": "withdrawGovernance",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_start",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_end",
-        "type": "uint32"
-      }
-    ],
-    "name": "reservationRequest",
+    "inputs": [],
+    "name": "withdrawProjectTreasury",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawSubsidies",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -7864,30 +5785,30 @@ export const contractABI = [
         "type": "uint256"
       },
       {
-        "internalType": "uint32",
-        "name": "_start",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "_end",
-        "type": "uint32"
-      }
-    ],
-    "name": "reservationRequest",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "_user",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxBatch",
+        "type": "uint256"
       }
     ],
-    "name": "reservationsOf",
+    "name": "releaseExpiredReservations",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "processed",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "INITIAL_STAKE_LOCK_PERIOD",
     "outputs": [
       {
         "internalType": "uint256",
@@ -7900,25 +5821,12 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "resetInstitutionalSpendingPeriod",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      }
-    ],
-    "name": "resolveSchacHomeOrganization",
+    "name": "LOCK_PERIOD",
     "outputs": [
       {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -7926,388 +5834,15 @@ export const contractABI = [
   },
   {
     "inputs": [],
-    "name": "revokeBackend",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "organization",
-        "type": "string"
-      }
-    ],
-    "name": "revokeInstitutionRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "role",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "revokeRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "rootEnd",
+    "name": "MAX_SLASH_AMOUNT",
     "outputs": [
       {
-        "internalType": "uint32",
+        "internalType": "uint256",
         "name": "",
-        "type": "uint32"
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "safeMintTo",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
-      }
-    ],
-    "name": "safeTransferFrom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "safeTransferFrom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_operator",
-        "type": "address"
-      },
-      {
-        "internalType": "bool",
-        "name": "_approved",
-        "type": "bool"
-      }
-    ],
-    "name": "setApprovalForAll",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "periodDuration",
-        "type": "uint256"
-      }
-    ],
-    "name": "setInstitutionalSpendingPeriod",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "limit",
-        "type": "uint256"
-      }
-    ],
-    "name": "setInstitutionalUserLimit",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "count",
-        "type": "uint256"
-      }
-    ],
-    "name": "setInvalidCount",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "int32",
-        "name": "newScore",
-        "type": "int32"
-      },
-      {
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "setLabReputation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_authURI",
-        "type": "string"
-      }
-    ],
-    "name": "setProviderAuthURI",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "key",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint8",
-        "name": "status",
-        "type": "uint8"
-      }
-    ],
-    "name": "setReservation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "key",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "uint8",
-        "name": "status",
-        "type": "uint8"
-      }
-    ],
-    "name": "setReservationStatus",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "backendUrl",
-        "type": "string"
-      }
-    ],
-    "name": "setSchacHomeOrganizationBackend",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "_tokenUri",
-        "type": "string"
-      }
-    ],
-    "name": "setTokenURI",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "requestId",
-        "type": "bytes32"
-      },
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "setTokenURIWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -8318,6 +5853,122 @@ export const contractABI = [
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "burnStakeOnRemoval",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "canProvideService",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "cancelQueuedSlash",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "executeQueuedSlash",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "getRequiredStake",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      }
+    ],
+    "name": "getStakeInfo",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "stakedAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "slashedAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "lastReservationTimestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "unlockTimestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "canUnstake",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -8349,52 +6000,6 @@ export const contractABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "provider",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "spendFromInstitutionalTreasury",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "institution",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "puc",
-        "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "spendFromInstitutionalTreasury",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
@@ -8408,52 +6013,14 @@ export const contractABI = [
   {
     "inputs": [
       {
-        "internalType": "bytes4",
-        "name": "interfaceId",
-        "type": "bytes4"
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
       }
     ],
-    "name": "supportsInterface",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "_interfaceId",
-        "type": "bytes4"
-      }
-    ],
-    "name": "supportsInterface",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "symbol",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
+    "name": "unstakeTokens",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -8480,6 +6047,19 @@ export const contractABI = [
         "internalType": "address",
         "name": "inst",
         "type": "address"
+      }
+    ],
+    "name": "test_setInstitutionRole",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "inst",
+        "type": "address"
       },
       {
         "internalType": "uint256",
@@ -8495,621 +6075,1976 @@ export const contractABI = [
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "inst",
-        "type": "address"
-      }
-    ],
-    "name": "test_setInstitutionRole",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "tokenURI",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "tokenURIWithReputation",
-    "outputs": [
-      {
-        "internalType": "string",
-        "name": "",
-        "type": "string"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "topUpEcosystemGrowth",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "topUpSubsidies",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "totalReservations",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "totalSupply",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
-    ],
-    "name": "transfer",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      }
-    ],
-    "name": "transferFrom",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "from",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
-    ],
-    "name": "transferFrom",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "transferOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_labId",
-        "type": "uint256"
-      }
-    ],
-    "name": "unlistLab",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "bytes32",
         "name": "requestId",
         "type": "bytes32"
       },
       {
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "executor",
+        "type": "address"
+      },
+      {
+        "internalType": "uint8",
+        "name": "action",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "payloadHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "requestedAt",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "expiresAt",
+        "type": "uint64"
+      }
+    ],
+    "name": "test_setPendingActionIntent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "components": [
           {
             "internalType": "address",
-            "name": "executor",
+            "name": "facetAddress",
             "type": "address"
           },
           {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
           },
           {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
           }
         ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
+        "indexed": false,
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
       }
     ],
-    "name": "unlistLabWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "DiamondCut",
+    "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_tokenId",
-        "type": "uint256"
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
       }
     ],
-    "name": "unlistToken",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "OwnershipTransferred",
+    "type": "event"
   },
   {
-    "inputs": [],
-    "name": "unpause",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
+    "anonymous": false,
     "inputs": [
       {
-        "internalType": "string",
-        "name": "schacHomeOrganization",
-        "type": "string"
-      }
-    ],
-    "name": "unregisterSchacHomeOrganization",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalMinted",
+        "type": "uint256"
       }
     ],
-    "name": "unstakeTokens",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "EcosystemToppedUp",
+    "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "version",
+        "type": "uint64"
+      }
+    ],
+    "name": "Initialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "ReserveMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "previousAdminRole",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "newAdminRole",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RoleAdminChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleGranted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sender",
+        "type": "address"
+      }
+    ],
+    "name": "RoleRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalMinted",
+        "type": "uint256"
+      }
+    ],
+    "name": "SubsidiesToppedUp",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "projectTreasury",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "treasuryTimelock",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "subsidies",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "liquidity",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "ecosystemGrowth",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "teamVesting",
+        "type": "address"
+      }
+    ],
+    "name": "TokenPoolsInitialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
+    ],
+    "name": "IntentCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "action",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "payloadHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "IntentRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "_labId",
         "type": "uint256"
       },
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "string",
         "name": "_uri",
         "type": "string"
       },
       {
+        "indexed": false,
         "internalType": "uint96",
         "name": "_price",
         "type": "uint96"
       },
       {
+        "indexed": false,
         "internalType": "string",
         "name": "_accessUri",
         "type": "string"
       },
       {
+        "indexed": false,
         "internalType": "string",
         "name": "_accessKey",
         "type": "string"
       }
     ],
-    "name": "updateLab",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "LabAdded",
+    "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      }
+    ],
+    "name": "LabDeleted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      }
+    ],
+    "name": "LabListed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_uri",
+        "type": "string"
+      }
+    ],
+    "name": "LabURISet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      }
+    ],
+    "name": "LabUnlisted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "_labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_uri",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint96",
+        "name": "_price",
+        "type": "uint96"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_accessUri",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_accessKey",
+        "type": "string"
+      }
+    ],
+    "name": "LabUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "approved",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "Approval",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "operator",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "approved",
+        "type": "bool"
+      }
+    ],
+    "name": "ApprovalForAll",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "BookingCanceled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "bytes32",
         "name": "requestId",
         "type": "bytes32"
       },
       {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "executor",
-            "type": "address"
-          },
-          {
-            "internalType": "string",
-            "name": "schacHomeOrganization",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "puc",
-            "type": "string"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "assertionHash",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "uint256",
-            "name": "labId",
-            "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "reservationKey",
-            "type": "bytes32"
-          },
-          {
-            "internalType": "string",
-            "name": "uri",
-            "type": "string"
-          },
-          {
-            "internalType": "uint96",
-            "name": "price",
-            "type": "uint96"
-          },
-          {
-            "internalType": "uint96",
-            "name": "maxBatch",
-            "type": "uint96"
-          },
-          {
-            "internalType": "string",
-            "name": "accessURI",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "accessKey",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "tokenURI",
-            "type": "string"
-          }
-        ],
-        "internalType": "struct ActionIntentPayload",
-        "name": "payload",
-        "type": "tuple"
-      }
-    ],
-    "name": "updateLabWithIntent",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
       {
+        "indexed": false,
+        "internalType": "string",
+        "name": "action",
+        "type": "string"
+      },
+      {
+        "indexed": false,
         "internalType": "address",
         "name": "provider",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
       }
     ],
-    "name": "updateLastReservation",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "LabIntentProcessed",
+    "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ReservationConfirmed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "oldProvider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newProvider",
+        "type": "address"
+      }
+    ],
+    "name": "ReservationProviderUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "ReservationRequestCanceled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "reason",
+        "type": "uint8"
+      }
+    ],
+    "name": "ReservationRequestDenied",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "renter",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "start",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "end",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ReservationRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      }
+    ],
+    "name": "ReservationsReleased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "node",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "hl",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "hr",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "context",
+        "type": "string"
+      }
+    ],
+    "name": "TraceBHCheck",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "step",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "key",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "keyParent",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "keyGrandparent",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "cursor",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "root",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "rootRed",
+        "type": "bool"
+      }
+    ],
+    "name": "TraceInsertFixup",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "step",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "key",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "cursor",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "parent",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "left",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "right",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "end",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "red",
+        "type": "bool"
+      }
+    ],
+    "name": "TraceInsertStep",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "root",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "key",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "cursor",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "cursor_parent",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "key_parent",
+        "type": "uint256"
+      }
+    ],
+    "name": "TraceRotateState",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "step",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "key",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "cursor",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "cursorChild",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "parent",
+        "type": "uint256"
+      }
+    ],
+    "name": "TraceRotation",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "Transfer",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
+    ],
+    "name": "IntentExpired",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int32",
+        "name": "delta",
+        "type": "int32"
+      },
+      {
+        "indexed": false,
+        "internalType": "int32",
+        "name": "newScore",
+        "type": "int32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "totalEvents",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "LabReputationAdjusted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "int32",
+        "name": "newScore",
+        "type": "int32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "LabReputationSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "backend",
+        "type": "address"
+      }
+    ],
+    "name": "BackendAuthorized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "limit",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalTreasuryInitialized",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "string",
         "name": "_name",
         "type": "string"
       },
       {
+        "indexed": false,
         "internalType": "string",
         "name": "_email",
         "type": "string"
       },
       {
+        "indexed": false,
         "internalType": "string",
         "name": "_country",
         "type": "string"
       }
     ],
-    "name": "updateProvider",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "ProviderAdded",
+    "type": "event"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
-        "internalType": "bytes32",
-        "name": "_reservationKey",
-        "type": "bytes32"
-      }
-    ],
-    "name": "userOfReservation",
-    "outputs": [
-      {
+        "indexed": true,
         "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "p",
+        "name": "_account",
         "type": "address"
       },
       {
+        "indexed": false,
         "internalType": "string",
-        "name": "u",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "ProviderAddedWithoutTokens",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_authURI",
+        "type": "string"
+      }
+    ],
+    "name": "ProviderAuthURIUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_account",
+        "type": "address"
+      }
+    ],
+    "name": "ProviderRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "_account",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_name",
         "type": "string"
       },
       {
-        "internalType": "uint256",
-        "name": "l",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint32",
-        "name": "st",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "en",
-        "type": "uint32"
-      }
-    ],
-    "name": "validateInstRequest",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "o",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "k",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "t",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "p",
-        "type": "address"
-      },
-      {
+        "indexed": false,
         "internalType": "string",
-        "name": "u",
+        "name": "_email",
         "type": "string"
       },
       {
+        "indexed": false,
+        "internalType": "string",
+        "name": "_country",
+        "type": "string"
+      }
+    ],
+    "name": "ProviderUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
         "internalType": "uint256",
-        "name": "l",
+        "name": "labId",
         "type": "uint256"
       },
       {
-        "internalType": "uint32",
-        "name": "st",
-        "type": "uint32"
-      },
-      {
-        "internalType": "uint32",
-        "name": "en",
-        "type": "uint32"
-      }
-    ],
-    "name": "validateInstRequest",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "reservationsProcessed",
+        "type": "uint256"
       }
     ],
-    "name": "withdrawFromInstitutionalTreasury",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "FundsCollected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "organization",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "organizationHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "backendUrl",
+        "type": "string"
+      }
+    ],
+    "name": "SchacHomeOrganizationBackendUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "organization",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "organizationHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "SchacHomeOrganizationRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "organization",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "organizationHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "SchacHomeOrganizationRemoved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "backend",
+        "type": "address"
+      }
+    ],
+    "name": "BackendRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newPeriodStart",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalSpendingPeriodReset",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newPeriod",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalSpendingPeriodUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newBalance",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalTreasuryDeposit",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newBalance",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalTreasuryWithdrawal",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalUserLimitUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "totalSpent",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "periodStart",
+        "type": "uint256"
+      }
+    ],
+    "name": "InstitutionalUserSpent",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "organizationHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "InstitutionRoleGranted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      }
+    ],
+    "name": "InstitutionRoleRevoked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "checker",
+        "type": "address"
+      }
+    ],
+    "name": "ReservationCheckedIn",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "reservationKey",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "action",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "puc",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "institution",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "success",
+        "type": "bool"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "ReservationIntentProcessed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "recipient",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "providerPayout",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "reservationsProcessed",
+        "type": "uint256"
+      }
+    ],
+    "name": "OrphanedLabPayoutRecovered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "labId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "removed",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remaining",
+        "type": "uint256"
+      }
+    ],
+    "name": "PayoutHeapPruned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ],
+    "name": "LastReservationUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remainingStake",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProviderSlashed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remainingStake",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "requiredStake",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProviderStakeInsufficient",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newTotalStake",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "requiredStake",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProviderStakeSufficient",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "cancelledBy",
+        "type": "address"
+      }
+    ],
+    "name": "SlashCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "executeAfter",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "SlashQueued",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "StakeBurned",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newTotalStake",
+        "type": "uint256"
+      }
+    ],
+    "name": "TokensStaked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "provider",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "remainingStake",
+        "type": "uint256"
+      }
+    ],
+    "name": "TokensUnstaked",
+    "type": "event"
   },
   {
     "inputs": [],
-    "name": "withdrawGovernance",
-    "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
+    "type": "constructor"
   },
   {
     "inputs": [],
-    "name": "withdrawProjectTreasury",
-    "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
+    "type": "constructor"
   },
   {
     "inputs": [],
-    "name": "withdrawSubsidies",
-    "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "owner",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "init",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes",
+            "name": "initCalldata",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct DiamondArgs",
+        "name": "_args",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "constructor"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "fallback"
   },
   {
     "stateMutability": "payable",
