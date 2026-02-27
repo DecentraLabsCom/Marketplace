@@ -20,6 +20,7 @@ import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
 import { contractAddresses } from '@/contracts/diamond'
 import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { hasValidContractAddress } from '@/utils/blockchain/address'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationMissingInstitutionalBackend,
@@ -39,6 +40,7 @@ import {
   notifyReservationWalletSlotUnavailable,
   notifyReservationWalletTimeslotConflict,
   notifyReservationWalletTransactionRejected,
+  notifyReservationWalletTransactionSubmitted,
   notifyReservationWalletUnsupportedNetwork,
 } from '@/utils/notifications/reservationToasts'
 
@@ -313,7 +315,7 @@ export default function LabReservation({ id }) {
     const chainName = chain?.name || safeChain?.name || 'unknown network'
     const chainKey = chain?.name?.toLowerCase?.() || safeChain?.name?.toLowerCase?.() || ''
     const contractAddress = contractAddresses[chainKey]
-    if (!contractAddress || contractAddress === "0x...") {
+    if (!hasValidContractAddress(contractAddress)) {
       notifyReservationWalletUnsupportedNetwork(addTemporaryNotification, chainName)
       return
     }
@@ -400,7 +402,8 @@ export default function LabReservation({ id }) {
         userAddress: effectiveUserAddress,
       })
 
-      notifyReservationProgressSubmitted(addTemporaryNotification, { labId, start })
+      // Wallet-specific toast: TX sent to chain, confirmation still pending
+      notifyReservationWalletTransactionSubmitted(addTemporaryNotification, { labId, start })
       if (result.hash) {
         const userAddr = address || userAddress
         const startDate = new Date(start * 1000)

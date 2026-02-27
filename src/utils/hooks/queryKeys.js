@@ -25,7 +25,7 @@ export const bookingQueryKeys = {
   reservationOfTokenPrefix: (labId) => ['bookings', 'reservationOfToken', labId],
   getReservationsOfTokenByUser: (labId, userAddress, offset = 0, limit = 50) => ['bookings', 'reservationsOfTokenByUser', labId, userAddress, offset, limit],
   getReservationOfTokenByIndex: (labId, index) => ['bookings', 'reservationOfToken', labId, index],
-  reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress],
+  reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress?.toLowerCase?.() ?? userAddress],
   ssoReservationsOf: () => ['bookings', 'sso', 'reservationsOf'],
   reservationKeyOfUserPrefix: (userAddress) =>
     userAddress ? ['bookings', 'reservationKeyOfUser', userAddress] : ['bookings', 'reservationKeyOfUser'],

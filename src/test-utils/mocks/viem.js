@@ -21,4 +21,17 @@ module.exports = {
       return '0';
     }
   },
+  getAddress: (value) => {
+    if (typeof value !== 'string') {
+      throw new Error('Invalid address');
+    }
+
+    const normalized = value.trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(normalized)) {
+      throw new Error('Invalid address');
+    }
+
+    return normalized;
+  },
+  isAddress: (value) => typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value.trim()),
 };

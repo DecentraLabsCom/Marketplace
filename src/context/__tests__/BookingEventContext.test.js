@@ -26,8 +26,8 @@ jest.mock("@/context/NotificationContext", () => ({
 jest.mock("@/contracts/diamond", () => ({
   contractABI: [],
   contractAddresses: {
-    sepolia: "0xContractAddress",
-    localhost: "0xLocalContractAddress",
+    sepolia: "0x1111111111111111111111111111111111111111",
+    localhost: "0x2222222222222222222222222222222222222222",
   },
 }));
 
@@ -70,14 +70,16 @@ const createWrapper = (queryClient) => ({ children }) => (
 );
 
 describe("BookingEventContext", () => {
+  const USER_ADDRESS = "0x3333333333333333333333333333333333333333";
+  const ANOTHER_ADDRESS = "0x4444444444444444444444444444444444444444";
   let eventCallbacks = {};
   const mockUseConnection = {
-    accounts: ["0xUserAddress"],
+    accounts: [USER_ADDRESS],
     chain: { id: 11155111, name: "sepolia" },
     status: 'connected',
   };
   const mockUseUser = {
-    address: "0xUserAddress",
+    address: USER_ADDRESS,
     isSSO: true,
   };
   const mockAddTemporaryNotification = jest.fn();
@@ -86,7 +88,7 @@ describe("BookingEventContext", () => {
   const reservationRequestedLog = (overrides = {}) => ({
     args: {
       reservationKey: overrides.reservationKey || "reservation-123",
-      renter: overrides.renter || "0xUserAddress",
+      renter: overrides.renter || USER_ADDRESS,
       tokenId: overrides.tokenId || "1",
       start: overrides.start || BigInt(Math.floor(Date.now() / 1000) + 3600),
       end:
@@ -115,7 +117,7 @@ describe("BookingEventContext", () => {
 
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ reservation: { status: 1, renter: "0xUserAddress" } }),
+      json: async () => ({ reservation: { status: 1, renter: USER_ADDRESS } }),
     });
   });
 
@@ -253,7 +255,7 @@ describe("BookingEventContext", () => {
       contextHook.result.current.registerPendingConfirmation("reservation-123", "1", null);
     });
 
-    await triggerEvent("ReservationRequested", [reservationRequestedLog({ renter: "0xAnotherUser" })]);
+    await triggerEvent("ReservationRequested", [reservationRequestedLog({ renter: ANOTHER_ADDRESS })]);
 
     await waitFor(() => {
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
@@ -266,6 +268,57 @@ describe("BookingEventContext", () => {
         })
       );
     });
+  });
+
+  test("reconciles wallet placeholder keys to on-chain reservation keys for confirmation tracking", async () => {
+    userContext.useUser.mockReturnValue({
+      address: null,
+      isSSO: false,
+    });
+
+    const queryClient = createTestQueryClient();
+    const wrapper = createWrapper(queryClient);
+    const contextHook = renderHook(() => useBookingEventContext(), { wrapper });
+
+    act(() => {
+      contextHook.result.current.registerPendingConfirmation(
+        "optimistic-wallet-1",
+        "1",
+        USER_ADDRESS,
+        {
+          start: "1700003600",
+          end: "1700007200",
+        }
+      );
+    });
+
+    await triggerEvent("ReservationRequested", [
+      reservationRequestedLog({
+        reservationKey: "reservation-456",
+        renter: USER_ADDRESS,
+        tokenId: "1",
+        start: BigInt(1700003600),
+        end: BigInt(1700007200),
+      }),
+    ]);
+
+    await triggerEvent("ReservationConfirmed", [
+      { args: { reservationKey: "reservation-456", tokenId: "1" } },
+    ]);
+
+    await waitFor(() => {
+      expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+        "success",
+        expect.stringContaining("Reservation confirmed"),
+        null,
+        expect.objectContaining({
+          dedupeKey: "reservation-confirmed:reservation-456",
+          dedupeWindowMs: 120000,
+        })
+      );
+    });
+
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test("emits reservation-requested-onchain browser event for tracked requester", async () => {
@@ -327,7 +380,7 @@ describe("BookingEventContext", () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        reservation: { status: 1, renter: "0xAnotherUser" },
+        reservation: { status: 1, renter: ANOTHER_ADDRESS },
       }),
     });
 
@@ -392,7 +445,7 @@ describe("BookingEventContext", () => {
     window.addEventListener("reservation-cancelled", cancelledListener);
 
     act(() => {
-      contextHook.result.current.registerPendingCancellation("res-cancel-2", "3", "0xUserAddress");
+      contextHook.result.current.registerPendingCancellation("res-cancel-2", "3", USER_ADDRESS);
     });
 
     await triggerEvent("BookingCanceled", [
@@ -428,7 +481,7 @@ describe("BookingEventContext", () => {
     const contextHook = renderHook(() => useBookingEventContext(), { wrapper });
 
     act(() => {
-      contextHook.result.current.registerPendingCancellation("res-cancel-3", "4", "0xUserAddress");
+      contextHook.result.current.registerPendingCancellation("res-cancel-3", "4", USER_ADDRESS);
     });
 
     await triggerEvent("ReservationRequestCanceled", [
@@ -457,7 +510,7 @@ describe("BookingEventContext", () => {
     const pollingResponse = {
       ok: true,
       json: async () => ({
-        reservation: { status: 1, renter: "0xUserAddress" },
+        reservation: { status: 1, renter: USER_ADDRESS },
       }),
     };
 
@@ -494,14 +547,14 @@ describe("BookingEventContext", () => {
       contextHook.result.current.registerPendingConfirmation(
         "reservation-777",
         "9",
-        "0xUserAddress"
+        USER_ADDRESS
       );
     });
 
     global.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        reservation: { status: 1, renter: "0xUserAddress" },
+        reservation: { status: 1, renter: USER_ADDRESS },
       }),
     });
 
@@ -535,7 +588,7 @@ describe("BookingEventContext", () => {
     global.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        reservation: { status: 1, renter: "0xUserAddress" },
+        reservation: { status: 1, renter: USER_ADDRESS },
       }),
     });
 

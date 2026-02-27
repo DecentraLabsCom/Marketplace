@@ -33,6 +33,8 @@ export const reservationToastIds = {
   walletSlotUnavailable: ({ labId, start }) => `reservation-wallet-slot-unavailable:${String(labId)}:${String(start)}`,
   walletTransactionRejected: () => 'reservation-wallet-transaction-rejected',
   walletTimeslotConflict: ({ labId, start }) => `reservation-wallet-timeslot-conflict:${String(labId)}:${String(start)}`,
+  walletAwaitingProvider: (reservationKey) => `reservation-wallet-awaiting-provider:${normalizeReservationKey(reservationKey) || 'unknown'}`,
+  walletTxSubmitted: ({ labId, start }) => `reservation-wallet-tx-submitted:${String(labId)}:${String(start)}`,
 }
 
 const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
@@ -219,4 +221,31 @@ export const notifyReservationWalletTimeslotConflict = (addTemporaryNotification
     '❌ Time slot was reserved while you were booking. Please try another time.',
     reservationToastIds.walletTimeslotConflict(payload)
   )
+
+/**
+ * Wallet flow: TX is in the mempool / confirmed on-chain, awaiting provider confirmation.
+ * Mirrors the SSO "Accepted by institution, awaiting on-chain registration" fallback toast.
+ */
+export const notifyReservationWalletAwaitingProviderConfirmation = (addTemporaryNotification, reservationKey) => {
+  notify(
+    addTemporaryNotification,
+    'pending',
+    'Reservation request on-chain. Awaiting provider confirmation...',
+    reservationToastIds.walletAwaitingProvider(reservationKey),
+    { dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS }
+  )
+}
+
+/**
+ * Wallet flow: transaction has been broadcast to the network (TX in mempool).
+ * More accurate wording than the shared "progressSubmitted" toast for wallet users.
+ */
+export const notifyReservationWalletTransactionSubmitted = (addTemporaryNotification, payload) => {
+  notify(
+    addTemporaryNotification,
+    'pending',
+    'Transaction submitted. Waiting for blockchain confirmation...',
+    reservationToastIds.walletTxSubmitted(payload)
+  )
+}
 

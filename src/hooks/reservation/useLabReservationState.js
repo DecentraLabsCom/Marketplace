@@ -25,6 +25,7 @@ import { useReservationButtonState } from './useReservationButtonState'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationRequestAcceptedAwaitingOnChain,
+  notifyReservationWalletAwaitingProviderConfirmation,
   notifyReservationTxReverted,
 } from '@/utils/notifications/reservationToasts'
 
@@ -258,9 +259,7 @@ export function useLabReservationState({
   useEffect(() => {
     if (typeof registerPendingConfirmation !== 'function') return
 
-    const candidateReservationKey = isSSO
-      ? (pendingData?.reservationKey || pendingData?.optimisticId)
-      : pendingData?.reservationKey
+    const candidateReservationKey = pendingData?.reservationKey || pendingData?.optimisticId
 
     const normalizedKey = normalizeReservationKey(
       candidateReservationKey
@@ -270,14 +269,19 @@ export function useLabReservationState({
     registerPendingConfirmation(
       normalizedKey,
       pendingData?.labId,
-      pendingData?.userAddress
+      pendingData?.userAddress,
+      {
+        start: pendingData?.start,
+        end: pendingData?.end,
+      }
     )
   }, [
-    isSSO,
     pendingData?.reservationKey,
     pendingData?.optimisticId,
     pendingData?.labId,
     pendingData?.userAddress,
+    pendingData?.start,
+    pendingData?.end,
     registerPendingConfirmation
   ])
 
@@ -614,6 +618,36 @@ export function useLabReservationState({
     isSSO,
     ssoBookingStage,
     activeSsoRequest?.reservationKey,
+    pendingData?.reservationKey,
+    pendingData?.optimisticId,
+    addTemporaryNotification,
+  ])
+
+  // Wallet equivalent: booking is on-chain (receipt confirmed), awaiting provider confirmation
+  useEffect(() => {
+    if (isSSO || walletBookingStage !== SSO_BOOKING_STAGE.REQUEST_REGISTERED) return
+
+    const normalizedReservationKey = normalizeReservationKey(
+      activeWalletRequest?.reservationKey || pendingData?.reservationKey || pendingData?.optimisticId
+    )
+    if (!normalizedReservationKey) return
+    if (fallbackSsoToastKeysRef.current.has(normalizedReservationKey)) return
+
+    const timer = setTimeout(() => {
+      if (onChainRequestedToastKeysRef.current.has(normalizedReservationKey)) return
+
+      notifyReservationWalletAwaitingProviderConfirmation(
+        addTemporaryNotification,
+        normalizedReservationKey
+      )
+      fallbackSsoToastKeysRef.current.add(normalizedReservationKey)
+    }, 1200)
+
+    return () => clearTimeout(timer)
+  }, [
+    isSSO,
+    walletBookingStage,
+    activeWalletRequest?.reservationKey,
     pendingData?.reservationKey,
     pendingData?.optimisticId,
     addTemporaryNotification,

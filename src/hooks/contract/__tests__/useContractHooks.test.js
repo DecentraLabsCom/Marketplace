@@ -8,12 +8,12 @@ const mockReadContract = jest.fn();
 jest.mock('wagmi', () => ({
   useWriteContract: () => ({ writeContractAsync: mockWriteContract }),
   useReadContract: () => ({ data: null, isLoading: false, refetch: mockReadContract }),
-  useConnection: () => ({ accounts: ['0x123'], chain: { id: 11155111, name: 'sepolia' }, status: 'connected' }),
+  useConnection: () => ({ accounts: ['0x3333333333333333333333333333333333333333'], chain: { id: 11155111, name: 'sepolia' }, status: 'connected' }),
 }));
 
 jest.mock('@/contracts/diamond', () => ({
   contractABI: [],
-  contractAddresses: { sepolia: '0xContract' },
+  contractAddresses: { sepolia: '0x1111111111111111111111111111111111111111' },
 }));
 
 jest.mock('@/utils/blockchain/selectChain', () => ({

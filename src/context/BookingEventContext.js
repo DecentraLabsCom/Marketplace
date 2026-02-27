@@ -23,6 +23,26 @@ import { notifyUserDashboardCancellationConfirmed } from '@/utils/notifications/
 
 const BookingEventContext = createContext();
 
+const toEpochSeconds = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+};
+
+const isCanonicalReservationKey = (value) => {
+    if (typeof value !== 'string') return false;
+    return /^0x[0-9a-f]{64}$/i.test(value.trim());
+};
+
+const isPlaceholderReservationKey = (value) => {
+    if (typeof value !== 'string') return false;
+    const normalized = value.trim().toLowerCase();
+    return (
+        normalized.startsWith('optimistic-') ||
+        normalized.startsWith('pending-') ||
+        normalized.startsWith('intent-')
+    );
+};
+
 /**
  * Simplified Booking Event Provider
  * Only handles blockchain events and validates/updates React Query cache
@@ -50,7 +70,7 @@ export function BookingEventProvider({ children }) {
 
     const { clearOptimisticBookingState } = useOptimisticUI();
 
-    const trackPendingConfirmation = (reservationKey, tokenId, requesterAddress) => {
+    const trackPendingConfirmation = (reservationKey, tokenId, requesterAddress, metadata = {}) => {
         const normalizedKey = normalizeReservationKey(reservationKey);
         if (!normalizedKey) {
             return;
@@ -60,19 +80,25 @@ export function BookingEventProvider({ children }) {
             timestamp: Date.now(),
             tokenId,
             requester: requesterAddress?.toLowerCase?.() ?? requesterAddress,
+            start: toEpochSeconds(metadata?.start),
+            end: toEpochSeconds(metadata?.end),
             attempts: 0
         });
     };
 
-    const registerPendingConfirmation = (reservationKey, tokenId, requesterAddress) => {
+    const registerPendingConfirmation = (reservationKey, tokenId, requesterAddress, metadata = {}) => {
         const normalizedKey = normalizeReservationKey(reservationKey);
         if (!normalizedKey) return;
 
         const existing = pendingConfirmations.current.get(normalizedKey);
+        const normalizedStart = toEpochSeconds(metadata?.start);
+        const normalizedEnd = toEpochSeconds(metadata?.end);
         pendingConfirmations.current.set(normalizedKey, {
             timestamp: existing?.timestamp ?? Date.now(),
             tokenId: tokenId?.toString?.() ?? tokenId ?? existing?.tokenId,
             requester: requesterAddress?.toLowerCase?.() ?? requesterAddress ?? existing?.requester,
+            start: normalizedStart ?? existing?.start ?? null,
+            end: normalizedEnd ?? existing?.end ?? null,
             attempts: existing?.attempts ?? 0,
         });
     };
@@ -268,6 +294,7 @@ export function BookingEventProvider({ children }) {
                 const requester = renter?.toString();
                 const startStr = start?.toString();
                 const endStr = end?.toString();
+                const startEpoch = toEpochSeconds(startStr);
                 
                 devLog.log(`📝 [BookingEventContext] Processing ReservationRequested #${index + 1}:`, {
                     reservationKey: reservationKeyStr,
@@ -280,9 +307,53 @@ export function BookingEventProvider({ children }) {
                 
                 const currentUserAddress = (address || userAddress)?.toLowerCase?.();
                 const requesterAddress = requester?.toLowerCase?.();
-                const isPendingFromCurrentSession = normalizedReservationKey
-                    ? pendingConfirmations.current.has(normalizedReservationKey)
-                    : false;
+                let pendingInfo = normalizedReservationKey
+                    ? pendingConfirmations.current.get(normalizedReservationKey)
+                    : null;
+
+                if (!pendingInfo && normalizedReservationKey) {
+                    const placeholderEntry = Array.from(pendingConfirmations.current.entries()).find(([key, info]) => {
+                        const normalizedKey = normalizeReservationKey(key);
+                        if (!normalizedKey || normalizedKey === normalizedReservationKey) return false;
+                        if (isCanonicalReservationKey(normalizedKey)) return false;
+
+                        const matchesRequester = info?.requester && requesterAddress
+                            ? info.requester === requesterAddress
+                            : true;
+                        const matchesToken = info?.tokenId != null && tokenIdStr != null
+                            ? String(info.tokenId) === String(tokenIdStr)
+                            : true;
+                        const infoStart = toEpochSeconds(info?.start);
+                        const matchesStart =
+                            Number.isFinite(infoStart) && Number.isFinite(startEpoch)
+                                ? Math.abs(infoStart - startEpoch) <= 60
+                                : true;
+
+                        return matchesRequester && matchesToken && matchesStart;
+                    });
+
+                    if (placeholderEntry) {
+                        const [placeholderKey, placeholderInfo] = placeholderEntry;
+                        pendingConfirmations.current.delete(placeholderKey);
+
+                        const requesterToTrack = requesterAddress || placeholderInfo?.requester;
+                        devLog.log('🔁 [BookingEventContext] Reconciled pending placeholder with on-chain reservation key:', {
+                            placeholderKey,
+                            reservationKey: normalizedReservationKey,
+                            tokenId: tokenIdStr,
+                        });
+
+                        trackPendingConfirmation(
+                            normalizedReservationKey,
+                            tokenIdStr,
+                            requesterToTrack,
+                            { start: startStr, end: endStr }
+                        );
+                        pendingInfo = pendingConfirmations.current.get(normalizedReservationKey);
+                    }
+                }
+
+                const isPendingFromCurrentSession = Boolean(pendingInfo);
                 const isCurrentUserRequester = currentUserAddress && requesterAddress === currentUserAddress;
 
                 if (
@@ -291,8 +362,11 @@ export function BookingEventProvider({ children }) {
                     (isCurrentUserRequester || isPendingFromCurrentSession)
                 ) {
                     devLog.log(`🕒 [BookingEventContext] Tracking reservation ${reservationKeyStr} for fallback polling`);
-                    const requesterToTrack = requesterAddress || pendingConfirmations.current.get(normalizedReservationKey)?.requester;
-                    trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterToTrack);
+                    const requesterToTrack = requesterAddress || pendingInfo?.requester;
+                    trackPendingConfirmation(reservationKeyStr, tokenIdStr, requesterToTrack, {
+                        start: startStr,
+                        end: endStr,
+                    });
                     notifyOnChainRequestedIfNeeded(reservationKeyStr, tokenIdStr);
                 }
             });
@@ -401,6 +475,12 @@ export function BookingEventProvider({ children }) {
                 
                 // Only check every 10 seconds
                 if (info.attempts > 0 && elapsedSeconds < info.attempts * 10) {
+                    return;
+                }
+
+                // Placeholder keys (e.g. optimistic IDs) cannot be queried via getReservation.
+                // Wait until ReservationRequested reconciles them into real reservation keys.
+                if (isPlaceholderReservationKey(reservationKeyStr)) {
                     return;
                 }
                 

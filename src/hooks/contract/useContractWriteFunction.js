@@ -3,6 +3,7 @@ import { contractABI, contractAddresses } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
+import { normalizeContractAddress } from '@/utils/blockchain/address'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -36,12 +37,13 @@ export default function useContractWriteFunction(functionName, contractType = 'd
     contractAddress = contractAddresses[chainKey];
     abi = contractABI;
   }
+  const normalizedContractAddress = normalizeContractAddress(contractAddress)
 
   async function contractWriteFunction(args, options = {}) {
     devLog.log('Contract write function called with:', {
       functionName,
       args,
-      contractAddress,
+      contractAddress: normalizedContractAddress,
       contractType,
       safeChain: safeChain.name,
       chainId: safeChain.id,
@@ -54,12 +56,12 @@ export default function useContractWriteFunction(functionName, contractType = 'd
       throw new Error('Wallet not connected')
     }
 
-    if (!contractAddress) {
+    if (!normalizedContractAddress) {
       throw new Error(`Contract address not found for chain: ${safeChain.name}`)
     }
 
     const contractCall = {
-      address: contractAddress,
+      address: normalizedContractAddress,
       abi,
       functionName: functionName,
       chainId: safeChain.id,

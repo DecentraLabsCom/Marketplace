@@ -33,9 +33,10 @@ export function useReservationButtonState({
       label = 'Request Sent'
     } else if (walletBookingStage === SSO_BOOKING_STAGE.REQUEST_REGISTERED) {
       label = 'Request Registered'
-    } else if (walletBookingStage === SSO_BOOKING_STAGE.PROCESSING || isBooking) {
-      label = 'Processing...'
     } else if (isWaitingForReceipt && !isReceiptError) {
+      // TX is in the mempool — give specific feedback instead of generic "Processing..."
+      label = 'Awaiting confirmation...'
+    } else if (walletBookingStage === SSO_BOOKING_STAGE.PROCESSING || isBooking) {
       label = 'Processing...'
     } else if (isReceiptError) {
       label = 'Try Again'

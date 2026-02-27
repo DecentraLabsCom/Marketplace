@@ -2,6 +2,7 @@ import { useReadContract, useConnection } from 'wagmi'
 import { contractAddresses, contractABI } from '@/contracts/diamond'
 import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
+import { normalizeContractAddress } from '@/utils/blockchain/address'
 
 /**
  * Hook for reading from smart contract functions
@@ -32,22 +33,45 @@ export default function useDefaultReadContract(contractFunctionName, args = [], 
     address = contractAddresses[chainKey];
     abi = contractABI;
   }
+  const normalizedAddress = normalizeContractAddress(address);
 
   // Validate that all required arguments are defined and not null/undefined
   const hasValidArgs = args.every(arg => arg !== undefined && arg !== null);
+  const requestedEnabled = options?.enabled ?? true;
+  const hasValidContractConfig = Boolean(normalizedAddress);
+  const shouldReportConfigError = Boolean(requestedEnabled && !hasValidContractConfig);
+  const configError = shouldReportConfigError
+    ? new Error(`Contract address is not configured for chain "${safeChain.name}" (${contractType}).`)
+    : null;
 
-  return useReadContract({
+  const queryOptions = { ...options };
+  delete queryOptions.enabled;
+
+  const result = useReadContract({
     abi,
-    address,
+    address: normalizedAddress || undefined,
     functionName: contractFunctionName,
     args: args || [],
     chainId: safeChain.id,
     query: {
-      enabled: !!address && hasValidArgs,
+      enabled: Boolean(requestedEnabled && hasValidContractConfig && hasValidArgs),
       retry: 2,
       retryOnMount: true,
       refetchOnReconnect: true,
-      ...options, // Allow overriding defaults
+      ...queryOptions, // Allow overriding defaults
     },
   });
+
+  if (!configError) {
+    return result;
+  }
+
+  return {
+    ...result,
+    isError: true,
+    isLoading: false,
+    isSuccess: false,
+    error: configError,
+    status: 'error',
+  };
 }

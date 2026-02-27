@@ -76,8 +76,8 @@ jest.mock("@/components/ui", () => ({
 
 jest.mock("@/contracts/diamond", () => ({
   contractAddresses: {
-    sepolia: "0xContractAddress",
-    localhost: "0xLocalContract",
+    sepolia: "0x1111111111111111111111111111111111111111",
+    localhost: "0x2222222222222222222222222222222222222222",
   },
 }));
 
@@ -167,7 +167,7 @@ describe("LabReservation Component", () => {
 
     // Mock useConnection
     wagmiHooks.useConnection.mockReturnValue({
-      accounts: ["0xUserWallet"],
+      accounts: ["0x3333333333333333333333333333333333333333"],
       chain: { name: "sepolia", id: 11155111 },
       status: 'connected',
     });
@@ -175,7 +175,7 @@ describe("LabReservation Component", () => {
     // Mock useUser
     userContext.useUser.mockReturnValue({
       isSSO: false,
-      address: "0xUserWallet",
+      address: "0x3333333333333333333333333333333333333333",
       institutionBackendUrl: "https://institution.example",
       openOnboardingModal: mockOpenOnboardingModal,
     });
@@ -715,7 +715,7 @@ describe("LabReservation Component", () => {
 
     test("validates contract deployment on current network", async () => {
       wagmiHooks.useConnection.mockReturnValue({
-        accounts: ["0xUserWallet"],
+        accounts: ["0x3333333333333333333333333333333333333333"],
         chain: { name: "unsupportedNetwork" },
         status: 'connected',
       });
