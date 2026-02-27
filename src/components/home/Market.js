@@ -5,7 +5,7 @@
  * @returns {JSX.Element} Complete marketplace interface with lab grid, search, and user-specific features
  */
 "use client";
-import React, { useMemo, useState, useCallback, useEffect } from 'react'
+import React, { useMemo, useState, useCallback, useEffect, useTransition } from 'react'
 import PropTypes from 'prop-types'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
@@ -22,6 +22,7 @@ export default function Market({ initialLabs = [] }) {
   
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
+  const [isFilterTransitionPending, startFilterTransition] = useTransition();
   const snapshotLabs = useMemo(
     () => (Array.isArray(initialLabs) ? initialLabs : []),
     [initialLabs]
@@ -124,11 +125,29 @@ export default function Market({ initialLabs = [] }) {
     resetFilters
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated);
 
+  const handleCategoryChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedCategory(value));
+  }, [setSelectedCategory, startFilterTransition]);
+
+  const handlePriceChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedPrice(value));
+  }, [setSelectedPrice, startFilterTransition]);
+
+  const handleProviderChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedProvider(value));
+  }, [setSelectedProvider, startFilterTransition]);
+
+  const handleFilterChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedFilter(value));
+  }, [setSelectedFilter, startFilterTransition]);
+
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {
-    resetFilters();
-    setShowUnlisted(false);
-  }, [resetFilters]);
+    startFilterTransition(() => {
+      resetFilters();
+      setShowUnlisted(false);
+    });
+  }, [resetFilters, startFilterTransition]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -145,14 +164,14 @@ export default function Market({ initialLabs = [] }) {
           selectedProvider={selectedProvider}
           selectedFilter={selectedFilter}
           showUnlisted={showUnlisted}
-          onCategoryChange={setSelectedCategory}
-          onPriceChange={setSelectedPrice}
-          onProviderChange={setSelectedProvider}
-          onFilterChange={setSelectedFilter}
+          onCategoryChange={handleCategoryChange}
+          onPriceChange={handlePriceChange}
+          onProviderChange={handleProviderChange}
+          onFilterChange={handleFilterChange}
           onShowUnlistedChange={setShowUnlisted}
           onReset={handleReset}
           searchInputRef={searchInputRef}
-          loading={labsLoading}
+          loading={labsLoading || isFilterTransitionPending}
         />
       ) : null}
 
