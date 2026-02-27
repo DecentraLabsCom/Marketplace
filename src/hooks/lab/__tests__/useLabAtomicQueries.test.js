@@ -16,6 +16,7 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { keepPreviousData } from "@tanstack/react-query";
 import {
   useAllLabsSSO,
   useLabSSO,
@@ -115,6 +116,7 @@ describe("useLabAtomicQueries", () => {
         refetchInterval: false,
         refetchOnReconnect: true,
         retry: 1,
+        placeholderData: keepPreviousData,
       });
     });
   });
@@ -188,7 +190,17 @@ describe("useLabAtomicQueries", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(result.current.data).toEqual(mockLabData);
+      expect(result.current.data).toEqual({
+        labId: 1,
+        base: {
+          uri: "ipfs://test",
+          price: "1000000000000000000",
+          priceNumber: 1000000000000000000,
+          accessURI: "",
+          accessKey: "",
+          createdAt: 0,
+        },
+      });
       expect(global.fetch).toHaveBeenCalledWith(
         `/api/contract/lab/getLab?labId=${labId}`,
         expect.any(Object)

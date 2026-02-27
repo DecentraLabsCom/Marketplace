@@ -14,7 +14,7 @@
  * - refetchOnReconnect: true
  * - retry: 1
  */
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
 import { useGetIsWallet } from '@/utils/hooks/authMode'
@@ -29,6 +29,7 @@ const LAB_QUERY_CONFIG = {
   refetchInterval: false,
   refetchOnReconnect: true,
   retry: 1,
+  placeholderData: keepPreviousData,
 }
 
 // Export configuration for use in composed hooks
@@ -46,6 +47,73 @@ const normalizeLabIds = (ids) => {
     unique.push(value);
   });
   return unique;
+};
+
+const normalizeBigIntToString = (value, fallback = '0') => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'string') return value;
+  return fallback;
+};
+
+const normalizeNumber = (value, fallback = 0) => {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === 'bigint') return Number(value);
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const selectLabData = (data, labId) => {
+  if (!data) return null;
+  const base = data.base || data[1] || {};
+  const price = normalizeBigIntToString(base.price, '0');
+
+  return {
+    labId: normalizeNumber(data.labId ?? data[0] ?? labId),
+    base: {
+      uri: String(base.uri || ''),
+      price,
+      priceNumber: normalizeNumber(price, 0),
+      accessURI: String(base.accessURI || ''),
+      accessKey: String(base.accessKey || ''),
+      createdAt: normalizeNumber(base.createdAt, 0),
+    }
+  };
+};
+
+const selectBalanceData = (data) => ({
+  balance: normalizeBigIntToString(data?.balance ?? data, '0')
+});
+
+const selectOwnerData = (data) => ({
+  owner: data?.owner ?? data ?? null
+});
+
+const selectTokenOfOwnerData = (data) => {
+  const tokenId = data?.tokenId ?? data;
+  return {
+    tokenId: tokenId === null || tokenId === undefined ? null : normalizeBigIntToString(tokenId)
+  };
+};
+
+const selectTokenUriData = (data) => ({
+  uri: String(data?.uri ?? data ?? '')
+});
+
+const selectTokenListedData = (data) => ({
+  isListed: Boolean(data?.isListed ?? data)
+});
+
+const selectReputationData = (data) => {
+  if (!data) return null;
+  return {
+    score: normalizeNumber(data.score ?? data[0]),
+    totalEvents: normalizeNumber(data.totalEvents ?? data[1]),
+    ownerCancellations: normalizeNumber(data.ownerCancellations ?? data[2]),
+    institutionalCancellations: normalizeNumber(data.institutionalCancellations ?? data[3]),
+    lastUpdated: normalizeNumber(data.lastUpdated ?? data[4]),
+  };
 };
 
 // ===== useAllLabs Hook Family =====
@@ -77,6 +145,7 @@ export const useAllLabsSSO = (options = {}) => {
   return useQuery({
     queryKey: labQueryKeys.getAllLabs(),
     queryFn: getAllLabsQueryFn,
+    select: (data) => normalizeLabIds(data),
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -99,7 +168,6 @@ export const useAllLabsWallet = (options = {}) => {
 
   // Normalize tuple [ids, total] or [total, ids] into ids array for backward compatibility
   const arrayLike = (value) => value && typeof value.length === 'number';
-  const totalCandidate = typeof result.data?.[0] === 'bigint' ? result.data[0] : result.data?.total;
   let rawIds =
     Array.isArray(result.data?.[0]) || arrayLike(result.data?.[0]) ? result.data[0]
     : Array.isArray(result.data?.[1]) || arrayLike(result.data?.[1]) ? result.data[1]
@@ -167,6 +235,7 @@ export const useLabSSO = (labId, options = {}) => {
     queryKey: labQueryKeys.getLab(labId),
     queryFn: () => getLabQueryFn(labId),
     enabled: !!labId,
+    select: (data) => selectLabData(data, labId),
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -183,32 +252,12 @@ useLabSSO.queryFn = getLabQueryFn;
  * @returns {Object} Wagmi query result with lab data normalized to match SSO structure
  */
 export const useLabWallet = (labId, options = {}) => {
-  const result = useDefaultReadContract('getLab', [labId], {
-      enabled: !!labId,
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-  
-  // Normalize the data after it's fetched
-  return {
-    ...result,
-    data: result.data ? (() => {
-      const data = result.data;
-      
-      // Wagmi already returns data as object: { labId: BigInt, base: { uri, price, accessURI, accessKey } }
-      // We just need to normalize BigInt values to numbers/strings
-      return {
-        labId: typeof data.labId === 'bigint' ? Number(data.labId) : Number(data.labId || labId),
-        base: {
-          uri: String(data.base?.uri || ''),
-          price: data.base?.price ? (typeof data.base.price === 'bigint' ? data.base.price.toString() : String(data.base.price)) : '0',
-          accessURI: String(data.base?.accessURI || ''),
-          accessKey: String(data.base?.accessKey || ''),
-          createdAt: data.base?.createdAt ? Number(data.base.createdAt) : 0
-        }
-      };
-    })() : null
-  };
+  return useDefaultReadContract('getLab', [labId], {
+    enabled: !!labId,
+    select: (data) => selectLabData(data, labId),
+    ...LAB_QUERY_CONFIG,
+    ...options,
+  });
 };
 
 /**
@@ -262,6 +311,7 @@ export const useLabBalanceSSO = (ownerAddress, options = {}) => {
     queryKey: labQueryKeys.balanceOf(ownerAddress),
     queryFn: () => getBalanceOfQueryFn(ownerAddress),
     enabled: !!ownerAddress,
+    select: selectBalanceData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -280,6 +330,7 @@ useLabBalanceSSO.queryFn = getBalanceOfQueryFn;
 export const useLabBalanceWallet = (ownerAddress, options = {}) => {
   return useDefaultReadContract('balanceOf', [ownerAddress], {
       enabled: !!ownerAddress,
+      select: selectBalanceData,
       ...LAB_QUERY_CONFIG,
       ...options,
     });
@@ -336,6 +387,7 @@ export const useLabOwnerSSO = (labId, options = {}) => {
     queryKey: labQueryKeys.ownerOf(labId),
     queryFn: () => getOwnerOfQueryFn(labId),
     enabled: !!labId,
+    select: selectOwnerData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -354,6 +406,7 @@ useLabOwnerSSO.queryFn = getOwnerOfQueryFn;
 export const useLabOwnerWallet = (labId, options = {}) => {
   return useDefaultReadContract('ownerOf', [labId], {
       enabled: !!labId,
+      select: selectOwnerData,
       ...LAB_QUERY_CONFIG,
       ...options,
     });
@@ -413,6 +466,7 @@ export const useTokenOfOwnerByIndexSSO = (ownerAddress, index, options = {}) => 
     queryKey: labQueryKeys.tokenOfOwnerByIndex(ownerAddress, index),
     queryFn: () => getTokenOfOwnerByIndexQueryFn(ownerAddress, index),
     enabled: !!ownerAddress && (index !== undefined && index !== null),
+    select: selectTokenOfOwnerData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -432,6 +486,7 @@ useTokenOfOwnerByIndexSSO.queryFn = getTokenOfOwnerByIndexQueryFn;
 export const useTokenOfOwnerByIndexWallet = (ownerAddress, index, options = {}) => {
   return useDefaultReadContract('tokenOfOwnerByIndex', [ownerAddress, index], {
       enabled: !!ownerAddress && (index !== undefined && index !== null),
+      select: selectTokenOfOwnerData,
       ...LAB_QUERY_CONFIG,
       ...options,
     });
@@ -490,6 +545,7 @@ export const useTokenURISSO = (labId, options = {}) => {
     queryKey: labQueryKeys.tokenURI(labId),
     queryFn: () => getTokenURIQueryFn(labId),
     enabled: !!labId,
+    select: selectTokenUriData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -508,6 +564,7 @@ useTokenURISSO.queryFn = getTokenURIQueryFn;
 export const useTokenURIWallet = (labId, options = {}) => {
   return useDefaultReadContract('tokenURI', [labId], {
       enabled: !!labId,
+      select: selectTokenUriData,
       ...LAB_QUERY_CONFIG,
       ...options,
     });
@@ -565,6 +622,7 @@ export const useIsTokenListedSSO = (labId, options = {}) => {
     queryKey: labQueryKeys.isTokenListed(labId),
     queryFn: () => getIsTokenListedQueryFn(labId),
     enabled: !!labId,
+    select: selectTokenListedData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -583,6 +641,7 @@ useIsTokenListedSSO.queryFn = getIsTokenListedQueryFn;
 export const useIsTokenListedWallet = (labId, options = {}) => {
   return useDefaultReadContract('isTokenListed', [labId], {
       enabled: !!labId,
+      select: selectTokenListedData,
       ...LAB_QUERY_CONFIG,
       ...options,
     });
@@ -638,6 +697,7 @@ export const useLabReputationSSO = (labId, options = {}) => {
     queryKey: labQueryKeys.getLabReputation(labId),
     queryFn: () => getLabReputationQueryFn(labId),
     enabled: !!labId,
+    select: selectReputationData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
@@ -653,28 +713,12 @@ useLabReputationSSO.queryFn = getLabReputationQueryFn;
  * @returns {Object} Wagmi query result with reputation data
  */
 export const useLabReputationWallet = (labId, options = {}) => {
-  const result = useDefaultReadContract('getLabReputation', [labId], {
+  return useDefaultReadContract('getLabReputation', [labId], {
     enabled: !!labId,
+    select: selectReputationData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
-
-  const normalizeNumber = (value) => {
-    if (value === null || value === undefined) return 0;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-
-  return {
-    ...result,
-    data: result.data ? {
-      score: normalizeNumber(result.data.score ?? result.data[0]),
-      totalEvents: normalizeNumber(result.data.totalEvents ?? result.data[1]),
-      ownerCancellations: normalizeNumber(result.data.ownerCancellations ?? result.data[2]),
-      institutionalCancellations: normalizeNumber(result.data.institutionalCancellations ?? result.data[3]),
-      lastUpdated: normalizeNumber(result.data.lastUpdated ?? result.data[4])
-    } : null
-  };
 };
 
 /**
