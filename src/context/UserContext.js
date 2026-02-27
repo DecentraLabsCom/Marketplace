@@ -441,6 +441,55 @@ function UserDataCore({ children }) {
 
     // Cache update utilities
     const { refreshProviderStatus: refreshProviderStatusFromCache, clearSSOSession } = useUserCacheUpdates();
+
+    const syncWalletProviderUi = useCallback(async (walletAddress) => {
+        if (!walletAddress) {
+            return;
+        }
+
+        try {
+            const refreshedStatus = await refreshProviderStatusFromCache(walletAddress);
+            const isWalletProvider = Boolean(refreshedStatus?.isLabProvider);
+
+            setUser((prev) => ({
+                ...(prev || {}),
+                address: walletAddress,
+                isProvider: isWalletProvider,
+            }));
+
+            if (!isWalletProvider) {
+                return;
+            }
+
+            const providersResponse = await fetch('/api/contract/provider/getLabProviders', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            });
+            if (!providersResponse.ok) {
+                return;
+            }
+
+            const providersPayload = await providersResponse.json().catch(() => null);
+            const providers = providersPayload?.providers;
+            const providerInfo = Array.isArray(providers)
+                ? providers.find((provider) => provider?.account?.toLowerCase() === walletAddress.toLowerCase())
+                : null;
+
+            queryClient.setQueryData(providerQueryKeys.getLabProviders(), providersPayload);
+
+            if (providerInfo?.name) {
+                setUser((prev) => ({
+                    ...(prev || {}),
+                    address: walletAddress,
+                    isProvider: true,
+                    name: providerInfo.name,
+                }));
+            }
+        } catch (error) {
+            devLog.warn('Failed to sync wallet provider UI state:', error?.message || error);
+        }
+    }, [queryClient, refreshProviderStatusFromCache]);
     // Create wallet session when wallet connects (only for non-SSO users)
     useEffect(() => {
         const createWalletSession = async () => {
@@ -467,6 +516,7 @@ function UserDataCore({ children }) {
                 if (response.ok) {
                     setWalletSessionCreated(true);
                     devLog.log('Wallet session created successfully');
+                    await syncWalletProviderUi(address);
                     // Refetch SSO query to pick up the new session
                     refetchSSO();
                     return;
@@ -532,6 +582,7 @@ function UserDataCore({ children }) {
                 if (signedResponse.ok) {
                     setWalletSessionCreated(true);
                     devLog.log('Wallet session created successfully (signed challenge)');
+                    await syncWalletProviderUi(address);
                     refetchSSO();
                     return;
                 }
@@ -546,7 +597,7 @@ function UserDataCore({ children }) {
         if (isConnected && address && !isSSO) {
             createWalletSession();
         }
-    }, [isConnected, address, isSSO, walletSessionCreated, isWalletLoading, isLoggingOut, refetchSSO]);
+    }, [isConnected, address, isSSO, walletSessionCreated, isWalletLoading, isLoggingOut, refetchSSO, syncWalletProviderUi]);
 
     // Destroy wallet session when wallet disconnects
     const destroyWalletSession = useCallback(async (options = {}) => {
@@ -602,7 +653,7 @@ function UserDataCore({ children }) {
     }, [originalHandleError]);
 
       // Computed values
-      const isProvider = Boolean(providerStatus?.isLabProvider);
+      const isProvider = Boolean(providerStatus?.isLabProvider ?? user?.isProvider);
       const hasWalletSession = Boolean(sessionIsWallet);
       // Consider user logged in if either:
       // - Wallet is connected and stable, or
