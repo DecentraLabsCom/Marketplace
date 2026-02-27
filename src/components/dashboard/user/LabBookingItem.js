@@ -117,7 +117,7 @@ const LabBookingItem = React.memo(function LabBookingItem({
     const refundLabel = shouldUseRefundAction ? "Request for Refund" : "Apply for Refund";
 
     return (
-        <li className={`flex flex-col items-center border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
+        <li className={`flex flex-col items-start border rounded-lg p-4 mb-4 bg-white shadow ${booking.hasCancellationError ? 'border-red-500 bg-red-50' : ''}`}>
             {booking.hasCancellationError && (
                 <div className="w-full mb-2 p-2 bg-red-100 border border-red-300 rounded text-red-700 text-sm flex justify-between items-center">
                     <span>⚠️ Cancellation failed. Please try again.</span>
@@ -132,8 +132,8 @@ const LabBookingItem = React.memo(function LabBookingItem({
                     )}
                 </div>
             )}
-            <div className="w-full flex flex-col md:flex-row items-center justify-between">
-                <div className="flex-1">
+            <div className="w-full flex flex-col md:flex-row items-start md:items-center justify-between">
+                <div className="flex-1 w-full text-left">
                 <Link
                     href={`/lab/${lab.id}`}
                     className="text-lg font-semibold text-brand hover:underline"
