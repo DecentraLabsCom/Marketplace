@@ -6,6 +6,7 @@ import esLocale from 'i18n-iso-countries/langs/es.json'
 import devLog from '@/utils/dev/logger'
 import { createSessionCookie } from './sessionCookie'
 import { normalizePuc } from './puc'
+export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
 
 let countriesInitialized = false
 

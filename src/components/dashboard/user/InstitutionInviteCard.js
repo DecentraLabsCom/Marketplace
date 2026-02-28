@@ -5,6 +5,7 @@ import { useUser } from '@/context/UserContext';
 import { useNotifications } from '@/context/NotificationContext';
 import devLog from '@/utils/dev/logger';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
+import { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain';
 import {
   notifyInstitutionClipboardUnavailable,
   notifyInstitutionProvisioningAccessDenied,
@@ -52,12 +53,22 @@ export default function InstitutionInviteCard({
   const [payload, setPayload] = useState(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState('');
   const [providerCountry, setProviderCountry] = useState('');
+  // Guard: inferred-country pre-fill runs only once per session so the user
+  // can clear/override the suggested value without it being re-applied.
+  const inferredPrefillDoneRef = useRef(false);
   const detectedCountry =
     user?.country ||
     user?.organizationCountry ||
     user?.countryCode ||
     user?.organizationCountryCode ||
     '';
+  // Fallback: infer from schacHomeOrganization / affiliation ccTLD if SAML
+  // did not provide a country attribute.
+  const inferredCountry = detectedCountry
+    ? ''
+    : inferCountryFromDomain(
+        user?.affiliation || user?.schacHomeOrganization || ''
+      ) || '';
 
   const isInstitutionAdmin = isSSO && user && hasAdminRole(user.role, user.scopedRole);
 
@@ -213,13 +224,18 @@ export default function InstitutionInviteCard({
     }
 
     if (!providerCountry && detectedCountry) {
+      // SAML-sourced country: always re-apply (field is hidden so user can't clear it).
       setProviderCountry(detectedCountry);
+    } else if (!inferredPrefillDoneRef.current && !providerCountry && inferredCountry) {
+      // Domain-inferred country: apply once so the user can freely edit/clear it.
+      setProviderCountry(inferredCountry);
+      inferredPrefillDoneRef.current = true;
     }
 
     if (!publicBaseUrl && defaultPublicBaseUrl) {
       setPublicBaseUrl(defaultPublicBaseUrl);
     }
-  }, [user, consumerName, providerCountry, publicBaseUrl, detectedCountry]);
+  }, [user, consumerName, providerCountry, publicBaseUrl, detectedCountry, inferredCountry]);
 
   const handleGenerateConsumerToken = useCallback(async () => {
     if (!isSSO || !isInstitutionAdmin) {

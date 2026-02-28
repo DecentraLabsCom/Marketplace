@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth, HttpError, ForbiddenError } from '@/utils/auth/guards';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
+import { inferCountryFromDomain } from '@/utils/auth/sso';
 import devLog from '@/utils/dev/logger';
 import {
   normalizeHttpsUrl,
@@ -73,6 +74,7 @@ export async function POST(request) {
         session.countryCode ||
         session.organizationCountry ||
         session.organizationCountryCode ||
+        inferCountryFromDomain(organizationDomain) ||
         process.env.PROVISIONING_DEFAULT_COUNTRY ||
         'ES',
       'Provider country'

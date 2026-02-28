@@ -105,10 +105,11 @@ describe('InstitutionInviteCard', () => {
       screen.getByLabelText(/Public base URL/i),
       'https://institution.example.edu'
     );
-    await user.type(
-      screen.getByLabelText(/Provider country/i),
-      'PT'
-    );
+    // The country field may be pre-filled by domain inference (affiliation: 'uned.es' → 'ES').
+    // Clear it first so the user's explicit value ('PT') is the only content.
+    const countryInput = screen.getByLabelText(/Provider country/i);
+    await user.clear(countryInput);
+    await user.type(countryInput, 'PT');
     await user.click(
       screen.getByRole('button', { name: /Generate Provisioning Token/i })
     );
