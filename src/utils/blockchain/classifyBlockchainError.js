@@ -248,7 +248,7 @@ export function classifyBlockchainError(error) {
 function truncateMessage(msg, maxLen = 50) {
   if (!msg || typeof msg !== 'string') return 'An error occurred'
   // Strip leading emoji followed by space (we add our own)
-  const cleaned = msg.replace(/^[❌⚠️🚫✅ℹ️🔄]+\s*/, '').trim()
+  const cleaned = msg.replace(/^[❌⚠️🚫✅ℹ️🔄]+\s*/u, '').trim()
   if (cleaned.length <= maxLen) return cleaned
   return cleaned.slice(0, maxLen - 1) + '…'
 }
