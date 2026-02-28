@@ -16,6 +16,17 @@ export const createIntentMutationError = (payload, fallbackMessage) => {
   if (payload?.code) {
     err.code = payload.code
   }
+  // Attach concise user-facing message based on backend error codes
+  const code = (payload?.code || '').toLowerCase()
+  if (code === 'slot_unavailable' || code === 'timeslot_conflict') {
+    err.userMessage = 'Time slot no longer available'
+  } else if (code === 'lab_not_listed' || code === 'lab_not_found') {
+    err.userMessage = 'Lab is not available'
+  } else if (code === 'insufficient_balance') {
+    err.userMessage = 'Insufficient token balance'
+  } else if (code === 'provider_rejected') {
+    err.userMessage = 'Request rejected by provider'
+  }
   return err
 }
 

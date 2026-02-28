@@ -9,6 +9,7 @@ import {
   ErrorSeverity,
   ErrorCategory 
 } from '@/utils/errorBoundaries'
+import { classifyBlockchainError } from '@/utils/blockchain/classifyBlockchainError'
 
 // Create optimized context
 const { Context: NotificationContext, Provider: OptimizedNotificationProvider } = createOptimizedContext('NotificationContext');
@@ -287,22 +288,23 @@ function NotificationProviderCore({ children }) {
             
             let errorMessage = '❌ An error occurred';
             let priority = 'high';
-            let duration = 6000; // Reduced from 8000
+            let duration = 6000;
             
             if (typeof error === 'string') {
                 errorMessage = `❌ ${error}`;
-            } else if (error?.message || error?.shortMessage) {
+            } else if (error?.message || error?.shortMessage || error?.userMessage) {
                 // Handle AbortController errors specifically
                 const message = error.message || '';
                 const shortMessage = error.shortMessage || '';
                 if (error.name === 'AbortError' || message.includes('aborted')) {
                     errorMessage = '⚠️ Request cancelled';
                     priority = 'normal';
-                    duration = 4000; // Reduced from 5000
+                    duration = 4000;
                     return addTemporaryNotification('warning', errorMessage, null, { priority, duration });
                 }
-                // Handle user rejection specifically
-                else if (
+
+                // Handle user rejection specifically (wallet UX — keep above classifier)
+                if (
                     shortMessage.toLowerCase().includes('user rejected') ||
                     shortMessage.toLowerCase().includes('user denied') ||
                     message.toLowerCase().includes('user rejected') ||
@@ -310,28 +312,38 @@ function NotificationProviderCore({ children }) {
                 ) {
                     errorMessage = '🚫 Transaction rejected by user';
                     priority = 'normal';
-                    duration = 3500; // Slightly shorter
-                } else if (error.message.includes('insufficient funds')) {
-                    errorMessage = '❌ Insufficient funds';
-                    priority = 'high';
-                    duration = 6000; // Reduced from 10000
-                } else if (error.message.includes('network') || error.message.includes('fetch')) {
-                    errorMessage = '❌ Network error';
-                    priority = 'high';
-                    duration = 6000; // Reduced from 8000
-                } else if (error.message.includes('validation')) {
-                    errorMessage = '❌ Validation failed';
-                    priority = 'normal';
-                    duration = 4000; // Reduced from 6000
-                } else if (error.message.includes('timeout')) {
-                    errorMessage = '⚠️ Request timeout';
-                    priority = 'normal';
-                    duration = 5000; // Reduced from 7000
-                } else {
-                    // For other errors, show a concise generic message
-                    errorMessage = '❌ Operation failed';
-                    priority = 'high';
-                    duration = 5000; // Reduced from 8000
+                    duration = 3500;
+                }
+                // Blockchain / intent / wallet error classifier (specific messages)
+                else {
+                    const classified = classifyBlockchainError(error);
+                    if (classified) {
+                        errorMessage = classified.message;
+                        priority = classified.priority;
+                        duration = classified.duration;
+                    }
+                    // Legacy string-matching fallbacks for non-blockchain errors
+                    else if (message.includes('insufficient funds')) {
+                        errorMessage = '❌ Insufficient funds';
+                        priority = 'high';
+                        duration = 6000;
+                    } else if (message.includes('network') || message.includes('fetch')) {
+                        errorMessage = '❌ Network error';
+                        priority = 'high';
+                        duration = 6000;
+                    } else if (message.includes('validation')) {
+                        errorMessage = '❌ Validation failed';
+                        priority = 'normal';
+                        duration = 4000;
+                    } else if (message.includes('timeout')) {
+                        errorMessage = '⚠️ Request timeout';
+                        priority = 'normal';
+                        duration = 5000;
+                    } else {
+                        errorMessage = '❌ Operation failed';
+                        priority = 'high';
+                        duration = 5000;
+                    }
                 }
             }
             

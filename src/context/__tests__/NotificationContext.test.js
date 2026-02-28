@@ -634,6 +634,139 @@ describe('NotificationContext', () => {
     });
   });
 
+  describe('Blockchain Error Classification', () => {
+    test('classifies execution reverted errors via classifier', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(new Error('execution reverted: bad state'));
+      });
+
+      expect(result.current.notifications[0].message).toBe('❌ Transaction reverted on-chain');
+    });
+
+    test('classifies INTENT_AUTH_CANCELLED error code', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        const error = new Error('Authorization cancelled by user');
+        error.code = 'INTENT_AUTH_CANCELLED';
+        result.current.addErrorNotification(error);
+      });
+
+      expect(result.current.notifications[0].message).toBe('🚫 Authorization cancelled');
+    });
+
+    test('classifies MetaMask 4001 user rejection via classifier', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        const error = new Error('MetaMask RPC Error');
+        error.code = 4001;
+        result.current.addErrorNotification(error);
+      });
+
+      expect(result.current.notifications[0].message).toBe('🚫 Transaction rejected by user');
+    });
+
+    test('classifies rate limit errors via classifier', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(new Error('rate limit exceeded'));
+      });
+
+      expect(result.current.notifications[0].message).toBe('⚠️ Too many requests — wait and retry');
+    });
+
+    test('classifies gas errors via classifier', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(new Error('gas required exceeds allowance'));
+      });
+
+      expect(result.current.notifications[0].message).toBe('❌ Transaction requires too much gas');
+    });
+
+    test('uses EnhancedError userMessage when available', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        const error = new Error('internal details');
+        error.userMessage = 'Blockchain transaction error';
+        error.severity = 'high';
+        result.current.addErrorNotification(error);
+      });
+
+      expect(result.current.notifications[0].message).toContain('Blockchain transaction error');
+    });
+
+    test('falls back to "Operation failed" for unclassified errors', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(new Error('some random unmatched error'));
+      });
+
+      expect(result.current.notifications[0].message).toBe('❌ Operation failed');
+    });
+
+    test('user rejection via shortMessage still works with classifier integration', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        const error = new Error('Transaction failed');
+        error.shortMessage = 'User rejected the request';
+        result.current.addErrorNotification(error);
+      });
+
+      expect(result.current.notifications[0].message).toBe('🚫 Transaction rejected by user');
+    });
+
+    test('classifies failed-to-prepare reservation intent errors', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(
+          new Error('Failed to prepare reservation intent: 500')
+        );
+      });
+
+      expect(result.current.notifications[0].message).toBe('❌ Could not prepare reservation');
+    });
+
+    test('classifies nonce conflict errors', () => {
+      const { result } = renderHook(() => useNotifications(), {
+        wrapper: NotificationProvider,
+      });
+
+      act(() => {
+        result.current.addErrorNotification(new Error('nonce too low'));
+      });
+
+      expect(result.current.notifications[0].message).toBe('❌ Transaction conflict — try again');
+    });
+  });
+
   describe('Hook Usage Validation', () => {
     test('throws error when used outside provider', () => {
       // Suppress console.error for this test
