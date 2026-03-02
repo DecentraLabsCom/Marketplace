@@ -124,7 +124,7 @@ const isNoCompletedReservationsError = (error) => {
  * @returns {JSX.Element} Complete provider dashboard with access control, lab list, calendar, and management actions
  */
 export default function ProviderDashboard() {
-  let {
+  const {
     address,
     user,
     isSSO,
@@ -137,10 +137,6 @@ export default function ProviderDashboard() {
     institutionalOnboardingStatus,
     openOnboardingModal,
   } = useUser();
-
-  // TEMPORARY MOCK - Remove before committing!
-  isProvider = true;
-  isProviderLoading = false;
 
   const router = useRouter();
 
