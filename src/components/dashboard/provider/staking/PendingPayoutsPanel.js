@@ -58,7 +58,7 @@ export default function PendingPayoutsPanel({
   const payoutsByLabId = payoutData?.payoutsByLabId || {}
 
   return (
-    <div data-testid="pending-payouts-panel" className="rounded-xl px-3 py-5 space-y-4">
+    <div data-testid="pending-payouts-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -95,7 +95,7 @@ export default function PendingPayoutsPanel({
               key={key}
               style={{ 
                 flex: flexValue, 
-                backgroundColor: isProvider ? 'var(--color-success-bg)' : 'var(--color-background-dark)' 
+                backgroundColor: 'var(--color-background-dark)' 
               }}
               className="text-center py-2 rounded-lg"
               title={`${key}: ${pct}% of each reservation payment`}
