@@ -391,30 +391,30 @@ export default function LabFormFullSetup({
 
 
   return (
-    <form className="space-y-6 text-gray-600" onSubmit={handleFormSubmit}>
+    <form className="space-y-6 text-slate-300" onSubmit={handleFormSubmit}>
       {isExternalURI && (
         <div className="mt-4 flex justify-center">
-          <span className="text-sm text-red-500 font-medium">
+          <span className="text-sm text-red-400 font-medium">
             To edit these fields, first remove the link to the JSON file in Quick Setup
           </span>
         </div>
       )}
 
       <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+        <h3 className="text-lg font-semibold text-white">Basic Information</h3>
         <input
           type="text"
           placeholder="Lab Name"
           value={localLab?.name || ''}
           onChange={(e) => handleBasicChange('name', e.target.value)}
-          className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+          className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
           disabled={disabled}
           ref={nameRef}
         />
-        {errors.name && <p className="text-red-500 text-sm !mt-1">{errors.name}</p>}
+        {errors.name && <p className="text-red-400 text-sm !mt-1">{errors.name}</p>}
 
         <div>
-          <label className="block text-sm font-medium text-gray-900 mb-1">Categories</label>
+          <label className="block text-sm font-medium text-white mb-1">Categories</label>
           <CategoryMultiSelect
             value={Array.isArray(localLab?.category) ? localLab.category : (localLab?.category ? [localLab.category] : [])}
             onChange={(categories) => handleBasicChange('category', categories)}
@@ -432,11 +432,11 @@ export default function LabFormFullSetup({
             placeholder="Price per hour"
             value={localLab?.price || ''}
             onChange={(e) => handleBasicChange('price', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
             disabled={disabled}
             ref={priceRef}
           />
-          {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
+          {errors.price && <p className="text-red-400 text-sm !mt-1">{errors.price}</p>}
         </div>
 
         <input
@@ -446,37 +446,37 @@ export default function LabFormFullSetup({
           onChange={(e) => handleKeywordsChange(e.target.value)}
           onBlur={handleKeywordsBlur}
           onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-          className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+          className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
           disabled={disabled}
           ref={keywordsRef}
         />
-        {errors.keywords && <p className="text-red-500 text-sm !mt-1">{errors.keywords}</p>}
+        {errors.keywords && <p className="text-red-400 text-sm !mt-1">{errors.keywords}</p>}
 
         <textarea
           placeholder="Description"
           value={localLab?.description || ''}
           onChange={(e) => handleBasicChange('description', e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation(); }}
-          className="w-full p-2 border rounded min-h-32 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+          className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 min-h-32 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
           disabled={disabled}
           ref={descriptionRef}
         />
-        {errors.description && <p className="text-red-500 text-sm !mt-1">{errors.description}</p>}
+        {errors.description && <p className="text-red-400 text-sm !mt-1">{errors.description}</p>}
       </section>
 
       <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Access Details</h3>
+        <h3 className="text-lg font-semibold text-white">Access Details</h3>
         <div>
           <input
             type="text"
             placeholder="Access URI"
             value={localLab?.accessURI || ''}
             onChange={(e) => handleBasicChange('accessURI', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
             disabled={disabled}
             ref={accessURIRef}
           />
-          {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
+          {errors.accessURI && <p className="text-red-400 text-sm !mt-1">{errors.accessURI}</p>}
         </div>
         <div>
           <input
@@ -484,16 +484,16 @@ export default function LabFormFullSetup({
             placeholder="Access Key"
             value={localLab?.accessKey || ''}
             onChange={(e) => handleBasicChange('accessKey', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
             disabled={disabled}
             ref={accessKeyRef}
           />
-          {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
+          {errors.accessKey && <p className="text-red-400 text-sm !mt-1">{errors.accessKey}</p>}
         </div>
       </section>
 
       <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Availability & Scheduling</h3>
+        <h3 className="text-lg font-semibold text-white">Availability & Scheduling</h3>
         <div className="flex flex-col md:flex-row md:gap-6">
           <div className="w-full md:flex-1">
             <CalendarInput
@@ -505,7 +505,7 @@ export default function LabFormFullSetup({
               containerClassName="w-full"
               labelClassName="md:text-left"
             />
-            {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
+            {errors.opens && <p className="text-red-400 text-sm !mt-1">{errors.opens}</p>}
           </div>
           <div className="w-full md:flex-1">
             <CalendarInput
@@ -515,11 +515,11 @@ export default function LabFormFullSetup({
               disabled={disabled}
               containerClassName="w-full"
             />
-            {errors.closes && <p className="text-red-500 text-sm !mt-1">{errors.closes}</p>}
+            {errors.closes && <p className="text-red-400 text-sm !mt-1">{errors.closes}</p>}
           </div>
         </div>
 
-        <label className="text-sm font-medium text-gray-900">Available Days</label>
+        <label className="text-sm font-medium text-white">Available Days</label>
         <div className="flex flex-wrap gap-2">
           {WEEKDAY_OPTIONS.map(({ value, label }) => (
             <button
@@ -529,7 +529,7 @@ export default function LabFormFullSetup({
               className={`px-3 py-1 rounded-full border transition ${
                 availableDays.includes(value)
                   ? 'bg-blue-600 text-white border-blue-600'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  : 'border-slate-600 text-slate-300 hover:bg-slate-700'
               } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={disabled}
             >
@@ -537,16 +537,16 @@ export default function LabFormFullSetup({
             </button>
           ))}
         </div>
-        {errors.availableDays && <p className="text-red-500 text-sm !mt-1">{errors.availableDays}</p>}
+        {errors.availableDays && <p className="text-red-400 text-sm !mt-1">{errors.availableDays}</p>}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="lab-timezone" className="block text-sm font-medium text-gray-900 mb-1">Timezone</label>
+            <label htmlFor="lab-timezone" className="block text-sm font-medium text-white mb-1">Timezone</label>
             <select
               id="lab-timezone"
               value={timezoneValue || ''}
               onChange={(e) => handleTimezoneChange(e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               disabled={disabled}
               ref={timezoneRef}
             >
@@ -563,82 +563,82 @@ export default function LabFormFullSetup({
                   </option>
                 ))}
             </select>
-            {errors.timezone && <p className="text-red-500 text-sm !mt-1">{errors.timezone}</p>}
+            {errors.timezone && <p className="text-red-400 text-sm !mt-1">{errors.timezone}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
+            <label className="block text-sm font-medium text-white mb-1">Time Slots (minutes)</label>
             <input
               type="text"
               placeholder="15, 30, 60"
               value={timeSlotsInput}
               onChange={(e) => handleTimeSlotsChange(e.target.value)}
               onBlur={handleTimeSlotsBlur}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               disabled={disabled}
               ref={timeSlotsRef}
             />
-            {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
+            {errors.timeSlots && <p className="text-red-400 text-sm !mt-1">{errors.timeSlots}</p>}
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Daily Start Time</label>
+            <label className="block text-sm font-medium text-white mb-1">Daily Start Time</label>
             <input
               type="time"
               value={availableHours.start || ''}
               onChange={(e) => handleAvailableHourChange('start', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               disabled={disabled}
               onClick={handleTimeFieldClick}
               ref={availableHoursStartRef}
             />
             {errors.availableHoursStart && (
-              <p className="text-red-500 text-sm !mt-1">{errors.availableHoursStart}</p>
+              <p className="text-red-400 text-sm !mt-1">{errors.availableHoursStart}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-1">Daily End Time</label>
+            <label className="block text-sm font-medium text-white mb-1">Daily End Time</label>
             <input
               type="time"
               value={availableHours.end || ''}
               onChange={(e) => handleAvailableHourChange('end', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               disabled={disabled}
               onClick={handleTimeFieldClick}
               ref={availableHoursEndRef}
             />
             {errors.availableHoursEnd && (
-              <p className="text-red-500 text-sm !mt-1">{errors.availableHoursEnd}</p>
+              <p className="text-red-400 text-sm !mt-1">{errors.availableHoursEnd}</p>
             )}
           </div>
         </div>
 
         <div className="hidden">
-          <label className="block text-sm font-medium text-gray-900 mb-1">Max Concurrent Users</label>
+          <label className="block text-sm font-medium text-white mb-1">Max Concurrent Users</label>
           <input
             type="number"
             min="1"
             placeholder="Max Concurrent Users"
             value={localLab?.maxConcurrentUsers || ''}
             onChange={(e) => handleBasicChange('maxConcurrentUsers', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
             disabled={true}
             ref={maxConcurrentUsersRef}
           />
           {errors.maxConcurrentUsers && (
-            <p className="text-red-500 text-sm !mt-1">{errors.maxConcurrentUsers}</p>
+            <p className="text-red-400 text-sm !mt-1">{errors.maxConcurrentUsers}</p>
           )}
         </div>
       </section>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Unavailable Windows</h3>
+          <h3 className="text-lg font-semibold text-white">Unavailable Windows</h3>
           <button
             type="button"
             onClick={handleAddWindow}
-            className="flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 border border-blue-200 rounded hover:bg-blue-50 disabled:opacity-50"
+            className="flex items-center px-3 py-1.5 text-sm font-medium text-slate-300 border border-slate-500 rounded hover:bg-slate-700 hover:text-white disabled:opacity-50"
             disabled={disabled}
           >
             <Plus className="size-4 mr-1" />
@@ -687,7 +687,7 @@ export default function LabFormFullSetup({
                 placeholder="Reason (e.g., Maintenance, Calibration)"
                 value={window.reason || ''}
                 onChange={(e) => handleWindowChange(index, { reason: e.target.value })}
-                className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                 disabled={disabled}
               />
               <div className="flex justify-end">
@@ -705,12 +705,12 @@ export default function LabFormFullSetup({
           ))}
         </div>
         {errors.unavailableWindows && (
-          <p className="text-red-500 text-sm !mt-1">{errors.unavailableWindows}</p>
+          <p className="text-red-400 text-sm !mt-1">{errors.unavailableWindows}</p>
         )}
       </section>
 
       <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Terms of Use</h3>
+        <h3 className="text-lg font-semibold text-white">Terms of Use</h3>
         <div>
           <input
             type="url"
@@ -718,7 +718,7 @@ export default function LabFormFullSetup({
             value={termsOfUse.url || ''}
             onChange={(e) => handleTermsChange('url', e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
             disabled={disabled}
             ref={termsUrlRef}
           />
@@ -729,10 +729,10 @@ export default function LabFormFullSetup({
             </p>
           )}
           {termsFetchState.error && (
-            <p className="text-sm text-red-500 mt-1">{termsFetchState.error}</p>
+            <p className="text-sm text-red-400 mt-1">{termsFetchState.error}</p>
           )}
           {errors.termsOfUseUrl && (
-            <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseUrl}</p>
+            <p className="text-red-400 text-sm !mt-1">{errors.termsOfUseUrl}</p>
           )}
         </div>
         <input
@@ -752,24 +752,24 @@ export default function LabFormFullSetup({
           ref={termsShaRef}
         />
         {errors.termsOfUseEffectiveDate && (
-          <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseEffectiveDate}</p>
+          <p className="text-red-400 text-sm !mt-1">{errors.termsOfUseEffectiveDate}</p>
         )}
         {errors.termsOfUseSha && (
-          <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseSha}</p>
+          <p className="text-red-400 text-sm !mt-1">{errors.termsOfUseSha}</p>
         )}
       </section>
 
       {showMediaSections && (
       <section className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">Media</h3>
+        <h3 className="text-lg font-semibold text-white">Media</h3>
         <div className="space-y-2">
           <h4 className="font-semibold">Images</h4>
           <div className="flex">
             <button
               type="button"
               className={`px-4 py-2 rounded mr-2 ${imageInputType === 'link'
-                ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                ? 'bg-primary-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'}`}
               onClick={() => setImageInputType('link')}
               disabled={disabled}
             >
@@ -781,8 +781,8 @@ export default function LabFormFullSetup({
             <button
               type="button"
               className={`px-4 py-2 rounded ${imageInputType === 'upload'
-                ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                ? 'bg-primary-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'}`}
               onClick={() => setImageInputType('upload')}
               disabled={disabled}
             >
@@ -798,12 +798,12 @@ export default function LabFormFullSetup({
               placeholder="Images URLs (comma-separated)"
               value={Array.isArray(localLab?.images) ? localLab.images.join(', ') : ''}
               onChange={(e) => handleBasicChange('images', e.target.value.split(',').map(img => img.trim()).filter(Boolean))}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               disabled={disabled}
               ref={imageLinkRef}
             />
           )}
-          {errors.images && <p className="text-red-500 text-sm mt-1">{errors.images}</p>}
+          {errors.images && <p className="text-red-400 text-sm mt-1">{errors.images}</p>}
           {imageInputType === 'upload' && (
             <>
               <input
@@ -819,7 +819,7 @@ export default function LabFormFullSetup({
               <button
                 type="button"
                 onClick={() => imageUploadRef.current?.click()}
-                className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                className="bg-slate-700 text-slate-200 hover:bg-slate-600 px-4 py-2 rounded w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={disabled}
               >
                 <div className="flex items-center justify-center">
@@ -829,7 +829,7 @@ export default function LabFormFullSetup({
               </button>
               {localImages.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">Selected Files:</p>
+                  <p className="text-sm text-slate-400">Selected Files:</p>
                   <ul className="list-disc list-inside">
                     {localImages.map((file, index) => (
                       <li key={index} className="text-sm flex items-center justify-between">
@@ -837,7 +837,7 @@ export default function LabFormFullSetup({
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-400 hover:text-red-700"
                         >
                           <XCircle className="size-4" />
                         </button>
@@ -859,8 +859,8 @@ export default function LabFormFullSetup({
             <button
               type="button"
               className={`px-4 py-2 rounded mr-2 ${docInputType === 'link'
-                ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                ? 'bg-primary-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'}`}
               onClick={() => setDocInputType('link')}
               disabled={disabled}
             >
@@ -872,8 +872,8 @@ export default function LabFormFullSetup({
             <button
               type="button"
               className={`px-4 py-2 rounded ${docInputType === 'upload'
-                ? 'bg-[#7875a8] text-white disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300'}`}
+                ? 'bg-primary-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-slate-700 text-slate-200 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed'}`}
               onClick={() => setDocInputType('upload')}
               disabled={disabled}
             >
@@ -889,12 +889,12 @@ export default function LabFormFullSetup({
               placeholder="Docs URLs (comma-separated)"
               value={Array.isArray(localLab?.docs) ? localLab.docs.join(', ') : ''}
               onChange={(e) => handleBasicChange('docs', e.target.value.split(',').map(doc => doc.trim()).filter(Boolean))}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              className="w-full p-2.5 rounded-lg bg-white border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
               disabled={disabled}
               ref={docLinkRef}
             />
           )}
-          {errors.docs && <p className="text-red-500 text-sm mt-1">{errors.docs}</p>}
+          {errors.docs && <p className="text-red-400 text-sm mt-1">{errors.docs}</p>}
           {docInputType === 'upload' && (
             <>
               <input
@@ -909,7 +909,7 @@ export default function LabFormFullSetup({
               <button
                 type="button"
                 onClick={() => docUploadRef.current?.click()}
-                className="bg-gray-200 text-gray-700 hover:bg-gray-300 px-4 py-2 rounded w-full disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                className="bg-slate-700 text-slate-200 hover:bg-slate-600 px-4 py-2 rounded w-full disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={disabled}
               >
                 <div className="flex items-center justify-center">
@@ -919,7 +919,7 @@ export default function LabFormFullSetup({
               </button>
               {localDocs.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">Selected Files:</p>
+                  <p className="text-sm text-slate-400">Selected Files:</p>
                   <ul className="list-disc list-inside">
                     {localDocs.map((file, index) => (
                       <li key={index} className="text-sm flex items-center justify-between">
@@ -927,7 +927,7 @@ export default function LabFormFullSetup({
                         <button
                           type="button"
                           onClick={() => removeDoc(index)}
-                          className="text-red-500 hover:text-red-700"
+                          className="text-red-400 hover:text-red-700"
                         >
                           <XCircle className="size-4" />
                         </button>
@@ -945,18 +945,18 @@ export default function LabFormFullSetup({
       </section>
       )}
 
-      <div className="flex justify-between pt-4">
+      <div className="flex justify-between pt-6" style={{ borderTop: '1px solid var(--color-ui-label-medium)' }}>
         <button
           type="submit"
           disabled={disabled}
-          className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68] disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300"
+          className="text-white px-5 py-2.5 rounded-lg font-medium bg-success hover:bg-success-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
         >
           {localLab?.id ? 'Save Changes' : 'Add Lab'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]"
+          className="text-white px-5 py-2.5 rounded-lg font-medium bg-slate-600 hover:bg-slate-500 transition-colors"
         >
           Close
         </button>

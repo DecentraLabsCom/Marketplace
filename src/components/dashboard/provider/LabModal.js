@@ -694,25 +694,26 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
 
   return (
     <div onClick={handleClose} style={{ minHeight: "100vh" }}
-      className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto">
+      className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto backdrop-blur-sm">
       <div onClick={e => e.stopPropagation()}
-        className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4 text-black">
+        className="rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-4 my-8 max-h-[90vh] overflow-y-auto"
+        style={{ backgroundColor: 'var(--color-background-surface)' }}>
+        <h2 className="text-xl font-semibold mb-4 text-white">
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
         <div className="mb-4">
           <div className="flex">
             <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
-              className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              className={`px-4 py-2 rounded-lg mr-2 transition-colors ${activeTab === 'full'
+                ? 'bg-primary-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
             >
               Full Setup
             </button>
             <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
-              className={`px-4 py-2 rounded ${activeTab === 'quick'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              className={`px-4 py-2 rounded-lg transition-colors ${activeTab === 'quick'
+                ? 'bg-primary-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
             >
               Quick Setup
             </button>
