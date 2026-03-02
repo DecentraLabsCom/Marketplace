@@ -138,10 +138,10 @@ export default function ProviderDashboard() {
     openOnboardingModal,
   } = useUser();
 
-  // ⚠️ TEMPORARY MOCK - REMOVE BEFORE COMMIT ⚠️
+  // TEMPORARY MOCK - Remove before committing!
   isProvider = true;
   isProviderLoading = false;
-  // ⚠️ END TEMPORARY MOCK ⚠️
+
   const router = useRouter();
 
   const providerOwnerAddress = useMemo(

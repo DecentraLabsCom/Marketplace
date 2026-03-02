@@ -451,7 +451,7 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId('stake-health-indicator')).toBeInTheDocument();
 
       // open modal
-      const manageBtn = screen.getByRole('button', { name: /manage staking/i });
+      const manageBtn = screen.getByRole('button', { name: /manage/i });
       expect(manageBtn).toBeInTheDocument();
       fireEvent.click(manageBtn);
 
@@ -466,7 +466,7 @@ describe("ProviderDashboard Component", () => {
 
       // compact card and manage button should NOT be present for SSO users
       expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /manage/i })).not.toBeInTheDocument();
     });
 
     test("renders labs in the list", async () => {

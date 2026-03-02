@@ -273,7 +273,7 @@ describe("LabModal Component - Lab Listing Flow", () => {
     fireEvent.click(quickSetupTab);
 
     // Verify Quick Setup tab is now active
-    expect(quickSetupTab).toHaveClass("bg-[#7875a8]");
+    expect(quickSetupTab).toHaveClass("bg-primary-600");
 
     // Fill in quick setup fields using helper and fixture data
     await fillQuickSetupForm(labData);

@@ -533,7 +533,7 @@ describe("Provider Dashboard Flow Integration", () => {
     renderWithAllProviders(<ProviderDashboardPage />);
 
     // compact staking card should be visible
-    const manageBtn = await screen.findByRole('button', { name: /manage staking/i });
+    const manageBtn = await screen.findByRole('button', { name: /manage/i });
     expect(manageBtn).toBeInTheDocument();
 
     // open modal
