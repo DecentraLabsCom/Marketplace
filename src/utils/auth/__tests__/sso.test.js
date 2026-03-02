@@ -538,8 +538,6 @@ describe("SSO Utilities", () => {
             schacHomeOrganization: "university.edu",
             eduPersonAffiliation: "student",
             eduPersonScopedAffiliation: "student@university.edu",
-            schacHomeOrganizationType:
-              "urn:schac:homeOrganizationType:eu:higherEducationalInstitution",
             schacPersonalUniqueCode:
               "urn:schac:personalUniqueCode:es:dni:12345678A",
             organizationName: "Test University",
@@ -562,8 +560,6 @@ describe("SSO Utilities", () => {
         affiliation: "university.edu",
         role: "student",
         scopedRole: "student@university.edu",
-        organizationType:
-          "urn:schac:homeOrganizationType:eu:higherEducationalInstitution",
         personalUniqueCode: "12345678A",
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
@@ -689,7 +685,6 @@ describe("SSO Utilities", () => {
         affiliation: null,
         role: null,
         scopedRole: null,
-        organizationType: null,
         personalUniqueCode: null,
         organizationName: null,
         samlAssertion: "saml-response",

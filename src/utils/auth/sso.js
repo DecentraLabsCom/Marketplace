@@ -172,7 +172,6 @@ export async function parseSAMLResponse(samlResponse) {
         affiliation,
         role: getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1']),
         scopedRole: getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9']),
-        organizationType: getFirstAttribute(attrs, ['schacHomeOrganizationType', 'urn:oid:1.3.6.1.4.1.25178.1.2.10']),
         personalUniqueCode: normalizePuc(
           getFirstAttribute(attrs, ['schacPersonalUniqueCode', 'urn:oid:1.3.6.1.4.1.25178.1.2.14']),
         ),

@@ -231,7 +231,6 @@ function getSessionSecret() {
  * @property {string} [affiliation] - User's institution/organization
  * @property {string} [role] - User's role (e.g., 'student', 'staff')
  * @property {string} [scopedRole] - User's scoped affiliation
- * @property {string} [organizationType] - Organization type
  * @property {string} [personalUniqueCode] - Personal unique identifier
  * @property {string} [organizationName] - Organization name
  * @property {string} [wallet] - Associated wallet address (if linked)

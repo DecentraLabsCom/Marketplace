@@ -14,8 +14,6 @@ const PUBLIC_SESSION_FIELDS = [
   'scopedRole',
   'eduPersonAffiliation',
   'eduPersonScopedAffiliation',
-  'organizationType',
-  'schacHomeOrganizationType',
   'personalUniqueCode',
   'schacPersonalUniqueCode',
   'organizationName',
