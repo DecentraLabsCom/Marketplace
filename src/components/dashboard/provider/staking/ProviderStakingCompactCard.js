@@ -32,7 +32,7 @@ export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage })
         <div className="flex items-center gap-2">
           <button
             onClick={onManage}
-            className="px-5 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-500 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="px-5 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Manage
           </button>
