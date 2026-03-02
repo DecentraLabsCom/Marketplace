@@ -27,6 +27,26 @@ const SIZES = {
 }
 
 /**
+ * Theme variants for the modal
+ * @readonly
+ * @enum {Object}
+ */
+const THEMES = {
+  light: {
+    bg: 'bg-white',
+    border: 'border-gray-100',
+    title: 'text-gray-900',
+    closeBtn: 'text-gray-400 hover:text-gray-600 hover:bg-gray-100',
+  },
+  dark: {
+    bg: 'bg-[color:var(--color-background-surface)]',
+    border: 'border-[color:var(--color-ui-label-medium)]',
+    title: 'text-[color:var(--color-text-inverse)]',
+    closeBtn: 'text-[color:var(--color-text-secondary)] hover:text-[color:var(--color-text-inverse)] hover:bg-[color:var(--color-background-dark)]',
+  },
+}
+
+/**
  * Generic Modal component
  * 
  * @param {Object} props - Component props
@@ -34,6 +54,7 @@ const SIZES = {
  * @param {function} [props.onClose] - Handler for closing the modal (if not provided, modal cannot be closed)
  * @param {string} [props.title] - Optional title displayed in header
  * @param {string} [props.size='md'] - Modal size: 'sm', 'md', 'lg', 'xl', '2xl', 'full'
+ * @param {string} [props.theme='light'] - Modal theme: 'light' or 'dark'
  * @param {React.ReactNode} props.children - Modal content
  * @param {boolean} [props.showCloseButton=true] - Whether to show the X close button
  * @param {string} [props.className] - Additional CSS classes for the content container
@@ -44,6 +65,7 @@ export default function Modal({
   onClose, 
   title,
   size = 'md',
+  theme = 'light',
   children,
   showCloseButton = true,
   className = '',
@@ -84,6 +106,7 @@ export default function Modal({
   if (!isOpen) return null
 
   const sizeClass = SIZES[size] || SIZES.md
+  const themeStyles = THEMES[theme] || THEMES.light
 
   return (
     <div
@@ -96,7 +119,7 @@ export default function Modal({
       <div
         ref={modalRef}
         className={`
-          my-auto flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] ${sizeClass}
+          my-auto flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-xl ${themeStyles.bg} shadow-2xl sm:max-h-[calc(100dvh-2rem)] ${sizeClass}
           transition-all duration-200 ease-out
           animate-in fade-in zoom-in-95
           starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0
@@ -107,11 +130,11 @@ export default function Modal({
       >
         {/* Header */}
         {(title || (showCloseButton && onClose)) && (
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
+          <div className={`flex items-center justify-between border-b ${themeStyles.border} px-4 py-3 sm:px-6 sm:py-4`}>
             {title && (
               <h2 
                 id="modal-title" 
-                className="text-lg font-semibold text-gray-900"
+                className={`text-lg font-semibold ${themeStyles.title}`}
               >
                 {title}
               </h2>
@@ -120,7 +143,7 @@ export default function Modal({
             {showCloseButton && onClose && (
               <button
                 onClick={onClose}
-                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className={`p-1 ${themeStyles.closeBtn} rounded-full transition-colors`}
                 aria-label="Close modal"
               >
                 <svg
@@ -155,6 +178,7 @@ Modal.propTypes = {
   onClose: PropTypes.func,
   title: PropTypes.string,
   size: PropTypes.oneOf(['sm', 'md', 'lg', 'xl', '2xl', 'full']),
+  theme: PropTypes.oneOf(['light', 'dark']),
   children: PropTypes.node.isRequired,
   showCloseButton: PropTypes.bool,
   className: PropTypes.string,

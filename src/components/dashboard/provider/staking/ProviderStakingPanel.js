@@ -180,7 +180,7 @@ export default function ProviderStakingPanel({
   const health = computeStakeHealth(stakedAmount, requiredStake, slashedAmount)
 
   return (
-    <div data-testid="staking-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
+    <div data-testid="staking-panel" className="rounded-xl px-3 py-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-inverse)' }}>

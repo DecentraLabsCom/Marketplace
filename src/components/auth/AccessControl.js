@@ -20,7 +20,7 @@ export default function AccessControl({
   requireSSO = false,
   requireProvider = false,
 }) {
-  const {
+  let {
     isLoggedIn,
     isSSO,
     isConnected,
@@ -34,6 +34,10 @@ export default function AccessControl({
     isInstitutionRegistrationLoading,
     institutionRegistrationStatus,
   } = useUser();
+
+  // TEMPORARY MOCK - Remove before committing!
+  isProvider = true;
+  isProviderLoading = false;
 
   const router = useRouter();
   const isInstitutionRegistrationPending =
