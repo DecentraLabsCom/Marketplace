@@ -43,16 +43,11 @@ describe('institutionalOnboarding', () => {
     process.env = originalEnv
   })
 
-  test('extractStableUserId respects priority order', () => {
-    expect(extractStableUserId({ personalUniqueCode: 'puc' })).toBe('puc')
-    expect(extractStableUserId({ schacPersonalUniqueCode: 'spuc' })).toBe('spuc')
-    expect(
-      extractStableUserId({
-        personalUniqueCode: 'urn:schac:personalUniqueCode:es:dni:12345678A',
-      }),
-    ).toBe('12345678A')
-    expect(extractStableUserId({ scopedRole: 'user@uned.es' })).toBe('user@uned.es')
+  test('extractStableUserId respects new priority (ePPN first)', () => {
+    expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu' })).toBe('ep@uni.edu')
+    expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu', id: 'other' })).toBe('ep@uni.edu')
     expect(extractStableUserId({ id: 'uid', affiliation: 'uned.es' })).toBe('uid@uned.es')
+    expect(extractStableUserId({ id: 'justid' })).toBe('justid')
     expect(extractStableUserId({ email: 'a@uned.es' })).toBe('a@uned.es')
     expect(extractStableUserId(null)).toBeNull()
   })
@@ -92,7 +87,7 @@ describe('institutionalOnboarding', () => {
         name: 'Alice',
         affiliation: 'uned.es',
         samlAssertion: 'base64-assertion',
-        personalUniqueCode: 'puc',
+        id: 'alice@uned.es',
       },
       callbackUrl: 'https://marketplace.example/callback',
     })
@@ -103,7 +98,7 @@ describe('institutionalOnboarding', () => {
     expect(opts.method).toBe('POST')
     expect(opts.headers['X-SP-Api-Key']).toBe('test-key')
     const body = JSON.parse(opts.body)
-    expect(body.stableUserId).toBe('puc')
+    expect(body.stableUserId).toBe('alice@uned.es')
     expect(body.samlAssertion).toBe('base64-assertion')
     expect(body.assertionReference).toBe('sha256:hash')
 
@@ -146,7 +141,7 @@ describe('institutionalOnboarding', () => {
     })
 
     const res = await checkUserOnboardingStatus({
-      userData: { affiliation: 'uned.es', personalUniqueCode: 'puc' },
+      userData: { affiliation: 'uned.es', id: 'bob@uned.es' },
     })
 
     expect(res.isOnboarded).toBe(true)
@@ -159,7 +154,7 @@ describe('institutionalOnboarding', () => {
 
     await expect(
       initiateInstitutionalOnboarding({
-        userData: { email: 'a@uned.es', affiliation: 'uned.es', personalUniqueCode: 'puc' },
+        userData: { email: 'a@uned.es', affiliation: 'uned.es', id: 'charlie@uned.es' },
         callbackUrl: 'https://marketplace.example/callback',
       }),
     ).rejects.toThrow(/Missing SP API key/i)

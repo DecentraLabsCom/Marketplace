@@ -19,6 +19,7 @@ import { extractStableUserId } from '@/utils/onboarding'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import devLog from '@/utils/dev/logger'
 import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
+import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 
 /**
  * GET /api/onboarding/session
@@ -42,7 +43,7 @@ export async function GET() {
       id: session.id || session.uid,
       email: session.email,
       name: session.name || session.displayName,
-      affiliation: session.affiliation || session.schacHomeOrganization,
+      affiliation: resolveInstitutionDomainFromSession(session),
       role: session.role || session.eduPersonAffiliation,
       scopedRole: session.scopedRole || session.eduPersonScopedAffiliation,
       personalUniqueCode: session.personalUniqueCode || session.schacPersonalUniqueCode,

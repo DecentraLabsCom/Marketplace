@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth, HttpError, ForbiddenError } from '@/utils/auth/guards';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
+import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain';
 import devLog from '@/utils/dev/logger';
 import {
   normalizeHttpsUrl,
@@ -59,9 +60,11 @@ export async function POST(request) {
       'Marketplace base URL'
     );
     const issuer = marketplaceBaseUrl;
-    const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(
-      body.consumerOrganization || session.affiliation || session.schacHomeOrganization || ''
-    );
+    const organizationCandidate = resolveInstitutionDomainFromSession(session, body.consumerOrganization);
+    if (!organizationCandidate) {
+      throw new ForbiddenError('Cannot derive institution domain from session or payload');
+    }
+    const organizationDomain = marketplaceJwtService.normalizeOrganizationDomain(organizationCandidate);
 
     const consumerNameCandidate =
       body.consumerName ||

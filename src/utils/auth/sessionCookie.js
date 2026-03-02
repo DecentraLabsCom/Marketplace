@@ -225,13 +225,14 @@ function getSessionSecret() {
 /**
  * Session data structure
  * @typedef {Object} SessionData
- * @property {string} id - User ID
+ * @property {string} id - User ID (typically eduPersonPrincipalName from SAML)
+ * @property {string} [eduPersonPrincipalName] - Original ePPN if available
  * @property {string} [email] - User email
  * @property {string} [name] - User display name
  * @property {string} [affiliation] - User's institution/organization
  * @property {string} [role] - User's role (e.g., 'student', 'staff')
  * @property {string} [scopedRole] - User's scoped affiliation
- * @property {string} [personalUniqueCode] - Personal unique identifier
+ * @property {string} [personalUniqueCode] - Personal unique identifier (deprecated, replaced by id)
  * @property {string} [organizationName] - Organization name
  * @property {string} [wallet] - Associated wallet address (if linked)
  */

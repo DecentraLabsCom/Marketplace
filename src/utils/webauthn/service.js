@@ -14,11 +14,11 @@ import {
 } from './store'
 
 /**
- * Extract PUC from session data.
+ * Extract stable user identifier from session data.
  * @param {Object} session
  * @returns {string}
  */
-export function getPucFromSession(session) {
+export function getUserIdFromSession(session) {
   return getNormalizedPucFromSession(session)
 }
 
@@ -30,19 +30,19 @@ export function getPucFromSession(session) {
  * @returns {Promise<Object>}
  */
 export async function buildRegistrationOptions(session, request) {
-  const puc = getPucFromSession(session)
-  if (!puc) {
-    throw new Error('Missing PUC in session for WebAuthn registration')
+  const userId = getUserIdFromSession(session)
+  if (!userId) {
+    throw new Error('Missing user identifier in session for WebAuthn registration')
   }
 
   const rpID = getRpId()
   const origin = getOriginFromRequest(request)
   const rpName = getRpName()
 
-  const existing = getCredentialForUser(puc)
+  const existing = getCredentialForUser(userId)
 
-  // Use puc as the primary identifier, fall back to email/id
-  const userIdentifier = session?.email || session?.id || puc
+  // Use the stable identifier as the primary key, fall back to email/id
+  const userIdentifier = session?.email || session?.id || userId
   // Convert userID to Uint8Array as required by @simplewebauthn/server v13+
   const userIDBytes = new TextEncoder().encode(userIdentifier)
 
@@ -50,7 +50,7 @@ export async function buildRegistrationOptions(session, request) {
     rpName,
     rpID,
     userName: userIdentifier,
-    userDisplayName: session?.name || session?.email || puc,
+    userDisplayName: session?.name || session?.email || userId,
     userID: userIDBytes,
     attestationType: 'indirect',
     authenticatorSelection: {
@@ -70,14 +70,14 @@ export async function buildRegistrationOptions(session, request) {
     timeout: 90_000,
   })
 
-  setRegistrationChallenge(puc, {
+  setRegistrationChallenge(userId, {
     challenge: options.challenge,
     expiresAt: Date.now() + 10 * 60 * 1000,
     rpId: rpID,
     origin,
   })
 
-  devLog.log('[WebAuthn] Registration options generated for', puc)
+  devLog.log('[WebAuthn] Registration options generated for', userId)
   return options
 }
 
@@ -89,12 +89,12 @@ export async function buildRegistrationOptions(session, request) {
  * @returns {Promise<Object>}
  */
 export async function verifyRegistration(session, attestationResponse, request) {
-  const puc = getPucFromSession(session)
-  if (!puc) {
-    throw new Error('Missing PUC in session for WebAuthn registration')
+  const userId = getUserIdFromSession(session)
+  if (!userId) {
+    throw new Error('Missing user identifier in session for WebAuthn registration')
   }
 
-  const pending = consumeRegistrationChallenge(puc)
+  const pending = consumeRegistrationChallenge(userId)
   if (!pending) {
     throw new Error('No registration challenge found for this session')
   }
@@ -123,7 +123,7 @@ export async function verifyRegistration(session, attestationResponse, request) 
   const spkiDer = convertCOSEtoPKCS(cosePublicKey)
 
   const credentialRecord = {
-    puc,
+    userId,
     credentialId,
     cosePublicKey: isoBase64URL.fromBuffer(cosePublicKey, 'base64'),
     publicKeySpki: isoBase64URL.fromBuffer(spkiDer, 'base64'),
@@ -153,7 +153,7 @@ export async function registerCredentialInBackend(record, backendUrl) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        puc: record.puc,
+        userId: record.userId,
         credentialId: record.credentialId,
         publicKey: record.publicKeySpki,
         signCount: record.signCount,
@@ -167,8 +167,14 @@ export async function registerCredentialInBackend(record, backendUrl) {
   }
 }
 
+// backward compatibility: keep old name alongside new one
+export function getPucFromSession(session) {
+  return getUserIdFromSession(session)
+}
+
 export default {
-  getPucFromSession,
+  getUserIdFromSession,
+  getPucFromSession, // alias
   buildRegistrationOptions,
   verifyRegistration,
   registerCredentialInBackend,

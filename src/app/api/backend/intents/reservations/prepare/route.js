@@ -16,6 +16,7 @@ import {
   resolveAuthorizationUrl,
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
+import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
@@ -44,10 +45,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
     }
 
-    const schacHomeOrganization = session.schacHomeOrganization || session.affiliation || session.organization || session.organizationName
-    if (!schacHomeOrganization) {
-      return NextResponse.json({ error: 'Missing schacHomeOrganization in session' }, { status: 400 })
-    }
+    const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
 
     const puc = getPucFromSession(session)
     if (!puc) {
