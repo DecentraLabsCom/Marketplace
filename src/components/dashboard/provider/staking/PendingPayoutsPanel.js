@@ -62,7 +62,7 @@ export default function PendingPayoutsPanel({
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-inverse)' }}>
           <span className="text-base">💰</span>
           Pending Payouts
         </h3>
@@ -70,15 +70,15 @@ export default function PendingPayoutsPanel({
           <button
             onClick={onCollect}
             disabled={isCollecting || !isCollectEnabled}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#bcc4fc] text-white hover:bg-[#aab8e6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-success text-white hover:bg-success-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
             {isCollecting ? (
-              <span className="inline-flex items-center gap-1">
-                <span className="w-2.5 h-2.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="inline-flex items-center gap-1.5">
+                <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Collecting...
               </span>
             ) : (
-              'Collect'
+              'Collect All'
             )}
           </button>
         )}
@@ -89,15 +89,22 @@ export default function PendingPayoutsPanel({
         {Object.entries(REVENUE_SPLIT).map(([key, pct]) => {
           // all boxes share the same base flex so widths match; governance is 10% larger
           const flexValue = key === 'governance' ? 1.1 : 1
+          const isProvider = key === 'provider'
           return (
             <div
               key={key}
-              style={{ flex: flexValue }}
-              className="text-center py-1.5 rounded bg-slate-900/40"
+              style={{ 
+                flex: flexValue, 
+                backgroundColor: isProvider ? 'var(--color-success-bg)' : 'var(--color-background-dark)' 
+              }}
+              className="text-center py-2 rounded-lg"
               title={`${key}: ${pct}% of each reservation payment`}
             >
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">{key}</p>
-              <p className={`text-xs font-semibold ${key === 'provider' ? 'text-emerald-400' : 'text-slate-400'}`}>
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>{key}</p>
+              <p 
+                className="text-xs font-semibold"
+                style={{ color: isProvider ? 'var(--color-success-text)' : 'var(--color-text-inverse)' }}
+              >
                 {pct}%
               </p>
             </div>
@@ -108,10 +115,10 @@ export default function PendingPayoutsPanel({
       {/* Per-lab payouts */}
       {!hasLabs ? (
         <div className="text-center py-6">
-          <p className="text-sm text-slate-500">No labs to show payouts for</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No labs to show payouts for</p>
         </div>
       ) : (
-        <div className="space-y-1 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
+        <div className="space-y-1.5 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
           {normalizedLabs.map(({ lab, labId }) => {
             const rowData = payoutsByLabId[String(labId)] || {}
             const totalPayout = rowData?.totalPayout || '0'
@@ -122,9 +129,9 @@ export default function PendingPayoutsPanel({
 
             if (isRowLoading) {
               return (
-                <div key={String(labId)} className="flex items-center justify-between py-2.5 px-3 rounded-lg animate-pulse">
-                  <div className="h-4 bg-slate-700 rounded w-24" />
-                  <div className="h-4 bg-slate-700 rounded w-16" />
+                <div key={String(labId)} className="flex items-center justify-between py-2.5 px-3 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--color-background-dark)' }}>
+                  <div className="h-4 rounded w-24" style={{ backgroundColor: 'var(--color-ui-label-medium)' }} />
+                  <div className="h-4 rounded w-16" style={{ backgroundColor: 'var(--color-ui-label-medium)' }} />
                 </div>
               )
             }
@@ -132,21 +139,22 @@ export default function PendingPayoutsPanel({
             return (
               <div
                 key={String(labId)}
-                className={`flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors ${
-                  hasPayout ? 'bg-emerald-900/10 hover:bg-emerald-900/20' : 'bg-slate-900/20 hover:bg-slate-900/30'
-                }`}
+                className="flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors"
+                style={{ 
+                  backgroundColor: hasPayout ? 'var(--color-success-bg)' : 'var(--color-background-dark)',
+                }}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-200 truncate">{getLabName(lab, labId)}</p>
+                  <p className="text-sm truncate" style={{ color: 'var(--color-text-inverse)' }}>{getLabName(lab, labId)}</p>
                   {hasPayout && (
                     <div className="flex gap-3 mt-0.5">
                       {BigInt(walletPayout || '0') > 0n && (
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
                           Wallet: {formatRawAmount(walletPayout, tokenDecimals)}
                         </span>
                       )}
                       {BigInt(institutionalPayout || '0') > 0n && (
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
                           Institutional: {formatRawAmount(institutionalPayout, tokenDecimals)}
                         </span>
                       )}
@@ -154,7 +162,10 @@ export default function PendingPayoutsPanel({
                   )}
                 </div>
                 <div className="text-right ml-3">
-                  <p className={`text-sm font-semibold ${hasPayout ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  <p 
+                    className="text-sm font-semibold"
+                    style={{ color: hasPayout ? 'var(--color-success-text)' : 'var(--color-text-secondary)' }}
+                  >
                     {formatRawAmount(totalPayout, tokenDecimals)}
                     <span className="text-xs ml-1 opacity-70">$LAB</span>
                   </p>
@@ -167,7 +178,7 @@ export default function PendingPayoutsPanel({
 
       {/* SSO notice */}
       {isSSO && hasLabs && (
-        <p className="text-[11px] text-slate-500 italic">
+        <p className="text-[11px] italic" style={{ color: 'var(--color-text-secondary)' }}>
           Fund collection is executed by your institution&apos;s wallet
         </p>
       )}

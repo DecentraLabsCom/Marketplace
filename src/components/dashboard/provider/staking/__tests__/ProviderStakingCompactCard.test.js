@@ -14,11 +14,11 @@ describe('ProviderStakingCompactCard', () => {
       />
     )
 
-    expect(screen.getByText(/Staking & payouts/i)).toBeInTheDocument()
+    expect(screen.getByText(/Staking & Payouts/i)).toBeInTheDocument()
     // StakeHealthIndicator shows "No stake required" when requiredStake is 0
     expect(screen.getByText(/No stake required/i)).toBeInTheDocument()
 
-    const btn = screen.getByRole('button', { name: /manage staking/i })
+    const btn = screen.getByRole('button', { name: /^manage$/i })
     expect(btn).toBeInTheDocument()
 
     fireEvent.click(btn)
