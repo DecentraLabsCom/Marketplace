@@ -124,7 +124,7 @@ const isNoCompletedReservationsError = (error) => {
  * @returns {JSX.Element} Complete provider dashboard with access control, lab list, calendar, and management actions
  */
 export default function ProviderDashboard() {
-  const {
+  let {
     address,
     user,
     isSSO,
@@ -137,6 +137,11 @@ export default function ProviderDashboard() {
     institutionalOnboardingStatus,
     openOnboardingModal,
   } = useUser();
+
+  // ⚠️ TEMPORARY MOCK - REMOVE BEFORE COMMIT ⚠️
+  isProvider = true;
+  isProviderLoading = false;
+  // ⚠️ END TEMPORARY MOCK ⚠️
   const router = useRouter();
 
   const providerOwnerAddress = useMemo(
