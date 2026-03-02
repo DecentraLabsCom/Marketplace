@@ -96,23 +96,22 @@ export default function Modal({
       <div
         ref={modalRef}
         className={`
-          my-auto flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-xl shadow-2xl sm:max-h-[calc(100dvh-2rem)] ${sizeClass}
+          my-auto flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] ${sizeClass}
           transition-all duration-200 ease-out
           animate-in fade-in zoom-in-95
           starting:opacity-0 starting:translate-y-4 opacity-100 translate-y-0
           ${className}
         `}
-        style={{ backgroundColor: 'var(--color-background-surface)' }}
         onClick={(e) => e.stopPropagation()}
         tabIndex={-1}
       >
         {/* Header */}
         {(title || (showCloseButton && onClose)) && (
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4" style={{ borderBottom: '1px solid var(--color-ui-label-medium)' }}>
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
             {title && (
               <h2 
                 id="modal-title" 
-                className="text-lg font-semibold text-white"
+                className="text-lg font-semibold text-gray-900"
               >
                 {title}
               </h2>
@@ -121,7 +120,7 @@ export default function Modal({
             {showCloseButton && onClose && (
               <button
                 onClick={onClose}
-                className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded-full transition-colors"
+                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                 aria-label="Close modal"
               >
                 <svg

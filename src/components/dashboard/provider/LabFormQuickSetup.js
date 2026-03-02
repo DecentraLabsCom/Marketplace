@@ -24,7 +24,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
   accessURIRef, accessKeyRef, uriRef, clickedToEditUri, setClickedToEditUri, handleUriChange,
   onSubmit, onCancel, lab }) {
   return (
-    <form className="space-y-4" onSubmit={onSubmit}>
+    <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
       <input
         type="number"
         step="any"
@@ -32,9 +32,8 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         placeholder="Price per hour"
         value={localLab?.price || ''}
         onChange={(e) => setLocalLab({ ...localLab, price: e.target.value })}
-        className="w-full p-2.5 rounded-lg text-gray-900 placeholder-gray-400 
-        disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-        focus:outline-none focus:ring-2 focus:ring-primary-500/50 bg-white border border-gray-300"
+        className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+        disabled:cursor-not-allowed disabled:border-gray-300"
         disabled={isLocalURI}
         ref={priceRef}
       />
@@ -45,9 +44,8 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         placeholder="Access URI"
         value={localLab?.accessURI || ''}
         onChange={(e) => setLocalLab({ ...localLab, accessURI: e.target.value })}
-        className="w-full p-2.5 rounded-lg text-gray-900 placeholder-gray-400 
-        disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-        focus:outline-none focus:ring-2 focus:ring-primary-500/50 bg-white border border-gray-300"
+        className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+        disabled:cursor-not-allowed disabled:border-gray-300"
         disabled={isLocalURI}
         ref={accessURIRef}
       />
@@ -58,9 +56,8 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         placeholder="Access Key"
         value={localLab?.accessKey || ''}
         onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
-        className="w-full p-2.5 rounded-lg text-gray-900 placeholder-gray-400 
-        disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
-        focus:outline-none focus:ring-2 focus:ring-primary-500/50 bg-white border border-gray-300"
+        className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+        disabled:cursor-not-allowed disabled:border-gray-300"
         disabled={isLocalURI}
         ref={accessKeyRef}
       />
@@ -74,10 +71,9 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         onClick={() => isLocalURI && setClickedToEditUri(true)}
         onBlur={() => isLocalURI && setClickedToEditUri(false)}
         readOnly={isLocalURI && !clickedToEditUri}
-        className={`w-full p-2.5 rounded-lg text-gray-900 placeholder-gray-400 
-        focus:outline-none focus:ring-2 focus:ring-primary-500/50 bg-white border border-gray-300 ${
+        className={`w-full p-2 border rounded ${
           isLocalURI && !clickedToEditUri
-            ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300'
             : ''
         }`}
         ref={uriRef}
@@ -87,13 +83,13 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       }
       {isLocalURI && !clickedToEditUri && (
         <div className='mt-4 flex justify-center'>
-          <span className="text-sm text-amber-400 font-medium">
+          <span className="text-sm text-red-500 font-medium">
             While greyed out, you may edit the JSON file field to add it as a link
           </span>
         </div>
       )}
       {clickedToEditUri && isLocalURI && (
-        <ol className="text-amber-400 text-sm !mt-1 !list-decimal ml-5">
+        <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
           <li>Name changes to the JSON file are not allowed and will be ignored</li>
           <li>
             Introducing a link to a JSON file will replace the data in Full Setup with the information 
@@ -102,13 +98,13 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         </ol>
       )}
 
-      <div className="flex justify-between mt-6 pt-4" style={{ borderTop: '1px solid var(--color-ui-label-medium)' }}>
+      <div className="flex justify-between mt-4">
         <button type="submit"
-          className="text-white px-5 py-2.5 rounded-lg font-medium bg-success hover:bg-success-dark transition-colors shadow-sm">
+          className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68]">
           {lab?.id ? 'Save Changes' : 'Add Lab'}
         </button>
         <button type="button" onClick={onCancel}
-          className="text-white px-5 py-2.5 rounded-lg font-medium bg-slate-600 hover:bg-slate-500 transition-colors">
+          className="text-white px-4 py-2 rounded bg-[#a87583] hover:bg-[#8a5c66]">
           Close
         </button>
       </div>
