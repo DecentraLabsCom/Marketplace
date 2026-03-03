@@ -68,7 +68,6 @@ export async function POST(request) {
 
     const consumerNameCandidate =
       body.consumerName ||
-      session.organizationName ||
       session.institutionName ||
       deriveInstitutionLabel(organizationDomain);
     const consumerName = requireString(

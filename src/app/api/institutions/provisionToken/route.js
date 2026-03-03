@@ -62,7 +62,6 @@ export async function POST(request) {
 
     const providerNameCandidate =
       body.providerName ||
-      session.organizationName ||
       session.institutionName ||
       deriveInstitutionLabel(organizationDomain);
     const providerName = requireString(

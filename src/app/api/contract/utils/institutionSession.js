@@ -53,16 +53,15 @@ export function normalizeOrganizationDomain(domain) {
 }
 
 /**
- * Extracts and validates a stable user identifier from session
- * (formerly the PUC). This value is used on-chain in place of the
- * schacPersonalUniqueCode. It may be the eduPersonPrincipalName, the
- * SAML session id, or email.
+ * Extracts and validates the canonical on-chain user identifier from session
+ * (formerly the PUC). Canonical format:
+ *   <eduPersonPrincipalName> or <eduPersonPrincipalName>|<eduPersonTargetedID>
  * @param {Object} session - The authenticated session object
  * @returns {string} Trimmed identifier string
  * @throws {BadRequestError} If no usable identifier is found
  */
 export function getSessionPuc(session) {
-  // the helper now returns the identifier rather than a PUC
+  // The helper now returns the canonical institution-scoped identifier.
   const id = getNormalizedPucFromSession(session)
 
   if (!id || typeof id !== 'string') {

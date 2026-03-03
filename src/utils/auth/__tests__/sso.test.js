@@ -532,7 +532,8 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
-                  eduPersonPrincipalName: "user@university.edu",
+            eduPersonTargetedID: "targeted-user-1",
+            eduPersonPrincipalName: "user@university.edu",
             uid: "ignored-uid",
             mail: "user@example.com",
             displayName: "Test User",
@@ -552,7 +553,8 @@ describe("SSO Utilities", () => {
       const result = await parseSAMLResponse("saml-response-data");
 
       expect(result).toEqual({
-        id: "user@university.edu",
+        id: "user@university.edu|targeted-user-1",
+        eduPersonTargetedID: "targeted-user-1",
         eduPersonPrincipalName: "user@university.edu",
         email: "user@example.com",
         name: "Test User",
@@ -563,18 +565,18 @@ describe("SSO Utilities", () => {
         role: "student@university.edu", // scopedAffiliation takes precedence
         scopedRole: "student@university.edu",
         eduPersonScopedAffiliation: "student@university.edu",
-        eduPersonAffiliation: "student",
-        personalUniqueCode: null,
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
       });
     });
 
-    test("derives institution domain from scoped affiliation when mail is missing", async () => {
+    test("derives institution domain from scoped affiliation when schacHomeOrganization is missing", async () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
+            eduPersonPrincipalName: "scoped@campus.edu",
             eduPersonTargetedID: "targeted-user-id",
+            mail: "scoped@campus.edu",
             displayName: "Scoped User",
             eduPersonScopedAffiliation: "member@campus.edu",
           },
@@ -587,8 +589,8 @@ describe("SSO Utilities", () => {
 
       const result = await parseSAMLResponse("saml-response-data");
 
-      expect(result.id).toBe("targeted-user-id");
-      expect(result.email).toBeNull();
+      expect(result.id).toBe("scoped@campus.edu|targeted-user-id");
+      expect(result.email).toBe("scoped@campus.edu");
       expect(result.affiliation).toBe("campus.edu");
       expect(result.schacHomeOrganization).toBeNull();
       expect(result.eduPersonScopedAffiliation).toBe("member@campus.edu");
@@ -599,6 +601,7 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
+            eduPersonTargetedID: ["targeted-user-array", "targeted-user-2"],
             eduPersonPrincipalName: ["user@org.edu", "other@org.edu"],
             mail: ["primary@example.com", "secondary@example.com"],
             displayName: ["Primary Name", "Alt Name"],
@@ -613,8 +616,8 @@ describe("SSO Utilities", () => {
 
       const result = await parseSAMLResponse("saml-response-data");
 
-      // Should extract first element from arrays (ePPN)
-      expect(result.id).toBe("user@org.edu");
+      // Should extract first element from arrays
+      expect(result.id).toBe("user@org.edu|targeted-user-array");
       expect(result.email).toBe("primary@example.com");
       expect(result.name).toBe("Primary Name");
       expect(result.affiliation).toBe("org1.edu");
@@ -624,6 +627,7 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
+            eduPersonTargetedID: "targeted-user-3",
             eduPersonPrincipalName: "user@example.edu",
             mail: "user@example.com",
             displayName: "Test User",
@@ -646,6 +650,8 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
+            eduPersonTargetedID: "targeted-user-4",
+            eduPersonPrincipalName: "user@org.edu",
             uid: "user123",
             mail: "user@example.com",
             displayName: "Test User",
@@ -665,7 +671,12 @@ describe("SSO Utilities", () => {
 
     test("calls post_assert with correct parameters", async () => {
       mockSP.post_assert.mockImplementation((idp, options, callback) => {
-        callback(null, { user: { attributes: {} } });
+        callback(null, { user: { attributes: {
+          eduPersonTargetedID: 'targeted-user-5',
+          eduPersonPrincipalName: 'user@test.edu',
+          mail: 'user@test.edu',
+          displayName: 'User Test',
+        } } });
       });
 
       await parseSAMLResponse("test-saml-response");
@@ -689,11 +700,10 @@ describe("SSO Utilities", () => {
       );
     });
 
-    test("handles missing attributes gracefully", async () => {
+    test("rejects when required eduPersonPrincipalName is missing", async () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
-            // no eduPersonPrincipalName provided
             // Most attributes missing
           },
         },
@@ -703,28 +713,12 @@ describe("SSO Utilities", () => {
         callback(null, mockSAMLAssertion);
       });
 
-      const result = await parseSAMLResponse("saml-response");
-
-      expect(result).toEqual({
-        id: null,
-        eduPersonPrincipalName: null,
-        email: null,
-        name: null,
-        authType: "sso",
-        isSSO: true,
-        affiliation: null,
-        schacHomeOrganization: null,
-        role: null,
-        scopedRole: null,
-        eduPersonScopedAffiliation: null,
-        eduPersonAffiliation: null,
-        personalUniqueCode: null,
-        organizationName: null,
-        samlAssertion: "saml-response",
-      });
+      await expect(parseSAMLResponse("saml-response")).rejects.toThrow(
+        "Missing required SAML attribute: eduPersonPrincipalName"
+      );
     });
 
-    test("handles empty attributes object", async () => {
+    test("rejects when attributes object is empty", async () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {},
@@ -735,13 +729,12 @@ describe("SSO Utilities", () => {
         callback(null, mockSAMLAssertion);
       });
 
-      const result = await parseSAMLResponse("saml-response");
-
-      expect(result.id).toBeNull();
-      expect(result.organizationName).toBeNull();
+      await expect(parseSAMLResponse("saml-response")).rejects.toThrow(
+        "Missing required SAML attribute: eduPersonPrincipalName"
+      );
     });
 
-    test("handles missing user object in assertion", async () => {
+    test("rejects when user object is missing in assertion", async () => {
       const mockSAMLAssertion = {
         // No user object
       };
@@ -750,10 +743,9 @@ describe("SSO Utilities", () => {
         callback(null, mockSAMLAssertion);
       });
 
-      const result = await parseSAMLResponse("saml-response");
-
-      expect(result.id).toBeNull();
-      expect(result.organizationName).toBeNull();
+      await expect(parseSAMLResponse("saml-response")).rejects.toThrow(
+        "Missing required SAML attribute: eduPersonPrincipalName"
+      );
     });
   });
 

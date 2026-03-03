@@ -40,13 +40,13 @@ export async function GET() {
     }
 
     const userData = {
-      id: session.id || session.uid,
+      id: session.id,
+      eduPersonTargetedID: session.eduPersonTargetedID,
       email: session.email,
       name: session.name || session.displayName,
       affiliation: resolveInstitutionDomainFromSession(session),
-      role: session.role || session.eduPersonAffiliation,
+      role: session.role,
       scopedRole: session.scopedRole || session.eduPersonScopedAffiliation,
-      personalUniqueCode: session.personalUniqueCode || session.schacPersonalUniqueCode,
       samlAssertion: session.samlAssertion,
     }
 

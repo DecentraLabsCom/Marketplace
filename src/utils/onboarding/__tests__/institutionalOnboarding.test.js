@@ -43,12 +43,11 @@ describe('institutionalOnboarding', () => {
     process.env = originalEnv
   })
 
-  test('extractStableUserId respects new priority (ePPN first)', () => {
+  test('extractStableUserId follows R&S shared identifier semantics', () => {
     expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu' })).toBe('ep@uni.edu')
-    expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu', id: 'other' })).toBe('ep@uni.edu')
-    expect(extractStableUserId({ id: 'uid', affiliation: 'uned.es' })).toBe('uid@uned.es')
+    expect(extractStableUserId({ eduPersonPrincipalName: 'ep@uni.edu', eduPersonTargetedID: 't1' })).toBe('ep@uni.edu|t1')
     expect(extractStableUserId({ id: 'justid' })).toBe('justid')
-    expect(extractStableUserId({ email: 'a@uned.es' })).toBe('a@uned.es')
+    expect(extractStableUserId({ email: 'a@uned.es' })).toBeNull()
     expect(extractStableUserId(null)).toBeNull()
   })
 
@@ -68,7 +67,7 @@ describe('institutionalOnboarding', () => {
 
     await expect(
       initiateInstitutionalOnboarding({
-        userData: { email: 'a@uned.es', affiliation: 'uned.es' },
+        userData: { email: 'a@uned.es', affiliation: 'uned.es', eduPersonPrincipalName: 'a@uned.es' },
         callbackUrl: 'cb',
       }),
     ).rejects.toThrow(OnboardingErrorCode.NO_BACKEND)
@@ -87,7 +86,8 @@ describe('institutionalOnboarding', () => {
         name: 'Alice',
         affiliation: 'uned.es',
         samlAssertion: 'base64-assertion',
-        id: 'alice@uned.es',
+        eduPersonPrincipalName: 'alice@uned.es',
+        eduPersonTargetedID: 'targeted-alice',
       },
       callbackUrl: 'https://marketplace.example/callback',
     })
@@ -98,7 +98,7 @@ describe('institutionalOnboarding', () => {
     expect(opts.method).toBe('POST')
     expect(opts.headers['X-SP-Api-Key']).toBe('test-key')
     const body = JSON.parse(opts.body)
-    expect(body.stableUserId).toBe('alice@uned.es')
+    expect(body.stableUserId).toBe('alice@uned.es|targeted-alice')
     expect(body.samlAssertion).toBe('base64-assertion')
     expect(body.assertionReference).toBe('sha256:hash')
 
@@ -141,7 +141,7 @@ describe('institutionalOnboarding', () => {
     })
 
     const res = await checkUserOnboardingStatus({
-      userData: { affiliation: 'uned.es', id: 'bob@uned.es' },
+      userData: { affiliation: 'uned.es', eduPersonPrincipalName: 'bob@uned.es', eduPersonTargetedID: 'targeted-bob' },
     })
 
     expect(res.isOnboarded).toBe(true)
@@ -154,7 +154,7 @@ describe('institutionalOnboarding', () => {
 
     await expect(
       initiateInstitutionalOnboarding({
-        userData: { email: 'a@uned.es', affiliation: 'uned.es', id: 'charlie@uned.es' },
+        userData: { email: 'a@uned.es', affiliation: 'uned.es', eduPersonPrincipalName: 'charlie@uned.es' },
         callbackUrl: 'https://marketplace.example/callback',
       }),
     ).rejects.toThrow(/Missing SP API key/i)

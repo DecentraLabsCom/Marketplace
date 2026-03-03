@@ -98,10 +98,8 @@ class MarketplaceJwtService {
    * @param {Object} samlAttributes - User attributes from SAML2 session
    * @param {string} samlAttributes.username - User's username/identifier
    * @param {string} samlAttributes.email - User's email address
-   * @param {string} samlAttributes.uid - User's unique identifier
    * @param {string} samlAttributes.displayName - User's display name
    * @param {string} samlAttributes.schacHomeOrganization - User's home organization
-   * @param {string} samlAttributes.eduPersonAffiliation - User's institutional affiliation
    * @param {string} samlAttributes.eduPersonScopedAffiliation - User's scoped affiliation
    * @returns {string} Signed JWT token
    * @throws {Error} If JWT generation fails
@@ -127,10 +125,9 @@ class MarketplaceJwtService {
       const payload = {
         sub: samlAttributes.username,                                    // Subject (username)
         email: samlAttributes.email || '',                              // User email
-        uid: samlAttributes.uid || samlAttributes.username,             // User ID
+        uid: samlAttributes.username,                                   // User ID (R&S aligned)
         displayName: samlAttributes.displayName || samlAttributes.username, // Display name
         schacHomeOrganization: samlAttributes.schacHomeOrganization || '', // Home organization
-        eduPersonAffiliation: samlAttributes.eduPersonAffiliation || '', // Institutional role
         eduPersonScopedAffiliation: samlAttributes.eduPersonScopedAffiliation || '', // Scoped role
         iat: Math.floor(Date.now() / 1000),                            // Issued at
         exp: Math.floor(Date.now() / 1000) + parseInt(process.env.JWT_EXPIRATION_MS || '60000') / 1000 // Expires in
@@ -440,7 +437,6 @@ class MarketplaceJwtService {
       // Basic issuer identity from SAML user
       const issuerId =
         samlUser.id ||
-        samlUser.uid ||
         samlUser.username ||
         samlUser.email ||
         'unknown';

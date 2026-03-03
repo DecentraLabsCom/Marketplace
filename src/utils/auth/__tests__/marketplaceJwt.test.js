@@ -91,10 +91,9 @@ describe("MarketplaceJwtService", () => {
           expect.objectContaining({
             sub: "testuser",
             email: "test@example.com",
-            uid: "uid123",
+            uid: "testuser",
             displayName: "Test User",
             schacHomeOrganization: "example.com",
-            eduPersonAffiliation: "student",
             eduPersonScopedAffiliation: "student@example.com",
           }),
           validPrivateKey,
@@ -133,7 +132,6 @@ describe("MarketplaceJwtService", () => {
         expect(payload).toHaveProperty("uid");
         expect(payload).toHaveProperty("displayName");
         expect(payload).toHaveProperty("schacHomeOrganization");
-        expect(payload).toHaveProperty("eduPersonAffiliation");
         expect(payload).toHaveProperty("eduPersonScopedAffiliation");
         expect(payload).toHaveProperty("iat");
         expect(payload).toHaveProperty("exp");
@@ -201,7 +199,7 @@ describe("MarketplaceJwtService", () => {
     });
 
     describe("Attribute handling and fallbacks", () => {
-      test("uses username as fallback for uid when not provided", async () => {
+      test("uses username as uid claim", async () => {
         const samlAttributes = {
           username: "testuser",
         };
@@ -234,11 +232,10 @@ describe("MarketplaceJwtService", () => {
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.email).toBe("");
         expect(payload.schacHomeOrganization).toBe("");
-        expect(payload.eduPersonAffiliation).toBe("");
         expect(payload.eduPersonScopedAffiliation).toBe("");
       });
 
-      test("prefers provided uid over username fallback", async () => {
+      test("ignores provided uid and keeps username as uid claim", async () => {
         const samlAttributes = {
           username: "testuser",
           uid: "custom-uid-123",
@@ -247,7 +244,7 @@ describe("MarketplaceJwtService", () => {
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
-        expect(payload.uid).toBe("custom-uid-123");
+        expect(payload.uid).toBe("testuser");
       });
 
       test("prefers provided displayName over username fallback", async () => {
@@ -278,10 +275,9 @@ describe("MarketplaceJwtService", () => {
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.sub).toBe("user123");
         expect(payload.email).toBe("user@test.com");
-        expect(payload.uid).toBe("uid456");
+        expect(payload.uid).toBe("user123");
         expect(payload.displayName).toBe("Test User");
         expect(payload.schacHomeOrganization).toBe("test.edu");
-        expect(payload.eduPersonAffiliation).toBe("faculty");
         expect(payload.eduPersonScopedAffiliation).toBe("faculty@test.edu");
       });
     });

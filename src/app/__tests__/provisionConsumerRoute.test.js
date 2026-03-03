@@ -199,7 +199,7 @@ describe('/api/institutions/provisionConsumer route', () => {
     );
   });
 
-  test('uses session attributes when consumerName not provided', async () => {
+  test('derives consumer name from domain when consumerName not provided', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'admin',
@@ -227,7 +227,7 @@ describe('/api/institutions/provisionConsumer route', () => {
     expect(res.status).toBe(200);
     
     const json = await res.json();
-    expect(json.payload.consumerName).toBe('Auto Institution');
+    expect(json.payload.consumerName).toBe('AUTO');
     expect(json.payload.consumerOrganization).toBe('auto.edu');
   });
 

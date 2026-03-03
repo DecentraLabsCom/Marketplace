@@ -79,11 +79,11 @@ async function resolveInstitutionWallet(domain) {
 }
 
 function resolveUserId(session) {
-  return session?.personalUniqueCode || session?.schacPersonalUniqueCode || session?.userid || session?.uid || session?.id || session?.email || null
+  return session?.id || session?.eduPersonPrincipalName || null
 }
 
 function resolveAffiliation(session) {
-  return session?.affiliation || session?.schacHomeOrganization || session?.organizationName || null
+  return session?.affiliation || session?.schacHomeOrganization || null
 }
 
 export async function POST(req) {

@@ -33,37 +33,29 @@ export function normalizePuc(value) {
 }
 
 /**
- * Resolve a stable user identifier from an authenticated session object.
+ * Resolve a stable shared user identifier from an authenticated session.
  *
- * Prefer persistent federated identifiers first, then generic IDs.
- * Only if none of those are present do we fall back to legacy PUC-related
- * fields for compatibility.
+ * Canonical format for on-chain usage:
+ *   - eduPersonPrincipalName
+ *   - eduPersonPrincipalName|eduPersonTargetedID
  *
  * @param {Object} session
  * @returns {string | null}
  */
 export function getNormalizedPucFromSession(session) {
-  // preferred modern identifiers
-  const preferred =
-    session?.eduPersonTargetedID ||
-    session?.eduPersonPrincipalName ||
-    session?.id ||
-    session?.email ||
-    null
+  const principalNameRaw = session?.eduPersonPrincipalName
+  const targetedIdRaw = session?.eduPersonTargetedID
+  const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
+  const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
 
-  if (preferred) {
-    const trimmed = String(preferred).trim()
-    return trimmed || null
+  if (principalName) {
+    return targetedId ? `${principalName}|${targetedId}` : principalName
   }
 
-  // legacy fallback, normalized as before
-  const raw =
-    session?.schacPersonalUniqueCode ||
-    session?.personalUniqueCode ||
-    session?.puc ||
-    session?.personal_unique_code ||
-    null
+  // Session id is expected to already be the canonical shared identifier.
+  if (typeof session?.id === 'string' && session.id.trim()) {
+    return session.id.trim()
+  }
 
-  return normalizePuc(raw)
+  return null
 }
-

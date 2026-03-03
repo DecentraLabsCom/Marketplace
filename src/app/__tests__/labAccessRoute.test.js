@@ -77,7 +77,7 @@ describe('/api/auth/lab-access route', () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
-      userid: 'user',
+      eduPersonPrincipalName: 'user@uned.es',
     })
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
 
@@ -105,8 +105,7 @@ describe('/api/auth/lab-access route', () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
-      userid: 'user-1',
-      personalUniqueCode: 'puc-1',
+      eduPersonPrincipalName: 'user-1@uned.es',
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
@@ -150,8 +149,7 @@ describe('/api/auth/lab-access route', () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
-      userid: 'user-1',
-      personalUniqueCode: 'puc-1',
+      eduPersonPrincipalName: 'user-1@uned.es',
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)
@@ -197,7 +195,7 @@ describe('/api/auth/lab-access route', () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'assert',
       affiliation: 'uned.es',
-      userid: 'user-1',
+      eduPersonPrincipalName: 'user-1@uned.es',
     })
 
     marketplaceJwtService.isConfigured.mockResolvedValue(true)

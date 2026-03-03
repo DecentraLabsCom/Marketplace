@@ -19,7 +19,6 @@
 import devLog from '@/utils/dev/logger'
 import { resolveInstitutionalBackendUrl } from './institutionalBackend'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
-import { normalizePuc } from '@/utils/auth/puc'
 
 const getSpApiKey = () => process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 
@@ -70,7 +69,9 @@ export const OnboardingErrorCode = {
 
 /**
  * Extracts the stable user identifier from SAML session data.
- * Priority: eduPersonTargetedID > eduPersonPrincipalName (or id from SAML) > uid@affiliation > email
+ * R&S shared identifier:
+ * - eduPersonPrincipalName
+ * - eduPersonPrincipalName|eduPersonTargetedID
  * 
  * @param {Object} userData - User data from SAML session
  * @returns {string|null} Stable user identifier
@@ -78,28 +79,17 @@ export const OnboardingErrorCode = {
 export function extractStableUserId(userData) {
   if (!userData) return null
 
-  if (userData.eduPersonTargetedID) {
-    return userData.eduPersonTargetedID
-  }
-
-  // Priority 1: use eduPersonPrincipalName if available (preferred persistent identifier)
   if (userData.eduPersonPrincipalName) {
-    return userData.eduPersonPrincipalName
+    return userData.eduPersonTargetedID
+      ? `${userData.eduPersonPrincipalName}|${userData.eduPersonTargetedID}`
+      : userData.eduPersonPrincipalName
   }
 
-  // Priority 2: fallback to generic id (which may already include domain) + affiliation
-  if (userData.id) {
-    if (userData.id.includes('@')) {
-      return userData.id
-    }
-    if (userData.affiliation) {
-      return `${userData.id}@${userData.affiliation}`
-    }
+  if (userData.id && typeof userData.id === 'string') {
     return userData.id
   }
 
-  // Final fallback: email
-  return userData.email || null
+  return null
 }
 
 /**
