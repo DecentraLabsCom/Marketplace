@@ -129,7 +129,6 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'consumer.edu',
       organizationName: 'Consumer Institution',
       schacHomeOrganization: 'consumer.edu',
     });
@@ -151,7 +150,6 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'consumer.edu',
       organizationName: 'Consumer Institution',
       schacHomeOrganization: 'consumer.edu',
     });
@@ -206,9 +204,8 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'auto.edu',
-      organizationName: 'Auto Institution',
       schacHomeOrganization: 'auto.edu',
+      organizationName: 'Auto Institution',
     });
 
     signProvisioningToken.mockResolvedValue({
@@ -239,7 +236,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'consumer.edu',
+      schacHomeOrganization: 'consumer.edu',
       organizationName: 'Consumer Test',
     });
 

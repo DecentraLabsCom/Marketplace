@@ -532,14 +532,14 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
-            uid: "user123",
+                  eduPersonPrincipalName: "user@university.edu",
+            uid: "ignored-uid",
             mail: "user@example.com",
             displayName: "Test User",
             schacHomeOrganization: "university.edu",
             eduPersonAffiliation: "student",
             eduPersonScopedAffiliation: "student@university.edu",
-            schacPersonalUniqueCode:
-              "urn:schac:personalUniqueCode:es:dni:12345678A",
+            // note: personalUniqueCode no longer relevant
             organizationName: "Test University",
           },
         },
@@ -552,15 +552,16 @@ describe("SSO Utilities", () => {
       const result = await parseSAMLResponse("saml-response-data");
 
       expect(result).toEqual({
-        id: "user123",
+        id: "user@university.edu",
+        eduPersonPrincipalName: "user@university.edu",
         email: "user@example.com",
         name: "Test User",
         authType: "sso",
         isSSO: true,
         affiliation: "university.edu",
-        role: "student",
+        role: "student@university.edu", // scopedAffiliation takes precedence
         scopedRole: "student@university.edu",
-        personalUniqueCode: "12345678A",
+        personalUniqueCode: null,
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
       });
@@ -570,7 +571,7 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
-            uid: ["user123", "alt-id"],
+            eduPersonPrincipalName: ["user@org.edu", "other@org.edu"],
             mail: ["primary@example.com", "secondary@example.com"],
             displayName: ["Primary Name", "Alt Name"],
             schacHomeOrganization: ["org1.edu", "org2.edu"],
@@ -584,8 +585,8 @@ describe("SSO Utilities", () => {
 
       const result = await parseSAMLResponse("saml-response-data");
 
-      // Should extract first element from arrays
-      expect(result.id).toBe("user123");
+      // Should extract first element from arrays (ePPN)
+      expect(result.id).toBe("user@org.edu");
       expect(result.email).toBe("primary@example.com");
       expect(result.name).toBe("Primary Name");
       expect(result.affiliation).toBe("org1.edu");
@@ -595,7 +596,7 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
-            uid: "user123",
+            eduPersonPrincipalName: "user@example.edu",
             mail: "user@example.com",
             displayName: "Test User",
             schacHomeOrganization: "university.edu",
@@ -664,7 +665,7 @@ describe("SSO Utilities", () => {
       const mockSAMLAssertion = {
         user: {
           attributes: {
-            uid: "user123",
+            // no eduPersonPrincipalName provided
             // Most attributes missing
           },
         },
@@ -677,7 +678,8 @@ describe("SSO Utilities", () => {
       const result = await parseSAMLResponse("saml-response");
 
       expect(result).toEqual({
-        id: "user123",
+        id: null,
+        eduPersonPrincipalName: null,
         email: null,
         name: null,
         authType: "sso",

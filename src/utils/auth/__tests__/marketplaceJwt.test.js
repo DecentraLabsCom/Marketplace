@@ -387,12 +387,20 @@ describe("MarketplaceJwtService", () => {
       ).rejects.toThrow("userId is required for SAML auth token generation");
     });
 
-    test("throws error when affiliation is missing", async () => {
-      await expect(
-        MarketplaceJwtService.generateSamlAuthToken({
-          userId: "user-1",
-        })
-      ).rejects.toThrow("affiliation is required for SAML auth token generation");
+    test("uses empty affiliation when missing", async () => {
+      const token = await MarketplaceJwtService.generateSamlAuthToken({
+        userId: "user-1",
+      });
+
+      expect(token).toBe("mocked.jwt.token");
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userid: "user-1",
+          affiliation: "",
+        }),
+        validPrivateKey,
+        expect.objectContaining({ algorithm: "RS256" })
+      );
     });
 
     test("throws error for invalid institutional wallet format", async () => {

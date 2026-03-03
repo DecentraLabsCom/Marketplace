@@ -166,7 +166,7 @@ class MarketplaceJwtService {
    *
    * @param {Object} params
    * @param {string} params.userId - User ID matching SAML assertion
-   * @param {string} params.affiliation - Institution domain (schacHomeOrganization)
+   * @param {string} [params.affiliation] - Institution domain (schacHomeOrganization)
    * @param {string} params.institutionalProviderWallet - Institution wallet address
    * @param {string} [params.puc] - Personal unique code (optional)
    * @param {string|string[]} [params.scope] - OAuth-style scope for booking info
@@ -194,10 +194,6 @@ class MarketplaceJwtService {
         throw new Error('userId is required for SAML auth token generation');
       }
 
-      if (!affiliation) {
-        throw new Error('affiliation is required for SAML auth token generation');
-      }
-
       if (institutionalProviderWallet) {
         const trimmed = institutionalProviderWallet.trim();
         if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
@@ -210,7 +206,7 @@ class MarketplaceJwtService {
 
       const payload = {
         userid: userId,
-        affiliation,
+        affiliation: affiliation || '',
         bookingInfoAllowed,
         scope,
         iat: nowSec,

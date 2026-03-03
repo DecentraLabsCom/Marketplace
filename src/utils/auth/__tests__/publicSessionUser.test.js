@@ -3,6 +3,7 @@ import { sanitizeSessionUserForClient } from '@/utils/auth/publicSessionUser'
 describe('publicSessionUser', () => {
   test('removes sensitive/internal fields from session payload', () => {
     const user = {
+      eduPersonPrincipalName: 'user@uni.edu',
       id: 'user-1',
       email: 'user@example.com',
       name: 'User Name',
@@ -32,13 +33,15 @@ describe('publicSessionUser', () => {
     expect(sanitized.internalToken).toBeUndefined()
   })
 
-  test('adds backwards-compatible aliases', () => {
+  test('adds backwards-compatible aliases and copies ePPN to id', () => {
     const sanitized = sanitizeSessionUserForClient({
       affiliation: 'uned.es',
       personalUniqueCode: 'puc-1',
+      eduPersonPrincipalName: 'user@uni.edu',
     })
 
     expect(sanitized.schacHomeOrganization).toBe('uned.es')
     expect(sanitized.schacPersonalUniqueCode).toBe('puc-1')
+    expect(sanitized.id).toBe('user@uni.edu')
   })
 })

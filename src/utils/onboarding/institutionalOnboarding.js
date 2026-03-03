@@ -70,33 +70,35 @@ export const OnboardingErrorCode = {
 
 /**
  * Extracts the stable user identifier from SAML session data.
- * Priority: schacPersonalUniqueCode > eduPersonPrincipalName > uid@affiliation
+ * Priority: eduPersonTargetedID > eduPersonPrincipalName (or id from SAML) > uid@affiliation > email
  * 
  * @param {Object} userData - User data from SAML session
  * @returns {string|null} Stable user identifier
  */
 export function extractStableUserId(userData) {
   if (!userData) return null
-  
-  // Priority 1: schacPersonalUniqueCode (most stable across institutions)
-  if (userData.personalUniqueCode || userData.schacPersonalUniqueCode) {
-    const normalizedPuc = normalizePuc(userData.personalUniqueCode || userData.schacPersonalUniqueCode)
-    if (normalizedPuc) {
-      return normalizedPuc
+
+  if (userData.eduPersonTargetedID) {
+    return userData.eduPersonTargetedID
+  }
+
+  // Priority 1: use eduPersonPrincipalName if available (preferred persistent identifier)
+  if (userData.eduPersonPrincipalName) {
+    return userData.eduPersonPrincipalName
+  }
+
+  // Priority 2: fallback to generic id (which may already include domain) + affiliation
+  if (userData.id) {
+    if (userData.id.includes('@')) {
+      return userData.id
     }
+    if (userData.affiliation) {
+      return `${userData.id}@${userData.affiliation}`
+    }
+    return userData.id
   }
-  
-  // Priority 2: eduPersonPrincipalName (scoped identifier)
-  if (userData.scopedRole) {
-    return userData.scopedRole
-  }
-  
-  // Priority 3: Construct from uid + affiliation
-  if (userData.id && userData.affiliation) {
-    return `${userData.id}@${userData.affiliation}`
-  }
-  
-  // Fallback: email (less stable but widely available)
+
+  // Final fallback: email
   return userData.email || null
 }
 
