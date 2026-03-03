@@ -11,6 +11,59 @@ export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
 
 let countriesInitialized = false
 
+// Expected attributes for current RedIRIS/REFEDS R&S profile integration.
+// We only log key names (never values) to avoid leaking personal data.
+const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
+  // REFEDS R&S / common identity attributes
+  'eduPersonPrincipalName',
+  'eduPersonTargetedID',
+  'mail',
+  'displayName',
+  'givenName',
+  'sn',
+  // Required in current integration contract
+  'eduPersonScopedAffiliation',
+  // Optional institutional attributes
+  'schacHomeOrganization',
+  'organizationName',
+  'eduPersonAffiliation',
+  'c',
+  'co',
+  'country',
+  'countryCode',
+  'countryName',
+  // Optional legacy/compatibility
+  'schacPersonalUniqueCode',
+  // OID aliases currently supported by the parser
+  'urn:oid:1.3.6.1.4.1.25178.1.2.9',
+  'urn:oid:1.3.6.1.4.1.25178.1.2.6',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
+  'urn:oid:0.9.2342.19200300.100.1.3',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.9',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.1',
+  'urn:oid:2.16.840.1.113730.3.1.241',
+  'urn:oid:1.3.6.1.4.1.25178.1.2.14',
+  'urn:oid:2.5.4.10',
+  'urn:oid:2.5.4.6',
+  'o',
+])
+
+function logReceivedAttributeKeys(attrs) {
+  try {
+    const keys = Object.keys(attrs || {}).sort()
+    const unexpected = keys.filter((key) => !EXPECTED_SAML_ATTRIBUTE_KEYS.has(key))
+
+    devLog.info('[SAML] Received attribute keys', {
+      count: keys.length,
+      keys,
+      unexpectedCount: unexpected.length,
+      unexpectedKeys: unexpected,
+    })
+  } catch (error) {
+    devLog.warn('[SAML] Unable to log received attribute keys', error?.message || error)
+  }
+}
+
 function ensureCountryLocales() {
   if (countriesInitialized) return
   countries.registerLocale(enLocale)
@@ -128,6 +181,7 @@ export async function parseSAMLResponse(samlResponse) {
       }
 
       const attrs = samlAssertion?.user?.attributes || {};
+      logReceivedAttributeKeys(attrs)
       
       const country = getFirstAttribute(attrs, [
         'c',
@@ -161,6 +215,7 @@ export async function parseSAMLResponse(samlResponse) {
       ])
       const email = getFirstAttribute(attrs, ['mail', 'urn:oid:0.9.2342.19200300.100.1.3'])
       const scopedAffiliation = getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9'])
+      const eduPersonAffiliation = getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'])
       const affiliation = resolveInstitutionDomain([
         schacHomeOrganization,
         scopedAffiliation,
@@ -182,11 +237,14 @@ export async function parseSAMLResponse(samlResponse) {
         authType: 'sso',
         isSSO: true,
         affiliation,
+        schacHomeOrganization: schacHomeOrganization || null,
         // role priority: scoped affiliation first, fallback to generic affiliation
         scopedRole: scopedAffiliation,
+        eduPersonScopedAffiliation: scopedAffiliation,
         role:
           scopedAffiliation ||
-          getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1']),
+          eduPersonAffiliation,
+        eduPersonAffiliation,
         personalUniqueCode: normalizePuc(
           getFirstAttribute(attrs, ['schacPersonalUniqueCode', 'urn:oid:1.3.6.1.4.1.25178.1.2.14']),
         ),

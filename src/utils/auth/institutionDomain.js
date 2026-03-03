@@ -29,7 +29,6 @@ export function resolveInstitutionDomainFromSession(session, overrideDomain) {
     overrideDomain,
     session?.schacHomeOrganization,
     session?.eduPersonScopedAffiliation,
-    session?.email,
   ]);
 }
 

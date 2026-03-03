@@ -559,12 +559,40 @@ describe("SSO Utilities", () => {
         authType: "sso",
         isSSO: true,
         affiliation: "university.edu",
+        schacHomeOrganization: "university.edu",
         role: "student@university.edu", // scopedAffiliation takes precedence
         scopedRole: "student@university.edu",
+        eduPersonScopedAffiliation: "student@university.edu",
+        eduPersonAffiliation: "student",
         personalUniqueCode: null,
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
       });
+    });
+
+    test("derives institution domain from scoped affiliation when mail is missing", async () => {
+      const mockSAMLAssertion = {
+        user: {
+          attributes: {
+            eduPersonTargetedID: "targeted-user-id",
+            displayName: "Scoped User",
+            eduPersonScopedAffiliation: "member@campus.edu",
+          },
+        },
+      };
+
+      mockSP.post_assert.mockImplementation((idp, options, callback) => {
+        callback(null, mockSAMLAssertion);
+      });
+
+      const result = await parseSAMLResponse("saml-response-data");
+
+      expect(result.id).toBe("targeted-user-id");
+      expect(result.email).toBeNull();
+      expect(result.affiliation).toBe("campus.edu");
+      expect(result.schacHomeOrganization).toBeNull();
+      expect(result.eduPersonScopedAffiliation).toBe("member@campus.edu");
+      expect(result.scopedRole).toBe("member@campus.edu");
     });
 
     test("handles array attributes correctly", async () => {
@@ -685,8 +713,11 @@ describe("SSO Utilities", () => {
         authType: "sso",
         isSSO: true,
         affiliation: null,
+        schacHomeOrganization: null,
         role: null,
         scopedRole: null,
+        eduPersonScopedAffiliation: null,
+        eduPersonAffiliation: null,
         personalUniqueCode: null,
         organizationName: null,
         samlAssertion: "saml-response",
