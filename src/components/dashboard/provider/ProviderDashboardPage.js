@@ -1116,7 +1116,7 @@ export default function ProviderDashboard() {
 
   return (
     <AccessControl requireProvider message="Please log in to manage your labs.">{" "}
-      <Container padding="sm">
+      <Container padding="2xl">
         {/* Dashboard header */}
         <DashboardHeader title="Lab Panel" />
 
