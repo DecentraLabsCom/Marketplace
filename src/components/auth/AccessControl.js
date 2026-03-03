@@ -35,10 +35,6 @@ export default function AccessControl({
     institutionRegistrationStatus,
   } = useUser();
 
-  // TEMPORARY MOCK - Remove before committing!
-  isProvider = true;
-  isProviderLoading = false;
-
   const router = useRouter();
   const isInstitutionRegistrationPending =
     isSSO && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);

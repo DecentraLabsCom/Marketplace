@@ -138,10 +138,6 @@ export default function ProviderDashboard() {
     openOnboardingModal,
   } = useUser();
 
-  // TEMPORARY MOCK - Remove before committing!
-  isProvider = true;
-  isProviderLoading = false;
-
   const router = useRouter();
 
   const providerOwnerAddress = useMemo(
@@ -163,18 +159,12 @@ export default function ProviderDashboard() {
   const labs = Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
   
   // Extract owned labs - already filtered by useLabsForProvider
-  let ownedLabs = useMemo(() => {
+  const ownedLabs = useMemo(() => {
     if (!allLabsData || !Array.isArray(allLabsData.labs)) {
       return [];
     }
     return allLabsData.labs;
   }, [allLabsData]);
-
-  // TEMPORARY MOCK - Remove before committing!
-  ownedLabs = [
-    { id: '1', name: 'Lab de Prueba 1', isListed: true, base: { price: '1000000' } },
-    { id: '2', name: 'Lab de Prueba 2', isListed: false, base: { price: '2000000' } },
-  ];
 
   const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
   const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
