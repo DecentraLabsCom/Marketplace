@@ -182,9 +182,16 @@ export function LabEventProvider({ children }) {
         onLogs: (logs) => {
             devLog.log('🗑️ [LabEventContext] LabDeleted events detected:', logs.length);
             
-            uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
-                // Fine-grained invalidation for deleted lab (avoid refetching unrelated labs)
-                queueLabDerivedInvalidations(labId);
+            const deletedIds = uniqueIdsFromLogs(logs, safeExtractLabId);
+
+            deletedIds.forEach((labId) => {
+                // Remove (not invalidate) the per-lab derived queries so that active
+                // useQueries subscribers (e.g. useLabsForMarket) don't immediately
+                // fire a refetch for a non-existent lab and get 500 errors.
+                const derivedKeys = labQueryKeys.derivedByLabId ? labQueryKeys.derivedByLabId(labId) : [];
+                derivedKeys.forEach((qk) => {
+                    queryClient.removeQueries({ queryKey: qk, exact: true });
+                });
 
                 // Clear any optimistic lab/listing state
                 try {
@@ -195,8 +202,19 @@ export function LabEventProvider({ children }) {
                 }
             });
 
-            // LabDeleted changes the lab set -> invalidate getAllLabs
-            queueInvalidation(labQueryKeys.getAllLabs());
+            // Synchronously remove the deleted lab IDs from the getAllLabs cache so
+            // that useLabsForMarket re-renders immediately without the deleted lab,
+            // preventing useQueries from subscribing to its per-lab queries while
+            // getAllLabs is still being refetched in the background.
+            queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
+                if (!oldData || !Array.isArray(oldData)) return oldData;
+                return oldData.filter(
+                    (id) => !deletedIds.includes(String(Number(id)))
+                );
+            });
+
+            // Also refetch getAllLabs to confirm the updated set from the chain
+            queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
         }
     });
 

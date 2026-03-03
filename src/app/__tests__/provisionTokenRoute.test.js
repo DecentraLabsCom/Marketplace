@@ -223,6 +223,7 @@ describe('/api/institutions/provisionToken route', () => {
       role: 'admin',
       scopedRole: 'admin',
       affiliation: 'institution.edu',
+      schacHomeOrganization: 'institution.edu',
       name: 'Test Institution',
       email: 'admin@institution.edu',
     });
