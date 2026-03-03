@@ -159,7 +159,9 @@ export default function BookingCalendarSection({
                 disabled={timeOption.disabled}
                 style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
               >
-                {timeOption.label}
+                {timeOption.maxConcurrent
+                  ? `${timeOption.label} (${timeOption.occupancy}/${timeOption.maxConcurrent})`
+                  : timeOption.label}
               </option>
             ))}
           </select>

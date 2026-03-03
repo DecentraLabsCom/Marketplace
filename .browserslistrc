@@ -1,0 +1,6 @@
+# Browser targets for CSS compatibility checking (Microsoft Edge Tools) and PostCSS/Autoprefixer.
+# The app uses modern CSS features (oklch, cascade layers, etc.) and only targets evergreen browsers.
+chrome >= 111
+firefox >= 128
+safari >= 17
+edge >= 111

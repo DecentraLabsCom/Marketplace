@@ -47,6 +47,7 @@ export const ACTION_PAYLOAD_TYPES = {
     { name: 'accessURI', type: 'string' },
     { name: 'accessKey', type: 'string' },
     { name: 'tokenURI', type: 'string' },
+    { name: 'resourceType', type: 'uint8' },
   ],
 };
 
@@ -65,6 +66,12 @@ function getDiamondAddress() {
 function toBigIntOrZero(value) {
   if (value === undefined || value === null || value === '') return 0n;
   return BigInt(value);
+}
+
+function normalizeResourceType(value) {
+  if (value === 'fmu' || value === 'FMU') return 1n;
+  if (value === 'lab' || value === 'LAB') return 0n;
+  return toBigIntOrZero(value);
 }
 
 export function computeAssertionHash(assertion) {
@@ -86,6 +93,7 @@ function normalizeActionPayload(payload) {
     accessURI: payload.accessURI || '',
     accessKey: payload.accessKey || '',
     tokenURI: payload.tokenURI || '',
+    resourceType: normalizeResourceType(payload.resourceType || 0),
   };
 }
 
@@ -121,6 +129,7 @@ export async function buildActionIntent({
   accessURI = '',
   accessKey = '',
   tokenURI = '',
+  resourceType = 0,
   maxBatch = 0,
   expiresInSec = 15 * 60,
   nowSec,
@@ -157,6 +166,7 @@ export async function buildActionIntent({
     accessURI,
     accessKey,
     tokenURI,
+    resourceType,
     maxBatch,
   });
 

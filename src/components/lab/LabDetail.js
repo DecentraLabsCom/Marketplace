@@ -13,6 +13,7 @@ import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
+import { isFmu, getFmuMetadata } from '@/utils/resourceType'
 
 let countryLocaleRegistered = false
 
@@ -92,6 +93,8 @@ export default function LabDetail({ id }) {
   const eventsLabel = totalEvents > 0 ? `${totalEvents} events` : 'No events yet';
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
+  const labIsFmu = isFmu(lab);
+  const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
 
   return (
     <Container as="main" padding="sm">
@@ -130,8 +133,8 @@ export default function LabDetail({ id }) {
                 }
               }} 
               disabled={lab?.isListed === false}
-              aria-label={lab?.isListed === false ? 'Lab not available for booking' : `Rent ${lab?.name}`}>
-              {lab?.isListed === false ? 'Not Available' : 'Book Lab'}
+              aria-label={lab?.isListed === false ? 'Lab not available for booking' : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
+              {lab?.isListed === false ? 'Not Available' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
             </button>
           </div>
         </article>
@@ -224,6 +227,85 @@ export default function LabDetail({ id }) {
                 </span>
               ))}
             </div>
+
+            {/* FMU Metadata Section */}
+            {labIsFmu && fmuMeta && (
+              <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
+                <h3 className="text-header-bg text-lg font-semibold mb-3">FMU Simulation Details</h3>
+                <p className="text-xs text-text-secondary mb-3">
+                  Compatible with FMI 2.0.3 Co-Simulation
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {fmuMeta.fmuFileName && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">File</span>
+                      <p className="text-neutral-200 font-medium truncate" title={fmuMeta.fmuFileName}>{fmuMeta.fmuFileName}</p>
+                    </div>
+                  )}
+                  {fmuMeta.fmiVersion && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">FMI Version</span>
+                      <p className="text-neutral-200 font-medium">{fmuMeta.fmiVersion}</p>
+                    </div>
+                  )}
+                  {fmuMeta.simulationType && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Type</span>
+                      <p className="text-neutral-200 font-medium">{fmuMeta.simulationType}</p>
+                    </div>
+                  )}
+                  {(fmuMeta.defaultStartTime != null || fmuMeta.defaultStopTime != null) && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Default Time</span>
+                      <p className="text-neutral-200 font-medium">
+                        {fmuMeta.defaultStartTime ?? 0}s &ndash; {fmuMeta.defaultStopTime ?? '?'}s
+                      </p>
+                    </div>
+                  )}
+                  {fmuMeta.defaultStepSize != null && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Step Size</span>
+                      <p className="text-neutral-200 font-medium">{fmuMeta.defaultStepSize}s</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Model Variables Table */}
+                {Array.isArray(fmuMeta.modelVariables) && fmuMeta.modelVariables.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
+                    <div className="max-h-48 overflow-y-auto rounded border border-[#2a2f33]">
+                      <table className="w-full text-xs">
+                        <thead className="bg-[#181b1d] sticky top-0">
+                          <tr>
+                            <th className="text-left px-2 py-1 text-text-secondary">Name</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Start</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fmuMeta.modelVariables.map((v, i) => (
+                            <tr key={v.name || i} className="border-t border-[#2a2f33]">
+                              <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
+                              <td className="px-2 py-1">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
+                                  v.causality === 'output' ? 'bg-green-900/50 text-green-300' :
+                                  'bg-gray-700 text-gray-300'
+                                }`}>
+                                  {v.causality || 'local'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1 text-neutral-200">{v.start ?? '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Documentation */}
             <div className={`flex flex-col text-center mt-4 overflow-hidden`}>

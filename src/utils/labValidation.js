@@ -16,7 +16,6 @@
  * @param {string} options.docInputType - Type of document input ('file' or 'url')
  * @returns {Object} Object containing validation errors (empty if all valid)
  */
-
 const WEEKDAY_VALUES = [
   'MONDAY',
   'TUESDAY',
@@ -235,6 +234,78 @@ export function validateLabQuick(localLab) {
             }
         } else {
             errors.uri = 'It must be an external URL';
+        }
+    }
+
+    return errors;
+}
+
+/**
+ * Additional validation for FMU-specific fields in full setup mode.
+ * Called when resourceType === 'fmu'. Merges into the errors object from validateLabFull.
+ *
+ * Provider-entered fields: fmuFileName, maxConcurrentUsers (validated in validateLabFull).
+ * Auto-read fields (from gateway /describe): fmiVersion, simulationType, modelVariables,
+ * defaultStartTime, defaultStopTime, defaultStepSize — validated when present.
+ *
+ * @param {Object} localLab - Lab data object to validate
+ * @returns {Object} Object containing FMU-specific validation errors
+ */
+export function validateFmuFields(localLab) {
+    const errors = {};
+    const fmuFileRegex = /^[\w\-. ]+\.fmu$/i;
+
+    // --- Provider-entered fields ---
+
+    if (!localLab.fmuFileName?.trim()) {
+        errors.fmuFileName = 'FMU file name is required';
+    } else if (!fmuFileRegex.test(localLab.fmuFileName.trim())) {
+        errors.fmuFileName = 'FMU file name must end with .fmu and contain only valid characters';
+    }
+    if (localLab.accessKey?.trim() && localLab.fmuFileName?.trim() && localLab.accessKey.trim() !== localLab.fmuFileName.trim()) {
+        errors.accessKey = 'For FMU resources, Access Key must match FMU file name.';
+    }
+
+    // maxConcurrentUsers is already validated in validateLabFull, but for FMUs
+    // we additionally require it to be >= 1 (which validateLabFull already enforces)
+
+    // --- Auto-read fields ---
+    // Metadata can be absent during creation when gateway auth is not yet available.
+    // When present, enforce coherence and valid values.
+    const fmiVersion = localLab.fmiVersion?.trim?.() || '';
+    const simulationType = localLab.simulationType?.trim?.() || '';
+    const modelVariables = localLab.modelVariables;
+    const hasModelVariables = Array.isArray(modelVariables) && modelVariables.length > 0;
+    const hasDescribedMetadata = Boolean(fmiVersion || simulationType || hasModelVariables);
+
+    if (hasDescribedMetadata) {
+        if (!fmiVersion) {
+            errors.fmiVersion = 'FMI version is required when FMU metadata is present';
+        }
+        if (!simulationType) {
+            errors.simulationType = 'Simulation type is required when FMU metadata is present';
+        } else if (!['CoSimulation', 'ModelExchange'].includes(simulationType)) {
+            errors.simulationType = 'Simulation type must be CoSimulation or ModelExchange';
+        }
+        if (!hasModelVariables) {
+            errors.modelVariables = 'Model variables are required when FMU metadata is present';
+        }
+    }
+
+    // defaultStartTime / defaultStopTime / defaultStepSize are optional (model may not define them)
+    // but if present, validate types
+    if (localLab.defaultStopTime != null && localLab.defaultStartTime != null) {
+        const start = parseFloat(localLab.defaultStartTime);
+        const stop = parseFloat(localLab.defaultStopTime);
+        if (Number.isFinite(start) && Number.isFinite(stop) && stop <= start) {
+            errors.defaultStopTime = 'Default stop time must be greater than start time';
+        }
+    }
+
+    if (localLab.defaultStepSize != null) {
+        const step = parseFloat(localLab.defaultStepSize);
+        if (!Number.isFinite(step) || step <= 0) {
+            errors.defaultStepSize = 'Default step size must be a positive number';
         }
     }
 

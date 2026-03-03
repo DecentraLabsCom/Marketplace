@@ -33,6 +33,7 @@ const mockHandlers = {
   handleUriChange: jest.fn(),
   onSubmit: jest.fn((e) => e?.preventDefault()),
   onCancel: jest.fn(),
+  onSwitchToFullSetup: jest.fn(),
 };
 
 /**
@@ -54,6 +55,7 @@ const renderForm = (overrides = {}) => {
     handleUriChange: mockHandlers.handleUriChange,
     onSubmit: mockHandlers.onSubmit,
     onCancel: mockHandlers.onCancel,
+    onSwitchToFullSetup: mockHandlers.onSwitchToFullSetup,
     lab: mockLab,
     ...overrides,
   };
@@ -335,6 +337,28 @@ describe("LabFormQuickSetup", () => {
 
       // Should still render without crashing
       expect(screen.getByPlaceholderText("Price per hour")).toBeInTheDocument();
+    });
+  });
+
+  describe("FMU handling in quick setup", () => {
+    test("shows FMU warning and switch button when FMU mode is active", async () => {
+      const user = userEvent.setup();
+      renderForm({ localLab: { ...mockLab, resourceType: "fmu" }, lab: {} });
+
+      expect(
+        screen.getByText(/FMU simulations must be configured in Full Setup/i)
+      ).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /Go to Full Setup/i }));
+      expect(mockHandlers.onSwitchToFullSetup).toHaveBeenCalledTimes(1);
+    });
+
+    test("does not show FMU warning for regular labs", () => {
+      renderForm({ localLab: { ...mockLab, resourceType: "lab" }, lab: {} });
+
+      expect(
+        screen.queryByText(/FMU simulations must be configured in Full Setup/i)
+      ).not.toBeInTheDocument();
     });
   });
 });

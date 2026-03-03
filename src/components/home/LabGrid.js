@@ -70,6 +70,7 @@ export default function LabGrid({
             imagePriority={index < 3}
             reputation={lab.reputation}
             createdAt={lab.createdAt}
+            resourceType={lab.resourceType}
           />
         ))}
       </div>
@@ -97,7 +98,8 @@ LabGrid.propTypes = {
       institutionalCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
       lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     }),
-    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   })),
   loading: PropTypes.bool,
   error: PropTypes.bool,

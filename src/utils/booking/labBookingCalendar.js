@@ -2,6 +2,7 @@ import { format, isToday } from 'date-fns'
 import { getBookingStatusText } from './bookingStatus'
 import { isSameCalendarDay } from '@/utils/dates/parseDateSafe'
 import devLog from '@/utils/dev/logger'
+import { getMaxConcurrentUsers } from '@/utils/resourceType'
 
 const MINUTES_IN_DAY = 24 * 60
 const WEEKDAYS = [
@@ -293,10 +294,13 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
         )
       : false
 
-    const conflictsWithBooking = dayBookings.some(({ range }) => {
+    const conflictCount = dayBookings.filter(({ range }) => {
       if (!range) return false
       return slotStart < range.end && slotEnd > range.start
-    })
+    }).length
+
+    const maxConcurrent = getMaxConcurrentUsers(lab)
+    const conflictsWithBooking = conflictCount >= maxConcurrent
 
     const slotStartUnix = Math.floor(slotStart.getTime() / 1000)
     const slotEndUnix = Math.floor(slotEnd.getTime() / 1000)
@@ -315,7 +319,9 @@ export function generateTimeOptions({ date, interval, bookingInfo, lab, now = ne
       value: timeFormatted,
       label: timeFormatted,
       disabled: isBlocked,
-      isReserved
+      isReserved,
+      occupancy: maxConcurrent > 1 ? conflictCount : undefined,
+      maxConcurrent: maxConcurrent > 1 ? maxConcurrent : undefined
     })
 
     slot = slotEnd

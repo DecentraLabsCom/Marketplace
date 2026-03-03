@@ -5,8 +5,9 @@ import { useLabToken } from '@/context/LabTokenContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
-import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
+import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 
 const initialState = (lab) => ({
@@ -38,6 +39,13 @@ const initialState = (lab) => ({
     availableHours: lab?.availableHours || { start: '', end: '' },
     timezone: lab?.timezone || '',
     maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
+    fmuFileName: lab?.fmuFileName || '',
+    fmiVersion: lab?.fmiVersion || '',
+    simulationType: lab?.simulationType || '',
+    modelVariables: lab?.modelVariables || [],
+    defaultStartTime: lab?.defaultStartTime ?? null,
+    defaultStopTime: lab?.defaultStopTime ?? null,
+    defaultStepSize: lab?.defaultStepSize ?? null,
     unavailableWindows: lab?.unavailableWindows || [],
     termsOfUse: lab?.termsOfUse || {
       url: '',
@@ -46,7 +54,9 @@ const initialState = (lab) => ({
       sha256: ''
     },
     // Spread the rest of the lab properties after ensuring required fields have defaults
-    ...lab
+    ...lab,
+    // Always normalize to canonical string values ('lab' | 'fmu')
+    resourceType: getResourceType(lab),
   },
   isExternalURI: false,
   errors: {},
@@ -76,6 +86,12 @@ const extractInternalLabUri = (uri) => {
   }
   return null;
 };
+
+const resolveGatewayAuthEndpoint = (gatewayUrl) => {
+  const trimmed = String(gatewayUrl || '').trim().replace(/\/+$/, '')
+  if (!trimmed) return ''
+  return trimmed.toLowerCase().endsWith('/auth') ? trimmed : `${trimmed}/auth`
+}
 
 function reducer(state, action) {
   switch (action.type) {
@@ -258,6 +274,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
+    labToMerge.resourceType = getResourceType(lab)
     const normalizedUri = extractInternalLabUri(lab?.uri);
     if (normalizedUri) {
       labToMerge.uri = normalizedUri;
@@ -596,13 +613,77 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     if (activeTab === 'full') {
       if (!isExternalURI) {
         newErrors = validateLabFull(localLab, { imageInputType, docInputType });
+        // Additional FMU-specific validation
+        if (localLab.resourceType === RESOURCE_TYPES.FMU) {
+          const fmuErrors = validateFmuFields(localLab);
+          newErrors = { ...newErrors, ...fmuErrors };
+        }
       }
     } else if (activeTab === 'quick') {
       newErrors = validateLabQuick(localLab);
+      if (localLab.resourceType === RESOURCE_TYPES.FMU) {
+        newErrors.resourceType = 'FMU simulations require Full Setup to capture model metadata.'
+      }
     }
     dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     return newErrors;
   };
+
+  const resolveFmuDescribeHeaders = async (gatewayUrl) => {
+    const authEndpoint = resolveGatewayAuthEndpoint(gatewayUrl)
+    if (!authEndpoint) return {}
+
+    try {
+      const authRes = await fetch('/api/auth/lab-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          authEndpoint,
+          includeBookingInfo: false,
+        }),
+      })
+      if (!authRes.ok) {
+        return {}
+      }
+      const authData = await authRes.json()
+      if (authData?.token) {
+        return { Authorization: `Bearer ${authData.token}` }
+      }
+    } catch (error) {
+      devLog.warn('Unable to fetch auth token for FMU reference validation', error)
+    }
+    return {}
+  }
+
+  const verifyFmuReference = async (labData) => {
+    const fmuFileName = String(labData?.fmuFileName || '').trim()
+    const gatewayUrl = String(labData?.accessURI || '').trim()
+
+    if (!fmuFileName) {
+      throw new Error('FMU file name is required')
+    }
+    if (!gatewayUrl) {
+      throw new Error('Access URI is required for FMU resources')
+    }
+
+    const headers = await resolveFmuDescribeHeaders(gatewayUrl)
+    const gwParam = encodeURIComponent(gatewayUrl)
+    const labParam = labData?.id ? `&labId=${encodeURIComponent(String(labData.id))}` : ''
+    const describeUrl = `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`
+    const res = await fetch(describeUrl, { headers })
+    if (!res.ok) {
+      let detail = `Gateway returned ${res.status}`
+      try {
+        const body = await res.json()
+        detail = body?.error || body?.details || detail
+      } catch {
+        // Keep fallback detail
+      }
+      throw new Error(detail)
+    }
+    return res.json()
+  }
 
   // Function to focus the first input with an error
   const focusFirstError = (currentErrors, currentTab) => {
@@ -651,8 +732,47 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
+        const isFmuResource = localLab.resourceType === RESOURCE_TYPES.FMU
+        const fmuAccessKey = isFmuResource
+          ? (localLab.fmuFileName || '').trim()
+          : localLab.accessKey
+        let labForSubmit = {
+          ...localLab,
+          accessKey: fmuAccessKey,
+        }
+
+        if (isFmuResource) {
+          try {
+            const describeData = await verifyFmuReference(labForSubmit)
+            labForSubmit = {
+              ...labForSubmit,
+              fmiVersion: describeData?.fmiVersion || '',
+              simulationType: describeData?.simulationType || '',
+              modelVariables: Array.isArray(describeData?.modelVariables) ? describeData.modelVariables : [],
+              defaultStartTime: describeData?.defaultStartTime ?? null,
+              defaultStopTime: describeData?.defaultStopTime ?? null,
+              defaultStepSize: describeData?.defaultStepSize ?? null,
+            }
+            dispatch({ type: 'MERGE_LOCAL_LAB', value: {
+              fmiVersion: labForSubmit.fmiVersion,
+              simulationType: labForSubmit.simulationType,
+              modelVariables: labForSubmit.modelVariables,
+              defaultStartTime: labForSubmit.defaultStartTime,
+              defaultStopTime: labForSubmit.defaultStopTime,
+              defaultStepSize: labForSubmit.defaultStepSize,
+            } })
+          } catch (error) {
+            const nextErrors = {
+              ...currentErrors,
+              fmuFileName: `FMU reference validation failed: ${error.message}`,
+            }
+            dispatch({ type: 'SET_FIELD', field: 'errors', value: nextErrors })
+            focusFirstError(nextErrors, 'full')
+            return
+          }
+        }
         // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(localLab);
+        const normalizedLabData = normalizeLabDates(labForSubmit);
         
         // Pass uploaded temp files to parent for moving after mint
         if (onFilesUploaded && uploadedTempFiles.current.length > 0) {
@@ -678,8 +798,16 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
+        const fmuAccessKey =
+          localLab.resourceType === RESOURCE_TYPES.FMU
+            ? (localLab.fmuFileName || '').trim()
+            : localLab.accessKey
+        const labForSubmit = {
+          ...localLab,
+          accessKey: fmuAccessKey,
+        }
         // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(localLab);
+        const normalizedLabData = normalizeLabDates(labForSubmit);
         await onSubmit(normalizedLabData);
         devLog.log('LabModal: Quick form submitted successfully with normalized dates, modal remains open');
       } else {
@@ -701,7 +829,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
           {lab?.id ? 'Edit Lab' : 'Add New Lab'}
         </h2>
         <div className="mb-4">
-          <div className="flex">
+          <div className="flex items-center gap-2">
             <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
               className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
                 ? 'bg-[#7875a8] text-white'
@@ -716,6 +844,31 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
             >
               Quick Setup
             </button>
+            {!lab?.id && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (localLab?.resourceType === RESOURCE_TYPES.FMU) {
+                    dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })
+                    return
+                  }
+                  dispatch({
+                    type: 'BATCH_UPDATE',
+                    updates: [
+                      { type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } },
+                      { type: 'SET_FIELD', field: 'activeTab', value: 'full' },
+                    ],
+                  })
+                }}
+                className={`ml-auto px-4 py-2 rounded ${
+                  localLab?.resourceType === RESOURCE_TYPES.FMU
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Remote Lab Setup' : 'FMU Setup'}
+              </button>
+            )}
           </div>
           <div className='mt-4'>
             {activeTab === 'full' && (
@@ -741,6 +894,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 accessKeyRef={accessKeyRef} clickedToEditUri={clickedToEditUri} handleUriChange={handleUriChange}
                 setClickedToEditUri={value => dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value })}
                 onSubmit={handleSubmitQuick} onCancel={handleClose} uriRef={uriRef} localLab={localLab}
+                onSwitchToFullSetup={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
               />
             )}
           </div>

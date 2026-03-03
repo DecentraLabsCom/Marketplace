@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import { RESOURCE_TYPES } from '@/utils/resourceType'
 
 /**
  * Quick lab setup form for simplified lab creation with minimal required fields
@@ -18,13 +19,33 @@ import PropTypes from 'prop-types'
  * @param {Function} props.onSubmit - Form submission handler
  * @param {Function} props.onCancel - Form cancellation handler
  * @param {Object} props.lab - Original lab object for reference
+ * @param {Function} [props.onSwitchToFullSetup] - Callback to switch to Full Setup when FMU mode is active
  * @returns {JSX.Element} Quick setup form with essential lab fields
  */
 export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLocalURI, priceRef,
   accessURIRef, accessKeyRef, uriRef, clickedToEditUri, setClickedToEditUri, handleUriChange,
-  onSubmit, onCancel, lab }) {
+  onSubmit, onCancel, lab, onSwitchToFullSetup }) {
+
+  const isFmu = localLab?.resourceType === RESOURCE_TYPES.FMU
+
   return (
     <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
+      {isFmu && (
+        <div className="rounded border border-[#7875a8] bg-[#7875a8]/10 p-3 text-sm">
+          <p className="font-medium text-[#625f8f]">
+            FMU simulations must be configured in Full Setup.
+          </p>
+          <button
+            type="button"
+            onClick={() => onSwitchToFullSetup?.()}
+            className="mt-2 rounded bg-[#7875a8] px-3 py-1.5 text-white hover:bg-[#625f8f]"
+          >
+            Go to Full Setup
+          </button>
+        </div>
+      )}
+      {errors.resourceType && <p className="text-red-500 text-sm !mt-1">{errors.resourceType}</p>}
+
       <input
         type="number"
         step="any"
@@ -127,5 +148,6 @@ LabFormQuickSetup.propTypes = {
   handleUriChange: PropTypes.func,
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
-  lab: PropTypes.object
+  lab: PropTypes.object,
+  onSwitchToFullSetup: PropTypes.func,
 }

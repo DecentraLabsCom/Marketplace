@@ -3,6 +3,7 @@
  * Centralizes search state, filtering logic, and debounced search
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { getResourceType } from '@/utils/resourceType'
 
 /**
  * Custom hook for lab filtering and search
@@ -37,6 +38,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   const [selectedPrice, setSelectedPrice] = useState("Sort by Price")
   const [selectedProvider, setSelectedProvider] = useState("All")
   const [selectedFilter, setSelectedFilter] = useState("Keyword")
+  const [selectedResourceType, setSelectedResourceType] = useState("All")
   const [showUnlisted, setShowUnlisted] = useState(false)
   const [searchDebounce, setSearchDebounce] = useState("")
 
@@ -142,6 +144,14 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
       filtered = filtered.filter((lab) => lab.provider === selectedProvider)
     }
 
+    // Resource type filter
+    if (selectedResourceType !== "All") {
+      filtered = filtered.filter((lab) => {
+        const rt = getResourceType(lab)
+        return rt === selectedResourceType
+      })
+    }
+
     // Apply text search based on selected filter type
     if (searchDebounce) {
       filtered = filtered.filter((lab) => {
@@ -167,6 +177,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     selectedPrice, 
     selectedProvider, 
     selectedFilter, 
+    selectedResourceType,
     searchDebounce
   ])
 
@@ -184,6 +195,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedPrice("Sort by Price")
     setSelectedProvider("All")
     setSelectedFilter("Keyword")
+    setSelectedResourceType("All")
     setShowUnlisted(false)
     setSearchDebounce("")
     if (searchInputRef.current) {
@@ -197,6 +209,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     selectedPrice,
     selectedProvider,
     selectedFilter,
+    selectedResourceType,
     showUnlisted,
     searchFilteredLabs: enrichedLabs, // Return enriched labs with active booking marks
     searchDebounce,
@@ -206,6 +219,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
     setSelectedPrice,
     setSelectedProvider,
     setSelectedFilter,
+    setSelectedResourceType,
     setShowUnlisted,
     
     // Derived data

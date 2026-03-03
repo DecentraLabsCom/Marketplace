@@ -10,6 +10,7 @@ import { useLabToken } from '@/context/LabTokenContext'
 import { useActiveReservationKeyForUser, useActiveReservationKeyForSessionUserSSO } from '@/hooks/booking/useBookings'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
@@ -41,8 +42,10 @@ const LabCard = React.memo(function LabCard({
   image = '',
   imagePriority = false,
   reputation = null,
-  createdAt = null
+  createdAt = null,
+  resourceType = RESOURCE_TYPES.LAB
 }) {
+  const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU;
   const { address, isConnected, isSSO } = useUser();
   const { formatPrice } = useLabToken();
   const ratingValue = getLabRatingValue(reputation);
@@ -134,6 +137,13 @@ const LabCard = React.memo(function LabCard({
           </div>
         )}
 
+        {/* FMU Badge */}
+        {isFmu && (
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-[#7875a8]/90 px-2.5 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
+            <span>⚙ FMU</span>
+          </div>
+        )}
+
         {/* Unlisted Badge */}
         {!isListed && (
           <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand border-l-2 border-brand px-3 py-2 rounded-bl-lg shadow-lg backdrop-blur-sm`}>
@@ -158,7 +168,7 @@ const LabCard = React.memo(function LabCard({
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
           text-white text-lg font-bold">
           <FontAwesomeIcon icon={faSearch} className="mr-2" />
-          Explore Lab
+          {isFmu ? 'Explore Simulation' : 'Explore Lab'}
         </div>
       </Link>
       {(isConnected || isSSO) && (
@@ -190,7 +200,8 @@ LabCard.propTypes = {
     institutionalCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
-  createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+  createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 
 export default LabCard;

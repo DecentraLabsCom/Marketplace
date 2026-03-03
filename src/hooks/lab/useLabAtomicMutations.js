@@ -25,8 +25,16 @@ import {
   createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
 } from '@/utils/intents/clientFlowShared'
+import { RESOURCE_TYPES } from '@/utils/resourceType'
 
 const resolveRequestId = resolveIntentRequestId
+
+const toResourceTypeCode = (value) => {
+  if (value === 1 || value === '1' || value === RESOURCE_TYPES.FMU || value === 'fmu') {
+    return 1
+  }
+  return 0
+}
 
 const resolveLabId = (data) => {
   const candidate = data?.labId ?? data?.lab_id ?? data?.labID;
@@ -275,6 +283,7 @@ export const useAddLabSSO = (options = {}) => {
         price: labData.price,
         accessURI: labData.accessURI,
         accessKey: labData.accessKey,
+        resourceType: toResourceTypeCode(labData.resourceType),
         backendUrl: labData.backendUrl,
         presenceFn: labData?.presenceFn,
       });
@@ -373,8 +382,9 @@ export const useAddLabWallet = (options = {}) => {
         }
         const accessURI = labData.accessURI || '';
         const accessKey = labData.accessKey || '';
-        
-        const txHash = await addLab([uri, priceInContractUnits, accessURI, accessKey]);
+        const resourceType = toResourceTypeCode(labData.resourceType)
+
+        const txHash = await addLab([uri, priceInContractUnits, accessURI, accessKey, resourceType]);
         
         devLog.log('🔗 useAddLabWallet - Transaction Hash:', txHash);
 
@@ -496,6 +506,7 @@ export const useUpdateLabSSO = (options = {}) => {
         accessURI: updateData.labData?.accessURI,
         accessKey: updateData.labData?.accessKey,
         tokenURI: updateData.labData?.tokenURI,
+        resourceType: toResourceTypeCode(updateData.labData?.resourceType),
         backendUrl: updateData.backendUrl,
         presenceFn: updateData?.presenceFn,
       };
@@ -622,8 +633,9 @@ export const useUpdateLabWallet = (options = {}) => {
       }
       const accessURI = labDataObj.accessURI || '';
       const accessKey = labDataObj.accessKey || '';
-      
-      const txHash = await updateLabContract([labId, uri, priceInContractUnits, accessURI, accessKey]);
+      const resourceType = toResourceTypeCode(labDataObj.resourceType)
+
+      const txHash = await updateLabContract([labId, uri, priceInContractUnits, accessURI, accessKey, resourceType]);
       
       devLog.log('🔗 useUpdateLabWallet - Transaction Hash:', txHash);
       return { hash: txHash };

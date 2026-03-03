@@ -161,6 +161,7 @@ export async function POST(request) {
       accessURI: payloadInput.accessURI || '',
       accessKey: payloadInput.accessKey || '',
       tokenURI: payloadInput.tokenURI || '',
+      resourceType: payloadInput.resourceType ?? 0,
       maxBatch: resolvedMaxBatch ?? 0,
       nowSec: chainNowSec,
     })

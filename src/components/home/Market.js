@@ -15,6 +15,7 @@ import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 export default function Market({ initialLabs = [] }) {
   const { isLoggedIn, address, isWalletLoading, hasWalletSession, isSSO } = useUser();
@@ -36,7 +37,7 @@ export default function Market({ initialLabs = [] }) {
     enabled: shouldFetchLiveLabs
   });
   
-  const { 
+  const {
     data: labsData, 
     isLoading: labsInitialLoading,
     isFetching: labsFetching,
@@ -114,16 +115,28 @@ export default function Market({ initialLabs = [] }) {
     selectedPrice,
     selectedProvider,
     selectedFilter,
+    selectedResourceType,
     searchFilteredLabs,
     setSelectedCategory,
     setSelectedPrice,
     setSelectedProvider,
     setSelectedFilter,
+    setSelectedResourceType,
     categories,
     providers,
     searchInputRef,
     resetFilters
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated);
+
+  const hasFmuResources = useMemo(
+    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.FMU),
+    [labs]
+  )
+  const hasLabResources = useMemo(
+    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.LAB),
+    [labs]
+  )
+  const showResourceTypeFilter = hasFmuResources && hasLabResources
 
   const handleCategoryChange = useCallback((value) => {
     startFilterTransition(() => setSelectedCategory(value));
@@ -140,6 +153,16 @@ export default function Market({ initialLabs = [] }) {
   const handleFilterChange = useCallback((value) => {
     startFilterTransition(() => setSelectedFilter(value));
   }, [setSelectedFilter, startFilterTransition]);
+
+  const handleResourceTypeChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedResourceType(value));
+  }, [setSelectedResourceType, startFilterTransition]);
+
+  useEffect(() => {
+    if (!showResourceTypeFilter && selectedResourceType !== 'All') {
+      setSelectedResourceType('All')
+    }
+  }, [showResourceTypeFilter, selectedResourceType, setSelectedResourceType])
 
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {
@@ -169,6 +192,8 @@ export default function Market({ initialLabs = [] }) {
           onProviderChange={handleProviderChange}
           onFilterChange={handleFilterChange}
           onShowUnlistedChange={setShowUnlisted}
+          selectedResourceType={selectedResourceType}
+          onResourceTypeChange={showResourceTypeFilter ? handleResourceTypeChange : undefined}
           onReset={handleReset}
           searchInputRef={searchInputRef}
           loading={labsLoading || isFilterTransitionPending}

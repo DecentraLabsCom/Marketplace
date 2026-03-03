@@ -60,6 +60,7 @@ const transformLab = (rawLab, labId) => ({
     accessURI: String(rawLab?.[1]?.[2] || ''),
     accessKey: String(rawLab?.[1]?.[3] || ''),
     createdAt: rawLab?.[1]?.[4] ? toFiniteNumber(rawLab[1][4], 0) : 0,
+    resourceType: rawLab?.[1]?.[5] ? toFiniteNumber(rawLab[1][5], 0) : 0,
   },
 });
 

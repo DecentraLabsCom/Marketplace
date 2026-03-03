@@ -394,4 +394,46 @@ describe("BookingCalendarSection", () => {
       expect(screen.getByText(/-formatted \$LAB/)).toBeInTheDocument();
     });
   });
+
+  describe("Concurrent occupancy display", () => {
+    test("shows occupancy label for concurrent time slots", () => {
+      const concurrentTimes = [
+        { value: "09:00", label: "09:00", disabled: false, isReserved: false, occupancy: 2, maxConcurrent: 5 },
+        { value: "10:00", label: "10:00", disabled: true, isReserved: true, occupancy: 5, maxConcurrent: 5 },
+        { value: "11:00", label: "11:00", disabled: false, isReserved: false, occupancy: 0, maxConcurrent: 5 },
+      ];
+
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          availableTimes={concurrentTimes}
+          selectedTime="09:00"
+        />
+      );
+
+      const options = screen.getAllByRole("option");
+      const labels = options.map((o) => o.textContent);
+      expect(labels).toContain("09:00 (2/5)");
+      expect(labels).toContain("10:00 (5/5)");
+      expect(labels).toContain("11:00 (0/5)");
+    });
+
+    test("shows plain label when no concurrent info", () => {
+      const regularTimes = [
+        { value: "09:00", label: "09:00", disabled: false, isReserved: false },
+      ];
+
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          availableTimes={regularTimes}
+          selectedTime="09:00"
+        />
+      );
+
+      const options = screen.getAllByRole("option");
+      expect(options.some((o) => o.textContent === "09:00")).toBe(true);
+      expect(options.some((o) => o.textContent.includes("/"))).toBe(false);
+    });
+  });
 });

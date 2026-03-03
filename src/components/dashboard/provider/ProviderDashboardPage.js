@@ -30,6 +30,7 @@ import ProviderStakingModal from '@/components/dashboard/provider/staking/Provid
 import { useStakeInfo, useRequiredStake, usePendingLabPayout } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import getBaseUrl from '@/utils/env/baseUrl'
+import { normalizeResourceTypeCode } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import {
   notifyLabCollected,
@@ -745,14 +746,17 @@ export default function ProviderDashboard() {
 
     // Helper function to normalize values for comparison (treat undefined/null as empty string)
     const normalize = (value) => value === undefined || value === null ? '' : value;
+    const originalResourceType = normalizeResourceTypeCode(originalLab?.resourceType)
+    const nextResourceType = normalizeResourceTypeCode(labData?.resourceType)
     
     // ONLY compare on-chain fields that are stored in the smart contract
-    // According to smart contract ABI: uri, price, accessURI, accessKey (auth removed - now per provider)
+    // According to smart contract ABI: uri, price, accessURI, accessKey, resourceType
     const hasChangedOnChainData =
       normalize(originalLab.uri) !== normalize(onchainUri) ||
       normalize(originalLab.price) !== normalize(labData.price) ||
       normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
-      normalize(originalLab.accessKey) !== normalize(labData.accessKey);
+      normalize(originalLab.accessKey) !== normalize(labData.accessKey) ||
+      originalResourceType !== nextResourceType;
 
     // Debug logging to help identify what's causing transaction triggers
     devLog.log('🔍 On-chain comparison debug:', {
@@ -760,6 +764,7 @@ export default function ProviderDashboard() {
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
       accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
       accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
+      resourceType: { original: originalResourceType, new: nextResourceType, changed: originalResourceType !== nextResourceType },
       hasChangedOnChainData
     });
 
@@ -783,7 +788,8 @@ export default function ProviderDashboard() {
               uri: onchainUri,
               price: labData.price, // Already in token units
               accessURI: labData.accessURI,
-              accessKey: labData.accessKey
+              accessKey: labData.accessKey,
+              resourceType: nextResourceType,
             },
             backendUrl: isSSO ? institutionBackendUrl : undefined
           });
