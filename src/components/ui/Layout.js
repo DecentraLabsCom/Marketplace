@@ -172,7 +172,7 @@ export function Container({
     md: 'px-6',   // 1.5rem horizontal padding
     lg: 'px-8',   // 2rem horizontal padding
     xl: 'px-10',  // 2.5rem horizontal padding
-    '2xl': 'px-20' // 4rem horizontal padding
+    '2xl': 'px-30' // 4rem horizontal padding
   }
 
   const classes = cn(
