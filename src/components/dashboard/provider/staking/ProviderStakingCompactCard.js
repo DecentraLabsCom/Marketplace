@@ -8,9 +8,9 @@ import StakeHealthIndicator from './StakeHealthIndicator'
  */
 export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage }) {
   return (
-    <div className="mt-6">
+    <div>
       <div 
-        className="rounded-xl p-5 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow duration-200"
+        className="w-full rounded-xl p-5 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow duration-200"
         style={{ 
           background: 'linear-gradient(135deg, rgba(67, 70, 88, 0.5) 0%, var(--color-background-surface) 100%)',
           border: '1px solid rgba(99, 102, 120, 0.4)' 

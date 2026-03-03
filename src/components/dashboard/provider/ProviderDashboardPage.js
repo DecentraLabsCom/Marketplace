@@ -163,12 +163,18 @@ export default function ProviderDashboard() {
   const labs = Array.isArray(allLabsData?.labs) ? allLabsData.labs : [];
   
   // Extract owned labs - already filtered by useLabsForProvider
-  const ownedLabs = useMemo(() => {
+  let ownedLabs = useMemo(() => {
     if (!allLabsData || !Array.isArray(allLabsData.labs)) {
       return [];
     }
     return allLabsData.labs;
   }, [allLabsData]);
+
+  // TEMPORARY MOCK - Remove before committing!
+  ownedLabs = [
+    { id: '1', name: 'Lab de Prueba 1', isListed: true, base: { price: '1000000' } },
+    { id: '2', name: 'Lab de Prueba 2', isListed: false, base: { price: '2000000' } },
+  ];
 
   const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
   const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
@@ -1114,7 +1120,7 @@ export default function ProviderDashboard() {
         {/* Dashboard header */}
         <DashboardHeader title="Lab Panel" />
 
-        <div className="flex flex-col min-[1080px]:flex-row min-[1080px]:gap-6">
+        <div className="grid grid-cols-1 min-[1080px]:grid-cols-[1fr_auto] min-[1080px]:gap-6">
           {/* Provider labs management */}
           <ProviderLabsList
             ownedLabs={ownedLabs}
@@ -1128,7 +1134,7 @@ export default function ProviderDashboard() {
             onUnlist={handleUnlist}
           />
 
-          <div className="flex flex-col min-[1080px]:w-1/3 mt-6 min-[1080px]:mt-0">
+          <div className="flex flex-col mt-6 min-[1080px]:mt-0">
             {/* Reservations calendar */}
             <ReservationsCalendar
               selectedDate={date}
@@ -1150,28 +1156,31 @@ export default function ProviderDashboard() {
               }}
             />
           </div>
+
+          {/* Staking card spans both columns */}
+          {!isSSO && (
+            <div className="min-[1080px]:col-span-2 mt-6">
+              <ProviderStakingCompactCard
+                stakeInfo={compactStakeInfo}
+                onManage={() => setIsStakingModalOpen(true)}
+              />
+            </div>
+          )}
         </div>
 
         {!isSSO && (
-          <>
-            <ProviderStakingCompactCard
-              stakeInfo={compactStakeInfo}
-              onManage={() => setIsStakingModalOpen(true)}
-            />
-
-            <ProviderStakingModal
-              isOpen={isStakingModalOpen}
-              onClose={() => setIsStakingModalOpen(false)}
-              providerAddress={providerOwnerAddress}
-              labs={ownedLabs}
-              isSSO={isSSO}
-              labCount={ownedLabs.length}
-              addTemporaryNotification={addTemporaryNotification}
-              onCollect={handleCollect}
-              isCollectEnabled={canCollectSelectedLab}
-              isCollecting={requestFundsMutation.isPending}
-            />
-          </>
+          <ProviderStakingModal
+            isOpen={isStakingModalOpen}
+            onClose={() => setIsStakingModalOpen(false)}
+            providerAddress={providerOwnerAddress}
+            labs={ownedLabs}
+            isSSO={isSSO}
+            labCount={ownedLabs.length}
+            addTemporaryNotification={addTemporaryNotification}
+            onCollect={handleCollect}
+            isCollectEnabled={canCollectSelectedLab}
+            isCollecting={requestFundsMutation.isPending}
+          />
         )}
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
