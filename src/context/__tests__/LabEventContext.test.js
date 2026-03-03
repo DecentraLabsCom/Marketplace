@@ -23,8 +23,12 @@ import {
 
 // Mock dependencies
 const mockInvalidateQueries = jest.fn();
+const mockRemoveQueries = jest.fn();
+const mockSetQueryData = jest.fn();
 const mockQueryClient = {
   invalidateQueries: mockInvalidateQueries,
+  removeQueries: mockRemoveQueries,
+  setQueryData: mockSetQueryData,
 };
 
 jest.mock("@tanstack/react-query", () => ({
@@ -730,20 +734,21 @@ describe("LabEventContext", () => {
         jest.advanceTimersByTime(60);
       });
 
-      // Verify all lab-specific queries were invalidated
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      // Verify all lab-specific queries were removed (not invalidated) so that
+      // active useQueries subscribers don't immediately refetch a deleted lab.
+      expect(mockRemoveQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", "1"],
         exact: true,
       });
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      expect(mockRemoveQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "tokenURI", "1"],
         exact: true,
       });
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      expect(mockRemoveQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "isTokenListed", "1"],
         exact: true,
       });
-      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      expect(mockRemoveQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "ownerOf", "1"],
         exact: true,
       });
@@ -752,7 +757,11 @@ describe("LabEventContext", () => {
       expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
       expect(mockClearOptimisticListingState).toHaveBeenCalledWith("1");
 
-      // Verify getAllLabs was also invalidated
+      // Verify getAllLabs cache was updated synchronously and then invalidated
+      expect(mockSetQueryData).toHaveBeenCalledWith(
+        ["lab", "getAllLabs"],
+        expect.any(Function)
+      );
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
         exact: true,
@@ -772,28 +781,32 @@ describe("LabEventContext", () => {
         jest.advanceTimersByTime(60);
       });
 
-      // Verify each lab's queries were invalidated
+      // Verify each lab's queries were removed (not invalidated)
       mockLogs.forEach((log) => {
         const labId = log.args._labId.toString();
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        expect(mockRemoveQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "getLab", labId],
           exact: true,
         });
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        expect(mockRemoveQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "tokenURI", labId],
           exact: true,
         });
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        expect(mockRemoveQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "isTokenListed", labId],
           exact: true,
         });
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        expect(mockRemoveQueries).toHaveBeenCalledWith({
           queryKey: ["lab", "ownerOf", labId],
           exact: true,
         });
       });
 
-      // Verify getAllLabs was invalidated once
+      // Verify getAllLabs was updated synchronously and then invalidated
+      expect(mockSetQueryData).toHaveBeenCalledWith(
+        ["lab", "getAllLabs"],
+        expect.any(Function)
+      );
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
         exact: true,
@@ -819,14 +832,19 @@ describe("LabEventContext", () => {
         jest.advanceTimersByTime(60);
       });
 
-      // Should invalidate getAllLabs but not specific lab queries
+      // Should update getAllLabs cache and invalidate it,
+      // but not try to remove queries for a null labId
+      expect(mockSetQueryData).toHaveBeenCalledWith(
+        ["lab", "getAllLabs"],
+        expect.any(Function)
+      );
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
         queryKey: ["lab", "getAllLabs"],
         exact: true,
       });
 
-      // Should not try to invalidate queries for null labId
-      expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
+      // Should not try to remove queries for null labId
+      expect(mockRemoveQueries).not.toHaveBeenCalledWith({
         queryKey: ["lab", "getLab", null],
       });
     });
