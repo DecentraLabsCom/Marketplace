@@ -33,6 +33,7 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'countryName',
   // OID aliases currently supported by the parser
   'urn:oid:1.3.6.1.4.1.25178.1.2.9',
+  'urn:oid:1.3.6.1.4.1.25178.1.2.6',
   'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',
   'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
   'urn:oid:0.9.2342.19200300.100.1.3',
@@ -199,6 +200,7 @@ export async function parseSAMLResponse(samlResponse) {
       // extract eduPersonPrincipalName if provided
       const eduPersonPrincipalName = getFirstAttribute(attrs, [
         'eduPersonPrincipalName',
+        'urn:oid:1.3.6.1.4.1.25178.1.2.6',
         'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',
       ])
       const eduPersonTargetedID = getFirstAttribute(attrs, [
