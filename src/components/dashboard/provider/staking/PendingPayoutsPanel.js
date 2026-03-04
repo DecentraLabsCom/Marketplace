@@ -115,7 +115,7 @@ export default function PendingPayoutsPanel({
       {/* Per-lab payouts */}
       {!hasLabs ? (
         <div className="text-center py-6">
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No labs to show payouts for</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-inverse)' }}>No labs to show payouts for</p>
         </div>
       ) : (
         <div className="space-y-1.5 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">

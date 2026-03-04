@@ -15,7 +15,7 @@ import { Container } from '../ui/Layout'
  */
 export default function AccessControl({
   children,
-  message = "Please log in to access this page.",
+  message = undefined,
   requireWallet = false,
   requireSSO = false,
   requireProvider = false,
@@ -67,17 +67,19 @@ export default function AccessControl({
   // Determine access status
   let hasAccess = false;
   let accessMessage = message;
-  
+
   if (requireProvider) {
     hasAccess = canAccessProviderDashboard();
-    if (!hasAccess && !isLoading && !isProviderLoading) {
-      if (isSSO) {
-        if (!isFaculty()) {
-          accessMessage = "Only faculty members can access the Lab Panel.";
-        } else if (!isInstitutionRegistered) {
-          accessMessage = "Your institution is not registered yet. Please register it first.";
+    // Only override message if not custom
+    if (!message) {
+      if (!isSSO && address) {
+        // Wallet user, not provider
+        accessMessage = "Only confirmed providers can access the Lab Panel. Please register as a provider first.";
+      } else if (isSSO) {
+        if (isFaculty() && !isInstitutionRegistered && !isInstitutionRegistrationPending) {
+          accessMessage = "Institution is not registered yet. Please contact your institution administrator.";
         } else {
-          accessMessage = "Only faculty members and confirmed providers can access the Lab Panel.";
+          accessMessage = "Only faculty members can access the Lab Panel.";
         }
       } else {
         accessMessage = "Only confirmed providers can access the Lab Panel. Please register as a provider first.";
@@ -85,10 +87,19 @@ export default function AccessControl({
     }
   } else if (requireWallet) {
     hasAccess = isConnected;
+    if (!message) {
+      accessMessage = "Please connect your wallet to access this page.";
+    }
   } else if (requireSSO) {
     hasAccess = isSSO;
+    if (!message) {
+      accessMessage = "Please log in with your institution account to access this page.";
+    }
   } else {
     hasAccess = isLoggedIn;
+    if (!message) {
+      accessMessage = "Please log in to access this page.";
+    }
   }
 
   // Handle redirect logic - must be called before any conditional returns

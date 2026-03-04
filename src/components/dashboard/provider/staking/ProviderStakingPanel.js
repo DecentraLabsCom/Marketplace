@@ -183,7 +183,7 @@ export default function ProviderStakingPanel({
     <div data-testid="staking-panel" className="rounded-xl px-3 py-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-inverse)' }}>
+        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
           <span className="text-base">🔒</span>
           Staking
         </h3>
@@ -208,16 +208,16 @@ export default function ProviderStakingPanel({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-dark)' }}>
-          <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-secondary)' }}>Staked</p>
-          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-inverse)' }}>
-            {stakedFormatted} <span className="text-xs opacity-60">$LAB</span>
+        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-light)' }}>
+          <p className="text-[10px] uppercase tracking-wider mb-1 text-black">Staked</p>
+          <p className="text-sm font-semibold text-black">
+            {stakedFormatted} <span className="text-xs opacity-60 text-black">$LAB</span>
           </p>
         </div>
-        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-dark)' }}>
-          <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-secondary)' }}>Required</p>
-          <p className="text-sm font-semibold" style={{ color: 'var(--color-text-inverse)' }}>
-            {requiredFormatted} <span className="text-xs opacity-60">$LAB</span>
+        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-light)' }}>
+          <p className="text-[10px] uppercase tracking-wider mb-1 text-black">Required</p>
+          <p className="text-sm font-semibold text-black">
+            {requiredFormatted} <span className="text-xs opacity-60 text-black">$LAB</span>
           </p>
         </div>
         {BigInt(slashedAmount || '0') > 0n && (
@@ -260,11 +260,11 @@ export default function ProviderStakingPanel({
 
       {/* Stake requirements info */}
       <div 
-        className="text-[11px] rounded-lg p-3 space-y-1"
-        style={{ backgroundColor: 'var(--color-background-dark)', color: 'var(--color-text-secondary)' }}
+        className="text-[11px] rounded-lg p-3 space-y-1 text-black bg-white"
+        style={{ backgroundColor: 'var(--color-background-light)', color: '#000' }}
       >
-        <p>Base stake: <span style={{ color: 'var(--color-text-inverse)' }}>{BASE_STAKE_DISPLAY} $LAB</span> (first {FREE_LABS_COUNT} labs)</p>
-        <p>Additional labs: <span style={{ color: 'var(--color-text-inverse)' }}>+{STAKE_PER_ADDITIONAL_LAB_DISPLAY} $LAB</span> per lab</p>
+        <p>Base stake: <span className="font-semibold">{BASE_STAKE_DISPLAY} $LAB</span> (first {FREE_LABS_COUNT} labs)</p>
+        <p>Additional labs: <span className="font-semibold">+{STAKE_PER_ADDITIONAL_LAB_DISPLAY} $LAB</span> per lab</p>
       </div>
 
       {/* Stake/Unstake actions (wallet users only) */}
@@ -280,11 +280,11 @@ export default function ProviderStakingPanel({
               value={stakeAmount}
               onChange={(e) => setStakeAmount(e.target.value)}
               disabled={activeAction === 'stake'}
-              className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50 transition-all"
+              className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50 transition-all text-black bg-white"
               style={{ 
-                backgroundColor: 'var(--color-background-dark)', 
+                backgroundColor: 'var(--color-background-light)', 
                 border: '1px solid var(--color-ui-label-medium)',
-                color: 'var(--color-text-inverse)'
+                color: '#000'
               }}
             />
             <button
@@ -312,11 +312,11 @@ export default function ProviderStakingPanel({
               value={unstakeAmount}
               onChange={(e) => setUnstakeAmount(e.target.value)}
               disabled={activeAction === 'unstake' || !canUnstake}
-              className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50 disabled:opacity-50 transition-all"
+              className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50 disabled:opacity-50 transition-all text-black bg-white"
               style={{ 
-                backgroundColor: 'var(--color-background-dark)', 
+                backgroundColor: 'var(--color-background-light)', 
                 border: '1px solid var(--color-ui-label-medium)',
-                color: 'var(--color-text-inverse)'
+                color: '#000'
               }}
             />
             <button

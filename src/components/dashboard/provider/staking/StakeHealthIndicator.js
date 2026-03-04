@@ -73,7 +73,7 @@ const STATUS_STYLES = {
   none: {
     bg: 'bg-[color:var(--color-background-surface)]',
     border: 'border-[color:var(--color-ui-label-medium)]',
-    text: 'text-[color:var(--color-text-secondary)]',
+    text: 'text-[color:var(--color-text-inverse)]',
     dot: 'bg-[color:var(--color-ui-label-medium)]',
     barBg: 'bg-[color:var(--color-background-surface)]',
     barFill: 'bg-[color:var(--color-ui-label-medium)]',
