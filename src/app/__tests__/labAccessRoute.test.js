@@ -26,6 +26,11 @@ jest.mock('@/utils/auth/marketplaceJwt', () => ({
 describe('/api/auth/lab-access route', () => {
   const originalFetch = global.fetch
 
+  const buildSuccessfulResponse = () => ({
+    ok: true,
+    text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com' }),
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
     global.fetch = jest.fn()
@@ -103,6 +108,7 @@ describe('/api/auth/lab-access route', () => {
 
   test('authenticates via saml-auth2 when request is valid', async () => {
     requireAuth.mockResolvedValue({
+      id: 'user-1@uned.es|targeted-user-1',
       samlAssertion: 'assert',
       affiliation: 'uned.es',
       eduPersonPrincipalName: 'user-1@uned.es',
@@ -115,10 +121,7 @@ describe('/api/auth/lab-access route', () => {
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com' }),
-    })
+    global.fetch.mockResolvedValue(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -143,6 +146,53 @@ describe('/api/auth/lab-access route', () => {
       'https://gateway.example.com/auth/saml-auth2',
       expect.objectContaining({ method: 'POST' })
     )
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1@uned.es|targeted-user-1',
+      })
+    )
+  })
+
+  test('falls back to eduPersonPrincipalName when composite session id is missing', async () => {
+    requireAuth.mockResolvedValue({
+      samlAssertion: 'assert',
+      affiliation: 'uned.es',
+      eduPersonPrincipalName: 'user-2@uned.es',
+    })
+
+    marketplaceJwtService.isConfigured.mockResolvedValue(true)
+    marketplaceJwtService.generateSamlAuthToken.mockResolvedValue('marketplace-token')
+
+    getContractInstance.mockResolvedValue({
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
+    })
+
+    global.fetch.mockResolvedValue(buildSuccessfulResponse())
+
+    const { POST } = await import('../api/auth/lab-access/route.js')
+
+    const req = new Request('http://localhost/api/auth/lab-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        labId: '10',
+        reservationKey: '0xabc',
+        authEndpoint: 'https://gateway.example.com/auth',
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      token: 'jwt',
+      labURL: 'https://lab.example.com',
+    })
+
+    expect(marketplaceJwtService.generateSamlAuthToken).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-2@uned.es',
+      })
+    )
   })
 
   test('authenticates via saml-auth2 with labId only', async () => {
@@ -162,10 +212,7 @@ describe('/api/auth/lab-access route', () => {
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com' }),
-    })
+    global.fetch.mockResolvedValue(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 
@@ -205,10 +252,7 @@ describe('/api/auth/lab-access route', () => {
       resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x1111111111111111111111111111111111111111'),
     })
 
-    global.fetch.mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({ token: 'jwt', labURL: 'https://lab.example.com' }),
-    })
+    global.fetch.mockResolvedValue(buildSuccessfulResponse())
 
     const { POST } = await import('../api/auth/lab-access/route.js')
 

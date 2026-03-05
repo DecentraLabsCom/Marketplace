@@ -597,6 +597,30 @@ describe("SSO Utilities", () => {
       expect(result.scopedRole).toBe("member@campus.edu");
     });
 
+    test("uses eduPersonPrincipalName as stable id when eduPersonTargetedID is missing", async () => {
+      const mockSAMLAssertion = {
+        user: {
+          attributes: {
+            eduPersonPrincipalName: "user@campus.edu",
+            mail: "user@campus.edu",
+            displayName: "Campus User",
+            schacHomeOrganization: "campus.edu",
+          },
+        },
+      };
+
+      mockSP.post_assert.mockImplementation((idp, options, callback) => {
+        callback(null, mockSAMLAssertion);
+      });
+
+      const result = await parseSAMLResponse("saml-response-data");
+
+      expect(result.id).toBe("user@campus.edu");
+      expect(result.eduPersonPrincipalName).toBe("user@campus.edu");
+      expect(result.eduPersonTargetedID).toBeUndefined();
+      expect(result.affiliation).toBe("campus.edu");
+    });
+
     test("handles array attributes correctly", async () => {
       const mockSAMLAssertion = {
         user: {
