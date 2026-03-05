@@ -123,7 +123,7 @@ export default function CalendarInput({
   return (
     <div className={cn('w-full space-y-2', containerClassName)}>
       {label && (
-        <label className={cn('block text-sm font-medium text-white', labelClassName)}>
+        <label className={cn('block text-sm font-medium text-neutral-900', labelClassName)}>
           {label}
           {required && <span className="text-error ml-1">*</span>}
         </label>
@@ -150,7 +150,7 @@ export default function CalendarInput({
           dateFormat={dateFormat}
           placeholderText={placeholder}
           className={cn(
-            'block w-full rounded-md border border-neutral-300 bg-white py-2 pl-10 pr-10 text-gray-900 placeholder-gray-400 shadow-sm focus:border-primary-600 focus:ring-primary-600 sm:text-sm transition-colors',
+            'block w-full rounded-md border border-neutral-300 py-2 pl-10 pr-10 shadow-sm focus:border-primary-600 focus:ring-primary-600 sm:text-sm transition-colors',
             disabled && 'bg-neutral-100 cursor-not-allowed text-neutral-500',
             error && 'border-error focus:border-error focus:ring-error',
             inputClassName
