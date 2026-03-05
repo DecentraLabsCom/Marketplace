@@ -409,6 +409,24 @@ describe("MarketplaceJwtService", () => {
       ).rejects.toThrow("Invalid institutionalProviderWallet address format");
     });
 
+    test('passes audience and subject through to jwt.sign', async () => {
+      await MarketplaceJwtService.generateSamlAuthToken({
+        userId: 'user-2',
+        affiliation: 'aff',
+        institutionalProviderWallet: '0x1111111111111111111111111111111111111111',
+        audience: 'custom-audience',
+      });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({
+          audience: 'custom-audience',
+          subject: 'user-2',
+        })
+      );
+    });
+
     test('generateIntentBackendToken defaults to 60 seconds when no env var or param', async () => {
       // Ensure deterministic time
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
@@ -429,6 +447,33 @@ describe("MarketplaceJwtService", () => {
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 30) * 1000).toISOString();
       expect(result.expiresAt).toBe(expectedExpiresAt);
+    });
+
+    test('generateIntentBackendToken includes audience/subject and extra claims', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+      const extra = { foo: 'bar', sub: 'hacked', aud: 'no', scope: 'nope' };
+
+      await MarketplaceJwtService.generateIntentBackendToken({
+        audience: 'my-aud',
+        subject: 'my-sub',
+        claims: extra,
+      });
+
+      // verify that reserved keys were removed and custom claim kept
+      const payload = jwt.sign.mock.calls[0][0];
+      expect(payload.foo).toBe('bar');
+      expect(payload.sub).toEqual(undefined);
+      expect(payload.aud).toEqual(undefined);
+      expect(payload.scope).toBeDefined();
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({
+          audience: 'my-aud',
+          subject: 'my-sub',
+        })
+      );
     });
   });
 
