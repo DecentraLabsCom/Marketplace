@@ -1,5 +1,5 @@
 "use client";
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
 import Link from 'next/link'
@@ -44,6 +44,9 @@ const LabCard = React.memo(function LabCard({
   createdAt = null
 }) {
   const { address, isConnected, isSSO } = useUser();
+  // Hook para detectar si estamos en el cliente
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => { setIsClient(true); }, []);
   const { formatPrice } = useLabToken();
   const ratingValue = getLabRatingValue(reputation);
   const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
@@ -161,7 +164,7 @@ const LabCard = React.memo(function LabCard({
           Explore Lab
         </div>
       </Link>
-      {(isConnected || isSSO) && (
+      {isClient && (isConnected || isSSO) && (
         <LabAccess 
           id={id} 
           userWallet={address} 
