@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { registerCredentialInBackend, verifyRegistration, getPucFromSession } from '@/utils/webauthn/service'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
@@ -23,7 +24,22 @@ export async function POST(request) {
     let backendRegistered = false
     const backendUrl = process.env.INSTITUTION_BACKEND_URL
     if (backendUrl) {
-      backendRegistered = await registerCredentialInBackend(record, backendUrl)
+      let backendAuthToken = null
+      try {
+        const backendAuth = await marketplaceJwtService.generateIntentBackendToken({
+          scope: 'webauthn:manage',
+          expiresInSeconds: 2 * 60,
+          subject: record.userId || puc,
+          claims: {
+            userid: record.userId || puc,
+          },
+        })
+        backendAuthToken = backendAuth.token
+      } catch (tokenError) {
+        devLog.warn('[API] Failed to generate backend auth token for WebAuthn register:', tokenError?.message || tokenError)
+      }
+
+      backendRegistered = await registerCredentialInBackend(record, backendUrl, { backendAuthToken })
     }
 
     return NextResponse.json({

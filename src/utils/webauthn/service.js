@@ -144,14 +144,19 @@ export async function verifyRegistration(session, attestationResponse, request) 
  * Optionally mirror the credential on the backend.
  * @param {Object} record
  * @param {string} backendUrl
+ * @param {Object} [options]
+ * @param {string} [options.backendAuthToken]
  * @returns {Promise<boolean>}
  */
-export async function registerCredentialInBackend(record, backendUrl) {
+export async function registerCredentialInBackend(record, backendUrl, { backendAuthToken } = {}) {
   if (!backendUrl) return false
   try {
     const res = await fetch(`${backendUrl.replace(/\/$/, '')}/webauthn/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(backendAuthToken ? { Authorization: `Bearer ${backendAuthToken}` } : {}),
+      },
       body: JSON.stringify({
         userId: record.userId,
         credentialId: record.credentialId,

@@ -18,6 +18,7 @@ import { getSessionFromCookies } from '@/utils/auth/sessionCookie'
 import { extractStableUserId } from '@/utils/onboarding'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import devLog from '@/utils/dev/logger'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 
@@ -94,17 +95,33 @@ export async function GET() {
       // The IB can verify the user via the assertionReference if needed
     }
 
+    const onboardingAuth = await marketplaceJwtService.generateIntentBackendToken({
+      scope: 'onboarding:webauthn',
+      expiresInSeconds: 15 * 60,
+      subject: stableUserId,
+      claims: {
+        userid: stableUserId,
+        affiliation: userData.affiliation,
+      },
+    })
+
     devLog.log('[Onboarding/Session] Returning session data for:', stableUserId)
 
     return NextResponse.json({
       status: 'ok',
       payload,
+      auth: {
+        backendAuthToken: onboardingAuth.token,
+        expiresAt: onboardingAuth.expiresAt,
+      },
       // Also return some metadata for the browser
       meta: {
         stableUserId,
         institutionId: userData.affiliation,
         email: userData.email,
         displayName: payload.displayName,
+        backendAuthToken: onboardingAuth.token,
+        backendAuthExpiresAt: onboardingAuth.expiresAt,
       },
     })
 

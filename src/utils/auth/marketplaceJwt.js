@@ -177,6 +177,7 @@ class MarketplaceJwtService {
     puc,
     scope = 'booking:read',
     bookingInfoAllowed = true,
+    audience,
   } = {}) {
     try {
       if (!this.privateKey) {
@@ -221,6 +222,9 @@ class MarketplaceJwtService {
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
+        audience: audience || process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
+        subject: userId,
+        jwtid: randomUUID(),
       });
 
       devLog.log('INFO: SAML auth JWT generated successfully for user:', userId);
@@ -248,6 +252,7 @@ class MarketplaceJwtService {
     audience,
     expiresInSeconds,
     subject,
+    claims,
   } = {}) {
     try {
       if (!this.privateKey) {
@@ -266,7 +271,18 @@ class MarketplaceJwtService {
       const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 60;
       const expSec = nowSec + safeTtl;
 
+      const extraClaims = claims && typeof claims === 'object' ? { ...claims } : {};
+      delete extraClaims.scope;
+      delete extraClaims.scopes;
+      delete extraClaims.iat;
+      delete extraClaims.exp;
+      delete extraClaims.iss;
+      delete extraClaims.aud;
+      delete extraClaims.sub;
+      delete extraClaims.jti;
+
       const payload = {
+        ...extraClaims,
         scope: scope || process.env.INTENTS_JWT_SCOPE || 'intents:submit intents:status',
         iat: nowSec,
         exp: expSec,
@@ -276,7 +292,7 @@ class MarketplaceJwtService {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
         audience: audience || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
-        subject: subject || process.env.INTENTS_JWT_SUBJECT || 'marketplace-intents',
+        subject: subject || process.env.INTENTS_JWT_SUBJECT || 'blockchain-services',
         jwtid: randomUUID(),
       });
 

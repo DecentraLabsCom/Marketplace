@@ -409,6 +409,21 @@ describe("MarketplaceJwtService", () => {
       ).rejects.toThrow("Invalid institutionalProviderWallet address format");
     });
 
+    test('uses default audience when none provided', async () => {
+      // no env vars set
+      await MarketplaceJwtService.generateSamlAuthToken({
+        userId: 'user-default',
+      });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({
+          audience: 'blockchain-services',
+        })
+      );
+    });
+
     test('passes audience and subject through to jwt.sign', async () => {
       await MarketplaceJwtService.generateSamlAuthToken({
         userId: 'user-2',
@@ -437,6 +452,16 @@ describe("MarketplaceJwtService", () => {
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 60) * 1000).toISOString();
       expect(result.expiresAt).toBe(expectedExpiresAt);
+    });
+
+    test('generateIntentBackendToken defaults audience to blockchain-services', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+      await MarketplaceJwtService.generateIntentBackendToken();
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({ audience: 'blockchain-services' })
+      );
     });
 
     test('generateIntentBackendToken respects expiresInSeconds parameter', async () => {
