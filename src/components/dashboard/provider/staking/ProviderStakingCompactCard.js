@@ -8,8 +8,14 @@ import StakeHealthIndicator from './StakeHealthIndicator'
  */
 export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage }) {
   return (
-    <div className="mt-6">
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 flex items-center justify-between gap-4">
+    <div>
+      <div 
+        className="w-full rounded-xl p-5 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow duration-200"
+        style={{ 
+          background: 'linear-gradient(135deg, rgba(67, 70, 88, 0.5) 0%, var(--color-background-surface) 100%)',
+          border: '1px solid rgba(99, 102, 120, 0.4)' 
+        }}
+      >
         <div className="flex items-center gap-3">
           <StakeHealthIndicator
             stakedAmount={stakeInfo?.stakedAmount || '0'}
@@ -18,15 +24,15 @@ export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage })
             variant="compact"
           />
           <div>
-            <p className="text-sm font-semibold text-slate-100">Staking & payouts</p>
-            <p className="text-xs text-slate-400">Summary & wallet actions</p>
+            <p className="text-sm font-semibold text-white">Staking & Payouts</p>
+            <p className="text-xs text-slate-300">Summary & wallet actions</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={onManage}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#bcc4fc] text-white hover:bg-[#aab8e6] transition-colors"
+            className="px-5 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Manage staking
           </button>

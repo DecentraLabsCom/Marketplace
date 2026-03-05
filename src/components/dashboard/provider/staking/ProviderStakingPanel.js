@@ -180,10 +180,10 @@ export default function ProviderStakingPanel({
   const health = computeStakeHealth(stakedAmount, requiredStake, slashedAmount)
 
   return (
-    <div data-testid="staking-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
+    <div data-testid="staking-panel" className="rounded-xl px-3 py-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
           <span className="text-base">🔒</span>
           Staking
         </h3>
@@ -208,55 +208,68 @@ export default function ProviderStakingPanel({
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-slate-900/40 rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Staked</p>
-          <p className="text-sm font-semibold text-slate-100">{stakedFormatted} <span className="text-xs text-slate-400">$LAB</span></p>
+        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-light)' }}>
+          <p className="text-[10px] uppercase tracking-wider mb-1 text-black">Staked</p>
+          <p className="text-sm font-semibold text-black">
+            {stakedFormatted} <span className="text-xs opacity-60 text-black">$LAB</span>
+          </p>
         </div>
-        <div className="bg-slate-900/40 rounded-lg p-3">
-          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Required</p>
-          <p className="text-sm font-semibold text-slate-100">{requiredFormatted} <span className="text-xs text-slate-400">$LAB</span></p>
+        <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-light)' }}>
+          <p className="text-[10px] uppercase tracking-wider mb-1 text-black">Required</p>
+          <p className="text-sm font-semibold text-black">
+            {requiredFormatted} <span className="text-xs opacity-60 text-black">$LAB</span>
+          </p>
         </div>
         {BigInt(slashedAmount || '0') > 0n && (
-          <div className="bg-red-900/20 rounded-lg p-3">
-            <p className="text-[10px] uppercase tracking-wider text-red-400/70 mb-1">Slashed</p>
-            <p className="text-sm font-semibold text-red-400">{slashedFormatted} <span className="text-xs text-red-400/70">$LAB</span></p>
+          <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-error-bg)' }}>
+            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-error-text)', opacity: 0.8 }}>Slashed</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-error-text)' }}>
+              {slashedFormatted} <span className="text-xs opacity-70">$LAB</span>
+            </p>
           </div>
         )}
         {deficit !== '0.00' && (
-          <div className="bg-amber-900/20 rounded-lg p-3">
-            <p className="text-[10px] uppercase tracking-wider text-amber-400/70 mb-1">Deficit</p>
-            <p className="text-sm font-semibold text-amber-400">{deficit} <span className="text-xs text-amber-400/70">$LAB</span></p>
+          <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-warning-bg)' }}>
+            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-warning-text)', opacity: 0.8 }}>Deficit</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-warning-text)' }}>
+              {deficit} <span className="text-xs opacity-70">$LAB</span>
+            </p>
           </div>
         )}
         {surplus !== '0.00' && deficit === '0.00' && (
-          <div className="bg-emerald-900/20 rounded-lg p-3">
-            <p className="text-[10px] uppercase tracking-wider text-emerald-400/70 mb-1">Surplus</p>
-            <p className="text-sm font-semibold text-emerald-400">{surplus} <span className="text-xs text-emerald-400/70">$LAB</span></p>
+          <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-success-bg)' }}>
+            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-success-text)', opacity: 0.8 }}>Surplus</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-success-text)' }}>
+              {surplus} <span className="text-xs opacity-70">$LAB</span>
+            </p>
           </div>
         )}
       </div>
 
       {/* Lock status */}
-      <div className="flex items-center gap-2 text-xs text-slate-400">
+      <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
         <span>{unlockTimestamp > 0 && lockStatus !== 'Unlocked' ? '🔐' : '🔓'}</span>
         <span>Lock: {lockStatus}</span>
         {labCount > 0 && (
           <>
-            <span className="text-slate-600">·</span>
+            <span style={{ color: 'var(--color-ui-label-medium)' }}>·</span>
             <span>{labCount} lab{labCount !== 1 ? 's' : ''}</span>
           </>
         )}
       </div>
 
       {/* Stake requirements info */}
-      <div className="text-[11px] text-slate-500 bg-slate-900/30 rounded-lg p-2.5 space-y-1">
-        <p>Base stake: <span className="text-slate-300">{BASE_STAKE_DISPLAY} $LAB</span> (first {FREE_LABS_COUNT} labs)</p>
-        <p>Additional labs: <span className="text-slate-300">+{STAKE_PER_ADDITIONAL_LAB_DISPLAY} $LAB</span> per lab</p>
+      <div 
+        className="text-[11px] rounded-lg p-3 space-y-1 text-black bg-white"
+        style={{ backgroundColor: 'var(--color-background-light)', color: '#000' }}
+      >
+        <p>Base stake: <span className="font-semibold">{BASE_STAKE_DISPLAY} $LAB</span> (first {FREE_LABS_COUNT} labs)</p>
+        <p>Additional labs: <span className="font-semibold">+{STAKE_PER_ADDITIONAL_LAB_DISPLAY} $LAB</span> per lab</p>
       </div>
 
       {/* Stake/Unstake actions (wallet users only) */}
       {!isSSO && (
-        <div className="space-y-3 pt-2 border-t border-slate-700/50">
+        <div className="space-y-3 pt-3" style={{ borderTop: '1px solid var(--color-ui-label-medium)' }}>
           {/* Stake input */}
           <div className="flex gap-2">
             <input
@@ -267,16 +280,21 @@ export default function ProviderStakingPanel({
               value={stakeAmount}
               onChange={(e) => setStakeAmount(e.target.value)}
               disabled={activeAction === 'stake'}
-              className="flex-1 bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 disabled:opacity-50"
+              className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 disabled:opacity-50 transition-all text-black bg-white"
+              style={{ 
+                backgroundColor: 'var(--color-background-light)', 
+                border: '1px solid var(--color-ui-label-medium)',
+                color: '#000'
+              }}
             />
             <button
               onClick={handleStake}
               disabled={!stakeAmount || activeAction === 'stake' || Number(stakeAmount) <= 0}
-              className="w-32 text-center px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-28 text-center px-4 py-2.5 rounded-lg text-sm font-medium bg-success text-white hover:bg-success-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
             >
               {activeAction === 'stake' ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  <span className="size-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Staking...
                 </span>
               ) : (
@@ -295,16 +313,21 @@ export default function ProviderStakingPanel({
               value={unstakeAmount}
               onChange={(e) => setUnstakeAmount(e.target.value)}
               disabled={activeAction === 'unstake' || !canUnstake}
-              className="flex-1 bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 disabled:opacity-50"
+              className="flex-1 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-warning/50 disabled:opacity-50 transition-all text-black bg-white"
+              style={{ 
+                backgroundColor: 'var(--color-background-light)', 
+                border: '1px solid var(--color-ui-label-medium)',
+                color: '#000'
+              }}
             />
             <button
               onClick={handleUnstake}
               disabled={!unstakeAmount || activeAction === 'unstake' || !canUnstake || Number(unstakeAmount) <= 0}
-              className="w-32 text-center px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-28 text-center px-4 py-2.5 rounded-lg text-sm font-medium bg-warning text-white hover:bg-warning-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
             >
               {activeAction === 'unstake' ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  <span className="size-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Unstaking...
                 </span>
               ) : (
@@ -314,7 +337,7 @@ export default function ProviderStakingPanel({
           </div>
 
           {!canUnstake && BigInt(stakedAmount || '0') > 0n && (
-            <p className="text-[11px] text-amber-400/70">
+            <p className="text-[11px]" style={{ color: 'var(--color-warning-text)', opacity: 0.8 }}>
               Unstaking locked — active reservations or lock period in effect
             </p>
           )}
@@ -323,7 +346,7 @@ export default function ProviderStakingPanel({
 
       {/* SSO read-only notice */}
       {isSSO && BigInt(stakedAmount || '0') > 0n && (
-        <p className="text-[11px] text-slate-500 italic">
+        <p className="text-[11px] italic" style={{ color: 'var(--color-text-secondary)' }}>
           Stake managed by your institution&apos;s wallet
         </p>
       )}

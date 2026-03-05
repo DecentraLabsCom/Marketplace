@@ -33,7 +33,7 @@ export default function ProviderLabsList({
 }) {
   if (isLoading) {
     return (
-      <div className="w-full min-[1080px]:flex-1">
+      <div className="w-full">
         <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">Your Labs</h2>
         <p className="text-gray-300 text-center">Loading labs...</p>
       </div>
@@ -42,7 +42,7 @@ export default function ProviderLabsList({
 
   if (ownedLabs.length === 0) {
     return (
-      <div className="w-full min-[1080px]:flex-1">
+      <div className="w-full">
         <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">Your Labs</h2>
         <p className="text-gray-300 text-center">
           You have no labs registered yet. Press &quot;Add New Lab&quot; to get started.
@@ -52,29 +52,27 @@ export default function ProviderLabsList({
   }
 
   return (
-    <div className="w-full min-[1080px]:flex-1">
+    <div className="w-full">
       <h2 className="text-xl font-semibold mb-4 text-center text-slate-100">Your Labs</h2>
       
       {/* Lab Selector */}
-      <div className="flex justify-center">
-        <select 
-          className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4 max-w-4xl"
-          value={selectedLabId}
-          onChange={onSelectChange}
-        >
-          <option value="" disabled>
-            Select one of your labs
-          </option>
-          {ownedLabs
-            .filter(lab => !isNaN(lab.id))
-            .map((lab) => (
-              <option key={lab.id} value={lab.id}>
-                {lab.name}
-              </option>
-            ))
-          }
-        </select>
-      </div>
+      <select 
+        className="w-full p-3 border-2 bg-gray-800 text-white rounded mb-4"
+        value={selectedLabId}
+        onChange={onSelectChange}
+      >
+        <option value="" disabled>
+          Select one of your labs
+        </option>
+        {ownedLabs
+          .filter(lab => !isNaN(lab.id))
+          .map((lab) => (
+            <option key={lab.id} value={lab.id}>
+              {lab.name}
+            </option>
+          ))
+        }
+      </select>
       
       {/* Selected Lab Details */}
       {selectedLab && (
