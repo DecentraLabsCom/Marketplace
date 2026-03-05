@@ -221,6 +221,53 @@ describe("useSsoReservationFlow", () => {
     expect(result.current.isSSOFlowLocked).toBe(false);
   });
 
+  test("prefers confirmed non-optimistic booking when optimistic duplicate exists", () => {
+    const { result, rerender } = renderHook(
+      ({ userBookingsForLab, labBookings }) =>
+        useSsoReservationFlow({
+          isSSO: true,
+          userBookingsForLab,
+          labBookings,
+        }),
+      {
+        initialProps: { userBookingsForLab: [], labBookings: [] },
+      }
+    );
+
+    act(() => {
+      result.current.markSsoRequestSent({
+        reservationKey: "res-dup-sso",
+        labId: "2",
+        start: "1700003000",
+      });
+    });
+
+    // userBookings has stale optimistic pending copy; labBookings already has confirmed real copy.
+    rerender({
+      userBookingsForLab: [
+        {
+          reservationKey: "res-dup-sso",
+          labId: "2",
+          start: "1700003000",
+          status: 0,
+          isOptimistic: true,
+        },
+      ],
+      labBookings: [
+        {
+          reservationKey: "res-dup-sso",
+          labId: "2",
+          start: "1700003000",
+          status: 1,
+          isOptimistic: false,
+        },
+      ],
+    });
+
+    expect(result.current.ssoBookingStage).toBe("idle");
+    expect(result.current.isSSOFlowLocked).toBe(false);
+  });
+
   test("resets flow when denial event is emitted", () => {
     const { result } = renderHook(() =>
       useSsoReservationFlow({
@@ -248,4 +295,3 @@ describe("useSsoReservationFlow", () => {
     expect(result.current.isSSOFlowLocked).toBe(false);
   });
 });
-
