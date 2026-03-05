@@ -31,10 +31,13 @@ export const globalQueryClient = new QueryClient({
 });
 
 // Create persister for localStorage (sync API, no React Native peer required)
+const serializeWithBigIntSupport = (value) =>
+  JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item));
+
 const persister = createSyncStoragePersister({
   storage: typeof window !== 'undefined' ? window.localStorage : null,
   key: 'decentralabs-query-cache',
-  serialize: JSON.stringify,
+  serialize: serializeWithBigIntSupport,
   deserialize: JSON.parse,
 });
 

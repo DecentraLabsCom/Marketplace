@@ -61,7 +61,26 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
-    console.error('❌ [API] Error getting institutional user reservation count:', error)
+    if (
+      error?.code === 'BAD_REQUEST' &&
+      typeof error?.message === 'string' &&
+      error.message.includes('affiliation domain')
+    ) {
+      devLog.warn(
+        '[API] getUserReservationCount skipped for non-SSO session (missing affiliation domain)',
+      )
+      return Response.json(
+        {
+          count: 0,
+          institutionAddress: null,
+          institutionDomain: null,
+        },
+        { status: 200 },
+      )
+    }
+
+    console.error('Error getting institutional user reservation count:', error)
     return handleGuardError(error)
   }
 }
+

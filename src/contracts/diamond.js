@@ -7,7 +7,7 @@ export const contractAddresses = {
   sepolia: process.env.NEXT_PUBLIC_DIAMOND_CONTRACT_ADDRESS_SEPOLIA || "0x..."
 };
 
-export const contractABI = [
+const rawContractABI = [
   {
     "inputs": [
       {
@@ -8051,3 +8051,8 @@ export const contractABI = [
     "type": "receive"
   }
 ];
+
+// Deployed contract interactions never use constructors. The merged ABI currently
+// includes duplicated constructor fragments, which triggers repeated ethers warnings
+// ("duplicate definition - constructor") on every interface creation.
+export const contractABI = rawContractABI.filter((fragment) => fragment?.type !== 'constructor');

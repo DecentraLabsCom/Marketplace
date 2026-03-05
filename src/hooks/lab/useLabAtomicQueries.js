@@ -213,6 +213,11 @@ const getLabQueryFn = createSSRSafeQuery(async (labId) => {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
+
+  if (response.status === 404) {
+    devLog.warn(`🧹 useLabSSO: lab ${labId} no longer exists on-chain`);
+    return null;
+  }
   
   if (!response.ok) {
     throw new Error(`Failed to fetch lab ${labId}: ${response.status}`);
@@ -600,6 +605,11 @@ const getIsTokenListedQueryFn = createSSRSafeQuery(async (labId) => {
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store',
   });
+
+  if (response.status === 404) {
+    devLog.warn(`🧹 useIsTokenListedSSO: lab ${labId} no longer exists on-chain`);
+    return { isListed: false, notFound: true };
+  }
   
   if (!response.ok) {
     throw new Error(`Failed to fetch listing status for lab ${labId}: ${response.status}`);

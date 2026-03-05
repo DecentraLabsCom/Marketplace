@@ -7,6 +7,22 @@
 import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
 
+const isMissingLabError = (error) => {
+  const details = String(
+    error?.reason ||
+    error?.shortMessage ||
+    error?.message ||
+    ''
+  ).toLowerCase();
+
+  return (
+    details.includes('lab does not exist') ||
+    details.includes('erc721nonexistenttoken') ||
+    details.includes('nonexistent token') ||
+    details.includes('token does not exist')
+  );
+};
+
 /**
  * Retrieves specific lab data from contract
  * @param {Request} request - HTTP request with query parameters
@@ -62,6 +78,14 @@ export async function GET(request) {
     });
 
   } catch (error) {
+    if (isMissingLabError(error)) {
+      return Response.json({
+        error: `Lab ${numericLabId} does not exist`,
+        labId: numericLabId,
+        type: 'NOT_FOUND',
+      }, { status: 404 });
+    }
+
     console.error(`❌ Error fetching lab ${labId} data:`, error);
     
     return Response.json({ 
