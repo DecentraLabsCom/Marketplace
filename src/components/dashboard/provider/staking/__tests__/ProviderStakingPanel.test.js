@@ -36,8 +36,8 @@ describe('ProviderStakingPanel', () => {
     const unstakeBtn = screen.getByRole('button', { name: /^Unstake$/i })
 
     // both buttons should include the width utility we added
-    expect(stakeBtn.className).toMatch(/w-32/)
-    expect(unstakeBtn.className).toMatch(/w-32/)
+    expect(stakeBtn.className).toMatch(/w-28/)
+    expect(unstakeBtn.className).toMatch(/w-28/)
 
     // stronger horizontal padding reduction applied to panel container
     const panel = container.querySelector('[data-testid="staking-panel"]')

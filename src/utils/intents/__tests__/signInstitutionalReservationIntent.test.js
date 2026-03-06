@@ -17,7 +17,7 @@ describe('signInstitutionalReservationIntent utilities', () => {
       executor: '0x000000000000000000000000000000000000beef',
       signer: '0x000000000000000000000000000000000000beef',
       schacHomeOrganization: 'example.edu',
-      puc: 'user-puc',
+      puc: 'user-id',
       labId: 1,
       start: 1,
       end: 2,

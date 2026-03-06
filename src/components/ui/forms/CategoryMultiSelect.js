@@ -53,7 +53,7 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
         data-testid="category-multiselect"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`w-full p-2 border rounded min-h-10.5 flex flex-wrap gap-2 items-center cursor-pointer
-          ${disabled ? 'bg-gray-200 text-gray-400 cursor-not-allowed border-gray-300' : 'bg-white hover:border-gray-400'}
+          ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300' : 'bg-white hover:border-gray-400'}
           ${error ? 'border-red-500' : 'border-gray-300'}
         `}
       >
@@ -64,14 +64,14 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
             {selectedCategories.map(category => (
               <span
                 key={category}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-800 rounded text-sm"
               >
                 {category}
                 {!disabled && (
                   <button
                     type="button"
                     onClick={(e) => removeCategory(category, e)}
-                    className="hover:text-blue-900"
+                    className="hover:text-primary-900"
                   >
                     <X size={14} />
                   </button>
@@ -102,15 +102,15 @@ export default function CategoryMultiSelect({ value = [], onChange, disabled = f
                     role="option"
                     aria-selected={selectedCategories.includes(category)}
                     onClick={() => toggleCategory(category)}
-                    className={`px-4 py-2 cursor-pointer hover:bg-blue-50 flex items-center gap-2
-                      ${selectedCategories.includes(category) ? 'bg-blue-50' : ''}
+                    className={`px-4 py-2 cursor-pointer hover:bg-primary-50 flex items-center gap-2 text-gray-900
+                      ${selectedCategories.includes(category) ? 'bg-primary-50' : ''}
                     `}
                   >
                     <input
                       type="checkbox"
                       checked={selectedCategories.includes(category)}
                       onChange={() => {}} // Controlled by parent div onClick
-                      className="cursor-pointer"
+                      className="cursor-pointer accent-primary-600 w-4 h-4"
                     />
                     <span className="text-sm">{category}</span>
                   </div>

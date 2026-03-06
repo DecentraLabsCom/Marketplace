@@ -19,7 +19,6 @@
 import devLog from '@/utils/dev/logger'
 import { resolveInstitutionalBackendUrl } from './institutionalBackend'
 import { computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
-import { normalizePuc } from '@/utils/auth/puc'
 
 const getSpApiKey = () => process.env.INSTITUTION_BACKEND_SP_API_KEY || null
 
@@ -70,34 +69,27 @@ export const OnboardingErrorCode = {
 
 /**
  * Extracts the stable user identifier from SAML session data.
- * Priority: schacPersonalUniqueCode > eduPersonPrincipalName > uid@affiliation
+ * R&S shared identifier:
+ * - eduPersonPrincipalName
+ * - eduPersonPrincipalName|eduPersonTargetedID
  * 
  * @param {Object} userData - User data from SAML session
  * @returns {string|null} Stable user identifier
  */
 export function extractStableUserId(userData) {
   if (!userData) return null
-  
-  // Priority 1: schacPersonalUniqueCode (most stable across institutions)
-  if (userData.personalUniqueCode || userData.schacPersonalUniqueCode) {
-    const normalizedPuc = normalizePuc(userData.personalUniqueCode || userData.schacPersonalUniqueCode)
-    if (normalizedPuc) {
-      return normalizedPuc
-    }
+
+  if (userData.eduPersonPrincipalName) {
+    return userData.eduPersonTargetedID
+      ? `${userData.eduPersonPrincipalName}|${userData.eduPersonTargetedID}`
+      : userData.eduPersonPrincipalName
   }
-  
-  // Priority 2: eduPersonPrincipalName (scoped identifier)
-  if (userData.scopedRole) {
-    return userData.scopedRole
+
+  if (userData.id && typeof userData.id === 'string') {
+    return userData.id
   }
-  
-  // Priority 3: Construct from uid + affiliation
-  if (userData.id && userData.affiliation) {
-    return `${userData.id}@${userData.affiliation}`
-  }
-  
-  // Fallback: email (less stable but widely available)
-  return userData.email || null
+
+  return null
 }
 
 /**

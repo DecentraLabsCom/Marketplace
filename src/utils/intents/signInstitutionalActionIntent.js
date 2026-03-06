@@ -140,7 +140,6 @@ export async function buildActionIntent({
   if (!action && action !== 0) throw new Error('action is required');
   if (!executor) throw new Error('executor is required to build action intent');
   if (!signer) throw new Error('signer is required to build action intent');
-  if (!schacHomeOrganization) throw new Error('schacHomeOrganization is required');
 
   const resolvedNowSec =
     nowSec !== undefined && nowSec !== null

@@ -8,6 +8,43 @@ import { getContractInstance } from '../../utils/contractInstance'
 import { createSerializedJsonResponse } from '@/utils/blockchain/bigIntSerializer'
 import devLog from '@/utils/dev/logger'
 
+const EXISTENCE_CHECK_CONCURRENCY = 12;
+
+const isMissingLabError = (error) => {
+  const details = String(
+    error?.reason ||
+    error?.shortMessage ||
+    error?.message ||
+    ''
+  ).toLowerCase();
+
+  return (
+    details.includes('lab does not exist') ||
+    details.includes('erc721nonexistenttoken') ||
+    details.includes('nonexistent token') ||
+    details.includes('token does not exist')
+  );
+};
+
+const mapWithConcurrency = async (items, concurrency, mapper) => {
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+};
+
 /**
  * Retrieves basic lab list from contract
  * @returns {Response} JSON response with array of basic lab data
@@ -52,12 +89,55 @@ export async function GET() {
       throw error;
     }
     
-    // Convert all BigInt lab IDs to numbers for JSON serialization
-    const convertedLabList = ids.map(labId => Number(labId));
+    // Normalize and deduplicate lab IDs from contract response
+    const convertedLabList = Array.from(
+      new Set(
+        ids
+          .map((labId) => Number(labId))
+          .filter((labId) => Number.isFinite(labId))
+      )
+    );
+
+    // Defensive filtering: some contract versions can return IDs that were deleted on-chain.
+    // Keep only IDs that still resolve as existing tokens.
+    const existenceChecks = await mapWithConcurrency(
+      convertedLabList,
+      EXISTENCE_CHECK_CONCURRENCY,
+      async (candidateLabId) => {
+        try {
+          await contract.ownerOf(candidateLabId);
+          return { labId: candidateLabId, exists: true };
+        } catch (error) {
+          if (isMissingLabError(error)) {
+            return { labId: candidateLabId, exists: false };
+          }
+          devLog.warn('⚠️ ownerOf existence check failed, keeping lab id to avoid false negatives', {
+            labId: candidateLabId,
+            message: error?.message,
+            reason: error?.reason,
+            shortMessage: error?.shortMessage,
+          });
+          return { labId: candidateLabId, exists: true };
+        }
+      }
+    );
+
+    const filteredLabList = existenceChecks
+      .filter((check) => check?.exists)
+      .map((check) => check.labId);
+
+    const removedCount = convertedLabList.length - filteredLabList.length;
+    if (removedCount > 0) {
+      devLog.warn('🧹 Removed deleted lab IDs from getAllLabs response', {
+        removedCount,
+        before: convertedLabList.length,
+        after: filteredLabList.length,
+      });
+    }
     
-    console.log(`✅ Successfully fetched ${convertedLabList.length} labs from contract`);
+    console.log(`✅ Successfully fetched ${filteredLabList.length} labs from contract`);
     
-    return createSerializedJsonResponse(convertedLabList, { 
+    return createSerializedJsonResponse(filteredLabList, { 
       status: 200
     });
 

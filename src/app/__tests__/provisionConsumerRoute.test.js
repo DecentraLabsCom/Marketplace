@@ -129,7 +129,6 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'consumer.edu',
       organizationName: 'Consumer Institution',
       schacHomeOrganization: 'consumer.edu',
     });
@@ -151,7 +150,6 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'consumer.edu',
       organizationName: 'Consumer Institution',
       schacHomeOrganization: 'consumer.edu',
     });
@@ -201,14 +199,13 @@ describe('/api/institutions/provisionConsumer route', () => {
     );
   });
 
-  test('uses session attributes when consumerName not provided', async () => {
+  test('derives consumer name from domain when consumerName not provided', async () => {
     requireAuth.mockResolvedValue({
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'auto.edu',
-      organizationName: 'Auto Institution',
       schacHomeOrganization: 'auto.edu',
+      organizationName: 'Auto Institution',
     });
 
     signProvisioningToken.mockResolvedValue({
@@ -230,7 +227,7 @@ describe('/api/institutions/provisionConsumer route', () => {
     expect(res.status).toBe(200);
     
     const json = await res.json();
-    expect(json.payload.consumerName).toBe('Auto Institution');
+    expect(json.payload.consumerName).toBe('AUTO');
     expect(json.payload.consumerOrganization).toBe('auto.edu');
   });
 
@@ -239,7 +236,7 @@ describe('/api/institutions/provisionConsumer route', () => {
       samlAssertion: 'valid-assertion',
       role: 'admin',
       scopedRole: 'admin',
-      affiliation: 'consumer.edu',
+      schacHomeOrganization: 'consumer.edu',
       organizationName: 'Consumer Test',
     });
 

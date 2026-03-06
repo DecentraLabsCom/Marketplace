@@ -13,7 +13,7 @@ import {
   useReservationRequest, 
   useBookingCacheUpdates 
 } from '@/hooks/booking/useBookings'
-import { BOOKING_STATUS, isCancelledBooking } from '@/utils/booking/bookingStatus'
+import { BOOKING_STATUS, BOOKING_STATE, normalizeBookingStatusState, isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import { normalizeReservationKey } from '@/utils/booking/reservationKey'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
@@ -22,6 +22,7 @@ import { selectChain } from '@/utils/blockchain/selectChain'
 import { useSsoReservationFlow, SSO_BOOKING_STAGE } from './useSsoReservationFlow'
 import { useWalletReservationFlow } from './useWalletReservationFlow'
 import { useReservationButtonState } from './useReservationButtonState'
+import { findTrackedBookingForFlow } from './flowTracking'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationRequestAcceptedAwaitingOnChain,
@@ -72,25 +73,8 @@ const buildRequestMatchKey = (booking) => {
   return null
 }
 
-const findTrackedBookingForRequest = (bookings, activeRequest) => {
-  if (!activeRequest || !Array.isArray(bookings) || bookings.length === 0) return null
-
-  const normalizedRequestKey = normalizeReservationKey(activeRequest.reservationKey)
-  const requestedLabId = String(activeRequest.labId)
-  const requestedStart = toEpochSeconds(activeRequest.start)
-
-  return bookings.find((booking) => {
-    if (String(booking?.labId) !== requestedLabId) return false
-
-    const bookingKey = normalizeReservationKey(booking?.reservationKey || booking?.id)
-    if (normalizedRequestKey && bookingKey && bookingKey === normalizedRequestKey) return true
-
-    const bookingStart = toEpochSeconds(booking?.start)
-    if (!Number.isFinite(requestedStart) || !Number.isFinite(bookingStart)) return false
-
-    return Math.abs(bookingStart - requestedStart) <= 60
-  }) || null
-}
+const findTrackedBookingForRequest = (bookings, activeRequest) =>
+  findTrackedBookingForFlow(bookings, activeRequest)
 
 const buildPendingCalendarBooking = (request) => {
   if (!request) return null
@@ -547,6 +531,15 @@ export function useLabReservationState({
 
     // Wallet flow relies on BookingEventContext for confirmations
     if (!isSSO) {
+      const walletBookingState = normalizeBookingStatusState(matchingRealBooking)
+      const shouldUnlockWalletFlow =
+        walletBookingState &&
+        walletBookingState !== BOOKING_STATE.REQUESTED &&
+        walletBookingState !== BOOKING_STATE.PENDING
+
+      if (shouldUnlockWalletFlow) {
+        resetWalletReservationFlow()
+      }
       setPendingData(null)
       return
     }
@@ -564,7 +557,7 @@ export function useLabReservationState({
       setPendingData(null)
       setForceRefresh(prev => prev + 1)
     }
-  }, [labBookings, pendingData, bookingCacheUpdates, isSSO])
+  }, [labBookings, pendingData, bookingCacheUpdates, isSSO, resetWalletReservationFlow])
 
   // Handle transaction errors
   useEffect(() => {

@@ -59,6 +59,11 @@ const resolvePopupCeremonyUrl = (ceremonyUrl) => {
   }
 }
 
+const buildBackendAuthHeaders = (token) =>
+  token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
+
 /**
  * Hook for managing institutional onboarding
  * 
@@ -156,6 +161,7 @@ export function useInstitutionalOnboarding({
 
       const sessionData = await sessionResponse.json()
       const stableUserId = sessionData.meta?.stableUserId
+      const backendAuthToken = sessionData.auth?.backendAuthToken || sessionData.meta?.backendAuthToken || null
       const markerPayload = {
         stableUserId,
         institutionId: sessionData.meta?.institutionId || institutionDomain || null,
@@ -173,6 +179,7 @@ export function useInstitutionalOnboarding({
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...buildBackendAuthHeaders(backendAuthToken),
         },
       })
 
@@ -280,6 +287,7 @@ export function useInstitutionalOnboarding({
       }
 
       const sessionData = await sessionResponse.json()
+      const backendAuthToken = sessionData.auth?.backendAuthToken || sessionData.meta?.backendAuthToken || null
       
       if (!sessionData.payload) {
         throw new Error('Invalid session data response')
@@ -292,6 +300,7 @@ export function useInstitutionalOnboarding({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildBackendAuthHeaders(backendAuthToken),
         },
         body: JSON.stringify(sessionData.payload),
       })
@@ -317,6 +326,7 @@ export function useInstitutionalOnboarding({
         backendUrl: institutionBackendUrl,
         stableUserId: sessionData.meta.stableUserId,
         institutionId: sessionData.meta.institutionId,
+        backendAuthToken,
         expiresAt: ibData.expiresAt || null,
       }
 
@@ -326,6 +336,7 @@ export function useInstitutionalOnboarding({
         backendUrl: resultData.backendUrl,
         stableUserId: resultData.stableUserId,
         institutionId: resultData.institutionId,
+        backendAuthToken: resultData.backendAuthToken,
       })
 
       setState(OnboardingState.REDIRECTING)
@@ -451,7 +462,10 @@ export function useInstitutionalOnboarding({
             `${session.backendUrl}/onboarding/webauthn/status/${session.sessionId}`,
             {
               method: 'GET',
-              headers: { 'Accept': 'application/json' },
+              headers: {
+                Accept: 'application/json',
+                ...buildBackendAuthHeaders(session.backendAuthToken),
+              },
               signal: pollControllerRef.current?.signal
             }
           )

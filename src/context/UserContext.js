@@ -263,6 +263,7 @@ function UserDataCore({ children }) {
                 const sessionData = await sessionResponse.json();
                 const stableUserId = sessionData.meta?.stableUserId;
                 const institutionIdFromSession = sessionData.meta?.institutionId || institutionDomain || null;
+                const backendAuthToken = sessionData.auth?.backendAuthToken || sessionData.meta?.backendAuthToken || null;
 
                 if (!stableUserId) {
                     devLog.warn('[InstitutionalOnboarding] No stableUserId in session');
@@ -281,7 +282,10 @@ function UserDataCore({ children }) {
                 
                 const statusResponse = await fetch(statusUrl, {
                     method: 'GET',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(backendAuthToken ? { Authorization: `Bearer ${backendAuthToken}` } : {}),
+                    },
                 });
 
                 if (cancelled) return;

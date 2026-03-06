@@ -98,10 +98,8 @@ class MarketplaceJwtService {
    * @param {Object} samlAttributes - User attributes from SAML2 session
    * @param {string} samlAttributes.username - User's username/identifier
    * @param {string} samlAttributes.email - User's email address
-   * @param {string} samlAttributes.uid - User's unique identifier
    * @param {string} samlAttributes.displayName - User's display name
    * @param {string} samlAttributes.schacHomeOrganization - User's home organization
-   * @param {string} samlAttributes.eduPersonAffiliation - User's institutional affiliation
    * @param {string} samlAttributes.eduPersonScopedAffiliation - User's scoped affiliation
    * @returns {string} Signed JWT token
    * @throws {Error} If JWT generation fails
@@ -127,10 +125,9 @@ class MarketplaceJwtService {
       const payload = {
         sub: samlAttributes.username,                                    // Subject (username)
         email: samlAttributes.email || '',                              // User email
-        uid: samlAttributes.uid || samlAttributes.username,             // User ID
+        uid: samlAttributes.username,                                   // User ID (R&S aligned)
         displayName: samlAttributes.displayName || samlAttributes.username, // Display name
         schacHomeOrganization: samlAttributes.schacHomeOrganization || '', // Home organization
-        eduPersonAffiliation: samlAttributes.eduPersonAffiliation || '', // Institutional role
         eduPersonScopedAffiliation: samlAttributes.eduPersonScopedAffiliation || '', // Scoped role
         iat: Math.floor(Date.now() / 1000),                            // Issued at
         exp: Math.floor(Date.now() / 1000) + parseInt(process.env.JWT_EXPIRATION_MS || '60000') / 1000 // Expires in
@@ -166,7 +163,7 @@ class MarketplaceJwtService {
    *
    * @param {Object} params
    * @param {string} params.userId - User ID matching SAML assertion
-   * @param {string} params.affiliation - Institution domain (schacHomeOrganization)
+   * @param {string} [params.affiliation] - Institution domain (schacHomeOrganization)
    * @param {string} params.institutionalProviderWallet - Institution wallet address
    * @param {string} [params.puc] - Personal unique code (optional)
    * @param {string|string[]} [params.scope] - OAuth-style scope for booking info
@@ -180,6 +177,7 @@ class MarketplaceJwtService {
     puc,
     scope = 'booking:read',
     bookingInfoAllowed = true,
+    audience,
   } = {}) {
     try {
       if (!this.privateKey) {
@@ -194,10 +192,6 @@ class MarketplaceJwtService {
         throw new Error('userId is required for SAML auth token generation');
       }
 
-      if (!affiliation) {
-        throw new Error('affiliation is required for SAML auth token generation');
-      }
-
       if (institutionalProviderWallet) {
         const trimmed = institutionalProviderWallet.trim();
         if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
@@ -210,7 +204,7 @@ class MarketplaceJwtService {
 
       const payload = {
         userid: userId,
-        affiliation,
+        affiliation: affiliation || '',
         bookingInfoAllowed,
         scope,
         iat: nowSec,
@@ -228,6 +222,9 @@ class MarketplaceJwtService {
       const token = jwt.sign(payload, this.privateKey, {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
+        audience: audience || process.env.SAML_AUTH_JWT_AUDIENCE || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
+        subject: userId,
+        jwtid: randomUUID(),
       });
 
       devLog.log('INFO: SAML auth JWT generated successfully for user:', userId);
@@ -255,6 +252,7 @@ class MarketplaceJwtService {
     audience,
     expiresInSeconds,
     subject,
+    claims,
   } = {}) {
     try {
       if (!this.privateKey) {
@@ -273,7 +271,18 @@ class MarketplaceJwtService {
       const safeTtl = Number.isFinite(ttlSeconds) && ttlSeconds > 0 ? ttlSeconds : 60;
       const expSec = nowSec + safeTtl;
 
+      const extraClaims = claims && typeof claims === 'object' ? { ...claims } : {};
+      delete extraClaims.scope;
+      delete extraClaims.scopes;
+      delete extraClaims.iat;
+      delete extraClaims.exp;
+      delete extraClaims.iss;
+      delete extraClaims.aud;
+      delete extraClaims.sub;
+      delete extraClaims.jti;
+
       const payload = {
+        ...extraClaims,
         scope: scope || process.env.INTENTS_JWT_SCOPE || 'intents:submit intents:status',
         iat: nowSec,
         exp: expSec,
@@ -283,7 +292,7 @@ class MarketplaceJwtService {
         algorithm: 'RS256',
         issuer: process.env.JWT_ISSUER || 'marketplace',
         audience: audience || process.env.INTENTS_JWT_AUDIENCE || 'blockchain-services',
-        subject: subject || process.env.INTENTS_JWT_SUBJECT || 'marketplace-intents',
+        subject: subject || process.env.INTENTS_JWT_SUBJECT || 'blockchain-services',
         jwtid: randomUUID(),
       });
 
@@ -444,7 +453,6 @@ class MarketplaceJwtService {
       // Basic issuer identity from SAML user
       const issuerId =
         samlUser.id ||
-        samlUser.uid ||
         samlUser.username ||
         samlUser.email ||
         'unknown';

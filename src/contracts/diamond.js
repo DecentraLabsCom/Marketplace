@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Diamond Contract addresses + ABI source of truth.
  * ABI is maintained in diamondAbi.json (synced from smart-contracts output).
  */
@@ -11,4 +11,3 @@ export const contractAddresses = {
 }
 
 export const contractABI = contractAbiJson
-

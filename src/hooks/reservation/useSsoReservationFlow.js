@@ -1,37 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BOOKING_STATE, normalizeBookingStatusState } from '@/utils/booking/bookingStatus'
 import { normalizeReservationKey } from '@/utils/booking/reservationKey'
+import { findTrackedBookingForFlow, isFinalBookingState } from './flowTracking'
 
 export const SSO_BOOKING_STAGE = {
   IDLE: 'idle',
   PROCESSING: 'processing',
   REQUEST_SENT: 'request_sent',
   REQUEST_REGISTERED: 'request_registered',
-}
-
-const toEpochSeconds = (value) => {
-  const numeric = Number(value)
-  return Number.isFinite(numeric) ? numeric : null
-}
-
-const findTrackedSsoBooking = (bookings, activeRequest) => {
-  if (!activeRequest || !Array.isArray(bookings) || bookings.length === 0) return null
-
-  const normalizedRequestKey = normalizeReservationKey(activeRequest.reservationKey)
-  const requestedLabId = String(activeRequest.labId)
-  const requestedStart = toEpochSeconds(activeRequest.start)
-
-  return bookings.find((booking) => {
-    if (String(booking?.labId) !== requestedLabId) return false
-
-    const bookingKey = normalizeReservationKey(booking?.reservationKey || booking?.id)
-    if (normalizedRequestKey && bookingKey && bookingKey === normalizedRequestKey) return true
-
-    const bookingStart = toEpochSeconds(booking?.start)
-    if (!Number.isFinite(requestedStart) || !Number.isFinite(bookingStart)) return false
-
-    return Math.abs(bookingStart - requestedStart) <= 60
-  })
 }
 
 /**
@@ -84,7 +60,7 @@ export function useSsoReservationFlow({
   useEffect(() => {
     if (!isSSO || !activeSsoRequest) return
 
-    const tracked = findTrackedSsoBooking(combinedBookings, activeSsoRequest)
+    const tracked = findTrackedBookingForFlow(combinedBookings, activeSsoRequest)
     if (!tracked) return
 
     const state = normalizeBookingStatusState(tracked)
@@ -97,13 +73,7 @@ export function useSsoReservationFlow({
       return
     }
 
-    if (
-      state === BOOKING_STATE.CONFIRMED ||
-      state === BOOKING_STATE.IN_USE ||
-      state === BOOKING_STATE.COMPLETED ||
-      state === BOOKING_STATE.COLLECTED ||
-      state === BOOKING_STATE.CANCELLED
-    ) {
+    if (isFinalBookingState(state)) {
       resetSsoReservationFlow()
     }
   }, [isSSO, activeSsoRequest, combinedBookings, resetSsoReservationFlow])
@@ -130,4 +100,3 @@ export function useSsoReservationFlow({
     resetSsoReservationFlow,
   }
 }
-

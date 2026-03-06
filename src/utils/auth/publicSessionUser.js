@@ -1,5 +1,7 @@
 const PUBLIC_SESSION_FIELDS = [
   'id',
+  'eduPersonTargetedID',
+  'eduPersonPrincipalName',
   'uid',
   'userid',
   'email',
@@ -12,10 +14,7 @@ const PUBLIC_SESSION_FIELDS = [
   'schacHomeOrganization',
   'role',
   'scopedRole',
-  'eduPersonAffiliation',
   'eduPersonScopedAffiliation',
-  'organizationType',
-  'schacHomeOrganizationType',
   'personalUniqueCode',
   'schacPersonalUniqueCode',
   'organizationName',
@@ -41,6 +40,10 @@ export function sanitizeSessionUserForClient(sessionUser) {
   }
   if (!sanitized.schacHomeOrganization && sanitized.affiliation) {
     sanitized.schacHomeOrganization = sanitized.affiliation;
+  }
+  // if ePPN is present but id missing, use it as id for convenience
+  if (sanitized.eduPersonPrincipalName && !sanitized.id) {
+    sanitized.id = sanitized.eduPersonPrincipalName;
   }
 
   return sanitized;

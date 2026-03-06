@@ -73,7 +73,7 @@ const STATUS_STYLES = {
   none: {
     bg: 'bg-[color:var(--color-background-surface)]',
     border: 'border-[color:var(--color-ui-label-medium)]',
-    text: 'text-[color:var(--color-text-secondary)]',
+    text: 'text-[color:var(--color-text-inverse)]',
     dot: 'bg-[color:var(--color-ui-label-medium)]',
     barBg: 'bg-[color:var(--color-background-surface)]',
     barFill: 'bg-[color:var(--color-ui-label-medium)]',
@@ -124,7 +124,7 @@ export default function StakeHealthIndicator({
           <span className={`w-1.5 h-1.5 rounded-full ${styles.dot} ${health.status !== 'none' ? 'animate-pulse' : ''}`} />
           {health.label}
         </span>
-        <span className="text-xs text-slate-400">
+        <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
           {Math.min(health.percentage, 100)}%
         </span>
       </div>

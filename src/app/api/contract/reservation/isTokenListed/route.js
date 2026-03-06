@@ -20,6 +20,21 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const noStoreHeaders = { 'Cache-Control': 'no-store, max-age=0' };
+const isMissingLabError = (error) => {
+  const details = String(
+    error?.reason ||
+    error?.shortMessage ||
+    error?.message ||
+    ''
+  ).toLowerCase();
+
+  return (
+    details.includes('lab does not exist') ||
+    details.includes('erc721nonexistenttoken') ||
+    details.includes('nonexistent token') ||
+    details.includes('token does not exist')
+  );
+};
 
 export async function GET(request) {
   const startTime = Date.now();
@@ -80,6 +95,16 @@ export async function GET(request) {
     const processingTime = Date.now() - startTime;
     devLog.error('❌ Error checking lab listing status:', error);
 
+    // Handle token/lab not found (common case after on-chain deletions)
+    if (isMissingLabError(error)) {
+      return Response.json({
+        error: 'Lab not found',
+        message: `Lab with ID ${numericLabId} does not exist`,
+        type: 'NOT_FOUND',
+        processingTime
+      }, { status: 404, headers: noStoreHeaders });
+    }
+
     // Handle specific contract errors
     if (error.message?.includes('execution reverted')) {
       const revertReason = error.message.match(/execution reverted: (.*)/)?.[1] || 'Unknown contract error';
@@ -99,16 +124,6 @@ export async function GET(request) {
         type: 'NETWORK_ERROR',
         processingTime
       }, { status: 503, headers: noStoreHeaders }); // Service Unavailable
-    }
-
-    // Handle token not found errors (common case)
-    if (error.message?.includes('TokenNotFound') || error.message?.includes('nonexistent')) {
-      return Response.json({
-        error: 'Lab not found',
-        message: `Lab with ID ${numericLabId} does not exist`,
-        type: 'NOT_FOUND',
-        processingTime
-      }, { status: 404, headers: noStoreHeaders });
     }
 
     // Generic server error for unexpected issues

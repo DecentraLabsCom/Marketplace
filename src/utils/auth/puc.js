@@ -1,7 +1,10 @@
 /**
- * Normalize institutional user identifiers that may arrive as SCHAC PUC URNs.
- * For values like `urn:...:personalUniqueCode:...:<PUC>`, returns the trailing
- * non-empty segment (`<PUC>`). Non-URN/non-SCHAC values are returned trimmed.
+ * Normalize an identifier string.
+ * Historically this was used for SCHAC Personal Unique Codes, but it now
+ * also functions as a generic normalizer for whatever stable user ID we
+ * derive from the SAML session (e.g. eduPersonTargetedID or session id).
+ * If the value resembles a SCHAC PUC urn we still strip the urn semantics,
+ * otherwise the trimmed string is returned verbatim.
  *
  * @param {string | null | undefined} value
  * @returns {string | null}
@@ -30,19 +33,29 @@ export function normalizePuc(value) {
 }
 
 /**
- * Resolve and normalize PUC from an authenticated session object.
+ * Resolve a stable shared user identifier from an authenticated session.
+ *
+ * Canonical format for on-chain usage:
+ *   - eduPersonPrincipalName
+ *   - eduPersonPrincipalName|eduPersonTargetedID
  *
  * @param {Object} session
  * @returns {string | null}
  */
 export function getNormalizedPucFromSession(session) {
-  const raw =
-    session?.schacPersonalUniqueCode ||
-    session?.personalUniqueCode ||
-    session?.puc ||
-    session?.personal_unique_code ||
-    null
+  const principalNameRaw = session?.eduPersonPrincipalName
+  const targetedIdRaw = session?.eduPersonTargetedID
+  const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
+  const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
 
-  return normalizePuc(raw)
+  if (principalName) {
+    return targetedId ? `${principalName}|${targetedId}` : principalName
+  }
+
+  // Session id is expected to already be the canonical shared identifier.
+  if (typeof session?.id === 'string' && session.id.trim()) {
+    return session.id.trim()
+  }
+
+  return null
 }
-

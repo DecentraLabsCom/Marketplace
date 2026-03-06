@@ -3,7 +3,7 @@
  * These hooks use API-based queryFns with useQueries for composition.
  * This matches the composed/specialized pattern used in booking hooks.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { 
   useAllLabsSSO,
   useLab,
@@ -21,12 +21,79 @@ import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { processMetadataImages } from '@/hooks/utils/metadataHelpers'
 import { buildEnrichedLab, collectMetadataImages } from './labEnrichmentHelpers'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
 
 const EMPTY_ARRAY = [];
+
+const extractStatusCodeFromError = (error) => {
+  const message = String(error?.message || '');
+  const directMatch = message.match(/:\s*(\d{3})(?:\D|$)/);
+  if (directMatch) return Number(directMatch[1]);
+  return null;
+};
+
+const collectDeletedLabIds = (labIds, labDetailResults, listingResults) => {
+  const deleted = new Set();
+
+  labIds.forEach((rawLabId, index) => {
+    const labId = Number(rawLabId);
+    if (!Number.isFinite(labId)) return;
+
+    const labResult = labDetailResults[index];
+    const listingResult = listingResults[index];
+
+    if (labResult?.isSuccess && (labResult.data === null || labResult.data === undefined)) {
+      deleted.add(labId);
+      return;
+    }
+
+    if (extractStatusCodeFromError(labResult?.error) === 404) {
+      deleted.add(labId);
+      return;
+    }
+
+    if (listingResult?.isSuccess && listingResult?.data?.notFound) {
+      deleted.add(labId);
+      return;
+    }
+
+    if (extractStatusCodeFromError(listingResult?.error) === 404) {
+      deleted.add(labId);
+    }
+  });
+
+  return Array.from(deleted);
+};
+
+const usePruneDeletedLabIds = (labIds, labDetailResults, listingResults) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!Array.isArray(labIds) || labIds.length === 0) return;
+
+    const deletedIds = collectDeletedLabIds(labIds, labDetailResults, listingResults);
+    if (deletedIds.length === 0) return;
+
+    const deletedSet = new Set(deletedIds.map((id) => Number(id)));
+
+    queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
+      if (!Array.isArray(oldData)) return oldData;
+      return oldData.filter((id) => !deletedSet.has(Number(id)));
+    });
+
+    deletedIds.forEach((labId) => {
+      const derivedKeys = labQueryKeys.derivedByLabId ? labQueryKeys.derivedByLabId(labId) : [];
+      derivedKeys.forEach((qk) => {
+        queryClient.removeQueries({ queryKey: qk, exact: true });
+      });
+    });
+
+    devLog.warn('🧹 Pruned deleted lab IDs from local cache', { deletedIds });
+  }, [queryClient, labIds, labDetailResults, listingResults]);
+};
 
 
 /**
@@ -111,6 +178,8 @@ export const useLabsForMarket = (options = {}) => {
       : [],
     combine: (results) => results
   });
+
+  usePruneDeletedLabIds(labIds, labDetailResults, listingResults);
 
   // Step 5.5: Get reputation data for all labs
   const reputationResults = useQueries({
@@ -511,6 +580,8 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     combine: (results) => results
   });
 
+  usePruneDeletedLabIds(ownedLabIds, labDetailResults, listingResults);
+
   // Get metadata for owned labs
   const metadataResults = useQueries({
     queries: labDetailResults.length > 0
@@ -692,6 +763,8 @@ export const useLabsForReservation = (options = {}) => {
       : [],
     combine: (results) => results
   });
+
+  usePruneDeletedLabIds(labIds, labDetailResults, listingResults);
 
   // Get lab data with IDs - only for listed labs
   const labsWithDetails = useMemo(() => {

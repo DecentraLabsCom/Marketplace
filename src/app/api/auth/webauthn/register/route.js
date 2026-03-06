@@ -1,7 +1,29 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { registerCredentialInBackend, verifyRegistration, getPucFromSession } from '@/utils/webauthn/service'
+import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
+import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionalBackendUrl } from '@/utils/onboarding/institutionalBackend'
 import devLog from '@/utils/dev/logger'
+
+async function resolveBackendUrlForSession(session) {
+  const institutionId = resolveInstitutionDomainFromSession(session)
+
+  if (!institutionId) {
+    return process.env.INSTITUTION_BACKEND_URL || null
+  }
+
+  const backendUrl = await resolveInstitutionalBackendUrl(institutionId)
+  if (backendUrl) {
+    return backendUrl
+  }
+
+  devLog.warn(
+    '[API] Skipping WebAuthn backend mirror because no institutional backend is configured for',
+    institutionId,
+  )
+  return null
+}
 
 export async function POST(request) {
   try {
@@ -21,9 +43,24 @@ export async function POST(request) {
     const record = await verifyRegistration(session, attestationResponse, request)
 
     let backendRegistered = false
-    const backendUrl = process.env.INSTITUTION_BACKEND_URL
+    const backendUrl = await resolveBackendUrlForSession(session)
     if (backendUrl) {
-      backendRegistered = await registerCredentialInBackend(record, backendUrl)
+      let backendAuthToken = null
+      try {
+        const backendAuth = await marketplaceJwtService.generateIntentBackendToken({
+          scope: 'webauthn:manage',
+          expiresInSeconds: 2 * 60,
+          subject: record.userId || puc,
+          claims: {
+            userid: record.userId || puc,
+          },
+        })
+        backendAuthToken = backendAuth.token
+      } catch (tokenError) {
+        devLog.warn('[API] Failed to generate backend auth token for WebAuthn register:', tokenError?.message || tokenError)
+      }
+
+      backendRegistered = await registerCredentialInBackend(record, backendUrl, { backendAuthToken })
     }
 
     return NextResponse.json({

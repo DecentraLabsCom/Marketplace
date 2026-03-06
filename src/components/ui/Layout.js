@@ -154,7 +154,7 @@ export function CardFooter({
  * Replicates the behavior of "container mx-auto px-4" exactly
  * @param {Object} props - Container props
  * @param {React.ReactNode} props.children - Container content
- * @param {'none'|'sm'|'md'|'lg'|'xl'} props.padding - Horizontal padding only (like px-4)
+ * @param {'none'|'sm'|'md'|'lg'|'xl'|'2xl'} props.padding - Horizontal padding only (like px-4)
  * @param {string} props.as - HTML element type
  */
 export function Container({
@@ -171,7 +171,8 @@ export function Container({
     sm: 'px-4',   // 1rem horizontal padding (default like original px-4)
     md: 'px-6',   // 1.5rem horizontal padding
     lg: 'px-8',   // 2rem horizontal padding
-    xl: 'px-10'   // 2.5rem horizontal padding
+    xl: 'px-10',  // 2.5rem horizontal padding
+    '2xl': 'px-30' // 4rem horizontal padding
   }
 
   const classes = cn(
@@ -461,7 +462,7 @@ CardFooter.propTypes = {
 Container.propTypes = {
   children: PropTypes.node.isRequired,
   as: PropTypes.string,
-  padding: PropTypes.oneOf(['none', 'sm', 'md', 'lg', 'xl']),
+  padding: PropTypes.oneOf(['none', 'sm', 'md', 'lg', 'xl', '2xl']),
   className: PropTypes.string
 }
 

@@ -54,9 +54,9 @@ describe('ProviderStakingModal', () => {
     const modalContent = overlay.querySelector('div')
     // modal width intentionally uses the project-specific utility class `max-w-180`
     expect(modalContent?.className || '').toMatch(/max-w-180/)
-    // grid gap reduced to better utilize modal width
+    // grid gap for better spacing between panels
     const grid = overlay.querySelector('.grid')
-    expect(grid?.className || '').toMatch(/gap-4/) 
+    expect(grid?.className || '').toMatch(/gap-5/) 
 
     // mocked panels render and receive props
     const stakingPanel = screen.getByTestId('mock-provider-staking-panel')

@@ -6,6 +6,7 @@
 import { BadRequestError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
 import { getNormalizedPucFromSession } from '@/utils/auth/puc'
+import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -52,19 +53,22 @@ export function normalizeOrganizationDomain(domain) {
 }
 
 /**
- * Extracts and validates the Personal Unique Code (PUC) from session
+ * Extracts and validates the canonical on-chain user identifier from session
+ * (formerly the PUC). Canonical format:
+ *   <eduPersonPrincipalName> or <eduPersonPrincipalName>|<eduPersonTargetedID>
  * @param {Object} session - The authenticated session object
- * @returns {string} Trimmed PUC string
- * @throws {BadRequestError} If PUC is missing or invalid
+ * @returns {string} Trimmed identifier string
+ * @throws {BadRequestError} If no usable identifier is found
  */
 export function getSessionPuc(session) {
-  const puc = getNormalizedPucFromSession(session)
+  // The helper now returns the canonical institution-scoped identifier.
+  const id = getNormalizedPucFromSession(session)
 
-  if (!puc || typeof puc !== 'string') {
-    throw new BadRequestError('SSO session missing personalUniqueCode')
+  if (!id || typeof id !== 'string') {
+    throw new BadRequestError('SSO session missing user identifier')
   }
 
-  return puc
+  return id
 }
 
 /**
@@ -76,7 +80,7 @@ export function getSessionPuc(session) {
  * @throws {BadRequestError} If institution is not registered or address is invalid
  */
 export async function resolveInstitutionAddressFromSession(session, contract) {
-  const affiliationDomain = session?.affiliation || session?.schacHomeOrganization
+  const affiliationDomain = resolveInstitutionDomainFromSession(session)
 
   const normalizedDomain = normalizeOrganizationDomain(affiliationDomain)
   const wallet = await contract.resolveSchacHomeOrganization(normalizedDomain)

@@ -91,10 +91,9 @@ describe("MarketplaceJwtService", () => {
           expect.objectContaining({
             sub: "testuser",
             email: "test@example.com",
-            uid: "uid123",
+            uid: "testuser",
             displayName: "Test User",
             schacHomeOrganization: "example.com",
-            eduPersonAffiliation: "student",
             eduPersonScopedAffiliation: "student@example.com",
           }),
           validPrivateKey,
@@ -133,7 +132,6 @@ describe("MarketplaceJwtService", () => {
         expect(payload).toHaveProperty("uid");
         expect(payload).toHaveProperty("displayName");
         expect(payload).toHaveProperty("schacHomeOrganization");
-        expect(payload).toHaveProperty("eduPersonAffiliation");
         expect(payload).toHaveProperty("eduPersonScopedAffiliation");
         expect(payload).toHaveProperty("iat");
         expect(payload).toHaveProperty("exp");
@@ -201,7 +199,7 @@ describe("MarketplaceJwtService", () => {
     });
 
     describe("Attribute handling and fallbacks", () => {
-      test("uses username as fallback for uid when not provided", async () => {
+      test("uses username as uid claim", async () => {
         const samlAttributes = {
           username: "testuser",
         };
@@ -234,11 +232,10 @@ describe("MarketplaceJwtService", () => {
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.email).toBe("");
         expect(payload.schacHomeOrganization).toBe("");
-        expect(payload.eduPersonAffiliation).toBe("");
         expect(payload.eduPersonScopedAffiliation).toBe("");
       });
 
-      test("prefers provided uid over username fallback", async () => {
+      test("ignores provided uid and keeps username as uid claim", async () => {
         const samlAttributes = {
           username: "testuser",
           uid: "custom-uid-123",
@@ -247,7 +244,7 @@ describe("MarketplaceJwtService", () => {
         await MarketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
-        expect(payload.uid).toBe("custom-uid-123");
+        expect(payload.uid).toBe("testuser");
       });
 
       test("prefers provided displayName over username fallback", async () => {
@@ -278,10 +275,9 @@ describe("MarketplaceJwtService", () => {
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.sub).toBe("user123");
         expect(payload.email).toBe("user@test.com");
-        expect(payload.uid).toBe("uid456");
+        expect(payload.uid).toBe("user123");
         expect(payload.displayName).toBe("Test User");
         expect(payload.schacHomeOrganization).toBe("test.edu");
-        expect(payload.eduPersonAffiliation).toBe("faculty");
         expect(payload.eduPersonScopedAffiliation).toBe("faculty@test.edu");
       });
     });
@@ -387,12 +383,20 @@ describe("MarketplaceJwtService", () => {
       ).rejects.toThrow("userId is required for SAML auth token generation");
     });
 
-    test("throws error when affiliation is missing", async () => {
-      await expect(
-        MarketplaceJwtService.generateSamlAuthToken({
-          userId: "user-1",
-        })
-      ).rejects.toThrow("affiliation is required for SAML auth token generation");
+    test("uses empty affiliation when missing", async () => {
+      const token = await MarketplaceJwtService.generateSamlAuthToken({
+        userId: "user-1",
+      });
+
+      expect(token).toBe("mocked.jwt.token");
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userid: "user-1",
+          affiliation: "",
+        }),
+        validPrivateKey,
+        expect.objectContaining({ algorithm: "RS256" })
+      );
     });
 
     test("throws error for invalid institutional wallet format", async () => {
@@ -403,6 +407,39 @@ describe("MarketplaceJwtService", () => {
           institutionalProviderWallet: "invalid-wallet",
         })
       ).rejects.toThrow("Invalid institutionalProviderWallet address format");
+    });
+
+    test('uses default audience when none provided', async () => {
+      // no env vars set
+      await MarketplaceJwtService.generateSamlAuthToken({
+        userId: 'user-default',
+      });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({
+          audience: 'blockchain-services',
+        })
+      );
+    });
+
+    test('passes audience and subject through to jwt.sign', async () => {
+      await MarketplaceJwtService.generateSamlAuthToken({
+        userId: 'user-2',
+        affiliation: 'aff',
+        institutionalProviderWallet: '0x1111111111111111111111111111111111111111',
+        audience: 'custom-audience',
+      });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({
+          audience: 'custom-audience',
+          subject: 'user-2',
+        })
+      );
     });
 
     test('generateIntentBackendToken defaults to 60 seconds when no env var or param', async () => {
@@ -417,6 +454,16 @@ describe("MarketplaceJwtService", () => {
       expect(result.expiresAt).toBe(expectedExpiresAt);
     });
 
+    test('generateIntentBackendToken defaults audience to blockchain-services', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+      await MarketplaceJwtService.generateIntentBackendToken();
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({ audience: 'blockchain-services' })
+      );
+    });
+
     test('generateIntentBackendToken respects expiresInSeconds parameter', async () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
 
@@ -425,6 +472,33 @@ describe("MarketplaceJwtService", () => {
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 30) * 1000).toISOString();
       expect(result.expiresAt).toBe(expectedExpiresAt);
+    });
+
+    test('generateIntentBackendToken includes audience/subject and extra claims', async () => {
+      jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+      const extra = { foo: 'bar', sub: 'hacked', aud: 'no', scope: 'nope' };
+
+      await MarketplaceJwtService.generateIntentBackendToken({
+        audience: 'my-aud',
+        subject: 'my-sub',
+        claims: extra,
+      });
+
+      // verify that reserved keys were removed and custom claim kept
+      const payload = jwt.sign.mock.calls[0][0];
+      expect(payload.foo).toBe('bar');
+      expect(payload.sub).toEqual(undefined);
+      expect(payload.aud).toEqual(undefined);
+      expect(payload.scope).toBeDefined();
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.any(String),
+        expect.objectContaining({
+          audience: 'my-aud',
+          subject: 'my-sub',
+        })
+      );
     });
   });
 

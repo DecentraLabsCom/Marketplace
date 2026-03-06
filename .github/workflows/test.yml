@@ -48,7 +48,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: 💾 Archive coverage reports
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report-node-${{ matrix.node-version }}
           path: coverage/

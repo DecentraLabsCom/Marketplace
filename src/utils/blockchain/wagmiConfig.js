@@ -41,7 +41,7 @@ const createTransports = () => {
   }
   const isBrowser = typeof window !== 'undefined';
 
-  // Helper function to create a validated HTTP transport
+  // Helper function for paid/premium providers — batching enabled.
   const createValidatedTransport = (url, key) => {
     if (!url || url === 'undefined' || url.includes('undefined')) {
       devLog.warn(`[wagmiConfig] Invalid URL for ${key}:`, url);
@@ -55,8 +55,24 @@ const createTransports = () => {
         wait: 200,
         batchSize: 3,  // Limit batch size for free tier compatibility
       },
-      // Enable polling for events with reasonable interval
-      pollingInterval: 4_000, // 4 seconds - balance between responsiveness and rate limits
+    });
+  };
+
+  // Helper function for public/free RPC nodes — batching MUST be disabled.
+  // Public nodes (publicnode.com, drpc.org, 1rpc.io) reject batched JSON-RPC
+  // requests with 400/500 errors, causing the continuous error spam visible via
+  // the createBatchScheduler → getFilterChanges path in the viem stack trace.
+  // retryCount: 0 lets the fallback transport move on immediately.
+  const createPublicTransport = (url, key) => {
+    if (!url || url === 'undefined' || url.includes('undefined')) {
+      devLog.warn(`[wagmiConfig] Invalid URL for ${key}:`, url);
+      return null;
+    }
+
+    return http(url, {
+      key,
+      retryCount: 0,
+      batch: false,
     });
   };
 
@@ -171,20 +187,17 @@ const createTransports = () => {
     }
   }
   
-  // Add public RPCs (browser-safe) to strengthen fallback reliability
+  // Add public RPCs (browser-safe) to strengthen fallback reliability.
+  // These nodes do not support batching — use createPublicTransport.
   publicSepoliaUrls.forEach((url, index) => {
-    const transport = createValidatedTransport(url, `public-${index + 1}`);
+    const transport = createPublicTransport(url, `public-${index + 1}`);
     if (transport) fallbackProviders.push(transport);
   });
   
   // Ensure we have at least one valid transport for sepolia
   if (fallbackProviders.length === 0) {
     devLog.error('[wagmiConfig] No valid transports configured! Using public RPC as last resort');
-    fallbackProviders.push(http('https://ethereum-sepolia-rpc.publicnode.com', {
-      key: 'public-fallback',
-      retryCount: 1,
-      pollingInterval: 4_000,
-    }));
+    fallbackProviders.push(createPublicTransport('https://ethereum-sepolia-rpc.publicnode.com', 'public-fallback'));
   }
 
   devLog.log(`[wagmiConfig] Created ${fallbackProviders.length} valid transports for sepolia`);
@@ -193,15 +206,18 @@ const createTransports = () => {
 
   // Generic transports for other chains (we mainly use sepolia)
   // Use public RPC endpoints as fallback for mainnet and polygon
+  // Mainnet and Polygon use public nodes only — no batching.
   const mainnetHttpTransport = http('https://ethereum-rpc.publicnode.com', {
     key: 'mainnet-public',
-    batch: { batchSize: 3 },
+    batch: false,
+    retryCount: 0,
     pollingInterval: 4_000,
   });
   
   const polygonHttpTransport = http('https://polygon-rpc.com', {
-    key: 'polygon-public', 
-    batch: { batchSize: 3 },
+    key: 'polygon-public',
+    batch: false,
+    retryCount: 0,
     pollingInterval: 4_000,
   });
 
@@ -253,6 +269,11 @@ const createWagmiConfig = () => {
     chains: chains,
     connectors: connectors,
     transports: transports,
+    // Global polling interval for all watch hooks (useWatchContractEvent, etc.).
+    // Sepolia produces a block every ~12 s; 10 s means at most 1 block of latency
+    // while keeping RPC load ~10× lighter than viem's 1 s default.
+    // This prevents flooding free-tier public nodes with requests.
+    pollingInterval: 10_000,
   });
 
   return _cachedConfig;

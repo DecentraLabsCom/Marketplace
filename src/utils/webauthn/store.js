@@ -4,7 +4,8 @@
  * A persistent DB should replace this in production deployments.
  */
 
-const credentialByPuc = new Map()
+// credential caches keyed by stable user identifier (used to be called PUC)
+const credentialByUserId = new Map()
 const credentialById = new Map()
 const registrationChallenges = new Map()
 const assertionChallenges = new Map()
@@ -12,7 +13,7 @@ const assertionChallenges = new Map()
 /**
  * Persist a verified credential record.
  * @param {Object} record
- * @param {string} record.puc
+ * @param {string} record.userId   // stable user identifier (formerly PUC)
  * @param {string} record.credentialId - base64url credential ID
  * @param {string} record.publicKeySpki - base64 SPKI public key
  * @param {string} [record.cosePublicKey] - base64 COSE key
@@ -22,21 +23,21 @@ const assertionChallenges = new Map()
  * @param {string} [record.rpId]
  */
 export function saveCredential(record) {
-  if (!record?.puc || !record?.credentialId) return null
+  if (!record?.userId || !record?.credentialId) return null
   const normalized = {
     ...record,
     signCount: Number(record.signCount || 0),
     status: record.status || 'active',
     updatedAt: new Date().toISOString(),
   }
-  credentialByPuc.set(record.puc, normalized)
+  credentialByUserId.set(record.userId, normalized)
   credentialById.set(record.credentialId, normalized)
   return normalized
 }
 
-export function getCredentialForUser(puc) {
-  if (!puc) return null
-  return credentialByPuc.get(puc) || null
+export function getCredentialForUser(userId) {
+  if (!userId) return null
+  return credentialByUserId.get(userId) || null
 }
 
 export function getCredentialById(credentialId) {
@@ -44,15 +45,15 @@ export function getCredentialById(credentialId) {
   return credentialById.get(credentialId) || null
 }
 
-export function setRegistrationChallenge(puc, data) {
-  if (!puc || !data?.challenge) return
-  registrationChallenges.set(puc, data)
+export function setRegistrationChallenge(userId, data) {
+  if (!userId || !data?.challenge) return
+  registrationChallenges.set(userId, data)
 }
 
-export function consumeRegistrationChallenge(puc) {
-  if (!puc) return null
-  const data = registrationChallenges.get(puc)
-  registrationChallenges.delete(puc)
+export function consumeRegistrationChallenge(userId) {
+  if (!userId) return null
+  const data = registrationChallenges.get(userId)
+  registrationChallenges.delete(userId)
   return data || null
 }
 

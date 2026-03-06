@@ -203,6 +203,52 @@ describe("useWalletReservationFlow", () => {
     expect(result.current.isWalletFlowLocked).toBe(false);
   });
 
+  test("prefers confirmed non-optimistic booking when optimistic duplicate exists", () => {
+    const { result, rerender } = renderHook(
+      ({ userBookingsForLab, labBookings }) =>
+        useWalletReservationFlow({
+          isWallet: true,
+          userBookingsForLab,
+          labBookings,
+        }),
+      {
+        initialProps: { userBookingsForLab: [], labBookings: [] },
+      }
+    );
+
+    act(() => {
+      result.current.markWalletRequestSent({
+        reservationKey: "wallet-res-dup",
+        labId: "1",
+        start: "1700003000",
+      });
+    });
+
+    rerender({
+      userBookingsForLab: [
+        {
+          reservationKey: "wallet-res-dup",
+          labId: "1",
+          start: "1700003000",
+          status: 0,
+          isOptimistic: true,
+        },
+      ],
+      labBookings: [
+        {
+          reservationKey: "wallet-res-dup",
+          labId: "1",
+          start: "1700003000",
+          status: 1,
+          isOptimistic: false,
+        },
+      ],
+    });
+
+    expect(result.current.walletBookingStage).toBe("idle");
+    expect(result.current.isWalletFlowLocked).toBe(false);
+  });
+
   test("resets flow when denial event is emitted", () => {
     const { result } = renderHook(() =>
       useWalletReservationFlow({
@@ -230,4 +276,3 @@ describe("useWalletReservationFlow", () => {
     expect(result.current.isWalletFlowLocked).toBe(false);
   });
 });
-

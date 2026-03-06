@@ -5,10 +5,63 @@ import enLocale from 'i18n-iso-countries/langs/en.json'
 import esLocale from 'i18n-iso-countries/langs/es.json'
 import devLog from '@/utils/dev/logger'
 import { createSessionCookie } from './sessionCookie'
-import { normalizePuc } from './puc'
+import { resolveInstitutionDomain } from './institutionDomain'
 export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
 
 let countriesInitialized = false
+
+// Expected attributes for current RedIRIS/REFEDS R&S profile integration.
+// We only log key names (never values) to avoid leaking personal data.
+const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
+  // REFEDS R&S / common identity attributes
+  'eduPersonPrincipalName',
+  'eduPersonTargetedID',
+  'mail',
+  'displayName',
+  'givenName',
+  'sn',
+  // Required in current integration contract
+  'eduPersonScopedAffiliation',
+  // Optional institutional attributes
+  'schacHomeOrganization',
+  'organizationName',
+  'eduPersonAffiliation',
+  'c',
+  'co',
+  'country',
+  'countryCode',
+  'countryName',
+  // OID aliases currently supported by the parser
+  'urn:oid:1.3.6.1.4.1.25178.1.2.9',
+  'urn:oid:1.3.6.1.4.1.25178.1.2.6',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
+  'urn:oid:0.9.2342.19200300.100.1.3',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.9',
+  'urn:oid:1.3.6.1.4.1.5923.1.1.1.1',
+  'urn:oid:2.16.840.1.113730.3.1.241',
+  'urn:oid:2.5.4.42',
+  'urn:oid:2.5.4.4',
+  'urn:oid:2.5.4.10',
+  'urn:oid:2.5.4.6',
+  'o',
+])
+
+function logReceivedAttributeKeys(attrs) {
+  try {
+    const keys = Object.keys(attrs || {}).sort()
+    const unexpected = keys.filter((key) => !EXPECTED_SAML_ATTRIBUTE_KEYS.has(key))
+
+    devLog.info('[SAML] Received attribute keys', {
+      count: keys.length,
+      keys,
+      unexpectedCount: unexpected.length,
+      unexpectedKeys: unexpected,
+    })
+  } catch (error) {
+    devLog.warn('[SAML] Unable to log received attribute keys', error?.message || error)
+  }
+}
 
 function ensureCountryLocales() {
   if (countriesInitialized) return
@@ -127,6 +180,7 @@ export async function parseSAMLResponse(samlResponse) {
       }
 
       const attrs = samlAssertion?.user?.attributes || {};
+      logReceivedAttributeKeys(attrs)
       
       const country = getFirstAttribute(attrs, [
         'c',
@@ -134,51 +188,78 @@ export async function parseSAMLResponse(samlResponse) {
         'country',
         'countryCode',
         'countryName',
-        'countryOfResidence',
-        'countryOfCitizenship',
         'urn:oid:2.5.4.6',
-        'schacCountryOfResidence',
-        'schacCountryOfCitizenship',
-        'urn:oid:1.3.6.1.4.1.25178.1.2.9',
-        'urn:oid:1.3.6.1.4.1.25178.1.2.10',
       ]);
       const normalizedCountry = normalizeCountryCode(country);
 
-      // Get schacHomeOrganization (try multiple attribute names/OIDs)
-      let affiliation = getFirstAttribute(attrs, [
+      const schacHomeOrganization = getFirstAttribute(attrs, [
         'schacHomeOrganization',
         'urn:oid:1.3.6.1.4.1.25178.1.2.9', // SCHAC OID for schacHomeOrganization
-      ]);
-      
-      // Fallback: extract domain from eduPersonScopedAffiliation (e.g., "student@uned.es" -> "uned.es")
-      if (!affiliation) {
-        const scopedAff = getFirstAttribute(attrs, [
-          'eduPersonScopedAffiliation',
-          'urn:oid:1.3.6.1.4.1.5923.1.1.1.9',
-        ]);
-        if (scopedAff && scopedAff.includes('@')) {
-          affiliation = scopedAff.split('@')[1];
-          devLog.log('[SAML] Derived affiliation from eduPersonScopedAffiliation:', affiliation);
-        }
+      ])
+
+      // extract eduPersonPrincipalName if provided
+      const eduPersonPrincipalName = getFirstAttribute(attrs, [
+        'eduPersonPrincipalName',
+        'urn:oid:1.3.6.1.4.1.25178.1.2.6',
+        'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',
+      ])
+      const eduPersonTargetedID = getFirstAttribute(attrs, [
+        'eduPersonTargetedID',
+        'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
+      ])
+      if (!eduPersonPrincipalName) {
+        return reject(new Error('Missing required SAML attribute: eduPersonPrincipalName'))
+      }
+      const email = getFirstAttribute(attrs, ['mail', 'urn:oid:0.9.2342.19200300.100.1.3'])
+      if (!email) {
+        return reject(new Error('Missing required SAML attribute: mail'))
+      }
+      const displayName = getFirstAttribute(attrs, ['displayName', 'urn:oid:2.16.840.1.113730.3.1.241'])
+      const givenName = getFirstAttribute(attrs, ['givenName', 'urn:oid:2.5.4.42'])
+      const sn = getFirstAttribute(attrs, ['sn', 'urn:oid:2.5.4.4'])
+      const personName = displayName || ((givenName && sn) ? `${givenName} ${sn}` : null)
+      if (!personName) {
+        return reject(new Error('Missing required SAML attribute: personName (displayName or givenName+sn)'))
+      }
+      const scopedAffiliation = getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9'])
+      const eduPersonAffiliation = getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'])
+      const affiliation = resolveInstitutionDomain([
+        schacHomeOrganization,
+        scopedAffiliation,
+        email,
+      ])
+
+      if (!schacHomeOrganization && affiliation) {
+        devLog.log('[SAML] Derived affiliation domain from fallback attributes:', affiliation);
       }
 
-      // Get user information from the assertion
+      const stableId = eduPersonTargetedID
+        ? `${eduPersonPrincipalName}|${eduPersonTargetedID}`
+        : eduPersonPrincipalName
+
+      // Build user information from the assertion
       const userData = {
-        id: getFirstAttribute(attrs, ['uid', 'urn:oid:0.9.2342.19200300.100.1.1']),
-        email: getFirstAttribute(attrs, ['mail', 'urn:oid:0.9.2342.19200300.100.1.3']),
-        name: getFirstAttribute(attrs, ['displayName', 'urn:oid:2.16.840.1.113730.3.1.241']),
+        id: stableId,
+        eduPersonPrincipalName: eduPersonPrincipalName || null,
+        email,
+        name: personName,
         authType: 'sso',
         isSSO: true,
         affiliation,
-        role: getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1']),
-        scopedRole: getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9']),
-        organizationType: getFirstAttribute(attrs, ['schacHomeOrganizationType', 'urn:oid:1.3.6.1.4.1.25178.1.2.10']),
-        personalUniqueCode: normalizePuc(
-          getFirstAttribute(attrs, ['schacPersonalUniqueCode', 'urn:oid:1.3.6.1.4.1.25178.1.2.14']),
-        ),
+        schacHomeOrganization: schacHomeOrganization || null,
+        // role priority: scoped affiliation first, fallback to generic affiliation
+        scopedRole: scopedAffiliation,
+        eduPersonScopedAffiliation: scopedAffiliation,
+        role:
+          scopedAffiliation ||
+          eduPersonAffiliation,
         organizationName: getFirstAttribute(attrs, ['organizationName', 'o', 'urn:oid:2.5.4.10']),
         samlAssertion: samlResponse, // Preserve raw Base64 assertion for downstream intents
       };
+
+      if (eduPersonTargetedID) {
+        userData.eduPersonTargetedID = eduPersonTargetedID;
+      }
 
       if (normalizedCountry) {
         userData.country = normalizedCountry;
