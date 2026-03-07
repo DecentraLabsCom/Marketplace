@@ -13,6 +13,7 @@ import devLog from '@/utils/dev/logger'
 import { authenticateLabAccess, authenticateLabAccessSSO } from '@/utils/auth/labAuth'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { useAccount, useSignMessage, useSignTypedData } from 'wagmi'
+import { resolveGatewayFeatureError } from './gatewayErrors'
 
 const SIM_STATE = {
   IDLE: 'idle',
@@ -240,7 +241,19 @@ export default function SimulationRunner({ lab, reservationKey }) {
       const res = await fetch(`/api/simulations/result?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error(`Failed to load result (${res.status})`)
+      if (!res.ok) {
+        let payload = {}
+        try {
+          payload = await res.json()
+        } catch {
+          payload = {}
+        }
+        const gatewayError = resolveGatewayFeatureError(res.status, payload, {
+          fallbackMessage: `Failed to load result (${res.status})`,
+          unavailableMessage: 'Historical simulation results are not available yet for this FMU backend.',
+        })
+        throw new Error(gatewayError.message)
+      }
       const data = await res.json()
       if (data.result) {
         setResults(data.result)
@@ -250,6 +263,9 @@ export default function SimulationRunner({ lab, reservationKey }) {
       setSimState(SIM_STATE.COMPLETED)
     } catch (err) {
       devLog.error('Failed to load historical result:', err)
+      setResults(null)
+      setErrorMsg(err?.message || 'Unable to load historical simulation result')
+      setSimState(SIM_STATE.ERROR)
     }
   }, [ensureGatewayToken, lab])
 

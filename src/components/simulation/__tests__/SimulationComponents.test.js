@@ -411,6 +411,70 @@ describe("SimulationRunner", () => {
     expect(screen.getByText("Show History")).toBeInTheDocument();
   });
 
+  test("shows a specific message when history is not available for the active FMU backend", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 501,
+      json: async () => ({
+        error: "Gateway error (501)",
+        details: JSON.stringify({ code: "NOT_IMPLEMENTED", error: "not implemented" }),
+      }),
+    });
+
+    render(<SimulationRunner lab={fmuLab} />);
+    fireEvent.click(screen.getByText("Show History"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Simulation history is not available yet for this FMU backend.")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Retry")).toBeNull();
+  });
+
+  test("shows a specific message when historical result loading is not available", async () => {
+    const historyPayload = {
+      simulations: [
+        {
+          id: "sim-1",
+          status: "completed",
+          created_at: "2026-03-07T10:00:00",
+          fmi_type: "CoSimulation",
+          elapsed_seconds: 1.25,
+        },
+      ],
+    };
+
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => historyPayload,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => historyPayload,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 501,
+        json: async () => ({
+          error: "Gateway error (501)",
+          details: JSON.stringify({ code: "NOT_IMPLEMENTED", error: "not implemented" }),
+        }),
+      });
+
+    render(<SimulationRunner lab={fmuLab} />);
+    fireEvent.click(screen.getByText("Show History"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Load" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Historical simulation results are not available yet for this FMU backend.")).toBeInTheDocument();
+    });
+  });
+
   test("shows solver selector for ModelExchange FMUs", () => {
     const meLab = { ...fmuLab, simulationType: "ModelExchange" };
     render(<SimulationRunner lab={meLab} />);

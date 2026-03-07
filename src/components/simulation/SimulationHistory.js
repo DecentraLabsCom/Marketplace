@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import devLog from '@/utils/dev/logger'
+import { resolveGatewayFeatureError } from './gatewayErrors'
 
 /**
  * SimulationHistory - shows a list of past simulation runs for a given lab.
@@ -10,11 +11,13 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onE
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [historyUnavailable, setHistoryUnavailable] = useState(false)
 
   const fetchHistory = useCallback(async () => {
     if (!gatewayUrl || !labId) return
     setLoading(true)
     setError(null)
+    setHistoryUnavailable(false)
 
     try {
       let token = gatewayToken
@@ -29,7 +32,20 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onE
       const res = await fetch(`/api/simulations/history?${qs.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error(`Failed to fetch history (${res.status})`)
+      if (!res.ok) {
+        let payload = {}
+        try {
+          payload = await res.json()
+        } catch {
+          payload = {}
+        }
+        const gatewayError = resolveGatewayFeatureError(res.status, payload, {
+          fallbackMessage: `Failed to fetch history (${res.status})`,
+          unavailableMessage: 'Simulation history is not available yet for this FMU backend.',
+        })
+        setHistoryUnavailable(gatewayError.unavailable)
+        throw new Error(gatewayError.message)
+      }
       const data = await res.json()
       setHistory(data.simulations || [])
     } catch (err) {
@@ -52,7 +68,9 @@ export default function SimulationHistory({ labId, gatewayUrl, gatewayToken, onE
     return (
       <div className="text-error-text text-sm">
         {error}
-        <button onClick={fetchHistory} className="ml-2 underline text-brand">Retry</button>
+        {!historyUnavailable && (
+          <button onClick={fetchHistory} className="ml-2 underline text-brand">Retry</button>
+        )}
       </div>
     )
   }

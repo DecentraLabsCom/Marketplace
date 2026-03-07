@@ -174,7 +174,7 @@ function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatew
       {/* Provider-entered: fmuFileName */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          FMU File Name <span className="text-gray-400">(file on the gateway, e.g. spring-damper.fmu)</span>
+          FMU File Name <span className="text-gray-400">(file on Lab Station in production, e.g. spring-damper.fmu)</span>
         </label>
         <div className="flex gap-2">
           <input
