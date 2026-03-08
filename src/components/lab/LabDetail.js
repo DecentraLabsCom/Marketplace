@@ -13,7 +13,7 @@ import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
-import { isFmu, getFmuMetadata } from '@/utils/resourceType'
+import { isFmu, getFmuMetadata, getFmuCompatibilityLabel, formatFmuSimulationType } from '@/utils/resourceType'
 
 let countryLocaleRegistered = false
 
@@ -95,6 +95,8 @@ export default function LabDetail({ id }) {
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
   const labIsFmu = isFmu(lab);
   const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
+  const fmuCompatibilityLabel = fmuMeta ? getFmuCompatibilityLabel(fmuMeta) : '';
+  const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
 
   return (
     <Container as="main" padding="sm">
@@ -233,7 +235,7 @@ export default function LabDetail({ id }) {
               <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
                 <h3 className="text-header-bg text-lg font-semibold mb-3">FMU Simulation Details</h3>
                 <p className="text-xs text-text-secondary mb-3">
-                  Compatible with FMI 2.0.3 Co-Simulation
+                  {fmuCompatibilityLabel}
                 </p>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {fmuMeta.fmuFileName && (
@@ -251,7 +253,7 @@ export default function LabDetail({ id }) {
                   {fmuMeta.simulationType && (
                     <div>
                       <span className="text-text-secondary text-xs uppercase tracking-wide">Type</span>
-                      <p className="text-neutral-200 font-medium">{fmuMeta.simulationType}</p>
+                      <p className="text-neutral-200 font-medium">{fmuSimulationTypeLabel}</p>
                     </div>
                   )}
                   {(fmuMeta.defaultStartTime != null || fmuMeta.defaultStopTime != null) && (

@@ -1,7 +1,7 @@
 ﻿"use client";
 import React, { useState, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { getFmuMetadata } from '@/utils/resourceType'
+import { getFmuMetadata, getFmuCompatibilityLabel, formatFmuSimulationType } from '@/utils/resourceType'
 import ParameterForm from './ParameterForm'
 import SimulationOptions from './SimulationOptions'
 import SimulationProgress from './SimulationProgress'
@@ -78,6 +78,8 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const authPromiseRef = useRef(null)
 
   const isModelExchange = fmuMeta?.simulationType === 'ModelExchange'
+  const compatibilityLabel = getFmuCompatibilityLabel(fmuMeta)
+  const simulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType)
   const [solver, setSolver] = useState('Euler')
 
   const handleParamChange = useCallback((name, value) => {
@@ -362,11 +364,11 @@ export default function SimulationRunner({ lab, reservationKey }) {
           </h2>
           {fmuMeta.fmuFileName && (
             <p className="text-sm text-text-secondary mt-1">
-              {fmuMeta.fmuFileName} &middot; FMI {fmuMeta.fmiVersion || '?'} &middot; {fmuMeta.simulationType || '?'}
+              {fmuMeta.fmuFileName} &middot; FMI {fmuMeta.fmiVersion || '?'} &middot; {simulationTypeLabel || '?'}
             </p>
           )}
           <p className="text-xs text-text-secondary mt-1">
-            Compatible with FMI 2.0.3 Co-Simulation
+            {compatibilityLabel}
           </p>
         </div>
         <button onClick={() => setShowHistory(h => !h)} className="text-xs text-brand hover:underline">

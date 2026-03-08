@@ -274,6 +274,11 @@ describe("SimulationRunner", () => {
     expect(screen.getByText(/Simulation: Spring-Damper/)).toBeInTheDocument();
   });
 
+  test("shows compatibility label from FMU metadata", () => {
+    render(<SimulationRunner lab={fmuLab} />);
+    expect(screen.getByText("Compatible with FMI 2.0 Co-Simulation")).toBeInTheDocument();
+  });
+
   test("shows proxy download action only when reservation key is provided", () => {
     const { rerender } = render(<SimulationRunner lab={fmuLab} />);
     expect(screen.queryByRole("button", { name: /Download Proxy FMU/i })).toBeNull();
