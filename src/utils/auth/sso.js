@@ -56,16 +56,57 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'gn',     // givenName
 ])
 
+// Mirrors the lookup keys used in parseSAMLResponse, grouped by logical attribute.
+// Used only for diagnostic logging — never for access control decisions.
+const SAML_ATTRIBUTE_GROUPS = {
+  required: [
+    { label: 'eduPersonPrincipalName', keys: ['eduPersonPrincipalName', 'urn:oid:1.3.6.1.4.1.25178.1.2.6', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.6', 'ePPN'] },
+    { label: 'mail',                   keys: ['mail', 'urn:oid:0.9.2342.19200300.100.1.3'] },
+  ],
+  // personName is derived: displayName OR (givenName AND sn)
+  personName: {
+    displayName: ['displayName', 'urn:oid:2.16.840.1.113730.3.1.241', 'dispN', 'cn'],
+    givenName:   ['givenName',   'urn:oid:2.5.4.42', 'gn'],
+    sn:          ['sn',          'urn:oid:2.5.4.4'],
+  },
+  optional: [
+    { label: 'eduPersonTargetedID',      keys: ['eduPersonTargetedID',      'urn:oid:1.3.6.1.4.1.5923.1.1.1.10', 'ePTI'] },
+    { label: 'schacHomeOrganization',    keys: ['schacHomeOrganization',    'urn:oid:1.3.6.1.4.1.25178.1.2.9',   'sHO'] },
+    { label: 'eduPersonScopedAffiliation', keys: ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9', 'ePSA'] },
+    { label: 'eduPersonAffiliation',     keys: ['eduPersonAffiliation',     'urn:oid:1.3.6.1.4.1.5923.1.1.1.1',  'ePA'] },
+    { label: 'organizationName',         keys: ['organizationName',         'o', 'urn:oid:2.5.4.10'] },
+    { label: 'country',                  keys: ['c', 'co', 'country', 'countryCode', 'countryName', 'urn:oid:2.5.4.6'] },
+  ],
+}
+
 function logReceivedAttributeKeys(attrs) {
   try {
     const keys = Object.keys(attrs || {}).sort()
     const unexpected = keys.filter((key) => !EXPECTED_SAML_ATTRIBUTE_KEYS.has(key))
+
+    const hasAny = (keyList) => keyList.some((k) => k in attrs)
+
+    const missingRequired = SAML_ATTRIBUTE_GROUPS.required
+      .filter(({ keys: k }) => !hasAny(k))
+      .map(({ label }) => label)
+    const { displayName: dnKeys, givenName: gnKeys, sn: snKeys } = SAML_ATTRIBUTE_GROUPS.personName
+    if (!hasAny(dnKeys) && !(hasAny(gnKeys) && hasAny(snKeys))) {
+      missingRequired.push('personName (displayName or givenName+sn)')
+    }
+
+    const missingOptional = SAML_ATTRIBUTE_GROUPS.optional
+      .filter(({ keys: k }) => !hasAny(k))
+      .map(({ label }) => label)
 
     devLog.info('[SAML] Received attribute keys', {
       count: keys.length,
       keys,
       unexpectedCount: unexpected.length,
       unexpectedKeys: unexpected,
+      missingRequiredCount: missingRequired.length,
+      missingRequired,
+      missingOptionalCount: missingOptional.length,
+      missingOptional,
     })
   } catch (error) {
     devLog.warn('[SAML] Unable to log received attribute keys', error?.message || error)
