@@ -20,6 +20,7 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'displayName',
   'givenName',
   'sn',
+  'cn',
   // Required in current integration contract
   'eduPersonScopedAffiliation',
   // Optional institutional attributes
@@ -45,6 +46,14 @@ const EXPECTED_SAML_ATTRIBUTE_KEYS = new Set([
   'urn:oid:2.5.4.10',
   'urn:oid:2.5.4.6',
   'o',
+  // RedIRIS SIR federation abbreviated attribute names (only for attributes we parse)
+  'ePPN',   // eduPersonPrincipalName
+  'ePTI',   // eduPersonTargetedID
+  'ePSA',   // eduPersonScopedAffiliation
+  'ePA',    // eduPersonAffiliation
+  'sHO',    // schacHomeOrganization
+  'dispN',  // displayName
+  'gn',     // givenName
 ])
 
 function logReceivedAttributeKeys(attrs) {
@@ -195,6 +204,7 @@ export async function parseSAMLResponse(samlResponse) {
       const schacHomeOrganization = getFirstAttribute(attrs, [
         'schacHomeOrganization',
         'urn:oid:1.3.6.1.4.1.25178.1.2.9', // SCHAC OID for schacHomeOrganization
+        'sHO',                             // RedIRIS SIR abbreviated form
       ])
 
       // extract eduPersonPrincipalName if provided
@@ -202,10 +212,12 @@ export async function parseSAMLResponse(samlResponse) {
         'eduPersonPrincipalName',
         'urn:oid:1.3.6.1.4.1.25178.1.2.6',
         'urn:oid:1.3.6.1.4.1.5923.1.1.1.6',
+        'ePPN',                             // RedIRIS SIR abbreviated form
       ])
       const eduPersonTargetedID = getFirstAttribute(attrs, [
         'eduPersonTargetedID',
         'urn:oid:1.3.6.1.4.1.5923.1.1.1.10',
+        'ePTI',                             // RedIRIS SIR abbreviated form
       ])
       if (!eduPersonPrincipalName) {
         return reject(new Error('Missing required SAML attribute: eduPersonPrincipalName'))
@@ -214,15 +226,15 @@ export async function parseSAMLResponse(samlResponse) {
       if (!email) {
         return reject(new Error('Missing required SAML attribute: mail'))
       }
-      const displayName = getFirstAttribute(attrs, ['displayName', 'urn:oid:2.16.840.1.113730.3.1.241'])
-      const givenName = getFirstAttribute(attrs, ['givenName', 'urn:oid:2.5.4.42'])
+      const displayName = getFirstAttribute(attrs, ['displayName', 'urn:oid:2.16.840.1.113730.3.1.241', 'dispN', 'cn']) // dispN/cn: RedIRIS SIR abbreviated forms
+      const givenName = getFirstAttribute(attrs, ['givenName', 'urn:oid:2.5.4.42', 'gn'])                               // gn: RedIRIS SIR abbreviated form
       const sn = getFirstAttribute(attrs, ['sn', 'urn:oid:2.5.4.4'])
       const personName = displayName || ((givenName && sn) ? `${givenName} ${sn}` : null)
       if (!personName) {
         return reject(new Error('Missing required SAML attribute: personName (displayName or givenName+sn)'))
       }
-      const scopedAffiliation = getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9'])
-      const eduPersonAffiliation = getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1'])
+      const scopedAffiliation = getFirstAttribute(attrs, ['eduPersonScopedAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.9', 'ePSA']) // ePSA: RedIRIS SIR abbreviated form
+      const eduPersonAffiliation = getFirstAttribute(attrs, ['eduPersonAffiliation', 'urn:oid:1.3.6.1.4.1.5923.1.1.1.1', 'ePA'])     // ePA: RedIRIS SIR abbreviated form
       const affiliation = resolveInstitutionDomain([
         schacHomeOrganization,
         scopedAffiliation,
