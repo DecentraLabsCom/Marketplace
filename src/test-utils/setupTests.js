@@ -90,7 +90,7 @@ if (typeof window !== 'undefined' && !window.PublicKeyCredential) {
 
 // Centralized mocks for complex external libs
 jest.mock('next/router', () => require('./mocks/nextRouter'));
-jest.mock('wagmi', () => require('./mocks/wagmi'));
+jest.mock('wagmi', () => require('./mocks/wagmi.cjs'));
 jest.mock('wagmi/chains', () => require('./mocks/wagmiChains'));
 jest.mock('viem', () => require('./mocks/viem'));
 jest.mock('@/utils/dev/logger', () => require('./mocks/logger'));

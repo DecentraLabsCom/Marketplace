@@ -188,7 +188,9 @@ export const useRequiredStakeWallet = (providerAddress, options = {}) => {
   return {
     ...result,
     data: result.data ? {
-      requiredStake: result.data?.toString() || '0',
+      requiredStake: Array.isArray(result.data)
+        ? (result.data[0]?.toString?.() ?? '0')
+        : result.data?.toString() || '0',
       provider: providerAddress?.toLowerCase()
     } : result.data,
   }

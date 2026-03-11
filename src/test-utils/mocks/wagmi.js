@@ -1,3 +1,9 @@
+  // Mock for usePublicClient (Wagmi v2+)
+  usePublicClient: jest.fn(() => ({
+    chain: { id: 1, name: 'sepolia' },
+    transport: {},
+    request: jest.fn(),
+  })),
 /**
  * Mock for 'wagmi' hooks and utilities used in tests.
  * ------------------------------------------------
@@ -17,18 +23,34 @@
 // Import mock chains for consistent chain data across tests
 const { mainnet, sepolia } = require('./wagmiChains');
 
+/**
+ * Mock for 'wagmi' hooks and utilities used in tests.
+ * Provides default implementations for:
+ *  - useConnection, useConnect, useDisconnect, useWaitForTransactionReceipt, useBalance
+ *  - useReadContract, usePublicClient
+ *  - WagmiProvider, createConfig, http, fallback
+ */
+const { mainnet, sepolia } = require('./wagmiChains');
+
 module.exports = {
-  // Hooks
   useConnection: () => ({ accounts: ['0x123'], chain: { id: 1, name: 'sepolia' }, status: 'connected' }),
   useConnect: () => ({ connect: jest.fn(), connectors: [] }),
   useDisconnect: () => ({ disconnect: jest.fn() }),
   useWaitForTransactionReceipt: () => ({ isLoading: false, isSuccess: false }),
   useBalance: () => ({ data: { formatted: '10.5', symbol: 'LAB' } }),
-
-  // Components
+  useReadContract: jest.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: undefined,
+    refetch: jest.fn(),
+  })),
+  usePublicClient: jest.fn(() => ({
+    chain: { id: 1, name: 'sepolia' },
+    transport: {},
+    request: jest.fn(),
+  })),
   WagmiProvider: ({ children }) => children,
-
-  // Utilities
   createConfig: jest.fn((config) => ({
     chains: config?.chains || [mainnet, sepolia],
     transports: config?.transports || {},
