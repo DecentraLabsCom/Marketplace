@@ -1,3 +1,198 @@
+describe('usePendingLabPayouts', () => {
+  const payoutsMock = {
+    payoutsByLabId: {
+      '1': { amount: '10', currency: 'LAB' },
+      '2': { amount: '20', currency: 'LAB' },
+    },
+    items: [
+      { labId: 1, payout: { amount: '10', currency: 'LAB' } },
+      { labId: 2, payout: { amount: '20', currency: 'LAB' } },
+    ],
+  };
+
+  afterEach(() => {
+    global.fetch.mockReset && global.fetch.mockReset();
+  });
+
+  it('devuelve payouts para un array de labIds válidos', async () => {
+    global.fetch = jest.fn((url) => {
+      if (url.includes('labId=1')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ amount: '10', currency: 'LAB' }) });
+      if (url.includes('labId=2')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ amount: '20', currency: 'LAB' }) });
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+    const { result } = renderHook(() => usePendingLabPayouts([1, 2]), { wrapper: createTestWrapper() });
+    await waitForHookState(() => result.current, r => r.isSuccess);
+    expect(result.current.data.payoutsByLabId).toEqual(payoutsMock.payoutsByLabId);
+    expect(result.current.data.items).toEqual(payoutsMock.items);
+  });
+
+  it('ignora ids inválidos (null, undefined, string vacía, negativos)', async () => {
+    global.fetch = jest.fn((url) => {
+      if (url.includes('labId=1')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ amount: '10', currency: 'LAB' }) });
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+    const { result } = renderHook(() => usePendingLabPayouts([1, null, undefined, '', -5]), { wrapper: createTestWrapper() });
+    await waitForHookState(() => result.current, r => r.isSuccess);
+    expect(result.current.data.payoutsByLabId).toEqual({ '1': { amount: '10', currency: 'LAB' } });
+    expect(result.current.data.items).toEqual([{ labId: 1, payout: { amount: '10', currency: 'LAB' } }]);
+  });
+
+  it('elimina ids repetidos y solo consulta una vez por id', async () => {
+    const fetchSpy = jest.fn((url) => {
+      if (url.includes('labId=1')) return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ amount: '10', currency: 'LAB' }) });
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    });
+    global.fetch = fetchSpy;
+    const { result } = renderHook(() => usePendingLabPayouts([1, 1, '1']), { wrapper: createTestWrapper() });
+    await waitForHookState(() => result.current, r => r.isSuccess);
+    expect(result.current.data.payoutsByLabId).toEqual({ '1': { amount: '10', currency: 'LAB' } });
+    expect(result.current.data.items).toEqual([{ labId: 1, payout: { amount: '10', currency: 'LAB' } }]);
+    // Solo una llamada a la API para labId=1
+    const calls = fetchSpy.mock.calls.filter(call => call[0].includes('labId=1'));
+    expect(calls.length).toBe(1);
+  });
+
+  it('devuelve payouts vacíos si el array de ids es vacío o todos inválidos', async () => {
+    global.fetch = jest.fn();
+    const { result: r1 } = renderHook(() => usePendingLabPayouts([]), { wrapper: createTestWrapper() });
+    const { result: r2 } = renderHook(() => usePendingLabPayouts([null, undefined, '', -1]), { wrapper: createTestWrapper() });
+    expect(r1.current.data.payoutsByLabId).toEqual({});
+    expect(r1.current.data.items).toEqual([]);
+    expect(r2.current.data.payoutsByLabId).toEqual({});
+    expect(r2.current.data.items).toEqual([]);
+  });
+});
+describe('usePendingLabPayoutWallet', () => {
+  const validLabId = 42;
+  const payoutWagmiMock = {
+    amount: BigInt('123456789000000000'),
+    currency: 'LAB',
+  };
+
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it('happy path: normaliza correctamente los datos de wagmi', async () => {
+    jest.doMock('@/hooks/contract/useDefaultReadContract', () => ({
+      __esModule: true,
+      default: () => ({
+        data: payoutWagmiMock,
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+      }),
+    }));
+    const { usePendingLabPayoutWallet } = require('../useStakingAtomicQueries');
+    const { result } = renderHook(() => usePendingLabPayoutWallet(validLabId), {
+      wrapper: createTestWrapper(),
+    });
+    expect(result.current.data).toEqual({
+      amount: '123456789000000000',
+      currency: 'LAB',
+    });
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('error: el hook propaga el error de wagmi', async () => {
+    jest.doMock('@/hooks/contract/useDefaultReadContract', () => ({
+      __esModule: true,
+      default: () => ({
+        data: undefined,
+        isSuccess: false,
+        isError: true,
+        error: new Error('wagmi error'),
+      }),
+    }));
+    const { usePendingLabPayoutWallet } = require('../useStakingAtomicQueries');
+    const { result } = renderHook(() => usePendingLabPayoutWallet(validLabId), {
+      wrapper: createTestWrapper(),
+    });
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error).toBeInstanceOf(Error);
+  });
+
+  it('normalización: soporta array de datos en vez de objeto', async () => {
+    jest.doMock('@/hooks/contract/useDefaultReadContract', () => ({
+      __esModule: true,
+      default: () => ({
+        data: [BigInt('1'), 'USD'],
+        isSuccess: true,
+        isError: false,
+      }),
+    }));
+    const { usePendingLabPayoutWallet } = require('../useStakingAtomicQueries');
+    const { result } = renderHook(() => usePendingLabPayoutWallet(validLabId), {
+      wrapper: createTestWrapper(),
+    });
+    expect(result.current.data).toEqual({
+      amount: '1',
+      currency: 'USD',
+    });
+  });
+});
+describe('usePendingLabPayoutSSO', () => {
+  const validLabId = 42;
+  const payoutMock = { amount: '123456789000000000', currency: 'LAB' };
+
+  afterEach(() => {
+    global.fetch.mockReset && global.fetch.mockReset();
+  });
+
+  it('happy path: devuelve el payout pendiente correctamente para un labId válido', async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(payoutMock),
+      })
+    );
+    const { result } = renderHook(() => usePendingLabPayoutSSO(validLabId), {
+      wrapper: createTestWrapper(),
+    });
+    await waitForHookState(() => result.current, r => r.isSuccess);
+    expect(result.current.data).toEqual(payoutMock);
+    expect(result.current.isError).toBe(false);
+    expect(global.fetch).toHaveBeenCalledWith(
+      `/api/contract/lab/getPendingLabPayout?labId=${validLabId}`,
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('error en fetch: el hook devuelve error si la llamada a la API falla', async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: 'Failed to fetch pending payout' }),
+      })
+    );
+    const { result } = renderHook(() => usePendingLabPayoutSSO(validLabId), {
+      wrapper: createTestWrapper(),
+    });
+    await waitForHookState(() => result.current, r => r.isError);
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('labId inválido: no ejecuta la query si el labId es null, undefined o vacío', async () => {
+    global.fetch = jest.fn();
+    const { result: r1 } = renderHook(() => usePendingLabPayoutSSO(null), { wrapper: createTestWrapper() });
+    const { result: r2 } = renderHook(() => usePendingLabPayoutSSO(undefined), { wrapper: createTestWrapper() });
+    const { result: r3 } = renderHook(() => usePendingLabPayoutSSO(''), { wrapper: createTestWrapper() });
+    expect(r1.current.isLoading).toBe(false);
+    expect(r2.current.isLoading).toBe(false);
+    expect(r3.current.isLoading).toBe(false);
+    // Debe NO llamarse a la URL de pending payout
+    const payoutUrl1 = '/api/contract/lab/getPendingLabPayout?labId=null';
+    const payoutUrl2 = '/api/contract/lab/getPendingLabPayout?labId=undefined';
+    const payoutUrl3 = '/api/contract/lab/getPendingLabPayout?labId=';
+    const calls = global.fetch.mock.calls.map(call => call[0]);
+    expect(calls).not.toContain(payoutUrl1);
+    expect(calls).not.toContain(payoutUrl2);
+    expect(calls).not.toContain(payoutUrl3);
+  });
+});
 describe('useRequiredStakeWallet', () => {
   const validProvider = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd';
   const requiredStakeWagmiMock = BigInt('500000000000000000');

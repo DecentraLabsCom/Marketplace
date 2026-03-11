@@ -81,3 +81,4 @@ public/labs
 
 .github/token
 src/server/market/__tests__/getMarketLabsSnapshot.testplan.md
+TESTS_IMPLEMENTADOS.md

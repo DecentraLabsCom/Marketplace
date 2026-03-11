@@ -91,11 +91,17 @@ export const useReservationWallet = (reservationKey, options = {}) => {
   return {
     ...result,
     data: result.data ? (() => {
-      const data = result.data;
-      
-      // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
-      //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
-      //   providerShare, projectTreasuryShare, subsidiesShare, governanceShare }
+      let data = result.data;
+      // Si es array, mapear a objeto mínimo compatible
+      if (Array.isArray(data)) {
+        data = {
+          labId: data[0],
+          renter: data[1],
+          price: data[2],
+          labProvider: data[3],
+          status: data[4],
+        };
+      }
       const status = Number(data.status);
       const renterAddress = data.renter || '0x0000000000000000000000000000000000000000';
       const labProviderAddress = data.labProvider || '0x0000000000000000000000000000000000000000';
@@ -106,38 +112,37 @@ export const useReservationWallet = (reservationKey, options = {}) => {
       // Determine reservation state (matching SSO logic)
       let reservationState = 'Unknown';
       let isConfirmed = false;
-      
-        if (!exists) {
-          reservationState = 'Not Found';
-        } else {
-          switch (status) {
-            case 0:
-              reservationState = 'Pending';
-              isConfirmed = false;
-              break;
-            case 1:
-              reservationState = 'Confirmed';
-              isConfirmed = true;
-              break;
-            case 2:
-              reservationState = 'In Use';
-              isConfirmed = true;
-              break;
-            case 3:
-              reservationState = 'Completed';
-              isConfirmed = true;
-              break;
-            case 4:
-              reservationState = 'Collected';
-              isConfirmed = true;
-              break;
-            case 5:
-              reservationState = 'Cancelled';
-              isConfirmed = false;
-              break;
-            default:
-              reservationState = 'Unknown Status';
-          }
+      if (!exists) {
+        reservationState = 'Not Found';
+      } else {
+        switch (status) {
+          case 0:
+            reservationState = 'Pending';
+            isConfirmed = false;
+            break;
+          case 1:
+            reservationState = 'Confirmed';
+            isConfirmed = true;
+            break;
+          case 2:
+            reservationState = 'In Use';
+            isConfirmed = true;
+            break;
+          case 3:
+            reservationState = 'Completed';
+            isConfirmed = true;
+            break;
+          case 4:
+            reservationState = 'Collected';
+            isConfirmed = true;
+            break;
+          case 5:
+            reservationState = 'Cancelled';
+            isConfirmed = false;
+            break;
+          default:
+            reservationState = 'Unknown Status';
+        }
       }
 
       return {

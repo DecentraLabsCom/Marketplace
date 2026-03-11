@@ -1,3 +1,56 @@
+#### Tests implementados para useReservationWallet
+1. **Happy path**
+   - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un reservationKey válido.
+2. **Error**
+   - Si el hook de wagmi devuelve error, el hook propaga el error correctamente.
+3. **Normalización de datos**
+   - Soporta y normaliza correctamente cuando wagmi devuelve un array o datos incompletos.
+#### Tests implementados para useReservationSSO
+1. **Happy path**
+   - Devuelve la información de la reserva correctamente para un reservationKey válido.
+2. **Error en fetch**
+   - Si la llamada a la API falla, el hook devuelve error (error puede ser null o instancia de Error según entorno).
+3. **reservationKey inválido**
+   - Si el reservationKey es null, undefined o vacío, el hook no ejecuta la query.
+## useBookingAtomicQueries
+### useReservationSSO
+1. **Happy path**
+   - Devuelve la información de la reserva correctamente para un reservationKey válido.
+2. **Error en fetch**
+   - Si la llamada a la API falla, el hook devuelve error.
+3. **reservationKey inválido**
+   - Si el reservationKey es null, undefined o vacío, el hook no ejecuta la query.
+
+### useReservationWallet
+1. **Happy path**
+   - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un reservationKey válido.
+2. **Error**
+   - Si el hook de wagmi devuelve error, el hook propaga el error correctamente.
+3. **Normalización de datos**
+   - Soporta y normaliza correctamente cuando wagmi devuelve un array o datos incompletos.
+### usePendingLabPayouts
+1. **Array de ids válidos**
+   - Devuelve payouts correctamente para un array de labIds válidos.
+2. **Ids inválidos**
+   - Ignora ids inválidos (null, undefined, string vacía, negativos).
+3. **Ids repetidos**
+   - Elimina ids repetidos y solo consulta una vez por id.
+4. **Array vacío o todos inválidos**
+   - Devuelve payouts vacíos si el array de ids es vacío o todos inválidos.
+### usePendingLabPayoutWallet
+1. **Happy path**
+   - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un labId válido.
+2. **Error**
+   - Si el hook de wagmi devuelve error, el hook propaga el error correctamente.
+3. **Normalización de array**
+   - Soporta y normaliza correctamente cuando wagmi devuelve un array de datos en vez de un objeto.
+### usePendingLabPayoutSSO
+1. **Happy path**
+   - Devuelve el payout pendiente correctamente para un labId válido.
+2. **Error en fetch**
+   - Si la llamada a la API falla, el hook devuelve error.
+3. **labId inválido**
+   - Si el labId es null, undefined o vacío, el hook no ejecuta la query.
 ### useRequiredStakeWallet
 1. **Happy path**
    - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un provider válido.

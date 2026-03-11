@@ -302,14 +302,25 @@ export const usePendingLabPayoutWallet = (labId, options = {}) => {
     ...options,
   })
 
+  let normalized = result.data;
+  if (result.data) {
+    if (Array.isArray(result.data)) {
+      // Array: [amount, currency]
+      normalized = {
+        amount: result.data[0]?.toString?.() ?? '0',
+        currency: result.data[1]?.toString?.() ?? '',
+      };
+    } else if ('amount' in result.data && 'currency' in result.data) {
+      normalized = {
+        amount: result.data.amount?.toString?.() ?? '0',
+        currency: result.data.currency?.toString?.() ?? '',
+      };
+    }
+  }
+
   return {
     ...result,
-    data: result.data ? {
-      walletPayout: (result.data?.walletPayout ?? result.data?.[0])?.toString() || '0',
-      institutionalPayout: (result.data?.institutionalPayout ?? result.data?.[1])?.toString() || '0',
-      totalPayout: (result.data?.totalPayout ?? result.data?.[2])?.toString() || '0',
-      institutionalCollectorCount: Number(result.data?.institutionalCollectorCount ?? result.data?.[3] ?? 0),
-    } : result.data,
+    data: normalized,
   }
 }
 
@@ -342,8 +353,23 @@ export const usePendingLabPayout = (labId, options = {}) => {
  * @param {Object} [options={}] - Additional query options
  * @returns {Object} React Query result with map + ordered items
  */
+
 export const usePendingLabPayouts = (labIds = [], options = {}) => {
   const normalizedLabIds = useMemo(() => normalizeLabIds(labIds), [labIds])
+
+  // Si no hay labIds válidos, devolver estructura vacía
+  if (normalizedLabIds.length === 0) {
+    return {
+      data: { payoutsByLabId: {}, items: [] },
+      isLoading: false,
+      isError: false,
+      error: undefined,
+      refetch: () => {},
+      isSuccess: true,
+      isFetched: true,
+      // ...otros flags de React Query si se necesitan
+    };
+  }
 
   return useQuery({
     queryKey: stakingQueryKeys.pendingPayoutsMulti(normalizedLabIds.map(String)),
