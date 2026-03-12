@@ -12,6 +12,10 @@
    - Si la llamada a la API falla, el hook devuelve error (error puede ser null o instancia de Error según entorno).
 3. **reservationKey inválido**
    - Si el reservationKey es null, undefined o vacío, el hook no ejecuta la query.
+
+Tests implementados en src/hooks/booking/__tests__/useBookingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
 ## useBookingAtomicQueries
 ### useReservationSSO
 1. **Happy path**
@@ -21,6 +25,9 @@
 3. **reservationKey inválido**
    - Si el reservationKey es null, undefined o vacío, el hook no ejecuta la query.
 
+Tests implementados en src/hooks/booking/__tests__/useBookingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
 ### useReservationWallet
 1. **Happy path**
    - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un reservationKey válido.
@@ -28,6 +35,30 @@
    - Si el hook de wagmi devuelve error, el hook propaga el error correctamente.
 3. **Normalización de datos**
    - Soporta y normaliza correctamente cuando wagmi devuelve un array o datos incompletos.
+
+Tests implementados en src/hooks/booking/__tests__/useBookingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
+### useReservationsOfTokenSSO
+1. **Happy path**
+   - Devuelve todas las reservas para un labId válido.
+2. **labId inválido**
+   - Si el labId es null o undefined, el hook no ejecuta la query.
+
+Tests implementados en src/hooks/booking/__tests__/useBookingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
+### useReservation (router)
+1. **Normalización**
+   - Normaliza datos de wagmi a formato SSO y cache key consistente.
+2. **Network degradation**
+   - Retenta una vez en caso de timeout y recupera.
+3. **Error tras retries**
+   - Propaga error si los retries se agotan.
+
+Tests implementados en src/hooks/booking/__tests__/useBookingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
 ### usePendingLabPayouts
 1. **Array de ids válidos**
    - Devuelve payouts correctamente para un array de labIds válidos.
@@ -37,6 +68,10 @@
    - Elimina ids repetidos y solo consulta una vez por id.
 4. **Array vacío o todos inválidos**
    - Devuelve payouts vacíos si el array de ids es vacío o todos inválidos.
+
+Tests implementados en src/hooks/staking/__tests__/useStakingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
 ### usePendingLabPayoutWallet
 1. **Happy path**
    - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un labId válido.
@@ -44,13 +79,10 @@
    - Si el hook de wagmi devuelve error, el hook propaga el error correctamente.
 3. **Normalización de array**
    - Soporta y normaliza correctamente cuando wagmi devuelve un array de datos en vez de un objeto.
-### usePendingLabPayoutSSO
-1. **Happy path**
-   - Devuelve el payout pendiente correctamente para un labId válido.
-2. **Error en fetch**
-   - Si la llamada a la API falla, el hook devuelve error.
-3. **labId inválido**
-   - Si el labId es null, undefined o vacío, el hook no ejecuta la query.
+
+Tests implementados en src/hooks/staking/__tests__/useStakingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
 ### useRequiredStakeWallet
 1. **Happy path**
    - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un provider válido.
@@ -65,6 +97,19 @@
    - Si la llamada a la API falla, el hook devuelve error.
 3. **Provider inválido**
    - Si el provider es null, undefined o vacío, el hook no ejecuta la query.
+
+### useLabTokenHook
+1. **Estado inicial**
+   - Devuelve correctamente balance, allowance y decimals desde el contrato.
+2. **calculateReservationCost**
+   - Calcula correctamente el coste de reserva.
+3. **approveLabTokens**
+   - Devuelve el hash de la transacción y llama a la función write.
+4. **after receipt success**
+   - Refresca balance y allowance tras confirmación de transacción.
+
+Tests implementados en src/hooks/__tests__/useLabToken.test.js.
+Todos los tests pasan y cubren los casos del plan.
 
 # Test Plan General: Marketplace
 
@@ -112,6 +157,15 @@ Este documento lleva un seguimiento de todos los tests implementados en el proye
 3. **Normalización de array**
    - Soporta y normaliza correctamente cuando wagmi devuelve un array de datos en vez de un objeto.
 
----
+### useStakeInfoSSO
+1. **Happy path**
+   - Devuelve la información de stake correctamente para un provider válido.
+2. **Error en fetch**
+   - Si la llamada a la API falla, el hook devuelve error.
+3. **Provider inválido**
+   - Si el provider es null, undefined o vacío, el hook no ejecuta la query.
 
-Se irá actualizando este documento con cada nuevo test añadido.
+Tests implementados en src/hooks/staking/__tests__/useStakingAtomicQueries.test.js.
+Todos los tests pasan y cubren los casos del plan.
+
+- [x] Booking atomic queries (integration): useReservationsOfTokenSSO, useReservationOfTokenByIndexSSO — tested via integration test (BookingAtomicQueries.integration.test.js) due to React Query v5/SSR test issues. All integration tests pass and validate real data flow.

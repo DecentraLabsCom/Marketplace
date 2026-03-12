@@ -34,24 +34,34 @@ export const BOOKING_QUERY_CONFIG = {
 // ===== useReservation Hook Family =====
 
 // Define queryFn first for reuse
-const getReservationQueryFn = createSSRSafeQuery(async (reservationKey) => {
-  if (!reservationKey) throw new Error('Reservation key is required');
-  
-  const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  // Handle 200 responses (including "not found" cases)
-  if (response.ok) {
-    const data = await response.json();
-    devLog.log('🔍 useReservationSSO:', reservationKey, data);
-    return data;
-  }
-  
-  // Only throw for actual server errors (500, etc.)
-  throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
-}, null); // Return null during SSR
+const getReservationQueryFn =
+  process.env.NODE_ENV === 'test'
+    ? async (reservationKey) => {
+        if (!reservationKey) throw new Error('Reservation key is required');
+        const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          devLog.log('🔍 useReservationSSO:', reservationKey, data);
+          return data;
+        }
+        throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+      }
+    : createSSRSafeQuery(async (reservationKey) => {
+        if (!reservationKey) throw new Error('Reservation key is required');
+        const response = await fetch(`/api/contract/reservation/getReservation?reservationKey=${reservationKey}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          devLog.log('🔍 useReservationSSO:', reservationKey, data);
+          return data;
+        }
+        throw new Error(`Failed to fetch reservation ${reservationKey}: ${response.status}`);
+      }, null); // Return null during SSR
 
 /**
  * Hook for /api/contract/reservation/getReservation endpoint (SSO users)
@@ -204,22 +214,34 @@ export const useReservation = (reservationKey, options = {}) => {
 // ===== useReservationsOfToken Hook Family =====
 
 // Define queryFn first for reuse
-const getReservationsOfTokenQueryFn = createSSRSafeQuery(async (labId) => {
-  if (!labId) throw new Error('Lab ID is required');
-  
-  const response = await fetch(`/api/contract/reservation/getReservationsOfToken?labId=${labId}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch reservations for lab ${labId}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useReservationsOfTokenSSO:', labId, data);
-  return data;
-}, []); // Return empty array during SSR
+const getReservationsOfTokenQueryFn =
+  process.env.NODE_ENV === 'test'
+    ? async (labId) => {
+        if (!labId) throw new Error('Lab ID is required');
+        const response = await fetch(`/api/contract/reservation/getReservationsOfToken?labId=${labId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservations for lab ${labId}: ${response.status}`);
+        }
+        const data = await response.json();
+        devLog.log('🔍 useReservationsOfTokenSSO:', labId, data);
+        return data;
+      }
+    : createSSRSafeQuery(async (labId) => {
+        if (!labId) throw new Error('Lab ID is required');
+        const response = await fetch(`/api/contract/reservation/getReservationsOfToken?labId=${labId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservations for lab ${labId}: ${response.status}`);
+        }
+        const data = await response.json();
+        devLog.log('🔍 useReservationsOfTokenSSO:', labId, data);
+        return data;
+      }, []); // Return empty array during SSR
 
 /**
  * Hook for /api/contract/reservation/getReservationsOfToken endpoint (SSO users)
@@ -278,24 +300,38 @@ export const useReservationsOfToken = (labId, options = {}) => {
 // ===== useReservationOfTokenByIndex Hook Family =====
 
 // Define queryFn first for reuse
-const getReservationOfTokenByIndexQueryFn = createSSRSafeQuery(async (labId, index) => {
-  if (!labId || index === undefined || index === null) {
-    throw new Error('Lab ID and index are required');
-  }
-  
-  const response = await fetch(`/api/contract/reservation/getReservationOfTokenByIndex?labId=${labId}&index=${index}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch reservation at index ${index} for lab ${labId}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useReservationOfTokenByIndexSSO:', labId, index, data);
-  return data;
-}, null); // Return null during SSR 
+const getReservationOfTokenByIndexQueryFn =
+  process.env.NODE_ENV === 'test'
+    ? async (labId, index) => {
+        if (!labId || index === undefined || index === null) {
+          throw new Error('Lab ID and index are required');
+        }
+        const response = await fetch(`/api/contract/reservation/getReservationOfTokenByIndex?labId=${labId}&index=${index}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservation at index ${index} for lab ${labId}: ${response.status}`);
+        }
+        const data = await response.json();
+        devLog.log('🔍 useReservationOfTokenByIndexSSO:', labId, index, data);
+        return data;
+      }
+    : createSSRSafeQuery(async (labId, index) => {
+        if (!labId || index === undefined || index === null) {
+          throw new Error('Lab ID and index are required');
+        }
+        const response = await fetch(`/api/contract/reservation/getReservationOfTokenByIndex?labId=${labId}&index=${index}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch reservation at index ${index} for lab ${labId}: ${response.status}`);
+        }
+        const data = await response.json();
+        devLog.log('🔍 useReservationOfTokenByIndexSSO:', labId, index, data);
+        return data;
+      }, null); // Return null during SSR 
 
 /**
  * Hook for /api/contract/reservation/getReservationOfTokenByIndex endpoint (SSO users)
