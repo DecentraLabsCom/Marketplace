@@ -71,10 +71,12 @@ const getReservationQueryFn =
  * @returns {Object} React Query result with reservation data
  */
 export const useReservationSSO = (reservationKey, options = {}) => {
+  // Force enabled to respect user option if provided
+  const enabled = options.enabled !== undefined ? options.enabled : !!reservationKey;
   return useQuery({
     queryKey: bookingQueryKeys.byReservationKey(reservationKey),
     queryFn: () => getReservationQueryFn(reservationKey),
-    enabled: !!reservationKey,
+    enabled,
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });

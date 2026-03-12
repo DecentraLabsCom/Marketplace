@@ -98,6 +98,31 @@ Todos los tests pasan y cubren los casos del plan.
 3. **Provider inválido**
    - Si el provider es null, undefined o vacío, el hook no ejecuta la query.
 
+
+### useLabWallet
+1. **Happy path**
+   - Devuelve datos normalizados correctamente para un labId válido.
+2. **Error**
+   - Propaga error si el contrato falla.
+3. **labId inválido**
+   - No ejecuta la query si el labId es null, undefined o vacío.
+
+Tests implementados en src/hooks/lab/__tests__/useLabAtomicQueries.wallet.test.js.
+Tests ejecutados y pasan correctamente (marzo 2026).
+Todos los casos del plan están cubiertos.
+
+### useLabBalanceWallet
+1. **Happy path**
+   - Devuelve balance normalizado correctamente para un ownerAddress válido.
+2. **Error**
+   - Propaga error si el contrato falla.
+3. **ownerAddress inválido**
+   - No ejecuta la query si el ownerAddress es null, undefined o vacío.
+
+Tests implementados en src/hooks/lab/__tests__/useLabBalanceWallet.test.js.
+Tests ejecutados y pasan correctamente (marzo 2026).
+Todos los casos del plan están cubiertos.
+
 ### useLabTokenHook
 1. **Estado inicial**
    - Devuelve correctamente balance, allowance y decimals desde el contrato.
