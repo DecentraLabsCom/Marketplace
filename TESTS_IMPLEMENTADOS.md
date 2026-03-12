@@ -1,3 +1,14 @@
+- `src/components/register/InstitutionProviderRegister.js` (nuevo)
+- `src/components/layout/GlobalNotificationStack.js` (nuevo)
+### Cobertura añadida (marzo 2026)
+
+Se agregaron tests para los siguientes componentes sencillos que tenían 0% de cobertura:
+
+- `src/components/layout/ClientOnly.js`
+- `src/components/layout/DataRefreshIndicator.js`
+- `src/components/register/ProviderAccessDenied.js`
+
+Todos los tests pasan correctamente y estos archivos ya cuentan con cobertura.
 # Tests implementados para componentes sencillos
 
 ## AboutPage
