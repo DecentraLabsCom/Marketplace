@@ -1,3 +1,29 @@
+# Tests implementados para componentes sencillos
+
+## AboutPage
+Archivo: src/components/about/__tests__/AboutPage.test.js
+1. Renderiza correctamente el título y las secciones Nebsyst y DecentraLabs.
+2. Renderiza la descripción y el enlace de Nebsyst.
+3. Renderiza la descripción y el enlace de DecentraLabs.
+Todos los tests pasan y el archivo tiene 100% de cobertura.
+
+## InstitutionalOnboardingWrapper
+Archivo: src/components/auth/__tests__/InstitutionalOnboardingWrapper.test.js
+1. Renderiza null si el usuario no es SSO.
+2. Renderiza el modal con las props correctas si el usuario es SSO.
+Mock de contexto y modal aplicado. Todos los tests pasan y el archivo tiene 100% de cobertura.
+
+## ContactPage
+Archivo: src/components/contact/__tests__/ContactPage.test.js
+1. Renderiza correctamente el formulario y la información de contacto.
+2. Envía el formulario y dispara el mailto con los datos correctos (mockeado).
+Todos los tests pasan y el archivo tiene 100% de cobertura.
+
+## FAQPage
+Archivo: src/components/faq/__tests__/FAQPage.test.js
+1. Renderiza el título y todas las preguntas frecuentes.
+2. Renderiza las respuestas para cada pregunta.
+Usa getAllByText para manejar coincidencias múltiples. Todos los tests pasan y el archivo tiene 100% de cobertura.
 #### Tests implementados para useReservationWallet
 1. **Happy path**
    - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un reservationKey válido.
@@ -161,6 +187,23 @@ Tests implementados en src/hooks/__tests__/useLabToken.test.js.
 
 Todos los tests anteriores están implementados y pasan correctamente (marzo 2026).
 Todos los casos del plan están cubiertos.
+
+## Footer
+Archivo: src/components/layout/__tests__/Footer.test.js
+1. Renderiza el footer envuelto en el componente Container.
+2. Muestra correctamente los logos de financiación (EU, NGI, Vietsch) con sus rutas y alt text.
+3. Renderiza los enlaces internos de navegación (About, FAQ, Contact) con las rutas correctas.
+4. Renderiza los enlaces externos a redes sociales con atributos de seguridad y clases de hover.
+5. Muestra los iconos de redes sociales (Globe, Github, Twitter) usando mocks de react-icons.
+6. Verifica accesibilidad: todas las imágenes tienen alt y los links son accesibles por teclado.
+Mocks aplicados para next/image, next/link, Container y react-icons. Todos los tests pasan y el archivo tiene 100% de cobertura.
+
+## AppProviders
+Archivo: src/components/layout/__tests__/AppProviders.test.js
+1. Renderiza todos los providers principales y los componentes de layout (Navbar, Footer, GlobalNotificationStack, PopupBlockerModal, DataRefreshIndicator, InstitutionalOnboardingWrapper) y los children.
+2. Usa mocks para todos los context providers y componentes de layout, asegurando que cada uno exporta correctamente como default.
+3. El test verifica que todos los elementos principales están presentes en el DOM.
+Todos los tests pasan y el archivo tiene 100% de cobertura.
 
 # Test Plan General: Marketplace
 
