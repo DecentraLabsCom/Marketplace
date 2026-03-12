@@ -1,4 +1,6 @@
+
 import { Container } from '@/components/ui'
+import { sendMailto } from '@/utils/browser/sendMailto'
 
 /**
  * Contact page component with email form
@@ -18,8 +20,7 @@ export default function Contact() {
     const subject = encodeURIComponent("New message from DecentraLabs form");
     const body = encodeURIComponent(`From: ${email}\n\n${message}`);
 
-    window.location.href =
-        `mailto:contact@nebsyst.com?subject=${subject}&body=${body}`;
+    sendMailto(`mailto:contact@nebsyst.com?subject=${subject}&body=${body}`);
   }
 
   return (
