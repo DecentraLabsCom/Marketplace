@@ -134,7 +134,33 @@ Todos los casos del plan están cubiertos.
    - Refresca balance y allowance tras confirmación de transacción.
 
 Tests implementados en src/hooks/__tests__/useLabToken.test.js.
-Todos los tests pasan y cubren los casos del plan.
+
+### useStakeInfoSSO
+1. **Happy path**
+   - Devuelve la información de stake correctamente para un provider válido.
+2. **Error en fetch**
+   - Si la llamada a la API falla, el hook devuelve error.
+3. **Provider inválido**
+   - Si el provider es null, undefined o vacío, el hook no ejecuta la query.
+
+### useStakeInfoWallet
+1. **Happy path**
+   - Normaliza correctamente los datos de wagmi y devuelve la información esperada para un provider válido.
+2. **Error**
+   - Si el hook de wagmi devuelve error, el hook propaga el error correctamente.
+3. **Normalización de array**
+   - Soporta y normaliza correctamente cuando wagmi devuelve un array de datos en vez de un objeto.
+
+### usePendingLabPayoutSSO
+1. **Happy path**
+   - Devuelve el payout pendiente correctamente para un labId válido.
+2. **Error en fetch**
+   - Si la llamada a la API falla, el hook devuelve error.
+3. **labId inválido**
+   - No ejecuta la query si el labId es null, undefined o vacío.
+
+Todos los tests anteriores están implementados y pasan correctamente (marzo 2026).
+Todos los casos del plan están cubiertos.
 
 # Test Plan General: Marketplace
 
