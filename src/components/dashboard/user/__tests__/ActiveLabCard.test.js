@@ -73,10 +73,61 @@ const mockBooking = {
   end: 1710496800, // Unix timestamp for 2024-03-15 10:00:00
 };
 
+
 const mockBookingTimes = {
   start: "08:00",
   end: "10:00",
 };
+
+jest.mock('@fortawesome/react-fontawesome', () => ({ FontAwesomeIcon: () => <span data-testid="fa-icon" /> }));
+jest.mock('@/utils/booking/bookingStatus', () => ({
+  getBookingStatusDisplay: () => ({ text: 'Confirmed', className: 'bg-green-500', icon: 'OK' }),
+  isConfirmedBooking: () => true
+}));
+
+describe('ActiveLabCard', () => {
+  it('muestra mensaje si no hay lab', () => {
+    render(<ActiveLabCard lab={null} booking={null} userAddress="0x123" />);
+    expect(screen.getByText(/no upcoming or active lab/i)).toBeInTheDocument();
+  });
+
+  it('renderiza datos principales y carrousel', () => {
+    render(<ActiveLabCard lab={mockLab} booking={mockBooking} userAddress="0x123" bookingTimes={mockBookingTimes} isActive={true} />);
+    expect(screen.queryByText(/available today/i)).toBeInTheDocument();
+    expect(screen.getByTestId('carrousel-mock')).toBeInTheDocument();
+    expect(screen.getByText('Start: 08:00')).toBeInTheDocument();
+    expect(screen.getByText('End: 10:00')).toBeInTheDocument();
+    expect(screen.getByText('Confirmed')).toBeInTheDocument();
+    expect(screen.getByText('Explore this lab')).toBeInTheDocument();
+  });
+
+  it('renderiza LabAccess si isActive', () => {
+    render(<ActiveLabCard lab={mockLab} booking={mockBooking} userAddress="0x123" isActive bookingTimes={mockBookingTimes} />);
+    expect(screen.getByTestId('lab-access-mock')).toBeInTheDocument();
+  });
+
+  it('renderiza iframe si hay docs', () => {
+    render(<ActiveLabCard lab={mockLab} booking={mockBooking} userAddress="0x123" bookingTimes={mockBookingTimes} />);
+    expect(screen.getByTitle('description')).toBeInTheDocument();
+  });
+
+  it('muestra mensaje si no hay docs', () => {
+    render(<ActiveLabCard lab={{ ...mockLab, docs: [] }} booking={mockBooking} userAddress="0x123" bookingTimes={mockBookingTimes} />);
+    expect(screen.getByText(/no documents available/i)).toBeInTheDocument();
+  });
+
+  it('llama onBookingAction si se hace click en el botón', () => {
+    const onBookingAction = jest.fn();
+    render(<ActiveLabCard lab={mockLab} booking={mockBooking} userAddress="0x123" bookingTimes={mockBookingTimes} actionLabel="Acción" onBookingAction={onBookingAction} />);
+    fireEvent.click(screen.getByText('Acción'));
+    expect(onBookingAction).toHaveBeenCalledWith(mockBooking);
+  });
+
+  it('deshabilita el botón si isBusy', () => {
+    render(<ActiveLabCard lab={mockLab} booking={mockBooking} userAddress="0x123" bookingTimes={mockBookingTimes} actionLabel="Acción" onBookingAction={() => {}} actionState={{ isBusy: true }} />);
+    expect(screen.getByRole('button')).toBeDisabled();
+  });
+});
 
 /**
  * Helper function to render component with default props

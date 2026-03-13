@@ -282,3 +282,17 @@ Tests implementados en src/hooks/staking/__tests__/useStakingAtomicQueries.test.
 Todos los tests pasan y cubren los casos del plan.
 
 - [x] Booking atomic queries (integration): useReservationsOfTokenSSO, useReservationOfTokenByIndexSSO — tested via integration test (BookingAtomicQueries.integration.test.js) due to React Query v5/SSR test issues. All integration tests pass and validate real data flow.
+
+## ActiveLabCard
+Archivo: src/components/dashboard/user/__tests__/ActiveLabCard.test.js
+0 líneas de código de producción añadidas.
+1. Muestra mensaje si no hay lab activo/próximo.
+2. Renderiza datos principales, carrousel y enlace de exploración.
+3. Renderiza LabAccess solo si isActive.
+4. Renderiza iframe para documentos y mensaje alternativo si no hay docs.
+5. Renderiza y deshabilita el botón de acción según estado.
+6. Renderiza estados visuales (borde animado, fechas, etc.).
+7. Cobertura de edge cases: datos nulos, fechas inválidas, props opcionales.
+Notas:
+- Se corrigió el test para el texto "Available today" asegurando que isActive sea true en el test correspondiente.
+- Todos los tests pasan correctamente tras el ajuste y el archivo tiene 100% de cobertura.
