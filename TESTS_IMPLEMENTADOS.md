@@ -435,6 +435,16 @@ Archivo: src/utils/browser/sendMailto.js
 2. No se puede comprobar window.location.assign en JSDOM, solo se verifica que la función es invocable.
 Todos los tests pasan y el archivo tiene cobertura básica de ejecución.
 
+### ClientQueryProvider.js
+Archivo: src/context/__tests__/ClientQueryProvider.test.js
+Funciones/casos cubiertos:
+1. **ClientQueryProvider**
+   - Renderiza correctamente los children y el devtools de React Query.
+2. **globalQueryClient**
+   - Es una instancia de QueryClient y expone los métodos principales de React Query.
+
+Todos los tests pasan y el archivo tiene cobertura completa de renderizado y estructura básica del proveedor de React Query y su cliente global.
+
 ### ClientWagmiProvider
 Archivo: src/context/__tests__/ClientWagmiProvider.test.js
 1. Renderiza correctamente el WagmiProvider con el config y los children.
