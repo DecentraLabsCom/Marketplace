@@ -1,94 +1,104 @@
-
-jest.mock('next/dynamic', () => (importFn) => importFn());
+jest.mock('@/components/layout/ClientOnly', () => ({ __esModule: true, default: ({ children }) => <>{children}</> }));
+jest.mock('next/dynamic', () => (importFn) => {
+  // Inspect the import function's toString to determine the import path
+  const importStr = importFn.toString();
+  if (importStr.includes('GlobalNotificationStack')) {
+    return () => <div data-testid="notifications" />;
+  }
+  if (importStr.includes('PopupBlockerModal')) {
+    return () => <div data-testid="popup-blocker" />;
+  }
+  if (importStr.includes('DataRefreshIndicator')) {
+    return () => <div data-testid="refresh-indicator" />;
+  }
+  if (importStr.includes('InstitutionalOnboardingWrapper')) {
+    return () => <div data-testid="onboarding" />;
+  }
+  return () => <div data-testid="dynamic-component" />;
+});
+jest.mock('@/components/layout/GlobalNotificationStack', () => ({ __esModule: true, default: () => <div data-testid="notifications" /> }));
+jest.mock('@/components/layout/PopupBlockerModal', () => ({ __esModule: true, default: () => <div data-testid="popup-blocker" /> }));
+jest.mock('@/components/layout/DataRefreshIndicator', () => ({ __esModule: true, default: () => <div data-testid="refresh-indicator" /> }));
+jest.mock('@/components/auth/InstitutionalOnboardingWrapper', () => ({ __esModule: true, default: () => <div data-testid="onboarding" /> }));
 import { render, screen } from '@testing-library/react';
 
 
-// Single require and console.log block for debugging
-const { ClientQueryProvider } = require('@/context/ClientQueryProvider');
-const { ClientWagmiProvider } = require('@/context/ClientWagmiProvider');
-const { NotificationProvider } = require('@/context/NotificationContext');
-const { OptimisticUIProvider } = require('@/context/OptimisticUIContext');
-const { UserData, useUser } = require('@/context/UserContext');
-const { LabTokenProvider } = require('@/context/LabTokenContext');
-const { UserEventProvider } = require('@/context/UserEventContext');
-const { LabEventProvider } = require('@/context/LabEventContext');
-const { BookingEventProvider } = require('@/context/BookingEventContext');
-const Navbar = require('@/components/layout/Navbar').default;
-const Footer = require('@/components/layout/Footer').default;
-const GlobalNotificationStack = require('@/components/layout/GlobalNotificationStack').default;
-const PopupBlockerModal = require('@/components/layout/PopupBlockerModal').default;
-const DataRefreshIndicator = require('@/components/layout/DataRefreshIndicator').default;
-const InstitutionalOnboardingWrapper = require('@/components/auth/InstitutionalOnboardingWrapper').default;
+import AppProviders from '../AppProviders';
+// Patch dynamic import variables to use the correct mocks
+import notificationsMock from '@/components/layout/GlobalNotificationStack';
+import popupBlockerMock from '@/components/layout/PopupBlockerModal';
+import refreshIndicatorMock from '@/components/layout/DataRefreshIndicator';
+import onboardingMock from '@/components/auth/InstitutionalOnboardingWrapper';
 
-console.log('ClientQueryProvider:', ClientQueryProvider);
-console.log('ClientWagmiProvider:', ClientWagmiProvider);
-console.log('NotificationProvider:', NotificationProvider);
-console.log('OptimisticUIProvider:', OptimisticUIProvider);
-console.log('UserData:', UserData);
-console.log('LabTokenProvider:', LabTokenProvider);
-console.log('UserEventProvider:', UserEventProvider);
-console.log('LabEventProvider:', LabEventProvider);
-console.log('BookingEventProvider:', BookingEventProvider);
-console.log('Navbar:', Navbar);
-console.log('Footer:', Footer);
-console.log('GlobalNotificationStack:', GlobalNotificationStack);
-console.log('PopupBlockerModal:', PopupBlockerModal);
-console.log('DataRefreshIndicator:', DataRefreshIndicator);
-console.log('InstitutionalOnboardingWrapper:', InstitutionalOnboardingWrapper);
+// Patch the variables in the test scope
+// eslint-disable-next-line no-global-assign
+global.GlobalNotificationStack = notificationsMock.default;
+global.PopupBlockerModal = popupBlockerMock.default;
+global.DataRefreshIndicator = refreshIndicatorMock.default;
+global.InstitutionalOnboardingWrapper = onboardingMock.default;
 
-// MinimalAppProviders wrapper for test
-function MinimalAppProviders({ children }) {
-  return (
-    <ClientQueryProvider>
-      <ClientWagmiProvider>
-        <NotificationProvider>
-          <OptimisticUIProvider>
-            <UserData>
-              <LabTokenProvider>
-                <UserEventProvider>
-                  <LabEventProvider>
-                    <BookingEventProvider>
-                      <Navbar />
-                      <Footer />
-                      <GlobalNotificationStack />
-                      <PopupBlockerModal />
-                      <DataRefreshIndicator />
-                      <InstitutionalOnboardingWrapper />
-                      {children}
-                    </BookingEventProvider>
-                  </LabEventProvider>
-                </UserEventProvider>
-              </LabTokenProvider>
-            </UserData>
-          </OptimisticUIProvider>
-        </NotificationProvider>
-      </ClientWagmiProvider>
-    </ClientQueryProvider>
-  );
-}
-jest.mock('@/components/layout/Navbar', () => ({ __esModule: true, default: () => <div data-testid="navbar">Navbar</div> }));
-jest.mock('@/components/layout/Footer', () => ({ __esModule: true, default: () => <div data-testid="footer">Footer</div> }));
-jest.mock('@/components/layout/GlobalNotificationStack', () => ({ __esModule: true, default: () => <div data-testid="notifications">Notifications</div> }));
-jest.mock('@/components/layout/PopupBlockerModal', () => ({ __esModule: true, default: () => <div data-testid="popup-blocker">PopupBlocker</div> }));
-jest.mock('@/components/layout/DataRefreshIndicator', () => ({ __esModule: true, default: () => <div data-testid="refresh-indicator">RefreshIndicator</div> }));
-jest.mock('@/components/auth/InstitutionalOnboardingWrapper', () => ({ __esModule: true, default: () => <div data-testid="onboarding">Onboarding</div> }));
-jest.mock('@/context/ClientQueryProvider', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, ClientQueryProvider: ({ children }) => <div>{children}</div> }));
-jest.mock('@/context/ClientWagmiProvider', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, ClientWagmiProvider: ({ children }) => <div>{children}</div> }));
-jest.mock('@/context/NotificationContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, NotificationProvider: ({ children }) => <div>{children}</div>, useNotifications: () => ({}) }));
-jest.mock('@/context/OptimisticUIContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, OptimisticUIProvider: ({ children }) => <div>{children}</div>, useOptimisticUI: () => ({}) }));
-jest.mock('@/context/UserContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, UserData: ({ children }) => <div>{children}</div>, useUser: () => ({ isLoggedIn: true, isSSO: false, hasWalletSession: false }) }));
-jest.mock('@/context/LabTokenContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, LabTokenProvider: ({ children }) => <div>{children}</div>, useLabTokenHook: () => ({}) }));
-jest.mock('@/context/UserEventContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, UserEventProvider: ({ children }) => <div>{children}</div>, useUserEvent: () => ({}) }));
-jest.mock('@/context/LabEventContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, LabEventProvider: ({ children }) => <div>{children}</div>, useLabEvent: () => ({}) }));
-jest.mock('@/context/BookingEventContext', () => ({ __esModule: true, default: ({ children }) => <div>{children}</div>, BookingEventProvider: ({ children }) => <div>{children}</div>, useBookingEvent: () => ({}) }));
+jest.mock('@/components/layout/Navbar', () => () => <div data-testid="navbar">Navbar</div>);
+jest.mock('@/components/layout/Footer', () => () => <div data-testid="footer">Footer</div>);
+jest.mock('@/components/layout/GlobalNotificationStack', () => () => <div data-testid="notifications">Notifications</div>);
+jest.mock('@/components/layout/PopupBlockerModal', () => () => <div data-testid="popup-blocker">PopupBlocker</div>);
+jest.mock('@/components/layout/DataRefreshIndicator', () => () => <div data-testid="refresh-indicator">RefreshIndicator</div>);
+jest.mock('@/components/auth/InstitutionalOnboardingWrapper', () => () => <div data-testid="onboarding">Onboarding</div>);
+
+
+
+
+
+
+
+
+
+
+
+jest.mock('@/context/ClientQueryProvider', () => ({
+  __esModule: true,
+  default: function ClientQueryProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/ClientWagmiProvider', () => ({
+  __esModule: true,
+  default: function ClientWagmiProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/NotificationContext', () => ({
+  __esModule: true,
+  NotificationProvider: function NotificationProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/OptimisticUIContext', () => ({
+  __esModule: true,
+  OptimisticUIProvider: function OptimisticUIProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/UserContext', () => ({
+  __esModule: true,
+  UserData: function UserData({ children }) { return <>{children}</>; },
+  useUser: () => ({ isLoggedIn: true, isSSO: false, hasWalletSession: false })
+}));
+jest.mock('@/context/LabTokenContext', () => ({
+  __esModule: true,
+  LabTokenProvider: function LabTokenProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/UserEventContext', () => ({
+  __esModule: true,
+  UserEventProvider: function UserEventProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/LabEventContext', () => ({
+  __esModule: true,
+  LabEventProvider: function LabEventProvider({ children }) { return <>{children}</>; }
+}));
+jest.mock('@/context/BookingEventContext', () => ({
+  __esModule: true,
+  BookingEventProvider: function BookingEventProvider({ children }) { return <>{children}</>; }
+}));
 
 
 describe('AppProviders', () => {
   it('renders all main layout components and children', () => {
     render(
-      <MinimalAppProviders>
+      <AppProviders>
         <div data-testid="content">Content</div>
-      </MinimalAppProviders>
+      </AppProviders>
     );
     expect(screen.getByTestId('navbar')).toBeInTheDocument();
     expect(screen.getByTestId('footer')).toBeInTheDocument();
