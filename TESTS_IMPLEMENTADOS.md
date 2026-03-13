@@ -327,3 +327,16 @@ Archivo: src/utils/api/__tests__/backendProxyHelpers.test.js
 3. `resolveForwardHeaders`: Reenvía el header Authorization válido del cliente, o genera un token de servidor si es inválido o useServerToken=1. Incluye x-api-key desde header o variable de entorno.
 - Se mockea marketplaceJwtService para simular generación de token.
 Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
+
+## useGetIsSSO
+Archivo: src/hooks/utils/useGetIsSSO.js (reexporta de utils/hooks/authMode.js)
+1. `useGetIsSSO`: Devuelve el valor de isSSO desde el contexto de usuario o desde las opciones recibidas.
+2. `getIsSSOFromOptions`: Permite forzar el valor de isSSO o usar fallback durante la inicialización.
+- Tests cubren: override explícito, uso de contexto, fallback y error si no hay fuente.
+Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
+
+## Onboarding barrel (index.js)
+Archivo: src/utils/onboarding/index.js
+1. Exporta correctamente todos los utilitarios de onboarding: institutionalBackend, institutionalOnboarding, onboardingResultStore y callbackAuth.
+2. El test verifica que todos los miembros esperados existen y son del tipo correcto (función u objeto).
+Todos los tests pasan y el archivo tiene 100% de cobertura de exportación.
