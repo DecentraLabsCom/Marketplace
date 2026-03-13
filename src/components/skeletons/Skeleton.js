@@ -10,10 +10,11 @@ import PropTypes from 'prop-types'
  * @param {string} [props.rounded='rounded'] - Tailwind border radius class
  * @returns {JSX.Element} Animated skeleton placeholder
  */
-export function Skeleton({ className = "", width = "w-full", height = "h-4", rounded = "rounded" }) {
+export function Skeleton({ className = "", width = "w-full", height = "h-4", rounded = "rounded", ...rest }) {
   return (
     <div 
       className={`animate-pulse bg-neutral-200 dark:bg-neutral-700 ${width} ${height} ${rounded} ${className}`}
+      {...rest}
     />
   );
 }
@@ -26,9 +27,9 @@ export function Skeleton({ className = "", width = "w-full", height = "h-4", rou
  * @param {string} [props.className=''] - Additional CSS classes
  * @returns {JSX.Element} Card wrapper with skeleton content
  */
-export function SkeletonCard({ children, className = "" }) {
+export function SkeletonCard({ children, className = "", ...rest }) {
   return (
-    <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow-md p-4 space-y-3 ${className}`}>
+    <div className={`bg-white dark:bg-neutral-800 rounded-lg shadow-md p-4 space-y-3 ${className}`} {...rest}>
       {children}
     </div>
   );
@@ -64,13 +65,16 @@ export function SkeletonText({ lines = 1, className = "" }) {
  * @param {string} [props.className=''] - Additional CSS classes
  * @returns {JSX.Element} Image-shaped skeleton placeholder
  */
-export function SkeletonImage({ aspectRatio = "aspect-video", className = "" }) {
+export function SkeletonImage({ aspectRatio = "aspect-video", className = "", ...rest }) {
   return (
     <Skeleton 
       className={`${aspectRatio} ${className}`}
       width="w-full"
       height="h-auto"
       rounded="rounded-lg"
+      role="img"
+      aria-hidden="true"
+      {...rest}
     />
   );
 }

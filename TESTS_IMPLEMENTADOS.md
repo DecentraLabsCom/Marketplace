@@ -8,6 +8,16 @@ Funciones/casos cubiertos:
    - Renderiza el overlay de loading y el spinner cuando isLoading es true.
 
 Todos los tests pasan y el archivo tiene cobertura completa de renderizado y lógica de loading.
+### LabCardSkeleton.js
+Archivo: src/components/skeletons/__tests__/LabCardSkeleton.test.js
+Funciones/casos cubiertos:
+1. **LabCardSkeleton**
+   - Renderiza correctamente todos los elementos principales del esqueleto (imagen, título, categorías, descripción, proveedor, precio y botón).
+2. **LabCardGridSkeleton**
+   - Renderiza el número correcto de tarjetas esqueleto por defecto (6).
+   - Renderiza el número correcto de tarjetas esqueleto con un valor personalizado.
+
+Todos los tests pasan y el archivo tiene cobertura completa de renderizado y estructura de los esqueletos de tarjetas de laboratorio.
 ### LabManagementActions.js
 Archivo: src/components/dashboard/provider/__tests__/LabManagementActions.test.js
 Funciones/casos cubiertos:

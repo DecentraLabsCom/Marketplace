@@ -6,36 +6,31 @@ import { Skeleton, SkeletonCard, SkeletonText, SkeletonImage, SkeletonButton } f
  * Displays a loading skeleton matching the lab card layout
  * @returns {JSX.Element} Lab card skeleton with image, title, tags, description, provider, and action button
  */
-export function LabCardSkeleton() {
+export function LabCardSkeleton(props) {
   return (
-    <SkeletonCard className="overflow-hidden">
+    <SkeletonCard className="overflow-hidden" data-testid="lab-card-skeleton" {...props}>
       {/* Image skeleton */}
-      <SkeletonImage aspectRatio="aspect-video" />
-      
+      <SkeletonImage aspectRatio="aspect-video" aria-hidden="true" role="img" />
       {/* Content */}
       <div className="space-y-3">
         {/* Title */}
-        <Skeleton width="w-3/4" height="h-6" />
-        
+        <Skeleton width="w-3/4" height="h-6" data-testid="skeleton" />
         {/* Category/Keywords */}
         <div className="flex gap-2">
-          <Skeleton width="w-16" height="h-5" rounded="rounded-full" />
-          <Skeleton width="w-20" height="h-5" rounded="rounded-full" />
+          <Skeleton width="w-16" height="h-5" rounded="rounded-full" data-testid="skeleton" />
+          <Skeleton width="w-20" height="h-5" rounded="rounded-full" data-testid="skeleton" />
         </div>
-        
         {/* Description */}
-        <SkeletonText lines={2} />
-        
+        <SkeletonText lines={2} data-testid="skeleton-text" />
         {/* Provider */}
         <div className="flex items-center gap-2">
-          <Skeleton width="w-6" height="h-6" rounded="rounded-full" />
-          <Skeleton width="w-32" height="h-4" />
+          <Skeleton width="w-6" height="h-6" rounded="rounded-full" data-testid="skeleton" />
+          <Skeleton width="w-32" height="h-4" data-testid="skeleton" />
         </div>
-        
         {/* Price and button */}
         <div className="flex justify-between items-center">
-          <Skeleton width="w-20" height="h-6" />
-          <SkeletonButton />
+          <Skeleton width="w-20" height="h-6" data-testid="skeleton" />
+          <SkeletonButton data-testid="skeleton-button" />
         </div>
       </div>
     </SkeletonCard>
