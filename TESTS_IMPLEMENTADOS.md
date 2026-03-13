@@ -340,3 +340,9 @@ Archivo: src/utils/onboarding/index.js
 1. Exporta correctamente todos los utilitarios de onboarding: institutionalBackend, institutionalOnboarding, onboardingResultStore y callbackAuth.
 2. El test verifica que todos los miembros esperados existen y son del tipo correcto (función u objeto).
 Todos los tests pasan y el archivo tiene 100% de cobertura de exportación.
+
+## sendMailto
+Archivo: src/utils/browser/sendMailto.js
+1. Cubre la llamada a sendMailto para asegurar que no lanza error al ejecutarse en entorno de test.
+2. No se puede comprobar window.location.assign en JSDOM, solo se verifica que la función es invocable.
+Todos los tests pasan y el archivo tiene cobertura básica de ejecución.
