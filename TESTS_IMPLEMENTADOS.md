@@ -1,3 +1,31 @@
+### LabManagementActions.js
+Archivo: src/components/dashboard/provider/__tests__/LabManagementActions.test.js
+Funciones/casos cubiertos:
+1. Renderiza correctamente el botón "Add New Lab".
+2. Al hacer click en el botón:
+   - Llama a setNewLab con la estructura vacía.
+   - Llama a setIsModalOpen con true.
+   - Llama a setSelectedLabId con "".
+   - Llama a onAddNewLab si está definido.
+3. No lanza error si onAddNewLab no está definido.
+
+Todos los tests pasan y el archivo tiene cobertura completa de lógica y renderizado.
+### puc.js
+Archivo: src/utils/auth/__tests__/puc.test.js
+Funciones cubiertas:
+1. **normalizePuc**
+   - Devuelve null para valores no string, vacíos o solo espacios.
+   - Devuelve el string recortado si no es un urn SCHAC PUC.
+   - Extrae el identificador final de urns SCHAC PUC válidos (case-insensitive).
+   - Devuelve el string recortado si el urn está mal formado.
+2. **getNormalizedPucFromSession**
+   - Devuelve 'principalName|targetedId' si ambos están presentes.
+   - Devuelve solo principalName si targetedId falta.
+   - Recorta ambos valores antes de componer el resultado.
+   - Devuelve session.id si principalName falta.
+   - Devuelve null si no hay identificador válido.
+
+Todos los tests pasan y el archivo tiene cobertura completa de utilidades de PUC.
 ### provisioningToken.js
 Archivo: src/utils/auth/__tests__/provisioningToken.test.js
 Funciones cubiertas:
