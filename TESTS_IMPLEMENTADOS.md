@@ -1,3 +1,13 @@
+### FormSkeleton.js
+Archivo: src/components/skeletons/__tests__/FormSkeleton.test.js
+Funciones/casos cubiertos:
+1. **FormSkeleton**
+   - Renderiza correctamente el layout del esqueleto de formulario (header, campos, selector de fecha, campos de hora, botón submit).
+2. **ButtonLoadingSkeleton**
+   - Renderiza los children cuando no está en loading.
+   - Renderiza el overlay de loading y el spinner cuando isLoading es true.
+
+Todos los tests pasan y el archivo tiene cobertura completa de renderizado y lógica de loading.
 ### LabManagementActions.js
 Archivo: src/components/dashboard/provider/__tests__/LabManagementActions.test.js
 Funciones/casos cubiertos:
