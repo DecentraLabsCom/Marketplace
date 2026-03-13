@@ -296,3 +296,15 @@ Archivo: src/components/dashboard/user/__tests__/ActiveLabCard.test.js
 Notas:
 - Se corrigió el test para el texto "Available today" asegurando que isActive sea true en el test correspondiente.
 - Todos los tests pasan correctamente tras el ajuste y el archivo tiene 100% de cobertura.
+
+## ActiveBookingSection
+Archivo: src/components/dashboard/user/__tests__/ActiveBookingSection.test.js
+0 líneas de código de producción añadidas.
+1. Muestra mensaje si no hay bookings.
+2. Renderiza correctamente activeBooking (cabecera, nombre, estado, botón, horas).
+3. Renderiza correctamente nextBooking si no hay activeBooking.
+4. Llama onBookingAction solo si está permitido.
+5. Deshabilita el botón si isBusy.
+- Mock aplicado para ActiveLabCard.
+- El test es robusto a la zona horaria usando un matcher flexible para las horas.
+Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
