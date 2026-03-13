@@ -281,6 +281,19 @@ Este documento lleva un seguimiento de todos los tests implementados en el proye
 Tests implementados en src/hooks/staking/__tests__/useStakingAtomicQueries.test.js.
 Todos los tests pasan y cubren los casos del plan.
 
+### useStakingAtomicMutations
+Archivo: src/hooks/staking/__tests__/useStakingAtomicMutations.test.js
+1. **stakeTokens (wallet)**
+   - Llama correctamente al contrato y devuelve el hash de la transacción para un amount válido.
+   - Lanza error si el amount falta.
+   - Lanza error si el amount es negativo.
+2. **unstakeTokens (wallet)**
+   - Llama correctamente al contrato y devuelve el hash de la transacción para un amount válido.
+   - Lanza error si el amount falta.
+   - Lanza error si el amount es negativo.
+
+Mocks aplicados para todas las dependencias externas (wagmi, contractWriteFunction, logger, etc). Se usa QueryClientProvider para React Query. Todos los tests pasan y el archivo ya tiene cobertura.
+
 - [x] Booking atomic queries (integration): useReservationsOfTokenSSO, useReservationOfTokenByIndexSSO — tested via integration test (BookingAtomicQueries.integration.test.js) due to React Query v5/SSR test issues. All integration tests pass and validate real data flow.
 
 ## ActiveLabCard
