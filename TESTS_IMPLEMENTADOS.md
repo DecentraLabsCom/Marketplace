@@ -319,3 +319,11 @@ Archivo: src/components/dashboard/user/__tests__/BookingsList.test.js
 6. Edge cases: maneja bookings sin fechas, sin labDetails, array vacío y currentTime nulo.
 - Mocks aplicados para LabBookingItem, DashboardSectionSkeleton y utilidades de estado de booking.
 Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
+
+## backendProxyHelpers
+Archivo: src/utils/api/__tests__/backendProxyHelpers.test.js
+1. `resolveBackendUrl`: Devuelve la URL de backend desde searchParams o variable de entorno, o null si no está configurada.
+2. `shouldUseServerToken`: Devuelve true si useServerToken=1 en searchParams, false en caso contrario.
+3. `resolveForwardHeaders`: Reenvía el header Authorization válido del cliente, o genera un token de servidor si es inválido o useServerToken=1. Incluye x-api-key desde header o variable de entorno.
+- Se mockea marketplaceJwtService para simular generación de token.
+Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
