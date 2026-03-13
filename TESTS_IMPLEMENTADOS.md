@@ -404,11 +404,14 @@ Archivo: src/utils/api/__tests__/backendProxyHelpers.test.js
 Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
 
 ## useGetIsSSO
-Archivo: src/hooks/utils/useGetIsSSO.js (reexporta de utils/hooks/authMode.js)
-1. `useGetIsSSO`: Devuelve el valor de isSSO desde el contexto de usuario o desde las opciones recibidas.
-2. `getIsSSOFromOptions`: Permite forzar el valor de isSSO o usar fallback durante la inicialización.
-- Tests cubren: override explícito, uso de contexto, fallback y error si no hay fuente.
-Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
+Archivo: src/hooks/utils/__tests__/useGetIsSSO.test.js
+Funciones/casos cubiertos:
+1. **useGetIsSSO** (re-export)
+   - Devuelve el valor explícito de isSSO si se pasa en options.
+   - Devuelve fallbackDuringInit si se pasa y no hay isSSO.
+   - Devuelve el valor por defecto del contexto si no se pasan opciones.
+
+Todos los tests pasan y el archivo tiene cobertura completa de los posibles caminos del hook re-exportado.
 
 ## Onboarding barrel (index.js)
 Archivo: src/utils/onboarding/index.js
