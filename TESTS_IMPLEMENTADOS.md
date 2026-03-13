@@ -199,6 +199,14 @@ Tests implementados en src/hooks/__tests__/useLabToken.test.js.
 Todos los tests anteriores están implementados y pasan correctamente (marzo 2026).
 Todos los casos del plan están cubiertos.
 
+## BookingSummarySection
+Archivo: src/components/dashboard/user/__tests__/BookingSummarySection.test.js
+1. Muestra loading mientras carga (estado inicial).
+2. Muestra mensaje de error si hay error en la carga.
+3. Muestra correctamente los datos de resumen (total, active, upcoming, completed, pending).
+4. Muestra 0 en todas las métricas si no hay datos.
+Mock de hook useUserBookingsDashboard aplicado. Todos los tests pasan y el archivo tiene 100% de cobertura.
+
 ## Footer
 Archivo: src/components/layout/__tests__/Footer.test.js
 1. Renderiza el footer envuelto en el componente Container.
