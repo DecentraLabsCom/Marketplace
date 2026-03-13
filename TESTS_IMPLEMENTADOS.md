@@ -308,3 +308,14 @@ Archivo: src/components/dashboard/user/__tests__/ActiveBookingSection.test.js
 - Mock aplicado para ActiveLabCard.
 - El test es robusto a la zona horaria usando un matcher flexible para las horas.
 Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
+
+## BookingsList
+Archivo: src/components/dashboard/user/__tests__/BookingsList.test.js
+1. Renderiza correctamente los títulos y mensajes vacíos para upcoming y past.
+2. Muestra el skeleton de carga y el mensaje de loading según el estado.
+3. Filtra bookings correctamente: upcoming, past, excluye cancelados, excluye activos, excluye booking destacado, excluye pending de past.
+4. Renderiza los items de booking y los botones de acción (cancel/refund) según el tipo.
+5. Llama correctamente a los callbacks onCancel y onRefund.
+6. Edge cases: maneja bookings sin fechas, sin labDetails, array vacío y currentTime nulo.
+- Mocks aplicados para LabBookingItem, DashboardSectionSkeleton y utilidades de estado de booking.
+Todos los tests pasan y el archivo tiene 100% de cobertura en los escenarios principales.
