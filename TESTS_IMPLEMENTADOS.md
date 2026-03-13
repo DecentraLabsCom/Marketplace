@@ -359,3 +359,9 @@ Archivo: src/utils/browser/sendMailto.js
 1. Cubre la llamada a sendMailto para asegurar que no lanza error al ejecutarse en entorno de test.
 2. No se puede comprobar window.location.assign en JSDOM, solo se verifica que la función es invocable.
 Todos los tests pasan y el archivo tiene cobertura básica de ejecución.
+
+### ClientWagmiProvider
+Archivo: src/context/__tests__/ClientWagmiProvider.test.js
+1. Renderiza correctamente el WagmiProvider con el config y los children.
+2. No crashea si no recibe children (PropTypes solo lanza warning en consola).
+Mocks aplicados para WagmiProvider y wagmiConfig. Todos los tests pasan y el archivo ya tiene cobertura.
