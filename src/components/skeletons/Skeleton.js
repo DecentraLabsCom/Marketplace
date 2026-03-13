@@ -86,13 +86,14 @@ export function SkeletonImage({ aspectRatio = "aspect-video", className = "", ..
  * @param {string} [props.className=''] - Additional CSS classes
  * @returns {JSX.Element} Button-shaped skeleton placeholder
  */
-export function SkeletonButton({ className = "" }) {
+export function SkeletonButton({ className = "", ...rest }) {
   return (
     <Skeleton 
       className={className}
       width="w-24"
       height="h-10"
       rounded="rounded-md"
+      {...rest}
     />
   );
 }

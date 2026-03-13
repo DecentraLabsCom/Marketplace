@@ -8,35 +8,30 @@ import { Skeleton, SkeletonCard, SkeletonButton } from './Skeleton'
  */
 export function BookingItemSkeleton() {
   return (
-    <SkeletonCard className="flex items-center justify-between p-4">
+    <SkeletonCard className="flex items-center justify-between p-4" data-testid="booking-item-skeleton">
       {/* Left side - Lab info */}
       <div className="flex items-center gap-4 flex-1">
         {/* Lab image */}
-        <Skeleton width="w-16" height="h-16" rounded="rounded-lg" />
-        
+        <Skeleton width="w-16" height="h-16" rounded="rounded-lg" data-testid="skeleton" />
         {/* Lab details */}
         <div className="space-y-2 flex-1">
           {/* Lab name */}
-          <Skeleton width="w-48" height="h-5" />
-          
+          <Skeleton width="w-48" height="h-5" data-testid="skeleton" />
           {/* Date and time */}
           <div className="flex gap-4">
-            <Skeleton width="w-24" height="h-4" />
-            <Skeleton width="w-20" height="h-4" />
+            <Skeleton width="w-24" height="h-4" data-testid="skeleton" />
+            <Skeleton width="w-20" height="h-4" data-testid="skeleton" />
           </div>
-          
           {/* Provider */}
-          <Skeleton width="w-32" height="h-4" />
+          <Skeleton width="w-32" height="h-4" data-testid="skeleton" />
         </div>
       </div>
-      
       {/* Right side - Status and actions */}
       <div className="flex items-center gap-3">
         {/* Status badge */}
-        <Skeleton width="w-20" height="h-6" rounded="rounded-full" />
-        
+        <Skeleton width="w-20" height="h-6" rounded="rounded-full" data-testid="skeleton" />
         {/* Action button */}
-        <SkeletonButton />
+        <SkeletonButton data-testid="skeleton-button" />
       </div>
     </SkeletonCard>
   );
@@ -70,7 +65,7 @@ export function DashboardSectionSkeleton({ title = true }) {
   return (
     <div className="space-y-4">
       {title && (
-        <Skeleton width="w-48" height="h-7" />
+        <Skeleton width="w-48" height="h-7" data-testid="skeleton" />
       )}
       <BookingListSkeleton count={2} />
     </div>
