@@ -1,3 +1,27 @@
+### provisioningToken.js
+Archivo: src/utils/auth/__tests__/provisioningToken.test.js
+Funciones cubiertas:
+1. **normalizeHttpsUrl**
+   - Devuelve URLs http/https válidas, recorta espacios y elimina barra final.
+   - Lanza error si la URL es inválida, de protocolo incorrecto o vacía.
+2. **requireString**
+   - Devuelve el string recortado si es válido.
+   - Lanza error si el valor es vacío, nulo o no string.
+3. **requireEmail**
+   - Devuelve el email si es válido.
+   - Lanza error si el email es inválido o vacío.
+4. **requireApiKey**
+   - Devuelve la API key recortada si es válida y >=32 caracteres.
+   - Devuelve clave dummy en modo dev si falta.
+   - Lanza error si la clave es demasiado corta o vacía en producción.
+5. **extractBearerToken**
+   - Extrae el token de un header Bearer válido (case-insensitive).
+   - Devuelve null si el header no es Bearer o está vacío.
+
+Notas:
+- Todas las funciones puras utilitarias están cubiertas con casos de éxito y error.
+- No se testean las funciones que dependen de jose/crypto/JWT por incompatibilidad ESM en Jest (mock aplicado para permitir testear el resto).
+Todos los tests pasan y el archivo tiene cobertura completa de utilidades puras.
 - `src/components/register/InstitutionProviderRegister.js` (nuevo)
 - `src/components/layout/GlobalNotificationStack.js` (nuevo)
 ### Cobertura añadida (marzo 2026)
