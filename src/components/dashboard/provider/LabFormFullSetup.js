@@ -197,12 +197,12 @@ function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatew
             {describeFetch.loading ? 'Loading…' : 'Auto-detect'}
           </button>
         </div>
-        {errors.fmuFileName && <p className="text-red-500 text-sm !mt-1">{errors.fmuFileName}</p>}
+        {errors.fmuFileName && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
         {describeFetch.error && (
-          <p className="text-red-500 text-sm !mt-1">Auto-detect failed: {describeFetch.error}</p>
+          <p className="text-red-500 text-sm mt-1!">Auto-detect failed: {describeFetch.error}</p>
         )}
         {describeFetch.fetched && (
-          <p className="text-green-600 text-sm !mt-1">✓ FMU metadata loaded successfully</p>
+          <p className="text-green-600 text-sm mt-1!">✓ FMU metadata loaded successfully</p>
         )}
       </div>
 
@@ -216,7 +216,7 @@ function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatew
             readOnly
             className="w-full p-2 border rounded bg-gray-100 text-gray-600 cursor-not-allowed"
           />
-          {errors.fmiVersion && <p className="text-red-500 text-sm !mt-1">{errors.fmiVersion}</p>}
+          {errors.fmiVersion && <p className="text-red-500 text-sm mt-1!">{errors.fmiVersion}</p>}
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Simulation Type</label>
@@ -226,7 +226,7 @@ function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatew
             readOnly
             className="w-full p-2 border rounded bg-gray-100 text-gray-600 cursor-not-allowed"
           />
-          {errors.simulationType && <p className="text-red-500 text-sm !mt-1">{errors.simulationType}</p>}
+          {errors.simulationType && <p className="text-red-500 text-sm mt-1!">{errors.simulationType}</p>}
         </div>
       </div>
 
@@ -248,7 +248,7 @@ function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatew
             readOnly
             className="w-full p-2 border rounded bg-gray-100 text-gray-600 cursor-not-allowed"
           />
-          {errors.defaultStopTime && <p className="text-red-500 text-sm !mt-1">{errors.defaultStopTime}</p>}
+          {errors.defaultStopTime && <p className="text-red-500 text-sm mt-1!">{errors.defaultStopTime}</p>}
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Default Step Size</label>
@@ -258,7 +258,7 @@ function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatew
             readOnly
             className="w-full p-2 border rounded bg-gray-100 text-gray-600 cursor-not-allowed"
           />
-          {errors.defaultStepSize && <p className="text-red-500 text-sm !mt-1">{errors.defaultStepSize}</p>}
+          {errors.defaultStepSize && <p className="text-red-500 text-sm mt-1!">{errors.defaultStepSize}</p>}
         </div>
       </div>
 
