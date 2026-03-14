@@ -2,12 +2,16 @@
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useLabToken } from '@/context/LabTokenContext'
+import { useNotifications } from '@/context/NotificationContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
 import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
 import devLog from '@/utils/dev/logger'
+
+/** Must match the server-side limit in /api/provider/uploadFile/route.js */
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 const initialState = (lab) => ({
   activeTab: 'full',
@@ -116,6 +120,7 @@ function reducer(state, action) {
 export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId = 0, onFilesUploaded = null }) {
   const { decimals, formatPrice } = useLabToken();
   const uploadFileMutation = useUploadFile();
+  const { addWarningNotification, addErrorNotification } = useNotifications();
   const deleteFileMutation = useDeleteFile();
   const [state, dispatch] = useReducer(reducer, lab, initialState);
   const {
@@ -316,71 +321,54 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
   }, [isOpen, lab?.id, decimals, formatPrice, jsonFileRegex]); // Include all dependencies
 
   const handleImageChange = useCallback((e) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            // Filter out non-image files.
-            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (!e.target.files) return;
 
-            if (!currentLabId) {
-              devLog.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
-              return;
-            }
+    if (!currentLabId) {
+      devLog.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
+      return;
+    }
 
-            if (imageFiles.length !== files.length) {
-                alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
-                // Only use the valid images and discard the rest
-                dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...imageFiles] });
+    const files = Array.from(e.target.files);
 
-                // Create URLs for previewing immediately.
-                const newImageUrls = imageFiles.map(file => URL.createObjectURL(file));
-                dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
+    // Filter out non-image files
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      addWarningNotification('Only valid image files are allowed (JPEG, PNG, GIF, etc.).');
+    }
+    if (imageFiles.length === 0) return;
 
-                // Upload files *asynchronously* and update lab.images
-                const uploadImages = async () => {
-                    try {
-                        const uploadedPaths = await Promise.all(
-                            imageFiles.map(async (file) => {
-                                return await uploadFile(file, 'images', currentLabId);
-                            })
-                        );
-                        dispatch({
-                            type: 'MERGE_LOCAL_LAB',
-                            value: {
-                              images: [...(localLab.images || []), ...uploadedPaths],
-                            },
-                        });
-                    } catch (error) {
-                        devLog.error("Error uploading", error);
-                    }
-                }
-                uploadImages();
+    // Client-side file size validation
+    const validImages = imageFiles.filter(file => file.size <= MAX_FILE_SIZE_BYTES);
+    const oversizeImages = imageFiles.filter(file => file.size > MAX_FILE_SIZE_BYTES);
+    oversizeImages.forEach(file => {
+      addWarningNotification(
+        `"${file.name}" exceeds the maximum allowed size of ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB and will not be uploaded.`
+      );
+    });
+    if (validImages.length === 0) return;
 
-            } else {
-                dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...files] });
-                const newImageUrls = files.map(file => URL.createObjectURL(file));
-                dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
+    // Show previews immediately
+    dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...validImages] });
+    const newImageUrls = validImages.map(file => URL.createObjectURL(file));
+    dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
 
-                const uploadImages = async () => {
-                    try {
-                        const uploadedPaths = await Promise.all(
-                            files.map(async (file) => {
-                                return await uploadFile(file, 'images', currentLabId);
-                            })
-                        );
-                        dispatch({
-                            type: 'MERGE_LOCAL_LAB',
-                            value: {
-                              images: [...(localLab.images || []), ...uploadedPaths],
-                            },
-                        });
-                    } catch (error) {
-                        devLog.error("Error uploading", error);
-                    }
-                }
-                uploadImages();
-            }
-        }
-    }, [localLab, localImages, imageUrls, currentLabId, lab]);
+    // Upload asynchronously
+    const uploadImages = async () => {
+      try {
+        const uploadedPaths = await Promise.all(
+          validImages.map(file => uploadFile(file, 'images', currentLabId))
+        );
+        dispatch({
+          type: 'MERGE_LOCAL_LAB',
+          value: { images: [...(localLab.images || []), ...uploadedPaths] },
+        });
+      } catch (error) {
+        devLog.error("Error uploading images", error);
+        addErrorNotification(error, 'image upload');
+      }
+    };
+    uploadImages();
+  }, [localLab, localImages, imageUrls, currentLabId, lab, addWarningNotification, addErrorNotification]);
 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
@@ -388,23 +376,33 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       const pdfFiles = files.filter(file => file.type === 'application/pdf');
 
       if (pdfFiles.length !== files.length) {
-        alert('Only PDF files are allowed for documents.');
+        addWarningNotification('Only PDF files are allowed for documents.');
       }
       if (pdfFiles.length === 0) return;
 
+      // Client-side file size validation before upload
+      const validFiles = pdfFiles.filter(file => file.size <= MAX_FILE_SIZE_BYTES);
+      const oversizeFiles = pdfFiles.filter(file => file.size > MAX_FILE_SIZE_BYTES);
+      oversizeFiles.forEach(file => {
+        addWarningNotification(
+          `"${file.name}" exceeds the maximum allowed size of ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB and will not be uploaded.`
+        );
+      });
+      if (validFiles.length === 0) return;
+
       // Show file names immediately in the pending list for visual feedback during upload
-      dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...pdfFiles] });
+      dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...validFiles] });
 
       try {
         const newDocUrls = await Promise.all(
-          pdfFiles.map(async (file) => {
+          validFiles.map(async (file) => {
             const filePath = await uploadFile(file, 'docs', currentLabId);
             return filePath;
           })
         );
 
         // Move uploaded files from pending list to the permanent URL list
-        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !pdfFiles.includes(f)) });
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !validFiles.includes(f)) });
         dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [...docUrls, ...newDocUrls] });
         dispatch({
           type: 'MERGE_LOCAL_LAB',
@@ -412,11 +410,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
         });
       } catch (error) {
         // Remove failed files from the pending list so the user can retry
-        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !pdfFiles.includes(f)) });
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !validFiles.includes(f)) });
         devLog.error("Error uploading docs", error);
+        addErrorNotification(error, 'document upload');
       }
     }
-  }, [localLab, localDocs, docUrls, currentLabId]);
+  }, [localLab, localDocs, docUrls, currentLabId, addWarningNotification, addErrorNotification]);
 
   const removeImage = (index) => {
     const newImages = localImages.filter((_, i) => i !== index);
