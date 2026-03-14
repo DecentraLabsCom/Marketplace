@@ -31,6 +31,13 @@ jest.mock("@/context/LabTokenContext", () => ({
   useLabToken: () => mockLabTokenData,
 }));
 
+jest.mock("@/context/NotificationContext", () => ({
+  useNotifications: () => ({
+    addWarningNotification: jest.fn(),
+    addErrorNotification: jest.fn(),
+  }),
+}));
+
 jest.mock("@/hooks/provider/useProvider", () => ({
   useUploadFile: () => ({
     mutateAsync: mockUploadFile,
