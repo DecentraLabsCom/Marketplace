@@ -61,6 +61,17 @@ export default function AasPanel({ labId, gatewayUrl }) {
   const assetType = shell?.assetInformation?.assetType || 'Unknown'
   const submodelCount = Array.isArray(shell?.submodels) ? shell.submodels.length : 0
 
+  // Build direct URL to the AASX package on the provider's gateway
+  const aasxPackageUrl = (() => {
+    try {
+      // Route through the Marketplace proxy to avoid CORS issues on the download
+      const params = new URLSearchParams({ labId: String(labId), gatewayUrl })
+      return `/api/aas/package?${params.toString()}`
+    } catch {
+      return null
+    }
+  })()
+
   const labType = nameplate?.LabType || assetType
   const hostName = nameplate?.HostName || null
   const networkAddress = nameplate?.NetworkAddress || null
@@ -85,17 +96,29 @@ export default function AasPanel({ labId, gatewayUrl }) {
     <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-header-bg text-lg font-semibold">Digital Twin Metadata</h3>
-        {aasShellViewUrl && (
-          <a
-            href={aasShellViewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-brand hover:underline"
-            aria-label="View raw AAS shell JSON on provider gateway"
-          >
-            View AAS Shell ↗
-          </a>
-        )}
+        <div className="flex items-center gap-3">
+          {aasShellViewUrl && (
+            <a
+              href={aasShellViewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-brand hover:underline"
+              aria-label="View raw AAS shell JSON on provider gateway"
+            >
+              View AAS Shell ↗
+            </a>
+          )}
+          {aasxPackageUrl && (
+            <a
+              href={aasxPackageUrl}
+              download
+              className="text-xs text-brand hover:underline"
+              aria-label="Download AASX package from provider gateway"
+            >
+              Download AASX ↓
+            </a>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-text-secondary mb-3">
