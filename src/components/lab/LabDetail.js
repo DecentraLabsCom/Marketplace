@@ -14,6 +14,7 @@ import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { isFmu, getFmuMetadata, getFmuCompatibilityLabel, formatFmuSimulationType } from '@/utils/resourceType'
+import AasPanel from '@/components/lab/AasPanel'
 
 let countryLocaleRegistered = false
 
@@ -307,6 +308,11 @@ export default function LabDetail({ id }) {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* AAS / Digital Twin Panel — shown only when provider has an AAS-capable gateway */}
+            {lab?.accessURI && (
+              <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} />
             )}
 
             {/* Documentation */}
