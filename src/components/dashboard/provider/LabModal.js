@@ -713,7 +713,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 timezoneRef={timezoneRef} timeSlotsRef={timeSlotsRef}
                 availableHoursStartRef={availableHoursStartRef} availableHoursEndRef={availableHoursEndRef}
                 maxConcurrentUsersRef={maxConcurrentUsersRef} termsUrlRef={termsUrlRef} termsShaRef={termsShaRef}
-                onSubmit={handleSubmitFull}
+                onSubmit={handleSubmitFull} isUploading={uploadFileMutation.isPending}
               />
             )}
             {activeTab === 'quick' && (
