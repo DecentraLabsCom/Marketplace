@@ -77,7 +77,9 @@ function normalizeArray(value) {
 }
 
 function normalizeObject(value, fallback = {}) {
-  return value && typeof value === 'object' ? value : fallback
+  // Treat null, undefined, non-objects AND empty objects as needing the fallback
+  if (!value || typeof value !== 'object' || Object.keys(value).length === 0) return fallback
+  return value
 }
 
 function resolveGatewayAuthEndpoint(gatewayUrl) {
@@ -339,7 +341,8 @@ export default function LabFormFullSetup({
   termsShaRef,
   showMediaSections = true,
   onSubmit,
-  onCancel
+  onCancel,
+  isUploading = false,
 }) {
   const availableDays = normalizeArray(localLab.availableDays)
   const availableHours = normalizeObject(localLab.availableHours, { start: '', end: '' })
@@ -659,7 +662,7 @@ export default function LabFormFullSetup({
           disabled={disabled}
           ref={nameRef}
         />
-        {errors.name && <p className="text-red-500 text-sm !mt-1">{errors.name}</p>}
+        {errors.name && <p className="text-red-500 text-sm mt-1!">{errors.name}</p>}
 
         <div>
           <label className="block text-sm font-medium text-gray-900 mb-1">Categories</label>
@@ -684,7 +687,7 @@ export default function LabFormFullSetup({
             disabled={disabled}
             ref={priceRef}
           />
-          {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
+          {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
         </div>
 
         <input
@@ -698,7 +701,7 @@ export default function LabFormFullSetup({
           disabled={disabled}
           ref={keywordsRef}
         />
-        {errors.keywords && <p className="text-red-500 text-sm !mt-1">{errors.keywords}</p>}
+        {errors.keywords && <p className="text-red-500 text-sm mt-1!">{errors.keywords}</p>}
 
         <textarea
           placeholder="Description"
@@ -709,7 +712,7 @@ export default function LabFormFullSetup({
           disabled={disabled}
           ref={descriptionRef}
         />
-        {errors.description && <p className="text-red-500 text-sm !mt-1">{errors.description}</p>}
+        {errors.description && <p className="text-red-500 text-sm mt-1!">{errors.description}</p>}
       </section>
 
       <section className="space-y-4">
@@ -724,7 +727,7 @@ export default function LabFormFullSetup({
             disabled={disabled}
             ref={accessURIRef}
           />
-          {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
+          {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
         </div>
         <div>
           <input
@@ -736,7 +739,7 @@ export default function LabFormFullSetup({
             disabled={disabled}
             ref={accessKeyRef}
           />
-          {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
+          {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
         </div>
       </section>
 
@@ -764,7 +767,7 @@ export default function LabFormFullSetup({
               containerClassName="w-full"
               labelClassName="md:text-left"
             />
-            {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
+            {errors.opens && <p className="text-red-500 text-sm mt-1!">{errors.opens}</p>}
           </div>
           <div className="w-full md:flex-1">
             <CalendarInput
@@ -774,7 +777,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
               containerClassName="w-full"
             />
-            {errors.closes && <p className="text-red-500 text-sm !mt-1">{errors.closes}</p>}
+            {errors.closes && <p className="text-red-500 text-sm mt-1!">{errors.closes}</p>}
           </div>
         </div>
 
@@ -796,7 +799,7 @@ export default function LabFormFullSetup({
             </button>
           ))}
         </div>
-        {errors.availableDays && <p className="text-red-500 text-sm !mt-1">{errors.availableDays}</p>}
+        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
@@ -822,7 +825,7 @@ export default function LabFormFullSetup({
                   </option>
                 ))}
             </select>
-            {errors.timezone && <p className="text-red-500 text-sm !mt-1">{errors.timezone}</p>}
+            {errors.timezone && <p className="text-red-500 text-sm mt-1!">{errors.timezone}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
@@ -836,7 +839,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
               ref={timeSlotsRef}
             />
-            {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
+            {errors.timeSlots && <p className="text-red-500 text-sm mt-1!">{errors.timeSlots}</p>}
           </div>
         </div>
 
@@ -853,7 +856,7 @@ export default function LabFormFullSetup({
               ref={availableHoursStartRef}
             />
             {errors.availableHoursStart && (
-              <p className="text-red-500 text-sm !mt-1">{errors.availableHoursStart}</p>
+              <p className="text-red-500 text-sm mt-1!">{errors.availableHoursStart}</p>
             )}
           </div>
           <div>
@@ -868,7 +871,7 @@ export default function LabFormFullSetup({
               ref={availableHoursEndRef}
             />
             {errors.availableHoursEnd && (
-              <p className="text-red-500 text-sm !mt-1">{errors.availableHoursEnd}</p>
+              <p className="text-red-500 text-sm mt-1!">{errors.availableHoursEnd}</p>
             )}
           </div>
         </div>
@@ -886,7 +889,7 @@ export default function LabFormFullSetup({
             ref={maxConcurrentUsersRef}
           />
           {errors.maxConcurrentUsers && (
-            <p className="text-red-500 text-sm !mt-1">{errors.maxConcurrentUsers}</p>
+            <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
           )}
         </div>
       </section>
@@ -964,7 +967,7 @@ export default function LabFormFullSetup({
           ))}
         </div>
         {errors.unavailableWindows && (
-          <p className="text-red-500 text-sm !mt-1">{errors.unavailableWindows}</p>
+          <p className="text-red-500 text-sm mt-1!">{errors.unavailableWindows}</p>
         )}
       </section>
 
@@ -991,7 +994,7 @@ export default function LabFormFullSetup({
             <p className="text-sm text-red-500 mt-1">{termsFetchState.error}</p>
           )}
           {errors.termsOfUseUrl && (
-            <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseUrl}</p>
+            <p className="text-red-500 text-sm mt-1!">{errors.termsOfUseUrl}</p>
           )}
         </div>
         <input
@@ -1011,10 +1014,10 @@ export default function LabFormFullSetup({
           ref={termsShaRef}
         />
         {errors.termsOfUseEffectiveDate && (
-          <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseEffectiveDate}</p>
+          <p className="text-red-500 text-sm mt-1!">{errors.termsOfUseEffectiveDate}</p>
         )}
         {errors.termsOfUseSha && (
-          <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseSha}</p>
+          <p className="text-red-500 text-sm mt-1!">{errors.termsOfUseSha}</p>
         )}
       </section>
 
@@ -1033,7 +1036,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <Link className="mr-2 ml-[-2px] w-4" />
+                <Link className="mr-2 -ml-0.5 w-4" />
                 <span>Link</span>
               </div>
             </button>
@@ -1046,7 +1049,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <UploadCloud className="mr-2 ml-[-2px] w-4" />
+                <UploadCloud className="mr-2 -ml-0.5 w-4" />
                 <span>Upload</span>
               </div>
             </button>
@@ -1124,7 +1127,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <Link className="mr-2 ml-[-2px] w-4" />
+                <Link className="mr-2 -ml-0.5 w-4" />
                 <span>Link</span>
               </div>
             </button>
@@ -1137,7 +1140,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <UploadCloud className="mr-2 ml-[-2px] w-4" />
+                <UploadCloud className="mr-2 -ml-0.5 w-4" />
                 <span>Upload</span>
               </div>
             </button>
@@ -1207,10 +1210,10 @@ export default function LabFormFullSetup({
       <div className="flex justify-between pt-4">
         <button
           type="submit"
-          disabled={disabled}
+          disabled={disabled || isUploading}
           className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68] disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300"
         >
-          {localLab?.id ? 'Save Changes' : (localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Add FMU Simulation' : 'Add Lab')}
+          {isUploading ? 'Uploading…' : (localLab?.id ? 'Save Changes' : (localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Add FMU Simulation' : 'Add Lab'))}
         </button>
         <button
           type="button"
@@ -1262,5 +1265,6 @@ LabFormFullSetup.propTypes = {
   termsShaRef: PropTypes.object,
   showMediaSections: PropTypes.bool,
   onSubmit: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired
+  onCancel: PropTypes.func.isRequired,
+  isUploading: PropTypes.bool,
 }

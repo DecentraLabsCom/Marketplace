@@ -58,7 +58,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         disabled={isLocalURI}
         ref={priceRef}
       />
-      {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
+      {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
 
       <input
         type="text"
@@ -70,7 +70,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         disabled={isLocalURI}
         ref={accessURIRef}
       />
-      {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
+      {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
 
       <input
         type="text"
@@ -82,7 +82,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         disabled={isLocalURI}
         ref={accessKeyRef}
       />
-      {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
+      {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
 
       <input
         type="text"
@@ -100,7 +100,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         ref={uriRef}
       />
       {errors.uri && !(clickedToEditUri && isLocalURI) &&
-        <p className="text-red-500 text-sm !mt-1">{errors.uri}</p>
+        <p className="text-red-500 text-sm mt-1!">{errors.uri}</p>
       }
       {isLocalURI && !clickedToEditUri && (
         <div className='mt-4 flex justify-center'>
@@ -110,7 +110,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
         </div>
       )}
       {clickedToEditUri && isLocalURI && (
-        <ol className="text-red-500 text-sm !mt-1 !list-decimal ml-5">
+        <ol className="text-red-500 text-sm mt-1! list-decimal! ml-5">
           <li>Name changes to the JSON file are not allowed and will be ignored</li>
           <li>
             Introducing a link to a JSON file will replace the data in Full Setup with the information 

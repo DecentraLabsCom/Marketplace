@@ -826,7 +826,8 @@ export default function ProviderDashboard() {
           try {
             await saveLabDataMutation.mutateAsync({
               ...labData,
-              price: originalPrice // Save with human-readable price for JSON consistency
+              price: originalPrice, // Save with human-readable price for JSON consistency
+              onchainUri             // Passed so onSuccess can invalidate the correct cache key
             });
             
             // Add a small delay to ensure cache propagation in production
@@ -848,7 +849,8 @@ export default function ProviderDashboard() {
         try {
           await saveLabDataMutation.mutateAsync({
             ...labData,
-            price: originalPrice // Save with human-readable price for JSON consistency
+            price: originalPrice, // Save with human-readable price for JSON consistency
+            onchainUri             // Passed so onSuccess can invalidate the correct cache key
           });
           
           // Add a small delay to ensure cache propagation in production
