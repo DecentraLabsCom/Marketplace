@@ -385,54 +385,38 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      // Filter out non-PDF files.
       const pdfFiles = files.filter(file => file.type === 'application/pdf');
 
       if (pdfFiles.length !== files.length) {
         alert('Only PDF files are allowed for documents.');
-        // Only use the valid PDFs and discard the rest
-        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...pdfFiles]});
+      }
+      if (pdfFiles.length === 0) return;
 
-        try {
-          const newDocUrls = await Promise.all(
-            pdfFiles.map(async (file) => {
-              const filePath = await uploadFile(file, 'docs', currentLabId);
-              return filePath;
-            })
-          );
+      // Show file names immediately in the pending list for visual feedback during upload
+      dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...pdfFiles] });
 
-          dispatch({
-            type: 'MERGE_LOCAL_LAB',
-            value: {
-              docs: [...(localLab.docs || []), ...newDocUrls],
-            },
-          });
-        } catch (error) {
-          devLog.error("Error uploading docs", error);
-        }
-      } else { // If all files are PDFs
-        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...files] });
+      try {
+        const newDocUrls = await Promise.all(
+          pdfFiles.map(async (file) => {
+            const filePath = await uploadFile(file, 'docs', currentLabId);
+            return filePath;
+          })
+        );
 
-        try {
-          const newDocUrls = await Promise.all(
-            files.map(async (file) => {
-              const filePath = await uploadFile(file, 'docs', currentLabId);
-              return filePath;
-            })
-          );
-
-          dispatch({
-            type: 'MERGE_LOCAL_LAB',
-            value: {
-              docs: [...(localLab.docs || []), ...newDocUrls],
-            },
-          });
-        } catch (error) {
-          devLog.error("Error uploading docs", error);
-        }
+        // Move uploaded files from pending list to the permanent URL list
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !pdfFiles.includes(f)) });
+        dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [...docUrls, ...newDocUrls] });
+        dispatch({
+          type: 'MERGE_LOCAL_LAB',
+          value: { docs: [...(localLab.docs || []), ...newDocUrls] },
+        });
+      } catch (error) {
+        // Remove failed files from the pending list so the user can retry
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !pdfFiles.includes(f)) });
+        devLog.error("Error uploading docs", error);
       }
     }
-  }, [localLab, localDocs, currentLabId]);
+  }, [localLab, localDocs, docUrls, currentLabId]);
 
   const removeImage = (index) => {
     const newImages = localImages.filter((_, i) => i !== index);
@@ -467,9 +451,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
   };
 
   const removeDoc = (index) => {
-    const newDocs = localDocs.filter((_, i) => i !== index);
-    dispatch({ type: 'SET_FIELD', field: 'localDocs', value: newDocs });
-
     const newUrls = docUrls.filter((_, i) => i !== index);
     const urlToRemove = docUrls[index];
     if (urlToRemove) {

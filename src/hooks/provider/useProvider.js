@@ -73,7 +73,7 @@ export const useSaveLabData = (options = {}) => {
 
         // Step 1b: Pre-populate metadata cache with the provided labData so UI shows name immediately
         try {
-          const labData = variables.labData || {};
+          const labData = variables || {};
           const prepopulated = {
             name: labData.name || '',
             description: labData.description || '',
@@ -104,7 +104,26 @@ export const useSaveLabData = (options = {}) => {
         // Step 2: Add a small delay to ensure blob propagation in Vercel
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Step 3: Force invalidation with aggressive settings so the real remote metadata replaces the prepopulated one
+        // Step 3: Force-fetch fresh metadata with cache-busting to bypass Vercel CDN stale data.
+        // The cacheBreaker value returned by the API is embedded in the saved JSON so we use it
+        // as a URL query param (?t=) to create a new CDN cache key, guaranteeing a fresh read.
+        const cacheBuster = data?.cacheBreaker || Date.now();
+        try {
+          const freshResponse = await fetch(
+            `/api/metadata?uri=${encodeURIComponent(variables.uri)}&t=${cacheBuster}`,
+            { headers: { 'Cache-Control': 'no-cache' } }
+          );
+          if (freshResponse.ok) {
+            const freshData = await freshResponse.json();
+            queryClient.setQueryData(metadataQueryKeys.byUri(variables.uri), freshData);
+            devLog.log('✅ [useSaveLabData] Cache updated with fresh server data (cache-busted)');
+            return;
+          }
+        } catch (fetchErr) {
+          devLog.warn('[useSaveLabData] Direct metadata fetch failed, falling back to invalidation:', fetchErr);
+        }
+
+        // Fallback: force invalidation to trigger a normal React Query refetch
         await queryClient.invalidateQueries({ 
           queryKey: metadataQueryKeys.byUri(variables.uri),
           exact: true,
