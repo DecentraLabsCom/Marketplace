@@ -32,6 +32,20 @@ function extractProperties(submodelElements) {
 }
 
 /**
+ * Extract a flat map of { idShort -> value } from a named SubmodelElementCollection
+ * within a BaSyx V2 submodelElements array. Falls back to scanning top-level Properties
+ * if the named collection is not found.
+ */
+function extractCollectionProperties(submodelElements, collectionIdShort) {
+  if (!Array.isArray(submodelElements)) return {}
+  const collection = submodelElements.find(
+    (el) => el?.modelType === 'SubmodelElementCollection' && el.idShort === collectionIdShort
+  )
+  const elements = collection ? (collection.value ?? []) : submodelElements
+  return extractProperties(elements)
+}
+
+/**
  * GET /api/aas/shell?labId=1[&gatewayUrl=https://...]
  *
  * Fetches the AAS shell and Nameplate submodel from the provider's Gateway BaSyx
@@ -67,12 +81,15 @@ export async function GET(request) {
 
     const shellId = `urn:decentralabs:lab:${labId}`
     const nameplateId = `urn:decentralabs:lab:${labId}:sm:nameplate`
+    const simulationModelsId = `urn:decentralabs:lab:${labId}:sm:simulationModels`
 
     const shellPath = `/aas/shells/${encodeAasId(shellId)}`
     const nameplatePath = `/aas/submodels/${encodeAasId(nameplateId)}`
+    const simulationModelsPath = `/aas/submodels/${encodeAasId(simulationModelsId)}`
 
     const shellUrl = buildGatewayTargetUrl(gatewayBaseUrl, shellPath)
     const nameplateUrl = buildGatewayTargetUrl(gatewayBaseUrl, nameplatePath)
+    const simulationModelsUrl = buildGatewayTargetUrl(gatewayBaseUrl, simulationModelsPath)
 
     devLog.log(`[aas/shell] Fetching shell from ${shellUrl}`)
 
@@ -106,7 +123,25 @@ export async function GET(request) {
       devLog.warn('[aas/shell] Nameplate fetch failed (non-fatal):', npErr?.message)
     }
 
-    return NextResponse.json({ shell, nameplate }, { status: 200 })
+    // Fetch SimulationModels submodel — best-effort, null if not present (FMU resources only)
+    let simulationInfo = null
+    try {
+      devLog.log(`[aas/shell] Fetching simulationModels from ${simulationModelsUrl}`)
+      const smRes = await fetch(simulationModelsUrl, { cache: 'no-store' })
+      if (smRes.ok) {
+        const smData = await smRes.json()
+        const props = extractCollectionProperties(smData?.submodelElements, 'SimulationModel')
+        simulationInfo = {
+          license: props.License || null,
+          documentationUrl: props.DocumentationUrl || null,
+          contactEmail: props.ContactEmail || null,
+        }
+      }
+    } catch (smErr) {
+      devLog.warn('[aas/shell] SimulationModels fetch failed (non-fatal):', smErr?.message)
+    }
+
+    return NextResponse.json({ shell, nameplate, simulationInfo }, { status: 200 })
   } catch (error) {
     if (error instanceof GatewayValidationError) {
       return NextResponse.json({ error: error.message }, { status: error.status || 400 })

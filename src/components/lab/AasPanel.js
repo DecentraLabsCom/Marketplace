@@ -55,7 +55,7 @@ export default function AasPanel({ labId, gatewayUrl }) {
   // Silently omit on fetch errors — non-critical feature
   if (state.error) return null
 
-  const { shell, nameplate } = state.data || {}
+  const { shell, nameplate, simulationInfo } = state.data || {}
   if (!shell) return null
 
   const assetType = shell?.assetInformation?.assetType || 'Unknown'
@@ -77,6 +77,14 @@ export default function AasPanel({ labId, gatewayUrl }) {
   const networkAddress = nameplate?.NetworkAddress || null
   const mappedLabIds = nameplate?.MappedLabIds || null
   const syncTimestamp = nameplate?.SyncTimestamp || null
+
+  // Shell-level description (optional, set during FMU sync)
+  const shellDescription = shell?.description?.[0]?.text || null
+
+  // FMU-specific fields from SimulationModels submodel (optional)
+  const simLicense = simulationInfo?.license || null
+  const simDocsUrl = simulationInfo?.documentationUrl || null
+  const simContactEmail = simulationInfo?.contactEmail || null
 
   // Build a direct link to the raw AAS JSON on the provider's gateway
   const aasShellViewUrl = (() => {
@@ -125,6 +133,10 @@ export default function AasPanel({ labId, gatewayUrl }) {
         Asset Administration Shell (IEC 63278 / IDS) — {submodelCount} submodel{submodelCount !== 1 ? 's' : ''} registered.
       </p>
 
+      {shellDescription && (
+        <p className="text-sm text-neutral-300 mb-3">{shellDescription}</p>
+      )}
+
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <span className="text-text-secondary text-xs uppercase tracking-wide">Asset Type</span>
@@ -156,6 +168,35 @@ export default function AasPanel({ labId, gatewayUrl }) {
           <div className="col-span-2">
             <span className="text-text-secondary text-xs uppercase tracking-wide">Mapped Lab IDs</span>
             <p className="text-neutral-200 font-medium">{mappedLabIds}</p>
+          </div>
+        )}
+
+        {simLicense && (
+          <div>
+            <span className="text-text-secondary text-xs uppercase tracking-wide">License</span>
+            <p className="text-neutral-200 font-medium">{simLicense}</p>
+          </div>
+        )}
+
+        {simDocsUrl && (
+          <div>
+            <span className="text-text-secondary text-xs uppercase tracking-wide">Documentation</span>
+            <p className="text-neutral-200 font-medium truncate">
+              <a href={simDocsUrl} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">
+                {simDocsUrl}
+              </a>
+            </p>
+          </div>
+        )}
+
+        {simContactEmail && (
+          <div className="col-span-2">
+            <span className="text-text-secondary text-xs uppercase tracking-wide">Contact</span>
+            <p className="text-neutral-200 font-medium">
+              <a href={`mailto:${simContactEmail}`} className="text-brand hover:underline">
+                {simContactEmail}
+              </a>
+            </p>
           </div>
         )}
       </div>
