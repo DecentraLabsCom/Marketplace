@@ -1,3 +1,17 @@
+/**
+ * ALTERNATIVE FLOW — CURRENTLY NOT INVOKED
+ *
+ * This endpoint implements a flow where the WebAuthn ceremony completes
+ * in the Marketplace (client calls prepare → runs WebAuthn locally →
+ * calls this finalize, which verifies the proof and registers the intent on-chain).
+ *
+ * The active flow today is different: prepare delegates the ceremony to the
+ * institutional backend (via /intents/authorize), which verifies WebAuthn and
+ * executes the transaction. This file is not called by any client hook.
+ *
+ * If the alternative flow will not be used, this file can be safely removed
+ * along with src/app/api/backend/intents/actions/finalize/route.js.
+ */
 import { NextResponse } from 'next/server'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { isoBase64URL } from '@simplewebauthn/server/helpers'
