@@ -1,3 +1,19 @@
+
+// Ensure window.open is mocked before any imports (for jsdom)
+global.window = global.window || {};
+global.window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }));
+// Mocks para update (debe ir antes de cualquier import)
+jest.mock('../useLabCacheUpdates', () => ({
+  __esModule: true,
+  useLabCacheUpdates: () => ({
+    updateLab: jest.fn(),
+    invalidateAllLabs: jest.fn(),
+    addOptimisticLab: jest.fn((lab) => ({ ...lab, id: 'optimistic-id' })),
+    replaceOptimisticLab: jest.fn(),
+    removeOptimisticLab: jest.fn(),
+  }),
+}));
+
 /**
  * Tests for Lab mutation hooks.
  *
@@ -5,9 +21,10 @@
  * ensuring that the hooks return a resolved labId when available.
  */
 
+
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useAddLabSSO, useAddLabWallet } from '../useLabAtomicMutations'
+import { useAddLabSSO, useAddLabWallet, useUpdateLabSSO, useUpdateLabWallet } from '../useLabAtomicMutations'
 
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
@@ -45,14 +62,15 @@ jest.mock('@/utils/webauthn/client', () => ({
 jest.mock('@/hooks/contract/useContractWriteFunction', () => ({
   __esModule: true,
   default: jest.fn(() => ({
-    contractWriteFunction: jest.fn(async () => '0xtx'),
+     contractWriteFunction: jest.fn(async () => '0xtx'),
   })),
 }))
+
 
 jest.mock('@/utils/blockchain/selectChain', () => ({
   __esModule: true,
   selectChain: jest.fn((chain) => chain || { name: 'sepolia', id: 11155111 }),
-}))
+}));
 
 jest.mock('@/contracts/diamond', () => ({
   __esModule: true,
@@ -63,7 +81,7 @@ jest.mock('@/contracts/diamond', () => ({
 }))
 
 jest.mock('viem', () => {
-  const original = jest.requireActual('viem')
+  const original = jest.requireActual('viem');
   return {
     ...original,
     decodeEventLog: jest.fn(() => ({
@@ -74,9 +92,81 @@ jest.mock('viem', () => {
         _uri: 'Lab-Provider-1.json',
       },
     })),
-  }
-})
+  };
+});
 
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    test('SSO update-lab realiza intent y actualiza cache tras ejecutarse', async () => {
+      const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default;
+      const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default;
+      pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xtx' });
+      pollAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-1' });
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authorizationUrl: 'https://backend.example/auth',
+          authorizationSessionId: 'auth-1',
+          intent: { meta: { requestId: 'req-1' }, payload: {} },
+          backendAuthToken: 'auth-token-1',
+        }),
+      });
+
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      });
+
+      const { result } = renderHook(() => useUpdateLabSSO(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      let data;
+      await act(async () => {
+        data = await result.current.mutateAsync({
+          labId: 'lab-123',
+          labData: {
+            uri: 'Lab-Provider-1.json',
+            price: '100',
+            accessURI: 'uri',
+            accessKey: 'key',
+          },
+          backendUrl: 'https://backend.example',
+        });
+      });
+
+      expect(data.intent).toBeDefined();
+      expect(pollIntentStatus).toHaveBeenCalledWith('req-1', expect.any(Object));
+    });
+
+    test('Wallet update-lab ejecuta transacción y actualiza cache', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      });
+
+      const { result } = renderHook(() => useUpdateLabWallet(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      let data;
+      await act(async () => {
+        data = await result.current.mutateAsync({
+          labId: 'lab-123',
+          labData: {
+            uri: 'Lab-Provider-1.json',
+            price: '100',
+            accessURI: 'uri',
+            accessKey: 'key',
+          },
+        });
+      });
+
+      expect(data.hash).toBe('0xtx');
+    });
+
+// ...existing code...
 jest.mock('wagmi', () => ({
   __esModule: true,
   useConnection: jest.fn(() => ({
@@ -105,16 +195,22 @@ const createWrapper = (queryClient) => {
 
 describe('useLabAtomicMutations (add lab)', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    global.fetch = jest.fn()
-    jest.spyOn(Date, 'now').mockReturnValue(1000)
-
-    // WebAuthn availability
+    jest.clearAllMocks();
+    global.fetch = jest.fn();
+    jest.spyOn(Date, 'now').mockReturnValue(1000);
+    window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }));
     window.PublicKeyCredential = window.PublicKeyCredential || function PublicKeyCredential() {}
-    window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }))
     navigator.credentials = navigator.credentials || {}
     navigator.credentials.get = jest.fn(async () => ({}))
-  })
+  });
+
+  afterEach(() => {
+    // Always ensure pollIntentAuthorizationStatus returns a Promise after each test
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    if (pollAuth.mock) {
+      pollAuth.mockImplementation(() => new Promise(() => {}));
+    }
+  });
 
   afterEach(() => {
     jest.restoreAllMocks()
@@ -126,6 +222,7 @@ describe('useLabAtomicMutations (add lab)', () => {
 
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
     pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-1' })
+    pollAuth.mockImplementation(() => new Promise(() => {}))
 
     // Prepare action intent (popup authorization only)
     global.fetch
@@ -168,6 +265,7 @@ describe('useLabAtomicMutations (add lab)', () => {
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
     pollIntentStatus.mockResolvedValueOnce({ status: 'executed' })
     pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-2' })
+    pollAuth.mockImplementation(() => new Promise(() => {}))
 
     global.fetch
       .mockResolvedValueOnce({
@@ -271,6 +369,7 @@ describe('useLabAtomicMutations (add lab)', () => {
 
     // Simulate authorization failing/unknown
     pollAuth.mockResolvedValueOnce({ status: 'FAILED', error: 'Denied' })
+    pollAuth.mockImplementation(() => new Promise(() => {}))
 
     // Prepare response includes authorization info so awaitBackendAuthorization uses pollAuth
     global.fetch.mockResolvedValueOnce({
@@ -316,6 +415,7 @@ describe('useLabAtomicMutations (add lab)', () => {
 
     // Simulate authorization returning UNKNOWN (e.g., popup closed by backend/user)
     pollAuth.mockResolvedValueOnce({ status: 'UNKNOWN', requestId: 'req-unknown', error: 'Authorization window closed' })
+    pollAuth.mockImplementation(() => new Promise(() => {}))
     pollIntentStatus.mockResolvedValueOnce({ status: 'executed', labId: '42', txHash: '0xtx' })
 
     // Prepare response includes authorization info so awaitBackendAuthorization uses pollAuth
@@ -486,6 +586,7 @@ describe('useLabAtomicMutations (add lab)', () => {
       wrapper: createWrapper(queryClient),
     })
 
+
     await act(async () => {
       const promise = result.current.mutateAsync({
         uri: 'Lab-Provider-1.json',
@@ -503,10 +604,10 @@ describe('useLabAtomicMutations (add lab)', () => {
       }))
 
       await expect(promise).rejects.toThrow()
+      expect(pollIntentStatus).not.toHaveBeenCalled()
     })
-
-    expect(pollIntentStatus).not.toHaveBeenCalled()
-  })
+  });
+ 
 
   test('SSO add-lab succeeds when popup auto-closes and intent presence is detected (presenceFn)', async () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
@@ -634,5 +735,6 @@ describe('useLabAtomicMutations (add lab)', () => {
       await expect(promise).rejects.toThrow()
     })
   })
-})
+});
+
 
