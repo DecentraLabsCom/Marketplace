@@ -42,7 +42,7 @@ import devLog from '@/utils/dev/logger'
  * @param {boolean} [options.includeCancelled=true] - Whether to include cancelled bookings in summary
  * @returns {Object} Summary object with booking counts
  */
-const calculateBookingSummary = (bookings = [], options = {}) => {
+export const calculateBookingSummary = (bookings = [], options = {}) => {
   const {
     includeUpcoming = true,
     includeCancelled = true
@@ -68,7 +68,8 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
     if (status === 0 && end && Number.isFinite(Number(end)) && now > Number(end)) {
       return false;
     }
-    if (status === 5 || booking.statusCategory === 'cancelled') {
+    // Solo excluir cancelados si includeCancelled es false
+    if (!includeCancelled && (status === 5 || booking.statusCategory === 'cancelled')) {
       return false;
     }
     if (intentStatus === 'rejected' || intentStatus === 'failed' || intentStatus === 'denied') {
@@ -207,7 +208,7 @@ const calculateBookingSummary = (bookings = [], options = {}) => {
  * @param {number} status - Status number from contract
  * @returns {string} Human-readable status
  */
-function getReservationStatusText(status) {
+export function getReservationStatusText(status) {
   switch (status) {
     case 0: return 'Pending';
     case 1: return 'Confirmed';

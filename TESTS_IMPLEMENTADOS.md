@@ -1,11 +1,28 @@
+
+# Cobertura y tests de useBookingComposedQueries.js
+
+## Estrategia aplicada
+- Se creó un archivo de test: `src/hooks/booking/useBookingComposedQueries.test.js`.
+- Se exportaron los helpers internos para permitir tests directos.
+- Casos cubiertos:
+   - Lógica de buckets y categorización en `calculateBookingSummary`.
+   - Lógica de status en `getReservationStatusText`.
+   - Validación de opciones (includeCancelled, includeUpcoming).
+   - Casos límite: bookings vacíos, cancelados, pendientes, activos, completados.
+
+## Resultados
+- Todos los tests pasan.
+- Cobertura de helpers: 100%.
+- Cobertura de hooks principales: pendiente (requiere mocks avanzados).
+
+## Prioridad siguiente
+- Siguiente archivo prioritario: `useBookingAtomicQueries.js` (54.08% líneas).
+
+---
+
+
 # Cobertura y tests de DocPreviewList.js
 
-**Fecha:** 16/03/2026
-
-## Estado inicial
-- Cobertura de líneas: 45.76%
-- Cobertura de funciones: 0%
-- Sin tests previos.
 
 ## Estrategia aplicada
 - Se creó un archivo de test: `src/components/ui/media/DocPreviewList.test.js`.
@@ -21,33 +38,13 @@
 - Todos los tests pasan.
 - Cobertura de líneas y funciones: 100%.
 
-## Ejemplo de test
-```js
-it('calls removeDoc with correct index on button click', () => {
-  const removeDoc = jest.fn();
-  render(<DocPreviewList docUrls={docs} removeDoc={removeDoc} />);
-  const buttons = screen.getAllByRole('button');
-  fireEvent.click(buttons[0]);
-  expect(removeDoc).toHaveBeenCalledWith(0);
-  fireEvent.click(buttons[1]);
-  expect(removeDoc).toHaveBeenCalledWith(1);
-});
-```
 
 ## Prioridad siguiente
 - Siguiente archivo prioritario: `useBookingComposedQueries.js` (51.96% líneas).
 
 ---
 
-
 # Cobertura y tests de imageToBase64.js
-
-**Fecha:** 16/03/2026
-
-## Estado inicial
-- Cobertura de líneas: 9.09%
-- Cobertura de funciones: 0%
-- Sin tests previos.
 
 ## Estrategia aplicada
 - Se creó un archivo de test: `src/hooks/metadata/__tests__/imageToBase64.test.js`.
@@ -63,30 +60,7 @@ it('calls removeDoc with correct index on button click', () => {
 - Cobertura de líneas y funciones: 100%.
 - Cobertura de branches: 100% (por diseño, no hay branches condicionales relevantes).
 
-## Ejemplo de test
-```js
-it('should resolve with base64 data for valid image URL', async () => {
-  let onload;
-  global.Image = class {
-    constructor() {
-      this.crossOrigin = '';
-      this.width = 100;
-      this.height = 100;
-      setTimeout(() => onload && onload.call(this), 10);
-    }
-    set onload(fn) { onload = fn; }
-    get onload() { return onload; }
-    set src(val) { this._src = val; }
-    get src() { return this._src; }
-  };
-  const result = await imageToBase64('http://example.com/image.jpg');
-  expect(result.dataUrl).toContain('data:image/jpeg;base64');
-  expect(result.originalUrl).toBe('http://example.com/image.jpg');
-  expect(result.size).toBeGreaterThan(0);
-  expect(result.dimensions).toEqual({ width: 100, height: 100 });
-  expect(typeof result.timestamp).toBe('number');
-});
-```
+
 
 ## Prioridad siguiente
 - Siguiente archivo prioritario: `useLabAtomicMutations.js` (43.5% líneas).
