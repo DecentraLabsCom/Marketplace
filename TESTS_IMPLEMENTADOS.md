@@ -1,3 +1,56 @@
+# Cobertura y tests de imageToBase64.js
+
+**Fecha:** 16/03/2026
+
+## Estado inicial
+- Cobertura de líneas: 9.09%
+- Cobertura de funciones: 0%
+- Sin tests previos.
+
+## Estrategia aplicada
+- Se creó un archivo de test: `src/hooks/metadata/__tests__/imageToBase64.test.js`.
+- Se implementaron mocks para APIs del navegador (Image, canvas, window.location.origin).
+- Se cubrieron los siguientes casos:
+  - Conversión exitosa de URL remota a base64.
+  - Conversión exitosa de path local a base64.
+  - Manejo de error al cargar imagen.
+  - Redimensionamiento de imágenes grandes.
+
+## Resultados
+- Todos los tests pasan.
+- Cobertura de líneas y funciones: 100%.
+- Cobertura de branches: 100% (por diseño, no hay branches condicionales relevantes).
+
+## Ejemplo de test
+```js
+it('should resolve with base64 data for valid image URL', async () => {
+  let onload;
+  global.Image = class {
+    constructor() {
+      this.crossOrigin = '';
+      this.width = 100;
+      this.height = 100;
+      setTimeout(() => onload && onload.call(this), 10);
+    }
+    set onload(fn) { onload = fn; }
+    get onload() { return onload; }
+    set src(val) { this._src = val; }
+    get src() { return this._src; }
+  };
+  const result = await imageToBase64('http://example.com/image.jpg');
+  expect(result.dataUrl).toContain('data:image/jpeg;base64');
+  expect(result.originalUrl).toBe('http://example.com/image.jpg');
+  expect(result.size).toBeGreaterThan(0);
+  expect(result.dimensions).toEqual({ width: 100, height: 100 });
+  expect(typeof result.timestamp).toBe('number');
+});
+```
+
+## Prioridad siguiente
+- Siguiente archivo prioritario: `useLabAtomicMutations.js` (43.5% líneas).
+
+---
+
 # useLabImage Test Documentation
 
 ## Error & Batch Handling Tests
