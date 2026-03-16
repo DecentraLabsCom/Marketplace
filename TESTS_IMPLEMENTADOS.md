@@ -1,3 +1,45 @@
+# Cobertura y tests de DocPreviewList.js
+
+**Fecha:** 16/03/2026
+
+## Estado inicial
+- Cobertura de líneas: 45.76%
+- Cobertura de funciones: 0%
+- Sin tests previos.
+
+## Estrategia aplicada
+- Se creó un archivo de test: `src/components/ui/media/DocPreviewList.test.js`.
+- Se implementó un mock para MediaDisplayWithFallback.
+- Casos cubiertos:
+  - Renderizado de lista de documentos y nombres de archivo.
+  - Llamada a removeDoc con el índice correcto al hacer click.
+  - Botón de eliminar deshabilitado si isExternalURI es true.
+  - Renderizado nulo si docUrls es vacío o no está definido.
+  - Renderizado con un solo documento.
+
+## Resultados
+- Todos los tests pasan.
+- Cobertura de líneas y funciones: 100%.
+
+## Ejemplo de test
+```js
+it('calls removeDoc with correct index on button click', () => {
+  const removeDoc = jest.fn();
+  render(<DocPreviewList docUrls={docs} removeDoc={removeDoc} />);
+  const buttons = screen.getAllByRole('button');
+  fireEvent.click(buttons[0]);
+  expect(removeDoc).toHaveBeenCalledWith(0);
+  fireEvent.click(buttons[1]);
+  expect(removeDoc).toHaveBeenCalledWith(1);
+});
+```
+
+## Prioridad siguiente
+- Siguiente archivo prioritario: `useBookingComposedQueries.js` (51.96% líneas).
+
+---
+
+
 # Cobertura y tests de imageToBase64.js
 
 **Fecha:** 16/03/2026
