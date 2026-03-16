@@ -1,3 +1,34 @@
+# useLabImage Test Documentation
+
+## Error & Batch Handling Tests
+
+This suite documents robust error and batch handling for the `useLabImage` hooks:
+
+### Isolated Error/Batch Tests
+- Tests for network errors and batch error handling are placed in a separate file (`useLabImage.error.test.js`) to avoid cross-test pollution and invalid hook call errors.
+- The `imageToBase64` mock is defined at the top of the file to simulate:
+  - Network errors (`network-error`)
+  - Batch errors (`bad-url-batch`)
+  - Invalid URLs (empty, null, or 'invalid-url')
+  - Successful cases (all other URLs)
+
+### Key Test Cases
+- **Network error propagation:**
+  - Ensures `useLabImageQuery` sets `isError` and `error` when a network error occurs.
+- **Batch: mix of successes and errors:**
+  - Ensures `useLabImageBatch` correctly marks failed images with `isError` or `error`.
+  - Accepts either `isError` or `error` presence for robust error detection.
+  - Validates error message content for failed batch items.
+
+### Implementation Notes
+- Diagnostic logging is used to confirm image query states.
+- Tests use retry loops to ensure React Query state updates before assertions.
+- Assertions are flexible to handle React Query's error propagation nuances.
+
+---
+
+For full coverage, see `useLabImage.error.test.js`.
+
 ### useLabImage.js
 Archivo: src/hooks/metadata/__tests__/useLabImage.test.js
 Funciones/casos cubiertos:

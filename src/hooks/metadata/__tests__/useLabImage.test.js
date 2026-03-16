@@ -161,3 +161,84 @@ describe('useLabImage hooks', () => {
     })
   })
 })
+
+describe('useLabImage edge/error/metadata cases', () => {
+  let queryClient;
+  const wrapper = ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } }
+    });
+    // Limpiar cache de React Query
+    queryClient.clear();
+    jest.resetModules();
+  });
+  afterEach(() => {
+    jest.clearAllMocks();
+    queryClient.clear();
+  });
+
+
+  it('no hace fetch si enabled=false', async () => {
+    jest.resetModules();
+    const { imageToBase64 } = require('../imageToBase64');
+    const spy = jest.spyOn(require('../imageToBase64'), 'imageToBase64');
+    const url = 'http://test/disabled-' + Date.now() + '.jpg';
+    const { result } = renderHook(() => useLabImageModule.useLabImageQuery(url, { enabled: false }), { wrapper });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.error).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+
+  it('useLabImageFromMetadata extrae y cachea todas las imágenes', async () => {
+    const metadata = {
+      image: 'main-meta.jpg',
+      images: ['img1-meta.jpg', 'img2-meta.jpg'],
+      attributes: [
+        { trait_type: 'additionalImages', value: ['add1-meta.jpg', 'add2-meta.jpg'] }
+      ]
+    };
+    const { result } = renderHook(() => useLabImageModule.useLabImageFromMetadata(metadata, { enabled: true }), { wrapper });
+    await act(async () => { result.current.mainImage.refetch && result.current.mainImage.refetch() });
+    await waitFor(() => result.current.cachedImages === 5);
+    expect(result.current.allImageUrls.length).toBe(5);
+    expect(result.current.cachedImages).toBe(5);
+    expect(result.current.mainImageUrl).toContain('data:image/jpeg;base64');
+    expect(result.current.getGalleryImages().length).toBe(5);
+  });
+
+  it('edge: url vacía, nula, no-string', async () => {
+    jest.resetModules();
+    const { result: r1 } = renderHook(() => useLabImageModule.useLabImageQuery('', { enabled: true }), { wrapper });
+    let tries1 = 0;
+    while (!r1.current.isError && !r1.current.error && tries1 < 10) {
+      await act(async () => { r1.current.refetch() });
+      await new Promise(r => setTimeout(r, 50));
+      tries1++;
+    }
+    expect(r1.current.isError || !!r1.current.error).toBe(true);
+    expect(r1.current.error && (r1.current.error.message || String(r1.current.error))).toMatch(/invalid/i);
+    const { result: r2 } = renderHook(() => useLabImageModule.useLabImageQuery(null, { enabled: true }), { wrapper });
+    let tries2 = 0;
+    while (!r2.current.isError && !r2.current.error && tries2 < 10) {
+      await act(async () => { r2.current.refetch() });
+      await new Promise(r => setTimeout(r, 50));
+      tries2++;
+    }
+    expect(r2.current.isError || !!r2.current.error).toBe(true);
+    expect(r2.current.error && (r2.current.error.message || String(r2.current.error))).toMatch(/invalid/i);
+    const { result: r3 } = renderHook(() => useLabImageModule.useLabImageQuery(123, { enabled: true }), { wrapper });
+    let tries3 = 0;
+    while (!r3.current.isError && !r3.current.error && tries3 < 10) {
+      await act(async () => { r3.current.refetch() });
+      await new Promise(r => setTimeout(r, 50));
+      tries3++;
+    }
+    expect(r3.current.isError || !!r3.current.error).toBe(true);
+    expect(r3.current.error && (r3.current.error.message || String(r3.current.error))).toMatch(/invalid/i);
+  });
+});
