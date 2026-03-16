@@ -1,3 +1,20 @@
+### useLabImage.js
+Archivo: src/hooks/metadata/__tests__/useLabImage.test.js
+Funciones/casos cubiertos:
+1. **useLabImageQuery**
+   - Devuelve correctamente los datos de imagen cacheada para una URL válida (mock de imageToBase64).
+   - Propaga error correctamente para una URL inválida (mock de error).
+   - El test fuerza la resolución de la query con refetch y espera, cubriendo el ciclo completo de React Query.
+2. **useLabImage**
+   - Devuelve el dataUrl cacheado cuando preferCached=true.
+   - Devuelve la URL original cuando preferCached=false.
+   - Normaliza correctamente el estado de caché y error.
+3. **useLabImageBatch**
+   - Cachea múltiples imágenes en paralelo y devuelve estadísticas correctas (total, cached, loading, error).
+   - Maneja correctamente URLs duplicadas e inválidas (solo consulta una vez por URL válida).
+
+Todos los tests pasan y el archivo tiene cobertura completa de los hooks de caché de imágenes, incluyendo edge cases de error, duplicados y normalización de datos.
+
 ### FormSkeleton.js
 Archivo: src/components/skeletons/__tests__/FormSkeleton.test.js
 Funciones/casos cubiertos:

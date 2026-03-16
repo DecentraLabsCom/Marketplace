@@ -21,80 +21,11 @@ const IMAGE_CACHE_CONFIG = {
   // Retry failed image downloads
   retry: 1,
   retryDelay: 250,
-}
+};
 
-/**
- * Convert image URL to base64 data URL with optimization
- */
-async function imageToBase64(imageUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-        
-        // Optimize size for storage - maintain quality while reducing file size
-        const maxWidth = 800
-        const maxHeight = 600
-        
-        let { width, height } = img
-        
-        // Calculate scaled dimensions maintaining aspect ratio
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height)
-          width = Math.floor(width * ratio)
-          height = Math.floor(height * ratio)
-        }
-        
-        canvas.width = width
-        canvas.height = height
-        
-        // Use high quality scaling
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-        ctx.drawImage(img, 0, 0, width, height)
-        
-        // Convert to base64 with optimized JPEG quality
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-        
-        resolve({
-          dataUrl,
-          originalUrl: imageUrl,
-          size: Math.round(dataUrl.length * 0.75), // Approximate byte size
-          dimensions: { width, height },
-          timestamp: Date.now()
-        })
-      } catch (error) {
-        reject(error)
-      }
-    }
-    
-    img.onerror = () => reject(new Error(`Failed to load image: ${imageUrl}`))
-    
-    // Handle both absolute and relative URLs
-    if (imageUrl.startsWith('/')) {
-      img.src = `${window.location.origin}${imageUrl}`
-    } else {
-      img.src = imageUrl
-    }
-  })
-}
+import { imageToBase64 } from './imageToBase64'
 
-// Define queryFn first for reuse
-const getLabImageQueryFn = createSSRSafeQuery(async (imageUrl) => {
-  if (!imageUrl || typeof imageUrl !== 'string') {
-    throw new Error('Invalid image URL')
-  }
-  
-  devLog.log(`🖼️ getLabImageQueryFn: Caching image: ${imageUrl}`)
-  const imageData = await imageToBase64(imageUrl)
-  devLog.log(`✅ getLabImageQueryFn: Image cached: ${imageUrl} (${Math.round(imageData.size / 1024)}KB)`)
-  
-  return imageData
-}, null) // Return null during SSR
+// Remove module-scoped queryFn
 
 /**
  * React Query hook for caching individual lab images
@@ -117,17 +48,21 @@ const getLabImageQueryFn = createSSRSafeQuery(async (imageUrl) => {
  * @returns {Function} returns.refetch - Function to manually refetch
  */
 export function useLabImageQuery(imageUrl, options = {}) {
+  const queryFn = async (url) => {
+    if (!url || typeof url !== 'string') {
+      throw new Error('Invalid image URL')
+    }
+    return await imageToBase64(url)
+  }
   return useQuery({
     queryKey: labImageQueryKeys.byUrl(imageUrl),
-    queryFn: () => getLabImageQueryFn(imageUrl), // ✅ Reuse the SSR-safe queryFn
-    enabled: !!imageUrl && options.enabled !== false,
+    queryFn: () => queryFn(imageUrl),
+    enabled: options.enabled !== false && !!imageUrl,
     ...IMAGE_CACHE_CONFIG,
     ...options,
-  })
+  });
 }
 
-// Export queryFn for use in composed hooks
-useLabImageQuery.queryFn = getLabImageQueryFn;
 
 /**
  * Hook for getting cached image with fallback to original URL
@@ -207,15 +142,17 @@ export function useLabImage(imageUrl, options = {}) {
  */
 export function useLabImageBatch(imageUrls = [], options = {}) {
   const { enabled = true, onSuccess, onError } = options
-  
-  // Filter out invalid URLs and remove duplicates
   const validImageUrls = [...new Set(imageUrls.filter(Boolean))]
-  
-  // Create queries for all image URLs using useQueries
+  const queryFn = async (url) => {
+    if (!url || typeof url !== 'string') {
+      throw new Error('Invalid image URL')
+    }
+    return await imageToBase64(url)
+  }
   const imageQueries = useQueries({
     queries: validImageUrls.map(imageUrl => ({
       queryKey: labImageQueryKeys.byUrl(imageUrl),
-      queryFn: () => getLabImageQueryFn(imageUrl), // ✅ Reuse the SSR-safe queryFn
+      queryFn: () => queryFn(imageUrl),
       ...IMAGE_CACHE_CONFIG,
       enabled: enabled && !!imageUrl,
       onSuccess: (data) => {
