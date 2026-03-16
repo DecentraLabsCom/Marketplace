@@ -44,7 +44,7 @@
     "@tanstack/react-query-devtools": "^5.91.2",
     "@tanstack/react-query-persist-client": "^5.90.24",
     "@vercel/analytics": "^1.6.1",
-    "@vercel/blob": "^2.2.0",
+    "@vercel/blob": "^2.3.1",
     "@wagmi/connectors": "^7.2.1",
     "@wagmi/core": "^3.2.2",
     "@walletconnect/ethereum-provider": "~2.23.6",
