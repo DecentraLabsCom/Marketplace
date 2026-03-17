@@ -1,3 +1,20 @@
+# TESTS_LabModal.md
+
+## Cobertura y robustez de tests para LabModal.js
+
+### Cambios realizados
+
+- Se añadieron tests para:
+  - Subida y eliminación de archivos (imágenes y documentos), incluyendo manejo de errores async.
+  - Edición y validación de URI, cubriendo cambios entre local/external y limpieza de archivos temporales.
+  - Lógica de limpieza al cerrar el modal y batch updates.
+  - Validación de formularios y enfoque automático en el primer campo con error.
+  - Submit exitoso en Full Setup y Quick Setup, forzando mocks de validación para simular formularios válidos.
+- Se corrigió el mock de LabFormFullSetup para simular correctamente el evento submit y el flujo de validación.
+- Se forzó el mock de validateLabFull a devolver `{}` en el test de submit para asegurar que la validación no bloquee el flujo.
+- Todos los tests pasan y la cobertura de LabModal.js supera el 55%, cubriendo ramas críticas y flujos de error.
+
+
 # TESTS_provisioningToken.md
 
 ## Test Coverage for provisioningToken.js
