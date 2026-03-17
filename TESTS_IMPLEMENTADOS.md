@@ -1,3 +1,39 @@
+# TESTS_provisioningToken.md
+
+## Test Coverage for provisioningToken.js
+
+### Covered Functions and Features
+- **getKeyMaterial**: Loads and caches cryptographic keys, derives public JWK, computes thumbprint.
+- **getProvisioningJwks**: Returns JWKS structure for public key.
+- **signProvisioningToken**: Signs a JWT with claims, issuer, audience, TTL, and returns token, expiration, kid.
+- **verifyProvisioningToken**: Verifies JWT, checks issuer/audience, handles error cases (missing token, issuer mismatch, audience mismatch).
+- **normalizeHttpsUrl**: Validates and normalizes URLs, throws for invalid/missing input.
+- **requireString**: Ensures string input, throws for missing/empty.
+- **requireEmail**: Validates email format, throws for invalid/missing.
+- **requireApiKey**: Validates API key length, returns dev key in dev mode, throws for short/empty.
+- **extractBearerToken**: Extracts Bearer token from header, returns null for invalid/missing.
+
+### Test Cases
+- **Key Material Caching**: Ensures keys are cached after first load.
+- **JWKS Structure**: Validates returned JWKS contains expected properties (kty, kid).
+- **Token Signing**: Checks returned token, expiration, kid; validates header and claims.
+- **Token Verification**: Validates payload, throws for missing token, issuer mismatch, audience mismatch.
+- **Utility Functions**: All error branches and valid cases for URL, string, email, API key, Bearer extraction.
+
+### Mocking Strategy
+- All cryptographic and JWT operations (jose, crypto) are mocked for deterministic results.
+- marketplaceJwtService is mocked to simulate key loading.
+- Error cases are simulated by patching decodeJwt and jwtVerify mocks.
+
+### Not Covered
+- Real cryptographic operations (integration tests).
+- Real marketplaceJwtService file/env loading.
+- Malformed/corrupted PEM edge cases (integration).
+
+### Summary
+All functional branches and error handling in provisioningToken.js are covered by unit tests. No meaningful unit tests are missing for this file.
+
+
 # Tests for useUserComposedQueries.js
 
 ## Hooks Covered

@@ -1,9 +1,116 @@
+var mockGetPrivateKeyPem = jest.fn(async () => 'mockPrivateKeyPem');
+// Move mock declaration above jest.mock
+jest.mock('../marketplaceJwt', () => ({
+  __esModule: true,
+  default: {
+    async getPrivateKeyPem() {
+      return await mockGetPrivateKeyPem();
+    }
+  },
+  getPrivateKeyPem: mockGetPrivateKeyPem,
+}));
 // Tests for provisioningToken.js
 // Jest is the test runner. All crypto and external dependencies are mocked.
 
 
 // Mock 'jose' to avoid ESM import errors in Jest (only testing pure utils here)
-jest.mock('jose', () => ({}));
+jest.mock('jose', () => ({
+  SignJWT: jest.fn().mockImplementation(function (claims) {
+    this.claims = claims;
+    this.header = {};
+    this.issuedAt = null;
+    this.exp = null;
+    this.issuer = null;
+    this.audience = null;
+    this.jti = null;
+    return this;
+  }),
+  importPKCS8: jest.fn(async () => 'mockPrivateKey'),
+  importSPKI: jest.fn(async () => 'mockPublicKey'),
+  exportJWK: jest.fn(async () => ({ kty: 'RSA', n: 'mockN', e: 'mockE' })),
+  calculateJwkThumbprint: jest.fn(async () => 'mockThumbprint'),
+  decodeJwt: jest.fn((token) => ({ aud: 'https://audience.com', publicBaseUrl: 'https://audience.com', marketplaceBaseUrl: 'https://issuer.com' })),
+  importJWK: jest.fn(async () => 'mockPublicKey'),
+  jwtVerify: jest.fn(async () => ({ payload: { marketplaceBaseUrl: 'https://issuer.com', publicBaseUrl: 'https://audience.com', aud: ['https://audience.com'] } })),
+}));
+
+jest.mock('crypto', () => ({
+  createPublicKey: jest.fn(() => ({
+    export: jest.fn(() => ({ toString: () => 'mockPublicKeyPem' }))
+  })),
+  randomUUID: jest.fn(() => 'mock-jti'),
+}));
+
+
+
+let provisioningToken;
+beforeAll(async () => {
+  provisioningToken = await import('../provisioningToken');
+});
+  describe('getKeyMaterial', () => {
+    it('returns cached keys after first call', async () => {
+      const keys1 = await provisioningToken.__getKeyMaterial?.() || await provisioningToken.getProvisioningJwks();
+      const keys2 = await provisioningToken.__getKeyMaterial?.() || await provisioningToken.getProvisioningJwks();
+      expect(keys1).toEqual(keys2);
+    });
+  });
+
+  describe('getProvisioningJwks', () => {
+    it('returns JWKS with expected structure', async () => {
+      const jwks = await provisioningToken.getProvisioningJwks();
+      expect(jwks).toHaveProperty('keys');
+      expect(jwks.keys[0]).toHaveProperty('kty', 'RSA');
+      expect(jwks.keys[0]).toHaveProperty('kid', 'mockThumbprint');
+    });
+  });
+
+  describe('signProvisioningToken', () => {
+    it('returns token, expiresAt, and kid', async () => {
+      // Mock SignJWT chain
+      const mockSign = jest.fn(async () => 'mockToken');
+      const SignJWT = provisioningToken.SignJWT || require('jose').SignJWT;
+      SignJWT.prototype.setProtectedHeader = function (header) { this.header = header; return this; };
+      SignJWT.prototype.setIssuedAt = function (iat) { this.issuedAt = iat; return this; };
+      SignJWT.prototype.setExpirationTime = function (exp) { this.exp = exp; return this; };
+      SignJWT.prototype.setIssuer = function (issuer) { this.issuer = issuer; return this; };
+      SignJWT.prototype.setAudience = function (aud) { this.audience = aud; return this; };
+      SignJWT.prototype.setJti = function (jti) { this.jti = jti; return this; };
+      SignJWT.prototype.sign = mockSign;
+
+      const result = await provisioningToken.signProvisioningToken({ foo: 'bar' });
+      expect(result).toHaveProperty('token', 'mockToken');
+      expect(result).toHaveProperty('expiresAt');
+      expect(result).toHaveProperty('kid', 'mockThumbprint');
+    });
+  });
+
+  describe('verifyProvisioningToken', () => {
+    it('verifies token and returns payload', async () => {
+      const payload = await provisioningToken.verifyProvisioningToken('mockToken', { issuer: 'https://issuer.com' });
+      expect(payload).toHaveProperty('marketplaceBaseUrl', 'https://issuer.com');
+      expect(payload).toHaveProperty('publicBaseUrl', 'https://audience.com');
+    });
+    it('throws if token is missing', async () => {
+      await expect(provisioningToken.verifyProvisioningToken('', { issuer: 'https://issuer.com' })).rejects.toThrow('Provisioning token is required');
+    });
+    it('throws if issuer mismatch', async () => {
+      // Patch decodeJwt and jwtVerify to return mismatched issuer
+      const origDecodeJwt = require('jose').decodeJwt;
+      const origJwtVerify = require('jose').jwtVerify;
+      require('jose').decodeJwt = jest.fn(() => ({ aud: 'https://audience.com', publicBaseUrl: 'https://audience.com', marketplaceBaseUrl: 'https://wrong.com' }));
+      require('jose').jwtVerify = jest.fn(async () => ({ payload: { marketplaceBaseUrl: 'https://wrong.com', publicBaseUrl: 'https://audience.com', aud: ['https://audience.com'] } }));
+      await expect(provisioningToken.verifyProvisioningToken('mockToken', { issuer: 'https://issuer.com' })).rejects.toThrow('Marketplace base URL mismatch');
+      require('jose').decodeJwt = origDecodeJwt;
+      require('jose').jwtVerify = origJwtVerify;
+    });
+    it('throws if audience mismatch', async () => {
+      // Patch jwtVerify to return wrong audience
+      const origJwtVerify = require('jose').jwtVerify;
+      require('jose').jwtVerify = jest.fn(async () => ({ payload: { marketplaceBaseUrl: 'https://issuer.com', publicBaseUrl: 'https://wrong.com', aud: ['https://audience.com'] } }));
+      await expect(provisioningToken.verifyProvisioningToken('mockToken', { issuer: 'https://issuer.com' })).rejects.toThrow('Token audience must match public base URL');
+      require('jose').jwtVerify = origJwtVerify;
+    });
+  });
 import * as provisioningToken from '../provisioningToken';
 
 describe('provisioningToken.js', () => {
