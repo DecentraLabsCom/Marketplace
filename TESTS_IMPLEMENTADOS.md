@@ -1,3 +1,33 @@
+# Tests for useUserComposedQueries.js
+
+## Hooks Covered
+- useProvidersWithNames
+- useProviderDetails
+- useAllUsersComposed
+- useProviderStatusComposed
+- Helpers: extractProviderFromComposed, isProviderFromComposed, getProviderNameFromComposed
+
+## Test Areas
+- **Helpers**: Extraction, provider check, and name retrieval from composed data.
+- **Hooks**: Integration tests for main composed hooks, covering:
+  - Success paths (provider found, formatted data)
+  - Edge cases (provider not found, empty data)
+  - Status/meta validation (isLoading, isSuccess, meta info)
+  - Error handling (mocked atomic hooks)
+
+## Test Scenarios
+- useProvidersWithNames: returns formatted provider list with displayName fallback.
+- useProviderDetails: returns provider status and details for valid address.
+- useAllUsersComposed: returns providers, meta, and status.
+- useProviderStatusComposed: returns provider status, name, details, and meta for valid address.
+- Helpers: correct extraction, provider check, and name retrieval for all cases.
+
+## Coverage Status
+- All main branches and error paths are covered for helpers and principal hooks.
+- Mocking of atomic hooks ensures test isolation and robust coverage.
+- Edge cases and input validation are explicitly tested.
+
+
 # Tests for marketplaceJwt.js
 
 ## Overview
