@@ -1,12 +1,34 @@
+# Cobertura y tests de ImagePreviewList.js
+
+## Estrategia aplicada
+- Archivo de test: `src/components/ui/media/ImagePreviewList.test.js`.
+- Mock de MediaDisplayWithFallback para evitar dependencias externas.
+- Casos cubiertos:
+  - Renderizado de la grid con todas las imágenes.
+  - Renderizado del botón de eliminar para cada imagen.
+  - Llamada a removeImage con el índice correcto al hacer click.
+  - Botón deshabilitado si isExternalURI es true.
+  - Renderizado con imageUrls vacío y con una sola imagen.
+  - Validación del alt de la imagen.
+
+## Resultados
+- Todos los tests pasan.
+- Cobertura de líneas, funciones y ramas: 100%.
+
+## Detalle de tests
+1. Renderiza la grid con todas las imágenes.
+2. Renderiza el botón de eliminar para cada imagen.
+3. Llama a removeImage con el índice correcto al hacer click.
+4. Deshabilita el botón si isExternalURI es true.
+5. Renderiza correctamente con imageUrls vacío.
+6. Renderiza correctamente con una sola imagen.
+7. El alt de la imagen es correcto.
+
+## Recomendación
+Si se agregan nuevas variantes o props, añadir tests específicos para mantener la cobertura.
+
 
 # Test de Layout.js
-
-Fecha: 17 de marzo de 2026
-
-## Cobertura alcanzada
-- Líneas: 100%
-- Funciones: 100%
-- Ramas: 90.9%
 
 ## Componentes testeados
 - Card
@@ -258,7 +280,7 @@ Notas:
 Todos los tests pasan y el archivo tiene cobertura completa de utilidades puras.
 - `src/components/register/InstitutionProviderRegister.js` (nuevo)
 - `src/components/layout/GlobalNotificationStack.js` (nuevo)
-### Cobertura añadida (marzo 2026)
+
 
 Se agregaron tests para los siguientes componentes sencillos que tenían 0% de cobertura:
 
