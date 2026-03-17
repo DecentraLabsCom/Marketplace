@@ -1,3 +1,39 @@
+# Test de DetailsSkeleton.js
+
+## Archivo
+- **Ruta:** src/components/skeletons/DetailsSkeleton.js
+- **Componentes:** CalendarSkeleton, LabHeroSkeleton
+
+## Estrategia de tests
+- Se valida el renderizado de todos los skeletons esperados.
+- CalendarSkeleton: 3 skeletons en el header, 7 para días de la semana, 35 para días del mes.
+- LabHeroSkeleton: skeleton de título, proveedor (avatar + nombre), descripción (3 líneas), tags (3), imagen principal.
+- Se usan getElementsByClassName para clases con / y para validar estructura.
+
+## Casos cubiertos
+- CalendarSkeleton:
+  - Renderiza header (flechas y mes/año).
+  - Renderiza días de la semana.
+  - Renderiza celdas de días.
+- LabHeroSkeleton:
+  - Renderiza título.
+  - Renderiza proveedor.
+  - Renderiza descripción.
+  - Renderiza tags.
+  - Renderiza imagen principal.
+
+## Resultados
+- Todos los tests pasan.
+- Cobertura de líneas, funciones y ramas: 100%.
+
+## Observaciones
+- Los tests son de estructura, no requieren mocks.
+- Se adaptaron selectores para evitar errores con clases Tailwind que contienen '/'.
+
+---
+Última actualización: 17/03/2026
+
+
 # Test Documentation: useContractWriteFunction.js
 
 ## Archivo
