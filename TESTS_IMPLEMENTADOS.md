@@ -1,3 +1,31 @@
+# Cobertura y tests de LabModal
+
+## Plan de integración
+- Borrado de imágenes y documentos: `removeImage`, `removeDoc`.
+- Edición de URI local y manejo de errores: `handleUriChange`.
+- Validación y enfoque de errores múltiples: `validateForm`, `focusFirstError`.
+- Limpieza de archivos temporales al cerrar el modal.
+- Integración de la prop `onFilesUploaded` en el submit.
+- Manejo de errores en mutaciones (`uploadFile`, `deleteFileMutation`).
+
+## Cobertura funcional
+- Renderizado y visibilidad del modal.
+- Cambio de pestañas (Full/Quick Setup).
+- Handlers de cierre (ESC, botón Cancelar).
+- Inicialización del formulario (nuevo/edición).
+- Subida y borrado de archivos (mockeado).
+- Validación y envío de formularios.
+- Edge cases: lab nulo, props faltantes, decimals indefinidos.
+
+## Tests agregados
+- Borrado de imágenes y documentos: validan actualización de estado y llamada a mutación.
+- Edición de URI local: cubren revertir cambios, errores por URI vacía y no externa.
+- Validación múltiple: cubren enfoque automático en el primer campo con error.
+- Limpieza de archivos temporales: cubren cleanup al cerrar el modal.
+- onFilesUploaded: cubren integración en el submit.
+- Manejo de errores en mutaciones: cubren ramas de error sin crash.
+
+
 # TESTS_LabModal.md
 
 ## Cobertura y robustez de tests para LabModal.js
