@@ -29,6 +29,7 @@ import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/
 import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
 import { useStakeInfo, useRequiredStake, usePendingLabPayout } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
+import { getPucHashFromSession } from '@/utils/auth/puc'
 import getBaseUrl from '@/utils/env/baseUrl'
 import devLog from '@/utils/dev/logger'
 import {
@@ -36,6 +37,7 @@ import {
   notifyLabCollectFailed,
   notifyLabCollectStarted,
   notifyLabCreateCancelled,
+  notifyLabCreatorMismatch,
   notifyLabCreated,
   notifyLabCreatedFilesWarning,
   notifyLabCreatedMetadataWarning,
@@ -48,6 +50,7 @@ import {
   notifyLabListed,
   notifyLabListingRequested,
   notifyLabListFailed,
+  notifyLabLegacyBlocked,
   notifyLabMetadataSaveFailed,
   notifyLabMetadataUpdated,
   notifyLabNoChanges,
@@ -145,9 +148,15 @@ export default function ProviderDashboard() {
     [isSSO, institutionRegistrationWallet, address]
   );
 
+  const currentCreatorPucHash = useMemo(
+    () => (isSSO ? getPucHashFromSession(user) : null),
+    [isSSO, user]
+  );
+
   // 🚀 React Query for labs owned by this provider - with safe defaults
-  const allLabsResult = useLabsForProvider(providerOwnerAddress, { 
-    enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading
+  const allLabsResult = useLabsForProvider(providerOwnerAddress, {
+    enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading,
+    creatorPucHash: currentCreatorPucHash,
   });
   
   // Safe destructuring with guaranteed defaults to prevent Rules of Hooks violations
@@ -334,6 +343,22 @@ export default function ProviderDashboard() {
     isSSO,
     openOnboardingModal,
   ]);
+
+  const handleLabAuthorizationErrorToast = useCallback((error) => {
+    if (!error?.code) return false;
+
+    if (error.code === 'LAB_CREATOR_MISMATCH') {
+      notifyLabCreatorMismatch(addTemporaryNotification);
+      return true;
+    }
+
+    if (error.code === 'LAB_LEGACY_BLOCKED') {
+      notifyLabLegacyBlocked(addTemporaryNotification);
+      return true;
+    }
+
+    return false;
+  }, [addTemporaryNotification]);
 
   const updateListingCache = useCallback((labId, isListed) => {
     if (!queryClient) return;
@@ -808,7 +833,9 @@ export default function ProviderDashboard() {
             devLog.warn('Failed to invalidate cache after update error:', cacheErr);
           }
           handleMissingWebauthnCredential(err);
-          notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
+          if (!handleLabAuthorizationErrorToast(err)) {
+            notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
+          }
           return;
         }
       } else {
@@ -829,7 +856,9 @@ export default function ProviderDashboard() {
             
             notifyLabMetadataUpdated(addTemporaryNotification, labData.id);
           } catch (error) {
-            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+            if (!handleLabAuthorizationErrorToast(error)) {
+              notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+            }
             return;
           }
         } else {
@@ -851,7 +880,9 @@ export default function ProviderDashboard() {
           await new Promise(resolve => setTimeout(resolve, 150));
           
         } catch (error) {
-          notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+          if (!handleLabAuthorizationErrorToast(error)) {
+            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+          }
           return;
         }
       }
@@ -863,7 +894,9 @@ export default function ProviderDashboard() {
     } catch (error) {
       devLog.error('Error updating lab:', error);
       handleMissingWebauthnCredential(error);
-      notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+      }
     }
   }
 
@@ -919,7 +952,9 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
       }
       handleMissingWebauthnCredential(error);
-      notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      }
     }
   };
 
@@ -965,7 +1000,9 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to invalidate cache after list error:', cacheErr);
       }
       handleMissingWebauthnCredential(error);
-      notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      }
     }
   };
   
@@ -1002,7 +1039,9 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
       }
       handleMissingWebauthnCredential(error);
-      notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      }
     }
   };
 
@@ -1046,7 +1085,9 @@ export default function ProviderDashboard() {
         clearActionProgressNotification(actionKey);
       }
       handleMissingWebauthnCredential(err);
-      notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
+      if (!handleLabAuthorizationErrorToast(err)) {
+        notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
+      }
     }
   };
 

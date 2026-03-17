@@ -9,6 +9,7 @@ import {
   useLab,
   useLabSSO,
   useLabOwner,
+  useLabCreatorPucHashSSO,
   useLabOwnerSSO,
   useIsTokenListed,
   useIsTokenListedSSO,
@@ -544,7 +545,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   // Filter lab IDs by ownership and get details only for owned labs
-  const ownedLabIds = useMemo(() => {
+  const ownerMatchedLabIds = useMemo(() => {
     if (!ownerAddress) return EMPTY_ARRAY;
 
     return labIds.filter((labId, index) => {
@@ -553,6 +554,33 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
     });
   }, [labIds, ownerAddress, ownerResults]);
+
+  const creatorHashResults = useQueries({
+    queries: ownerMatchedLabIds.length > 0 && options.creatorPucHash
+      ? ownerMatchedLabIds.map((labId) => ({
+          queryKey: labQueryKeys.getCreatorPucHash(labId),
+          queryFn: () => useLabCreatorPucHashSSO.queryFn(labId),
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  const ownedLabIds = useMemo(() => {
+    if (!options.creatorPucHash) {
+      return ownerMatchedLabIds;
+    }
+
+    return ownerMatchedLabIds.filter((labId, index) => {
+      const creatorHashData = creatorHashResults[index]?.data;
+      const creatorPucHash = creatorHashData?.creatorPucHash || creatorHashData;
+      return (
+        typeof creatorPucHash === 'string'
+        && creatorPucHash.toLowerCase() === options.creatorPucHash.toLowerCase()
+      );
+    });
+  }, [creatorHashResults, options.creatorPucHash, ownerMatchedLabIds]);
 
   // Get lab details only for owned labs
   const labDetailResults = useQueries({
@@ -641,6 +669,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   const isLoading = labIdsResult.isLoading || 
                    ownerResults.some(r => r.isLoading) ||
+                   creatorHashResults.some(r => r.isLoading) ||
                    labDetailResults.some(r => r.isLoading) ||
                    listingResults.some(r => r.isLoading) ||
                    metadataResults.some(r => r.isLoading) ||
@@ -648,6 +677,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   const hasCriticalError = Boolean(labIdsResult.error);
   const hasRecoverableErrors =
+    creatorHashResults.some(r => r.error) ||
     labDetailResults.some(r => r.error);
 
   // Transform data
@@ -687,12 +717,14 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const shouldReportError =
     hasCriticalError || (ownedLabs.length === 0 && hasRecoverableErrors);
   const firstRecoverableError =
+    creatorHashResults.find(r => r.error)?.error ||
     labDetailResults.find(r => r.error)?.error ||
     null;
 
   devLog.log('👨‍🔬 useLabsForProvider - Result:', {
     ownerAddress,
     totalLabsChecked: labIds.length,
+    ownerMatchedLabsCount: ownerMatchedLabIds.length,
     ownedLabsCount: ownedLabs.length,
     ownedLabIds: ownedLabs.map(lab => lab.id)
   });
@@ -706,6 +738,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     refetch: () => {
       labIdsResult.refetch();
       ownerResults.forEach(r => r.refetch && r.refetch());
+      creatorHashResults.forEach(r => r.refetch && r.refetch());
       labDetailResults.forEach(r => r.refetch && r.refetch());
       listingResults.forEach(r => r.refetch && r.refetch());
       metadataResults.forEach(r => r.refetch && r.refetch());

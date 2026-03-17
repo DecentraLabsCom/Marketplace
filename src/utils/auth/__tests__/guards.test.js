@@ -26,6 +26,15 @@ jest.mock('@/app/api/contract/utils/contractInstance', () => ({
   getContractInstance: jest.fn(),
 }));
 
+jest.mock('@/utils/blockchain/labCreatorHash', () => ({
+  ZERO_BYTES32: `0x${'0'.repeat(64)}`,
+  readLabCreatorPucHash: jest.fn(),
+}));
+
+jest.mock('@/utils/auth/puc', () => ({
+  getPucHashFromSession: jest.fn(),
+}));
+
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {
@@ -40,6 +49,8 @@ describe('guards', () => {
   let mockCookies;
   let mockGetSessionFromCookies;
   let mockGetContractInstance;
+  let mockReadLabCreatorPucHash;
+  let mockGetPucHashFromSession;
 
   beforeEach(async () => {
     jest.resetModules();
@@ -48,10 +59,14 @@ describe('guards', () => {
     const headersModule = await import('next/headers');
     const sessionCookieModule = await import('@/utils/auth/sessionCookie');
     const contractInstanceModule = await import('@/app/api/contract/utils/contractInstance');
+    const labCreatorHashModule = await import('@/utils/blockchain/labCreatorHash');
+    const pucModule = await import('@/utils/auth/puc');
     
     mockCookies = headersModule.cookies;
     mockGetSessionFromCookies = sessionCookieModule.getSessionFromCookies;
     mockGetContractInstance = contractInstanceModule.getContractInstance;
+    mockReadLabCreatorPucHash = labCreatorHashModule.readLabCreatorPucHash;
+    mockGetPucHashFromSession = pucModule.getPucHashFromSession;
     
     // Import guards module
     guards = await import('@/utils/auth/guards');
@@ -189,6 +204,44 @@ describe('guards', () => {
 
       await expect(guards.requireLabOwner(validSession, '999')).rejects.toThrow(guards.BadRequestError);
       await expect(guards.requireLabOwner(validSession, '999')).rejects.toThrow('does not exist');
+    });
+
+    it('should reject SSO user when lab creator hash mismatches', async () => {
+      const ssoSession = {
+        ...validSession,
+        authType: 'sso',
+        samlAssertion: 'saml',
+      };
+      const mockContract = {
+        ownerOf: jest.fn().mockResolvedValue(validSession.wallet),
+      };
+      mockGetContractInstance.mockResolvedValue(mockContract);
+      mockGetPucHashFromSession.mockReturnValue('0x' + '1'.repeat(64));
+      mockReadLabCreatorPucHash.mockResolvedValue('0x' + '2'.repeat(64));
+
+      await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toThrow(guards.ForbiddenError);
+      await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toMatchObject({
+        code: 'LAB_CREATOR_MISMATCH',
+      });
+    });
+
+    it('should reject SSO user when lab is legacy', async () => {
+      const ssoSession = {
+        ...validSession,
+        authType: 'sso',
+        samlAssertion: 'saml',
+      };
+      const mockContract = {
+        ownerOf: jest.fn().mockResolvedValue(validSession.wallet),
+      };
+      mockGetContractInstance.mockResolvedValue(mockContract);
+      mockGetPucHashFromSession.mockReturnValue('0x' + '1'.repeat(64));
+      mockReadLabCreatorPucHash.mockResolvedValue('0x' + '0'.repeat(64));
+
+      await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toThrow(guards.ConflictError);
+      await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toMatchObject({
+        code: 'LAB_LEGACY_BLOCKED',
+      });
     });
   });
 

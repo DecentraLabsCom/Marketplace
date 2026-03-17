@@ -7,6 +7,19 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
+const createApiError = async (response, fallbackMessage) => {
+  const errorData = await response.json().catch(() => ({}))
+  const error = new Error(errorData.error || fallbackMessage)
+  if (errorData.code) {
+    error.code = errorData.code
+  }
+  error.status = response.status
+  if (errorData.details) {
+    error.details = errorData.details
+  }
+  return error
+}
+
 
 /**
  * Hook for saving lab data
@@ -48,8 +61,7 @@ export const useSaveLabData = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to save lab data: ${response.status}`);
+          throw await createApiError(response, `Failed to save lab data: ${response.status}`);
         }
         
         const data = await response.json();
@@ -130,8 +142,7 @@ export const useSaveProviderRegistration = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to save provider registration: ${response.status}`);
+          throw await createApiError(response, `Failed to save provider registration: ${response.status}`);
         }
         
         const data = await response.json();
@@ -177,8 +188,7 @@ export const useUploadFile = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to upload file: ${response.status}`);
+          throw await createApiError(response, `Failed to upload file: ${response.status}`);
         }
         
         const data = await response.json();
@@ -218,8 +228,7 @@ export const useMoveFiles = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to move files: ${response.status}`);
+          throw await createApiError(response, `Failed to move files: ${response.status}`);
         }
         
         const data = await response.json();
@@ -259,8 +268,7 @@ export const useDeleteFile = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to delete file: ${response.status}`);
+          throw await createApiError(response, `Failed to delete file: ${response.status}`);
         }
         
         const data = await response.json();
@@ -299,8 +307,7 @@ export const useDeleteLabData = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to delete lab data: ${response.status}`);
+          throw await createApiError(response, `Failed to delete lab data: ${response.status}`);
         }
         
         const data = await response.json();

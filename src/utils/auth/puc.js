@@ -1,3 +1,5 @@
+import { keccak256, toUtf8Bytes } from 'ethers'
+
 /**
  * Normalize an identifier string.
  * Historically this was used for SCHAC Personal Unique Codes, but it now
@@ -17,7 +19,7 @@ export function normalizePuc(value) {
 
   const lower = trimmed.toLowerCase()
   if (!lower.includes('personaluniquecode') && !lower.includes('schacpersonaluniquecode')) {
-    return trimmed
+    return lower
   }
 
   const segments = trimmed
@@ -26,10 +28,10 @@ export function normalizePuc(value) {
     .filter(Boolean)
 
   if (segments.length === 0) {
-    return trimmed
+    return lower
   }
 
-  return segments[segments.length - 1]
+  return segments[segments.length - 1].toLowerCase()
 }
 
 /**
@@ -49,13 +51,25 @@ export function getNormalizedPucFromSession(session) {
   const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
 
   if (principalName) {
-    return targetedId ? `${principalName}|${targetedId}` : principalName
+    return (targetedId ? `${principalName}|${targetedId}` : principalName).toLowerCase()
   }
 
   // Session id is expected to already be the canonical shared identifier.
   if (typeof session?.id === 'string' && session.id.trim()) {
-    return session.id.trim()
+    return session.id.trim().toLowerCase()
   }
 
   return null
+}
+
+export function hashNormalizedPuc(value) {
+  const normalized = normalizePuc(value)
+  if (!normalized) return null
+  return keccak256(toUtf8Bytes(normalized))
+}
+
+export function getPucHashFromSession(session) {
+  const normalized = getNormalizedPucFromSession(session)
+  if (!normalized) return null
+  return keccak256(toUtf8Bytes(normalized))
 }
