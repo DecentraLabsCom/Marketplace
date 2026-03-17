@@ -1,3 +1,37 @@
+# Test de ClientQueryProvider.js
+
+## Archivo
+- **Ruta:** src/context/ClientQueryProvider.js
+- **Componente:** ClientQueryProvider
+
+## Estrategia de tests
+- Renderizado básico: children y devtools.
+- Inicialización de caché: logs de devLog.log en useEffect.
+- Detección de caché existente: logs de cantidad de labs.
+- Manejo de error en inicialización: logs de devLog.warn.
+- Lógica de shouldDehydrateQuery:
+  - Persistencia de tipos permitidos (labs, provider, providers, reservations, bookings, labImage, metadata).
+  - Exclusión de subKey 'checkAvailable' en reservations.
+  - Exclusión de queries no exitosos o con estructura inválida.
+
+## Casos cubiertos
+- Renderiza correctamente children y devtools.
+- Inicializa caché y loguea estado.
+- Detecta y loguea caché existente.
+- Loguea warning si hay error en cache check.
+- shouldDehydrateQuery persiste solo los tipos correctos y excluye los no permitidos.
+
+## Resultados
+- Todos los tests pasan.
+- Cobertura de líneas, funciones y ramas: 100% (excepto ramas internas de librería).
+- El error de persister.restoreClient es un warning de la librería, no afecta los tests.
+
+## Observaciones
+- Los tests cubren todos los flujos principales del provider.
+- Se mockean devLog, queryKeys y persister para aislar lógica.
+- La cobertura es robusta, solo faltan ramas internas de la librería persistente.
+
+
 # Test de DetailsSkeleton.js
 
 ## Archivo
