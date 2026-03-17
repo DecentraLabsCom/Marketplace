@@ -27,7 +27,7 @@ import {
   markBrowserCredentialVerifiedFromIntent,
 } from '@/utils/intents/clientFlowShared'
 
-const resolveBookingContext = (queryClient, reservationKey) => {
+export const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
   const cached = queryClient.getQueryData(bookingQueryKeys.byReservationKey(reservationKey));
   const reservation = cached?.reservation || cached;
@@ -37,7 +37,7 @@ const resolveBookingContext = (queryClient, reservationKey) => {
   };
 };
 
-const normalizeReservationMutationInput = (input) => {
+export const normalizeReservationMutationInput = (input) => {
   if (typeof input === 'string') {
     return { reservationKey: input };
   }
@@ -51,7 +51,7 @@ const normalizeReservationMutationInput = (input) => {
   return { reservationKey: null };
 };
 
-const resolveReservationSnapshotFromCache = (queryClient, reservationKey) => {
+export const resolveReservationSnapshotFromCache = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
   const cached = queryClient.getQueryData(bookingQueryKeys.byReservationKey(reservationKey));
   const reservation = cached?.reservation || cached || {};
@@ -62,7 +62,7 @@ const resolveReservationSnapshotFromCache = (queryClient, reservationKey) => {
   };
 };
 
-const invalidateInstitutionalReservationQueries = (queryClient, { labId, reservationKey } = {}) => {
+export const invalidateInstitutionalReservationQueries = (queryClient, { labId, reservationKey } = {}) => {
   if (!queryClient) return;
 
   queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() });
@@ -84,7 +84,7 @@ const invalidateInstitutionalReservationQueries = (queryClient, { labId, reserva
   }
 };
 
-const emitReservationProgress = (requestData, stage, details = {}) => {
+export const emitReservationProgress = (requestData, stage, details = {}) => {
   const onProgress = requestData?.onProgress;
   if (typeof onProgress !== 'function') return;
   try {
@@ -113,7 +113,7 @@ const awaitBackendAuthorization = async (prepareData, { backendUrl, authToken, p
 
 const DEFAULT_REQUEST_FUNDS_MAX_BATCH = 100
 
-const normalizeRequestFundsInput = (input, { fallbackBackendUrl } = {}) => {
+export const normalizeRequestFundsInput = (input, { fallbackBackendUrl } = {}) => {
   const payload = input && typeof input === 'object' ? input : {}
   const rawLabId = payload.labId ?? payload.tokenId ?? payload.id
   const parsedLabId = Number(rawLabId)

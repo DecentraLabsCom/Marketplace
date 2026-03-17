@@ -1,6 +1,7 @@
 import React from 'react'
 import { render } from '@testing-library/react'
-import ClientQueryProvider, { globalQueryClient } from '../ClientQueryProvider'
+import ClientQueryProvider, { globalQueryClient, shouldDehydrateQuery, setDevLogLogger } from '../ClientQueryProvider'
+import { act } from '@testing-library/react';
 
 jest.mock('@tanstack/react-query-devtools', () => ({
   ReactQueryDevtools: () => <div data-testid="devtools" />
@@ -10,14 +11,28 @@ jest.mock('@tanstack/query-sync-storage-persister', () => ({
   createSyncStoragePersister: jest.fn(() => ({
     persist: jest.fn(),
     restore: jest.fn(),
-    remove: jest.fn()
+    remove: jest.fn(),
+    restoreClient: jest.fn(), // Add missing function for PersistQueryClientProvider
   }))
 }))
 
-describe('ClientQueryProvider', () => {
+  let devLog;
+  let providerModule;
+  beforeEach(() => {
+    process.env.NODE_ENV = 'development';
+    jest.resetModules();
+    providerModule = require('../ClientQueryProvider');
+    devLog = {
+      log: jest.fn(),
+      warn: jest.fn(),
+    };
+    // Reset isInitialized to ensure useEffect runs
+    providerModule.isInitialized = false;
+  });
+
   it('renders children and devtools', () => {
     const { getByText, getByTestId } = render(
-      <ClientQueryProvider>
+      <ClientQueryProvider logger={devLog}>
         <div>child-content</div>
       </ClientQueryProvider>
     )
@@ -32,35 +47,48 @@ describe('ClientQueryProvider', () => {
   })
 
   it('calls cache initialization logs on mount', () => {
-    const devLog = require('@/utils/dev/logger').default;
-    devLog.log.mockReset();
-    render(<ClientQueryProvider><div /></ClientQueryProvider>);
-    expect(devLog.log).toHaveBeenCalledWith('🏗️ Checking existing cache state on app startup...');
-    expect(devLog.log).toHaveBeenCalledWith('📦 Memory cache empty on startup - React Query will restore from localStorage or API');
-    expect(devLog.log).toHaveBeenCalledWith('✅ Cache state check completed');
+    const logger = {
+      log: jest.fn(),
+      warn: jest.fn(),
+    };
+    providerModule.isInitialized = false;
+    providerModule.globalQueryClient.getQueryData = jest.fn(() => undefined);
+    return act(async () => {
+      render(<ClientQueryProvider logger={logger}><div /></ClientQueryProvider>);
+    });
+    expect(logger.log).toHaveBeenCalledWith('🏗️ Checking existing cache state on app startup...');
+    expect(logger.log).toHaveBeenCalledWith('📦 Memory cache empty on startup - React Query will restore from localStorage or API');
+    expect(logger.log).toHaveBeenCalledWith('✅ Cache state check completed');
   });
 
   it('logs cache found if labs data exists', () => {
-    const devLog = require('@/utils/dev/logger').default;
-    devLog.log.mockReset();
-    globalQueryClient.getQueryData = jest.fn(() => [{}, {}]);
-    render(<ClientQueryProvider><div /></ClientQueryProvider>);
-    expect(devLog.log).toHaveBeenCalledWith('📦 Found existing all-labs cache with', 2, 'entries');
+    const logger = {
+      log: jest.fn(),
+      warn: jest.fn(),
+    };
+    providerModule.isInitialized = false;
+    providerModule.globalQueryClient.getQueryData = jest.fn(() => [{}, {}]);
+    return act(async () => {
+      render(<ClientQueryProvider logger={logger}><div /></ClientQueryProvider>);
+    });
+    expect(logger.log).toHaveBeenCalledWith('📦 Found existing all-labs cache with', 2, 'entries');
   });
 
   it('logs warning if cache check throws', () => {
-    const devLog = require('@/utils/dev/logger').default;
-    devLog.warn.mockReset();
-    globalQueryClient.getQueryData = jest.fn(() => { throw new Error('fail') });
-    render(<ClientQueryProvider><div /></ClientQueryProvider>);
-    expect(devLog.warn).toHaveBeenCalledWith('⚠️ Failed to check cache state:', 'fail');
+    const logger = {
+      log: jest.fn(),
+      warn: jest.fn(),
+    };
+    providerModule.isInitialized = false;
+    providerModule.globalQueryClient.getQueryData = jest.fn(() => { throw new Error('fail') });
+    return act(async () => {
+      render(<ClientQueryProvider logger={logger}><div /></ClientQueryProvider>);
+    });
+    expect(logger.warn).toHaveBeenCalledWith('⚠️ Failed to check cache state:', 'fail');
   });
 
   it('shouldDehydrateQuery persists correct types and logs', () => {
     const persistTypes = ['labs', 'provider', 'providers', 'reservations', 'bookings', 'labImage', 'metadata'];
-    const devLog = require('@/utils/dev/logger').default;
-    devLog.log.mockReset();
-    const shouldDehydrateQuery = globalQueryClient.getDefaultOptions().queries.shouldDehydrateQuery || (() => true);
     persistTypes.forEach(type => {
       const query = { queryKey: [type], state: { status: 'success', data: {} } };
       expect(shouldDehydrateQuery(query)).toBe(true);
@@ -68,20 +96,17 @@ describe('ClientQueryProvider', () => {
   });
 
   it('shouldDehydrateQuery excludes reservations/checkAvailable', () => {
-    const shouldDehydrateQuery = globalQueryClient.getDefaultOptions().queries.shouldDehydrateQuery || (() => true);
     const query = { queryKey: ['reservations', 'checkAvailable'], state: { status: 'success', data: {} } };
     expect(shouldDehydrateQuery(query)).toBe(false);
   });
 
   it('shouldDehydrateQuery excludes unsuccessful queries', () => {
-    const shouldDehydrateQuery = globalQueryClient.getDefaultOptions().queries.shouldDehydrateQuery || (() => true);
     const query = { queryKey: ['labs'], state: { status: 'error', data: undefined } };
     expect(shouldDehydrateQuery(query)).toBe(false);
   });
 
   it('shouldDehydrateQuery excludes invalid query structure', () => {
-    const shouldDehydrateQuery = globalQueryClient.getDefaultOptions().queries.shouldDehydrateQuery || (() => true);
     const query = { queryKey: [], state: { status: 'success', data: {} } };
     expect(shouldDehydrateQuery(query)).toBe(false);
   });
-})
+
