@@ -1,3 +1,105 @@
+/** @jest-environment node */
+// Ensure Node.js environment for tests
+global.window = undefined;
+
+// Mock dependencies BEFORE importing the service
+jest.mock("jsonwebtoken");
+jest.mock("@/utils/dev/logger", () => ({
+  __esModule: true,
+  default: {
+    log: jest.fn(),
+    error: jest.fn(),
+  },
+}));
+
+let marketplaceJwtService;
+let jwt;
+
+describe('normalizeOrganizationDomain', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jwt = require('jsonwebtoken');
+    marketplaceJwtService = require('../marketplaceJwt').default;
+  });
+  test('normaliza dominio válido a minúsculas', () => {
+    expect(marketplaceJwtService.normalizeOrganizationDomain('UNED.ES')).toBe('uned.es');
+    expect(marketplaceJwtService.normalizeOrganizationDomain('Mi-Dominio.123')).toBe('mi-dominio.123');
+  });
+  test('lanza error si el dominio es vacío o no string', () => {
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain('')).toThrow('Organization domain is required');
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain(null)).toThrow('Organization domain is required');
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain(undefined)).toThrow('Organization domain is required');
+  });
+  test('lanza error si el dominio es muy corto o largo', () => {
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain('ab')).toThrow('Invalid organization domain length');
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain('a'.repeat(256))).toThrow('Invalid organization domain length');
+  });
+  test('lanza error si el dominio tiene caracteres inválidos', () => {
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain('inválido.com')).toThrow('Invalid character in organization domain');
+    expect(() => marketplaceJwtService.normalizeOrganizationDomain('dominio@com')).toThrow('Invalid character in organization domain');
+  });
+});
+
+  describe('generateInstitutionInviteToken', () => {
+    const validPrivateKey =
+      '-----BEGIN PRIVATE KEY-----\nTEST_KEY\n-----END PRIVATE KEY-----';
+    beforeEach(() => {
+      jest.resetModules();
+      jwt = require('jsonwebtoken');
+      marketplaceJwtService = require('../marketplaceJwt').default;
+      marketplaceJwtService.privateKey = validPrivateKey;
+      marketplaceJwtService.keyLoadAttempted = true;
+      jwt.sign.mockReturnValue('mocked.jwt.token');
+    });
+    test('genera token válido con usuario y dominios', async () => {
+      const samlUser = { id: 'user1', email: 'user1@org.com', affiliation: 'org.com' };
+      const domains = ['Org.com', 'org.com'];
+      const result = await marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains });
+      // Debug log
+      // eslint-disable-next-line no-console
+      console.log('Result:', result);
+      // eslint-disable-next-line no-console
+      console.log('jwt.sign mock calls:', jwt.sign.mock.calls);
+      expect(result && result.token).toBe('mocked.jwt.token');
+      expect(result && result.payload.organizationDomains).toEqual(['org.com']);
+      expect(result && result.payload.issuerUserId).toBe('user1');
+    });
+    test('lanza error si falta el usuario', async () => {
+      await expect(marketplaceJwtService.generateInstitutionInviteToken({ samlUser: null, domains: ['org.com'] })).rejects.toThrow('SAML user is required for invite token');
+    });
+    test('lanza error si falta domains o está vacío', async () => {
+      const samlUser = { id: 'user1' };
+      await expect(marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains: [] })).rejects.toThrow('At least one organization domain is required for invite token');
+      await expect(marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains: null })).rejects.toThrow('At least one organization domain is required for invite token');
+    });
+    test('lanza error si todos los dominios son inválidos', async () => {
+      const samlUser = { id: 'user1' };
+      await expect(marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains: ['@@@'] }))
+        .rejects.toThrow('Institution invite token generation failed: Invalid character in organization domain');
+    });
+    test('lanza error si el wallet es inválido', async () => {
+      const samlUser = { id: 'user1' };
+      await expect(marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains: ['org.com'], expectedWallet: 'badwallet' })).rejects.toThrow('Invalid expected wallet address format');
+    });
+    test('genera token con wallet válido', async () => {
+      const samlUser = { id: 'user1' };
+      const domains = ['org.com'];
+      const wallet = '0x1111111111111111111111111111111111111111';
+      const result = await marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains, expectedWallet: wallet });
+      // Debug log
+      // eslint-disable-next-line no-console
+      console.log('Result:', result);
+      // eslint-disable-next-line no-console
+      console.log('jwt.sign mock calls:', jwt.sign.mock.calls);
+      expect(result && result.token).toBe('mocked.jwt.token');
+      expect(result && result.payload.expectedWallet).toBe(wallet);
+    });
+    test('lanza error si no hay clave privada', async () => {
+      marketplaceJwtService.privateKey = null;
+      const samlUser = { id: 'user1' };
+      await expect(marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains: ['org.com'] })).rejects.toThrow('JWT private key is not available for invite token');
+    });
+  });
 /**
  * Unit Tests for Marketplace JWT Service
  *
@@ -15,8 +117,8 @@
  * - Token decoding
  */
 
+import marketplaceJwtService from "../marketplaceJwt";
 import jwt from "jsonwebtoken";
-import MarketplaceJwtService from "../marketplaceJwt";
 
 // Mock dependencies
 jest.mock("jsonwebtoken");
@@ -48,8 +150,8 @@ describe("MarketplaceJwtService", () => {
     jest.spyOn(Date, "now").mockReturnValue(1700000000000);
 
     // Setup service with valid key for most tests
-    MarketplaceJwtService.privateKey = validPrivateKey;
-    MarketplaceJwtService.keyLoadAttempted = true;
+    marketplaceJwtService.privateKey = validPrivateKey;
+    marketplaceJwtService.keyLoadAttempted = true;
 
     // Mock jwt.sign to return a token
     jwt.sign.mockReturnValue("mocked.jwt.token");
@@ -62,10 +164,10 @@ describe("MarketplaceJwtService", () => {
 
   describe("Service Initialization", () => {
     test("service is exported as singleton", () => {
-      expect(MarketplaceJwtService).toBeDefined();
-      expect(typeof MarketplaceJwtService.generateJwtForUser).toBe("function");
-      expect(typeof MarketplaceJwtService.decodeToken).toBe("function");
-      expect(typeof MarketplaceJwtService.isConfigured).toBe("function");
+      expect(marketplaceJwtService).toBeDefined();
+      expect(typeof marketplaceJwtService.generateJwtForUser).toBe("function");
+      expect(typeof marketplaceJwtService.decodeToken).toBe("function");
+      expect(typeof marketplaceJwtService.isConfigured).toBe("function");
     });
   });
 
@@ -82,7 +184,7 @@ describe("MarketplaceJwtService", () => {
           eduPersonScopedAffiliation: "student@example.com",
         };
 
-        const token = await MarketplaceJwtService.generateJwtForUser(
+          const token = await marketplaceJwtService.generateJwtForUser(
           samlAttributes
         );
 
@@ -106,7 +208,7 @@ describe("MarketplaceJwtService", () => {
       test("uses RS256 algorithm for signing", async () => {
         const samlAttributes = { username: "testuser" };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         expect(jwt.sign).toHaveBeenCalledWith(
           expect.any(Object),
@@ -123,7 +225,7 @@ describe("MarketplaceJwtService", () => {
           email: "test@example.com",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
 
@@ -141,7 +243,7 @@ describe("MarketplaceJwtService", () => {
         process.env.JWT_ISSUER = "test-marketplace";
         const samlAttributes = { username: "testuser" };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         expect(jwt.sign).toHaveBeenCalledWith(
           expect.any(Object),
@@ -155,7 +257,7 @@ describe("MarketplaceJwtService", () => {
       test("uses default issuer when env var not set", async () => {
         const samlAttributes = { username: "testuser" };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         expect(jwt.sign).toHaveBeenCalledWith(
           expect.any(Object),
@@ -169,7 +271,7 @@ describe("MarketplaceJwtService", () => {
       test("includes iat and exp timestamps", async () => {
         const samlAttributes = { username: "testuser" };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.iat).toBe(1700000000); // Math.floor(1700000000000 / 1000)
@@ -179,7 +281,7 @@ describe("MarketplaceJwtService", () => {
       test("calculates expiration correctly with default 1 minute", async () => {
         const samlAttributes = { username: "testuser" };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         const expectedExp = payload.iat + 60; // 60 seconds (1 minute)
@@ -190,7 +292,7 @@ describe("MarketplaceJwtService", () => {
         process.env.JWT_EXPIRATION_MS = "600000"; // 10 minutes
         const samlAttributes = { username: "testuser" };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+          await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         const expectedExp = payload.iat + 600; // 600 seconds
@@ -204,7 +306,7 @@ describe("MarketplaceJwtService", () => {
           username: "testuser",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+        await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.uid).toBe("testuser");
@@ -216,7 +318,7 @@ describe("MarketplaceJwtService", () => {
           username: "testuser",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+        await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.displayName).toBe("testuser");
@@ -227,7 +329,7 @@ describe("MarketplaceJwtService", () => {
           username: "testuser",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+        await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.email).toBe("");
@@ -241,7 +343,7 @@ describe("MarketplaceJwtService", () => {
           uid: "custom-uid-123",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+        await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.uid).toBe("testuser");
@@ -253,7 +355,7 @@ describe("MarketplaceJwtService", () => {
           displayName: "Custom Display Name",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+        await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.displayName).toBe("Custom Display Name");
@@ -270,7 +372,7 @@ describe("MarketplaceJwtService", () => {
           eduPersonScopedAffiliation: "faculty@test.edu",
         };
 
-        await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+        await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
         const payload = jwt.sign.mock.calls[0][0];
         expect(payload.sub).toBe("user123");
@@ -289,7 +391,7 @@ describe("MarketplaceJwtService", () => {
         };
 
         await expect(
-          MarketplaceJwtService.generateJwtForUser(samlAttributes)
+          marketplaceJwtService.generateJwtForUser(samlAttributes)
         ).rejects.toThrow("Username is required for JWT generation");
       });
 
@@ -299,29 +401,29 @@ describe("MarketplaceJwtService", () => {
         };
 
         await expect(
-          MarketplaceJwtService.generateJwtForUser(samlAttributes)
+          marketplaceJwtService.generateJwtForUser(samlAttributes)
         ).rejects.toThrow("Username is required for JWT generation");
       });
 
       test("throws error when samlAttributes is null", async () => {
         await expect(
-          MarketplaceJwtService.generateJwtForUser(null)
+          marketplaceJwtService.generateJwtForUser(null)
         ).rejects.toThrow("Username is required for JWT generation");
       });
 
       test("throws error when samlAttributes is undefined", async () => {
         await expect(
-          MarketplaceJwtService.generateJwtForUser(undefined)
+          marketplaceJwtService.generateJwtForUser(undefined)
         ).rejects.toThrow("Username is required for JWT generation");
       });
 
       test("throws error when private key is not available", async () => {
-        MarketplaceJwtService.privateKey = null;
+        marketplaceJwtService.privateKey = null;
         const samlAttributes = { username: "testuser" };
 
         // Can throw either message depending on test environment
         await expect(
-          MarketplaceJwtService.generateJwtForUser(samlAttributes)
+          marketplaceJwtService.generateJwtForUser(samlAttributes)
         ).rejects.toThrow("JWT");
       });
 
@@ -333,7 +435,7 @@ describe("MarketplaceJwtService", () => {
         const samlAttributes = { username: "testuser" };
 
         await expect(
-          MarketplaceJwtService.generateJwtForUser(samlAttributes)
+          marketplaceJwtService.generateJwtForUser(samlAttributes)
         ).rejects.toThrow("JWT generation failed: Invalid key format");
       });
 
@@ -345,7 +447,7 @@ describe("MarketplaceJwtService", () => {
         const samlAttributes = { username: "testuser" };
 
         await expect(
-          MarketplaceJwtService.generateJwtForUser(samlAttributes)
+          marketplaceJwtService.generateJwtForUser(samlAttributes)
         ).rejects.toThrow("JWT generation failed");
       });
     });
@@ -353,7 +455,7 @@ describe("MarketplaceJwtService", () => {
 
   describe("generateSamlAuthToken", () => {
     test("generates JWT with required SAML auth claims", async () => {
-      const token = await MarketplaceJwtService.generateSamlAuthToken({
+      const token = await marketplaceJwtService.generateSamlAuthToken({
         userId: "user-1",
         affiliation: "uned.es",
         institutionalProviderWallet: "0x1111111111111111111111111111111111111111",
@@ -377,14 +479,14 @@ describe("MarketplaceJwtService", () => {
 
     test("throws error when userId is missing", async () => {
       await expect(
-        MarketplaceJwtService.generateSamlAuthToken({
+        marketplaceJwtService.generateSamlAuthToken({
           affiliation: "uned.es",
         })
       ).rejects.toThrow("userId is required for SAML auth token generation");
     });
 
     test("uses empty affiliation when missing", async () => {
-      const token = await MarketplaceJwtService.generateSamlAuthToken({
+      const token = await marketplaceJwtService.generateSamlAuthToken({
         userId: "user-1",
       });
 
@@ -401,7 +503,7 @@ describe("MarketplaceJwtService", () => {
 
     test("throws error for invalid institutional wallet format", async () => {
       await expect(
-        MarketplaceJwtService.generateSamlAuthToken({
+        marketplaceJwtService.generateSamlAuthToken({
           userId: "user-1",
           affiliation: "uned.es",
           institutionalProviderWallet: "invalid-wallet",
@@ -411,7 +513,7 @@ describe("MarketplaceJwtService", () => {
 
     test('uses default audience when none provided', async () => {
       // no env vars set
-      await MarketplaceJwtService.generateSamlAuthToken({
+      await marketplaceJwtService.generateSamlAuthToken({
         userId: 'user-default',
       });
 
@@ -425,7 +527,7 @@ describe("MarketplaceJwtService", () => {
     });
 
     test('passes audience and subject through to jwt.sign', async () => {
-      await MarketplaceJwtService.generateSamlAuthToken({
+      await marketplaceJwtService.generateSamlAuthToken({
         userId: 'user-2',
         affiliation: 'aff',
         institutionalProviderWallet: '0x1111111111111111111111111111111111111111',
@@ -447,7 +549,7 @@ describe("MarketplaceJwtService", () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
       delete process.env.INTENTS_JWT_EXPIRATION_SECONDS;
 
-      const result = await MarketplaceJwtService.generateIntentBackendToken();
+      const result = await marketplaceJwtService.generateIntentBackendToken();
 
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 60) * 1000).toISOString();
@@ -456,7 +558,7 @@ describe("MarketplaceJwtService", () => {
 
     test('generateIntentBackendToken defaults audience to blockchain-services', async () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
-      await MarketplaceJwtService.generateIntentBackendToken();
+      await marketplaceJwtService.generateIntentBackendToken();
       expect(jwt.sign).toHaveBeenCalledWith(
         expect.any(Object),
         expect.any(String),
@@ -467,7 +569,7 @@ describe("MarketplaceJwtService", () => {
     test('generateIntentBackendToken respects expiresInSeconds parameter', async () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
 
-      const result = await MarketplaceJwtService.generateIntentBackendToken({ expiresInSeconds: 30 });
+      const result = await marketplaceJwtService.generateIntentBackendToken({ expiresInSeconds: 30 });
 
       expect(result.token).toBe('mocked.jwt.token');
       const expectedExpiresAt = new Date((1700000000 + 30) * 1000).toISOString();
@@ -478,7 +580,7 @@ describe("MarketplaceJwtService", () => {
       jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
       const extra = { foo: 'bar', sub: 'hacked', aud: 'no', scope: 'nope' };
 
-      await MarketplaceJwtService.generateIntentBackendToken({
+      await marketplaceJwtService.generateIntentBackendToken({
         audience: 'my-aud',
         subject: 'my-sub',
         claims: extra,
@@ -512,7 +614,7 @@ describe("MarketplaceJwtService", () => {
 
       jwt.decode.mockReturnValue(mockDecoded);
 
-      const result = MarketplaceJwtService.decodeToken("valid.jwt.token");
+      const result = marketplaceJwtService.decodeToken("valid.jwt.token");
 
       expect(jwt.decode).toHaveBeenCalledWith("valid.jwt.token", {
         complete: true,
@@ -528,7 +630,7 @@ describe("MarketplaceJwtService", () => {
 
       jwt.decode.mockReturnValue(mockDecoded);
 
-      const result = MarketplaceJwtService.decodeToken("token");
+      const result = marketplaceJwtService.decodeToken("token");
 
       expect(result.header).toEqual({ alg: "RS256" });
       expect(result.payload).toEqual({
@@ -542,7 +644,7 @@ describe("MarketplaceJwtService", () => {
         throw new Error("Malformed token");
       });
 
-      expect(() => MarketplaceJwtService.decodeToken("invalid.token")).toThrow(
+      expect(() => marketplaceJwtService.decodeToken("invalid.token")).toThrow(
         "JWT decode failed: Malformed token"
       );
     });
@@ -552,7 +654,7 @@ describe("MarketplaceJwtService", () => {
         throw new Error("Token required");
       });
 
-      expect(() => MarketplaceJwtService.decodeToken(null)).toThrow(
+      expect(() => marketplaceJwtService.decodeToken(null)).toThrow(
         "JWT decode failed: Token required"
       );
     });
@@ -562,7 +664,7 @@ describe("MarketplaceJwtService", () => {
         throw new Error("Invalid token");
       });
 
-      expect(() => MarketplaceJwtService.decodeToken("")).toThrow(
+      expect(() => marketplaceJwtService.decodeToken("")).toThrow(
         "JWT decode failed"
       );
     });
@@ -575,9 +677,9 @@ describe("MarketplaceJwtService", () => {
         email: "test+tag@example.com",
       };
 
-      const token = await MarketplaceJwtService.generateJwtForUser(
-        samlAttributes
-      );
+        const token = await marketplaceJwtService.generateJwtForUser(
+          samlAttributes
+        );
 
       expect(token).toBe("mocked.jwt.token");
       const payload = jwt.sign.mock.calls[0][0];
@@ -593,7 +695,7 @@ describe("MarketplaceJwtService", () => {
         displayName: longString,
       };
 
-      const token = await MarketplaceJwtService.generateJwtForUser(
+      const token = await marketplaceJwtService.generateJwtForUser(
         samlAttributes
       );
 
@@ -610,7 +712,7 @@ describe("MarketplaceJwtService", () => {
         schacHomeOrganization: "université.fr",
       };
 
-      const token = await MarketplaceJwtService.generateJwtForUser(
+      const token = await marketplaceJwtService.generateJwtForUser(
         samlAttributes
       );
 
@@ -625,7 +727,7 @@ describe("MarketplaceJwtService", () => {
         displayName: "User with \"quotes\" and 'apostrophes'",
       };
 
-      const token = await MarketplaceJwtService.generateJwtForUser(
+      const token = await marketplaceJwtService.generateJwtForUser(
         samlAttributes
       );
 
@@ -640,13 +742,13 @@ describe("MarketplaceJwtService", () => {
         .mockReturnValueOnce("token2")
         .mockReturnValueOnce("token3");
 
-      const token1 = await MarketplaceJwtService.generateJwtForUser(
+      const token1 = await marketplaceJwtService.generateJwtForUser(
         samlAttributes
       );
-      const token2 = await MarketplaceJwtService.generateJwtForUser(
+      const token2 = await marketplaceJwtService.generateJwtForUser(
         samlAttributes
       );
-      const token3 = await MarketplaceJwtService.generateJwtForUser(
+      const token3 = await marketplaceJwtService.generateJwtForUser(
         samlAttributes
       );
 
@@ -659,8 +761,8 @@ describe("MarketplaceJwtService", () => {
     test("maintains consistent payload structure across multiple calls", async () => {
       const samlAttributes = { username: "testuser" };
 
-      await MarketplaceJwtService.generateJwtForUser(samlAttributes);
-      await MarketplaceJwtService.generateJwtForUser(samlAttributes);
+      await marketplaceJwtService.generateJwtForUser(samlAttributes);
+      await marketplaceJwtService.generateJwtForUser(samlAttributes);
 
       const call1Payload = jwt.sign.mock.calls[0][0];
       const call2Payload = jwt.sign.mock.calls[1][0];

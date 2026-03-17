@@ -1,3 +1,37 @@
+# Tests for marketplaceJwt.js
+
+## Overview
+This document describes the test coverage and scenarios implemented for `marketplaceJwt.js` as of March 17, 2026.
+
+## Test Areas
+- **JWT Generation**: Validates token creation with various SAML attributes, correct payload structure, signing algorithm, issuer, timestamps, and expiration logic.
+- **Attribute Handling**: Ensures correct fallbacks for missing attributes, ignores provided `uid` in favor of `username`, and handles all optional/required fields.
+- **Error Handling**: Covers missing/invalid input, missing private key, and error propagation from the JWT library.
+- **SAML Auth Token**: Tests generation of SAML-specific tokens, required/optional fields, and audience/subject handling.
+- **Intent Backend Token**: Validates expiration, audience, subject, and custom claims logic.
+- **Token Decoding**: Ensures correct decoding, error handling, and payload/header extraction.
+- **Edge Cases**: Handles Unicode, special characters, long values, and rapid successive calls.
+
+## Test Scenarios
+- Generates JWT with all SAML attributes
+- Uses RS256 algorithm for signing
+- Includes correct payload structure and issuer
+- Handles iat/exp timestamps and custom expiration
+- Fallbacks for displayName, email, schacHomeOrganization, eduPersonScopedAffiliation
+- Ignores provided uid, uses username as uid claim
+- Throws errors for missing/invalid username, attributes, or private key
+- Wraps and propagates errors from jwt.sign
+- SAML auth token: required/optional fields, invalid wallet, custom audience/subject
+- Intent backend token: expiration, audience, subject, extra claims
+- Decodes valid/invalid tokens, handles errors and null/empty input
+- Edge cases: Unicode, quotes, long values, rapid calls, consistent payload structure
+
+## Coverage Status
+- **All main branches and error paths are covered.**
+- **Edge cases and input validation are explicitly tested.**
+- **Mocking is robust, using dynamic re-imports to ensure test isolation.**
+
+
 # Tests de popupBlockerGuidance.js
 
 Este archivo documenta la cobertura y los casos de prueba implementados para `popupBlockerGuidance.js`.
