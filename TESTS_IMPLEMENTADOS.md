@@ -1,3 +1,34 @@
+# Test Documentation: useContractWriteFunction.js
+
+## Archivo
+- **Ruta:** src/hooks/contract/useContractWriteFunction.js
+- **Hook:** useContractWriteFunction
+
+## Estrategia de tests
+- Se testea el hook para ambos tipos de contrato (diamond y lab).
+- Se valida que retorna contractWriteFunction y utilidades de wagmi.
+- Se verifica que contractWriteFunction llama a writeContractAsync con la configuración correcta según el tipo de contrato.
+- Se simulan errores de wallet no conectada y dirección de contrato no definida.
+- Se comprueba que el logger devLog.log es llamado con los datos correctos en cada operación.
+
+## Casos cubiertos
+- Retorno de contractWriteFunction y writeContractAsync.
+- Ejecución exitosa con diamond y lab.
+- Propagación de error si wallet no está conectada.
+- Propagación de error si la dirección del contrato no está definida.
+- Llamadas correctas al logger para inicio y resultado de la operación.
+
+## Mocking
+- Se mockean wagmi, logger, contratos, utilidades blockchain.
+- El logger se inyecta directamente en los tests para capturar llamadas.
+
+## Observaciones
+- El test cubre todos los flujos principales y errores esperados.
+- El mocking del logger es clave para validar side effects.
+- La cobertura es alta, solo faltan algunos branches de error muy específicos.
+
+
+
 # Cobertura y tests de ImagePreviewList.js
 
 ## Estrategia aplicada

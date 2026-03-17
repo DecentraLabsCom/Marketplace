@@ -4,7 +4,7 @@ import { contractAddressesLAB, labTokenABI } from '@/contracts/lab'
 import { selectChain } from '@/utils/blockchain/selectChain'
 import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
 import { normalizeContractAddress } from '@/utils/blockchain/address'
-import devLog from '@/utils/dev/logger'
+import * as loggerModule from '@/utils/dev/logger'
 
 /**
  * Hook for writing to smart contract functions
@@ -40,7 +40,7 @@ export default function useContractWriteFunction(functionName, contractType = 'd
   const normalizedContractAddress = normalizeContractAddress(contractAddress)
 
   async function contractWriteFunction(args, options = {}) {
-    devLog.log('Contract write function called with:', {
+    loggerModule.default.log('Contract write function called with:', {
       functionName,
       args,
       contractAddress: normalizedContractAddress,
@@ -69,11 +69,16 @@ export default function useContractWriteFunction(functionName, contractType = 'd
       ...options // This allows passing gas, value, etc.
     }
 
-    const result = await writeContractAsync(contractCall)
-
-    devLog.log('Contract write result:', result)
-    return result
+    let result;
+    try {
+      result = await writeContractAsync(contractCall);
+      loggerModule.default.log('Contract write result:', result);
+      return result;
+    } catch (err) {
+      loggerModule.default.log('Contract write error:', err);
+      throw err;
+    }
   }
 
-  return { contractWriteFunction, ...rest }
+  return { contractWriteFunction, writeContractAsync, ...rest }
 }
