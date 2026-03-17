@@ -1,4 +1,73 @@
 
+# Test de Layout.js
+
+Fecha: 17 de marzo de 2026
+
+## Cobertura alcanzada
+- Líneas: 100%
+- Funciones: 100%
+- Ramas: 90.9%
+
+## Componentes testeados
+- Card
+- CardHeader
+- CardContent
+- CardFooter
+- Container
+- Grid
+- Stack
+- Inline
+- Divider
+- Spacer
+
+## Casos cubiertos
+### Card
+- Renderizado por defecto
+- Variantes: modal, shadow, border, padding
+- Renderizado de children
+
+### CardHeader
+- Renderizado con title, subtitle, actions
+- Renderizado solo con children
+
+### CardContent
+- Renderizado con children
+
+### CardFooter
+- Renderizado con align right y center
+
+### Container
+- Renderizado con padding md
+- Renderizado como section
+
+### Grid
+- Renderizado con cols y gap
+- Renderizado con responsive
+
+### Stack
+- Renderizado con spacing xl y align center
+
+### Inline
+- Renderizado con spacing xs, justify between y align end
+
+### Divider
+- Renderizado horizontal con label
+- Renderizado vertical sin label
+- Renderizado con estilo dashed
+
+### Spacer
+- Renderizado vertical tamaño xl
+- Renderizado horizontal tamaño 2xl
+
+## Estrategia
+- Se cubren todas las variantes de props, clases y renderizado de children.
+- Se valida la generación de clases condicionales.
+- Se cubren casos edge y combinaciones relevantes.
+
+## Resultado
+Todos los tests pasan y la cobertura es máxima. Si se agregan nuevas variantes o props, se recomienda añadir tests específicos.
+
+
 # Cobertura y tests de useBookingComposedQueries.js
 
 ## Estrategia aplicada
