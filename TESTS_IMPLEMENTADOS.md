@@ -1,3 +1,39 @@
+# Tests de popupBlockerGuidance.js
+
+Este archivo documenta la cobertura y los casos de prueba implementados para `popupBlockerGuidance.js`.
+
+## Funciones cubiertas
+- `getPopupGuidance(userAgent)`: Devuelve instrucciones específicas para permitir pop-ups según el navegador detectado.
+- `emitPopupBlockedEvent({ authorizationUrl, source })`: Emite un evento personalizado en el navegador cuando se detecta un bloqueo de pop-up.
+- `createPopupBlockedError(message)`: Crea un error con un código específico para identificar bloqueos de pop-up.
+
+## Casos de prueba
+
+### getPopupGuidance
+- Detecta navegadores móviles (iPhone, Android, iPad, iPod)
+- Detecta Firefox
+- Detecta Safari (excluyendo Chrome/Chromium)
+- Detecta Microsoft Edge
+- Detecta Opera
+- Caso por defecto: navegadores basados en Chrome
+
+### emitPopupBlockedEvent
+- Emite correctamente un evento CustomEvent con los detalles esperados
+- No lanza error si `window` es undefined
+
+### createPopupBlockedError
+- Devuelve un error con el código y mensaje correcto
+- Usa mensaje por defecto si no se provee
+
+## Ubicación de los tests
+- Archivo: `popupBlockerGuidance.test.js`
+- Carpeta: `src/utils/browser/`
+
+## Notas
+- Los tests usan mocks para simular el entorno de navegador y asegurar la cobertura de eventos y errores.
+- Se recomienda mantener estos tests al día si se agregan nuevos navegadores o se modifica la lógica de detección.
+
+
 # Test Coverage Report: useBookingComposedQueries.js
 
 ## Estrategia aplicada
