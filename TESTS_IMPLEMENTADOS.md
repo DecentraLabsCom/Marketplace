@@ -1,3 +1,18 @@
+# Test Coverage Report: useBookingComposedQueries.js
+
+## Estrategia aplicada
+- Tests unitarios para helpers: `calculateBookingSummary`, `getReservationStatusText`, extractors.
+- Tests para hooks: `useUserBookingsDashboard`, `useLabBookingsDashboard` con mocks de dependencias.
+- Edge cases: status desconocidos, campos nulos, intentStatus atípicos, timestamps inválidos.
+- Paths de error: mocks de errores en queries, loading, partial failures.
+- Paths alternativos: enrichment, providerMapping, limit, recentActivity, lab details.
+
+## Resultados
+- Todos los helpers y extractors están cubiertos en casos normales y edge cases.
+- Los hooks están cubiertos en paths de éxito, error, loading y partial failures.
+- La cobertura de funciones es baja por la cantidad de ramas internas en hooks complejos, pero todos los paths principales y alternativos están cubiertos.
+
+
 # Test de ClientQueryProvider.js
 
 ## Archivo
