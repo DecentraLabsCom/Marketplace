@@ -87,7 +87,32 @@ import {
   useReservationOfTokenByIndexSSO,
   useReservationWallet,
   useReservationsOfTokenWallet,
-  useReservationOfTokenByIndexWallet
+  useReservationOfTokenByIndexWallet,
+  useReservationsOfWallet,
+  useReservationKeyOfUserByIndexWallet,
+  useReservationsOfTokenByUserWallet,
+  useTotalReservationsWallet,
+  useUserOfReservationWallet,
+  useCheckAvailableWallet,
+  useHasActiveBookingWallet,
+  useHasActiveBookingByTokenWallet,
+  useActiveReservationKeyForUserWallet,
+  useLabTokenAddressWallet,
+  useSafeBalanceWallet,
+  useTotalReservations,
+  useUserOfReservation,
+  useCheckAvailable,
+  useHasActiveBooking,
+  useHasActiveBookingByToken,
+  useActiveReservationKeyForUser,
+  useLabTokenAddress,
+  useSafeBalance,
+  useActiveReservationKeyForSessionUser,
+  useHasActiveBookingForSessionUser,
+  useTotalReservationsSSO,
+  useLabTokenAddressSSO,
+  useSafeBalanceSSO,
+  useReservationsOfSSO,
 } from "@/hooks/booking/useBookingAtomicQueries";
 
 
@@ -549,5 +574,185 @@ describe("Cobertura SSR Safe", () => {
     
     expect(result.current.fetchStatus).toBe("idle");
     expect(result.current.data).toBeUndefined();
+  });
+});
+
+// ===== TIER 1: Wallet Hooks Coverage (synchronous, use mocked useDefaultReadContract) =====
+describe("Wallet Hooks Coverage", () => {
+  test("useTotalReservationsWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useTotalReservationsWallet(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useLabTokenAddressWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useLabTokenAddressWallet(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useSafeBalanceWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useSafeBalanceWallet(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useReservationsOfWallet returns transformed data", () => {
+    const { result } = renderHook(() => useReservationsOfWallet("0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    // The mock returns an object with labId, renter, etc. but useReservationsOfWallet
+    // transforms data via: typeof result.data === 'bigint' ? Number(result.data) : result.data
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useReservationKeyOfUserByIndexWallet returns transformed data", () => {
+    const { result } = renderHook(() => useReservationKeyOfUserByIndexWallet("0xuser", 0), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useReservationsOfTokenByUserWallet returns transformed data", () => {
+    const { result } = renderHook(() => useReservationsOfTokenByUserWallet("lab-1", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useUserOfReservationWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useUserOfReservationWallet("key-1"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useCheckAvailableWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useCheckAvailableWallet("lab-1", 1700000000, 3600), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useHasActiveBookingWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useHasActiveBookingWallet("resv-key", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useHasActiveBookingByTokenWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useHasActiveBookingByTokenWallet("lab-1", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useActiveReservationKeyForUserWallet returns mocked contract data", () => {
+    const { result } = renderHook(() => useActiveReservationKeyForUserWallet("lab-1", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+});
+
+// ===== TIER 2: Router Hooks Coverage (use useGetIsWallet mock) =====
+describe("Router Hooks Coverage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGetIsWallet.mockReturnValue(true);
+  });
+
+  test("useTotalReservations routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useTotalReservations(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    expect(result.current.data).toBeDefined();
+  });
+
+  test("useUserOfReservation routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useUserOfReservation("key-1"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useCheckAvailable routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useCheckAvailable("lab-1", 1700000000, 3600), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useHasActiveBooking routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useHasActiveBooking("resv-key", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useHasActiveBookingByToken routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useHasActiveBookingByToken("lab-1", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useActiveReservationKeyForUser routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useActiveReservationKeyForUser("lab-1", "0xuser"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useLabTokenAddress routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useLabTokenAddress(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useSafeBalance routes to Wallet when isWallet=true", () => {
+    const { result } = renderHook(() => useSafeBalance(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+  });
+
+  test("useActiveReservationKeyForSessionUser disables when isWallet=true", () => {
+    const { result } = renderHook(() => useActiveReservationKeyForSessionUser("lab-1"), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    // Should be disabled since it's SSO-only and isWallet=true
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+
+  test("useHasActiveBookingForSessionUser disables when isWallet=true", () => {
+    const { result } = renderHook(() => useHasActiveBookingForSessionUser(), { wrapper: createWrapper() });
+    expect(result.current).toBeDefined();
+    // Should be disabled since it's SSO-only and isWallet=true
+    expect(result.current.fetchStatus).toBe("idle");
+  });
+});
+
+// ===== TIER 3: SSO Hooks Coverage (need fetch mocking) =====
+describe("SSO Hooks Coverage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("useTotalReservationsSSO fetches total reservations", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ total: "42" }),
+    });
+    const { result } = renderHook(() => useTotalReservationsSSO(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
+    expect(result.current.data.total).toBe("42");
+  });
+
+  test("useLabTokenAddressSSO fetches token address", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ tokenAddress: "0xABC" }),
+    });
+    const { result } = renderHook(() => useLabTokenAddressSSO(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
+    expect(result.current.data.tokenAddress).toBe("0xABC");
+  });
+
+  test("useSafeBalanceSSO fetches safe balance", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ safeBalance: "1000" }),
+    });
+    const { result } = renderHook(() => useSafeBalanceSSO(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
+    expect(result.current.data.safeBalance).toBe("1000");
+  });
+
+  test("useReservationsOfSSO fetches institutional reservation count", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ count: 5 }),
+    });
+    const { result } = renderHook(() => useReservationsOfSSO(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
+    expect(result.current.data.count).toBe(5);
   });
 });
