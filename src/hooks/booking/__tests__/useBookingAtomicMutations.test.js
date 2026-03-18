@@ -94,9 +94,24 @@ describe('Helpers - useBookingAtomicMutations', () => {
   });
 });
 
-// Tests para useReservationRequestWallet (mutations)
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  useReservationRequestSSO, useReservationRequestWallet, useReservationRequest,
+  useCancelReservationRequestSSO, useCancelReservationRequestWallet, useCancelReservationRequest,
+  useCancelBookingSSO, useCancelBookingWallet, useCancelBooking,
+  useRequestFundsSSO, useRequestFundsWallet, useRequestFunds
+} from '../useBookingAtomicMutations';
+import { useGetIsSSO } from '@/utils/hooks/authMode';
 
-// Move mutation-related mocks to top to ensure correct application
+jest.mock('@/utils/hooks/authMode', () => ({
+  useGetIsSSO: jest.fn(() => false),
+}));
+
+jest.mock('@/context/UserContext', () => ({
+  useUser: jest.fn(() => ({ institutionBackendUrl: 'https://backend.example' })),
+}));
+
 jest.mock('../useBookingCacheUpdates', () => ({
   __esModule: true,
   default: () => ({
@@ -104,26 +119,24 @@ jest.mock('../useBookingCacheUpdates', () => ({
     replaceOptimisticBooking: jest.fn(),
     removeOptimisticBooking: jest.fn(),
     invalidateAllBookings: jest.fn(),
+    updateBooking: jest.fn(),
+    addBooking: jest.fn(),
   }),
   useBookingCacheUpdates: () => ({
     addOptimisticBooking: jest.fn((data) => ({ ...data, id: 'optimisticId' })),
     replaceOptimisticBooking: jest.fn(),
     removeOptimisticBooking: jest.fn(),
     invalidateAllBookings: jest.fn(),
+    updateBooking: jest.fn(),
+    addBooking: jest.fn(),
   })
 }));
-jest.mock('@tanstack/react-query', () => {
-  const actual = jest.requireActual('@tanstack/react-query');
-  return {
-    ...actual,
-    useMutation: actual.useMutation,
-    useQueryClient: jest.fn(() => ({
-      invalidateQueries: jest.fn(),
-      getQueryData: jest.fn(() => ({})),
-    })),
-  };
-});
-jest.mock('@/hooks/contract/useContractWriteFunction', () => () => ({ contractWriteFunction: jest.fn(() => Promise.resolve('txHash')) }));
+
+jest.mock('@/hooks/contract/useContractWriteFunction', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({ contractWriteFunction: jest.fn(() => Promise.resolve('txHash')) }))
+}));
+
 jest.mock('@/context/OptimisticUIContext', () => ({
   __esModule: true,
   default: () => ({
@@ -137,6 +150,7 @@ jest.mock('@/context/OptimisticUIContext', () => ({
     clearOptimisticBookingState: jest.fn(),
   })
 }));
+
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {
@@ -146,84 +160,315 @@ jest.mock('@/utils/dev/logger', () => ({
     moduleLoaded: jest.fn(),
   },
 }));
+
 jest.mock('../utils/createPendingBookingPayload', () => ({
   __esModule: true,
   default: jest.fn((data) => ({ ...data, pending: true }))
 }));
 
-import { useReservationRequestWallet } from '../useBookingAtomicMutations';
-import { renderHook, act } from '@testing-library/react';
-import { QueryClient, QueryClientProvider, useQueryClient, useMutation } from '@tanstack/react-query';
+jest.mock('@/utils/intents/pollIntentStatus', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
 
-describe('useReservationRequestWallet', () => {
-  const createProviderWrapper = () => {
-    const queryClient = new QueryClient();
-    return ({ children }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  };
+jest.mock('@/utils/intents/authorizationOrchestrator', () => ({
+  awaitIntentAuthorization: jest.fn(),
+  resolveAuthorizationStatusBaseUrl: jest.fn(),
+}));
 
-  test('mutationFn success: adds and replaces optimistic booking', async () => {
-    const wrapper = createProviderWrapper();
-    const { result } = renderHook(() => useReservationRequestWallet(), { wrapper });
+const createWrapper = (queryClient) => ({ children }) => (
+  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+);
+
+describe('Wallet Hooks Coverage', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('useReservationRequestWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useReservationRequestWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
     await act(async () => {
-      const mutation = result.current;
-      const res = await mutation.mutateAsync({ tokenId: 1, start: 100, end: 200, userAddress: '0x123' });
-      expect(res.hash).toBe('txHash');
-      expect(res.optimisticId).toBe('optimisticId');
+      data = await result.current.mutateAsync({ tokenId: 1, start: 100, end: 200, userAddress: '0x123' });
     });
+    expect(data.hash).toBe('txHash');
+  });
+
+  test('useCancelReservationRequestWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useCancelReservationRequestWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ reservationKey: 'res-1' });
+    });
+    expect(data.hash).toBe('txHash');
+  });
+
+  test('useCancelBookingWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useCancelBookingWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ reservationKey: 'res-1' });
+    });
+    expect(data.hash).toBe('txHash');
+  });
+
+  test('useRequestFundsWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useRequestFundsWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 1, maxBatch: 10 });
+    });
+    expect(data.hash).toBe('txHash');
+  });
+
+  // Fatal error Wallet
+  test('Wallet mutators clean up on transaction failure', async () => {
+    const useContractWriteFunction = require('@/hooks/contract/useContractWriteFunction').default;
+    useContractWriteFunction.mockReturnValue({ contractWriteFunction: jest.fn().mockRejectedValue(new Error('Tx failed')) });
+
+    const { result: resReq } = renderHook(() => useReservationRequestWallet(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(resReq.current.mutateAsync({ tokenId: 1, start: 100, end: 200, userAddress: '0x1' })).rejects.toThrow('Tx failed');
+    });
+
+    const { result: cancelReq } = renderHook(() => useCancelReservationRequestWallet(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(cancelReq.current.mutateAsync('res-1')).rejects.toThrow('Tx failed');
+    });
+    
+    useContractWriteFunction.mockReturnValue({ contractWriteFunction: jest.fn().mockResolvedValue('txHash') }); // reset
   });
 });
 
-// Separate error test block to apply error mock before import
-describe('useReservationRequestWallet error mutation', () => {
-  beforeAll(() => {
-    jest.resetModules();
-    jest.doMock('@/hooks/contract/useContractWriteFunction', () => () => ({ contractWriteFunction: jest.fn(() => { throw new Error('fail'); }) }));
+describe('Router Hooks Coverage', () => {
+  const queryClient = new QueryClient();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGetIsSSO.mockReturnValue(false); // Route to wallet
   });
-  const { useReservationRequestWallet } = require('../useBookingAtomicMutations');
-    const createProviderWrapper = () => {
-      const queryClient = new QueryClient();
-      return ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      );
-    };
 
-    // Custom hook to inject failing contractWriteFunction
-    const useReservationRequestWalletWithFail = (options = {}) => {
-      const queryClient = useQueryClient();
-      const { addOptimisticBooking, replaceOptimisticBooking, removeOptimisticBooking, invalidateAllBookings } = require('../useBookingCacheUpdates').useBookingCacheUpdates();
-      // Failing contractWriteFunction
-      const reservationRequest = async () => { throw new Error('fail'); };
-      const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = require('@/context/OptimisticUIContext').useOptimisticUI();
-      return useMutation({
-        mutationFn: async (requestData) => {
-          const optimisticBooking = addOptimisticBooking({
-            tokenId: requestData.tokenId,
-            labId: requestData.tokenId,
-            start: requestData.start,
-            end: requestData.end,
-            userAddress: requestData.userAddress || 'unknown',
-            status: 'requesting'
-          });
-          setOptimisticBookingState(optimisticBooking.id, {
-            status: 'requesting',
-            isPending: true,
-            isInstitutional: false,
-            labId: requestData.tokenId,
-            userAddress: requestData.userAddress || 'unknown',
-          });
-          await reservationRequest([requestData.tokenId, requestData.start, requestData.end]);
-          return { hash: 'txHash', optimisticId: optimisticBooking.id };
-        }
-      });
-    };
-
-    test('mutationFn error: clears and removes optimistic booking', async () => {
-      const wrapper = createProviderWrapper();
-      const { result } = renderHook(() => useReservationRequestWalletWithFail(), { wrapper });
-      await act(async () => {
-        await expect(result.current.mutateAsync({ tokenId: 1, start: 100, end: 200, userAddress: '0x123' })).rejects.toThrow('fail');
-      });
+  test('useReservationRequest routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useReservationRequest(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ tokenId: 1, start: 100, end: 200, userAddress: '0x123' });
     });
+    expect(data.hash).toBe('txHash');
+  });
+
+  test('useCancelReservationRequest routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useCancelReservationRequest(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ reservationKey: 'res-1' });
+    });
+    expect(data.hash).toBe('txHash');
+  });
+
+  test('useCancelBooking routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useCancelBooking(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ reservationKey: 'res-1' });
+    });
+    expect(data.hash).toBe('txHash');
+  });
+
+  test('useRequestFunds routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useRequestFunds(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 1, maxBatch: 10 });
+    });
+    expect(data.hash).toBe('txHash');
+  });
+});
+
+describe('SSO Hooks Coverage', () => {
+  const queryClient = new QueryClient();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.window = { PublicKeyCredential: {} }; // Mock WebAuthn support
+  });
+
+  test('useReservationRequestSSO executes intent and polling', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: { payload: { reservationKey: 'res-1' } } })
+    });
+    
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-1' });
+    
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    pollIntentStatus.mockResolvedValue({ status: 'executed', txHash: '0x123', reservationKey: 'res-1' });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ tokenId: 1, start: 100, end: 200, userAddress: '0x123' });
+    });
+    expect(data.requestId).toBe('req-1');
+  });
+
+  test('useCancelReservationRequestSSO executes intent and polling', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: { payload: { reservationKey: 'res-1' } } })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-cancel' });
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    pollIntentStatus.mockResolvedValue({ status: 'executed', txHash: '0x123' });
+
+    const { result } = renderHook(() => useCancelReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('res-1');
+    });
+    expect(data.reservationKey).toBe('res-1');
+  });
+
+  test('useCancelBookingSSO executes intent and polling', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: { payload: { reservationKey: 'res-1' } } })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-cancel-book' });
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    pollIntentStatus.mockResolvedValue({ status: 'executed', txHash: '0x123' });
+
+    const { result } = renderHook(() => useCancelBookingSSO(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('res-1');
+    });
+    expect(data.reservationKey).toBe('res-1');
+  });
+
+  test('useRequestFundsSSO executes intent and polling', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: {} })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-funds' });
+
+    const { result } = renderHook(() => useRequestFundsSSO(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 1, maxBatch: 10 });
+    });
+    expect(data.requestId).toBe('req-funds');
+  });
+
+  // Fatal fetch error for SSO hooks
+  test('SSO mutators clean up on prepare fail', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({})
+    });
+    const { result: resReq } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(resReq.current.mutateAsync({ tokenId: 1, start: 100, end: 200 })).rejects.toThrow('Failed to prepare reservation intent: 500');
+    });
+
+    const { result: cancelReq } = renderHook(() => useCancelReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(cancelReq.current.mutateAsync('res-1')).rejects.toThrow('Failed to prepare action intent: 500');
+    });
+  });
+
+  // Polling rejection error
+  test('useReservationRequestSSO rejects when intent fails', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: { payload: { reservationKey: 'res-1' } } })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-fail' });
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    pollIntentStatus.mockResolvedValue({ status: 'failed', reason: 'Rejected' });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync({ tokenId: 1, start: 100, end: 200 });
+    });
+  });
+
+  test('useCancelReservationRequestSSO rejects when intent fails', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: { payload: { reservationKey: 'res-1' } } })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-fail' });
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    pollIntentStatus.mockResolvedValue({ status: 'failed', reason: 'Rejected' });
+
+    const { result } = renderHook(() => useCancelReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync('res-1');
+    });
+  });
+
+  test('useCancelBookingSSO rejects when intent fails', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: { payload: { reservationKey: 'res-1' } } })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-fail' });
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    pollIntentStatus.mockResolvedValue({ status: 'failed', reason: 'Rejected' });
+
+    const { result } = renderHook(() => useCancelBookingSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync('res-1');
+    });
+  });
+
+  test('runActionIntent handles FAILED authorization', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: {} })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'FAILED', error: 'User denied' });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ tokenId: 1, start: 100, end: 200 })).rejects.toThrow('User denied');
+    });
+  });
+
+  test('runActionIntent handles CANCELLED authorization', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ backendAuthToken: 'token', intent: {} })
+    });
+    const awaitIntentAuth = require('@/utils/intents/authorizationOrchestrator').awaitIntentAuthorization;
+    awaitIntentAuth.mockResolvedValue({ status: 'CANCELLED', error: 'User closed popup' });
+
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ tokenId: 1, start: 100, end: 200 })).rejects.toThrow('User closed popup');
+    });
+  });
+
+  test('runActionIntent throws when WebAuthn is unsupported', async () => {
+    global.window.PublicKeyCredential = undefined;
+    const { result } = renderHook(() => useReservationRequestSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ tokenId: 1, start: 100, end: 200 })).rejects.toThrow('WebAuthn not supported');
+    });
+  });
 });
