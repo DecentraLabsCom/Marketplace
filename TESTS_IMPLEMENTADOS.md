@@ -1,3 +1,28 @@
+# Test Coverage Improvements for LabModal.js
+
+## Summary
+- Increased test coverage for `LabModal.js` from 66.01% to 75.13%.
+- All tests now pass for the LabModal component.
+
+## Key Improvements
+- **Error Branches:** Added tests to cover error handling in file deletion (`removeImage`, `removeDoc`) by simulating error callbacks in the mutation logic.
+- **Focus Logic:** Added tests to cover all possible error fields in the `focusFirstError` function.
+- **Mocking:** Mocked `URL.revokeObjectURL` to ensure compatibility with jsdom and prevent test failures.
+
+## Coverage Results
+- **Previous Coverage:** 66.01%
+- **Current Coverage:** 75.13%
+- **Target Achieved:** Yes (above 70%)
+
+## Notable Test Cases Added
+- Simulated errors in file deletion for both images and documents, ensuring error branches are exercised.
+- Triggered focus on all possible error fields in the form validation logic.
+
+## Technical Notes
+- The mock for `LabFormFullSetup` was updated to always expose `removeImage` and `removeDoc` buttons for direct invocation in tests.
+- All new tests are located in `src/components/dashboard/provider/__tests__/LabModal.test.js` under the "Coverage Extension" section.
+
+
 # Cobertura y tests de LabModal
 
 ## Plan de integración

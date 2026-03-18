@@ -1,3 +1,7 @@
+// Mock URL.revokeObjectURL for jsdom
+if (!global.URL.revokeObjectURL) {
+  global.URL.revokeObjectURL = jest.fn();
+}
 /**
  * Unit tests for LabModal component
  *
@@ -60,14 +64,19 @@ jest.mock("@/utils/dev/logger", () => ({
   },
 }));
 
-// Child components mocked with functional stubs
+
+// Always expose removeImage/removeDoc for error branch coverage
 jest.mock("@/components/dashboard/provider/LabFormFullSetup", () => ({
   __esModule: true,
-  default: ({ onSubmit, onCancel }) => (
-    <form data-testid="full-setup-form" onSubmit={e => { e.preventDefault(); onSubmit(e); }}>
-      <button type="submit">Submit Full</button>
-      <button type="button" onClick={onCancel}>Cancel</button>
-    </form>
+  default: (props) => (
+    <div>
+      <form data-testid="full-setup-form" onSubmit={e => { e.preventDefault(); props.onSubmit(e); }}>
+        <button type="submit">Submit Full</button>
+        <button type="button" onClick={props.onCancel}>Cancel</button>
+      </form>
+      <button data-testid="remove-image-btn" onClick={() => props.removeImage && props.removeImage(0)}>Remove Image</button>
+      <button data-testid="remove-doc-btn" onClick={() => props.removeDoc && props.removeDoc(0)}>Remove Doc</button>
+    </div>
   ),
 }));
 
@@ -110,6 +119,72 @@ describe("LabModal - Unit Tests", () => {
 
     // --- Extra tests for coverage ---
     describe("LabModal - Coverage Extension", () => {
+
+
+                                        test("deleteFileMutation.mutate onError is called for image deletion", async () => {
+                                          process.env.EXPOSE_REMOVE_HANDLERS = 'true';
+                                          const labWithImages = {
+                                            id: "lab5",
+                                            images: ["/tmp/img1.png"],
+                                          };
+                                          const originalUseDeleteFile = require("@/hooks/provider/useProvider").useDeleteFile;
+                                          const mockMutate = jest.fn((_, { onError }) => onError && onError(new Error("Delete failed")));
+                                          require("@/hooks/provider/useProvider").useDeleteFile = () => ({ mutate: mockMutate, mutateAsync: mockDeleteFile });
+                                          const LabModalPatched = require("@/components/dashboard/provider/LabModal").default;
+                                          render(
+                                            <LabModalPatched isOpen={true} onClose={mockOnClose} onSubmit={mockOnSubmit} lab={labWithImages} maxId={0} />
+                                          );
+                                          const btn = screen.getByTestId("remove-image-btn");
+                                          await userEvent.click(btn);
+                                          expect(mockMutate).toHaveBeenCalled();
+                                          require("@/hooks/provider/useProvider").useDeleteFile = originalUseDeleteFile;
+                                          process.env.EXPOSE_REMOVE_HANDLERS = '';
+                                        });
+
+
+                                        test("deleteFileMutation.mutate onError is called for doc deletion", async () => {
+                                          process.env.EXPOSE_REMOVE_HANDLERS = 'true';
+                                          const labWithDocs = {
+                                            id: "lab6",
+                                            docs: ["/tmp/doc1.pdf"],
+                                          };
+                                          const originalUseDeleteFile = require("@/hooks/provider/useProvider").useDeleteFile;
+                                          const mockMutate = jest.fn((_, { onError }) => onError && onError(new Error("Delete failed")));
+                                          require("@/hooks/provider/useProvider").useDeleteFile = () => ({ mutate: mockMutate, mutateAsync: mockDeleteFile });
+                                          const LabModalPatched = require("@/components/dashboard/provider/LabModal").default;
+                                          render(
+                                            <LabModalPatched isOpen={true} onClose={mockOnClose} onSubmit={mockOnSubmit} lab={labWithDocs} maxId={0} />
+                                          );
+                                          const btn = screen.getByTestId("remove-doc-btn");
+                                          await userEvent.click(btn);
+                                          expect(mockMutate).toHaveBeenCalled();
+                                          require("@/hooks/provider/useProvider").useDeleteFile = originalUseDeleteFile;
+                                          process.env.EXPOSE_REMOVE_HANDLERS = '';
+                                        });
+
+                                        test("focusFirstError focuses on various fields", async () => {
+                                          // Cubre ramas de focusFirstError para campos no cubiertos
+                                          const mockValidateLabFull = require("@/utils/labValidation").validateLabFull;
+                                          mockValidateLabFull.mockReturnValue({
+                                            auth: "Required",
+                                            accessURI: "Required",
+                                            accessKey: "Required",
+                                            timezone: "Required",
+                                            availableHoursStart: "Required",
+                                            availableHoursEnd: "Required",
+                                            maxConcurrentUsers: "Required",
+                                            termsOfUseUrl: "Required",
+                                            termsOfUseSha: "Required",
+                                            images: "Required",
+                                            docs: "Required"
+                                          });
+                                          render(
+                                            <LabModal isOpen={true} onClose={mockOnClose} onSubmit={mockOnSubmit} lab={null} maxId={0} />
+                                          );
+                                          const submitButton = screen.getByText("Submit Full");
+                                          await userEvent.click(submitButton);
+                                          // No debe crashear y cubre focus en todos los campos
+                                        });
                                     test("manejo de error en uploadFile cubre rama de error sin crash", async () => {
                                       mockUploadFile.mockRejectedValue(new Error("Upload failed"));
                                       render(
