@@ -719,7 +719,7 @@ export const useDeleteLabSSO = (options = {}) => {
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
         const authToken = _data?.backendAuthToken;
-        const backendUrl = _data?.backendUrl;
+        const backendUrl = _data?.backendUrl || resolveDeletePayload(input).backendUrl;
         updateLab(labId, {
           id: labId,
           labId: labId,
