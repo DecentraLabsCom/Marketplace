@@ -108,7 +108,7 @@ describe('useLabImage hooks', () => {
     })
 
     it('throws error for invalid URL', async () => {
-      const { result } = renderHook(() => useLabImageModule.useLabImageQuery('invalid-url', { enabled: true }), { wrapper })
+      const { result } = renderHook(() => useLabImageModule.useLabImageQuery('invalid-url', { enabled: true, retry: false }), { wrapper })
       let tries = 0;
       while (!result.current.error && tries < 10) {
         await act(async () => { result.current.refetch() })
