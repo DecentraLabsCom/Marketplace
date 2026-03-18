@@ -25,15 +25,9 @@ const customJestConfig = {
     "!src/utils/blockchain/wagmiConfig.js", // environment-specific config wrapper
     "!src/utils/blockchain/networkConfig.js", // environment mapping constants
     "!src/utils/dev/**", // dev-only helpers and fixture data
-    "!src/utils/intents/**", // experimental intent helpers not exercised in CI
-    "!src/utils/webauthn/**", // webauthn client/server glue not run in Jest
-    "!src/**/*.config.js",
-    "!src/app/**/layout.js",
-    "!src/app/**/page.js",
     "!src/app/**/loading.js",
     "!src/app/**/error.js",
     "!src/app/**/not-found.js",
-    "!src/app/api/**",
   ],
 
   coverageThreshold: {
