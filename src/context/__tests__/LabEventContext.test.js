@@ -635,6 +635,14 @@ describe("LabEventContext", () => {
         queryKey: ["lab", "isTokenListed", "1"],
         exact: true,
       });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "getLab", 1],
+        exact: true,
+      });
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["lab", "isTokenListed", 1],
+        exact: true,
+      });
     });
 
     test("handles multiple LabUnlisted events in one batch", () => {
