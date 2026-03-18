@@ -29,6 +29,7 @@ import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/
 import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
 import { useStakeInfo, useRequiredStake, usePendingLabPayout } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
+import { getPucHashFromSession } from '@/utils/auth/puc'
 import getBaseUrl from '@/utils/env/baseUrl'
 import { normalizeResourceTypeCode } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
@@ -37,6 +38,7 @@ import {
   notifyLabCollectFailed,
   notifyLabCollectStarted,
   notifyLabCreateCancelled,
+  notifyLabCreatorMismatch,
   notifyLabCreated,
   notifyLabCreatedFilesWarning,
   notifyLabCreatedMetadataWarning,
@@ -49,6 +51,7 @@ import {
   notifyLabListed,
   notifyLabListingRequested,
   notifyLabListFailed,
+  notifyLabLegacyBlocked,
   notifyLabMetadataSaveFailed,
   notifyLabMetadataUpdated,
   notifyLabNoChanges,
@@ -68,6 +71,15 @@ const sanitizeProviderNameForUri = (name) => {
 
   return sanitized || 'Provider'
 }
+
+const isLabIdListCache = (entries) =>
+  Array.isArray(entries) && entries.every((entry) => (
+    entry === null
+    || entry === undefined
+    || typeof entry === 'string'
+    || typeof entry === 'number'
+    || typeof entry === 'bigint'
+  ))
 
 const resolveOnchainLabUri = (uri) => {
   if (!uri) return uri
@@ -146,9 +158,15 @@ export default function ProviderDashboard() {
     [isSSO, institutionRegistrationWallet, address]
   );
 
+  const currentCreatorPucHash = useMemo(
+    () => (isSSO ? getPucHashFromSession(user) : null),
+    [isSSO, user]
+  );
+
   // 🚀 React Query for labs owned by this provider - with safe defaults
-  const allLabsResult = useLabsForProvider(providerOwnerAddress, { 
-    enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading
+  const allLabsResult = useLabsForProvider(providerOwnerAddress, {
+    enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading,
+    creatorPucHash: currentCreatorPucHash,
   });
   
   // Safe destructuring with guaranteed defaults to prevent Rules of Hooks violations
@@ -336,6 +354,22 @@ export default function ProviderDashboard() {
     openOnboardingModal,
   ]);
 
+  const handleLabAuthorizationErrorToast = useCallback((error) => {
+    if (!error?.code) return false;
+
+    if (error.code === 'LAB_CREATOR_MISMATCH') {
+      notifyLabCreatorMismatch(addTemporaryNotification);
+      return true;
+    }
+
+    if (error.code === 'LAB_LEGACY_BLOCKED') {
+      notifyLabLegacyBlocked(addTemporaryNotification);
+      return true;
+    }
+
+    return false;
+  }, [addTemporaryNotification]);
+
   const updateListingCache = useCallback((labId, isListed) => {
     if (!queryClient) return;
 
@@ -361,6 +395,7 @@ export default function ProviderDashboard() {
     try {
       queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
         if (!Array.isArray(old)) return old;
+        if (isLabIdListCache(old)) return old;
         return old.map((lab) => {
           const labKey = lab?.labId ?? lab?.id;
           if (labKey === undefined || labKey === null) return lab;
@@ -620,6 +655,14 @@ export default function ProviderDashboard() {
 
           // Update list of labs if present
           queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+            if (!Array.isArray(old)) return old;
+            if (isLabIdListCache(old)) {
+              const normalizedId = Number(blockchainLabId);
+              const hasId = old.some((entry) => String(entry) === String(blockchainLabId));
+              if (hasId) return old;
+              return Number.isFinite(normalizedId) ? [normalizedId, ...old] : [blockchainLabId, ...old];
+            }
+
             // If lab exists in the list, replace it; otherwise add it to the top
             const exists = old.some(l => l?.labId === blockchainLabId || l?.id === blockchainLabId);
             if (exists) return old.map(l => (l?.labId === blockchainLabId || l?.id === blockchainLabId) ? { ...l, ...immediateUpdate } : l);
@@ -814,7 +857,9 @@ export default function ProviderDashboard() {
             devLog.warn('Failed to invalidate cache after update error:', cacheErr);
           }
           handleMissingWebauthnCredential(err);
-          notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
+          if (!handleLabAuthorizationErrorToast(err)) {
+            notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(err));
+          }
           return;
         }
       } else {
@@ -835,7 +880,9 @@ export default function ProviderDashboard() {
             
             notifyLabMetadataUpdated(addTemporaryNotification, labData.id);
           } catch (error) {
-            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+            if (!handleLabAuthorizationErrorToast(error)) {
+              notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+            }
             return;
           }
         } else {
@@ -857,7 +904,9 @@ export default function ProviderDashboard() {
           await new Promise(resolve => setTimeout(resolve, 150));
           
         } catch (error) {
-          notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+          if (!handleLabAuthorizationErrorToast(error)) {
+            notifyLabMetadataSaveFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+          }
           return;
         }
       }
@@ -869,7 +918,9 @@ export default function ProviderDashboard() {
     } catch (error) {
       devLog.error('Error updating lab:', error);
       handleMissingWebauthnCredential(error);
-      notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabUpdateFailed(addTemporaryNotification, labData.id, formatErrorMessage(error));
+      }
     }
   }
 
@@ -894,7 +945,14 @@ export default function ProviderDashboard() {
       // Remove from cached list immediately when possible
       try {
         queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => (
-          Array.isArray(old) ? old.filter(l => (l?.id || l?.labId) !== String(labId)) : old
+          Array.isArray(old)
+            ? old.filter((entry) => {
+                const candidateId = typeof entry === 'object' && entry !== null
+                  ? (entry.id ?? entry.labId)
+                  : entry;
+                return String(candidateId) !== String(labId);
+              })
+            : old
         ));
       } catch (cacheErr) {
         devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
@@ -925,7 +983,9 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to invalidate cache after delete error:', cacheErr);
       }
       handleMissingWebauthnCredential(error);
-      notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabDeleteFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      }
     }
   };
 
@@ -971,7 +1031,9 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to invalidate cache after list error:', cacheErr);
       }
       handleMissingWebauthnCredential(error);
-      notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabListFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      }
     }
   };
   
@@ -1008,7 +1070,9 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to invalidate cache after unlist error:', cacheErr);
       }
       handleMissingWebauthnCredential(error);
-      notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      if (!handleLabAuthorizationErrorToast(error)) {
+        notifyLabUnlistFailed(addTemporaryNotification, labId, error?.message || 'Unknown error');
+      }
     }
   };
 
@@ -1052,7 +1116,9 @@ export default function ProviderDashboard() {
         clearActionProgressNotification(actionKey);
       }
       handleMissingWebauthnCredential(err);
-      notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
+      if (!handleLabAuthorizationErrorToast(err)) {
+        notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
+      }
     }
   };
 

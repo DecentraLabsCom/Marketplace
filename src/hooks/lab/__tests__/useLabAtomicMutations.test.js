@@ -7,7 +7,14 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useAddLabSSO, useAddLabWallet } from '../useLabAtomicMutations'
+import {
+  useAddLabSSO,
+  useAddLabWallet,
+  useDeleteLabSSO,
+  useListLabSSO,
+  useUnlistLabSSO,
+  useUpdateLabSSO,
+} from '../useLabAtomicMutations'
 
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
@@ -46,6 +53,15 @@ jest.mock('@/hooks/contract/useContractWriteFunction', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     contractWriteFunction: jest.fn(async () => '0xtx'),
+  })),
+}))
+
+jest.mock('@/context/OptimisticUIContext', () => ({
+  __esModule: true,
+  useOptimisticUI: jest.fn(() => ({
+    clearOptimisticListingState: jest.fn(),
+    setOptimisticListingState: jest.fn(),
+    completeOptimisticListingState: jest.fn(),
   })),
 }))
 
@@ -633,6 +649,241 @@ describe('useLabAtomicMutations (add lab)', () => {
 
       await expect(promise).rejects.toThrow()
     })
+  })
+})
+
+describe('useLabAtomicMutations (list/unlist SSO)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    global.fetch = jest.fn()
+    window.PublicKeyCredential = window.PublicKeyCredential || function PublicKeyCredential() {}
+    window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }))
+    navigator.credentials = navigator.credentials || {}
+    navigator.credentials.get = jest.fn(async () => ({}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  test('SSO list waits for executed intent before succeeding', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-list-1' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xlisttx' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-list-1',
+        intent: { meta: { requestId: 'req-list-1' }, payload: {} },
+        backendAuthToken: 'auth-token-list-1',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    const { result } = renderHook(() => useListLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    let data
+    await act(async () => {
+      data = await result.current.mutateAsync({
+        labId: 5,
+        backendUrl: 'https://backend.example',
+      })
+    })
+
+    expect(data.status).toBe('executed')
+    expect(data.txHash).toBe('0xlisttx')
+    expect(pollIntentStatus).toHaveBeenCalledWith(
+      'req-list-1',
+      expect.objectContaining({ authToken: 'auth-token-list-1', backendUrl: 'https://backend.example' })
+    )
+    expect(queryClient.getQueryData(['labs', 'isTokenListed', 5])).toEqual({ isListed: true })
+  })
+
+  test('SSO unlist waits for executed intent before succeeding', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-unlist-1' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xunlisttx' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-unlist-1',
+        intent: { meta: { requestId: 'req-unlist-1' }, payload: {} },
+        backendAuthToken: 'auth-token-unlist-1',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+
+    const { result } = renderHook(() => useUnlistLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    let data
+    await act(async () => {
+      data = await result.current.mutateAsync({
+        labId: 6,
+        backendUrl: 'https://backend.example',
+      })
+    })
+
+    expect(data.status).toBe('executed')
+    expect(data.txHash).toBe('0xunlisttx')
+    expect(pollIntentStatus).toHaveBeenCalledWith(
+      'req-unlist-1',
+      expect.objectContaining({ authToken: 'auth-token-unlist-1', backendUrl: 'https://backend.example' })
+    )
+    expect(queryClient.getQueryData(['labs', 'isTokenListed', 6])).toEqual({ isListed: false })
+  })
+})
+
+describe('useLabAtomicMutations (update/delete SSO)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    global.fetch = jest.fn()
+    window.PublicKeyCredential = window.PublicKeyCredential || function PublicKeyCredential() {}
+    window.open = jest.fn(() => ({ closed: false, focus: jest.fn(), close: jest.fn(), opener: null }))
+    navigator.credentials = navigator.credentials || {}
+    navigator.credentials.get = jest.fn(async () => ({}))
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  test('SSO update keeps getAllLabs as ids and reconciles detail cache after executed intent', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-update-1' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xupdatetx' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-update-1',
+        intent: { meta: { requestId: 'req-update-1' }, payload: {} },
+        backendAuthToken: 'auth-token-update-1',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(['labs', 'getAllLabs'], [12])
+    queryClient.setQueryData(['labs', 'getLab', 12], {
+      id: 12,
+      labId: 12,
+      base: {
+        uri: 'old-uri.json',
+        price: '100',
+        accessURI: 'https://old.example/lab',
+        accessKey: 'old-key',
+      },
+      name: 'Legacy lab',
+    })
+
+    const { result } = renderHook(() => useUpdateLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        labId: 12,
+        labData: {
+          uri: 'new-uri.json',
+          price: '200',
+          accessURI: 'https://new.example/lab',
+          accessKey: 'new-key',
+          tokenURI: 'ipfs://lab-12',
+          name: 'Updated lab',
+        },
+        backendUrl: 'https://backend.example',
+      })
+    })
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(['labs', 'getLab', 12])).toMatchObject({
+        id: 12,
+        labId: 12,
+        name: 'Updated lab',
+        isIntentPending: false,
+        intentStatus: 'executed',
+        transactionHash: '0xupdatetx',
+      })
+    })
+
+    expect(queryClient.getQueryData(['labs', 'getLab', 12]).base).toEqual({
+      uri: 'new-uri.json',
+      price: '200',
+      accessURI: 'https://new.example/lab',
+      accessKey: 'new-key',
+      tokenURI: 'ipfs://lab-12',
+    })
+    expect(queryClient.getQueryData(['labs', 'getAllLabs'])).toEqual([12])
+    expect(pollIntentStatus).toHaveBeenCalledWith(
+      'req-update-1',
+      expect.objectContaining({ authToken: 'auth-token-update-1', backendUrl: 'https://backend.example' })
+    )
+  })
+
+  test('SSO delete removes lab id from getAllLabs after executed intent', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-delete-1' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xdeletetx' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-delete-1',
+        intent: { meta: { requestId: 'req-delete-1' }, payload: {} },
+        backendAuthToken: 'auth-token-delete-1',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    queryClient.setQueryData(['labs', 'getAllLabs'], [21, 22])
+    queryClient.setQueryData(['labs', 'getLab', 21], {
+      id: 21,
+      labId: 21,
+      name: 'Lab to delete',
+    })
+
+    const { result } = renderHook(() => useDeleteLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        labId: 21,
+        backendUrl: 'https://backend.example',
+      })
+    })
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(['labs', 'getAllLabs'])).toEqual([22])
+    })
+
+    expect(pollIntentStatus).toHaveBeenCalledWith(
+      'req-delete-1',
+      expect.objectContaining({ authToken: 'auth-token-delete-1', backendUrl: 'https://backend.example' })
+    )
   })
 })
 

@@ -35,12 +35,21 @@ const LAB_QUERY_CONFIG = {
 // Export configuration for use in composed hooks
 export { LAB_QUERY_CONFIG };
 
+const extractLabIdValue = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'object') {
+    return value.labId ?? value.id ?? value.tokenId ?? null;
+  }
+  return value;
+};
+
 const normalizeLabIds = (ids) => {
   if (!Array.isArray(ids)) return [];
   const seen = new Set();
   const unique = [];
   ids.forEach((id) => {
-    const value = typeof id === 'bigint' ? Number(id) : Number(id);
+    const rawId = extractLabIdValue(id);
+    const value = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
     if (!Number.isFinite(value)) return;
     if (seen.has(value)) return;
     seen.add(value);
@@ -88,6 +97,10 @@ const selectBalanceData = (data) => ({
 
 const selectOwnerData = (data) => ({
   owner: data?.owner ?? data ?? null
+});
+
+const selectCreatorPucHashData = (data) => ({
+  creatorPucHash: data?.creatorPucHash ?? data ?? null
 });
 
 const selectTokenOfOwnerData = (data) => {
@@ -400,6 +413,38 @@ export const useLabOwnerSSO = (labId, options = {}) => {
 
 // Export queryFn for use in composed hooks
 useLabOwnerSSO.queryFn = getOwnerOfQueryFn;
+
+// ===== useLabCreatorPucHash Hook Family =====
+
+const getCreatorPucHashQueryFn = createSSRSafeQuery(async (labId) => {
+  if (!labId) throw new Error('Lab ID is required');
+
+  const response = await fetch(`/api/contract/lab/getCreatorPucHash?labId=${labId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch creator hash for lab ${labId}: ${response.status}`);
+  }
+
+  const data = await response.json();
+  devLog.log('useLabCreatorPucHashSSO:', labId, data);
+  return data;
+}, { creatorPucHash: null });
+
+export const useLabCreatorPucHashSSO = (labId, options = {}) => {
+  return useQuery({
+    queryKey: labQueryKeys.getCreatorPucHash(labId),
+    queryFn: () => getCreatorPucHashQueryFn(labId),
+    enabled: !!labId,
+    select: selectCreatorPucHashData,
+    ...LAB_QUERY_CONFIG,
+    ...options,
+  });
+};
+
+useLabCreatorPucHashSSO.queryFn = getCreatorPucHashQueryFn;
 
 /**
  * Hook for ownerOf contract read (Wallet users)

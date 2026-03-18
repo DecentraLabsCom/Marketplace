@@ -80,13 +80,13 @@ export function extractStableUserId(userData) {
   if (!userData) return null
 
   if (userData.eduPersonPrincipalName) {
-    return userData.eduPersonTargetedID
+    return (userData.eduPersonTargetedID
       ? `${userData.eduPersonPrincipalName}|${userData.eduPersonTargetedID}`
-      : userData.eduPersonPrincipalName
+      : userData.eduPersonPrincipalName).trim().toLowerCase()
   }
 
   if (userData.id && typeof userData.id === 'string') {
-    return userData.id
+    return userData.id.trim().toLowerCase()
   }
 
   return null

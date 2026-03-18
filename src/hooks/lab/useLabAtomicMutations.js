@@ -731,7 +731,7 @@ export const useDeleteLabSSO = (options = {}) => {
           _data?.intent?.request_id ||
           _data?.intent?.requestId?.toString?.();
         const authToken = _data?.backendAuthToken;
-        const backendUrl = _data?.backendUrl;
+        const backendUrl = _data?.backendUrl || resolveDeletePayload(input).backendUrl;
         updateLab(labId, {
           id: labId,
           labId: labId,
@@ -865,79 +865,49 @@ export const useListLabSSO = (options = {}) => {
         presenceFn,
       });
       devLog.log('useListLabSSO intent (webauthn):', data);
-      return data;
+
+      const requestId =
+        data?.requestId ||
+        data?.intent?.meta?.requestId ||
+        data?.intent?.requestId ||
+        data?.intent?.request_id ||
+        data?.intent?.requestId?.toString?.();
+      const authToken = data?.backendAuthToken;
+      const resolvedBackendUrl = data?.backendUrl || backendUrl;
+
+      if (!requestId) {
+        throw new Error('Institution intent did not return requestId');
+      }
+
+      const result = await pollIntentStatus(requestId, { authToken, backendUrl: resolvedBackendUrl });
+      const status = result?.status;
+      if (status !== 'executed') {
+        throw new Error(result?.error || result?.reason || 'List intent not executed');
+      }
+
+      return {
+        ...data,
+        requestId,
+        authToken,
+        backendUrl: resolvedBackendUrl,
+        txHash: result?.txHash,
+        status,
+      };
     },
     onSuccess: (data, { labId }) => {
       try {
-        const requestId =
-          data?.requestId ||
-          data?.intent?.meta?.requestId ||
-          data?.intent?.requestId ||
-          data?.intent?.request_id ||
-          data?.intent?.requestId?.toString?.();
-        const authToken = data?.backendAuthToken;
-        const backendUrl = data?.backendUrl;
-
         updateLab(labId, {
           id: labId,
           labId,
-          isIntentPending: true,
-          intentRequestId: requestId,
-          intentStatus: 'requested',
-          note: 'Requested to institution',
+          isIntentPending: false,
+          intentRequestId: data?.requestId || null,
+          intentStatus: 'executed',
+          status: 'listed',
+          transactionHash: data?.txHash,
+          note: 'Executed by institution',
           timestamp: new Date().toISOString(),
         });
-
-        if (requestId) {
-          (async () => {
-            try {
-              const result = await pollIntentStatus(requestId, { authToken, backendUrl });
-              const status = result?.status;
-              const txHash = result?.txHash;
-              const reason = result?.error || result?.reason;
-
-              if (status === 'executed') {
-                updateLab(labId, {
-                  id: labId,
-                  labId,
-                  isIntentPending: false,
-                  intentStatus: 'executed',
-                  status: 'listed',
-                  transactionHash: txHash,
-                  note: 'Executed by institution',
-                  timestamp: new Date().toISOString(),
-                });
-                updateListingCache(queryClient, labId, true);
-              } else if (status === 'failed' || status === 'rejected') {
-                updateLab(labId, {
-                  id: labId,
-                  labId,
-                  isIntentPending: false,
-                  intentStatus: status,
-                  intentError: reason,
-                  note: reason || 'Rejected by institution',
-                  timestamp: new Date().toISOString(),
-                });
-                clearOptimisticListingState(labId);
-                updateListingCache(queryClient, labId, false);
-              }
-            } catch (err) {
-              const reason = err?.message || 'Intent status unavailable';
-              devLog.error('Polling list intent failed:', err);
-              updateLab(labId, {
-                id: labId,
-                labId,
-                isIntentPending: false,
-                intentStatus: 'unknown',
-                intentError: reason,
-                note: reason,
-                timestamp: new Date().toISOString(),
-              });
-              clearOptimisticListingState(labId);
-              queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs() });
-            }
-          })();
-        }
+        updateListingCache(queryClient, labId, true);
       } catch (error) {
         devLog.error('Failed to handle list intent response:', error);
       }
@@ -1020,79 +990,49 @@ export const useUnlistLabSSO = (options = {}) => {
         presenceFn,
       });
       devLog.log('useUnlistLabSSO intent (webauthn):', data);
-      return data;
+
+      const requestId =
+        data?.requestId ||
+        data?.intent?.meta?.requestId ||
+        data?.intent?.requestId ||
+        data?.intent?.request_id ||
+        data?.intent?.requestId?.toString?.();
+      const authToken = data?.backendAuthToken;
+      const resolvedBackendUrl = data?.backendUrl || backendUrl;
+
+      if (!requestId) {
+        throw new Error('Institution intent did not return requestId');
+      }
+
+      const result = await pollIntentStatus(requestId, { authToken, backendUrl: resolvedBackendUrl });
+      const status = result?.status;
+      if (status !== 'executed') {
+        throw new Error(result?.error || result?.reason || 'Unlist intent not executed');
+      }
+
+      return {
+        ...data,
+        requestId,
+        authToken,
+        backendUrl: resolvedBackendUrl,
+        txHash: result?.txHash,
+        status,
+      };
     },
     onSuccess: (data, { labId }) => {
       try {
-        const requestId =
-          data?.requestId ||
-          data?.intent?.meta?.requestId ||
-          data?.intent?.requestId ||
-          data?.intent?.request_id ||
-          data?.intent?.requestId?.toString?.();
-        const authToken = data?.backendAuthToken;
-        const backendUrl = data?.backendUrl;
-
         updateLab(labId, {
           id: labId,
           labId,
-          isIntentPending: true,
-          intentRequestId: requestId,
-          intentStatus: 'requested',
-          note: 'Requested to institution',
+          isIntentPending: false,
+          intentRequestId: data?.requestId || null,
+          intentStatus: 'executed',
+          status: 'unlisted',
+          transactionHash: data?.txHash,
+          note: 'Executed by institution',
           timestamp: new Date().toISOString(),
         });
-
-        if (requestId) {
-          (async () => {
-            try {
-              const result = await pollIntentStatus(requestId, { authToken, backendUrl });
-              const status = result?.status;
-              const txHash = result?.txHash;
-              const reason = result?.error || result?.reason;
-
-              if (status === 'executed') {
-                updateLab(labId, {
-                  id: labId,
-                  labId,
-                  isIntentPending: false,
-                  intentStatus: 'executed',
-                  status: 'unlisted',
-                  transactionHash: txHash,
-                  note: 'Executed by institution',
-                  timestamp: new Date().toISOString(),
-                });
-                updateListingCache(queryClient, labId, false);
-              } else if (status === 'failed' || status === 'rejected') {
-                updateLab(labId, {
-                  id: labId,
-                  labId,
-                  isIntentPending: false,
-                  intentStatus: status,
-                  intentError: reason,
-                  note: reason || 'Rejected by institution',
-                  timestamp: new Date().toISOString(),
-                });
-                clearOptimisticListingState(labId);
-                updateListingCache(queryClient, labId, true);
-              }
-            } catch (err) {
-              const reason = err?.message || 'Intent status unavailable';
-              devLog.error('Polling unlist intent failed:', err);
-              updateLab(labId, {
-                id: labId,
-                labId,
-                isIntentPending: false,
-                intentStatus: 'unknown',
-                intentError: reason,
-                note: reason,
-                timestamp: new Date().toISOString(),
-              });
-              clearOptimisticListingState(labId);
-              queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs() });
-            }
-          })();
-        }
+        updateListingCache(queryClient, labId, false);
       } catch (error) {
         devLog.error('Failed to handle unlist intent response:', error);
       }

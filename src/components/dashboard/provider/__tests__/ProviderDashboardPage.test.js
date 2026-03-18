@@ -797,6 +797,39 @@ describe("ProviderDashboard Component", () => {
           );
         });
       });
+
+      test("shows creator mismatch toast for SSO delete authorization errors", async () => {
+        mockUserData.isSSO = true;
+        mockUserData.institutionBackendUrl = "https://institution.example";
+        mockDeleteLabMutate.mockRejectedValueOnce({
+          code: "LAB_CREATOR_MISMATCH",
+          message: "Forbidden",
+        });
+
+        renderWithClient(<ProviderDashboard />);
+
+        const deleteButton = await screen.findByTestId("delete-1");
+
+        await act(async () => {
+          fireEvent.click(deleteButton);
+        });
+
+        await waitFor(() => {
+          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+            "error",
+            expect.stringContaining("No eres el creador de este laboratorio"),
+            null,
+            expect.any(Object)
+          );
+        });
+
+        expect(mockAddTemporaryNotification).not.toHaveBeenCalledWith(
+          "error",
+          expect.stringContaining("Failed to delete lab"),
+          null,
+          expect.any(Object)
+        );
+      });
     });
 
     describe("List/Unlist Lab", () => {
@@ -882,6 +915,42 @@ describe("ProviderDashboard Component", () => {
             expect.stringContaining("Failed to list lab")
           );
         });
+      });
+
+      test("shows legacy blocked toast for SSO list authorization errors", async () => {
+        mockUserData.isSSO = true;
+        mockUserData.institutionBackendUrl = "https://institution.example";
+        mockLabsData.data = {
+          labs: [{ id: "1", name: "Lab", listed: false }],
+        };
+        mockListLabMutate.mockRejectedValueOnce({
+          code: "LAB_LEGACY_BLOCKED",
+          message: "Conflict",
+        });
+
+        renderWithClient(<ProviderDashboard />);
+
+        const listButton = await screen.findByTestId("list-1");
+
+        await act(async () => {
+          fireEvent.click(listButton);
+        });
+
+        await waitFor(() => {
+          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+            "warning",
+            expect.stringContaining("Este laboratorio es legacy"),
+            null,
+            expect.any(Object)
+          );
+        });
+
+        expect(mockAddTemporaryNotification).not.toHaveBeenCalledWith(
+          "error",
+          expect.stringContaining("Failed to list lab"),
+          null,
+          expect.any(Object)
+        );
       });
     });
   });

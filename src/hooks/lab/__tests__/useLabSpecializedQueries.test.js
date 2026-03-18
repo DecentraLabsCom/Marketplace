@@ -71,6 +71,7 @@ jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useAllLabsSSO: jest.fn(),
   useLab: jest.fn(),
   useLabOwner: jest.fn(),
+  useLabCreatorPucHashSSO: { queryFn: jest.fn() },
   useLabOwnerSSO: { queryFn: jest.fn() },
   useLabSSO: { queryFn: jest.fn() },
   useIsTokenListed: jest.fn(),
@@ -219,6 +220,10 @@ describe("useLabSpecializedQueries", () => {
 
     labAtomicQueries.useLabOwnerSSO.queryFn = jest.fn(() =>
       Promise.resolve({ owner: mockOwnerAddress })
+    );
+
+    labAtomicQueries.useLabCreatorPucHashSSO.queryFn = jest.fn(() =>
+      Promise.resolve({ creatorPucHash: '0xcreatorhash' })
     );
 
     labAtomicQueries.useLabSSO.queryFn = jest.fn(() =>
@@ -719,6 +724,80 @@ describe("useLabSpecializedQueries", () => {
       });
     });
 
+    test("filters SSO labs by creator hash when provided", async () => {
+      mockUseQueries.mockImplementation((config) => {
+        const queries = config.queries || [];
+        const results = queries.map((query) => {
+          const queryKey = query.queryKey;
+
+          if (queryKey && queryKey[0] === "labs" && queryKey[1] === "ownerOf") {
+            return {
+              data: { owner: mockOwnerAddress },
+              isLoading: false,
+              isSuccess: true,
+              isError: false,
+              error: null,
+              refetch: jest.fn(),
+            };
+          }
+
+          if (queryKey && queryKey[0] === "labs" && queryKey[1] === "getCreatorPucHash") {
+            return {
+              data: { creatorPucHash: "0xcreatorhash" },
+              isLoading: false,
+              isSuccess: true,
+              isError: false,
+              error: null,
+              refetch: jest.fn(),
+            };
+          }
+
+          if (queryKey && queryKey[0] === "lab" && queryKey[1] === "getLab") {
+            return {
+              data: { ...mockLabData, labId: "1" },
+              isLoading: false,
+              isSuccess: true,
+              isError: false,
+              error: null,
+              refetch: jest.fn(),
+            };
+          }
+
+          if (queryKey && queryKey[0] === "lab" && queryKey[1] === "isTokenListed") {
+            return {
+              data: { isListed: true },
+              isLoading: false,
+              isSuccess: true,
+              isError: false,
+              error: null,
+              refetch: jest.fn(),
+            };
+          }
+
+          return {
+            data: null,
+            isLoading: false,
+            isSuccess: true,
+            isError: false,
+            error: null,
+            refetch: jest.fn(),
+          };
+        });
+
+        return config.combine ? config.combine(results) : results;
+      });
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(
+        () => useLabsForProvider(mockOwnerAddress, { creatorPucHash: "0xcreatorhash" }),
+        { wrapper }
+      );
+
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(true);
+      });
+    });
+
     test("includes listing status for owned labs", async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(
@@ -776,6 +855,34 @@ describe("useLabSpecializedQueries", () => {
   });
 
   describe("useLabsForReservation", () => {
+    test("normalizes lab ids when getAllLabs cache includes lab objects", async () => {
+      const labAtomicQueries = require("@/hooks/lab/useLabAtomicQueries");
+
+      mockUseAllLabsSSO.mockImplementation((options = {}) => ({
+        data: options.select
+          ? options.select([{ id: "7", name: "Temp Lab" }, "8", { labId: 9 }])
+          : [{ id: "7", name: "Temp Lab" }, "8", { labId: 9 }],
+        isLoading: false,
+        isSuccess: true,
+        error: null,
+        refetch: jest.fn(),
+      }));
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabsForReservation(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const labDetailCall = mockUseQueries.mock.calls.find(
+        ([config]) => Array.isArray(config?.queries) && config.queries.some((query) => query?.queryKey?.[1] === "getLab")
+      );
+      const queriedLabIds = (labDetailCall?.[0]?.queries || []).map((query) => query?.queryKey?.[2]);
+
+      expect(queriedLabIds).toEqual([7, 8, 9]);
+    });
+
     test("fetches labs for reservation component", async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useLabsForReservation(), { wrapper });

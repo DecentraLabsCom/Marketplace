@@ -211,6 +211,26 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
+  test('actions/prepare: forwards canonical puc from session into signed payload', async () => {
+    getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
+
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.LAB_UPDATE,
+      backendUrl: 'https://ib.example',
+      payload: {
+        labId: 101,
+        price: 7,
+      },
+    })
+
+    const res = await actionPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
+      puc: 'alice@uned.es|targeted-alice',
+    }))
+  })
+
   test('actions/prepare: cancellation action resolves reservation snapshot before signing', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
       action: ACTION_CODES.CANCEL_BOOKING,
@@ -324,6 +344,24 @@ describe('Intent prepare routes integration', () => {
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'reservationPayload',
       returnUrl: 'https://market.example/callback',
+    }))
+  })
+
+  test('reservations/prepare: forwards canonical puc from session into signed payload', async () => {
+    getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
+
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
+      puc: 'alice@uned.es|targeted-alice',
     }))
   })
 

@@ -14,6 +14,45 @@ const normalizeLabId = (value) => {
   return String(value);
 };
 
+const extractLabId = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'object') {
+    return value.labId ?? value.id ?? value.tokenId ?? null;
+  }
+  return value;
+};
+
+const toCachedLabId = (value) => {
+  const rawId = extractLabId(value);
+  if (rawId === undefined || rawId === null) return null;
+  if (typeof rawId === 'bigint') return Number(rawId);
+  if (typeof rawId === 'number') return Number.isFinite(rawId) ? rawId : null;
+  if (typeof rawId === 'string') {
+    const trimmed = rawId.trim();
+    if (!trimmed) return null;
+    const numericId = Number(trimmed);
+    return Number.isNaN(numericId) ? trimmed : numericId;
+  }
+  return null;
+};
+
+const normalizeLabIdList = (entries) => {
+  if (!Array.isArray(entries)) return [];
+
+  const seen = new Set();
+  const normalized = [];
+
+  entries.forEach((entry) => {
+    const labId = toCachedLabId(entry);
+    const key = normalizeLabId(labId);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    normalized.push(labId);
+  });
+
+  return normalized;
+};
+
 const buildLabIdCandidates = (labId) => {
   const candidates = new Set();
   if (labId === undefined || labId === null) {
@@ -53,10 +92,16 @@ export function useLabCacheUpdates() {
 
   // Add new lab to cache
   const addLab = useCallback((newLab) => {
+    const newLabId = toCachedLabId(newLab);
+
     // Update all labs list
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
-      if (!oldData) return [newLab]
-      return [newLab, ...oldData]
+      const normalizedIds = normalizeLabIdList(oldData);
+      if (newLabId === null) return normalizedIds;
+      if (normalizedIds.some((labId) => hasSameLabId(labId, newLabId))) {
+        return normalizedIds;
+      }
+      return [newLabId, ...normalizedIds]
     })
 
     // Update specific lab query
@@ -83,18 +128,15 @@ export function useLabCacheUpdates() {
     };
     const onchainUpdates = collectOnchainUpdates(updatedLab);
 
-    // Update all labs list (using correct query key)
+    // Maintain getAllLabs as a canonical lab-id list only.
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
       if (!oldData) {
         devLog.log('⚠️ No existing lab data found in cache');
         return []
       }
-      const updated = oldData.map((lab) => {
-        if (!hasSameLabId(lab, labId)) return lab;
-        return { ...lab, ...updatedLab, ...onchainUpdates };
-      });
-      devLog.log('🔄 Updated all labs cache:', { count: updated.length });
-      return updated;
+      const normalizedIds = normalizeLabIdList(oldData);
+      devLog.log('🔄 Preserved all labs id cache:', { count: normalizedIds.length });
+      return normalizedIds;
     })
 
     // Update specific lab query
@@ -124,8 +166,8 @@ export function useLabCacheUpdates() {
   const removeLab = useCallback((labId) => {
     // Update all labs list
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
-      if (!oldData) return []
-      return oldData.filter((lab) => !hasSameLabId(lab, labId))
+      const normalizedIds = normalizeLabIdList(oldData)
+      return normalizedIds.filter((cachedLabId) => !hasSameLabId(cachedLabId, labId))
     })
 
     // Invalidate specific lab query across common key variants
@@ -163,10 +205,12 @@ export function useLabCacheUpdates() {
   // Replace optimistic lab with real data
   const replaceOptimisticLab = useCallback((optimisticId, realLab) => {
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
-      if (!oldData) return [realLab];
-      return oldData.map(lab => 
-        lab.id === optimisticId ? realLab : lab
+      const normalizedIds = normalizeLabIdList(oldData);
+      const realLabId = toCachedLabId(realLab);
+      const replaced = normalizedIds.map((labId) =>
+        hasSameLabId(labId, optimisticId) ? realLabId : labId
       );
+      return normalizeLabIdList(replaced);
     });
 
     // Update specific lab query if we have real ID
@@ -180,8 +224,8 @@ export function useLabCacheUpdates() {
   // Remove optimistic lab (on error)
   const removeOptimisticLab = useCallback((optimisticId) => {
     queryClient.setQueryData(labQueryKeys.getAllLabs(), (oldData) => {
-      if (!oldData) return [];
-      return oldData.filter(lab => lab.id !== optimisticId);
+      const normalizedIds = normalizeLabIdList(oldData);
+      return normalizedIds.filter((labId) => !hasSameLabId(labId, optimisticId));
     });
     removeReconciliationEntry(`lab:add:${optimisticId}`);
   }, [queryClient])

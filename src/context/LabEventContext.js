@@ -26,6 +26,18 @@ const safeExtractLabId = (log) =>
     log?.args?.labId?.toString?.() ||
     log?.args?.tokenId?.toString?.();
 
+const getLabIdVariants = (labId) => {
+    if (labId === undefined || labId === null || labId === '') return [];
+
+    const variants = new Set([labId, String(labId)]);
+    const numericId = Number(labId);
+    if (!Number.isNaN(numericId)) {
+        variants.add(numericId);
+    }
+
+    return Array.from(variants);
+};
+
 /**
  * Simplified Lab Event Provider
  * Only handles blockchain events and validates/updates React Query cache
@@ -69,8 +81,10 @@ export function LabEventProvider({ children }) {
 
     const queueLabDerivedInvalidations = useCallback((labId) => {
         if (!labId) return;
-        const derivedKeys = labQueryKeys.derivedByLabId ? labQueryKeys.derivedByLabId(labId) : [];
-        derivedKeys.forEach((qk) => queueInvalidation(qk));
+        getLabIdVariants(labId).forEach((candidateId) => {
+            const derivedKeys = labQueryKeys.derivedByLabId ? labQueryKeys.derivedByLabId(candidateId) : [];
+            derivedKeys.forEach((qk) => queueInvalidation(qk));
+        });
     }, [queueInvalidation]);
 
     // LabAdded event listener
@@ -131,8 +145,10 @@ export function LabEventProvider({ children }) {
             devLog.log('📋 [LabEventContext] LabListed events detected:', logs.length, logs);
             
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
-                queueInvalidation(labQueryKeys.getLab(labId));
-                queueInvalidation(labQueryKeys.isTokenListed(labId));
+                getLabIdVariants(labId).forEach((candidateId) => {
+                    queueInvalidation(labQueryKeys.getLab(candidateId));
+                    queueInvalidation(labQueryKeys.isTokenListed(candidateId));
+                });
 
                 // Clear any optimistic listing/lab state now that chain confirmed the listing
                 try {
@@ -157,8 +173,10 @@ export function LabEventProvider({ children }) {
             devLog.log('📋 [LabEventContext] LabUnlisted events detected:', logs.length, logs);
             
             uniqueIdsFromLogs(logs, safeExtractLabId).forEach((labId) => {
-                queueInvalidation(labQueryKeys.getLab(labId));
-                queueInvalidation(labQueryKeys.isTokenListed(labId));
+                getLabIdVariants(labId).forEach((candidateId) => {
+                    queueInvalidation(labQueryKeys.getLab(candidateId));
+                    queueInvalidation(labQueryKeys.isTokenListed(candidateId));
+                });
 
                 // Clear any optimistic listing/lab state now that chain confirmed the unlisting
                 try {
@@ -188,9 +206,11 @@ export function LabEventProvider({ children }) {
                 // Remove (not invalidate) the per-lab derived queries so that active
                 // useQueries subscribers (e.g. useLabsForMarket) don't immediately
                 // fire a refetch for a non-existent lab and get 500 errors.
-                const derivedKeys = labQueryKeys.derivedByLabId ? labQueryKeys.derivedByLabId(labId) : [];
-                derivedKeys.forEach((qk) => {
-                    queryClient.removeQueries({ queryKey: qk, exact: true });
+                getLabIdVariants(labId).forEach((candidateId) => {
+                    const derivedKeys = labQueryKeys.derivedByLabId ? labQueryKeys.derivedByLabId(candidateId) : [];
+                    derivedKeys.forEach((qk) => {
+                        queryClient.removeQueries({ queryKey: qk, exact: true });
+                    });
                 });
 
                 // Clear any optimistic lab/listing state

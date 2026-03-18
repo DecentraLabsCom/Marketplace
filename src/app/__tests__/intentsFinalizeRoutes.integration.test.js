@@ -177,6 +177,9 @@ describe('Intent finalize routes integration', () => {
       backendUrl: 'https://ib.example',
       samlAssertion: '<Assertion>finalize</Assertion>',
     }))
+    expect(buildIntentChallenge).toHaveBeenCalledWith(expect.objectContaining({
+      puc: 'puc-xyz',
+    }))
   })
 
   test('actions/finalize: returns 400 when prepared challenge does not exist', async () => {

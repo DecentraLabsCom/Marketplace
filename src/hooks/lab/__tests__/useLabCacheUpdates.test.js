@@ -71,7 +71,7 @@ describe("useLabCacheUpdates", () => {
       result.current.addLab(mockLab);
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs).toEqual([mockLab]);
+      expect(allLabs).toEqual(["lab-1"]);
     });
 
     test("adds lab to specific lab cache when labId provided", () => {
@@ -85,14 +85,14 @@ describe("useLabCacheUpdates", () => {
 
     // Verifies insertion order (new items first)
     test("prepends new lab to existing labs", () => {
-      queryClient.setQueryData(["labs", "all"], [mockLab]);
+      queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       const newLab = { ...mockLab, id: "lab-2", labId: "lab-2" };
       result.current.addLab(newLab);
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs).toEqual([newLab, mockLab]);
+      expect(allLabs).toEqual(["lab-2", "lab-1"]);
     });
 
     // Edge case: initial empty cache
@@ -103,6 +103,7 @@ describe("useLabCacheUpdates", () => {
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
       expect(allLabs).toHaveLength(1);
+      expect(allLabs[0]).toBe("lab-1");
     });
 
     // Fallback mechanism: uses 'id' when 'labId' is missing
@@ -119,15 +120,14 @@ describe("useLabCacheUpdates", () => {
 
   describe("Updating Labs", () => {
     test("updates lab in all labs cache by labId", () => {
-      queryClient.setQueryData(["labs", "all"], [mockLab]);
+      queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       const updates = { price: 150, name: "Updated Lab" };
       result.current.updateLab("lab-1", updates);
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs[0].price).toBe(150);
-      expect(allLabs[0].name).toBe("Updated Lab");
+      expect(allLabs).toEqual(["lab-1"]);
     });
 
     test("updates specific lab cache", () => {
@@ -154,13 +154,13 @@ describe("useLabCacheUpdates", () => {
     // ID matching fallback: matches by 'id' when 'labId' differs
     test("matches lab by id when labId does not match", () => {
       const labWithId = { ...mockLab, labId: undefined };
-      queryClient.setQueryData(["labs", "all"], [labWithId]);
+      queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.updateLab("lab-1", { price: 175 });
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs[0].price).toBe(175);
+      expect(allLabs).toEqual(["lab-1"]);
     });
 
     // Empty cache scenario
@@ -187,7 +187,7 @@ describe("useLabCacheUpdates", () => {
 
   describe("Removing Labs", () => {
     test("removes lab from all labs cache by labId", () => {
-      queryClient.setQueryData(["labs", "all"], [mockLab]);
+      queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.removeLab("lab-1");
@@ -199,7 +199,7 @@ describe("useLabCacheUpdates", () => {
     // ID-based removal fallback
     test("removes lab by id when labId does not match", () => {
       const labWithId = { ...mockLab, labId: undefined };
-      queryClient.setQueryData(["labs", "all"], [labWithId]);
+      queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.removeLab("lab-1");
@@ -209,8 +209,7 @@ describe("useLabCacheUpdates", () => {
     });
 
     test("removes lab when cached id is numeric and remove input is string", () => {
-      const numericLab = { ...mockLab, id: 2, labId: 2 };
-      queryClient.setQueryData(["labs", "all"], [numericLab]);
+      queryClient.setQueryData(["labs", "all"], [2]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.removeLab("2");
@@ -244,6 +243,7 @@ describe("useLabCacheUpdates", () => {
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
       expect(allLabs).toHaveLength(1);
+      expect(allLabs[0]).toContain("temp-");
     });
 
     // Optimistic update resolution
@@ -254,15 +254,14 @@ describe("useLabCacheUpdates", () => {
         name: "Temp Lab",
         isPending: true,
       };
-      queryClient.setQueryData(["labs", "all"], [optimisticLab]);
+      queryClient.setQueryData(["labs", "all"], ["temp-123"]);
 
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.replaceOptimisticLab("temp-123", mockLab);
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs[0].id).toBe("lab-1");
-      expect(allLabs[0].isPending).toBeUndefined();
+      expect(allLabs).toEqual(["lab-1"]);
     });
 
     // Optimistic rollback behavior
@@ -272,7 +271,7 @@ describe("useLabCacheUpdates", () => {
         labId: "temp-456",
         name: "Temp Lab",
       };
-      queryClient.setQueryData(["labs", "all"], [optimisticLab, mockLab]);
+      queryClient.setQueryData(["labs", "all"], ["temp-456", "lab-1"]);
 
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
@@ -280,13 +279,13 @@ describe("useLabCacheUpdates", () => {
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
       expect(allLabs).toHaveLength(1);
-      expect(allLabs[0].id).toBe("lab-1");
+      expect(allLabs[0]).toBe("lab-1");
     });
 
     // Cache propagation: updates both list and detail caches
     test("replaces optimistic lab and updates specific cache", () => {
       const optimisticLab = { id: "temp-789", name: "Temp Lab" };
-      queryClient.setQueryData(["labs", "all"], [optimisticLab]);
+      queryClient.setQueryData(["labs", "all"], ["temp-789"]);
 
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
@@ -306,18 +305,18 @@ describe("useLabCacheUpdates", () => {
       result.current.addLab(labNoId);
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs).toHaveLength(1);
+      expect(allLabs).toEqual([]);
     });
 
     // Non-existent entity update (should be no-op)
     test("handles updating non-existent lab", () => {
-      queryClient.setQueryData(["labs", "all"], [mockLab]);
+      queryClient.setQueryData(["labs", "all"], ["lab-1"]);
       const { result } = renderHook(() => useLabCacheUpdates(), { wrapper });
 
       result.current.updateLab("non-existent", { price: 999 });
 
       const allLabs = queryClient.getQueryData(["labs", "all"]);
-      expect(allLabs[0].price).toBe(100);
+      expect(allLabs).toEqual(["lab-1"]);
     });
   });
 });
