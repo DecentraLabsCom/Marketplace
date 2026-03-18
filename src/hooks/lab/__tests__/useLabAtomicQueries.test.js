@@ -141,6 +141,22 @@ describe("useLabAtomicQueries", () => {
       expect(result.current.error).toBe(null);
     });
 
+    test("normalizes lab IDs even when cache payload includes lab objects", async () => {
+      const mixedLabIds = [{ id: "7", name: "Temp lab" }, "8", { labId: 9 }];
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mixedLabIds,
+      });
+
+      const { result } = renderHook(() => useAllLabsSSO(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(result.current.data).toEqual([7, 8, 9]);
+    });
+
     test("uses correct query key", () => {
       const { labQueryKeys } = require("@/utils/hooks/queryKeys");
 

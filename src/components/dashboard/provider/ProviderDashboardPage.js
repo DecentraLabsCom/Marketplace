@@ -71,6 +71,15 @@ const sanitizeProviderNameForUri = (name) => {
   return sanitized || 'Provider'
 }
 
+const isLabIdListCache = (entries) =>
+  Array.isArray(entries) && entries.every((entry) => (
+    entry === null
+    || entry === undefined
+    || typeof entry === 'string'
+    || typeof entry === 'number'
+    || typeof entry === 'bigint'
+  ))
+
 const resolveOnchainLabUri = (uri) => {
   if (!uri) return uri
   const trimmed = String(uri).trim()
@@ -385,6 +394,7 @@ export default function ProviderDashboard() {
     try {
       queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
         if (!Array.isArray(old)) return old;
+        if (isLabIdListCache(old)) return old;
         return old.map((lab) => {
           const labKey = lab?.labId ?? lab?.id;
           if (labKey === undefined || labKey === null) return lab;
@@ -644,6 +654,14 @@ export default function ProviderDashboard() {
 
           // Update list of labs if present
           queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+            if (!Array.isArray(old)) return old;
+            if (isLabIdListCache(old)) {
+              const normalizedId = Number(blockchainLabId);
+              const hasId = old.some((entry) => String(entry) === String(blockchainLabId));
+              if (hasId) return old;
+              return Number.isFinite(normalizedId) ? [normalizedId, ...old] : [blockchainLabId, ...old];
+            }
+
             // If lab exists in the list, replace it; otherwise add it to the top
             const exists = old.some(l => l?.labId === blockchainLabId || l?.id === blockchainLabId);
             if (exists) return old.map(l => (l?.labId === blockchainLabId || l?.id === blockchainLabId) ? { ...l, ...immediateUpdate } : l);
@@ -921,7 +939,14 @@ export default function ProviderDashboard() {
       // Remove from cached list immediately when possible
       try {
         queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => (
-          Array.isArray(old) ? old.filter(l => (l?.id || l?.labId) !== String(labId)) : old
+          Array.isArray(old)
+            ? old.filter((entry) => {
+                const candidateId = typeof entry === 'object' && entry !== null
+                  ? (entry.id ?? entry.labId)
+                  : entry;
+                return String(candidateId) !== String(labId);
+              })
+            : old
         ));
       } catch (cacheErr) {
         devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);

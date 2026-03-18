@@ -35,12 +35,21 @@ const LAB_QUERY_CONFIG = {
 // Export configuration for use in composed hooks
 export { LAB_QUERY_CONFIG };
 
+const extractLabIdValue = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'object') {
+    return value.labId ?? value.id ?? value.tokenId ?? null;
+  }
+  return value;
+};
+
 const normalizeLabIds = (ids) => {
   if (!Array.isArray(ids)) return [];
   const seen = new Set();
   const unique = [];
   ids.forEach((id) => {
-    const value = typeof id === 'bigint' ? Number(id) : Number(id);
+    const rawId = extractLabIdValue(id);
+    const value = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
     if (!Number.isFinite(value)) return;
     if (seen.has(value)) return;
     seen.add(value);
