@@ -29,6 +29,27 @@ import devLog from '@/utils/dev/logger'
 
 const EMPTY_ARRAY = [];
 
+const normalizeLabIds = (ids) => {
+  if (!Array.isArray(ids)) return [];
+
+  const seen = new Set();
+  const normalized = [];
+
+  ids.forEach((entry) => {
+    const rawId = typeof entry === 'object' && entry !== null
+      ? (entry.labId ?? entry.id ?? entry.tokenId ?? null)
+      : entry;
+    const numericId = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
+
+    if (!Number.isFinite(numericId) || seen.has(numericId)) return;
+
+    seen.add(numericId);
+    normalized.push(numericId);
+  });
+
+  return normalized;
+};
+
 const extractStatusCodeFromError = (error) => {
   const message = String(error?.message || '');
   const directMatch = message.match(/:\s*(\d{3})(?:\D|$)/);
@@ -128,10 +149,7 @@ export const useLabsForMarket = (options = {}) => {
     enabled: queryOptions.enabled !== false,
     
     // ✅ Convert BigInt IDs to numbers in select to prevent serialization errors
-    select: (data) => {
-      if (!data || !Array.isArray(data)) return [];
-      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
-    }
+    select: normalizeLabIds
   });
 
   const labIds = labIdsResult.data || EMPTY_ARRAY;
@@ -523,10 +541,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     ...LAB_QUERY_CONFIG,
     enabled: !!ownerAddress && (options.enabled !== false),
     // Convert BigInt IDs to numbers in select to prevent serialization errors
-    select: (data) => {
-      if (!data || !Array.isArray(data)) return [];
-      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
-    }
+    select: normalizeLabIds
   });
 
   const labIds = labIdsResult.data || EMPTY_ARRAY;
@@ -763,10 +778,7 @@ export const useLabsForReservation = (options = {}) => {
     ...LAB_QUERY_CONFIG,
     enabled: options.enabled !== false,
     // Convert BigInt IDs to numbers in select to prevent serialization errors
-    select: (data) => {
-      if (!data || !Array.isArray(data)) return [];
-      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
-    }
+    select: normalizeLabIds
   });
 
   const labIds = labIdsResult.data || EMPTY_ARRAY;

@@ -855,6 +855,34 @@ describe("useLabSpecializedQueries", () => {
   });
 
   describe("useLabsForReservation", () => {
+    test("normalizes lab ids when getAllLabs cache includes lab objects", async () => {
+      const labAtomicQueries = require("@/hooks/lab/useLabAtomicQueries");
+
+      mockUseAllLabsSSO.mockImplementation((options = {}) => ({
+        data: options.select
+          ? options.select([{ id: "7", name: "Temp Lab" }, "8", { labId: 9 }])
+          : [{ id: "7", name: "Temp Lab" }, "8", { labId: 9 }],
+        isLoading: false,
+        isSuccess: true,
+        error: null,
+        refetch: jest.fn(),
+      }));
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabsForReservation(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      const labDetailCall = mockUseQueries.mock.calls.find(
+        ([config]) => Array.isArray(config?.queries) && config.queries.some((query) => query?.queryKey?.[1] === "getLab")
+      );
+      const queriedLabIds = (labDetailCall?.[0]?.queries || []).map((query) => query?.queryKey?.[2]);
+
+      expect(queriedLabIds).toEqual([7, 8, 9]);
+    });
+
     test("fetches labs for reservation component", async () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useLabsForReservation(), { wrapper });
