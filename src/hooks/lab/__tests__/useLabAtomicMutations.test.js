@@ -11,6 +11,7 @@ jest.mock('../useLabCacheUpdates', () => ({
     addOptimisticLab: jest.fn((lab) => ({ ...lab, id: 'optimistic-id' })),
     replaceOptimisticLab: jest.fn(),
     removeOptimisticLab: jest.fn(),
+    removeLab: jest.fn(),
   }),
 }));
 
@@ -24,7 +25,27 @@ jest.mock('../useLabCacheUpdates', () => ({
 
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useAddLabSSO, useAddLabWallet, useUpdateLabSSO, useUpdateLabWallet } from '../useLabAtomicMutations'
+import {
+  useAddLabSSO, useAddLabWallet, useAddLab,
+  useUpdateLabSSO, useUpdateLabWallet, useUpdateLab,
+  useDeleteLabSSO, useDeleteLabWallet, useDeleteLab,
+  useListLabSSO, useListLabWallet, useListLab,
+  useUnlistLabSSO, useUnlistLabWallet, useUnlistLab,
+  useSetTokenURISSO, useSetTokenURIWallet, useSetTokenURI
+} from '../useLabAtomicMutations'
+import { useGetIsSSO } from '@/utils/hooks/authMode'
+
+jest.mock('@/utils/hooks/authMode', () => ({
+  useGetIsSSO: jest.fn(() => false),
+}))
+
+jest.mock('@/context/OptimisticUIContext', () => ({
+  useOptimisticUI: jest.fn(() => ({
+    setOptimisticListingState: jest.fn(),
+    completeOptimisticListingState: jest.fn(),
+    clearOptimisticListingState: jest.fn(),
+  })),
+}))
 
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
@@ -735,6 +756,381 @@ describe('useLabAtomicMutations (add lab)', () => {
       await expect(promise).rejects.toThrow()
     })
   })
+});
+
+describe('Wallet Hooks Coverage', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('useDeleteLabWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useDeleteLabWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('lab-123');
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useListLabWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useListLabWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('lab-123');
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useUnlistLabWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useUnlistLabWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('lab-123');
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useSetTokenURIWallet executes transaction and returns hash', async () => {
+    const { result } = renderHook(() => useSetTokenURIWallet(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', tokenURI: 'uri' });
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useDeleteLabWallet failed transaction cleans up cache', async () => {
+    const useContractWriteFunction = require('@/hooks/contract/useContractWriteFunction').default;
+    useContractWriteFunction.mockReturnValueOnce({ contractWriteFunction: jest.fn().mockRejectedValue(new Error('Tx failed')) });
+    const { result } = renderHook(() => useDeleteLabWallet(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync('lab-123')).rejects.toThrow('Tx failed');
+    });
+  });
+
+  test('useListLabWallet failed transaction cleans up cache', async () => {
+    const useContractWriteFunction = require('@/hooks/contract/useContractWriteFunction').default;
+    useContractWriteFunction.mockReturnValueOnce({ contractWriteFunction: jest.fn().mockRejectedValue(new Error('Tx failed')) });
+    const { result } = renderHook(() => useListLabWallet(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync('lab-123')).rejects.toThrow('Tx failed');
+    });
+  });
+
+  test('useUnlistLabWallet failed transaction cleans up cache', async () => {
+    const useContractWriteFunction = require('@/hooks/contract/useContractWriteFunction').default;
+    useContractWriteFunction.mockReturnValueOnce({ contractWriteFunction: jest.fn().mockRejectedValue(new Error('Tx failed')) });
+    const { result } = renderHook(() => useUnlistLabWallet(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync('lab-123')).rejects.toThrow('Tx failed');
+    });
+  });
+
+  test('useSetTokenURIWallet failed transaction cleans up cache', async () => {
+    const useContractWriteFunction = require('@/hooks/contract/useContractWriteFunction').default;
+    useContractWriteFunction.mockReturnValueOnce({ contractWriteFunction: jest.fn().mockRejectedValue(new Error('Tx failed')) });
+    const { result } = renderHook(() => useSetTokenURIWallet(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ labId: 'lab-123', tokenURI: 'uri' })).rejects.toThrow('Tx failed');
+    });
+  });
+});
+
+describe('Router Hooks Coverage', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useGetIsSSO.mockReturnValue(false); // Default to Wallet for these tests
+  });
+  
+  test('useAddLab routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useAddLab(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ uri: 'Lab-Provider-1.json', price: '0', auth: '', accessURI: '', accessKey: '' });
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useUpdateLab routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useUpdateLab(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', labData: { uri: 'test' } });
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useDeleteLab routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useDeleteLab(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('lab-123');
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useListLab routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useListLab(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('lab-123');
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useUnlistLab routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useUnlistLab(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync('lab-123');
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+
+  test('useSetTokenURI routes to Wallet when not SSO', async () => {
+    const { result } = renderHook(() => useSetTokenURI(), { wrapper: createWrapper(queryClient) });
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', tokenURI: 'uri' });
+    });
+    expect(data.hash).toBe('0xtx');
+  });
+});
+
+describe('SSO Hooks Coverage', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('useDeleteLabSSO executes intent and returns data', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xdel' });
+    pollAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-del' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-del',
+        intent: { meta: { requestId: 'req-del' }, payload: {} },
+        backendAuthToken: 'token-del',
+      }),
+    });
+
+    const { result } = renderHook(() => useDeleteLabSSO(), { wrapper: createWrapper(queryClient) });
+    
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', backendUrl: 'https://backend.example' });
+    });
+    expect(data).toBeDefined();
+    expect(data.requestId || data.intent.meta.requestId).toBe('req-del');
+  });
+
+  test('useListLabSSO executes intent and returns data', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xlist' });
+    pollAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-list' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-list',
+        intent: { meta: { requestId: 'req-list' }, payload: {} },
+        backendAuthToken: 'token-list',
+      }),
+    });
+
+    const { result } = renderHook(() => useListLabSSO(), { wrapper: createWrapper(queryClient) });
+    
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', backendUrl: 'https://backend.example' });
+    });
+    expect(data).toBeDefined();
+    expect(data.requestId || data.intent.meta.requestId).toBe('req-list');
+  });
+
+  test('useUnlistLabSSO executes intent and returns data', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xunlist' });
+    pollAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-unlist' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-unlist',
+        intent: { meta: { requestId: 'req-unlist' }, payload: {} },
+        backendAuthToken: 'token-unlist',
+      }),
+    });
+
+    const { result } = renderHook(() => useUnlistLabSSO(), { wrapper: createWrapper(queryClient) });
+    
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', backendUrl: 'https://backend.example' });
+    });
+    expect(data).toBeDefined();
+  });
+
+  test('useSetTokenURISSO executes intent and returns data', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'executed', txHash: '0xuri' });
+    pollAuth.mockResolvedValue({ status: 'SUCCESS', requestId: 'req-uri' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-uri',
+        intent: { meta: { requestId: 'req-uri' }, payload: {} },
+        backendAuthToken: 'token-uri',
+      }),
+    });
+
+    const { result } = renderHook(() => useSetTokenURISSO(), { wrapper: createWrapper(queryClient) });
+    
+    let data;
+    await act(async () => {
+      data = await result.current.mutateAsync({ labId: 'lab-123', tokenURI: 'uri-1', backendUrl: 'https://backend.example' });
+    });
+    expect(data).toBeDefined();
+  });
+
+  test('useDeleteLabSSO intent fails handles cache', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'Rejected' });
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-fail' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-fail',
+        intent: { meta: { requestId: 'req-fail' }, payload: {} },
+      }),
+    });
+
+    const { result } = renderHook(() => useDeleteLabSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync({ labId: 'lab-123', backendUrl: 'https://backend.example' });
+    });
+  });
+
+  test('useListLabSSO intent fails handles cache', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'Rejected' });
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-fail' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-fail',
+        intent: { meta: { requestId: 'req-fail' }, payload: {} },
+      }),
+    });
+
+    const { result } = renderHook(() => useListLabSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync({ labId: 'lab-123', backendUrl: 'https://backend.example' });
+    });
+  });
+
+  test('useUnlistLabSSO intent fails handles cache', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'Rejected' });
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-fail' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-fail',
+        intent: { meta: { requestId: 'req-fail' }, payload: {} },
+      }),
+    });
+
+    const { result } = renderHook(() => useUnlistLabSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync({ labId: 'lab-123', backendUrl: 'https://backend.example' });
+    });
+  });
+
+  test('useSetTokenURISSO intent fails handles cache', async () => {
+    const pollIntentStatus = require('@/utils/intents/pollIntentStatus').default;
+    const pollAuth = require('@/utils/intents/pollIntentAuthorizationStatus').default;
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'Rejected' });
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-fail' });
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth',
+        authorizationSessionId: 'auth-fail',
+        intent: { meta: { requestId: 'req-fail' }, payload: {} },
+      }),
+    });
+
+    const { result } = renderHook(() => useSetTokenURISSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await result.current.mutateAsync({ labId: 'lab-123', tokenURI: 'uri-1', backendUrl: 'https://backend.example' });
+    });
+  });
+
+  test('useDeleteLabSSO fails on prepare intent', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    const { result } = renderHook(() => useDeleteLabSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ labId: 'lab-123' })).rejects.toThrow('Failed to prepare action intent: 500');
+    });
+  });
+
+  test('useListLabSSO fails on prepare intent', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    const { result } = renderHook(() => useListLabSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ labId: 'lab-123' })).rejects.toThrow('Failed to prepare action intent: 500');
+    });
+  });
+
+  test('useUnlistLabSSO fails on prepare intent', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    const { result } = renderHook(() => useUnlistLabSSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ labId: 'lab-123' })).rejects.toThrow('Failed to prepare action intent: 500');
+    });
+  });
+
+  test('useSetTokenURISSO fails on prepare intent', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    const { result } = renderHook(() => useSetTokenURISSO(), { wrapper: createWrapper(queryClient) });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ labId: 'lab-123' })).rejects.toThrow('Failed to prepare action intent: 500');
+    });
+  });
 });
 
 

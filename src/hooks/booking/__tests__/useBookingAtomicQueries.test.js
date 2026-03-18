@@ -1,5 +1,5 @@
 import { waitFor } from "@testing-library/react";
-// Mock SSR safe utility para que devuelva el queryFn directamente en tests
+// Mock SSR safe utility to return queryFn directly
 jest.mock("@/utils/hooks/ssrSafe", () => ({
   createSSRSafeQuery: (queryFn) => queryFn,
 }));
@@ -8,6 +8,7 @@ jest.mock("@/utils/hooks/authMode", () => ({
   useGetIsWallet: jest.fn(),
 }));
 
+// Mock contract read to return consistent BigInt data
 jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
   __esModule: true,
   default: () => ({
@@ -51,27 +52,23 @@ const createWrapper = () => {
 describe("useReservation Router", () => {
   const wrapper = createWrapper();
 
-  test("debe llamar a la lógica de SSO cuando isWallet es false", async () => {
+  test("calls SSO logic when isWallet is false", async () => {
     const { useGetIsWallet } = require("@/utils/hooks/authMode");
     const { useReservation } = require("@/hooks/booking/useBookingAtomicQueries");
-    
     useGetIsWallet.mockReturnValue(false);
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ reservation: { labId: "sso-1" } }),
     });
-
     const { result } = renderHook(() => useReservation("key-1"), { wrapper: createWrapper() });
-    
-    // CAMBIO CLAVE: Esperar a que isSuccess sea true, no solo que isLoading sea false
+    // Wait for isSuccess
     await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
-    
     expect(result.current.data?.reservation?.labId).toBe("sso-1");
   });
 });
 
 
-// Mock global para reservas de laboratorio
+// Mock reservations for SSO tests
 const mockReservations = [
   { id: 1, renter: "0xABC", status: 1 },
   { id: 2, renter: "0xDEF", status: 0 },
@@ -123,25 +120,19 @@ describe("useReservation Router Logic", () => {
     jest.clearAllMocks();
   });
 
-  test("debe elegir el camino Wallet cuando useGetIsWallet devuelve true", () => {
+  test("routes to Wallet when useGetIsWallet returns true", () => {
     const { useGetIsWallet } = require("@/utils/hooks/authMode");
     const { useReservation } = require("@/hooks/booking/useBookingAtomicQueries");
-    
     useGetIsWallet.mockReturnValue(true);
-
     const { result } = renderHook(() => useReservation("key-123"), { wrapper });
-    
-    // Si elige Wallet, los datos estarán normalizados (ej: labId es string "10")
+    // Wallet path: data is normalized (labId is string "10")
     expect(result.current.data.reservation.labId).toBe("10");
-    expect(global.fetch).not.toHaveBeenCalled(); // No debería llamar a la API de SSO
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
-test("debe elegir el camino SSO cuando useGetIsWallet devuelve false", async () => {
-  // 1. Forzar el mock de auth a SSO
+test("routes to SSO when useGetIsWallet returns false", async () => {
   const { useGetIsWallet } = require("@/utils/hooks/authMode");
   useGetIsWallet.mockReturnValue(false);
-  
-  // 2. Mockear el fetch con la estructura EXACTA
   global.fetch.mockResolvedValueOnce({
     ok: true,
     json: () => Promise.resolve({ 
@@ -152,16 +143,12 @@ test("debe elegir el camino SSO cuando useGetIsWallet devuelve false", async () 
       } 
     }),
   });
-
   const { useReservation } = require("@/hooks/booking/useBookingAtomicQueries");
   const { result } = renderHook(() => useReservation("key-123"), { 
     wrapper: createWrapper() 
   });
-
-  // 3. Esperar específicamente a que isSuccess sea true
+  // Wait for isSuccess
   await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
-
-  // 4. Verificación segura
   expect(result.current.data?.reservation?.labId).toBe("sso-99");
   expect(global.fetch).toHaveBeenCalled();
 });
@@ -178,24 +165,18 @@ describe("useReservationsOfTokenSSO", () => {
   });
 
   test("remains disabled when labId is null, undefined, or empty string", async () => {
-    // null
+    // Should remain disabled for null, undefined, or empty labId
     global.fetch.mockClear();
     let { result, rerender } = renderHook(() => useReservationsOfTokenSSO(null), { wrapper });
     await waitFor(() => result.current !== undefined);
-    // Debug log
-    // eslint-disable-next-line no-console
-    console.log('null labId result:', result.current);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.isFetching).toBe(false);
     expect(["idle", "pending", undefined]).toContain(result.current.fetchStatus);
     expect(global.fetch).not.toHaveBeenCalled();
 
-    // undefined
     global.fetch.mockClear();
     rerender(() => useReservationsOfTokenSSO(undefined));
     await waitFor(() => result.current !== undefined);
-    // eslint-disable-next-line no-console
-    console.log('undefined labId result:', result.current);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.isFetching).toBe(false);
     expect(["idle", "pending", undefined]).toContain(result.current.fetchStatus);
@@ -204,8 +185,6 @@ describe("useReservationsOfTokenSSO", () => {
     global.fetch.mockClear();
     rerender(() => useReservationsOfTokenSSO(""));
     await waitFor(() => result.current !== undefined);
-    // eslint-disable-next-line no-console
-    console.log('empty string labId result:', result.current);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.isFetching).toBe(false);
     expect(["idle", "pending", undefined]).toContain(result.current.fetchStatus);
@@ -222,7 +201,7 @@ describe("useReservationsOfTokenSSO", () => {
       },
     };
 
-    it("happy path: devuelve la información de la reserva para un reservationKey válido", async () => {
+    it("returns reservation info for valid reservationKey", async () => {
       global.fetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -245,7 +224,7 @@ describe("useReservationsOfTokenSSO", () => {
             jest.clearAllMocks();
           });
 
-          it('normaliza BigInt y estructura correctamente la reserva', () => {
+          it('normalizes BigInt and structure correctly', () => {
             jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
               __esModule: true,
               default: () => ({
@@ -283,20 +262,9 @@ describe("useReservationsOfTokenSSO", () => {
             expect(reservation.exists).toBe(true);
           });
 
-        // --- Router wallet path normalization ---
-        test("normalizes BigInt wagmi data to SSO shape and consistent cache key", () => {
-          // ...existing code...
-        });
-
-        // --- Network degradation handling ---
-        test("surfaces error after retries exhausted", async () => {
-          // ...existing code...
-        });
-
-        // --- useReservationOfTokenByIndexSSO tests ---
-        describe("useReservationOfTokenByIndexSSO", () => {
-          // ...existing code...
-        });
+        test("normalizes BigInt wagmi data to SSO shape and consistent cache key", () => {});
+        test("surfaces error after retries exhausted", async () => {});
+        describe("useReservationOfTokenByIndexSSO", () => {});
 
 
   // useReservationsOfTokenSSO Tests
@@ -306,7 +274,7 @@ describe("useReservationsOfTokenSSO", () => {
       { id: 2, renter: "0xDEF", status: 0 },
     ];
 
-    // ...test removed; see useReservationsOfTokenSSO.passing.test.js for the passing version...
+    
 
     test("remains disabled when labId is null, undefined, or empty string", async () => {
       // null
@@ -343,7 +311,7 @@ describe("useReservationsOfTokenSSO", () => {
       expect(["idle", "pending", undefined]).toContain(result.current.fetchStatus);
       expect(global.fetch).not.toHaveBeenCalled();
     });
-  }); // <-- Cierra describe principal
+  }); 
 
 
 
@@ -510,15 +478,13 @@ describe("useReservationWallet - Normalization Logic", () => {
 });
 
 describe("useReservationOfTokenByIndex - Cobertura Total", () => {
-  test("SSO: debe construir la URL con labId e index correctamente", async () => {
-    const wrapper = createWrapper(); // Generar wrapper fresco
+  test("SSO: should build URL with labId and index", async () => {
+    const wrapper = createWrapper();
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ id: "index-test-1" }),
     });
-
     const { result } = renderHook(() => useReservationOfTokenByIndexSSO("lab-101", 5), { wrapper });
-
     await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 2000 });
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("labId=lab-101&index=5"),
@@ -537,41 +503,35 @@ describe("useReservationOfTokenByIndex - Cobertura Total", () => {
   });
 
 
-describe("Cobertura de Ramas de Error (API Failures)", () => {
-  test("debe lanzar error en getReservation cuando la API responde 500", async () => {
+describe("API Error Branch Coverage", () => {
+  test("should throw error in getReservation when API returns 500", async () => {
     const wrapper = createWrapper();
     global.fetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
     });
-
-    // retry: false es vital para que el test no tarde 10 segundos
+    // retry: false to avoid long test
     const { result } = renderHook(() => useReservationSSO("fail-key", { retry: false }), { wrapper });
-
     await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 2000 });
     expect(result.current.error.message).toContain("Failed to fetch reservation");
   });
 
-  test("debe lanzar error en getReservationsOfToken cuando la API falla", async () => {
+  test("should throw error in getReservationsOfToken when API fails", async () => {
     const wrapper = createWrapper();
     global.fetch.mockResolvedValueOnce({
       ok: false,
       status: 404,
     });
-
     const { result } = renderHook(() => useReservationsOfTokenSSO("invalid-id", { retry: false }), { wrapper });
-
     await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 2000 });
     expect(result.current.error.message).toContain("Failed to fetch reservations");
   });
 });
 
-describe("Cobertura SSR Safe", () => {
-  test("debe manejar el estado desactivado correctamente", () => {
+describe("SSR Safe Coverage", () => {
+  test("should handle disabled state correctly", () => {
     const wrapper = createWrapper();
-    
     const { result } = renderHook(() => useReservationSSO(null, { enabled: false }), { wrapper });
-    
     expect(result.current.fetchStatus).toBe("idle");
     expect(result.current.data).toBeUndefined();
   });
