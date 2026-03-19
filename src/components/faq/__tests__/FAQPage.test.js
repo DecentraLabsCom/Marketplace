@@ -1,22 +1,34 @@
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import FAQ from '../FAQPage';
 
-describe('FAQPage', () => {
-  it('renders FAQ title and all questions', () => {
+describe('FAQPage Component', () => {
+  it('renders the FAQ heading', () => {
     render(<FAQ />);
-    expect(screen.getByText('Frequently Asked Questions')).toBeInTheDocument();
-    // Check some representative questions
-    expect(screen.getAllByText(/What is DecentraLabs/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/How do I access a lab/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Can I access labs from anywhere/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/How can I contact DecentraLabs support/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: /Frequently Asked Questions/i })).toBeInTheDocument();
   });
 
-  it('renders answers for each question', () => {
+  it('renders all static questions in the accordion map', () => {
     render(<FAQ />);
-    expect(screen.getByText(/DecentraLabs is a project revolutionizing/i)).toBeInTheDocument();
-    expect(screen.getByText(/To access a lab on DecentraLabs/i)).toBeInTheDocument();
-    expect(screen.getByText(/Yes, all labs on DecentraLabs are remotely accessible/i)).toBeInTheDocument();
-    expect(screen.getByText(/If you have any questions or need support/i)).toBeInTheDocument();
+    // Check for some known questions
+    expect(screen.getByText(/1. What is DecentraLabs\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/7. What is wallet authentication\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/14. How can I contact DecentraLabs support\?/i)).toBeInTheDocument();
+  });
+
+  it('renders the answer text linked to the questions', () => {
+    render(<FAQ />);
+    // We confirm the standard text is present in the DOM (details/summary standard HTML rendering)
+    expect(screen.getByText(/The marketplace offers a catalogue of online laboratories/i)).toBeInTheDocument();
+    expect(screen.getByText(/The \$LAB token is an ERC-20 token/i)).toBeInTheDocument();
+  });
+
+  it('renders details layout with svgs correctly', () => {
+    const { container } = render(<FAQ />);
+    const detailsElements = container.querySelectorAll('details.group');
+    expect(detailsElements.length).toBeGreaterThan(10); // Standard length check for faq items
+    
+    const svgElements = container.querySelectorAll('svg');
+    expect(svgElements.length).toBe(detailsElements.length);
   });
 });

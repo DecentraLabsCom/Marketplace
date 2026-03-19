@@ -1,33 +1,48 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Contact from '../ContactPage';
+import { sendMailto } from '@/utils/browser/sendMailto';
+
+// Mock the browser utility for sending mailto
 jest.mock('@/utils/browser/sendMailto', () => ({
   sendMailto: jest.fn(),
 }));
-import { sendMailto } from '@/utils/browser/sendMailto';
 
-describe('ContactPage', () => {
-  it('renders contact form and info', () => {
+describe('ContactPage Component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders the Contact Information heading and form fields', () => {
     render(<Contact />);
-    expect(screen.getByText('Contact Information')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Your Email')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Your Message')).toBeInTheDocument();
-    expect(screen.getByText('Send Message')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Contact Information/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Your Email/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Your Message/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Send Message/i })).toBeInTheDocument();
     expect(screen.getByText('contact@nebsyst.com')).toBeInTheDocument();
   });
 
-  it('submits the form and triggers mailto', () => {
+  it('calls sendMailto with formatted parameters on form submission', () => {
     render(<Contact />);
-    const emailInput = screen.getByPlaceholderText('Your Email');
-    const messageInput = screen.getByPlaceholderText('Your Message');
-    const form = emailInput.closest('form');
+    
+    // Fill the inputs
+    const emailInput = screen.getByPlaceholderText(/Your Email/i);
+    const messageInput = screen.getByPlaceholderText(/Your Message/i);
+    
+    fireEvent.change(emailInput, { target: { value: 'user@example.com' } });
+    fireEvent.change(messageInput, { target: { value: 'Hello, world!' } });
+    
+    // Submit the form
+    const submitBtn = screen.getByRole('button', { name: /Send Message/i });
+    fireEvent.click(submitBtn);
 
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
-    fireEvent.change(messageInput, { target: { value: 'Hello world!' } });
-    fireEvent.submit(form);
-
-    const mailtoArg = sendMailto.mock.calls[0][0];
-    expect(mailtoArg).toContain('mailto:contact@nebsyst.com');
-    expect(mailtoArg).toContain('test%40example.com');
-    expect(mailtoArg).toContain('Hello%20world!');
+    expect(sendMailto).toHaveBeenCalledTimes(1);
+    
+    // Check parameters format
+    const calledWithUri = sendMailto.mock.calls[0][0];
+    expect(calledWithUri).toContain('mailto:contact@nebsyst.com');
+    expect(calledWithUri).toContain('subject=New%20message%20from%20DecentraLabs%20form');
+    expect(calledWithUri).toContain('From%3A%20user%40example.com');
+    expect(calledWithUri).toContain('Hello%2C%20world!');
   });
 });
