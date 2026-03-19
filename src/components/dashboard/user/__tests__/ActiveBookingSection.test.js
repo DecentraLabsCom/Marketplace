@@ -72,4 +72,34 @@ describe('ActiveBookingSection', () => {
     render(<ActiveBookingSection userAddress={userAddress} activeBooking={activeBooking} cancellationStates={cancellationStates} />);
     expect(screen.getByRole('button')).toBeDisabled();
   });
+
+  it('retorna null en tiempos si el timestamp es invalido o faltante', () => {
+    const invalidBooking = { ...activeBooking, start: 'invalid', end: 0 };
+    render(<ActiveBookingSection userAddress={userAddress} activeBooking={invalidBooking} />);
+    expect(screen.getByText('no-start-no-end')).toBeInTheDocument();
+  });
+
+  it('no pasa onBookingAction si el estado de la reserva no es 0, 1 o 2', () => {
+    const onBookingAction = jest.fn();
+    // Estado 3 no permite acciones
+    const invalidStatusBooking = { ...activeBooking, status: 3 };
+    
+    // Al no pasarle onBookingAction a ActiveLabCard (porque la validación falla),
+    // el mock no hace nada en el onClick o desactiva el boton en base a las props
+    // We expect the click to not fire our mock
+    render(
+      <ActiveBookingSection 
+        userAddress={userAddress} 
+        activeBooking={invalidStatusBooking} 
+        onBookingAction={onBookingAction} 
+      />
+    );
+    
+    // We check if the the mock was triggered upon clicking
+    fireEvent.click(screen.getByRole('button', { name: /Request for Refund/i }));
+    // No debería haber sido llamado, ya que disabled={!onBookingAction} en el mock
+    // Wait, let's verify if the button has disabled logic in the mock
+    // if onBookingAction is null in the mock, it won't do anything
+    expect(onBookingAction).not.toHaveBeenCalled();
+  });
 });

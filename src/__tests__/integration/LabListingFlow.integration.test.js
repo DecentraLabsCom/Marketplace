@@ -43,6 +43,7 @@ const mockUploadMutateAsync = jest.fn().mockResolvedValue({
 });
 
 const mockDeleteMutate = jest.fn();
+const mockDeleteMutateAsync = jest.fn().mockResolvedValue({});
 
 jest.mock("@/hooks/provider/useProvider", () => ({
   useUploadFile: jest.fn(() => ({
@@ -50,7 +51,7 @@ jest.mock("@/hooks/provider/useProvider", () => ({
   })),
   useDeleteFile: jest.fn(() => ({
     mutate: mockDeleteMutate,
-    mutateAsync: jest.fn().mockResolvedValue({}),
+    mutateAsync: mockDeleteMutateAsync,
   })),
 }));
 
@@ -478,6 +479,87 @@ describe("LabModal Component - Lab Listing Flow", () => {
           name: "Updated Lab Name",
           category: ["electronics"],
           id: 1,
+        })
+      );
+    });
+  });
+
+  /**
+   * Test Case: Rollback uploaded files when lab creation fails or modal is closed
+   * Verifies that temporary files are deleted when the lab creation fails
+   */
+  test("rolls back temporary uploaded files when modal closes after failed submission", async () => {
+    // Mock onSubmit to fail
+    const mockOnSubmit = jest.fn().mockRejectedValue(new Error("Minting failed"));
+    const mockOnClose = jest.fn();
+
+    // Render modal
+    const { rerender } = renderWithAllProviders(
+      <LabModal
+        isOpen={true}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+        lab={null}
+        maxId={0}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Add New Lab")).toBeInTheDocument();
+    });
+
+    // Find upload buttons for Images and switch to Upload tab
+    const uploadButtons = screen.getAllByRole("button", { name: /upload/i });
+    // First upload button is for images
+    fireEvent.click(uploadButtons[0]);
+
+    // Create a mock file
+    const file = new File(['(⌐□_□)'], 'mock-image.jpg', { type: 'image/jpeg' });
+    
+    // Find the file input
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    const imageInput = Array.from(fileInputs).find(input => input.accept === "image/*");
+    
+    // Simulate user uploading a file
+    fireEvent.change(imageInput, { target: { files: [file] } });
+
+    // Wait for upload mutation to be called
+    await waitFor(() => {
+      expect(mockUploadMutateAsync).toHaveBeenCalled();
+    });
+
+    // Attempt to submit the form (which will fail due to our mock)
+    // We fill the required fields to bypass the synchronous validation
+    const labData = createValidLabFormData();
+    await fillFullSetupForm(labData);
+    
+    const submitButton = screen.getByRole("button", { name: /add lab/i });
+    fireEvent.click(submitButton);
+
+    // Verify it failed but onSubmit was attempted
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalled();
+    });
+
+    // Now "close" the modal to simulate the user giving up
+    // This should trigger the cleanup useEffect
+    rerender(
+      <LabModal
+        isOpen={false}
+        onClose={mockOnClose}
+        onSubmit={mockOnSubmit}
+        lab={null}
+        maxId={0}
+      />
+    );
+
+    // Verify the delete function was called to rollback the file
+    // Wait for the Promise.allSettled inside the useEffect to execute
+    await waitFor(() => {
+      expect(mockDeleteMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ 
+          filePath: "/mock/uploaded/file.jpg", 
+          deletingLab: false 
         })
       );
     });
