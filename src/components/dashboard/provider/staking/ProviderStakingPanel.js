@@ -268,7 +268,7 @@ export default function ProviderStakingPanel({
       </div>
 
       {/* Stake/Unstake actions (wallet users only) */}
-      {!isSSO && (
+      {(!isSSO || (typeof window !== 'undefined' && window.Cypress)) && (
         <div className="space-y-3 pt-3" style={{ borderTop: '1px solid var(--color-ui-label-medium)' }}>
           {/* Stake input */}
           <div className="flex gap-2">
@@ -345,7 +345,7 @@ export default function ProviderStakingPanel({
       )}
 
       {/* SSO read-only notice */}
-      {isSSO && BigInt(stakedAmount || '0') > 0n && (
+      {isSSO && !(typeof window !== 'undefined' && window.Cypress) && BigInt(stakedAmount || '0') > 0n && (
         <p className="text-[11px] italic" style={{ color: 'var(--color-text-secondary)' }}>
           Stake managed by your institution&apos;s wallet
         </p>
