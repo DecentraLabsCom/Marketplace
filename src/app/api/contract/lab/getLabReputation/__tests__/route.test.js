@@ -1,7 +1,7 @@
 /**
- * Tests for GET /api/contract/lab/getPendingLabPayout
+ * Tests for GET /api/contract/lab/getLabReputation
  * Public GET, labId param, uses createSerializedJsonResponse.
- * Returns walletPayout, institutionalPayout, totalPayout.
+ * Transforms contract reputation object: score, totalEvents, ownerCancellations, etc.
  */
 import { GET } from '../route'
 import { getContractInstance } from '../../../utils/contractInstance'
@@ -10,7 +10,6 @@ jest.mock('../../../utils/contractInstance', () => ({ getContractInstance: jest.
 jest.mock('@/utils/blockchain/bigIntSerializer', () => ({
   createSerializedJsonResponse: jest.fn((data, init) => ({ status: init?.status ?? 200, json: async () => data })),
 }))
-jest.mock('@/utils/dev/logger', () => ({ log: jest.fn(), warn: jest.fn(), error: jest.fn() }))
 
 if (!global.Response) {
   global.Response = class {
@@ -22,42 +21,43 @@ function makeRequest(params = {}) {
   return { url: `http://localhost/?${new URLSearchParams(params)}` }
 }
 
-describe('GET /api/contract/lab/getPendingLabPayout', () => {
+describe('GET /api/contract/lab/getLabReputation', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     getContractInstance.mockResolvedValue({
-      getPendingLabPayout: jest.fn().mockResolvedValue({
-        walletPayout: BigInt(1000),
-        institutionalPayout: BigInt(500),
-        totalPayout: BigInt(1500),
-        institutionalCollectorCount: BigInt(2),
+      getLabReputation: jest.fn().mockResolvedValue({
+        score: BigInt(85),
+        totalEvents: BigInt(20),
+        ownerCancellations: BigInt(1),
+        institutionalCancellations: BigInt(2),
+        lastUpdated: BigInt(1700000000),
       }),
     })
   })
+
+  afterEach(() => { console.log.mockRestore(); console.error.mockRestore() })
 
   it('returns 400 when labId is missing', async () => {
     const res = await GET(makeRequest())
     expect(res.status).toBe(400)
   })
 
-  it('returns 400 when labId is invalid', async () => {
-    const res = await GET(makeRequest({ labId: '-5' }))
-    expect(res.status).toBe(400)
-  })
-
-  it('returns payout data on success', async () => {
+  it('returns transformed reputation data on success', async () => {
     const res = await GET(makeRequest({ labId: '1' }))
     const data = await res.json()
     expect(res.status).toBe(200)
-    expect(data.walletPayout).toBe('1000')
-    expect(data.institutionalPayout).toBe('500')
-    expect(data.totalPayout).toBe('1500')
-    expect(data.institutionalCollectorCount).toBe(2)
+    expect(data.score).toBe(85)
+    expect(data.totalEvents).toBe(20)
+    expect(data.ownerCancellations).toBe(1)
+    expect(data.institutionalCancellations).toBe(2)
+    expect(data.lastUpdated).toBe(1700000000)
   })
 
   it('returns 500 on contract error', async () => {
     getContractInstance.mockResolvedValue({
-      getPendingLabPayout: jest.fn().mockRejectedValue(new Error('RPC Error')),
+      getLabReputation: jest.fn().mockRejectedValue(new Error('RPC Error')),
     })
     const res = await GET(makeRequest({ labId: '1' }))
     expect(res.status).toBe(500)
