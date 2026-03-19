@@ -1,0 +1,123 @@
+/**
+ * Tests for POST /api/institutions/registerProvider
+ * Validates provisioning token, creates provider on blockchain via Diamond contract.
+ */
+import { POST } from '../route'
+import { headers } from 'next/headers'
+import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
+import { extractBearerToken, verifyProvisioningToken } from '@/utils/auth/provisioningToken'
+
+jest.mock('@/utils/dev/logger', () => {
+  const m = { log: jest.fn(), warn: jest.fn(), error: jest.fn() }
+  return { __esModule: true, default: m, devLog: m, log: m.log, warn: m.warn, error: m.error }
+})
+jest.mock('next/server', () => ({
+  NextResponse: { json: jest.fn((data, init) => ({ status: init?.status ?? 200, body: data })) }
+}))
+jest.mock('next/headers', () => ({ headers: jest.fn() }))
+jest.mock('@/app/api/contract/utils/contractInstance', () => ({ getContractInstance: jest.fn() }))
+jest.mock('@/utils/auth/marketplaceJwt', () => ({
+  __esModule: true,
+  default: { normalizeOrganizationDomain: jest.fn(d => d.toLowerCase()) }
+}))
+jest.mock('@/utils/auth/provisioningToken', () => ({
+  extractBearerToken: jest.fn(),
+  normalizeHttpsUrl: jest.fn(u => u),
+  requireEmail: jest.fn(e => e),
+  requireString: jest.fn(s => s),
+  verifyProvisioningToken: jest.fn(),
+}))
+
+function makeRequest(body) {
+  return { json: async () => body, nextUrl: { origin: 'https://marketplace.com' }, url: 'https://marketplace.com' }
+}
+
+describe('POST /api/institutions/registerProvider', () => {
+  let mockWriteContract
+  let mockReadContract
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    
+    headers.mockResolvedValue({ get: jest.fn().mockReturnValue('Bearer jwt.token') })
+    extractBearerToken.mockReturnValue('jwt.token')
+    verifyProvisioningToken.mockResolvedValue({
+      type: 'provider',
+      providerName: 'Test Provider',
+      providerEmail: 'test@provider.com',
+      providerCountry: 'ES',
+      providerOrganization: 'provider.com',
+      publicBaseUrl: 'https://backend.provider.com'
+    })
+
+    mockReadContract = {
+      isLabProvider: jest.fn().mockRejectedValue(new Error('Not found')),
+      resolveSchacHomeOrganization: jest.fn().mockResolvedValue('0x0000000000000000000000000000000000000000'),
+      getSchacHomeOrganizationBackend: jest.fn().mockRejectedValue(new Error('No backend'))
+    }
+
+    mockWriteContract = {
+      addProvider: jest.fn().mockResolvedValue({ wait: jest.fn().mockResolvedValue({ hash: '0xHash1' }) }),
+      grantInstitutionRole: jest.fn().mockResolvedValue({ wait: jest.fn().mockResolvedValue({ hash: '0xHash2' }) }),
+      adminSetSchacHomeOrganizationBackend: jest.fn().mockResolvedValue({ wait: jest.fn().mockResolvedValue({ hash: '0xHash3' }) })
+    }
+
+    getContractInstance.mockImplementation((type, isRead) => isRead ? mockReadContract : mockWriteContract)
+  })
+
+  it('returns 401 if token is missing', async () => {
+    extractBearerToken.mockReturnValue(null)
+    const res = await POST(makeRequest({}))
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 401 if token verification fails', async () => {
+    verifyProvisioningToken.mockRejectedValue(new Error('Invalid token'))
+    const res = await POST(makeRequest({}))
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 400 if token type is consumer', async () => {
+    verifyProvisioningToken.mockResolvedValue({ type: 'consumer' })
+    const res = await POST(makeRequest({}))
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/Consumer provisioning token is not valid/)
+  })
+
+  it('returns 400 if wallet format is invalid', async () => {
+    const res = await POST(makeRequest({ walletAddress: 'invalid' }))
+    expect(res.status).toBe(400)
+    expect(res.body.error).toMatch(/Invalid wallet address format/)
+  })
+
+  it('registers new provider successfully', async () => {
+    const res = await POST(makeRequest({ walletAddress: '0x1234567890abcdef1234567890abcdef12345678' }))
+    expect(res.status).toBe(201)
+    expect(res.body.success).toBe(true)
+    expect(res.body.txHashes).toHaveLength(3)
+    expect(mockWriteContract.addProvider).toHaveBeenCalled()
+    expect(mockWriteContract.grantInstitutionRole).toHaveBeenCalled()
+    expect(mockWriteContract.adminSetSchacHomeOrganizationBackend).toHaveBeenCalled()
+  })
+
+  it('returns 200 with alreadyRegistered true if fully registered', async () => {
+    const wallet = '0x1234567890abcdef1234567890abcdef12345678'
+    mockReadContract.isLabProvider.mockResolvedValue(true)
+    mockReadContract.resolveSchacHomeOrganization.mockResolvedValue(wallet)
+    mockReadContract.getSchacHomeOrganizationBackend.mockResolvedValue('https://backend.provider.com')
+    
+    const res = await POST(makeRequest({ walletAddress: wallet }))
+    expect(res.status).toBe(200)
+    expect(res.body.alreadyRegistered).toBe(true)
+    expect(mockWriteContract.addProvider).not.toHaveBeenCalled()
+  })
+
+  it('returns 409 if organization is registered to different wallet', async () => {
+    const wallet = '0x1234567890abcdef1234567890abcdef12345678'
+    mockReadContract.resolveSchacHomeOrganization.mockResolvedValue('0x9999999999999999999999999999999999999999') // Different wallet
+    
+    const res = await POST(makeRequest({ walletAddress: wallet }))
+    expect(res.status).toBe(409)
+    expect(res.body.error).toMatch(/Organization already registered to a different wallet/)
+  })
+})

@@ -5,9 +5,18 @@ import {
   useProvidersWithNames,
   useProviderDetails,
   useAllUsersComposed,
-  useProviderStatusComposed
+  useProviderStatusComposed,
+  useBatchProviderCheck,
+  useAllUsersBasic,
+  useAllUsersFull
 } from '../useUserComposedQueries';
 import * as atomic from '../useUserAtomicQueries';
+import * as reactQuery from '@tanstack/react-query';
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueries: jest.fn()
+}));
+
 describe('useUserComposedQueries hooks', () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -37,6 +46,12 @@ describe('useUserComposedQueries hooks', () => {
       isPaused: false,
       isStale: false
     }));
+    reactQuery.useQueries.mockImplementation(({ queries, combine }) => {
+      const results = queries.map(q => ({
+        data: { isProvider: true }, isLoading: false, error: null, refetch: jest.fn()
+      }));
+      return combine ? combine(results) : results;
+    });
   });
 
   test('useProvidersWithNames returns formatted provider list', () => {
@@ -68,6 +83,48 @@ describe('useUserComposedQueries hooks', () => {
     expect(result.data.name).toBe('Alice');
     expect(result.data.details).toEqual({ account: '0x123', name: 'Alice' });
     expect(result.isSuccess).toBe(true);
+  });
+
+  test('useProviderStatusComposed returns error when provider address is missing', () => {
+    const result = useProviderStatusComposed('');
+    expect(result.isError).toBe(true);
+    expect(result.data.address).toBeNull();
+    expect(result.error.message).toBe('Provider address is required');
+    expect(result.meta.failedQueries).toBe(1);
+  });
+
+  test('useProviderStatusComposed handles partial failure', () => {
+    atomic.useGetLabProviders.mockImplementation(() => ({
+      data: null, isLoading: false, isSuccess: false, isError: true, error: new Error('API down'), refetch: jest.fn()
+    }));
+    const result = useProviderStatusComposed('0x123');
+    expect(result.isError).toBe(true);
+    expect(result.meta.hasPartialFailures).toBe(true); // one succeeded (isLabProvider), one failed
+  });
+
+  test('useBatchProviderCheck combines multiple check queries', () => {
+    const refetchMock = jest.fn();
+    reactQuery.useQueries.mockImplementation(({ queries, combine }) => {
+      const results = queries.map((q, i) => ({
+        data: { isProvider: i === 0 }, isLoading: false, error: null, refetch: refetchMock
+      }));
+      return combine(results);
+    });
+    
+    const result = useBatchProviderCheck(['0x123', '0x456']);
+    expect(result.data['0x123']).toEqual({ isProvider: true });
+    expect(result.data['0x456']).toEqual({ isProvider: false });
+    expect(result.isLoading).toBe(false);
+    
+    result.refetch();
+    expect(refetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test('aliases useAllUsersBasic and useAllUsersFull return composed data', () => {
+    const basicResult = useAllUsersBasic();
+    const fullResult = useAllUsersFull();
+    expect(basicResult.data.providers.length).toBe(2);
+    expect(fullResult.data.providers.length).toBe(2);
   });
 });
 import {
