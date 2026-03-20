@@ -1026,9 +1026,9 @@ Implementamos y estabilizamos los flujos más complejos del Marketplace utilizan
 Aunque se cumplió la cuota prioritaria (P0/P1) y se superó el Target global de Jest, las siguientes áreas documentadas en `TESTING.md` aún requieren implementación o están en progreso temporal:
 
 ### 1. Cypress E2E Específicos
-- **`staking.cy.js`**: En progreso (el runner E2E local logra derivar el contexto Web3 nativo, pero está estancado validando la opacidad en el DOM de `ProviderStakingPanel`).
-- **`access-checkin.cy.js`**: Faltan los Interceptores completos para la validación del Ticket Criptográfico (Backend) al inyectar el Access Token en el iFrame del Lab remoto.
-- **`failure-modes.cy.js`**: Módulo transversal de Testing no iniciado. Requerirá instanciar un simulador forzando fallos `HTTP 401`, Timeout Exceptions para la red IPFS, y discrepancias de red activa (e.g. Forzar al usuario a Mainnet vs Sepolia Testnet).
+- **`staking.cy.js`**: Implementado satisfactoriamente (Staking UI y Liberación de Depósitos de Proveedor).
+- **`access-checkin.cy.js`**: Implementado satisfactoriamente (Simulación del Portal Shell Virtual Web 3.0 con JWT Crypto Tickets y Rechazo por Acceso Expirado).
+- **`failure-modes.cy.js`**: Implementado satisfactoriamente (Batería "Sad Path" validando Timeouts, 500 Error Boundaries, Colisiones transversales 409 y Mocks SSO sin balance Web3).
 
 ### 2. Gaps Pendientes de Cobertura (Unitario / Integración)
 - **Hooks Atómicos Mutables**: `useBookingAtomicMutations.js`, `useLabAtomicMutations.js`, `useStakingAtomicMutations.js`. (Los Queries de lectura fueron cubiertos, pero las Mutaciones complejas faltan afinar al 100% en dependencias).
