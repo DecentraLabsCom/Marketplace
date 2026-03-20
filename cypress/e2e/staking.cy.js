@@ -23,6 +23,8 @@ describe("Staking Lifecycle & Verification", () => {
           if (method === "eth_chainId") return "0xaa36a7"; // 11155111 Sepolia
           if (method === "net_version") return "11155111";
           if (method === "eth_sendTransaction") return "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+          if (method === "eth_estimateGas") return "0x5208"; // Standard mock gas
+          if (method === "eth_call") return "0x"; // Return empty bytes to simulate successful contract write
           return [];
         },
         on: (event, callback) => {
