@@ -76,7 +76,7 @@ const mockReservations = [
 import * as ssrSafeModule from '@/utils/hooks/ssrSafe';
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import {
   useReservationSSO,
   useReservationsOfTokenSSO,
@@ -261,9 +261,7 @@ describe("useReservationsOfTokenSSO", () => {
             expect(reservation.exists).toBe(true);
           });
 
-        test("normalizes BigInt wagmi data to SSO shape and consistent cache key", () => {});
-        test("surfaces error after retries exhausted", async () => {});
-        describe("useReservationOfTokenByIndexSSO", () => {});
+
 
 
   // useReservationsOfTokenSSO Tests
@@ -281,7 +279,7 @@ describe("useReservationsOfTokenSSO", () => {
       let { result, rerender } = renderHook(() => useReservationsOfTokenSSO(null), { wrapper });
       await waitFor(() => result.current !== undefined);
       // Debug log
-      // eslint-disable-next-line no-console
+       
       console.log('null labId result:', result.current);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isFetching).toBe(false);
@@ -292,7 +290,7 @@ describe("useReservationsOfTokenSSO", () => {
       global.fetch.mockClear();
       rerender(() => useReservationsOfTokenSSO(undefined));
       await waitFor(() => result.current !== undefined);
-      // eslint-disable-next-line no-console
+       
       console.log('undefined labId result:', result.current);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isFetching).toBe(false);
@@ -303,7 +301,7 @@ describe("useReservationsOfTokenSSO", () => {
       global.fetch.mockClear();
       rerender(() => useReservationsOfTokenSSO(""));
       await waitFor(() => result.current !== undefined);
-      // eslint-disable-next-line no-console
+       
       console.log('empty string labId result:', result.current);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.isFetching).toBe(false);
@@ -325,7 +323,7 @@ describe("useReservationsOfTokenSSO", () => {
       { wrapper }
     );
     await waitFor(() => result.current !== undefined);
-    // eslint-disable-next-line no-console
+     
     console.log('custom options result:', result.current);
     expect(["idle", "pending", undefined]).toContain(result.current.fetchStatus);
     expect(result.current.isLoading).toBe(false);
@@ -394,7 +392,7 @@ test("normalizes BigInt wagmi data to SSO shape and consistent cache key", async
   it("error en fetch: el hook devuelve error si la llamada a la API falla", async () => {
     global.fetch.mockImplementationOnce((url, options) => {
       // Diagnostic log
-      // eslint-disable-next-line no-console
+       
       console.log('fetch called (error):', url, options);
       return Promise.resolve({
         ok: false,

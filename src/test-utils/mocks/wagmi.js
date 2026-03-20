@@ -24,7 +24,6 @@ const { mainnet, sepolia } = require('./wagmiChains');
  *  - useReadContract, usePublicClient
  *  - WagmiProvider, createConfig, http, fallback
  */
-const { mainnet, sepolia } = require('./wagmiChains');
 
 module.exports = {
   useConnection: () => ({ accounts: ['0x123'], chain: { id: 1, name: 'sepolia' }, status: 'connected' }),

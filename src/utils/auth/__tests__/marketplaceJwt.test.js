@@ -56,9 +56,7 @@ describe('normalizeOrganizationDomain', () => {
       const domains = ['Org.com', 'org.com'];
       const result = await marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains });
       // Debug log
-      // eslint-disable-next-line no-console
       console.log('Result:', result);
-      // eslint-disable-next-line no-console
       console.log('jwt.sign mock calls:', jwt.sign.mock.calls);
       expect(result && result.token).toBe('mocked.jwt.token');
       expect(result && result.payload.organizationDomains).toEqual(['org.com']);
@@ -87,9 +85,7 @@ describe('normalizeOrganizationDomain', () => {
       const wallet = '0x1111111111111111111111111111111111111111';
       const result = await marketplaceJwtService.generateInstitutionInviteToken({ samlUser, domains, expectedWallet: wallet });
       // Debug log
-      // eslint-disable-next-line no-console
       console.log('Result:', result);
-      // eslint-disable-next-line no-console
       console.log('jwt.sign mock calls:', jwt.sign.mock.calls);
       expect(result && result.token).toBe('mocked.jwt.token');
       expect(result && result.payload.expectedWallet).toBe(wallet);

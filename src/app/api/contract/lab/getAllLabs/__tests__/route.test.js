@@ -67,10 +67,17 @@ describe('GET /api/contract/lab/getAllLabs', () => {
 
   it('returns 500 on unexpected error in non-production', async () => {
     const originalEnv = process.env.NODE_ENV
+    const originalCI = process.env.CI
     process.env.NODE_ENV = 'development'
+    process.env.CI = 'false'
     getContractInstance.mockRejectedValue(new Error('Some fatal error'))
     const res = await GET()
     expect(res.status).toBe(500)
     process.env.NODE_ENV = originalEnv
+    if (originalCI === undefined) {
+      delete process.env.CI
+    } else {
+      process.env.CI = originalCI
+    }
   })
 })
