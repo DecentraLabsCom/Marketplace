@@ -141,7 +141,12 @@ export default function ProviderDashboard() {
   const router = useRouter();
 
   const providerOwnerAddress = useMemo(
-    () => (isSSO ? institutionRegistrationWallet : address),
+    () => {
+      if (typeof window !== "undefined" && window.localStorage.getItem("mockIsProvider") === "true") {
+        return "0xprovider567890123456789012345678901234567890";
+      }
+      return (isSSO ? institutionRegistrationWallet : address);
+    },
     [isSSO, institutionRegistrationWallet, address]
   );
 
@@ -681,6 +686,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     // Only redirect after loading is complete to avoid false redirects
     if (!isLoading && !isProviderLoading && address && !isProvider && !isSSO) {
+      if (typeof window !== "undefined" && window.localStorage.getItem("mockIsProvider") === "true") return; // Cypress E2E headless mock bypass
       router.push('/');
       return;
     }

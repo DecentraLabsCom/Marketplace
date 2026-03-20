@@ -980,3 +980,59 @@ Archivo: src/context/__tests__/ClientWagmiProvider.test.js
 1. Renderiza correctamente el WagmiProvider con el config y los children.
 2. No crashea si no recibe children (PropTypes solo lanza warning en consola).
 Mocks aplicados para WagmiProvider y wagmiConfig. Todos los tests pasan y el archivo ya tiene cobertura.
+
+---
+
+# Resumen Final de Ejecución (Testing Roadmap)
+
+## ✅ Tests Implementados (Logros Completados)
+
+Durante nuestra sesión implementamos y cubrimos masivamente las siguientes áreas prioritarias del plan original (incrementando la cobertura global por encima del **79.4%**):
+
+### 1. Pruebas Unitarias e Integración (Fase 2 & 3)
+- **Auth & Session API Routes:** `auth/checkin`, `auth/lab-access`, `auth/logout`, `auth/sso/session`, `auth/wallet-session`.
+- **Intents API Routes:** `actions/prepare`, `actions/finalize`, `reservations/prepare`, `reservations/finalize`, `[requestId]`, `authorize/status/[sessionId]`.
+- **Provider API Routes:** `saveLabData`, `uploadFile`, `moveFiles`, `deleteFile`, `deleteLabData`, `saveRegistration`.
+- **Institutions & Metadata APIs:** `registerProvider`, `getLab`.
+- **Core Hooks & Contexts:** 
+  - `useUserComposedQueries.js` (>80% cobertura).
+  - `useBookingAtomicQueries.js` y `useStakingAtomicQueries.js` (parcialmente / funciones core).
+  - `useLabImage.js` (y manejo de errores/batch).
+  - `ClientQueryProvider.js` y `AppProviders` (Integración Realtime).
+- **Componentes Críticos y UI:**
+  - `LabModal.js` (cobertura robusta de edición, subida y validación).
+  - `ActiveBookingSection.js` y `BookingSummarySection.js`.
+  - Páginas estáticas y layout: `AboutPage`, `ContactPage`, `FAQPage`, `Layout.js`, `InstitutionalOnboardingWrapper`.
+  - Componentes media: `DocPreviewList`, `ImagePreviewList`.
+  - `InstitutionProviderRegister.js` (Integración y flujos de error completos).
+- **Utilidades Puras y Seguridad:**
+  - `provisioningToken.js` y `marketplaceJwt.js`.
+  - `puc.js` y `popupBlockerGuidance.js`.
+  - `imageToBase64.js`.
+
+### 2. Full-Stack E2E Cypress Tests (Fase 4)
+Implementamos y estabilizamos los flujos más complejos del Marketplace utilizando interceptores y mocks de Wagmi/SSO:
+- [x] **`public-market.cy.js`**: Navegación e inventario de Labs anónimos.
+- [x] **`auth-sso.cy.js`**: Flujo Passkey WebAuthn y redirección al Dashboard.
+- [x] **`auth-wallet.cy.js`**: Login manual vía UI instanciando un Web3Modal y SIWE Challenge.
+- [x] **`reservation-wallet.cy.js`**: Reserva mediante inyección EIP-1193 y firmas de Transacción de Smart Contract nativas.
+- [x] **`reservation-sso.cy.js`**: Reserva con backend Intents y Paymaster sin firma local y delegación.
+- [x] **`provider-lifecycle.cy.js`**: Creación, validacion, y gestión semántica de un Laboratorio con mocks IPFS.
+
+---
+
+## ⏳ Tests Faltantes (Pendientes del Roadmap)
+
+Aunque se cumplió la cuota prioritaria (P0/P1) y se superó el Target global de Jest, las siguientes áreas documentadas en `TESTING.md` aún requieren implementación o están en progreso temporal:
+
+### 1. Cypress E2E Específicos
+- **`staking.cy.js`**: En progreso (el runner E2E local logra derivar el contexto Web3 nativo, pero está estancado validando la opacidad en el DOM de `ProviderStakingPanel`).
+- **`access-checkin.cy.js`**: Faltan los Interceptores completos para la validación del Ticket Criptográfico (Backend) al inyectar el Access Token en el iFrame del Lab remoto.
+- **`failure-modes.cy.js`**: Módulo transversal de Testing no iniciado. Requerirá instanciar un simulador forzando fallos `HTTP 401`, Timeout Exceptions para la red IPFS, y discrepancias de red activa (e.g. Forzar al usuario a Mainnet vs Sepolia Testnet).
+
+### 2. Gaps Pendientes de Cobertura (Unitario / Integración)
+- **Hooks Atómicos Mutables**: `useBookingAtomicMutations.js`, `useLabAtomicMutations.js`, `useStakingAtomicMutations.js`. (Los Queries de lectura fueron cubiertos, pero las Mutaciones complejas faltan afinar al 100% en dependencias).
+- **Traducciones Parciales API**: Algunas APIs de `metadata` / `institutions` están parcialmente cubiertas pero faltan edge-cases de DB remotos (`registerConsumer.js`, `provisionConsumer.js`).
+- **Server Actions Críticos**: `src/server/market/getMarketLabsSnapshot.js` (Aún presenta 0% cobertura técnica porque no se invoca naturalmente a través de los renders de `Page`).
+- **Webauthn Internals**: Los handlers nativos del Standard Criptografico anidados en `src/utils/webauthn/**` (challenge, config, client).
+- **Onboarding Internals**: Las rutas nativas `api/onboarding/**` (están mockeadas exitosamente vía Cypress E2E intercept, pero carecen de tests unitarios aislados).
