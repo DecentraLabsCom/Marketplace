@@ -76,7 +76,6 @@ const mockReservations = [
 import * as ssrSafeModule from '@/utils/hooks/ssrSafe';
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useGetIsWallet } from "@/utils/hooks/authMode";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import {
   useReservationSSO,

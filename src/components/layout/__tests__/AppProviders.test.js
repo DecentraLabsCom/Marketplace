@@ -31,7 +31,6 @@ import refreshIndicatorMock from '@/components/layout/DataRefreshIndicator';
 import onboardingMock from '@/components/auth/InstitutionalOnboardingWrapper';
 
 // Patch the variables in the test scope
-// eslint-disable-next-line no-global-assign
 global.GlobalNotificationStack = notificationsMock.default;
 global.PopupBlockerModal = popupBlockerMock.default;
 global.DataRefreshIndicator = refreshIndicatorMock.default;

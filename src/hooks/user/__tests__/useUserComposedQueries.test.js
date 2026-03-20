@@ -23,7 +23,7 @@ describe('useUserComposedQueries hooks', () => {
     atomic.useGetLabProviders.mockImplementation(() => ({
       data: { providers: [
         { account: '0x123', name: 'Alice' },
-        { account: '0x456', account: '0x456' }
+        { account: '0x456' }
       ], count: 2, timestamp: 'now' },
       isLoading: false,
       isSuccess: true,
@@ -58,7 +58,7 @@ describe('useUserComposedQueries hooks', () => {
     const result = useProvidersWithNames();
     expect(result.data).toEqual([
       { account: '0x123', name: 'Alice', displayName: 'Alice' },
-      { account: '0x456', account: '0x456', displayName: '0x456' }
+      { account: '0x456', displayName: '0x456' }
     ]);
     expect(result.meta.totalProviders).toBe(2);
   });

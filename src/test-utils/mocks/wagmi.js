@@ -1,9 +1,3 @@
-  // Mock for usePublicClient (Wagmi v2+)
-  usePublicClient: jest.fn(() => ({
-    chain: { id: 1, name: 'sepolia' },
-    transport: {},
-    request: jest.fn(),
-  })),
 /**
  * Mock for 'wagmi' hooks and utilities used in tests.
  * ------------------------------------------------

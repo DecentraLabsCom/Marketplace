@@ -1,6 +1,7 @@
 /**
  * Mock for 'wagmi' hooks and utilities used in tests (CommonJS).
  */
+/* eslint-env jest */
 const { mainnet, sepolia } = require('./wagmiChains');
 
 const wagmiMock = {

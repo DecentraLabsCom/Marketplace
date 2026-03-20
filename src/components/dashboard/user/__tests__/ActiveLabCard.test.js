@@ -145,7 +145,7 @@ const renderCard = (props = {}) => {
   return render(<ActiveLabCard {...defaultProps} />);
 };
 
-describe("ActiveLabCard", () => {
+describe("ActiveLabCard Component Details", () => {
   describe("No Lab State", () => {
     test('displays "no lab" message when lab is null', () => {
       renderCard({ lab: null });

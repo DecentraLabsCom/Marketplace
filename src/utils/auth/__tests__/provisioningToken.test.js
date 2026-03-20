@@ -111,8 +111,6 @@ beforeAll(async () => {
       require('jose').jwtVerify = origJwtVerify;
     });
   });
-import * as provisioningToken from '../provisioningToken';
-
 describe('provisioningToken.js', () => {
   describe('normalizeHttpsUrl', () => {
     it('trims and returns valid http/https URLs', () => {

@@ -357,24 +357,11 @@ export const usePendingLabPayout = (labId, options = {}) => {
 export const usePendingLabPayouts = (labIds = [], options = {}) => {
   const normalizedLabIds = useMemo(() => normalizeLabIds(labIds), [labIds])
 
-  // Si no hay labIds válidos, devolver estructura vacía
-  if (normalizedLabIds.length === 0) {
-    return {
-      data: { payoutsByLabId: {}, items: [] },
-      isLoading: false,
-      isError: false,
-      error: undefined,
-      refetch: () => {},
-      isSuccess: true,
-      isFetched: true,
-      // ...otros flags de React Query si se necesitan
-    };
-  }
-
   return useQuery({
     queryKey: stakingQueryKeys.pendingPayoutsMulti(normalizedLabIds.map(String)),
     queryFn: () => getPendingLabPayoutsQueryFn(normalizedLabIds),
     enabled: normalizedLabIds.length > 0 && options.enabled !== false,
+    initialData: normalizedLabIds.length === 0 ? { payoutsByLabId: {}, items: [] } : undefined,
     ...STAKING_QUERY_CONFIG,
     ...options,
   })

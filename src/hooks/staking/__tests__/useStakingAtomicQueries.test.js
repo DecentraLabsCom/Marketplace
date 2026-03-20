@@ -336,7 +336,6 @@ import { renderHook } from '@testing-library/react';
 // Helper para esperar un estado del hook (isSuccess/isError)
 async function waitForHookState(getter, predicate, timeout = 2000, interval = 20) {
   const start = Date.now();
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     if (predicate(getter())) return;
     if (Date.now() - start > timeout) throw new Error('Timeout waiting for hook state');

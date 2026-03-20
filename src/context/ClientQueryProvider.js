@@ -38,7 +38,8 @@ const persister = createSyncStoragePersister({
 
 // Track logged query types to avoid spam and initialization state
 const loggedQueryTypes = new Set();
-let isInitialized = false;
+export let isInitialized = false;
+export const __resetIsInitializedForTests = () => { isInitialized = false; };
 
 // Exportable logger for test injection
 export let devLog = devLogDefault;
@@ -100,9 +101,9 @@ export default function ClientQueryProvider({ children, logger }) {
   useEffect(() => {
     if (isInitialized) return;
     const initializeEssentialCaches = () => {
+      const log = (...args) => (logger ? logger.log(...args) : devLog.log(...args));
+      const warn = (...args) => (logger ? logger.warn(...args) : devLog.warn(...args));
       try {
-        const log = (...args) => (logger ? logger.log(...args) : devLog.log(...args));
-        const warn = (...args) => (logger ? logger.warn(...args) : devLog.warn(...args));
         log('🏗️ Checking existing cache state on app startup...');
         const allLabsKey = labQueryKeys.getAllLabs();
         const existingLabsData = globalQueryClient.getQueryData(allLabsKey);

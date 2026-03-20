@@ -117,9 +117,6 @@ describe('normalizeOrganizationDomain', () => {
  * - Token decoding
  */
 
-import marketplaceJwtService from "../marketplaceJwt";
-import jwt from "jsonwebtoken";
-
 // Mock dependencies
 jest.mock("jsonwebtoken");
 jest.mock("@/utils/dev/logger", () => ({

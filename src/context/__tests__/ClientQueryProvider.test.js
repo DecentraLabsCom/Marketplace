@@ -1,6 +1,6 @@
 import React from 'react'
 import { render } from '@testing-library/react'
-import ClientQueryProvider, { globalQueryClient, shouldDehydrateQuery, setDevLogLogger } from '../ClientQueryProvider'
+import ClientQueryProvider, { globalQueryClient, shouldDehydrateQuery, setDevLogLogger, __resetIsInitializedForTests } from '../ClientQueryProvider'
 import { act } from '@testing-library/react';
 
 jest.mock('@tanstack/react-query-devtools', () => ({
@@ -17,17 +17,14 @@ jest.mock('@tanstack/query-sync-storage-persister', () => ({
 }))
 
   let devLog;
-  let providerModule;
   beforeEach(() => {
     process.env.NODE_ENV = 'development';
-    jest.resetModules();
-    providerModule = require('../ClientQueryProvider');
     devLog = {
       log: jest.fn(),
       warn: jest.fn(),
     };
     // Reset isInitialized to ensure useEffect runs
-    providerModule.isInitialized = false;
+    __resetIsInitializedForTests();
   });
 
   it('renders children and devtools', () => {
@@ -51,9 +48,9 @@ jest.mock('@tanstack/query-sync-storage-persister', () => ({
       log: jest.fn(),
       warn: jest.fn(),
     };
-    providerModule.isInitialized = false;
-    providerModule.globalQueryClient.getQueryData = jest.fn(() => undefined);
-    return act(async () => {
+    __resetIsInitializedForTests();
+    globalQueryClient.getQueryData = jest.fn(() => undefined);
+    act(() => {
       render(<ClientQueryProvider logger={logger}><div /></ClientQueryProvider>);
     });
     expect(logger.log).toHaveBeenCalledWith('🏗️ Checking existing cache state on app startup...');
@@ -66,9 +63,9 @@ jest.mock('@tanstack/query-sync-storage-persister', () => ({
       log: jest.fn(),
       warn: jest.fn(),
     };
-    providerModule.isInitialized = false;
-    providerModule.globalQueryClient.getQueryData = jest.fn(() => [{}, {}]);
-    return act(async () => {
+    __resetIsInitializedForTests();
+    globalQueryClient.getQueryData = jest.fn(() => [{}, {}]);
+    act(() => {
       render(<ClientQueryProvider logger={logger}><div /></ClientQueryProvider>);
     });
     expect(logger.log).toHaveBeenCalledWith('📦 Found existing all-labs cache with', 2, 'entries');
@@ -79,9 +76,9 @@ jest.mock('@tanstack/query-sync-storage-persister', () => ({
       log: jest.fn(),
       warn: jest.fn(),
     };
-    providerModule.isInitialized = false;
-    providerModule.globalQueryClient.getQueryData = jest.fn(() => { throw new Error('fail') });
-    return act(async () => {
+    __resetIsInitializedForTests();
+    globalQueryClient.getQueryData = jest.fn(() => { throw new Error('fail') });
+    act(() => {
       render(<ClientQueryProvider logger={logger}><div /></ClientQueryProvider>);
     });
     expect(logger.warn).toHaveBeenCalledWith('⚠️ Failed to check cache state:', 'fail');
