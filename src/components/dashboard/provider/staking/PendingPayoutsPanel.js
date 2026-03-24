@@ -1,21 +1,21 @@
 /**
- * Pending Payouts Panel component
- * Displays per-lab pending payout breakdown for the provider
- * Shows wallet vs institutional payout split and total collectible amount
+ * Provider Receivables Panel component
+ * Displays per-lab provider receivable breakdown for the provider
+ * Shows EUR-denominated settlement amounts derived from credit accruals
  */
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { usePendingLabPayouts } from '@/hooks/staking/useStakingAtomicQueries'
+import { useProviderReceivables } from '@/hooks/staking/useStakingAtomicQueries'
 import { useLabToken } from '@/context/LabTokenContext'
 import { formatRawAmount } from '@/utils/blockchain/formatTokens'
 
 /**
  * Revenue split percentages from LibRevenue.sol
- * provider: 70%, treasury: 15%, subsidies: 10%, governance: 5%
+ * provider: 70%, platform: 15%, subsidies: 10%, governance: 5%
  */
 const REVENUE_SPLIT = {
   provider: 70,
-  treasury: 15,
+  platform: 15,
   subsidies: 10,
   governance: 5,
 }
@@ -24,11 +24,11 @@ const getLabId = (lab) => lab?.id ?? lab?.tokenId ?? lab?.labId
 const getLabName = (lab, labId) => lab?.name || lab?.metadata?.name || `Lab #${labId}`
 
 /**
- * Aggregated pending payouts panel for all provider labs
+ * Aggregated provider receivables panel for all provider labs
  * @param {Object} props
  * @param {Array} props.labs - Array of lab objects owned by the provider
- * @param {Function} props.onCollect - Callback to trigger fund collection
- * @param {boolean} props.isCollectEnabled - Whether collect action is enabled
+ * @param {Function} props.onCollect - Callback to trigger provider settlement request
+ * @param {boolean} props.isCollectEnabled - Whether settlement request is enabled
  * @param {boolean} props.isSSO - Whether user is SSO
  * @param {boolean} [props.isCollecting] - Whether collection is in progress
  * @returns {JSX.Element}
@@ -52,10 +52,10 @@ export default function PendingPayoutsPanel({
   const labIds = useMemo(() => normalizedLabs.map(({ labId }) => labId), [normalizedLabs])
 
   const hasLabs = normalizedLabs.length > 0
-  const { data: payoutData, isLoading: payoutsLoading } = usePendingLabPayouts(labIds, {
+  const { data: payoutData, isLoading: payoutsLoading } = useProviderReceivables(labIds, {
     enabled: hasLabs,
   })
-  const payoutsByLabId = payoutData?.payoutsByLabId || {}
+  const receivablesByLabId = payoutData?.receivablesByLabId || {}
 
   return (
     <div data-testid="pending-payouts-panel" className="rounded-xl px-3 py-5 space-y-4" style={{ backgroundColor: 'var(--color-background-surface)', border: '1px solid var(--color-ui-label-medium)' }}>
@@ -64,7 +64,7 @@ export default function PendingPayoutsPanel({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-inverse)' }}>
           <span className="text-base">💰</span>
-          Pending Payouts
+          Provider Receivables (EUR)
         </h3>
         {hasLabs && !isSSO && (
           <button
@@ -75,10 +75,10 @@ export default function PendingPayoutsPanel({
             {isCollecting ? (
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Collecting...
+                Requesting...
               </span>
             ) : (
-              'Collect'
+              'Request settlement'
             )}
           </button>
         )}
@@ -115,17 +115,17 @@ export default function PendingPayoutsPanel({
       {/* Per-lab payouts */}
       {!hasLabs ? (
         <div className="text-center py-6">
-          <p className="text-sm" style={{ color: 'var(--color-text-inverse)' }}>No labs to show payouts for</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-inverse)' }}>No labs to show receivables for</p>
         </div>
       ) : (
         <div className="space-y-1.5 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
           {normalizedLabs.map(({ lab, labId }) => {
-            const rowData = payoutsByLabId[String(labId)] || {}
-            const totalPayout = rowData?.totalPayout || '0'
-            const walletPayout = rowData?.walletPayout || '0'
-            const institutionalPayout = rowData?.institutionalPayout || '0'
-            const hasPayout = BigInt(totalPayout || '0') > 0n
-            const isRowLoading = payoutsLoading && !rowData?.totalPayout
+            const rowData = receivablesByLabId[String(labId)] || {}
+            const totalReceivable = rowData?.totalReceivable ?? '0'
+            const providerReceivable = rowData?.providerReceivable ?? '0'
+            const deferredInstitutionalReceivable = rowData?.deferredInstitutionalReceivable ?? '0'
+            const hasReceivable = BigInt(totalReceivable || '0') > 0n
+            const isRowLoading = payoutsLoading && !rowData?.totalReceivable
 
             if (isRowLoading) {
               return (
@@ -141,21 +141,21 @@ export default function PendingPayoutsPanel({
                 key={String(labId)}
                 className="flex items-center justify-between py-2.5 px-3 rounded-lg transition-colors"
                 style={{ 
-                  backgroundColor: hasPayout ? 'var(--color-success-bg)' : 'var(--color-background-dark)',
+                  backgroundColor: hasReceivable ? 'var(--color-success-bg)' : 'var(--color-background-dark)',
                 }}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate" style={{ color: 'var(--color-text-inverse)' }}>{getLabName(lab, labId)}</p>
-                  {hasPayout && (
+                  {hasReceivable && (
                     <div className="flex gap-3 mt-0.5">
-                      {BigInt(walletPayout || '0') > 0n && (
+                      {BigInt(providerReceivable || '0') > 0n && (
                         <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-                          Wallet: {formatRawAmount(walletPayout, tokenDecimals)}
+                          Your share: {formatRawAmount(providerReceivable, tokenDecimals)} EUR
                         </span>
                       )}
-                      {BigInt(institutionalPayout || '0') > 0n && (
+                      {BigInt(deferredInstitutionalReceivable || '0') > 0n && (
                         <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-                          Institutional: {formatRawAmount(institutionalPayout, tokenDecimals)}
+                          Platform deferred: {formatRawAmount(deferredInstitutionalReceivable, tokenDecimals)} EUR
                         </span>
                       )}
                     </div>
@@ -164,10 +164,10 @@ export default function PendingPayoutsPanel({
                 <div className="text-right ml-3">
                   <p 
                     className="text-sm font-semibold"
-                    style={{ color: hasPayout ? 'var(--color-success-text)' : 'var(--color-text-secondary)' }}
+                    style={{ color: hasReceivable ? 'var(--color-success-text)' : 'var(--color-text-secondary)' }}
                   >
-                    {formatRawAmount(totalPayout, tokenDecimals)}
-                    <span className="text-xs ml-1 opacity-70">$LAB</span>
+                    {formatRawAmount(totalReceivable, tokenDecimals)}
+                    <span className="text-xs ml-1 opacity-70">EUR</span>
                   </p>
                 </div>
               </div>
@@ -179,9 +179,14 @@ export default function PendingPayoutsPanel({
       {/* SSO notice */}
       {isSSO && hasLabs && (
         <p className="text-[11px] italic" style={{ color: 'var(--color-text-secondary)' }}>
-          Fund collection is executed by your institution&apos;s wallet
+          Provider settlement requests are executed by your institution&apos;s wallet
         </p>
       )}
+
+      {/* EUR settlement note */}
+      <p className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+        Amounts shown are EUR-equivalent settlement values. Payouts are processed in EUR via bank transfer.
+      </p>
     </div>
   )
 }

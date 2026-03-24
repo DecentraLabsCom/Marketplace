@@ -54,7 +54,7 @@ const mockUnlistLabMutation = {
   isError: false,
 };
 
-const mockRequestFundsMutation = {
+const mockRequestProviderPayoutMutation = {
   mutateAsync: jest.fn(() => Promise.resolve({ hash: "0xmockhash" })),
   isLoading: false,
   isError: false,
@@ -66,7 +66,6 @@ jest.mock("@/hooks/lab/useLabAtomicMutations", () => ({
   useDeleteLab: jest.fn(() => mockDeleteLabMutation),
   useListLab: jest.fn(() => mockListLabMutation),
   useUnlistLab: jest.fn(() => mockUnlistLabMutation),
-  useRequestFunds: jest.fn(() => mockRequestFundsMutation),
 }));
 
 /**
@@ -119,14 +118,14 @@ const mockProviderLabs = [
     id: 1,
     name: "AI Research Lab",
     isListed: true,
-    availableBalance: "5000000000000000000", // 5 LAB tokens
+    availableBalance: "5000000000000000000", // 5 credits
   },
   {
     ...mockLab,
     id: 2,
     name: "Quantum Computing Lab",
     isListed: false,
-    availableBalance: "2000000000000000000", // 2 LAB tokens
+    availableBalance: "2000000000000000000", // 2 credits
   },
 ];
 
@@ -154,7 +153,7 @@ jest.mock("@/hooks/lab/useLabs", () => ({
  * Mock booking hooks
  */
 jest.mock("@/hooks/booking/useBookings", () => ({
-  useRequestFunds: jest.fn(() => mockRequestFundsMutation),
+  useRequestProviderPayout: jest.fn(() => mockRequestProviderPayoutMutation),
   useLabBookingsDashboard: jest.fn(() => ({
     data: { bookings: [] },
     isLoading: false,
@@ -172,8 +171,8 @@ jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
   useStakeInfoWallet: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
   useRequiredStake: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
   useRequiredStakeWallet: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
-  usePendingLabPayout: jest.fn(() => ({ data: { totalPayout: '0', walletPayout: '0', institutionalPayout: '0' }, isLoading: false })),
-  usePendingLabPayouts: jest.fn(() => ({ data: { payoutsByLabId: {}, items: [] }, isLoading: false })),
+  useProviderReceivable: jest.fn(() => ({ data: { totalReceivable: '0', providerReceivable: '0', deferredInstitutionalReceivable: '0' }, isLoading: false })),
+  useProviderReceivables: jest.fn(() => ({ data: { receivablesByLabId: {}, items: [] }, isLoading: false })),
 }));
 
 jest.mock('@/hooks/staking/useStakingAtomicMutations', () => ({
@@ -469,10 +468,10 @@ describe("Provider Dashboard Flow Integration", () => {
   });
 
   /**
-   * Test Case: Collect All funds from labs
-   * Verifies that clicking Collect All triggers fund collection mutation
-   */
-  test("collects all funds when Collect All button is clicked", async () => {
+   * Test Case: Collect provider payout from labs
+   * Verifies that clicking Collect triggers payout collection mutation
+    */
+  test("collects provider payout when Collect button is clicked", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
       isProvider: true,
@@ -490,17 +489,17 @@ describe("Provider Dashboard Flow Integration", () => {
       },
     });
 
-    const { usePendingLabPayout } = require('@/hooks/staking/useStakingAtomicQueries');
-    usePendingLabPayout.mockReturnValue({
-      data: { totalPayout: '5000000000000000000', walletPayout: '5000000000000000000', institutionalPayout: '0' },
+    const { useProviderReceivable } = require('@/hooks/staking/useStakingAtomicQueries');
+    useProviderReceivable.mockReturnValue({
+      data: { totalReceivable: '5000000000000000000', providerReceivable: '5000000000000000000', deferredInstitutionalReceivable: '0' },
       isLoading: false,
     });
 
     renderWithAllProviders(<ProviderDashboardPage />);
 
-    // Wait for Collect button to appear
+    // Wait for settlement request button to appear
     const collectButton = await screen.findByRole("button", {
-      name: /collect/i,
+      name: /request settlement/i,
     });
 
     // Click Collect All button
@@ -508,11 +507,11 @@ describe("Provider Dashboard Flow Integration", () => {
 
     // Verify mutation was called
     await waitFor(() => {
-      expect(mockRequestFundsMutation.mutateAsync).toHaveBeenCalled();
+      expect(mockRequestProviderPayoutMutation.mutateAsync).toHaveBeenCalled();
     });
   });
 
-  test("opens staking modal from compact card for wallet users", async () => {
+  test("does not expose legacy staking modal controls for wallet users", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
       isProvider: true,
@@ -532,21 +531,10 @@ describe("Provider Dashboard Flow Integration", () => {
 
     renderWithAllProviders(<ProviderDashboardPage />);
 
-    // compact staking card should be visible
-    const manageBtn = await screen.findByRole('button', { name: /manage staking/i });
-    expect(manageBtn).toBeInTheDocument();
-
-    // open modal
-    fireEvent.click(manageBtn);
-
-    // wait for modal title (ensures modal opened)
-    const modalTitle = await screen.findByRole('heading', { name: /Staking & Economics/i });
-    const dialog = modalTitle.closest('[role="dialog"]') || document.body;
-
-    // assert panels inside modal using semantic headings to avoid ambiguous matches
-    const { within } = require('@testing-library/react');
-    expect(within(dialog).getByRole('heading', { name: /Staking/i, level: 3 })).toBeInTheDocument();
-    expect(within(dialog).getByRole('heading', { name: /Pending Payouts/i, level: 3 })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /Staking & Economics/i })).not.toBeInTheDocument();
+    });
   });
 
   /**

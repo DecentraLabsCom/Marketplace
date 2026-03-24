@@ -217,84 +217,84 @@ export const useRequiredStake = (providerAddress, options = {}) => {
   return isWallet ? walletQuery : ssoQuery
 }
 
-// ===== usePendingLabPayout Hook Family =====
+// ===== useProviderReceivable Hook Family =====
 
-const getPendingLabPayoutQueryFn = createSSRSafeQuery(async (labId) => {
+const getProviderReceivableQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId && labId !== 0) throw new Error('Lab ID is required')
 
-  const response = await fetch(`/api/contract/lab/getPendingLabPayout?labId=${labId}`, {
+  const response = await fetch(`/api/contract/lab/getProviderReceivable?labId=${labId}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch pending payout: ${response.status}`)
+    throw new Error(`Failed to fetch provider receivable: ${response.status}`)
   }
 
   const data = await response.json()
-  devLog.log('💰 usePendingLabPayoutSSO:', labId, data)
+  devLog.log('💰 useProviderReceivableSSO:', labId, data)
   return data
 }, null)
 
-const getPendingLabPayoutsQueryFn = createSSRSafeQuery(async (labIds = []) => {
+const getProviderReceivablesQueryFn = createSSRSafeQuery(async (labIds = []) => {
   const normalizedLabIds = normalizeLabIds(labIds)
   if (!normalizedLabIds.length) {
     return {
-      payoutsByLabId: {},
+      receivablesByLabId: {},
       items: [],
     }
   }
 
   const results = await Promise.all(
     normalizedLabIds.map(async (labId) => {
-      const payout = await getPendingLabPayoutQueryFn(labId)
+      const receivable = await getProviderReceivableQueryFn(labId)
       return {
         labId,
-        payout,
+        receivable,
       }
     })
   )
 
-  const payoutsByLabId = {}
+  const receivablesByLabId = {}
   for (const result of results) {
-    payoutsByLabId[String(result.labId)] = result.payout
+    receivablesByLabId[String(result.labId)] = result.receivable
   }
 
   return {
-    payoutsByLabId,
+    receivablesByLabId,
     items: results,
   }
 }, {
-  payoutsByLabId: {},
+  receivablesByLabId: {},
   items: [],
 })
 
 /**
- * Hook for /api/contract/lab/getPendingLabPayout endpoint (SSO users)
+ * Hook for /api/contract/lab/getProviderReceivable endpoint (SSO users)
  * @param {string|number} labId - Lab ID to check
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with pending payout breakdown
+ * @returns {Object} React Query result with provider receivable breakdown
  */
-export const usePendingLabPayoutSSO = (labId, options = {}) => {
+export const useProviderReceivableSSO = (labId, options = {}) => {
   return useQuery({
-    queryKey: stakingQueryKeys.pendingPayout(labId),
-    queryFn: () => getPendingLabPayoutQueryFn(labId),
+    queryKey: stakingQueryKeys.providerReceivable(labId),
+    queryFn: () => getProviderReceivableQueryFn(labId),
     enabled: labId !== undefined && labId !== null && labId !== '',
     ...STAKING_QUERY_CONFIG,
     ...options,
   })
 }
 
-usePendingLabPayoutSSO.queryFn = getPendingLabPayoutQueryFn
+useProviderReceivableSSO.queryFn = getProviderReceivableQueryFn
 
 /**
- * Hook for getPendingLabPayout contract read (Wallet users)
+ * Hook for getLabProviderReceivable contract read (Wallet users)
  * @param {string|number} labId - Lab ID to check
  * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with pending payout breakdown
+ * @returns {Object} Wagmi query result with provider receivable breakdown
  */
-export const usePendingLabPayoutWallet = (labId, options = {}) => {
-  const result = useDefaultReadContract('getPendingLabPayout', [labId], {
+export const useProviderReceivableWallet = (labId, options = {}) => {
+  const result = useDefaultReadContract('getLabProviderReceivable', [labId], {
     enabled: labId !== undefined && labId !== null && labId !== '',
     ...STAKING_QUERY_CONFIG,
     ...options,
@@ -303,53 +303,53 @@ export const usePendingLabPayoutWallet = (labId, options = {}) => {
   return {
     ...result,
     data: result.data ? {
-      walletPayout: (result.data?.walletPayout ?? result.data?.[0])?.toString() || '0',
-      institutionalPayout: (result.data?.institutionalPayout ?? result.data?.[1])?.toString() || '0',
-      totalPayout: (result.data?.totalPayout ?? result.data?.[2])?.toString() || '0',
-      institutionalCollectorCount: Number(result.data?.institutionalCollectorCount ?? result.data?.[3] ?? 0),
+      providerReceivable: (result.data?.providerReceivable ?? result.data?.[0])?.toString() || '0',
+      deferredInstitutionalReceivable: (result.data?.deferredInstitutionalReceivable ?? result.data?.[1])?.toString() || '0',
+      totalReceivable: (result.data?.totalReceivable ?? result.data?.[2])?.toString() || '0',
+      eligibleReservationCount: Number(result.data?.eligibleReservationCount ?? result.data?.[3] ?? 0),
     } : result.data,
   }
 }
 
 /**
- * Hook for getPendingLabPayout (Router - selects SSO or Wallet)
+ * Hook for provider receivable status (Router - selects SSO or Wallet)
  * @param {string|number} labId - Lab ID to check
  * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with pending payout breakdown
+ * @returns {Object} React Query result with provider receivable breakdown
  */
-export const usePendingLabPayout = (labId, options = {}) => {
+export const useProviderReceivable = (labId, options = {}) => {
   const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false })
 
-  const ssoQuery = usePendingLabPayoutSSO(labId, {
+  const ssoQuery = useProviderReceivableSSO(labId, {
     ...options,
     enabled: !isWallet && options.enabled !== false && labId !== undefined && labId !== null
   })
-  const walletQuery = usePendingLabPayoutWallet(labId, {
+  const walletQuery = useProviderReceivableWallet(labId, {
     ...options,
     enabled: isWallet && options.enabled !== false && labId !== undefined && labId !== null
   })
 
-  devLog.log(`🔀 usePendingLabPayout → ${isWallet ? 'Wallet' : 'SSO'} mode`)
+  devLog.log(`🔀 useProviderReceivable → ${isWallet ? 'Wallet' : 'SSO'} mode`)
 
   return isWallet ? walletQuery : ssoQuery
 }
 
 /**
- * Hook for retrieving pending payouts for multiple labs in one query
+ * Hook for retrieving provider receivables for multiple labs in one query
  * @param {Array<string|number>} labIds - Lab IDs to check
  * @param {Object} [options={}] - Additional query options
  * @returns {Object} React Query result with map + ordered items
  */
-export const usePendingLabPayouts = (labIds = [], options = {}) => {
+export const useProviderReceivables = (labIds = [], options = {}) => {
   const normalizedLabIds = useMemo(() => normalizeLabIds(labIds), [labIds])
 
   return useQuery({
-    queryKey: stakingQueryKeys.pendingPayoutsMulti(normalizedLabIds.map(String)),
-    queryFn: () => getPendingLabPayoutsQueryFn(normalizedLabIds),
+    queryKey: stakingQueryKeys.providerReceivablesMulti(normalizedLabIds.map(String)),
+    queryFn: () => getProviderReceivablesQueryFn(normalizedLabIds),
     enabled: normalizedLabIds.length > 0 && options.enabled !== false,
     ...STAKING_QUERY_CONFIG,
     ...options,
   })
 }
 
-usePendingLabPayouts.queryFn = getPendingLabPayoutsQueryFn
+useProviderReceivables.queryFn = getProviderReceivablesQueryFn

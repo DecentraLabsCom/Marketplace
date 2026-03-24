@@ -25,7 +25,7 @@ export async function getContractInstance(contractType = 'diamond', readOnly = t
     address = contractAddressesLAB[chainKey];
     abi = labTokenABI;
     if (!address) {
-      throw new Error(`No $LAB token address defined for network "${chainKey}"`);
+      throw new Error(`No credit-ledger address defined for network "${chainKey}"`);
     }
   } else {
     // Default: diamond contract

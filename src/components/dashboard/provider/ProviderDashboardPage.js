@@ -16,7 +16,7 @@ import {
   useLabsForProvider
 } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
-import { useRequestFunds } from '@/hooks/booking/useBookings'
+import { useRequestProviderPayout } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
@@ -25,9 +25,7 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
-import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
-import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
-import { useStakeInfo, useRequiredStake, usePendingLabPayout } from '@/hooks/staking/useStaking'
+import { useProviderReceivable } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
 import getBaseUrl from '@/utils/env/baseUrl'
@@ -102,12 +100,12 @@ const resolveOnchainLabUri = (uri) => {
 
 const DEFAULT_COLLECT_MAX_BATCH = 100
 
-const hasCollectablePayout = (payoutData) => {
-  const totalPayout = payoutData?.totalPayout
-  if (totalPayout === undefined || totalPayout === null) return false
+const hasRequestableReceivable = (receivableData) => {
+  const totalReceivable = receivableData?.totalReceivable
+  if (totalReceivable === undefined || totalReceivable === null) return false
 
   try {
-    return BigInt(totalPayout) > 0n
+    return BigInt(totalReceivable) > 0n
   } catch {
     return false
   }
@@ -198,8 +196,8 @@ export default function ProviderDashboard() {
   const listLabMutation = useListLab();
   const unlistLabMutation = useUnlistLab();
   
-  // 🚀 React Query mutations for requesting funds (claiming $LAB tokens)
-  const requestFundsMutation = useRequestFunds();
+  // React Query mutation for requesting provider payout on the currently selected lab
+  const requestProviderPayoutMutation = useRequestProviderPayout();
   
   // 🚀 React Query mutations for provider data management
   const saveLabDataMutation = useSaveLabData();
@@ -468,24 +466,24 @@ export default function ProviderDashboard() {
   }, [selectedLab, selectedLabId])
 
   const {
-    data: selectedLabPendingPayout,
-    isLoading: isSelectedLabPendingPayoutLoading,
-  } = usePendingLabPayout(selectedCollectLabId, {
+    data: selectedLabProviderReceivable,
+    isLoading: isSelectedLabProviderReceivableLoading,
+  } = useProviderReceivable(selectedCollectLabId, {
     enabled: !isSSO && selectedCollectLabId !== null,
   })
 
   const canCollectSelectedLab = useMemo(() => {
     if (isSSO) return false
     if (selectedCollectLabId === null) return false
-    if (requestFundsMutation.isPending) return false
-    if (isSelectedLabPendingPayoutLoading) return false
-    return hasCollectablePayout(selectedLabPendingPayout)
+    if (requestProviderPayoutMutation.isPending) return false
+    if (isSelectedLabProviderReceivableLoading) return false
+    return hasRequestableReceivable(selectedLabProviderReceivable)
   }, [
     isSSO,
     selectedCollectLabId,
-    requestFundsMutation.isPending,
-    isSelectedLabPendingPayoutLoading,
-    selectedLabPendingPayout,
+    requestProviderPayoutMutation.isPending,
+    isSelectedLabProviderReceivableLoading,
+    selectedLabProviderReceivable,
   ])
   
   // Ensure we have a valid lab object to pass to the modal
@@ -505,18 +503,6 @@ export default function ProviderDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
-  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false)
-  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, {
-    enabled: !!providerOwnerAddress && !isSSO,
-  })
-  const { data: requiredStakeData } = useRequiredStake(providerOwnerAddress, {
-    enabled: !!providerOwnerAddress && !isSSO,
-  })
-  const compactStakeInfo = useMemo(() => ({
-    ...stakeInfo,
-    requiredStake: requiredStakeData?.requiredStake || '0',
-  }), [stakeInfo, requiredStakeData])
-
   // Handle adding a new lab using React Query mutation
   const handleAddLab = useCallback(async ({ labData }) => {
     const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
@@ -746,18 +732,18 @@ export default function ProviderDashboard() {
     // Store the original human-readable price for local state updates
     const originalPrice = labData.price;
     
-    // Convert price from user input to token units for blockchain operations
+    // Convert price from user input to credit units for blockchain operations
     if (labData.price && decimals) {
       try {
         // Convert hourly price (UI) to per-second price (contract format)
         const pricePerHour = parseFloat(labData.price.toString());
         const pricePerSecond = pricePerHour / 3600; // Convert to per-second
         
-        // Convert the per-second price to token units (multiply by decimals)
+        // Convert the per-second price to credit units (multiply by decimals)
         const priceInTokenUnits = parseUnits(pricePerSecond.toString(), decimals);
         labData = { ...labData, price: priceInTokenUnits.toString() };
       } catch (error) {
-        devLog.error('Error converting price to token units:', error);
+        devLog.error('Error converting price to credit units:', error);
         notifyLabInvalidPrice(addTemporaryNotification);
         return;
       }
@@ -830,7 +816,7 @@ export default function ProviderDashboard() {
             labId: labData.id,
             labData: {
               uri: onchainUri,
-              price: labData.price, // Already in token units
+              price: labData.price, // Already in credit units
               accessURI: labData.accessURI,
               accessKey: labData.accessKey,
               resourceType: nextResourceType,
@@ -1076,12 +1062,12 @@ export default function ProviderDashboard() {
     }
   };
 
-// Handle collecting balance from selected lab
+// Handle requesting provider settlement from the selected lab
   const handleCollect = async () => {
     const actionKey = 'collect:selected';
     try {
       if (isSSO) {
-        setActionProgressNotification(actionKey, 'Collecting lab balance...');
+        setActionProgressNotification(actionKey, 'Requesting provider settlement...');
       } else {
         notifyLabCollectStarted(addTemporaryNotification);
       }
@@ -1089,12 +1075,12 @@ export default function ProviderDashboard() {
       if (selectedCollectLabId === null) {
         throw new Error('Select a lab first');
       }
-      if (!hasCollectablePayout(selectedLabPendingPayout)) {
-        throw new Error('No pending payout for selected lab');
+      if (!hasRequestableReceivable(selectedLabProviderReceivable)) {
+        throw new Error('No provider receivable available for the selected lab');
       }
 
       try {
-        await requestFundsMutation.mutateAsync({
+        await requestProviderPayoutMutation.mutateAsync({
           labId: selectedCollectLabId,
           maxBatch: DEFAULT_COLLECT_MAX_BATCH,
           ...(isSSO ? { backendUrl: institutionBackendUrl } : {}),
@@ -1103,7 +1089,7 @@ export default function ProviderDashboard() {
         if (!isNoCompletedReservationsError(collectError)) {
           throw collectError
         }
-        throw new Error('No completed reservations to collect');
+        throw new Error('No completed reservations available for settlement request');
       }
       
       if (isSSO) {
@@ -1212,7 +1198,7 @@ export default function ProviderDashboard() {
               isSSO={isSSO}
               onCollect={handleCollect}
               isCollectEnabled={canCollectSelectedLab}
-              isCollecting={requestFundsMutation.isPending}
+              isCollecting={requestProviderPayoutMutation.isPending}
               onAddNewLab={() => {
                 setNewLab(newLabStructure);
                 setSelectedLabId("");
@@ -1220,32 +1206,7 @@ export default function ProviderDashboard() {
               }}
             />
           </div>
-
-          {/* Staking card spans both columns */}
-          {!isSSO && (
-            <div className="min-[1080px]:col-span-2 mt-6">
-              <ProviderStakingCompactCard
-                stakeInfo={compactStakeInfo}
-                onManage={() => setIsStakingModalOpen(true)}
-              />
-            </div>
-          )}
         </div>
-
-        {!isSSO && (
-          <ProviderStakingModal
-            isOpen={isStakingModalOpen}
-            onClose={() => setIsStakingModalOpen(false)}
-            providerAddress={providerOwnerAddress}
-            labs={ownedLabs}
-            isSSO={isSSO}
-            labCount={ownedLabs.length}
-            addTemporaryNotification={addTemporaryNotification}
-            onCollect={handleCollect}
-            isCollectEnabled={canCollectSelectedLab}
-            isCollecting={requestFundsMutation.isPending}
-          />
-        )}
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
           lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />

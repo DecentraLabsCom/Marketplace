@@ -22,7 +22,7 @@ jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
     LAB_SET_URI: 5,
     CANCEL_REQUEST_BOOKING: 6,
     CANCEL_BOOKING: 7,
-    REQUEST_FUNDS: 8,
+    REQUEST_PROVIDER_PAYOUT: 8,
   },
   buildActionIntent: jest.fn(),
   computeAssertionHash: jest.fn(),
@@ -253,9 +253,9 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
-  test('actions/prepare: request funds requires valid labId and maxBatch payload', async () => {
+  test('actions/prepare: provider payout request requires valid labId and maxBatch payload', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.REQUEST_FUNDS,
+      action: ACTION_CODES.REQUEST_PROVIDER_PAYOUT,
       backendUrl: 'https://ib.example',
       payload: {
         labId: '12',
@@ -269,15 +269,15 @@ describe('Intent prepare routes integration', () => {
     expect(res.status).toBe(200)
     expect(payload.kind).toBe('action')
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
-      action: ACTION_CODES.REQUEST_FUNDS,
+      action: ACTION_CODES.REQUEST_PROVIDER_PAYOUT,
       labId: 12,
       maxBatch: 25,
     }))
   })
 
-  test('actions/prepare: request funds rejects missing maxBatch', async () => {
+  test('actions/prepare: provider payout request rejects missing maxBatch', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.REQUEST_FUNDS,
+      action: ACTION_CODES.REQUEST_PROVIDER_PAYOUT,
       backendUrl: 'https://ib.example',
       payload: {
         labId: 12,

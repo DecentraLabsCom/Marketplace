@@ -4,7 +4,7 @@ import '@testing-library/jest-dom'
 
 jest.mock('@/context/LabTokenContext', () => ({ useLabToken: () => ({ decimals: 6 }) }))
 jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
-  usePendingLabPayouts: () => ({ data: { payoutsByLabId: {}, items: [] }, isLoading: false }),
+  useProviderReceivables: () => ({ data: { receivablesByLabId: {}, items: [] }, isLoading: false }),
 }))
 import PendingPayoutsPanel from '../PendingPayoutsPanel'
 
@@ -13,7 +13,7 @@ describe('PendingPayoutsPanel - revenue split boxes', () => {
     const { container } = render(<PendingPayoutsPanel labs={[]} onCollect={() => {}} isCollectEnabled={false} isSSO={false} isCollecting={false} />)
 
     const providerBox = screen.getByText(/^provider$/i).closest('div')
-    const treasuryBox = screen.getByText(/^treasury$/i).closest('div')
+    const platformBox = screen.getByText(/^platform$/i).closest('div')
     const subsidiesBox = screen.getByText(/^subsidies$/i).closest('div')
     const governanceBox = screen.getByText(/^governance$/i).closest('div')
 
@@ -22,13 +22,13 @@ describe('PendingPayoutsPanel - revenue split boxes', () => {
     expect(panel?.className || '').toMatch(/px-3/)
 
     expect(providerBox).toBeInTheDocument()
-    expect(treasuryBox).toBeInTheDocument()
+    expect(platformBox).toBeInTheDocument()
     expect(subsidiesBox).toBeInTheDocument()
     expect(governanceBox).toBeInTheDocument()
 
     // style.flex should reflect the inline flex value we set
     const pFlex = parseFloat(providerBox.style.flex || '1')
-    const tFlex = parseFloat(treasuryBox.style.flex || '1')
+    const tFlex = parseFloat(platformBox.style.flex || '1')
     const sFlex = parseFloat(subsidiesBox.style.flex || '1')
     const gFlex = parseFloat(governanceBox.style.flex || '1')
 
@@ -38,5 +38,12 @@ describe('PendingPayoutsPanel - revenue split boxes', () => {
 
     // governance ~10% larger
     expect(gFlex).toBeCloseTo(pFlex * 1.1)
+  })
+
+  test('header shows EUR denomination and settlement note is present', () => {
+    render(<PendingPayoutsPanel labs={[]} onCollect={() => {}} isCollectEnabled={false} isSSO={false} isCollecting={false} />)
+
+    expect(screen.getByText(/Provider Receivables \(EUR\)/)).toBeInTheDocument()
+    expect(screen.getByText(/EUR-equivalent settlement values/)).toBeInTheDocument()
   })
 })

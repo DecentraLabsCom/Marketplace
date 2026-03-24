@@ -171,8 +171,8 @@ export default function ProviderStakingPanel({
   if (stakeInfoError) {
     return (
       <div className="bg-red-900/20 border border-red-700/30 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-red-400 mb-1">Staking Error</h3>
-        <p className="text-xs text-red-300/70">Failed to load staking data. Please retry.</p>
+        <h3 className="text-sm font-semibold text-red-400 mb-1">Bond Error</h3>
+        <p className="text-xs text-red-300/70">Failed to load bond data. Please retry.</p>
       </div>
     )
   }
@@ -185,7 +185,7 @@ export default function ProviderStakingPanel({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
           <span className="text-base">🔒</span>
-          Staking
+          Provider Bond
         </h3>
         {/* Only show compact label in header when there is actual stake info (avoid duplicate 'No stake required') */}
         {health.status !== 'none' && (
@@ -211,20 +211,20 @@ export default function ProviderStakingPanel({
         <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-light)' }}>
           <p className="text-[10px] uppercase tracking-wider mb-1 text-black">Staked</p>
           <p className="text-sm font-semibold text-black">
-            {stakedFormatted} <span className="text-xs opacity-60 text-black">$LAB</span>
+            {stakedFormatted} <span className="text-xs opacity-60 text-black">credits</span>
           </p>
         </div>
         <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-background-light)' }}>
           <p className="text-[10px] uppercase tracking-wider mb-1 text-black">Required</p>
           <p className="text-sm font-semibold text-black">
-            {requiredFormatted} <span className="text-xs opacity-60 text-black">$LAB</span>
+            {requiredFormatted} <span className="text-xs opacity-60 text-black">credits</span>
           </p>
         </div>
         {BigInt(slashedAmount || '0') > 0n && (
           <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-error-bg)' }}>
             <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-error-text)', opacity: 0.8 }}>Slashed</p>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-error-text)' }}>
-              {slashedFormatted} <span className="text-xs opacity-70">$LAB</span>
+              {slashedFormatted} <span className="text-xs opacity-70">credits</span>
             </p>
           </div>
         )}
@@ -232,7 +232,7 @@ export default function ProviderStakingPanel({
           <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-warning-bg)' }}>
             <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-warning-text)', opacity: 0.8 }}>Deficit</p>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-warning-text)' }}>
-              {deficit} <span className="text-xs opacity-70">$LAB</span>
+              {deficit} <span className="text-xs opacity-70">credits</span>
             </p>
           </div>
         )}
@@ -240,7 +240,7 @@ export default function ProviderStakingPanel({
           <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--color-success-bg)' }}>
             <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-success-text)', opacity: 0.8 }}>Surplus</p>
             <p className="text-sm font-semibold" style={{ color: 'var(--color-success-text)' }}>
-              {surplus} <span className="text-xs opacity-70">$LAB</span>
+              {surplus} <span className="text-xs opacity-70">credits</span>
             </p>
           </div>
         )}
@@ -263,8 +263,8 @@ export default function ProviderStakingPanel({
         className="text-[11px] rounded-lg p-3 space-y-1 text-black bg-white"
         style={{ backgroundColor: 'var(--color-background-light)', color: '#000' }}
       >
-        <p>Base stake: <span className="font-semibold">{BASE_STAKE_DISPLAY} $LAB</span> (first {FREE_LABS_COUNT} labs)</p>
-        <p>Additional labs: <span className="font-semibold">+{STAKE_PER_ADDITIONAL_LAB_DISPLAY} $LAB</span> per lab</p>
+        <p>Base stake: <span className="font-semibold">{BASE_STAKE_DISPLAY} credits</span> (first {FREE_LABS_COUNT} labs)</p>
+        <p>Additional labs: <span className="font-semibold">+{STAKE_PER_ADDITIONAL_LAB_DISPLAY} credits</span> per lab</p>
       </div>
 
       {/* Stake/Unstake actions (wallet users only) */}

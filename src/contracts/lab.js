@@ -1,5 +1,5 @@
 /**
- * Lab Token Contract Addresses
+ * Service-Credit Ledger Contract Addresses
  */
 export const contractAddressesLAB = {
   ethereum: process.env.NEXT_PUBLIC_LAB_TOKEN_ADDRESS_ETHEREUM || "0x...",

@@ -24,7 +24,6 @@ const mockLabTokenData = {
   isLoading: false,
   labTokenAddress: '0xMockLabTokenAddress',
   calculateReservationCost: jest.fn(),
-  approveLabTokens: jest.fn(),
   checkBalanceAndAllowance: jest.fn(),
   checkSufficientBalance: jest.fn(),
   formatTokenAmount: jest.fn(),
@@ -69,7 +68,6 @@ describe('LabTokenContext', () => {
       });
 
       expect(typeof result.current.calculateReservationCost).toBe('function');
-      expect(typeof result.current.approveLabTokens).toBe('function');
       expect(typeof result.current.checkBalanceAndAllowance).toBe('function');
       expect(typeof result.current.checkSufficientBalance).toBe('function');
       expect(typeof result.current.formatTokenAmount).toBe('function');
@@ -324,39 +322,6 @@ describe('LabTokenContext', () => {
 
       expect(status.hasSufficient).toBe(false);
       expect(status.shortfall).toEqual(BigInt('5000000000000000000'));
-    });
-  });
-
-  describe('Token Approval', () => {
-    test('approveLabTokens calls approve function', async () => {
-      const amountToApprove = BigInt('5000000000000000000'); // 5 LAB
-      mockLabTokenData.approveLabTokens.mockResolvedValue('0xMockTxHash');
-
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
-      });
-
-      const txHash = await result.current.approveLabTokens(amountToApprove);
-
-      expect(result.current.approveLabTokens).toHaveBeenCalledWith(
-        amountToApprove
-      );
-      expect(txHash).toBe('0xMockTxHash');
-    });
-
-    test('approveLabTokens handles errors', async () => {
-      const amountToApprove = BigInt('5000000000000000000');
-      const mockError = new Error('User rejected transaction');
-
-      mockLabTokenData.approveLabTokens.mockRejectedValue(mockError);
-
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
-      });
-
-      await expect(
-        result.current.approveLabTokens(amountToApprove)
-      ).rejects.toThrow('User rejected transaction');
     });
   });
 

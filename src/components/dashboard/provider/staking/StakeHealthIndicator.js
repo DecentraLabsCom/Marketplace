@@ -7,8 +7,8 @@ import PropTypes from 'prop-types'
 
 /**
  * Computes stake health status from staking data
- * @param {string} stakedAmount - Current staked amount (raw, in token smallest units)
- * @param {string} requiredStake - Required stake amount (raw, in token smallest units)
+ * @param {string} stakedAmount - Current bonded amount (raw, in smallest units)
+ * @param {string} requiredStake - Required bond amount (raw, in smallest units)
  * @param {string} slashedAmount - Total slashed amount
  * @returns {{ status: 'healthy'|'warning'|'critical'|'none', label: string, percentage: number }}
  */
@@ -18,7 +18,7 @@ export function computeStakeHealth(stakedAmount, requiredStake, slashedAmount) {
   const slashed = BigInt(slashedAmount || '0')
 
   if (required === 0n) {
-    return { status: 'none', label: 'No stake required', percentage: 100 }
+    return { status: 'none', label: 'No bond required', percentage: 100 }
   }
 
   // Effective stake after slashing
@@ -29,7 +29,7 @@ export function computeStakeHealth(stakedAmount, requiredStake, slashedAmount) {
 
   if (effective >= required) {
     if (percentage >= 150) {
-      return { status: 'healthy', label: 'Well-staked', percentage: Math.min(percentage, 200) }
+      return { status: 'healthy', label: 'Well-bonded', percentage: Math.min(percentage, 200) }
     }
     return { status: 'healthy', label: 'Sufficient', percentage }
   }
@@ -39,7 +39,7 @@ export function computeStakeHealth(stakedAmount, requiredStake, slashedAmount) {
   }
 
   if (effective === 0n) {
-    return { status: 'critical', label: 'Not staked', percentage: 0 }
+    return { status: 'critical', label: 'Not bonded', percentage: 0 }
   }
 
   return { status: 'critical', label: 'Insufficient', percentage }

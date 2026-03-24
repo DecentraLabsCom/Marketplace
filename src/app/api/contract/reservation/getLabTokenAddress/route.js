@@ -3,11 +3,11 @@ import { getContractInstance } from '../../utils/contractInstance';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
- * Get LAB token contract address
+ * Get service-credit ledger contract address
  * GET /api/contract/reservation/getLabTokenAddress
  * 
  * @security Protected - requires authenticated session
- * @returns {Object} LAB token contract address
+ * @returns {Object} Service-credit ledger contract address
  */
 export async function GET(request) {
   try {
@@ -28,9 +28,9 @@ export async function GET(request) {
     }, {status: 200});
 
   } catch (error) {
-    console.error('Error getting LAB token address:', error);
+    console.error('Error getting credit-ledger address:', error);
     return NextResponse.json(
-      { error: `Failed to get LAB token address: ${error.message}` }, {status: 500 }
+      { error: `Failed to get credit-ledger address: ${error.message}` }, {status: 500 }
     );
   }
 }

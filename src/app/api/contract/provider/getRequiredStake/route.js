@@ -1,6 +1,6 @@
 /**
- * API endpoint for retrieving the required stake amount for a provider
- * Returns the minimum $LAB tokens a provider needs staked to operate
+ * API endpoint for retrieving the required bond amount for a provider
+ * Returns the minimum credit bond a provider needs to operate
  */
 
 import { getContractInstance } from '../../utils/contractInstance'

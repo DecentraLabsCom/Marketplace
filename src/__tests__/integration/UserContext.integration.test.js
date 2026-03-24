@@ -4,7 +4,7 @@
  * Test Behaviors:
  * - User context integrates properly with LabToken context
  * - User context integrates properly with OptimisticUI context
- * - User balance syncs with token balance changes
+ * - User balance syncs with credit balance changes
  * - Optimistic UI state updates are tracked correctly
  * - SSO session management integration
  * - Provider status transitions
@@ -25,7 +25,7 @@ jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
     // Mock balance response
     if (functionName === "balanceOf") {
       return {
-        data: BigInt("15500000000000000000"), // 15.5 LAB tokens in wei
+        data: BigInt("15500000000000000000"), // 15.5 credits in wei
         isLoading: false,
         isError: false,
         refetch: jest.fn(),
@@ -35,7 +35,7 @@ jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
     // Mock allowance response
     if (functionName === "allowance") {
       return {
-        data: BigInt("10000000000000000000"), // 10 LAB tokens in wei
+        data: BigInt("10000000000000000000"), // 10 credits in wei
         isLoading: false,
         isError: false,
         refetch: jest.fn(),
@@ -105,7 +105,6 @@ jest.mock("@/context/LabTokenContext", () => ({
     isLoading: false,
     labTokenAddress: "0xMockLabTokenAddress",
     calculateReservationCost: jest.fn(),
-    approveLabTokens: jest.fn(),
     checkBalanceAndAllowance: jest.fn((requiredAmount = BigInt(0)) => ({
       hasSufficientBalance: BigInt("15500000000000000000") >= requiredAmount,
       hasSufficientAllowance: BigInt("10000000000000000000") >= requiredAmount,
@@ -298,12 +297,12 @@ describe("User Context Integration", () => {
     });
   });
 
-  describe("Token balance sync integration", () => {
+  describe("Credit balance sync integration", () => {
     /**
-     * Test Case: Token balance is accessible through contexts
-     * Verifies that token balance information is properly integrated
+     * Test Case: Credit balance is accessible through contexts
+     * Verifies that credit balance information is properly integrated
      */
-    test("provides access to token balance data", async () => {
+    test("provides access to credit balance data", async () => {
       const { useLabToken } = require("@/context/LabTokenContext");
 
       // Verify balance is accessible from LabToken context
@@ -316,13 +315,13 @@ describe("User Context Integration", () => {
 
     /**
      * Test Case: Insufficient balance detection
-     * Verifies that the system correctly identifies when user has insufficient tokens
+     * Verifies that the system correctly identifies when user has insufficient credits
      */
-    test("detects insufficient token balance for booking", async () => {
+    test("detects insufficient credit balance for booking", async () => {
       const { useLabToken } = require("@/context/LabTokenContext");
       const labToken = useLabToken();
 
-      // Check balance for a booking that requires 20 LAB tokens (more than available)
+      // Check balance for a booking that requires 20 credits (more than available)
       const requiredAmount = BigInt("20000000000000000000");
       const balanceCheck = labToken.checkBalanceAndAllowance(requiredAmount);
 
@@ -335,11 +334,11 @@ describe("User Context Integration", () => {
      * Test Case: Sufficient balance for booking
      * Verifies that sufficient balance is correctly detected
      */
-    test("detects sufficient token balance for booking", async () => {
+    test("detects sufficient credit balance for booking", async () => {
       const { useLabToken } = require("@/context/LabTokenContext");
       const labToken = useLabToken();
 
-      // Check balance for a booking that requires 5 LAB tokens (less than available)
+      // Check balance for a booking that requires 5 credits (less than available)
       const requiredAmount = BigInt("5000000000000000000");
       const balanceCheck = labToken.checkBalanceAndAllowance(requiredAmount);
 
@@ -349,17 +348,17 @@ describe("User Context Integration", () => {
     });
 
     /**
-     * Test Case: Token allowance for marketplace contract
-     * Verifies that token allowance is properly tracked
+     * Test Case: Credit allowance for marketplace contract
+     * Verifies that credit allowance is properly tracked
      */
-    test("tracks token allowance for marketplace operations", async () => {
+    test("tracks credit allowance for marketplace operations", async () => {
       const { useLabToken } = require("@/context/LabTokenContext");
       const labToken = useLabToken();
 
       // Verify allowance is accessible
       expect(labToken.allowance).toBe(BigInt("10000000000000000000"));
 
-      // Check if allowance is sufficient for a booking (5 LAB tokens)
+      // Check if allowance is sufficient for a booking (5 credits)
       const requiredAmount = BigInt("5000000000000000000");
       const check = labToken.checkBalanceAndAllowance(requiredAmount);
 
@@ -376,7 +375,7 @@ describe("User Context Integration", () => {
       const { useLabToken } = require("@/context/LabTokenContext");
       const labToken = useLabToken();
 
-      // Check allowance for a booking that requires 15 LAB tokens (more than allowed)
+      // Check allowance for a booking that requires 15 credits (more than allowed)
       const requiredAmount = BigInt("15000000000000000000");
       const check = labToken.checkBalanceAndAllowance(requiredAmount);
 

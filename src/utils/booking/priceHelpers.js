@@ -3,8 +3,8 @@
  */
 
 /**
- * Format price with LAB token symbol
- * @param {number} price - Price in LAB tokens
+ * Format price with service-credit unit label
+ * @param {number} price - Price in service credits
  * @param {number} decimals - Number of decimal places (default: 2)
  * @returns {string} Formatted price string
  */
@@ -25,10 +25,10 @@ export function formatPrice(price, decimals = 2) {
  */
 export function formatPriceRange(minPrice, maxPrice, decimals = 2) {
   if (minPrice === maxPrice) {
-    return `${formatPrice(minPrice, decimals)} LAB`
+    return `${formatPrice(minPrice, decimals)} credits`
   }
   
-  return `${formatPrice(minPrice, decimals)} - ${formatPrice(maxPrice, decimals)} LAB`
+  return `${formatPrice(minPrice, decimals)} - ${formatPrice(maxPrice, decimals)} credits`
 }
 
 /**
@@ -43,7 +43,7 @@ export function parsePrice(priceString) {
 
 /**
  * Calculate total price for booking
- * @param {number} hourlyRate - Hourly rate in LAB tokens
+ * @param {number} hourlyRate - Hourly rate in service credits
  * @param {number} hours - Number of hours
  * @returns {number} Total price
  */
@@ -54,10 +54,10 @@ export function calculateTotalPrice(hourlyRate, hours) {
 /**
  * Format currency with thousand separators
  * @param {number} amount - Amount to format
- * @param {string} currency - Currency symbol (default: 'LAB')
+ * @param {string} currency - Currency symbol (default: 'credits')
  * @returns {string} Formatted currency string
  */
-export function formatCurrency(amount, currency = 'LAB') {
+export function formatCurrency(amount, currency = 'credits') {
   const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2

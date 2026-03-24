@@ -15,6 +15,7 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSection'
 import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
+import CreditAccountPanel from '@/components/dashboard/user/CreditAccountPanel'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import devLog from '@/utils/dev/logger'
@@ -529,6 +530,13 @@ export default function UserDashboard() {
                     }}
                   />
                 </div>
+
+                {/* Credit account panel - SSO institutional users only */}
+                {isSSO && (
+                  <div className="w-full">
+                    <CreditAccountPanel />
+                  </div>
+                )}
               </div>
             </div>
             {/* Bottom panel: bookings lists */}

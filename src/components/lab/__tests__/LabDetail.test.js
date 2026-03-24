@@ -150,7 +150,7 @@ describe("LabDetail", () => {
       render(<LabDetail id="lab-123" />);
 
       expect(formatPrice).toHaveBeenCalledWith("150");
-      expect(screen.getByText("$150 $LAB / hour")).toBeInTheDocument();
+      expect(screen.getByText("$150 credits / hour")).toBeInTheDocument();
     });
   });
 

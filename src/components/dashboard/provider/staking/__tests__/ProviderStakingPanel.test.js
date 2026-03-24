@@ -81,7 +81,7 @@ describe('ProviderStakingPanel', () => {
     const allMocks = container.querySelectorAll('[data-testid="mock-stake-health"]')
     expect(allMocks.length).toBe(1)
 
-    const header = screen.getByRole('heading', { name: /Staking/i }).closest('div')
+    const header = screen.getByRole('heading', { name: /Provider Bond/i }).closest('div')
     expect(header?.querySelector('[data-testid="mock-stake-health"]')).toBeNull()
   })
 })

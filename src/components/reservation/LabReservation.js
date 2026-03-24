@@ -31,9 +31,6 @@ import {
   notifyReservationProgressAuthorization,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
-  notifyReservationWalletApprovalPending,
-  notifyReservationWalletApprovalRejected,
-  notifyReservationWalletApprovalSuccess,
   notifyReservationWalletDisconnected,
   notifyReservationWalletInsufficientTokens,
   notifyReservationWalletInvalidCost,
@@ -159,8 +156,6 @@ export default function LabReservation({ id }) {
   // Lab token utilities
   const { 
     checkBalanceAndAllowance, 
-    approveLabTokensAndWait,
-    refetchAllowance,
     formatTokenAmount: formatBalance
   } = useLabToken()
   
@@ -348,32 +343,6 @@ export default function LabReservation({ id }) {
     setIsBooking(true)
 
     try {
-      // Handle token approval if needed
-      if (!paymentCheck.hasSufficientAllowance) {
-        notifyReservationWalletApprovalPending(addTemporaryNotification)
-        
-        try {
-          await approveLabTokensAndWait(cost)
-          const latestAllowance = (await refetchAllowance())?.data ?? 0n
-          if (latestAllowance < cost) {
-            throw new Error('Allowance not updated after approval confirmation')
-          }
-          notifyReservationWalletApprovalSuccess(addTemporaryNotification)
-        } catch (approvalError) {
-          devLog.error('Token approval failed:', approvalError)
-          if (approvalError.code === 4001 || approvalError.code === 'ACTION_REJECTED') {
-            notifyReservationWalletApprovalRejected(addTemporaryNotification)
-          } else {
-            addErrorNotification(approvalError, 'Token approval failed: ')
-          }
-          setIsBooking(false)
-          if (typeof resetWalletReservationFlow === 'function') {
-            resetWalletReservationFlow()
-          }
-          return
-        }
-      }
-      
       // Check if time slot is still available
       const finalAvailableTimes = generateTimeOptions({
         date,

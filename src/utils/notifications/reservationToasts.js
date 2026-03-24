@@ -65,15 +65,15 @@ const resolveReservationDeniedMessage = (reason, isSSO) => {
       return '❌ Reservation denied: provider cannot fulfill this reservation right now.'
     case RESERVATION_DENY_REASON.PAYMENT_FAILED:
       return isSSO
-        ? '❌ Reservation denied due to payment processing failure.'
-        : '❌ Reservation denied: LAB token payment failed.'
+        ? 'Reservation denied due to payment processing failure.'
+        : 'Reservation denied: service credit charge failed.'
     case RESERVATION_DENY_REASON.REQUEST_EXPIRED:
       return isSSO
         ? '❌ Reservation denied by your institution (request expired).'
         : '❌ Reservation denied.'
     case RESERVATION_DENY_REASON.TREASURY_SPEND_FAILED:
       return isSSO
-        ? '❌ Reservation denied by your institution (treasury spend failed).'
+        ? '❌ Reservation denied by your institution (credit charge failed).'
         : '❌ Reservation denied.'
     default:
       return '❌ Reservation denied.'
@@ -188,20 +188,20 @@ export const notifyReservationWalletInsufficientTokens = (addTemporaryNotificati
   notify(
     addTemporaryNotification,
     'error',
-    `❌ Insufficient LAB tokens. Required: ${required} LAB, Available: ${available} LAB`,
+    `Insufficient service credits. Required: ${required} credits, Available: ${available} credits`,
     reservationToastIds.walletInsufficientTokens()
   )
 
 export const notifyReservationWalletApprovalPending = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'pending', 'Approving LAB tokens...', reservationToastIds.walletApprovalPending(), {
+  notify(addTemporaryNotification, 'pending', 'Validating service credit ledger...', reservationToastIds.walletApprovalPending(), {
     duration: 8000,
   })
 
 export const notifyReservationWalletApprovalSuccess = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'success', '✅ Tokens approved!', reservationToastIds.walletApprovalSuccess())
+  notify(addTemporaryNotification, 'success', 'Service credits ready to spend.', reservationToastIds.walletApprovalSuccess())
 
 export const notifyReservationWalletApprovalRejected = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'warning', '🚫 Token approval rejected by user.', reservationToastIds.walletApprovalRejected())
+  notify(addTemporaryNotification, 'warning', 'Service credit validation cancelled.', reservationToastIds.walletApprovalRejected())
 
 export const notifyReservationWalletSlotUnavailable = (addTemporaryNotification, payload) =>
   notify(
@@ -248,4 +248,3 @@ export const notifyReservationWalletTransactionSubmitted = (addTemporaryNotifica
     reservationToastIds.walletTxSubmitted(payload)
   )
 }
-

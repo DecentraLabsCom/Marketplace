@@ -10,7 +10,7 @@ describe('computeStakeHealth', () => {
   test('returns "none" when required stake is zero', () => {
     const result = computeStakeHealth('1000000', '0', '0')
     expect(result.status).toBe('none')
-    expect(result.label).toBe('No stake required')
+    expect(result.label).toBe('No bond required')
     expect(result.percentage).toBe(100)
   })
 
@@ -21,11 +21,11 @@ describe('computeStakeHealth', () => {
     expect(result.percentage).toBe(100)
   })
 
-  test('returns "healthy" with "Well-staked" when over 150%', () => {
+  test('returns "healthy" with "Well-bonded" when over 150%', () => {
     // 1600 / 800 = 200%
     const result = computeStakeHealth('1600000000', '800000000', '0')
     expect(result.status).toBe('healthy')
-    expect(result.label).toBe('Well-staked')
+    expect(result.label).toBe('Well-bonded')
     expect(result.percentage).toBe(200)
   })
 
@@ -45,10 +45,10 @@ describe('computeStakeHealth', () => {
     expect(result.percentage).toBe(50)
   })
 
-  test('returns "critical" with "Not staked" when zero staked', () => {
+  test('returns "critical" with "Not bonded" when zero staked', () => {
     const result = computeStakeHealth('0', '800000000', '0')
     expect(result.status).toBe('critical')
-    expect(result.label).toBe('Not staked')
+    expect(result.label).toBe('Not bonded')
     expect(result.percentage).toBe(0)
   })
 
@@ -63,7 +63,7 @@ describe('computeStakeHealth', () => {
     // Staked 100, slashed 200 → effective 0
     const result = computeStakeHealth('100000000', '800000000', '200000000')
     expect(result.status).toBe('critical')
-    expect(result.label).toBe('Not staked')
+    expect(result.label).toBe('Not bonded')
     expect(result.percentage).toBe(0)
   })
 
@@ -113,7 +113,7 @@ describe('StakeHealthIndicator', () => {
     expect(screen.getByText('100%')).toBeInTheDocument()
   })
 
-  test('shows "Not staked" for zero stake', () => {
+  test('shows "Not bonded" for zero stake', () => {
     render(
       <StakeHealthIndicator
         stakedAmount="0"
@@ -121,7 +121,7 @@ describe('StakeHealthIndicator', () => {
         slashedAmount="0"
       />
     )
-    expect(screen.getByText('Not staked')).toBeInTheDocument()
+    expect(screen.getByText('Not bonded')).toBeInTheDocument()
   })
 
   test('shows "At risk" for warning state', () => {
@@ -135,7 +135,7 @@ describe('StakeHealthIndicator', () => {
     expect(screen.getByText('At risk')).toBeInTheDocument()
   })
 
-  test('shows "Well-staked" for high surplus', () => {
+  test('shows "Well-bonded" for high surplus', () => {
     render(
       <StakeHealthIndicator
         stakedAmount="1600000000"
@@ -143,6 +143,6 @@ describe('StakeHealthIndicator', () => {
         slashedAmount="0"
       />
     )
-    expect(screen.getByText('Well-staked')).toBeInTheDocument()
+    expect(screen.getByText('Well-bonded')).toBeInTheDocument()
   })
 })

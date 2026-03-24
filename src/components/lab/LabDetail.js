@@ -108,7 +108,7 @@ export default function LabDetail({ id }) {
             <Carrousel lab={lab} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
-              <span className="text-text-secondary">{formatPrice(lab?.price)} $LAB / hour</span>
+              <span className="text-text-secondary">{formatPrice(lab?.price)} credits / hour</span>
               {(lab?.provider || providerCountryLabel) && (
                 <div className="text-right max-w-[55%]">
                   {lab?.provider && (

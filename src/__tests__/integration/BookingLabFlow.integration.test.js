@@ -162,7 +162,6 @@ jest.mock("@/context/LabTokenContext", () => ({
       hasSufficientAllowance: true,
       balance: "10.5",
     }),
-    approveLabTokens: jest.fn(),
   }),
   LabTokenProvider: ({ children }) => children,
 }));

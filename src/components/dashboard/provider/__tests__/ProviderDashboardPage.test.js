@@ -7,7 +7,7 @@
  * - Lab selection & auto-select
  * - CRUD (add, edit, delete, list/unlist)
  * - File sync (temp → labId, JSON metadata)
- * - Funds collection
+ * - Provider payout collection
  * - Error handling (query, mutation, UI)
  * - Edge cases (empty, null, errors, loading)
  */
@@ -75,7 +75,7 @@ let mockBookingsData = {
 };
 
 let mockSelectedLabPendingPayout = {
-  data: { walletPayout: "100", institutionalPayout: "0", totalPayout: "100", institutionalCollectorCount: 0 },
+  data: { providerReceivable: "100", deferredInstitutionalReceivable: "0", totalReceivable: "100", eligibleReservationCount: 0 },
   isLoading: false,
   isError: false,
 };
@@ -90,7 +90,7 @@ const mockUpdateLabMutate = jest.fn();
 const mockDeleteLabMutate = jest.fn();
 const mockListLabMutate = jest.fn();
 const mockUnlistLabMutate = jest.fn();
-const mockRequestFundsMutate = jest.fn();
+const mockRequestProviderPayoutMutate = jest.fn();
 const mockSaveLabDataMutate = jest.fn();
 const mockDeleteLabDataMutate = jest.fn();
 const mockMoveFilesMutate = jest.fn();
@@ -155,7 +155,7 @@ jest.mock("@/hooks/lab/useLabs", () => ({
 
 jest.mock("@/hooks/booking/useBookings", () => ({
   useLabBookingsDashboard: () => mockBookingsData,
-  useRequestFunds: () => ({ mutateAsync: mockRequestFundsMutate }),
+  useRequestProviderPayout: () => ({ mutateAsync: mockRequestProviderPayoutMutate }),
 }));
 
 jest.mock("@/hooks/provider/useProvider", () => ({
@@ -270,33 +270,11 @@ jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   ),
 }));
 
-// Mock staking components used by the dashboard (keep unit tests isolated)
-jest.mock('@/components/dashboard/provider/staking/ProviderStakingPanel', () => ({
-  __esModule: true,
-  default: ({ providerAddress, isSSO, labCount }) => (
-    <div data-testid="provider-staking-panel">Staking (mock)</div>
-  ),
-}));
-
-jest.mock('@/components/dashboard/provider/staking/PendingPayoutsPanel', () => ({
-  __esModule: true,
-  default: ({ labs, onCollect, isSSO, isCollectEnabled, isCollecting }) => (
-    <div data-testid="pending-payouts-panel">Pending Payouts (mock)</div>
-  ),
-}));
-
-jest.mock('@/components/dashboard/provider/staking/StakeHealthIndicator', () => ({
-  __esModule: true,
-  default: ({ variant }) => (
-    <span data-testid="stake-health-indicator">Health</span>
-  ),
-}));
-
 // Mock staking hooks barrel to avoid pulling in @wagmi/core ESM (not transformable by Jest)
 jest.mock('@/hooks/staking/useStaking', () => ({
   useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
   useRequiredStake: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  usePendingLabPayout: jest.fn(() => mockSelectedLabPendingPayout),
+  useProviderReceivable: jest.fn(() => mockSelectedLabPendingPayout),
 }));
 
 jest.mock("@/components/dashboard/provider/LabModal", () => ({
@@ -363,7 +341,7 @@ describe("ProviderDashboard Component", () => {
     };
 
     mockSelectedLabPendingPayout = {
-      data: { walletPayout: "100", institutionalPayout: "0", totalPayout: "100", institutionalCollectorCount: 0 },
+      data: { providerReceivable: "100", deferredInstitutionalReceivable: "0", totalReceivable: "100", eligibleReservationCount: 0 },
       isLoading: false,
       isError: false,
     };
@@ -442,29 +420,17 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
-    test("shows staking compact card and opens modal for wallet users", async () => {
-      // default mockUserData.isSSO = false
+    test("does not render legacy staking controls for wallet users", () => {
       renderWithClient(<ProviderDashboard />);
 
-      // compact card should render
-      expect(screen.getByText(/Staking & payouts/i)).toBeInTheDocument();
-      expect(screen.getByTestId('stake-health-indicator')).toBeInTheDocument();
-
-      // open modal
-      const manageBtn = screen.getByRole('button', { name: /manage staking/i });
-      expect(manageBtn).toBeInTheDocument();
-      fireEvent.click(manageBtn);
-
-      // modal should show provider staking + pending payouts (mocked)
-      expect(await screen.findByTestId('provider-staking-panel')).toBeInTheDocument();
-      expect(screen.getByTestId('pending-payouts-panel')).toBeInTheDocument();
+      expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
 
-    test("does not render staking controls for SSO users", () => {
+    test("does not render legacy staking controls for SSO users", () => {
       mockUserData.isSSO = true;
       renderWithClient(<ProviderDashboard />);
 
-      // compact card and manage button should NOT be present for SSO users
       expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
@@ -968,7 +934,7 @@ describe("ProviderDashboard Component", () => {
       mockLabsData.data = {
         labs: [{ id: "1", name: "Lab 1", listed: true }],
       };
-      mockRequestFundsMutate.mockResolvedValueOnce({ success: true });
+      mockRequestProviderPayoutMutate.mockResolvedValueOnce({ success: true });
 
       renderWithClient(<ProviderDashboard />);
 
@@ -979,9 +945,9 @@ describe("ProviderDashboard Component", () => {
       });
 
       await waitFor(() => {
-        expect(mockRequestFundsMutate).toHaveBeenCalled();
-        expectTempNotificationCall("pending", "Collecting all balances...");
-        expectTempNotificationCall("success", expect.stringContaining("Balance collected"));
+        expect(mockRequestProviderPayoutMutate).toHaveBeenCalled();
+        expectTempNotificationCall("pending", "Requesting provider settlement...");
+        expectTempNotificationCall("success", expect.stringContaining("Provider settlement requested successfully"));
       });
     });
 
@@ -990,7 +956,7 @@ describe("ProviderDashboard Component", () => {
         labs: [{ id: "1", name: "Lab 1", listed: true }],
       };
       mockSelectedLabPendingPayout = {
-        data: { walletPayout: "0", institutionalPayout: "0", totalPayout: "0", institutionalCollectorCount: 0 },
+        data: { providerReceivable: "0", deferredInstitutionalReceivable: "0", totalReceivable: "0", eligibleReservationCount: 0 },
         isLoading: false,
         isError: false,
       };
@@ -1004,7 +970,7 @@ describe("ProviderDashboard Component", () => {
         fireEvent.click(collectButton);
       });
 
-      expect(mockRequestFundsMutate).not.toHaveBeenCalled();
+      expect(mockRequestProviderPayoutMutate).not.toHaveBeenCalled();
     });
 
     test("handles collection error", async () => {
@@ -1012,7 +978,7 @@ describe("ProviderDashboard Component", () => {
         labs: [{ id: "1", name: "Lab 1", listed: true }],
       };
       const error = new Error("Collection failed");
-      mockRequestFundsMutate.mockRejectedValueOnce(error);
+      mockRequestProviderPayoutMutate.mockRejectedValueOnce(error);
 
       renderWithClient(<ProviderDashboard />);
 
@@ -1023,10 +989,10 @@ describe("ProviderDashboard Component", () => {
       });
 
       await waitFor(() => {
-        expectTempNotificationCall(
-          "error",
-          expect.stringContaining("Failed to collect balances")
-        );
+          expectTempNotificationCall(
+            "error",
+            expect.stringContaining("Failed to request provider settlement")
+          );
       });
     });
   });

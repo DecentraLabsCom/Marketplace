@@ -111,21 +111,21 @@ const awaitBackendAuthorization = async (prepareData, { backendUrl, authToken, p
   })
 }
 
-const DEFAULT_REQUEST_FUNDS_MAX_BATCH = 100
+const DEFAULT_PROVIDER_PAYOUT_MAX_BATCH = 100
 
-const normalizeRequestFundsInput = (input, { fallbackBackendUrl } = {}) => {
+const normalizePayoutRequestInput = (input, { fallbackBackendUrl } = {}) => {
   const payload = input && typeof input === 'object' ? input : {}
   const rawLabId = payload.labId ?? payload.tokenId ?? payload.id
   const parsedLabId = Number(rawLabId)
 
   if (!Number.isInteger(parsedLabId) || parsedLabId < 0) {
-    throw new Error('Missing or invalid labId for requestFunds')
+    throw new Error('Missing or invalid labId for payout request')
   }
 
-  const rawMaxBatch = payload.maxBatch ?? DEFAULT_REQUEST_FUNDS_MAX_BATCH
+  const rawMaxBatch = payload.maxBatch ?? DEFAULT_PROVIDER_PAYOUT_MAX_BATCH
   const parsedMaxBatch = Number(rawMaxBatch)
   if (!Number.isInteger(parsedMaxBatch) || parsedMaxBatch < 1 || parsedMaxBatch > 100) {
-    throw new Error('Invalid maxBatch for requestFunds (expected integer 1-100)')
+    throw new Error('Invalid maxBatch for payout request (expected integer 1-100)')
   }
 
   return {
@@ -1060,90 +1060,90 @@ export const useCancelBooking = (options = {}) => {
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
-export const useRequestFundsSSO = (options = {}) => {
+export const useRequestProviderPayoutSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { institutionBackendUrl } = useUser();
 
   return useMutation({
     mutationFn: async (requestInput = {}) => {
-      const { labId, maxBatch, backendUrl } = normalizeRequestFundsInput(requestInput, {
+      const { labId, maxBatch, backendUrl } = normalizePayoutRequestInput(requestInput, {
         fallbackBackendUrl: institutionBackendUrl,
       })
       if (!backendUrl) {
         throw new Error('Missing institutional backend URL');
       }
-      const data = await runActionIntent(ACTION_CODES.REQUEST_FUNDS, {
+      const data = await runActionIntent(ACTION_CODES.REQUEST_PROVIDER_PAYOUT, {
         backendUrl,
         labId,
         maxBatch,
       });
-      devLog.log('useRequestFundsSSO intent (webauthn):', data);
+      devLog.log('useRequestProviderPayoutSSO intent (webauthn):', data);
       return data;
     },
     onSuccess: (_result, variables) => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
-      queryClient.invalidateQueries({ queryKey: ['staking', 'pendingPayouts'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['staking', 'providerReceivables'], exact: false });
 
       const normalizedLabId = Number(variables?.labId)
       if (Number.isInteger(normalizedLabId) && normalizedLabId >= 0) {
-        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.pendingPayout(normalizedLabId) });
+        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.providerReceivable(normalizedLabId) });
       }
-      devLog.log('Funds requested successfully, cache invalidated');
+      devLog.log('Provider payout request submitted successfully, cache invalidated');
     },
     onError: (error) => {
-      devLog.error('Failed to request funds:', error);
+      devLog.error('Failed to request provider payout:', error);
     },
     ...options,
   });
 };
 
 /**
- * Hook for wallet-based requestFunds using useContractWriteFunction
- * Requests funds using user's wallet
+ * Hook for wallet-based provider payout request using useContractWriteFunction
+ * Requests the currently accrued provider payout using the caller wallet
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
-export const useRequestFundsWallet = (options = {}) => {
+export const useRequestProviderPayoutWallet = (options = {}) => {
   const queryClient = useQueryClient();
-  const { contractWriteFunction: requestFunds } = useContractWriteFunction('requestFunds');
+  const { contractWriteFunction: requestProviderPayout } = useContractWriteFunction('requestProviderPayout');
 
   return useMutation({
     mutationFn: async (requestInput = {}) => {
-      const { labId, maxBatch } = normalizeRequestFundsInput(requestInput)
-      const txHash = await requestFunds([BigInt(labId), BigInt(maxBatch)]);
-      devLog.log('useRequestFundsWallet - tx sent:', txHash);
+      const { labId, maxBatch } = normalizePayoutRequestInput(requestInput)
+      const txHash = await requestProviderPayout([BigInt(labId), BigInt(maxBatch)]);
+      devLog.log('useRequestProviderPayoutWallet - tx sent:', txHash);
       return { hash: txHash, labId };
     },
     onSuccess: (_result, variables) => {
       // Invalidate safe balance and related queries
       queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
-      queryClient.invalidateQueries({ queryKey: ['staking', 'pendingPayouts'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['staking', 'providerReceivables'], exact: false });
 
       const normalizedLabId = Number(variables?.labId)
       if (Number.isInteger(normalizedLabId) && normalizedLabId >= 0) {
-        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.pendingPayout(normalizedLabId) });
+        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.providerReceivable(normalizedLabId) });
       }
-      devLog.log('Funds requested successfully via wallet, cache invalidated');
+      devLog.log('Provider payout requested successfully via wallet, cache invalidated');
     },
     onError: (error) => {
-      devLog.error('Failed to request funds via wallet:', error);
+      devLog.error('Failed to request provider payout via wallet:', error);
     },
     ...options,
   });
 };
 
 /**
- * Unified Hook for requesting funds (auto-detects SSO vs Wallet)
+ * Unified Hook for requesting provider payout (auto-detects SSO vs Wallet)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
-export const useRequestFunds = (options = {}) => {
+export const useRequestProviderPayout = (options = {}) => {
   const isSSO = useGetIsSSO(options);
   
   // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useRequestFundsSSO(options);
-  const walletMutation = useRequestFundsWallet(options);
+  const ssoMutation = useRequestProviderPayoutSSO(options);
+  const walletMutation = useRequestProviderPayoutWallet(options);
   
   // Return the appropriate mutation
   return isSSO ? ssoMutation : walletMutation;

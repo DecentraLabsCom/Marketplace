@@ -48,7 +48,7 @@ describe('stakingToasts', () => {
       const [type, message] = mockNotify.mock.calls[0]
       expect(type).toBe('pending')
       expect(message).toContain('100')
-      expect(message).toContain('$LAB')
+      expect(message).toContain('credits')
     })
 
     test('notifyStakeSuccess calls with success type', () => {

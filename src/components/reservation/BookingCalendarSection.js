@@ -178,7 +178,7 @@ export default function BookingCalendarSection({
             durationMinutes={duration}
           />
           <p className="text-text-secondary font-semibold text-xl mt-4 text-center">
-            {formatPrice(lab.price)} $LAB / hour
+            {formatPrice(lab.price)} credits / hour
           </p>
         </div>
       )}

@@ -23,10 +23,10 @@ Before you can book and access a laboratory, you'll need:
    Such as MetaMask, WalletConnect, or any compatible Ethereum wallet. This wallet will be used to:
    * Authenticate your identity
    * Sign reservation transactions
-   * Hold $LAB tokens for payment
+   * Manage prepaid service credits for lab usage
 
-2. **$LAB and Network-Specific Tokens**\
-   Sufficient $LAB tokens to cover the cost of your reservation and network-specific tokens to pay for the gas. Lab pricing is displayed in $LAB per hour on each lab's detail page.
+2. **Service Credits and Network-Specific Tokens**\
+   Sufficient service credits to cover the cost of your reservation and network-specific tokens to pay for the gas. Lab pricing is displayed in credits per hour on each lab's detail page.
 
 3. **Browser Requirements**\
    A modern web browser with JavaScript enabled.
@@ -53,7 +53,7 @@ Once connected, your wallet address will be displayed, and you'll have access to
 
 Explore the available laboratories on the marketplace homepage. Each lab card displays:
 * Lab name and provider
-* Price in $LAB per hour
+* Price in credits per hour
 * Category and keywords
 * Availability status
 
@@ -83,7 +83,7 @@ After clicking "Book Lab," you'll be taken to the reservation page where you can
 ![Booking Calendar](.gitbook/assets/booking-calendar.png)
 
 The system will show you:
-* Total cost in $LAB tokens
+* Total cost in service credits
 * Available time slots (unavailable times are grayed out)
 * Any scheduling conflicts
 
@@ -99,9 +99,9 @@ Your wallet will prompt you to sign a blockchain transaction to record your rese
 
 **Important details:**
 * Review the transaction details carefully (lab ID, time slot, cost)
-* Ensure you have enough $LAB tokens for the reservation
+* Ensure you have enough service credits for the reservation
 * Confirm you have sufficient ETH for gas fees
-* The transaction will transfer $LAB tokens to the smart contract as payment
+* The transaction will lock service credits in the smart contract until settlement
 
 Click **"Sign"** or **"Confirm"** in your wallet to proceed.
 
@@ -179,7 +179,7 @@ When your reserved time expires:
 
 ### What happens if the provider doesn't confirm my reservation?
 
-If a provider fails to confirm your reservation within a reasonable timeframe (typically 24 hours), you can cancel the booking through your dashboard. You are not charged $LAB tokens until the provider confirms the reservation, so no refund is needed in if you cancel before confirmation.
+If a provider fails to confirm your reservation within a reasonable timeframe (typically 24 hours), you can cancel the booking through your dashboard. You are not charged service credits until the provider confirms the reservation, so no refund is needed if you cancel before confirmation.
 
 ### Can I cancel a confirmed reservation?
 

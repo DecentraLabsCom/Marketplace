@@ -2,14 +2,7 @@ import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
-// Mock the heavy panels so the Modal test stays focused and deterministic
-jest.mock('../ProviderStakingPanel', () => ({
-  __esModule: true,
-  default: ({ providerAddress, labCount }) => (
-    <div data-testid="mock-provider-staking-panel" data-provider={providerAddress} data-labcount={labCount} />
-  ),
-}))
-
+// Mock the receivables panel so the Modal test stays focused and deterministic
 jest.mock('../PendingPayoutsPanel', () => ({
   __esModule: true,
   default: ({ onCollect, isCollecting, isCollectEnabled }) => (
@@ -25,7 +18,7 @@ jest.mock('../PendingPayoutsPanel', () => ({
 import ProviderStakingModal from '../ProviderStakingModal'
 
 describe('ProviderStakingModal', () => {
-  test('renders modal with panels and passes props', () => {
+  test('renders modal with receivables panel and passes props', () => {
     const onClose = jest.fn()
     const onCollect = jest.fn()
     const addTemporaryNotification = jest.fn()
@@ -34,10 +27,8 @@ describe('ProviderStakingModal', () => {
       <ProviderStakingModal
         isOpen={true}
         onClose={onClose}
-        providerAddress="0xabc"
         labs={[{ id: '1' }]}
         isSSO={false}
-        labCount={2}
         addTemporaryNotification={addTemporaryNotification}
         onCollect={onCollect}
         isCollectEnabled={true}
@@ -46,23 +37,10 @@ describe('ProviderStakingModal', () => {
     )
 
     // modal title
-    const title = screen.getByRole('heading', { name: /Staking & Economics/i })
+    const title = screen.getByRole('heading', { name: /Provider Receivables/i })
     expect(title).toBeInTheDocument()
 
-    // modal wrapper should reflect the widened max-width (prevent regressions)
-    const overlay = screen.getByRole('dialog')
-    const modalContent = overlay.querySelector('div')
-    // modal width intentionally uses the project-specific utility class `max-w-180`
-    expect(modalContent?.className || '').toMatch(/max-w-180/)
-    // grid gap for better spacing between panels
-    const grid = overlay.querySelector('.grid')
-    expect(grid?.className || '').toMatch(/gap-5/) 
-
-    // mocked panels render and receive props
-    const stakingPanel = screen.getByTestId('mock-provider-staking-panel')
-    expect(stakingPanel).toHaveAttribute('data-provider', '0xabc')
-    expect(stakingPanel).toHaveAttribute('data-labcount', '2')
-
+    // mocked receivables panel renders and receives props
     const payoutsPanel = screen.getByTestId('mock-pending-payouts-panel')
     expect(payoutsPanel).toBeInTheDocument()
     expect(screen.getByTestId('collecting')).toHaveTextContent('true')
@@ -76,10 +54,8 @@ describe('ProviderStakingModal', () => {
       <ProviderStakingModal
         isOpen={true}
         onClose={onClose}
-        providerAddress="0xabc"
         labs={[]}
         isSSO={false}
-        labCount={0}
         addTemporaryNotification={() => {}}
         onCollect={onCollect}
         isCollectEnabled={true}
@@ -103,10 +79,8 @@ describe('ProviderStakingModal', () => {
       <ProviderStakingModal
         isOpen={false}
         onClose={onClose}
-        providerAddress="0xabc"
         labs={[]}
         isSSO={false}
-        labCount={0}
       />
     )
 

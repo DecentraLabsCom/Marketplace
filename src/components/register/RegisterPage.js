@@ -288,7 +288,7 @@ export default function RegisterPage() {
                     <ul className="space-y-2 mb-6 text-sm text-gray-600">
                       <li className="flex items-center">
                         <FontAwesomeIcon icon={faCheckCircle} className="text-text-secondary mr-2 text-base" />
-                        Get 1000 $LAB tokens + all advantages from consumers!
+                        Get onboarding service credits + all advantages from consumers!
                       </li>
                       <li className="flex items-center">
                         <FontAwesomeIcon icon={faCheckCircle} className="text-text-secondary mr-2 text-base" />

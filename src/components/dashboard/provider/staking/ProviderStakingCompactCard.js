@@ -1,12 +1,11 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import StakeHealthIndicator from './StakeHealthIndicator'
 
 /**
- * Compact staking summary card used in Provider Dashboard
- * - lightweight; only shows health badge, label and Manage button
+ * Compact provider economics summary card used in Provider Dashboard
+ * - lightweight; shows receivable indicator and Manage button
  */
-export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage }) {
+export default function ProviderStakingCompactCard({ onManage }) {
   return (
     <div>
       <div 
@@ -17,15 +16,10 @@ export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage })
         }}
       >
         <div className="flex items-center gap-3">
-          <StakeHealthIndicator
-            stakedAmount={stakeInfo?.stakedAmount || '0'}
-            requiredStake={stakeInfo?.requiredStake || '0'}
-            slashedAmount={stakeInfo?.slashedAmount || '0'}
-            variant="compact"
-          />
+          <span className="text-2xl">💰</span>
           <div>
-            <p className="text-sm font-semibold text-white">Staking & Payouts</p>
-            <p className="text-xs text-slate-300">Summary & wallet actions</p>
+            <p className="text-sm font-semibold text-white">Provider Receivables</p>
+            <p className="text-xs text-slate-300">EUR settlement & revenue breakdown</p>
           </div>
         </div>
 
@@ -34,7 +28,7 @@ export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage })
             onClick={onManage}
             className="px-5 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-all duration-200 shadow-sm hover:shadow-md"
           >
-            Manage staking
+            View receivables
           </button>
         </div>
       </div>
@@ -43,6 +37,5 @@ export default function ProviderStakingCompactCard({ stakeInfo = {}, onManage })
 }
 
 ProviderStakingCompactCard.propTypes = {
-  stakeInfo: PropTypes.object,
   onManage: PropTypes.func.isRequired,
 }

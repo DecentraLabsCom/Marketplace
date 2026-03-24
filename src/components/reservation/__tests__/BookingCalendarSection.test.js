@@ -310,7 +310,7 @@ describe("BookingCalendarSection", () => {
       render(<BookingCalendarSection {...defaultProps} isSSO={false} />);
 
       expect(screen.getByTestId("lab-token-info")).toBeInTheDocument();
-      expect(screen.getByText(/\$LAB \/ hour/)).toBeInTheDocument();
+      expect(screen.getByText(/credits \/ hour/)).toBeInTheDocument();
     });
 
     test("hides payment info for SSO users", () => {
@@ -373,7 +373,7 @@ describe("BookingCalendarSection", () => {
       );
 
       expect(formatPrice).toHaveBeenCalledWith("100");
-      expect(screen.getByText("100.00 $LAB / hour")).toBeInTheDocument();
+      expect(screen.getByText("100.00 credits / hour")).toBeInTheDocument();
     });
     
     test("recalculates price when duration changes", () => {
@@ -391,7 +391,7 @@ describe("BookingCalendarSection", () => {
       });
 
       expect(formatPrice).toHaveBeenCalledWith("100");
-      expect(screen.getByText(/-formatted \$LAB/)).toBeInTheDocument();
+      expect(screen.getByText(/-formatted credits/)).toBeInTheDocument();
     });
   });
 

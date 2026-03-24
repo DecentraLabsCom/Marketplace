@@ -50,7 +50,7 @@ function normalizeNonNegativeInteger(value) {
   return parsed
 }
 
-function normalizeRequestFundsMaxBatch(value) {
+function normalizeProviderPayoutMaxBatch(value) {
   if (value === undefined || value === null || value === '') return null
   const parsed = Number(value)
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) return null
@@ -119,19 +119,19 @@ export async function POST(request) {
       }
     }
 
-    if (action === ACTION_CODES.REQUEST_FUNDS) {
+    if (action === ACTION_CODES.REQUEST_PROVIDER_PAYOUT) {
       const normalizedLabId = normalizeNonNegativeInteger(resolvedLabId)
       if (normalizedLabId === null) {
         return NextResponse.json(
-          { error: 'Missing or invalid labId for REQUEST_FUNDS' },
+          { error: 'Missing or invalid labId for REQUEST_PROVIDER_PAYOUT' },
           { status: 400 },
         )
       }
 
-      const normalizedMaxBatch = normalizeRequestFundsMaxBatch(payloadInput.maxBatch)
+      const normalizedMaxBatch = normalizeProviderPayoutMaxBatch(payloadInput.maxBatch)
       if (normalizedMaxBatch === null) {
         return NextResponse.json(
-          { error: 'Missing or invalid maxBatch for REQUEST_FUNDS (expected integer 1-100)' },
+          { error: 'Missing or invalid maxBatch for REQUEST_PROVIDER_PAYOUT (expected integer 1-100)' },
           { status: 400 },
         )
       }

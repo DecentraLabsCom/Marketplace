@@ -189,7 +189,7 @@ describe("LabCard - Basic Rendering", () => {
 
   //Test: Price formatting integration
 
-  test("renders formatted price with LAB token suffix", () => {
+  test("renders formatted price with credit unit suffix", () => {
     const mockFormatPrice = jest.fn((price) => `€${Number(price).toFixed(2)}`);
     mockUseLabToken.mockReturnValue({
       formatPrice: mockFormatPrice,
@@ -197,7 +197,7 @@ describe("LabCard - Basic Rendering", () => {
 
     renderLabCard();
 
-    expect(screen.getByText("€15.75 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("€15.75 credits / hour")).toBeInTheDocument();
     expect(mockFormatPrice).toHaveBeenCalledWith(15.75);
   });
 
@@ -502,31 +502,31 @@ describe("LabCard - Price Formatting", () => {
   test("formats decimal price correctly", () => {
     renderLabCard({ price: 12.5 });
 
-    expect(screen.getByText("€12.50 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("€12.50 credits / hour")).toBeInTheDocument();
   });
 
   test("handles zero price correctly", () => {
     renderLabCard({ price: 0 });
 
-    expect(screen.getByText("€0.00 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("€0.00 credits / hour")).toBeInTheDocument();
   });
 
   test("handles large price values", () => {
     renderLabCard({ price: 999.99 });
 
-    expect(screen.getByText("€999.99 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("€999.99 credits / hour")).toBeInTheDocument();
   });
 
   test("handles very small decimal prices", () => {
     renderLabCard({ price: 0.01 });
 
-    expect(screen.getByText("€0.01 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("€0.01 credits / hour")).toBeInTheDocument();
   });
 
   test("formats integer prices with decimal places", () => {
     renderLabCard({ price: 50 });
 
-    expect(screen.getByText("€50.00 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("€50.00 credits / hour")).toBeInTheDocument();
   });
 
   test("uses custom formatPrice function from LabToken context", () => {
@@ -536,7 +536,7 @@ describe("LabCard - Price Formatting", () => {
 
     renderLabCard({ price: 25.5 });
 
-    expect(screen.getByText("$25.500 $LAB / hour")).toBeInTheDocument();
+    expect(screen.getByText("$25.500 credits / hour")).toBeInTheDocument();
   });
 
   test("calls formatPrice with correct price value", () => {

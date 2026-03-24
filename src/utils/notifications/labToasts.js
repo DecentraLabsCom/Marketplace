@@ -110,13 +110,13 @@ export const notifyLabUnlistFailed = (addTemporaryNotification, labId, message) 
   notify(addTemporaryNotification, 'error', `Failed to unlist lab: ${message}`, labToastIds.unlistFailed(labId))
 
 export const notifyLabCollectStarted = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'pending', 'Collecting all balances...', labToastIds.collectStarted())
+  notify(addTemporaryNotification, 'pending', 'Requesting provider settlement...', labToastIds.collectStarted())
 
 export const notifyLabCollected = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'success', 'Balance collected!', labToastIds.collected())
+  notify(addTemporaryNotification, 'success', 'Provider settlement requested successfully!', labToastIds.collected())
 
 export const notifyLabCollectFailed = (addTemporaryNotification, message) =>
-  notify(addTemporaryNotification, 'error', `Failed to collect balances: ${message}`, labToastIds.collectFailed())
+  notify(addTemporaryNotification, 'error', `Failed to request provider settlement: ${message}`, labToastIds.collectFailed())
 
 export const notifyLabCreatorMismatch = (addTemporaryNotification) =>
   notify(

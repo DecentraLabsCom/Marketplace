@@ -8,7 +8,7 @@ import devLog from '@/utils/dev/logger';
 const LabTokenContext = createContext(null);
 
 /**
- * LabTokenProvider component that provides LAB token data to all child components
+ * LabTokenProvider component that provides service-credit data to all child components
  * Uses a single instance of useLabToken to avoid multiple contract calls
  * @param {Object} props
  * @param {React.ReactNode} props.children - Child components
@@ -30,8 +30,6 @@ export function LabTokenProvider({ children }) {
   // Create stable function references using useCallback
   const stableFunctions = useMemo(() => ({
     calculateReservationCost: labTokenData.calculateReservationCost,
-    approveLabTokens: labTokenData.approveLabTokens,
-    approveLabTokensAndWait: labTokenData.approveLabTokensAndWait,
     checkBalanceAndAllowance: labTokenData.checkBalanceAndAllowance,
     checkSufficientBalance: labTokenData.checkSufficientBalance,
     formatTokenAmount: labTokenData.formatTokenAmount,
@@ -42,8 +40,6 @@ export function LabTokenProvider({ children }) {
     clearDecimalsCache: labTokenData.clearDecimalsCache
   }), [
     labTokenData.calculateReservationCost,
-    labTokenData.approveLabTokens,
-    labTokenData.approveLabTokensAndWait,
     labTokenData.checkBalanceAndAllowance,
     labTokenData.checkSufficientBalance,
     labTokenData.formatTokenAmount,
@@ -148,9 +144,9 @@ export function LabTokenProvider({ children }) {
 }
 
 /**
- * Hook to access LAB token context
+ * Hook to access service-credit context
  * This replaces direct calls to useLabToken in components
- * @returns {Object} LAB token data and functions
+ * @returns {Object} Service-credit data and functions
  * @throws {Error} If used outside of LabTokenProvider
  */
 export function useLabToken() {

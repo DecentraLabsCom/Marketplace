@@ -213,7 +213,7 @@ function getReservationStatusText(status) {
     case 1: return 'Confirmed';
     case 2: return 'In Use'; 
     case 3: return 'Completed';
-    case 4: return 'Collected';
+    case 4: return 'Settled';
     case 5: return 'Cancelled';
     default: return 'Unknown';
   }

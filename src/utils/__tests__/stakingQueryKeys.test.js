@@ -16,18 +16,18 @@ describe('stakingQueryKeys', () => {
     expect(stakingQueryKeys.requiredStake('0xabcd')).toEqual(['staking', 'requiredStake', '0xabcd'])
   })
 
-  test('pendingPayout() includes lab ID', () => {
-    expect(stakingQueryKeys.pendingPayout(42)).toEqual(['staking', 'pendingPayout', 42])
+  test('providerReceivable() includes lab ID', () => {
+    expect(stakingQueryKeys.providerReceivable(42)).toEqual(['staking', 'providerReceivable', 42])
   })
 
-  test('pendingPayoutsMulti() sorts lab IDs for cache consistency', () => {
-    const result = stakingQueryKeys.pendingPayoutsMulti([3, 1, 2])
-    expect(result).toEqual(['staking', 'pendingPayouts', 1, 2, 3])
+  test('providerReceivablesMulti() sorts lab IDs for cache consistency', () => {
+    const result = stakingQueryKeys.providerReceivablesMulti([3, 1, 2])
+    expect(result).toEqual(['staking', 'providerReceivables', 1, 2, 3])
   })
 
-  test('pendingPayoutsMulti() handles null/undefined gracefully', () => {
-    const result = stakingQueryKeys.pendingPayoutsMulti(null)
-    expect(result).toEqual(['staking', 'pendingPayouts'])
+  test('providerReceivablesMulti() handles null/undefined gracefully', () => {
+    const result = stakingQueryKeys.providerReceivablesMulti(null)
+    expect(result).toEqual(['staking', 'providerReceivables'])
   })
 
   test('lockPeriod() returns static key', () => {

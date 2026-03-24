@@ -108,7 +108,7 @@ describe('reservationToasts', () => {
     expect(addTemporaryNotification).toHaveBeenNthCalledWith(
       3,
       'error',
-      '❌ Reservation denied: LAB token payment failed.',
+      'Reservation denied: service credit charge failed.',
       null,
       expect.objectContaining({
         dedupeKey: 'reservation-denied:reservation-3',
@@ -218,6 +218,10 @@ describe('reservationToasts', () => {
     expect(calls[7][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-slot-unavailable:1:1000' }))
     expect(calls[8][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-transaction-rejected' }))
     expect(calls[9][3]).toEqual(expect.objectContaining({ dedupeKey: 'reservation-wallet-timeslot-conflict:1:1000' }))
+    expect(calls[3][1]).toContain('Insufficient service credits')
+    expect(calls[4][1]).toBe('Validating service credit ledger...')
+    expect(calls[5][1]).toBe('Service credits ready to spend.')
+    expect(calls[6][1]).toBe('Service credit validation cancelled.')
   })
 
   test('emits remaining booking toasts through unified helper', () => {

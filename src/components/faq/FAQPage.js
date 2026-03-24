@@ -16,11 +16,11 @@ export default function FAQ() {
     },
     {
       question: " 3. How do I access a lab on DecentraLabs?",
-      answer: "To access a lab on DecentraLabs, you simply need a compatible cryptocurrency wallet (e.g., MetaMask). Once your wallet is set up, you can browse through the listed labs, make a reservation, and pay using $LAB tokens."
+      answer: "To access a lab on DecentraLabs, you simply need a compatible cryptocurrency wallet (e.g., MetaMask) or institutional SSO credentials. Once set up, you can browse through the listed labs, make a reservation, and pay using prepaid service credits."
     },
     {
       question: " 4. So, do I need to pay to access a lab?",
-      answer: "It depends on the lab. Some labs may be free to access, while others require a fee, which is paid using the $LAB token. Each lab has its own access model specified by the lab owner/provider."
+      answer: "It depends on the lab. Some labs may be free to access, while others require a fee, which is paid using service credits. Each lab has its own access model specified by the lab owner/provider."
     },
     {
       question: " 5. How do reservations work?",
@@ -35,8 +35,8 @@ export default function FAQ() {
       answer: "In DecentraLabs, user authentication is done through their wallet instead of a traditional username and password system. This provides enhanced security and allows payments and reservations to be directly integrated with the blockchain."
     },
     {
-      question: " 8. What is the $LAB token?",
-      answer: "The $LAB token is an ERC-20 token used to pay for access to labs on DecentraLabs. This token facilitates transactions within the marketplace and is managed through smart contracts."
+      question: " 8. What are service credits?",
+      answer: "Service credits are prepaid units used to reserve and access labs on DecentraLabs. Credits are issued when your institution confirms a funding order and are managed through smart contracts within the platform's limited network."
     },
     {
       question: " 9. How is lab access secured and reliable?",

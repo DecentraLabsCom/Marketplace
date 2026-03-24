@@ -165,7 +165,7 @@ const LabCard = React.memo(function LabCard({
         <h2 className="text-xl min-[700px]:text-2xl font-bold md:mt-2 text-hover-dark">{name}</h2>
         <div className="md:flex md:justify-between md:items-center min-[700px]:block md:mt-4">
           <p className="text-ui-label-dark font-semibold text-base mt-2">{provider}</p>
-          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p> 
+          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{formatPrice(price)} credits / hour</p> 
         </div>
       </div>
 

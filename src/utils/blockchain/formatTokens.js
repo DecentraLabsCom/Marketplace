@@ -1,6 +1,6 @@
 /**
- * Token amount formatting utilities for raw blockchain values.
- * Works with string amounts (smallest token units) — suitable for both
+ * Credit amount formatting utilities for raw blockchain values.
+ * Works with string amounts (smallest credit units) — suitable for both
  * SSO (API) and Wallet (Wagmi) data that has already been serialized to strings.
  *
  * For formatting BigInt values directly from Wagmi hooks, prefer
@@ -8,12 +8,12 @@
  */
 
 /**
- * Formats a raw token amount (smallest units) to a human-readable string
- * @param {string} rawAmount - Amount in smallest token units (e.g. "800000000")
- * @param {number} decimals - Token decimals (default 6 for $LAB)
+ * Formats a raw credit amount (smallest units) to a human-readable string
+ * @param {string} rawAmount - Amount in smallest credit units (e.g. "8000")
+ * @param {number} decimals - Credit decimals (default 1)
  * @returns {string} Formatted amount with 2 decimal places (e.g. "800.00")
  */
-export function formatRawAmount(rawAmount, decimals = 6) {
+export function formatRawAmount(rawAmount, decimals = 1) {
   if (!rawAmount || rawAmount === '0') return '0.00'
   try {
     const value = BigInt(rawAmount)

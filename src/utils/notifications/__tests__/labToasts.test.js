@@ -102,6 +102,9 @@ describe('labToasts', () => {
     expect(calls[11][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-collect-failed' }))
     expect(calls[12][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-creator-mismatch' }))
     expect(calls[13][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-legacy-blocked' }))
+    expect(calls[9][1]).toBe('Requesting provider settlement...')
+    expect(calls[10][1]).toBe('Provider settlement requested successfully!')
+    expect(calls[11][1]).toContain('Failed to request provider settlement')
   })
 
   test('no-ops when callback is not provided', () => {

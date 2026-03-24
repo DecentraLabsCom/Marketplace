@@ -126,8 +126,8 @@ export const stakingQueryKeys = {
   all: () => ['staking'],
   stakeInfo: (providerAddress) => ['staking', 'stakeInfo', providerAddress],
   requiredStake: (providerAddress) => ['staking', 'requiredStake', providerAddress],
-  pendingPayout: (labId) => ['staking', 'pendingPayout', labId],
-  pendingPayoutsMulti: (labIds) => ['staking', 'pendingPayouts', ...(labIds || []).sort()],
+  providerReceivable: (labId) => ['staking', 'providerReceivable', labId],
+  providerReceivablesMulti: (labIds) => ['staking', 'providerReceivables', ...(labIds || []).sort()],
   lockPeriod: () => ['staking', 'lockPeriod'],
 };
 

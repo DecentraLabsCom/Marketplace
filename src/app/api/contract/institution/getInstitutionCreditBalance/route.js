@@ -1,6 +1,6 @@
 /**
- * API endpoint for retrieving institutional treasury balance
- * Returns the current balance of an institution's treasury
+ * API endpoint for retrieving institutional service-credit balance
+ * Returns the current credit balance of an institution
  * 
  * @security Protected - requires authenticated session
  */
@@ -10,10 +10,10 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { isAddress } from 'viem'
 
 /**
- * Retrieves institutional treasury balance
+ * Retrieves institutional service-credit balance
  * @param {Request} request - HTTP request with query parameters
  * @param {string} request.searchParams.institutionAddress - Institution wallet address (required)
- * @returns {Response} JSON response with treasury balance
+ * @returns {Response} JSON response with credit balance
  */
 export async function GET(request) {
   try {
@@ -38,13 +38,14 @@ export async function GET(request) {
   }
 
   try {
-    console.log(`🔍 Fetching treasury balance for institution: ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)}`);
+    console.log(`🔍 Fetching credit balance for institution: ${institutionAddress.slice(0, 6)}...${institutionAddress.slice(-4)}`);
     
     const contract = await getContractInstance();
     
+    // On-chain function name is getInstitutionalTreasuryBalance — intentionally retained (contract ABI)
     const balance = await contract.getInstitutionalTreasuryBalance(institutionAddress);
     
-    console.log(`✅ Successfully fetched treasury balance`);
+    console.log(`✅ Successfully fetched credit balance`);
     
     return Response.json({ 
       balance: balance?.toString() || '0',
@@ -52,10 +53,10 @@ export async function GET(request) {
     }, { status: 200 });
 
   } catch (error) {
-    console.error('❌ Error fetching treasury balance:', error);
+    console.error('❌ Error fetching credit balance:', error);
     
     return Response.json({ 
-      error: 'Failed to fetch treasury balance',
+      error: 'Failed to fetch credit balance',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       institutionAddress 
     }, { status: 500 });

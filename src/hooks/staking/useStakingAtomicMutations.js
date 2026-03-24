@@ -1,11 +1,11 @@
 /**
- * Atomic React Query Hooks for Staking-related Write Operations
- * - useStakeTokens: Stake $LAB tokens (wallet-only for now; SSO intents TBD)
- * - useUnstakeTokens: Unstake $LAB tokens (wallet-only for now; SSO intents TBD)
+ * Atomic React Query Hooks for Bond-related Write Operations
+ * - useStakeTokens: Bond credits (wallet-only for now; SSO intents TBD)
+ * - useUnstakeTokens: Release bonded credits (wallet-only for now; SSO intents TBD)
  *
- * Staking is a provider-level operation that typically happens from the
+ * Bonding is a provider-level operation that typically happens from the
  * provider's wallet. SSO institutional intent flow can be added later
- * when the intent action codes for staking are registered.
+ * when the intent action codes for bonding are registered.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { readContractQueryKey } from '@wagmi/core/query'
@@ -20,9 +20,9 @@ import devLog from '@/utils/dev/logger'
 // ===== useStakeTokensWallet =====
 
 /**
- * Hook for staking $LAB tokens via wallet direct contract write
+ * Hook for bonding credits via wallet direct contract write
  * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation for staking tokens
+ * @returns {Object} React Query mutation for bonding credits
  */
 export const useStakeTokensWallet = (options = {}) => {
   const queryClient = useQueryClient()
@@ -102,9 +102,9 @@ export const useStakeTokensWallet = (options = {}) => {
 // ===== useUnstakeTokensWallet =====
 
 /**
- * Hook for unstaking $LAB tokens via wallet direct contract write
+ * Hook for releasing bonded credits via wallet direct contract write
  * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation for unstaking tokens
+ * @returns {Object} React Query mutation for releasing bonded credits
  */
 export const useUnstakeTokensWallet = (options = {}) => {
   const queryClient = useQueryClient()

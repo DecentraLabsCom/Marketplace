@@ -23,34 +23,34 @@ const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions
 }
 
 export const notifyStakeStarted = (addTemporaryNotification, amount) => {
-  notify(addTemporaryNotification, 'pending', `Staking ${amount} $LAB...`, stakingToastIds.stakeStarted())
+  notify(addTemporaryNotification, 'pending', `Bonding ${amount} credits...`, stakingToastIds.stakeStarted())
 }
 
 export const notifyStakeSuccess = (addTemporaryNotification, amount) => {
-  notify(addTemporaryNotification, 'success', `Successfully staked ${amount} $LAB`, stakingToastIds.stakeSuccess())
+  notify(addTemporaryNotification, 'success', `Successfully bonded ${amount} credits`, stakingToastIds.stakeSuccess())
 }
 
 export const notifyStakeFailed = (addTemporaryNotification, errorMessage) => {
-  notify(addTemporaryNotification, 'error', `Stake failed: ${errorMessage}`, stakingToastIds.stakeFailed())
+  notify(addTemporaryNotification, 'error', `Bond failed: ${errorMessage}`, stakingToastIds.stakeFailed())
 }
 
 export const notifyUnstakeStarted = (addTemporaryNotification, amount) => {
-  notify(addTemporaryNotification, 'pending', `Unstaking ${amount} $LAB...`, stakingToastIds.unstakeStarted())
+  notify(addTemporaryNotification, 'pending', `Releasing ${amount} credits...`, stakingToastIds.unstakeStarted())
 }
 
 export const notifyUnstakeSuccess = (addTemporaryNotification, amount) => {
-  notify(addTemporaryNotification, 'success', `Successfully unstaked ${amount} $LAB`, stakingToastIds.unstakeSuccess())
+  notify(addTemporaryNotification, 'success', `Successfully released ${amount} credits`, stakingToastIds.unstakeSuccess())
 }
 
 export const notifyUnstakeFailed = (addTemporaryNotification, errorMessage) => {
-  notify(addTemporaryNotification, 'error', `Unstake failed: ${errorMessage}`, stakingToastIds.unstakeFailed())
+  notify(addTemporaryNotification, 'error', `Release failed: ${errorMessage}`, stakingToastIds.unstakeFailed())
 }
 
 export const notifyInsufficientStake = (addTemporaryNotification, deficit) => {
   notify(
     addTemporaryNotification,
     'warning',
-    `Insufficient stake - ${deficit} $LAB more needed to list labs`,
+    `Insufficient bond — ${deficit} credits more needed to list labs`,
     stakingToastIds.insufficientStake()
   )
 }

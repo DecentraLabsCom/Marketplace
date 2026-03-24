@@ -1,18 +1,18 @@
 /**
- * API endpoint for retrieving LAB token decimals
- * Returns the number of decimals used by the LAB token contract
+ * API endpoint for retrieving service-credit decimals
+ * Returns the number of decimals used by the credit ledger contract
  * Optimized for React Query client-side caching - no server-side cache
  */
 
 import { getContractInstance } from '../../utils/contractInstance'
 
 /**
- * Retrieves LAB token decimals from contract
+ * Retrieves service-credit decimals from contract
  * @returns {Response} JSON response with decimals number
  */
 export async function GET() {
   try {
-    console.log('🔍 Fetching LAB token decimals');
+    console.log('🔍 Fetching service-credit decimals');
     
     const labTokenContract = await getContractInstance('lab');
     
@@ -22,7 +22,7 @@ export async function GET() {
     // Convert BigInt to number for compatibility
     const decimalsNumber = Number(decimals);
     
-    console.log(`✅ LAB token decimals: ${decimalsNumber}`);
+    console.log(`✅ Service-credit decimals: ${decimalsNumber}`);
     
     return Response.json({ 
       decimals: decimalsNumber 
@@ -31,7 +31,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('❌ Error fetching LAB token decimals:', error);
+    console.error('❌ Error fetching service-credit decimals:', error);
     
     // Fallback to default value
     const defaultDecimals = 6;

@@ -8,9 +8,9 @@ import PropTypes from 'prop-types';
 /**
  * Renders action buttons for provider dashboard
  * @param {Object} props - Component props
- * @param {Function} props.onCollect - Callback for collecting selected lab balance
- * @param {boolean} props.isCollectEnabled - Whether collect action is enabled
- * @param {boolean} props.isCollecting - Whether collect action is in progress
+ * @param {Function} props.onCollect - Callback for requesting provider settlement on the selected lab
+ * @param {boolean} props.isCollectEnabled - Whether settlement request action is enabled
+ * @param {boolean} props.isCollecting - Whether settlement request action is in progress
  * @param {Function} props.onAddNewLab - Callback for adding a new lab
  * @returns {JSX.Element} Provider actions component
  */
@@ -28,7 +28,7 @@ export default function ProviderActions({
       </h3>
       
       <div className="flex space-x-3 justify-center">
-        {/* Collect Button (wallet users only) */}
+        {/* Provider settlement request button (wallet users only) */}
         {!isSSO && (
           <div className="flex justify-center">
             <button
@@ -36,7 +36,7 @@ export default function ProviderActions({
               disabled={!isCollectEnabled || isCollecting}
               className="px-6 py-3 rounded shadow-lg bg-[#bcc4fc] text-white hover:bg-[#aab8e6] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isCollecting ? 'Collecting...' : 'Collect'}
+              {isCollecting ? 'Requesting settlement...' : 'Request Settlement'}
             </button>
           </div>
         )}

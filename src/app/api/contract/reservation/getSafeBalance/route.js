@@ -3,11 +3,11 @@ import { getContractInstance } from '../../utils/contractInstance';
 import { requireAuth, handleGuardError } from '@/utils/auth/guards';
 
 /**
- * Get safe balance of LAB tokens in contract
+ * Get safe balance of service credits in contract
  * GET /api/contract/reservation/getSafeBalance
  * 
  * @security Protected - requires authenticated session (provider data)
- * @returns {Object} Safe balance of LAB tokens
+ * @returns {Object} Safe balance of service credits
  */
 export async function GET(request) {
   try {

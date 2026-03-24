@@ -84,12 +84,12 @@ export default function InstitutionProviderRegister() {
       <p className="text-sm text-gray-600 mb-4">
         Register your institution as a lab provider on-chain. This will grant{' '}
         <code>PROVIDER_ROLE</code> and <code>INSTITUTION_ROLE</code> to the institutional
-        provider wallet and initialize its stake (800 $LAB) and treasury (200 $LAB). 
+        provider wallet and initialize non-monetary onboarding service credits.
       </p>
       <p className="text-sm text-gray-600 mb-4">
         After registration,
         you will also receive an invite token to configure your{' '}
-        <a href="https://github.com/DecentraLabsCom/Blockchain-Services" className="text-brand hover:text-hover-dark underline">institutional wallet and treasury</a>.
+        <a href="https://github.com/DecentraLabsCom/Blockchain-Services" className="text-brand hover:text-hover-dark underline">institutional wallet and service-credit account</a>.
       </p>
       <p className="text-sm text-gray-600 mb-4 italic">
         Disclaimer: This should only be used by staff responsible for managing institutional wallets.
@@ -135,7 +135,7 @@ export default function InstitutionProviderRegister() {
           </h2>
           <p className="text-xs text-gray-600 mb-3">
             Use this token in your institutional <code>wallet dashboard</code>
-            to link the treasury backend to the on-chain institutional wallet.
+            to link the billing backend to the on-chain institutional wallet.
           </p>
 
           <p className="text-xs font-semibold text-gray-700 mb-1">
