@@ -32,9 +32,9 @@ import getBaseUrl from '@/utils/env/baseUrl'
 import { normalizeResourceTypeCode } from '@/utils/resourceType'
 import devLog from '@/utils/dev/logger'
 import {
-  notifyLabCollected,
-  notifyLabCollectFailed,
-  notifyLabCollectStarted,
+  notifyLabSettlementRequested,
+  notifyLabSettlementFailed,
+  notifyLabSettlementStarted,
   notifyLabCreateCancelled,
   notifyLabCreatorMismatch,
   notifyLabCreated,
@@ -98,7 +98,7 @@ const resolveOnchainLabUri = (uri) => {
   return trimmed
 }
 
-const DEFAULT_COLLECT_MAX_BATCH = 100
+const DEFAULT_SETTLEMENT_MAX_BATCH = 100
 
 const hasRequestableReceivable = (receivableData) => {
   const totalReceivable = receivableData?.totalReceivable
@@ -458,7 +458,7 @@ export default function ProviderDashboard() {
     [ownedLabs, selectedLabId]
   );
 
-  const selectedCollectLabId = useMemo(() => {
+  const selectedSettlementLabId = useMemo(() => {
     const rawLabId = selectedLab?.id ?? selectedLab?.tokenId ?? selectedLabId
     const normalizedLabId = Number(rawLabId)
     if (!Number.isInteger(normalizedLabId) || normalizedLabId < 0) return null
@@ -468,19 +468,19 @@ export default function ProviderDashboard() {
   const {
     data: selectedLabProviderReceivable,
     isLoading: isSelectedLabProviderReceivableLoading,
-  } = useProviderReceivable(selectedCollectLabId, {
-    enabled: !isSSO && selectedCollectLabId !== null,
+  } = useProviderReceivable(selectedSettlementLabId, {
+    enabled: !isSSO && selectedSettlementLabId !== null,
   })
 
-  const canCollectSelectedLab = useMemo(() => {
+  const canRequestSettlement = useMemo(() => {
     if (isSSO) return false
-    if (selectedCollectLabId === null) return false
+    if (selectedSettlementLabId === null) return false
     if (requestProviderPayoutMutation.isPending) return false
     if (isSelectedLabProviderReceivableLoading) return false
     return hasRequestableReceivable(selectedLabProviderReceivable)
   }, [
     isSSO,
-    selectedCollectLabId,
+    selectedSettlementLabId,
     requestProviderPayoutMutation.isPending,
     isSelectedLabProviderReceivableLoading,
     selectedLabProviderReceivable,
@@ -1063,16 +1063,16 @@ export default function ProviderDashboard() {
   };
 
 // Handle requesting provider settlement from the selected lab
-  const handleCollect = async () => {
-    const actionKey = 'collect:selected';
+  const handleRequestSettlement = async () => {
+    const actionKey = 'settlement:selected';
     try {
       if (isSSO) {
         setActionProgressNotification(actionKey, 'Requesting provider settlement...');
       } else {
-        notifyLabCollectStarted(addTemporaryNotification);
+        notifyLabSettlementStarted(addTemporaryNotification);
       }
 
-      if (selectedCollectLabId === null) {
+      if (selectedSettlementLabId === null) {
         throw new Error('Select a lab first');
       }
       if (!hasRequestableReceivable(selectedLabProviderReceivable)) {
@@ -1081,13 +1081,13 @@ export default function ProviderDashboard() {
 
       try {
         await requestProviderPayoutMutation.mutateAsync({
-          labId: selectedCollectLabId,
-          maxBatch: DEFAULT_COLLECT_MAX_BATCH,
+          labId: selectedSettlementLabId,
+          maxBatch: DEFAULT_SETTLEMENT_MAX_BATCH,
           ...(isSSO ? { backendUrl: institutionBackendUrl } : {}),
         });
-      } catch (collectError) {
-        if (!isNoCompletedReservationsError(collectError)) {
-          throw collectError
+      } catch (settlementError) {
+        if (!isNoCompletedReservationsError(settlementError)) {
+          throw settlementError
         }
         throw new Error('No completed reservations available for settlement request');
       }
@@ -1095,7 +1095,7 @@ export default function ProviderDashboard() {
       if (isSSO) {
         clearActionProgressNotification(actionKey);
       }
-      notifyLabCollected(addTemporaryNotification);
+      notifyLabSettlementRequested(addTemporaryNotification);
     } catch (err) {
       devLog.error(err);
       if (isSSO) {
@@ -1103,7 +1103,7 @@ export default function ProviderDashboard() {
       }
       handleMissingWebauthnCredential(err);
       if (!handleLabAuthorizationErrorToast(err)) {
-        notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
+        notifyLabSettlementFailed(addTemporaryNotification, formatErrorMessage(err));
       }
     }
   };
@@ -1196,9 +1196,9 @@ export default function ProviderDashboard() {
             {/* Provider actions */}
             <ProviderActions
               isSSO={isSSO}
-              onCollect={handleCollect}
-              isCollectEnabled={canCollectSelectedLab}
-              isCollecting={requestProviderPayoutMutation.isPending}
+              onRequestSettlement={handleRequestSettlement}
+              isSettlementEnabled={canRequestSettlement}
+              isRequestingSettlement={requestProviderPayoutMutation.isPending}
               onAddNewLab={() => {
                 setNewLab(newLabStructure);
                 setSelectedLabId("");

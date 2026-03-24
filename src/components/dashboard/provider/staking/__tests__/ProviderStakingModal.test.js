@@ -5,12 +5,12 @@ import '@testing-library/jest-dom'
 // Mock the receivables panel so the Modal test stays focused and deterministic
 jest.mock('../PendingPayoutsPanel', () => ({
   __esModule: true,
-  default: ({ onCollect, isCollecting, isCollectEnabled }) => (
+  default: ({ onRequestSettlement, isRequestingSettlement, isSettlementEnabled }) => (
     <div data-testid="mock-pending-payouts-panel">
-      <button data-testid="collect-btn" disabled={!isCollectEnabled} onClick={() => onCollect && onCollect()}>
-        Collect (mock)
+      <button data-testid="settlement-btn" disabled={!isSettlementEnabled} onClick={() => onRequestSettlement && onRequestSettlement()}>
+        Request Settlement (mock)
       </button>
-      <div data-testid="collecting">{String(Boolean(isCollecting))}</div>
+      <div data-testid="requesting-settlement">{String(Boolean(isRequestingSettlement))}</div>
     </div>
   ),
 }))
@@ -20,7 +20,7 @@ import ProviderStakingModal from '../ProviderStakingModal'
 describe('ProviderStakingModal', () => {
   test('renders modal with receivables panel and passes props', () => {
     const onClose = jest.fn()
-    const onCollect = jest.fn()
+    const onRequestSettlement = jest.fn()
     const addTemporaryNotification = jest.fn()
 
     render(
@@ -30,9 +30,9 @@ describe('ProviderStakingModal', () => {
         labs={[{ id: '1' }]}
         isSSO={false}
         addTemporaryNotification={addTemporaryNotification}
-        onCollect={onCollect}
-        isCollectEnabled={true}
-        isCollecting={true}
+        onRequestSettlement={onRequestSettlement}
+        isSettlementEnabled={true}
+        isRequestingSettlement={true}
       />
     )
 
@@ -43,12 +43,12 @@ describe('ProviderStakingModal', () => {
     // mocked receivables panel renders and receives props
     const payoutsPanel = screen.getByTestId('mock-pending-payouts-panel')
     expect(payoutsPanel).toBeInTheDocument()
-    expect(screen.getByTestId('collecting')).toHaveTextContent('true')
+    expect(screen.getByTestId('requesting-settlement')).toHaveTextContent('true')
   })
 
-  test('close button calls onClose and Collect forwards to handler', () => {
+  test('close button calls onClose and settlement request forwards to handler', () => {
     const onClose = jest.fn()
-    const onCollect = jest.fn()
+    const onRequestSettlement = jest.fn()
 
     render(
       <ProviderStakingModal
@@ -57,9 +57,9 @@ describe('ProviderStakingModal', () => {
         labs={[]}
         isSSO={false}
         addTemporaryNotification={() => {}}
-        onCollect={onCollect}
-        isCollectEnabled={true}
-        isCollecting={false}
+        onRequestSettlement={onRequestSettlement}
+        isSettlementEnabled={true}
+        isRequestingSettlement={false}
       />
     )
 
@@ -67,9 +67,9 @@ describe('ProviderStakingModal', () => {
     fireEvent.click(closeBtn)
     expect(onClose).toHaveBeenCalled()
 
-    const collectBtn = screen.getByTestId('collect-btn')
-    fireEvent.click(collectBtn)
-    expect(onCollect).toHaveBeenCalled()
+    const settlementBtn = screen.getByTestId('settlement-btn')
+    fireEvent.click(settlementBtn)
+    expect(onRequestSettlement).toHaveBeenCalled()
   })
 
   test('does not render when isOpen is false', () => {

@@ -8,16 +8,16 @@ import PropTypes from 'prop-types';
 /**
  * Renders action buttons for provider dashboard
  * @param {Object} props - Component props
- * @param {Function} props.onCollect - Callback for requesting provider settlement on the selected lab
- * @param {boolean} props.isCollectEnabled - Whether settlement request action is enabled
- * @param {boolean} props.isCollecting - Whether settlement request action is in progress
+ * @param {Function} props.onRequestSettlement - Callback for requesting provider settlement on the selected lab
+ * @param {boolean} props.isSettlementEnabled - Whether settlement request action is enabled
+ * @param {boolean} props.isRequestingSettlement - Whether settlement request action is in progress
  * @param {Function} props.onAddNewLab - Callback for adding a new lab
  * @returns {JSX.Element} Provider actions component
  */
 export default function ProviderActions({ 
-  onCollect,
-  isCollectEnabled = false,
-  isCollecting = false,
+  onRequestSettlement,
+  isSettlementEnabled = false,
+  isRequestingSettlement = false,
   onAddNewLab,
   isSSO = false
 }) {
@@ -32,11 +32,11 @@ export default function ProviderActions({
         {!isSSO && (
           <div className="flex justify-center">
             <button
-              onClick={onCollect}
-              disabled={!isCollectEnabled || isCollecting}
+              onClick={onRequestSettlement}
+              disabled={!isSettlementEnabled || isRequestingSettlement}
               className="px-6 py-3 rounded shadow-lg bg-[#bcc4fc] text-white hover:bg-[#aab8e6] font-bold disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {isCollecting ? 'Requesting settlement...' : 'Request Settlement'}
+              {isRequestingSettlement ? 'Requesting settlement...' : 'Request Settlement'}
             </button>
           </div>
         )}
@@ -56,9 +56,9 @@ export default function ProviderActions({
 }
 
 ProviderActions.propTypes = {
-  onCollect: PropTypes.func.isRequired,
-  isCollectEnabled: PropTypes.bool,
-  isCollecting: PropTypes.bool,
+  onRequestSettlement: PropTypes.func.isRequired,
+  isSettlementEnabled: PropTypes.bool,
+  isRequestingSettlement: PropTypes.bool,
   onAddNewLab: PropTypes.func.isRequired,
   isSSO: PropTypes.bool
 };

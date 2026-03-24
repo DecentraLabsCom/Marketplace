@@ -13,18 +13,18 @@ export default function ProviderStakingModal({
   labs = [],
   isSSO = false,
   addTemporaryNotification,
-  onCollect,
-  isCollectEnabled = false,
-  isCollecting = false,
+  onRequestSettlement,
+  isSettlementEnabled = false,
+  isRequestingSettlement = false,
 }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Provider Receivables" size="xl" className="max-h-[80vh] overflow-auto max-w-180!">
       <PendingPayoutsPanel
         labs={labs}
-        onCollect={onCollect}
-        isCollectEnabled={isCollectEnabled}
+        onRequestSettlement={onRequestSettlement}
+        isSettlementEnabled={isSettlementEnabled}
         isSSO={isSSO}
-        isCollecting={isCollecting}
+        isRequestingSettlement={isRequestingSettlement}
       />
     </Modal>
   )
@@ -36,7 +36,7 @@ ProviderStakingModal.propTypes = {
   labs: PropTypes.array,
   isSSO: PropTypes.bool,
   addTemporaryNotification: PropTypes.func,
-  onCollect: PropTypes.func,
-  isCollectEnabled: PropTypes.bool,
-  isCollecting: PropTypes.bool,
+  onRequestSettlement: PropTypes.func,
+  isSettlementEnabled: PropTypes.bool,
+  isRequestingSettlement: PropTypes.bool,
 }

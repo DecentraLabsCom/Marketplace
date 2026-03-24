@@ -27,18 +27,18 @@ const getLabName = (lab, labId) => lab?.name || lab?.metadata?.name || `Lab #${l
  * Aggregated provider receivables panel for all provider labs
  * @param {Object} props
  * @param {Array} props.labs - Array of lab objects owned by the provider
- * @param {Function} props.onCollect - Callback to trigger provider settlement request
- * @param {boolean} props.isCollectEnabled - Whether settlement request is enabled
+ * @param {Function} props.onRequestSettlement - Callback to trigger provider settlement request
+ * @param {boolean} props.isSettlementEnabled - Whether settlement request is enabled
  * @param {boolean} props.isSSO - Whether user is SSO
- * @param {boolean} [props.isCollecting] - Whether collection is in progress
+ * @param {boolean} [props.isRequestingSettlement] - Whether settlement request is in progress
  * @returns {JSX.Element}
  */
 export default function PendingPayoutsPanel({
   labs = [],
-  onCollect,
-  isCollectEnabled = false,
+  onRequestSettlement,
+  isSettlementEnabled = false,
   isSSO = false,
-  isCollecting = false,
+  isRequestingSettlement = false,
 }) {
   const { decimals } = useLabToken()
   const tokenDecimals = decimals || 6
@@ -68,11 +68,11 @@ export default function PendingPayoutsPanel({
         </h3>
         {hasLabs && !isSSO && (
           <button
-            onClick={onCollect}
-            disabled={isCollecting || !isCollectEnabled}
+            onClick={onRequestSettlement}
+            disabled={isRequestingSettlement || !isSettlementEnabled}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-success text-white hover:bg-success-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
-            {isCollecting ? (
+            {isRequestingSettlement ? (
               <span className="inline-flex items-center gap-1.5">
                 <span className="size-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Requesting...
@@ -193,8 +193,8 @@ export default function PendingPayoutsPanel({
 
 PendingPayoutsPanel.propTypes = {
   labs: PropTypes.array,
-  onCollect: PropTypes.func,
-  isCollectEnabled: PropTypes.bool,
+  onRequestSettlement: PropTypes.func,
+  isSettlementEnabled: PropTypes.bool,
   isSSO: PropTypes.bool,
-  isCollecting: PropTypes.bool,
+  isRequestingSettlement: PropTypes.bool,
 }

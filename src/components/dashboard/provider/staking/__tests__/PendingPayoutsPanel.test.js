@@ -10,7 +10,7 @@ import PendingPayoutsPanel from '../PendingPayoutsPanel'
 
 describe('PendingPayoutsPanel - revenue split boxes', () => {
   test('split boxes have matching base width and governance is 10% larger', () => {
-    const { container } = render(<PendingPayoutsPanel labs={[]} onCollect={() => {}} isCollectEnabled={false} isSSO={false} isCollecting={false} />)
+    const { container } = render(<PendingPayoutsPanel labs={[]} onRequestSettlement={() => {}} isSettlementEnabled={false} isSSO={false} isRequestingSettlement={false} />)
 
     const providerBox = screen.getByText(/^provider$/i).closest('div')
     const platformBox = screen.getByText(/^platform$/i).closest('div')
@@ -41,7 +41,7 @@ describe('PendingPayoutsPanel - revenue split boxes', () => {
   })
 
   test('header shows EUR denomination and settlement note is present', () => {
-    render(<PendingPayoutsPanel labs={[]} onCollect={() => {}} isCollectEnabled={false} isSSO={false} isCollecting={false} />)
+    render(<PendingPayoutsPanel labs={[]} onRequestSettlement={() => {}} isSettlementEnabled={false} isSSO={false} isRequestingSettlement={false} />)
 
     expect(screen.getByText(/Provider Receivables \(EUR\)/)).toBeInTheDocument()
     expect(screen.getByText(/EUR-equivalent settlement values/)).toBeInTheDocument()

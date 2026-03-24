@@ -7,7 +7,7 @@
  * - Lab selection & auto-select
  * - CRUD (add, edit, delete, list/unlist)
  * - File sync (temp → labId, JSON metadata)
- * - Provider payout collection
+ * - Provider settlement request
  * - Error handling (query, mutation, UI)
  * - Edge cases (empty, null, errors, loading)
  */
@@ -256,11 +256,11 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
 
 jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   __esModule: true,
-  default: ({ onCollect, onAddNewLab, isSSO, isCollectEnabled, isCollecting }) => (
+  default: ({ onRequestSettlement, onAddNewLab, isSSO, isSettlementEnabled, isRequestingSettlement }) => (
     <div data-testid="actions">
       {!isSSO && (
-        <button onClick={onCollect} disabled={!isCollectEnabled || isCollecting} data-testid="collect">
-          Collect
+        <button onClick={onRequestSettlement} disabled={!isSettlementEnabled || isRequestingSettlement} data-testid="request-settlement">
+          Request Settlement
         </button>
       )}
       <button onClick={onAddNewLab} data-testid="add-new-lab">
@@ -921,16 +921,16 @@ describe("ProviderDashboard Component", () => {
     });
   });
 
-  describe("Funds Collection", () => {
-    test("hides Collect button for SSO users", () => {
+  describe("Provider Settlement", () => {
+    test("hides settlement button for SSO users", () => {
       mockUserData.isSSO = true;
 
       renderWithClient(<ProviderDashboard />);
 
-      expect(screen.queryByTestId("collect")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("request-settlement")).not.toBeInTheDocument();
     });
 
-    test("collects selected lab balance successfully", async () => {
+    test("requests settlement for selected lab successfully", async () => {
       mockLabsData.data = {
         labs: [{ id: "1", name: "Lab 1", listed: true }],
       };
@@ -938,10 +938,10 @@ describe("ProviderDashboard Component", () => {
 
       renderWithClient(<ProviderDashboard />);
 
-      const collectButton = screen.getByTestId("collect");
+      const settlementButton = screen.getByTestId("request-settlement");
 
       await act(async () => {
-        fireEvent.click(collectButton);
+        fireEvent.click(settlementButton);
       });
 
       await waitFor(() => {
@@ -951,7 +951,7 @@ describe("ProviderDashboard Component", () => {
       });
     });
 
-    test("disables collect when selected lab has no pending payout", async () => {
+    test("disables settlement when selected lab has no pending receivable", async () => {
       mockLabsData.data = {
         labs: [{ id: "1", name: "Lab 1", listed: true }],
       };
@@ -963,29 +963,29 @@ describe("ProviderDashboard Component", () => {
 
       renderWithClient(<ProviderDashboard />);
 
-      const collectButton = await screen.findByTestId("collect");
-      expect(collectButton).toBeDisabled();
+      const settlementButton = await screen.findByTestId("request-settlement");
+      expect(settlementButton).toBeDisabled();
 
       await act(async () => {
-        fireEvent.click(collectButton);
+        fireEvent.click(settlementButton);
       });
 
       expect(mockRequestProviderPayoutMutate).not.toHaveBeenCalled();
     });
 
-    test("handles collection error", async () => {
+    test("handles settlement error", async () => {
       mockLabsData.data = {
         labs: [{ id: "1", name: "Lab 1", listed: true }],
       };
-      const error = new Error("Collection failed");
+      const error = new Error("Settlement failed");
       mockRequestProviderPayoutMutate.mockRejectedValueOnce(error);
 
       renderWithClient(<ProviderDashboard />);
 
-      const collectButton = screen.getByTestId("collect");
+      const settlementButton = screen.getByTestId("request-settlement");
 
       await act(async () => {
-        fireEvent.click(collectButton);
+        fireEvent.click(settlementButton);
       });
 
       await waitFor(() => {

@@ -468,10 +468,10 @@ describe("Provider Dashboard Flow Integration", () => {
   });
 
   /**
-   * Test Case: Collect provider payout from labs
-   * Verifies that clicking Collect triggers payout collection mutation
+   * Test Case: Request provider settlement from labs
+   * Verifies that clicking Request Settlement triggers settlement mutation
     */
-  test("collects provider payout when Collect button is clicked", async () => {
+  test("requests provider settlement when Request Settlement button is clicked", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
       isProvider: true,
@@ -498,12 +498,12 @@ describe("Provider Dashboard Flow Integration", () => {
     renderWithAllProviders(<ProviderDashboardPage />);
 
     // Wait for settlement request button to appear
-    const collectButton = await screen.findByRole("button", {
+    const settlementButton = await screen.findByRole("button", {
       name: /request settlement/i,
     });
 
-    // Click Collect All button
-    fireEvent.click(collectButton);
+    // Click settlement request button
+    fireEvent.click(settlementButton);
 
     // Verify mutation was called
     await waitFor(() => {
