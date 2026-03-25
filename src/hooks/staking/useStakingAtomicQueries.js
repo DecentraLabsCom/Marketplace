@@ -1,9 +1,6 @@
 /**
- * Atomic React Query Hooks for Staking-related Read Operations
- * Each hook has 3 variants following the standard pattern:
- * - useXSSO: Server-side query via API + Ethers (for SSO users)
- * - useXWallet: Client-side query via Wagmi (for wallet users)
- * - useX: Router that selects SSO or Wallet based on user.loginType
+ * Atomic React Query Hooks for Staking-related Read Operations.
+ * Marketplace runtime uses institutional/API-backed variants only.
  *
  * Configuration:
  * - staleTime: 5 minutes (300,000ms) — staking data changes infrequently but should be reasonably fresh
@@ -15,8 +12,6 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { stakingQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsWallet } from '@/utils/hooks/authMode'
-import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
 // Staking queries refresh more frequently than lab data since
@@ -88,51 +83,16 @@ export const useStakeInfoSSO = (providerAddress, options = {}) => {
 useStakeInfoSSO.queryFn = getStakeInfoQueryFn
 
 /**
- * Hook for getStakeInfo contract read (Wallet users)
- * @param {string} providerAddress - Provider wallet address
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with stake info
- */
-export const useStakeInfoWallet = (providerAddress, options = {}) => {
-  const result = useDefaultReadContract('getStakeInfo', [providerAddress], {
-    enabled: !!providerAddress,
-    ...STAKING_QUERY_CONFIG,
-    ...options,
-  })
-
-  return {
-    ...result,
-    data: result.data ? {
-      stakedAmount: (result.data?.stakedAmount ?? result.data?.[0])?.toString() || '0',
-      slashedAmount: (result.data?.slashedAmount ?? result.data?.[1])?.toString() || '0',
-      lastReservationTimestamp: Number(result.data?.lastReservationTimestamp ?? result.data?.[2] ?? 0),
-      unlockTimestamp: Number(result.data?.unlockTimestamp ?? result.data?.[3] ?? 0),
-      canUnstake: Boolean(result.data?.canUnstake ?? result.data?.[4] ?? false),
-    } : result.data,
-  }
-}
-
-/**
- * Hook for getStakeInfo (Router - selects SSO or Wallet)
+ * Hook for stake-info reads in the institutional runtime.
  * @param {string} providerAddress - Provider wallet address
  * @param {Object} [options={}] - Additional query options
  * @returns {Object} React Query result with stake info
  */
 export const useStakeInfo = (providerAddress, options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false })
-
-  const ssoQuery = useStakeInfoSSO(providerAddress, {
+  return useStakeInfoSSO(providerAddress, {
     ...options,
-    enabled: !isWallet && options.enabled !== false && !!providerAddress
+    enabled: options.enabled !== false && !!providerAddress
   })
-  const walletQuery = useStakeInfoWallet(providerAddress, {
-    ...options,
-    enabled: isWallet && options.enabled !== false && !!providerAddress
-  })
-
-  devLog.log(`🔀 useStakeInfo → ${isWallet ? 'Wallet' : 'SSO'} mode`)
-
-  return isWallet ? walletQuery : ssoQuery
 }
 
 // ===== useRequiredStake Hook Family =====
@@ -173,48 +133,16 @@ export const useRequiredStakeSSO = (providerAddress, options = {}) => {
 useRequiredStakeSSO.queryFn = getRequiredStakeQueryFn
 
 /**
- * Hook for getRequiredStake contract read (Wallet users)
- * @param {string} providerAddress - Provider wallet address
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with required stake amount
- */
-export const useRequiredStakeWallet = (providerAddress, options = {}) => {
-  const result = useDefaultReadContract('getRequiredStake', [providerAddress], {
-    enabled: !!providerAddress,
-    ...STAKING_QUERY_CONFIG,
-    ...options,
-  })
-
-  return {
-    ...result,
-    data: result.data ? {
-      requiredStake: result.data?.toString() || '0',
-      provider: providerAddress?.toLowerCase()
-    } : result.data,
-  }
-}
-
-/**
- * Hook for getRequiredStake (Router - selects SSO or Wallet)
+ * Hook for required-stake reads in the institutional runtime.
  * @param {string} providerAddress - Provider wallet address
  * @param {Object} [options={}] - Additional query options
  * @returns {Object} React Query result with required stake amount
  */
 export const useRequiredStake = (providerAddress, options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false })
-
-  const ssoQuery = useRequiredStakeSSO(providerAddress, {
+  return useRequiredStakeSSO(providerAddress, {
     ...options,
-    enabled: !isWallet && options.enabled !== false && !!providerAddress
+    enabled: options.enabled !== false && !!providerAddress
   })
-  const walletQuery = useRequiredStakeWallet(providerAddress, {
-    ...options,
-    enabled: isWallet && options.enabled !== false && !!providerAddress
-  })
-
-  devLog.log(`🔀 useRequiredStake → ${isWallet ? 'Wallet' : 'SSO'} mode`)
-
-  return isWallet ? walletQuery : ssoQuery
 }
 
 // ===== useProviderReceivable Hook Family =====
@@ -288,50 +216,16 @@ export const useProviderReceivableSSO = (labId, options = {}) => {
 useProviderReceivableSSO.queryFn = getProviderReceivableQueryFn
 
 /**
- * Hook for getLabProviderReceivable contract read (Wallet users)
- * @param {string|number} labId - Lab ID to check
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with provider receivable breakdown
- */
-export const useProviderReceivableWallet = (labId, options = {}) => {
-  const result = useDefaultReadContract('getLabProviderReceivable', [labId], {
-    enabled: labId !== undefined && labId !== null && labId !== '',
-    ...STAKING_QUERY_CONFIG,
-    ...options,
-  })
-
-  return {
-    ...result,
-    data: result.data ? {
-      providerReceivable: (result.data?.providerReceivable ?? result.data?.[0])?.toString() || '0',
-      deferredInstitutionalReceivable: (result.data?.deferredInstitutionalReceivable ?? result.data?.[1])?.toString() || '0',
-      totalReceivable: (result.data?.totalReceivable ?? result.data?.[2])?.toString() || '0',
-      eligibleReservationCount: Number(result.data?.eligibleReservationCount ?? result.data?.[3] ?? 0),
-    } : result.data,
-  }
-}
-
-/**
- * Hook for provider receivable status (Router - selects SSO or Wallet)
+ * Hook for provider-receivable reads in the institutional runtime.
  * @param {string|number} labId - Lab ID to check
  * @param {Object} [options={}] - Additional query options
  * @returns {Object} React Query result with provider receivable breakdown
  */
 export const useProviderReceivable = (labId, options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false })
-
-  const ssoQuery = useProviderReceivableSSO(labId, {
+  return useProviderReceivableSSO(labId, {
     ...options,
-    enabled: !isWallet && options.enabled !== false && labId !== undefined && labId !== null
+    enabled: options.enabled !== false && labId !== undefined && labId !== null
   })
-  const walletQuery = useProviderReceivableWallet(labId, {
-    ...options,
-    enabled: isWallet && options.enabled !== false && labId !== undefined && labId !== null
-  })
-
-  devLog.log(`🔀 useProviderReceivable → ${isWallet ? 'Wallet' : 'SSO'} mode`)
-
-  return isWallet ? walletQuery : ssoQuery
 }
 
 /**

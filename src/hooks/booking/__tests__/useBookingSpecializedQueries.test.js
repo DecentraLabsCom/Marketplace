@@ -18,16 +18,9 @@ import {
 // Mock dependencies
 jest.mock('../useBookingAtomicQueries', () => ({
   useReservationsOfSSO: Object.assign(jest.fn(), { queryFn: jest.fn() }),
-  useReservationsOfWallet: Object.assign(jest.fn(), { queryFn: jest.fn() }),
   useReservationKeyOfUserByIndexSSO: Object.assign(jest.fn(), { queryFn: jest.fn() }),
-  useReservationKeyOfUserByIndexWallet: Object.assign(jest.fn(), { queryFn: jest.fn() }),
   useReservationSSO: Object.assign(jest.fn(), { queryFn: jest.fn() }),
   BOOKING_QUERY_CONFIG: { staleTime: 30000 },
-}))
-
-jest.mock('@/utils/hooks/authMode', () => ({
-  useGetIsWallet: jest.fn(() => false),
-  useGetIsSSO: jest.fn(() => true),
 }))
 
 jest.mock('@tanstack/react-query', () => {
@@ -58,7 +51,6 @@ jest.mock('@/utils/hooks/queryKeys', () => ({
 }))
 
 const mockUseReservationKeyOfUserByIndexSSO = require('../useBookingAtomicQueries').useReservationKeyOfUserByIndexSSO
-const mockUseReservationKeyOfUserByIndexWallet = require('../useBookingAtomicQueries').useReservationKeyOfUserByIndexWallet
 const mockUseQueries = require('@tanstack/react-query').useQueries
 const mockUseQuery = require('@tanstack/react-query').useQuery
 
@@ -115,8 +107,10 @@ describe('useBookingSpecializedQueries', () => {
       })
       
       // Mock queryFn for reservation keys
-      mockUseReservationKeyOfUserByIndexSSO.queryFn = jest.fn(() => Promise.resolve({ reservationKey: 'key1' }))
-      mockUseReservationKeyOfUserByIndexWallet.queryFn = jest.fn(() => Promise.resolve({ reservationKey: 'key2' }))
+      mockUseReservationKeyOfUserByIndexSSO.queryFn = jest
+        .fn()
+        .mockResolvedValueOnce({ reservationKey: 'key1' })
+        .mockResolvedValueOnce({ reservationKey: 'key2' })
 
       // Mock useQueries for reservation keys
       mockUseQueries.mockReturnValueOnce([

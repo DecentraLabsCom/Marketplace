@@ -5,22 +5,14 @@
 "use client"
 import React, { useState, useMemo, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { useConnection } from 'wagmi'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useLabsForReservation } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard, useBookingsForCalendar } from '@/hooks/booking/useBookings'
-import { useLabToken } from '@/context/LabTokenContext'
 import { useLabReservationState } from '@/hooks/reservation/useLabReservationState'
-import { isCancelledBooking } from '@/utils/booking/bookingStatus'
-import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import AccessControl from '@/components/auth/AccessControl'
 import LabDetailsPanel from '@/components/reservation/LabDetailsPanel'
-import { contractAddresses } from '@/contracts/diamond'
-import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
-import { selectChain } from '@/utils/blockchain/selectChain'
-import { hasValidContractAddress } from '@/utils/blockchain/address'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationMissingInstitutionalBackend,
@@ -31,14 +23,6 @@ import {
   notifyReservationProgressAuthorization,
   notifyReservationProgressPreparing,
   notifyReservationProgressSubmitted,
-  notifyReservationWalletDisconnected,
-  notifyReservationWalletInsufficientTokens,
-  notifyReservationWalletInvalidCost,
-  notifyReservationWalletSlotUnavailable,
-  notifyReservationWalletTimeslotConflict,
-  notifyReservationWalletTransactionRejected,
-  notifyReservationWalletTransactionSubmitted,
-  notifyReservationWalletUnsupportedNetwork,
 } from '@/utils/notifications/reservationToasts'
 
 /**
@@ -60,16 +44,9 @@ export default function LabReservation({ id }) {
     address: userAddress,
     institutionBackendUrl,
     institutionalOnboardingStatus,
-    hasWalletSession,
     openOnboardingModal,
   } = useUser()
   const { addTemporaryNotification, addErrorNotification } = useNotifications()
-  const connection = useConnection();
-  const { chain } = connection || {};
-  const safeChain = selectChain(chain);
-  const address = getConnectionAddress(connection);
-  const isConnected = isConnectionConnected(connection);
-  const effectiveUserAddress = userAddress || address;
   
   // Local state
   const [selectedLab, setSelectedLab] = useState(null)
@@ -90,7 +67,7 @@ export default function LabReservation({ id }) {
   }, [labId, labs, selectedLab])
   
   // Lab bookings data
-  const canFetchLabBookings = Boolean(selectedLab?.id && (isSSO || hasWalletSession));
+  const canFetchLabBookings = Boolean(selectedLab?.id && isSSO);
   const { data: labBookingsData } = useLabBookingsDashboard(selectedLab?.id, {
     queryOptions: { enabled: canFetchLabBookings }
   })
@@ -99,8 +76,8 @@ export default function LabReservation({ id }) {
     [labBookingsData]
   )
 
-  const canFetchUserBookings = Boolean(selectedLab?.id && (isSSO || effectiveUserAddress))
-  const { data: userBookingsData } = useBookingsForCalendar(effectiveUserAddress, selectedLab?.id, {
+  const canFetchUserBookings = Boolean(selectedLab?.id && isSSO)
+  const { data: userBookingsData } = useBookingsForCalendar(null, selectedLab?.id, {
     enabled: canFetchUserBookings,
     isSSO
   })
@@ -123,15 +100,10 @@ export default function LabReservation({ id }) {
     availableTimes,
     calendarUserBookingsForLab,
     totalCost,
-    isWaitingForReceipt,
-    isReceiptError,
     ssoBookingStage,
     isSSOFlowLocked,
-    walletBookingStage,
-    isWalletFlowLocked,
     reservationButtonState,
     setIsBooking,
-    setLastTxHash,
     setPendingData,
     handleDateChange,
     handleDurationChange,
@@ -140,8 +112,6 @@ export default function LabReservation({ id }) {
     startSsoProcessing,
     markSsoRequestSent,
     resetSsoReservationFlow,
-    startWalletProcessing,
-    resetWalletReservationFlow,
     formatPrice,
     reservationRequestMutation,
   } = useLabReservationState({
@@ -151,13 +121,6 @@ export default function LabReservation({ id }) {
     isSSO,
   })
   const resolvedSsoStage = ssoBookingStage || 'idle'
-  const resolvedWalletStage = walletBookingStage || 'idle'
-  
-  // Lab token utilities
-  const { 
-    checkBalanceAndAllowance, 
-    formatTokenAmount: formatBalance
-  } = useLabToken()
   
   // Handle lab selection
   const handleLabChange = (e) => {
@@ -300,161 +263,23 @@ export default function LabReservation({ id }) {
     }
   }
   
-  // Wallet-based booking
-  const handleWalletBooking = async () => {
-    if (!isConnected) {
-      notifyReservationWalletDisconnected(addTemporaryNotification)
-      return
-    }
-
-    const chainName = chain?.name || safeChain?.name || 'unknown network'
-    const chainKey = chain?.name?.toLowerCase?.() || safeChain?.name?.toLowerCase?.() || ''
-    const contractAddress = contractAddresses[chainKey]
-    if (!hasValidContractAddress(contractAddress)) {
-      notifyReservationWalletUnsupportedNetwork(addTemporaryNotification, chainName)
-      return
-    }
-
-    const bookingData = validateAndCalculateBooking()
-    if (!bookingData) return
-
-    const { labId, start, timeslot } = bookingData
-    const cost = totalCost
-    
-    if (cost <= 0) {
-      notifyReservationWalletInvalidCost(addTemporaryNotification)
-      return
-    }
-
-    const paymentCheck = checkBalanceAndAllowance(cost)
-    
-    if (!paymentCheck.hasSufficientBalance) {
-      notifyReservationWalletInsufficientTokens(
-        addTemporaryNotification,
-        formatBalance(cost),
-        formatBalance(paymentCheck.balance)
-      )
-      return
-    }
-
-    if (typeof startWalletProcessing === 'function') {
-      startWalletProcessing()
-    }
-    setIsBooking(true)
-
-    try {
-      // Check if time slot is still available
-      const finalAvailableTimes = generateTimeOptions({
-        date,
-        interval: duration,
-        lab: selectedLab,
-        bookingInfo: (labBookings || []).filter(booking => 
-          !isCancelledBooking(booking)
-        )
-      })
-      
-      const slotStillAvailable = finalAvailableTimes.find(t => t.value === selectedTime && !t.disabled)
-      if (!slotStillAvailable) {
-        notifyReservationWalletSlotUnavailable(addTemporaryNotification, { labId, start })
-        setIsBooking(false)
-        if (typeof resetWalletReservationFlow === 'function') {
-          resetWalletReservationFlow()
-        }
-        return
-      }
-      
-      // Make the reservation
-      const result = await reservationRequestMutation.mutateAsync({
-        tokenId: labId,
-        start,
-        end: start + timeslot,
-        userAddress: effectiveUserAddress,
-      })
-
-      // Wallet-specific toast: TX sent to chain, confirmation still pending
-      notifyReservationWalletTransactionSubmitted(addTemporaryNotification, { labId, start })
-      if (result.hash) {
-        const userAddr = address || userAddress
-        const startDate = new Date(start * 1000)
-        const optimisticId = result.optimisticId
-
-        devLog.log('Wallet reservation tx sent:', {
-          optimisticId,
-          labId,
-          start: startDate.toISOString(),
-          hash: result.hash
-        })
-        
-        setLastTxHash(result.hash)
-        setPendingData({
-          optimisticId,
-          labId: selectedLab.id,
-          userAddress: userAddr,
-          start: start.toString(),
-          end: (start + timeslot).toString(),
-          isOptimistic: true
-        })
-      } else {
-        setIsBooking(false)
-        if (typeof resetWalletReservationFlow === 'function') {
-          resetWalletReservationFlow()
-        }
-      }
-    } catch (error) {
-      devLog.error('Error making booking request:', error)
-      
-      if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
-        notifyReservationWalletTransactionRejected(addTemporaryNotification)
-      } else if (error.message.includes('execution reverted')) {
-        notifyReservationWalletTimeslotConflict(addTemporaryNotification, { labId: selectedLab?.id, start: bookingData?.start })
-      } else {
-        addErrorNotification(error, 'Failed to create reservation: ')
-      }
-      
-      setIsBooking(false)
-      if (typeof resetWalletReservationFlow === 'function') {
-        resetWalletReservationFlow()
-      }
-    }
-  }
-  
   // Main booking handler
   const handleBooking = async () => {
     if (reservationButtonState?.isBusy || isBooking) return
-    if (isSSO && (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
-    if (!isSSO && (isWalletFlowLocked || resolvedWalletStage !== 'idle')) return
-    
-    if (isSSO) {
-      return await handleServerSideBooking()
-    } else {
-      return await handleWalletBooking()
-    }
+    if (!isSSO || (isSSOFlowLocked || resolvedSsoStage !== 'idle')) return
+    return await handleServerSideBooking()
   }
   
   if (!isClient) return null
   const buttonState = reservationButtonState || (() => {
-    const isBusy = isBooking || (isWaitingForReceipt && !isSSO && !isReceiptError)
-    const isLocked = Boolean(
-      isSSO ? resolvedSsoStage !== 'idle' : resolvedWalletStage !== 'idle'
-    )
+    const isBusy = isBooking
+    const isLocked = Boolean(resolvedSsoStage !== 'idle')
     const isDisabled = isBusy || !selectedTime || isLocked
 
     let label = 'Book Now'
-    if (isSSO) {
-      if (isBooking || resolvedSsoStage === 'processing') label = 'Processing...'
-      else if (resolvedSsoStage === 'request_sent') label = 'Request Sent'
-      else if (resolvedSsoStage === 'request_registered') label = 'Request Registered'
-    } else if (resolvedWalletStage === 'request_sent') {
-      label = 'Request Sent'
-    } else if (resolvedWalletStage === 'request_registered') {
-      label = 'Request Registered'
-    } else if (resolvedWalletStage === 'processing' || isBooking) {
-      label = 'Processing...'
-    } else if (isWaitingForReceipt && !isReceiptError) {
-      label = 'Processing...'
-    } else if (isReceiptError) {
-      label = 'Try Again'
-    }
+    if (isBooking || resolvedSsoStage === 'processing') label = 'Processing...'
+    else if (resolvedSsoStage === 'request_sent') label = 'Request Sent'
+    else if (resolvedSsoStage === 'request_registered') label = 'Request Registered'
 
     return {
       label,

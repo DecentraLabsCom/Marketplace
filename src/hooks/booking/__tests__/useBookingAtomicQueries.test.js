@@ -23,8 +23,6 @@ import {
   BOOKING_QUERY_CONFIG,
   useReservation,
 } from "@/hooks/booking/useBookingAtomicQueries";
-import useDefaultReadContract from "@/hooks/contract/useDefaultReadContract";
-import { useGetIsWallet } from "@/utils/hooks/authMode";
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -58,16 +56,6 @@ jest.mock("@/utils/hooks/queryKeys", () => ({
     byReservationKey: jest.fn((key) => ["booking", "reservation", key]),
     getReservationsOfToken: jest.fn((labId) => ["booking", "token", labId]),
   },
-}));
-
-// Mock dependencies to isolate the test
-jest.mock("@/utils/hooks/authMode", () => ({
-  useGetIsWallet: jest.fn(() => false),
-}));
-
-jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
-  __esModule: true,
-  default: jest.fn(),
 }));
 
 // Helper to create QueryClient wrapper
@@ -221,49 +209,6 @@ describe("useBookingAtomicQueries", () => {
 
       // Hook should remain idle when enabled: false
       expect(global.fetch).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Router wallet path normalization", () => {
-    test("normalizes BigInt wagmi data to SSO shape and consistent cache key", () => {
-      useGetIsWallet.mockReturnValue(true);
-
-      useDefaultReadContract.mockReturnValue({
-        data: {
-          labId: BigInt(7),
-          renter: "0xabc",
-          price: BigInt("1000000000000000000"),
-          labProvider: "0xprovider",
-          start: BigInt(1700000000),
-          end: BigInt(1700003600),
-          status: BigInt(1),
-          requestPeriodStart: BigInt(0),
-          requestPeriodDuration: BigInt(0),
-          payerInstitution: "0x0000000000000000000000000000000000000000",
-          collectorInstitution: "0x0000000000000000000000000000000000000000",
-          providerShare: BigInt(0),
-          projectTreasuryShare: BigInt(0),
-          subsidiesShare: BigInt(0),
-          governanceShare: BigInt(0),
-        },
-      });
-
-      const { result } = renderHook(() => useReservation("res-key-1"), {
-        wrapper: createWrapper(),
-      });
-
-      expect(useDefaultReadContract).toHaveBeenCalledWith(
-        "getReservation",
-        ["res-key-1"],
-        expect.objectContaining({ enabled: true })
-      );
-
-      const reservation = result.current.data?.reservation;
-      expect(reservation.labId).toBe("7");
-      expect(reservation.price).toBe("1000000000000000000");
-      expect(reservation.start).toBe("1700000000");
-      expect(reservation.end).toBe("1700003600");
-      expect(reservation.isActive).toBe(true);
     });
   });
 

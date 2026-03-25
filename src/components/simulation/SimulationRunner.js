@@ -10,9 +10,8 @@ import ResultsTable from './ResultsTable'
 import DownloadButtons from './DownloadButtons'
 import SimulationHistory from './SimulationHistory'
 import devLog from '@/utils/dev/logger'
-import { authenticateLabAccess, authenticateLabAccessSSO } from '@/utils/auth/labAuth'
+import { authenticateLabAccessSSO } from '@/utils/auth/labAuth'
 import { useGetIsSSO } from '@/utils/hooks/authMode'
-import { useAccount, useSignMessage, useSignTypedData } from 'wagmi'
 import { resolveGatewayFeatureError } from './gatewayErrors'
 
 const SIM_STATE = {
@@ -51,9 +50,6 @@ export default function SimulationRunner({ lab, reservationKey }) {
   const fmuMeta = getFmuMetadata(lab)
   const inputVars = (fmuMeta?.modelVariables || []).filter(v => v.causality === 'input')
   const isSSO = useGetIsSSO()
-  const { address } = useAccount()
-  const { signMessageAsync } = useSignMessage()
-  const { signTypedDataAsync } = useSignTypedData()
 
   const [parameters, setParameters] = useState(() => {
     const params = {}
@@ -103,29 +99,14 @@ export default function SimulationRunner({ lab, reservationKey }) {
     }
 
     const authPromise = (async () => {
-      let authData
-      if (isSSO) {
-        authData = await authenticateLabAccessSSO({
-          labId,
-          reservationKey,
-          authEndpoint,
-        })
-      } else {
-        if (!address) {
-          throw new Error('Wallet not connected')
-        }
-        if (!signMessageAsync || !signTypedDataAsync) {
-          throw new Error('Wallet signing functions are not available')
-        }
-        authData = await authenticateLabAccess(
-          authEndpoint,
-          address,
-          labId,
-          signMessageAsync,
-          reservationKey,
-          { signTypedDataAsync },
-        )
+      if (!isSSO) {
+        throw new Error('Institutional login is required')
       }
+      const authData = await authenticateLabAccessSSO({
+        labId,
+        reservationKey,
+        authEndpoint,
+      })
 
       const token = authData?.token
       if (!token) {
@@ -142,7 +123,7 @@ export default function SimulationRunner({ lab, reservationKey }) {
     } finally {
       authPromiseRef.current = null
     }
-  }, [address, gatewayToken, isSSO, lab.accessURI, lab.id, lab.tokenId, reservationKey, signMessageAsync, signTypedDataAsync])
+  }, [gatewayToken, isSSO, lab.accessURI, lab.id, lab.tokenId, reservationKey])
 
   const handleRun = useCallback(async () => {
     setSimState(SIM_STATE.RUNNING)

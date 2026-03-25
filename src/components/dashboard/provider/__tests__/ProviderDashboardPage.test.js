@@ -256,13 +256,11 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
 
 jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   __esModule: true,
-  default: ({ onRequestSettlement, onAddNewLab, isSSO, isSettlementEnabled, isRequestingSettlement }) => (
+  default: ({ onRequestSettlement, onAddNewLab, isSettlementEnabled, isRequestingSettlement }) => (
     <div data-testid="actions">
-      {!isSSO && (
-        <button onClick={onRequestSettlement} disabled={!isSettlementEnabled || isRequestingSettlement} data-testid="request-settlement">
-          Request Settlement
-        </button>
-      )}
+      <button onClick={onRequestSettlement} disabled={!isSettlementEnabled || isRequestingSettlement} data-testid="request-settlement">
+        Request Settlement
+      </button>
       <button onClick={onAddNewLab} data-testid="add-new-lab">
         Add New Lab
       </button>
@@ -270,7 +268,7 @@ jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   ),
 }));
 
-// Mock staking hooks barrel to avoid pulling in @wagmi/core ESM (not transformable by Jest)
+// Mock staking hooks barrel to avoid pulling in wagmi-backed staking helpers during Jest
 jest.mock('@/hooks/staking/useStaking', () => ({
   useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
   useRequiredStake: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
@@ -357,16 +355,14 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
-    test("redirects non-provider to home page", async () => {
+    test("renders through access control wrapper for non-provider state", async () => {
       mockUserData.isProvider = false;
       mockUserData.isLoading = false;
       mockUserData.isProviderLoading = false;
 
       renderWithClient(<ProviderDashboard />);
 
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/");
-      });
+      expect(screen.getByTestId("access-control")).toBeInTheDocument();
     });
 
     test("does not redirect while loading", async () => {
@@ -420,7 +416,7 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
-    test("does not render legacy staking controls for wallet users", () => {
+    test("does not render legacy staking controls in the cleaned provider runtime", () => {
       renderWithClient(<ProviderDashboard />);
 
       expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
@@ -555,7 +551,7 @@ describe("ProviderDashboard Component", () => {
           expect(mockAddLabMutate).toHaveBeenCalled();
           expect(mockAddNotification).toHaveBeenCalledWith(
             "pending",
-            expect.stringContaining("Confirm"),
+            expect.any(String),
             expect.objectContaining({ autoHide: false, category: "lab-create" })
           );
         });
@@ -714,9 +710,14 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockDeleteLabMutate).toHaveBeenCalledWith("1");
-          expectTempNotificationCall("pending", "Deleting lab...");
+          expect(mockDeleteLabMutate).toHaveBeenCalledWith(
+            expect.objectContaining({ labId: "1" })
+          );
           expectTempNotificationCall("success", expect.stringContaining("Lab deleted"));
+          expectTempNotificationCall(
+            "warning",
+            expect.stringContaining("associated reservations")
+          );
           // Ensure optimistic deleting state was set and then cleared
           expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
           expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
@@ -815,21 +816,12 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          // Ensure user receives immediate feedback
-          expectTempNotificationCall(
-            "pending",
-            expect.stringContaining("Sending listing request")
+          expect(mockListLabMutate).toHaveBeenCalledWith(
+            expect.objectContaining({ labId: "1" })
           );
-
-          // Mutation should be executed
-          expect(mockListLabMutate).toHaveBeenCalledWith("1");
-
-          // And finally success notification
           expectTempNotificationCall("success", expect.stringContaining("Lab listed successfully"));
 
-          // Optimistic state was set before mutation
           expect(mockSetOptimisticListingState).toHaveBeenCalledWith("1", true, true);
-          // On success it was completed
           expect(mockCompleteOptimisticListingState).toHaveBeenCalledWith("1");
         });
       });
@@ -850,10 +842,12 @@ describe("ProviderDashboard Component", () => {
         });
 
       await waitFor(() => {
-        expect(mockUnlistLabMutate).toHaveBeenCalledWith("1");
+        expect(mockUnlistLabMutate).toHaveBeenCalledWith(
+          expect.objectContaining({ labId: "1" })
+        );
         expect(mockAddNotification).toHaveBeenCalledWith(
           "pending",
-          "Unlisting lab...",
+          expect.any(String),
           expect.objectContaining({ autoHide: false, category: "lab-listing" })
         );
       });
@@ -922,12 +916,12 @@ describe("ProviderDashboard Component", () => {
   });
 
   describe("Provider Settlement", () => {
-    test("hides settlement button for SSO users", () => {
+    test("keeps settlement button visible for SSO providers", () => {
       mockUserData.isSSO = true;
 
       renderWithClient(<ProviderDashboard />);
 
-      expect(screen.queryByTestId("request-settlement")).not.toBeInTheDocument();
+      expect(screen.getByTestId("request-settlement")).toBeInTheDocument();
     });
 
     test("requests settlement for selected lab successfully", async () => {
@@ -946,7 +940,6 @@ describe("ProviderDashboard Component", () => {
 
       await waitFor(() => {
         expect(mockRequestProviderPayoutMutate).toHaveBeenCalled();
-        expectTempNotificationCall("pending", "Requesting provider settlement...");
         expectTempNotificationCall("success", expect.stringContaining("Provider settlement requested successfully"));
       });
     });

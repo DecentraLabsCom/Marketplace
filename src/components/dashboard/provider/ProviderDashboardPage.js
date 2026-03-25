@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { parseUnits } from 'viem'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
@@ -34,7 +33,6 @@ import devLog from '@/utils/dev/logger'
 import {
   notifyLabSettlementRequested,
   notifyLabSettlementFailed,
-  notifyLabSettlementStarted,
   notifyLabCreateCancelled,
   notifyLabCreatorMismatch,
   notifyLabCreated,
@@ -44,10 +42,8 @@ import {
   notifyLabDeleted,
   notifyLabDeletedCascadeWarning,
   notifyLabDeleteFailed,
-  notifyLabDeleteStarted,
   notifyLabInvalidPrice,
   notifyLabListed,
-  notifyLabListingRequested,
   notifyLabListFailed,
   notifyLabLegacyBlocked,
   notifyLabMetadataSaveFailed,
@@ -57,7 +53,6 @@ import {
   notifyLabUnlistFailed,
   notifyLabUpdated,
   notifyLabUpdateFailed,
-  notifyLabUpdateStarted,
 } from '@/utils/notifications/labToasts'
 
 const sanitizeProviderNameForUri = (name) => {
@@ -142,18 +137,15 @@ export default function ProviderDashboard() {
     isProvider,
     isProviderLoading,
     isLoading,
-    hasWalletSession,
     institutionBackendUrl,
     institutionRegistrationWallet,
     institutionalOnboardingStatus,
     openOnboardingModal,
   } = useUser();
 
-  const router = useRouter();
-
   const providerOwnerAddress = useMemo(
-    () => (isSSO ? institutionRegistrationWallet : address),
-    [isSSO, institutionRegistrationWallet, address]
+    () => institutionRegistrationWallet || address || null,
+    [institutionRegistrationWallet, address]
   );
 
   const currentCreatorPucHash = useMemo(
@@ -406,7 +398,7 @@ export default function ProviderDashboard() {
   }, [queryClient]);
   
   // 🚀 React Query for lab bookings with user details
-  const canFetchLabBookings = Boolean(selectedLabId && (isSSO || hasWalletSession));
+  const canFetchLabBookings = Boolean(selectedLabId && providerOwnerAddress);
   const { 
     data: labBookingsData, 
     isError: bookingsError
@@ -469,17 +461,15 @@ export default function ProviderDashboard() {
     data: selectedLabProviderReceivable,
     isLoading: isSelectedLabProviderReceivableLoading,
   } = useProviderReceivable(selectedSettlementLabId, {
-    enabled: !isSSO && selectedSettlementLabId !== null,
+    enabled: selectedSettlementLabId !== null,
   })
 
   const canRequestSettlement = useMemo(() => {
-    if (isSSO) return false
     if (selectedSettlementLabId === null) return false
     if (requestProviderPayoutMutation.isPending) return false
     if (isSelectedLabProviderReceivableLoading) return false
     return hasRequestableReceivable(selectedLabProviderReceivable)
   }, [
-    isSSO,
     selectedSettlementLabId,
     requestProviderPayoutMutation.isPending,
     isSelectedLabProviderReceivableLoading,
@@ -508,9 +498,7 @@ export default function ProviderDashboard() {
     const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
       ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
-    const providerSegmentSource = isSSO
-      ? (user?.institutionName || user?.name)
-      : user?.name;
+    const providerSegmentSource = user?.institutionName || user?.name;
     const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
     labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
     const onchainUri = resolveOnchainLabUri(labData.uri);
@@ -524,17 +512,17 @@ export default function ProviderDashboard() {
 
     try {
       setIsCreatingLab(true);
-      createLabAbortControllerRef.current = isSSO ? new AbortController() : null;
-      setCreateLabProgress(isSSO ? 'Sending lab to institution for execution...' : 'Confirm the transaction in your wallet...');
+      createLabAbortControllerRef.current = new AbortController();
+      setCreateLabProgress('Sending lab to institution for execution...');
       
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
         ...labData,
         uri: onchainUri,
-        providerId: providerOwnerAddress || address, // Add provider info
+        providerId: providerOwnerAddress, // Add provider info
         isSSO,
         userEmail: user.email,
-        backendUrl: isSSO ? institutionBackendUrl : undefined,
+        backendUrl: institutionBackendUrl,
         abortSignal: createLabAbortControllerRef.current?.signal,
         // SSO: be more tolerant to backend propagation delays
         pollMaxDurationMs: 12 * 60 * 1000,
@@ -693,7 +681,7 @@ export default function ProviderDashboard() {
   ]);
 
   const handleCloseModal = useCallback(() => {
-    if (isCreatingLab && isSSO && createLabAbortControllerRef.current) {
+    if (isCreatingLab && createLabAbortControllerRef.current) {
       try {
         createLabAbortControllerRef.current.abort();
         notifyLabCreateCancelled(addTemporaryNotification);
@@ -705,16 +693,7 @@ export default function ProviderDashboard() {
     }
 
     setIsModalOpen(false);
-  }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab, isSSO]);
-
-  // Redirect non-providers to home page for wallet users
-  useEffect(() => {
-    // Only redirect after loading is complete to avoid false redirects
-    if (!isLoading && !isProviderLoading && address && !isProvider && !isSSO) {
-      router.push('/');
-      return;
-    }
-  }, [isProvider, isProviderLoading, isLoading, address, isSSO, router]);
+  }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab]);
 
   // Automatically set the first lab as the selected lab (only once)
   useEffect(() => {
@@ -762,9 +741,7 @@ export default function ProviderDashboard() {
     
     // Use original lab's URI to preserve consistency, regardless of provider name changes
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
-    const providerSegmentSource = isSSO
-      ? (user?.institutionName || user?.name)
-      : user?.name;
+    const providerSegmentSource = user?.institutionName || user?.name;
     const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
     labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
     const onchainUri = resolveOnchainLabUri(labData.uri);
@@ -802,11 +779,7 @@ export default function ProviderDashboard() {
       if (hasChangedOnChainData) {
         // 1a. If there are on-chain changes, update blockchain via mutation
         const actionKey = `update:${labData.id}`;
-        if (isSSO) {
-          setActionProgressNotification(actionKey, 'Updating lab onchain...');
-        } else {
-          notifyLabUpdateStarted(addTemporaryNotification, labData.id);
-        }
+        setActionProgressNotification(actionKey, 'Updating lab onchain...');
         setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
         devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
 
@@ -821,20 +794,16 @@ export default function ProviderDashboard() {
               accessKey: labData.accessKey,
               resourceType: nextResourceType,
             },
-            backendUrl: isSSO ? institutionBackendUrl : undefined
+            backendUrl: institutionBackendUrl
           });
 
-          if (isSSO) {
-            clearActionProgressNotification(actionKey);
-          }
+          clearActionProgressNotification(actionKey);
           notifyLabUpdated(addTemporaryNotification, labData.id);
           // Clear optimistic editing marker
           clearOptimisticLabState(String(labData.id));
         } catch (err) {
           devLog.error('Error updating lab onchain:', err);
-          if (isSSO) {
-            clearActionProgressNotification(actionKey);
-          }
+          clearActionProgressNotification(actionKey);
           clearOptimisticLabState(String(labData.id));
           try {
             queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labData.id), exact: true });
@@ -915,18 +884,11 @@ export default function ProviderDashboard() {
     const actionKey = `delete:${labId}`;
     try {
       // Optimistic UI: mark deleting and provide immediate feedback
-      if (isSSO) {
-        setActionProgressNotification(actionKey, 'Deleting lab...');
-      } else {
-        notifyLabDeleteStarted(addTemporaryNotification, labId);
-      }
+      setActionProgressNotification(actionKey, 'Deleting lab...');
       setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
       // 🚀 Use React Query mutation for lab deletion
-      const deletePayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await deleteLabMutation.mutateAsync(deletePayload);
+      await deleteLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Remove from cached list immediately when possible
       try {
@@ -944,9 +906,7 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
       }
 
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
+      clearActionProgressNotification(actionKey);
       notifyLabDeleted(addTemporaryNotification, labId);
 
       // React Query mutations and event contexts will further ensure cache consistency
@@ -958,9 +918,7 @@ export default function ProviderDashboard() {
       clearOptimisticLabState(String(labId));
     } catch (error) {
       devLog.error('Error deleting lab:', error);
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
+      clearActionProgressNotification(actionKey);
       clearOptimisticLabState(labId);
       try {
         queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
@@ -980,23 +938,14 @@ export default function ProviderDashboard() {
     const actionKey = `list:${labId}`;
     try {
       // Immediate user feedback: notify and set optimistic pending state
-      if (isSSO) {
-        setListingProgressNotification(actionKey, 'Listing lab...');
-      } else {
-        notifyLabListingRequested(addTemporaryNotification, labId);
-      }
+      setListingProgressNotification(actionKey, 'Listing lab...');
       setOptimisticListingState(String(labId), true, true);
 
       // ?Ys? Use React Query mutation for lab listing
-      const listPayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await listLabMutation.mutateAsync(listPayload);
+      await listLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Mark optimistic as completed (still keep new state)
-      if (isSSO) {
-        clearListingProgressNotification(actionKey);
-      }
+      clearListingProgressNotification(actionKey);
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
@@ -1005,9 +954,7 @@ export default function ProviderDashboard() {
       notifyLabListed(addTemporaryNotification, labId);
     } catch (error) {
       devLog.error('Error listing lab:', error);
-      if (isSSO) {
-        clearListingProgressNotification(actionKey);
-      }
+      clearListingProgressNotification(actionKey);
       // Clear optimistic pending state on error
       clearOptimisticListingState(String(labId));
       try {
@@ -1031,10 +978,7 @@ export default function ProviderDashboard() {
       setOptimisticListingState(String(labId), false, true);
 
       // ?Ys? Use React Query mutation for lab unlisting
-      const unlistPayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await unlistLabMutation.mutateAsync(unlistPayload);
+      await unlistLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Mark optimistic as completed (keep new state)
       clearListingProgressNotification(labId);
@@ -1066,11 +1010,7 @@ export default function ProviderDashboard() {
   const handleRequestSettlement = async () => {
     const actionKey = 'settlement:selected';
     try {
-      if (isSSO) {
-        setActionProgressNotification(actionKey, 'Requesting provider settlement...');
-      } else {
-        notifyLabSettlementStarted(addTemporaryNotification);
-      }
+      setActionProgressNotification(actionKey, 'Requesting provider settlement...');
 
       if (selectedSettlementLabId === null) {
         throw new Error('Select a lab first');
@@ -1083,7 +1023,7 @@ export default function ProviderDashboard() {
         await requestProviderPayoutMutation.mutateAsync({
           labId: selectedSettlementLabId,
           maxBatch: DEFAULT_SETTLEMENT_MAX_BATCH,
-          ...(isSSO ? { backendUrl: institutionBackendUrl } : {}),
+          backendUrl: institutionBackendUrl,
         });
       } catch (settlementError) {
         if (!isNoCompletedReservationsError(settlementError)) {
@@ -1092,15 +1032,11 @@ export default function ProviderDashboard() {
         throw new Error('No completed reservations available for settlement request');
       }
       
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
+      clearActionProgressNotification(actionKey);
       notifyLabSettlementRequested(addTemporaryNotification);
     } catch (err) {
       devLog.error(err);
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
+      clearActionProgressNotification(actionKey);
       handleMissingWebauthnCredential(err);
       if (!handleLabAuthorizationErrorToast(err)) {
         notifyLabSettlementFailed(addTemporaryNotification, formatErrorMessage(err));
@@ -1195,7 +1131,6 @@ export default function ProviderDashboard() {
 
             {/* Provider actions */}
             <ProviderActions
-              isSSO={isSSO}
               onRequestSettlement={handleRequestSettlement}
               isSettlementEnabled={canRequestSettlement}
               isRequestingSettlement={requestProviderPayoutMutation.isPending}

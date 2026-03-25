@@ -129,7 +129,7 @@ const usePruneDeletedLabIds = (labIds, labDetailResults, listingResults) => {
  */
 /**
  * ⚠️ ARCHITECTURAL NOTE: This specialized hook uses useQueries with SSO .queryFn
- * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * API endpoints are read-only blockchain queries used by the institutional runtime
  * This is the correct pattern for composed/specialized hooks per project architecture
  */
 export const useLabsForMarket = (options = {}) => {
@@ -533,7 +533,7 @@ export const useLabById = (labId, options = {}) => {
  * @returns {Object} Labs owned by the address
  * 
  * ⚠️ ARCHITECTURAL NOTE: Uses useQueries with SSO .queryFn
- * API endpoints work for both SSO and Wallet users - correct pattern for composed hooks
+ * API endpoints are safe for composed hooks in the institutional runtime
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
   // Get all lab IDs first - Use SSO variant directly per architecture
@@ -770,7 +770,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
  * @returns {Object} Labs with complete data needed for reservation functionality
  * 
  * ⚠️ ARCHITECTURAL NOTE: Uses SSO variant directly per architecture
- * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * API endpoints are read-only blockchain queries used by the institutional runtime
  */
 export const useLabsForReservation = (options = {}) => {
   // Step 1: Get all lab IDs - Use SSO variant directly per architecture

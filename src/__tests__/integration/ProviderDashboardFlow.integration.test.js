@@ -175,11 +175,6 @@ jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
   useProviderReceivables: jest.fn(() => ({ data: { receivablesByLabId: {}, items: [] }, isLoading: false })),
 }));
 
-jest.mock('@/hooks/staking/useStakingAtomicMutations', () => ({
-  useStakeTokens: jest.fn(() => ({ mutateAsync: jest.fn(), isLoading: false })),
-  useUnstakeTokens: jest.fn(() => ({ mutateAsync: jest.fn(), isLoading: false })),
-}));
-
 /**
  * Mock next/navigation router
  */
@@ -198,6 +193,7 @@ jest.mock("next/navigation", () => ({
  */
 jest.mock("@/context/UserContext", () => ({
   useUser: jest.fn(() => ({
+    isLoggedIn: true,
     isProvider: true,
     isProviderLoading: false,
     address: "0x1234567890123456789012345678901234567890",
@@ -474,10 +470,11 @@ describe("Provider Dashboard Flow Integration", () => {
   test("requests provider settlement when Request Settlement button is clicked", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isProvider: true,
       isProviderLoading: false,
       address: "0x1234567890123456789012345678901234567890",
-      isSSO: false,
+      isSSO: true,
       isAuthenticated: true,
       isInstitutionRegistered: true,
       isInstitutionRegistrationLoading: false,
@@ -511,7 +508,7 @@ describe("Provider Dashboard Flow Integration", () => {
     });
   });
 
-  test("does not expose legacy staking modal controls for wallet users", async () => {
+  test("does not expose legacy staking modal controls in the cleaned provider runtime", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
       isProvider: true,

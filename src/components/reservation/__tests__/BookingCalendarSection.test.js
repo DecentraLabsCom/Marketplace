@@ -3,7 +3,7 @@
  *
  * Tests the booking calendar section that handles date/time selection and availability display.
  * Validates booking filtering, calendar key generation, form interactions, and conditional
- * rendering based on authentication type (SSO vs Wallet).
+ * rendering based on authentication mode.
  *
  * Test Behaviors:
  * - Null Safety: Returns null when lab prop is not provided
@@ -306,7 +306,7 @@ describe("BookingCalendarSection", () => {
   });
 
   describe("SSO Conditional Rendering", () => {
-    test("shows payment info for wallet users", () => {
+    test("shows payment info for non-SSO sessions", () => {
       render(<BookingCalendarSection {...defaultProps} isSSO={false} />);
 
       expect(screen.getByTestId("lab-token-info")).toBeInTheDocument();

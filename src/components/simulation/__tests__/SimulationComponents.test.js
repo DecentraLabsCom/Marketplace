@@ -33,12 +33,6 @@ jest.mock("@/utils/hooks/authMode", () => ({
 }));
 jest.mock("@/utils/auth/labAuth", () => ({
   authenticateLabAccessSSO: jest.fn(async () => ({ token: "test-gateway-token" })),
-  authenticateLabAccess: jest.fn(),
-}));
-jest.mock("wagmi", () => ({
-  useAccount: jest.fn(() => ({ address: "0xabc" })),
-  useSignMessage: jest.fn(() => ({ signMessageAsync: jest.fn() })),
-  useSignTypedData: jest.fn(() => ({ signTypedDataAsync: jest.fn() })),
 }));
 
 // ─── ParameterForm ──────────────────────────────────────────────────

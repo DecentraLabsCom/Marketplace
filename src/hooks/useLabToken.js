@@ -1,10 +1,7 @@
 import { useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { formatUnits } from 'viem'
-import { useConnection } from 'wagmi'
-import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
-import { contractAddresses } from '@/contracts/diamond'
-import { selectChain } from '@/utils/blockchain/selectChain'
-import { getConnectionAddress, isConnectionConnected } from '@/utils/blockchain/connection'
+import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
 
 const DEFAULT_LAB_TOKEN_DECIMALS = 1
@@ -39,34 +36,79 @@ const formatFixed2FromScaledInt = (scaledValue) => {
 
 export const clearDecimalsCache = () => {}
 
+async function fetchInstitutionCreditBalance(institutionAddress) {
+  const response = await fetch(
+    `/api/contract/institution/getInstitutionCreditBalance?institutionAddress=${encodeURIComponent(institutionAddress)}`,
+    {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch institution credit balance: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+async function fetchLabTokenAddress() {
+  const response = await fetch('/api/contract/reservation/getLabTokenAddress', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch service-credit ledger address: ${response.status}`)
+  }
+
+  return response.json()
+}
+
 export function useLabTokenHook() {
-  const connection = useConnection()
-  const { chain } = connection || {}
-  const address = getConnectionAddress(connection)
-  const isConnected = isConnectionConnected(connection)
-  const safeChain = selectChain(chain)
-  const chainName = safeChain.name.toLowerCase()
-  const diamondContractAddress = contractAddresses[chainName]
-  const shouldFetchBalance = Boolean(address && diamondContractAddress)
+  const { address, isSSO, isLoggedIn } = useUser()
+  const shouldFetchInstitutionData = Boolean(isSSO && isLoggedIn && address)
+  const shouldFetchLedgerMetadata = Boolean(isSSO && isLoggedIn)
 
   const {
-    data: serviceCreditBalance,
+    data: balanceResponse,
     refetch: refetchBalance,
     isLoading: isBalanceLoading,
-  } = useDefaultReadContract('getServiceCreditBalance', [address], {
-    enabled: shouldFetchBalance,
+  } = useQuery({
+    queryKey: ['lab-token', 'institution-credit-balance', address],
+    queryFn: () => fetchInstitutionCreditBalance(address),
+    enabled: shouldFetchInstitutionData,
     gcTime: 0,
     staleTime: 0,
-    refetchInterval: shouldFetchBalance ? 6_000 : false,
+    refetchInterval: shouldFetchInstitutionData ? 6_000 : false,
     refetchIntervalInBackground: true,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
+    retry: 1,
   })
 
-  const balance = typeof serviceCreditBalance === 'bigint' ? serviceCreditBalance : 0n
+  const {
+    data: tokenAddressResponse,
+    refetch: refetchTokenAddress,
+    isLoading: isTokenAddressLoading,
+  } = useQuery({
+    queryKey: ['lab-token', 'ledger-address'],
+    queryFn: fetchLabTokenAddress,
+    enabled: shouldFetchLedgerMetadata,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+
+  const balance = tryParseBigInt(balanceResponse?.balance) ?? 0n
   const allowance = balance
   const decimals = DEFAULT_LAB_TOKEN_DECIMALS
+  const labTokenAddress = tokenAddressResponse?.labTokenAddress || null
 
   const calculateReservationCost = useCallback((labPrice, durationMinutes) => {
     if (!labPrice || !durationMinutes) return 0n
@@ -156,14 +198,15 @@ export function useLabTokenHook() {
 
   const refreshTokenData = useCallback(() => {
     refetchBalance()
-  }, [refetchBalance])
+    refetchTokenAddress()
+  }, [refetchBalance, refetchTokenAddress])
 
   return {
     balance,
     allowance,
     decimals,
-    isLoading: Boolean(isBalanceLoading),
-    labTokenAddress: diamondContractAddress,
+    isLoading: Boolean(isBalanceLoading || isTokenAddressLoading),
+    labTokenAddress,
     calculateReservationCost,
     checkBalanceAndAllowance,
     checkSufficientBalance,

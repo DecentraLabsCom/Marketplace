@@ -17,83 +17,6 @@ import { useUser } from "@/context/UserContext";
 import { useOptimisticUI } from "@/context/OptimisticUIContext";
 
 /**
- * Mock contract read hook to avoid real blockchain calls
- */
-jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
-  __esModule: true,
-  default: jest.fn((functionName, args, skip) => {
-    // Mock balance response
-    if (functionName === "balanceOf") {
-      return {
-        data: BigInt("15500000000000000000"), // 15.5 credits in wei
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-      };
-    }
-
-    // Mock allowance response
-    if (functionName === "allowance") {
-      return {
-        data: BigInt("10000000000000000000"), // 10 credits in wei
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-      };
-    }
-
-    // Mock decimals response (use skip parameter to avoid calling when cached)
-    if (functionName === "decimals") {
-      return {
-        data: skip ? undefined : 18,
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-      };
-    }
-
-    return {
-      data: null,
-      isLoading: false,
-      isError: false,
-      refetch: jest.fn(),
-    };
-  }),
-}));
-
-/**
- * Mock contract write hook to avoid real blockchain calls
- */
-jest.mock("@/hooks/contract/useContractWriteFunction", () => ({
-  __esModule: true,
-  default: jest.fn(() => ({
-    contractWriteFunction: jest.fn(() => Promise.resolve("0xmocktxhash")),
-    isLoading: false,
-    isError: false,
-  })),
-}));
-
-/**
- * Mock environment utilities
- */
-jest.mock("@/utils/env/baseUrl", () => ({
-  getWalletConnectMetadata: jest.fn(() => ({
-    name: "Test App",
-    description: "Test Description",
-    url: "http://localhost:3000",
-    icons: ["http://localhost:3000/icon.png"],
-  })),
-}));
-
-/**
- * Mock wagmi connectors to avoid wallet connection issues
- */
-jest.mock("wagmi/connectors", () => ({
-  walletConnect: jest.fn(() => ({})),
-  metaMask: jest.fn(() => ({})),
-}));
-
-/**
  * Mock LabToken Context to avoid blockchain integration complexity
  */
 jest.mock("@/context/LabTokenContext", () => ({
@@ -121,19 +44,8 @@ jest.mock("@/context/LabTokenContext", () => ({
   }),
 }));
 
-// Setup window.ethereum before tests run
 beforeAll(() => {
-  // Mock window.ethereum for wallet interactions
-  Object.defineProperty(window, "ethereum", {
-    value: {
-      request: jest.fn(),
-      on: jest.fn(),
-      removeListener: jest.fn(),
-    },
-    writable: true,
-  });
-
-  // Mock sessionStorage for decimals cache
+  // Mock sessionStorage for client-side cache interactions
   const sessionStorageMock = {
     getItem: jest.fn(),
     setItem: jest.fn(),

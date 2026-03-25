@@ -27,7 +27,7 @@ import {
 export async function POST(req) {
   try {
     // ===== AUTHENTICATION =====
-    // Require valid session (works for both SSO and wallet users)
+    // Require a valid authenticated session
     const session = await requireAuth();
     
     const body = await req.json();

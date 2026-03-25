@@ -1,11 +1,10 @@
 "use client";
 /**
  * Atomic React Query Hooks for Booking-related Write Operations
- * Each hook maps 1:1 to a specific API endpoint in /api/contract/reservation/
- * Handles mutations (create, update, delete operations)
+ * Institutional booking mutations route through backend-managed reservation and payout intents.
+ * Customer wallet mutation variants have been removed.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import useContractWriteFunction from '@/hooks/contract/useContractWriteFunction'
 import { useUser } from '@/context/UserContext'
 import { bookingQueryKeys, stakingQueryKeys } from '@/utils/hooks/queryKeys'
 import { useBookingCacheUpdates } from './useBookingCacheUpdates'
@@ -16,7 +15,6 @@ import {
 } from '@/utils/intents/authorizationOrchestrator'
 import devLog from '@/utils/dev/logger'
 import { ACTION_CODES } from '@/utils/intents/signInstitutionalActionIntent'
-import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import { enqueueReconciliationEntry, removeReconciliationEntry } from '@/utils/optimistic/reconciliationQueue'
 import createPendingBookingPayload from './utils/createPendingBookingPayload'
@@ -192,112 +190,6 @@ async function runActionIntent(action, payload) {
 }
 
 // ===== MUTATIONS =====
-
-/**
- * Hook for /api/contract/reservation/reservationRequest endpoint using wallet (non-SSO users)  
- * Creates a new reservation request using user's wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useReservationRequestWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { addOptimisticBooking, replaceOptimisticBooking, removeOptimisticBooking, invalidateAllBookings } = useBookingCacheUpdates();
-  const { contractWriteFunction: reservationRequest } = useContractWriteFunction('reservationRequest');
-  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
-
-  return useMutation({
-    mutationFn: async (requestData) => {
-      // **NEW: Add optimistic booking for immediate UI feedback**
-      const optimisticBooking = addOptimisticBooking({
-        tokenId: requestData.tokenId,
-        labId: requestData.tokenId,
-        start: requestData.start,
-        end: requestData.end,
-        userAddress: requestData.userAddress || 'unknown',
-        status: 'requesting'
-      });
-
-      // Set optimistic UI state for the booking (keyed by optimistic id)
-      try {
-        setOptimisticBookingState(optimisticBooking.id, {
-          status: 'requesting',
-          isPending: true,
-          isInstitutional: false,
-          labId: requestData.tokenId,
-          userAddress: requestData.userAddress || 'unknown',
-        });
-      } catch (err) {
-        devLog.warn('Failed to set optimistic booking state (non-fatal):', err);
-      }
-
-      try {
-        devLog.log('🎯 Optimistic booking added to cache:', optimisticBooking.id);
-
-        const txHash = await reservationRequest([requestData.tokenId, requestData.start, requestData.end]);
-        const normalizedHash = typeof txHash === 'bigint' ? txHash.toString() : txHash?.toString?.() ?? txHash;
-        
-        devLog.log('🔍 useReservationRequestWallet - Transaction Hash:', normalizedHash);
-        return { hash: normalizedHash, optimisticId: optimisticBooking.id };
-      } catch (error) {
-        // Remove optimistic update on error and clear optimistic UI state
-        try {
-          clearOptimisticBookingState(optimisticBooking.id);
-        } catch (err) {
-          devLog.warn('Failed to clear optimistic booking state after mutation error:', err);
-        }
-        removeOptimisticBooking(optimisticBooking.id);
-        throw error;
-      }
-    },
-    onSuccess: (result, variables) => {
-      // **NEW: Replace optimistic booking with transaction-pending version**
-      try {
-        const transactionPendingBooking = createPendingBookingPayload({
-          ...variables,
-          reservationKey: result.optimisticId, // Temporary until we get real key
-          status: 'pending',
-          transactionHash: result.hash,
-          isOptimistic: true,
-          isProcessing: false,
-          extra: variables,
-        });
-        
-        replaceOptimisticBooking(result.optimisticId, transactionPendingBooking);
-        devLog.log('✅ Reservation request transaction sent via wallet, awaiting blockchain confirmation');
-
-        try {
-          completeOptimisticBookingState(result.optimisticId);
-        } catch (err) {
-          devLog.warn('Failed to complete optimistic booking state after tx sent:', err);
-        }
-      } catch (error) {
-        devLog.error('Failed to update optimistic data, falling back to invalidation:', error);
-        try {
-          invalidateAllBookings();
-        } catch (invalidateError) {
-          devLog.error('invalidateAllBookings threw, continuing targeted invalidations', invalidateError);
-        }
-
-        if (variables.tokenId) {
-          try {
-            queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) });
-            if (variables.userAddress) {
-              queryClient.invalidateQueries({
-                queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId, variables.userAddress),
-              });
-            }
-          } catch (targetedError) {
-            devLog.error('Targeted booking invalidations failed', targetedError);
-          }
-        }
-      }
-    },
-    onError: (error) => {
-      devLog.error('❌ Failed to create reservation request via wallet:', error);
-    },
-    ...options,
-  });
-};
 
 /**
  * Hook for /api/contract/reservation/reservationRequest endpoint
@@ -506,8 +398,7 @@ export const useReservationRequestSSO = (options = {}) => {
                   tokenId: variables.tokenId
                 });
 
-                // Reservation confirmation now relies on BookingEventContext event polling only,
-                // avoiding duplicate polling loops for the same reservation lifecycle.
+                // Reservation confirmation now relies on intent status polling and targeted cache invalidation.
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
                   reservationKey: finalKey,
@@ -543,19 +434,12 @@ export const useReservationRequestSSO = (options = {}) => {
 };
 
 /**
- * Unified Hook for creating reservation requests (auto-detects SSO vs Wallet)
+ * Unified Hook for creating reservation requests (institutional / managed path only)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
 export const useReservationRequest = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useReservationRequestSSO(options);
-  const walletMutation = useReservationRequestWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
+  return useReservationRequestSSO(options);
 };
 
 /**
@@ -747,74 +631,13 @@ export const useCancelReservationRequestSSO = (options = {}) => {
     ...options,
   });
 };
-export const useCancelReservationRequestWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: cancelReservationRequest } = useContractWriteFunction('cancelReservationRequest');
-  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
-
-  return useMutation({
-    mutationFn: async (reservationInput) => {
-      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
-      if (!reservationKey) {
-        throw new Error('Missing reservationKey');
-      }
-      const txHash = await cancelReservationRequest([reservationKey]);
-      
-      devLog.log('🔍 useCancelReservationRequestWallet - Transaction Hash:', txHash);
-      return { hash: txHash, reservationKey };
-    },
-    onSuccess: (result, reservationInput) => {
-      const reservationKey =
-        result?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
-      if (!reservationKey) return;
-      // Keep reservation visible until BookingEventContext receives ReservationRequestCanceled.
-      devLog.log('✅ Reservation request cancellation tx sent via wallet - waiting for on-chain event');
-
-      // Optimistic UI: set cancelling state and complete it after tx sent
-      try {
-        const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
-        setOptimisticBookingState(reservationKey, {
-          status: 'cancelling',
-          isPending: true,
-          isInstitutional: false,
-          labId,
-          userAddress,
-        });
-        completeOptimisticBookingState(reservationKey);
-      } catch (err) {
-        devLog.warn('Failed to set/complete optimistic booking state for cancellation (non-fatal):', err);
-      }
-    },
-    onError: (error, reservationInput) => {
-      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
-      if (!reservationKey) return;
-      // Revert optimistic update on error
-      try {
-        clearOptimisticBookingState(reservationKey);
-      } catch (err) {
-        devLog.warn('Failed to clear optimistic booking state on cancel error:', err);
-      }
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      devLog.error('❌ Failed to cancel reservation request via wallet - reverting optimistic update:', error);
-    },
-    ...options,
-  });
-};
-
 /**
- * Unified Hook for cancelling reservation requests (auto-detects SSO vs Wallet)
+ * Unified Hook for cancelling reservation requests (institutional / managed path only)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
 export const useCancelReservationRequest = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useCancelReservationRequestSSO(options);
-  const walletMutation = useCancelReservationRequestWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
+  return useCancelReservationRequestSSO(options);
 };
 
 /**
@@ -986,73 +809,13 @@ export const useCancelBookingSSO = (options = {}) => {
     ...options,
   });
 };
-export const useCancelBookingWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: cancelBooking } = useContractWriteFunction('cancelBooking');
-  const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
-
-  return useMutation({
-    mutationFn: async (reservationInput) => {
-      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
-      if (!reservationKey) {
-        throw new Error('Missing reservationKey');
-      }
-      const txHash = await cancelBooking([reservationKey]);
-      
-      devLog.log('🔍 useCancelBookingWallet - Transaction Hash:', txHash);
-      return { hash: txHash, reservationKey };
-    },
-    onSuccess: (result, reservationInput) => {
-      const reservationKey =
-        result?.reservationKey || normalizeReservationMutationInput(reservationInput).reservationKey;
-      if (!reservationKey) return;
-      // Keep booking visible until BookingEventContext receives BookingCanceled.
-      devLog.log('✅ Booking cancellation tx sent via wallet - waiting for on-chain event');
-
-      try {
-        const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
-        setOptimisticBookingState(reservationKey, {
-          status: 'cancelling',
-          isPending: true,
-          isInstitutional: false,
-          labId,
-          userAddress,
-        });
-        completeOptimisticBookingState(reservationKey);
-      } catch (err) {
-        devLog.warn('Failed to set/complete optimistic booking state for booking cancellation (non-fatal):', err);
-      }
-    },
-    onError: (error, reservationInput) => {
-      const reservationKey = normalizeReservationMutationInput(reservationInput).reservationKey;
-      if (!reservationKey) return;
-      // Revert optimistic update on error
-      try {
-        clearOptimisticBookingState(reservationKey);
-      } catch (err) {
-        devLog.warn('Failed to clear optimistic booking state on booking cancel error:', err);
-      }
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) });
-      devLog.error('❌ Failed to cancel booking via wallet - reverting optimistic update:', error);
-    },
-    ...options,
-  });
-};
-
 /**
- * Unified Hook for cancelling bookings (auto-detects SSO vs Wallet)
+ * Unified Hook for cancelling bookings (institutional / managed path only)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
 export const useCancelBooking = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useCancelBookingSSO(options);
-  const walletMutation = useCancelBookingWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
+  return useCancelBookingSSO(options);
 };
 
 /**
@@ -1099,56 +862,16 @@ export const useRequestProviderPayoutSSO = (options = {}) => {
 };
 
 /**
- * Hook for wallet-based provider payout request using useContractWriteFunction
- * Requests the currently accrued provider payout using the caller wallet
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useRequestProviderPayoutWallet = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { contractWriteFunction: requestProviderPayout } = useContractWriteFunction('requestProviderPayout');
-
-  return useMutation({
-    mutationFn: async (requestInput = {}) => {
-      const { labId, maxBatch } = normalizePayoutRequestInput(requestInput)
-      const txHash = await requestProviderPayout([BigInt(labId), BigInt(maxBatch)]);
-      devLog.log('useRequestProviderPayoutWallet - tx sent:', txHash);
-      return { hash: txHash, labId };
-    },
-    onSuccess: (_result, variables) => {
-      // Invalidate safe balance and related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
-      queryClient.invalidateQueries({ queryKey: ['staking', 'providerReceivables'], exact: false });
-
-      const normalizedLabId = Number(variables?.labId)
-      if (Number.isInteger(normalizedLabId) && normalizedLabId >= 0) {
-        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.providerReceivable(normalizedLabId) });
-      }
-      devLog.log('Provider payout requested successfully via wallet, cache invalidated');
-    },
-    onError: (error) => {
-      devLog.error('Failed to request provider payout via wallet:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for requesting provider payout (auto-detects SSO vs Wallet)
+ * Unified Hook for requesting provider payout (institutional / managed path only)
  * @param {Object} [options={}] - Additional mutation options
  * @returns {Object} React Query mutation object
  */
 export const useRequestProviderPayout = (options = {}) => {
-  const isSSO = useGetIsSSO(options);
-  
-  // Call both hooks unconditionally to follow rules of hooks
-  const ssoMutation = useRequestProviderPayoutSSO(options);
-  const walletMutation = useRequestProviderPayoutWallet(options);
-  
-  // Return the appropriate mutation
-  return isSSO ? ssoMutation : walletMutation;
+  return useRequestProviderPayoutSSO(options);
 };
 
 // Re-export cache updates utility
 export { useBookingCacheUpdates } from './useBookingCacheUpdates';
+
+
 

@@ -18,7 +18,7 @@ import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/b
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
 export default function Market({ initialLabs = [] }) {
-  const { isLoggedIn, address, isWalletLoading, hasWalletSession, isSSO } = useUser();
+  const { isLoggedIn, address, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
   
   // State for show unlisted option
@@ -66,14 +66,12 @@ export default function Market({ initialLabs = [] }) {
   const labs = useMemo(() => labsArray, [labsArray]);
   const shouldShowLabsError = shouldFetchLiveLabs ? labsError : false;
 
-  // React Query for user bookings (memoized options) - supports both SSO and wallet sessions
+  // React Query for user bookings scoped to institutional sessions.
   const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
     isLoggedIn,
     isSSO,
     address,
-    hasWalletSession,
-    isWalletLoading,
-  }), [isLoggedIn, isSSO, address, hasWalletSession, isWalletLoading]);
+  }), [isLoggedIn, isSSO, address]);
 
   const bookingsUserAddress = useMemo(
     () => resolveBookingsUserAddress({ isSSO, address }),

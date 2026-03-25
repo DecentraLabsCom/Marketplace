@@ -1,10 +1,9 @@
 "use client";
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { useSignMessage, useSignTypedData } from 'wagmi'
 import { useUser } from '@/context/UserContext'
 import { useReservation } from '@/hooks/booking/useBookings'
-import { authenticateLabAccess, authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
+import { authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -12,19 +11,16 @@ import devLog from '@/utils/dev/logger'
  * Validates user booking status and provides access credentials/links
  * @param {Object} props
  * @param {string|number} props.id - Lab ID to provide access for
- * @param {string} props.userWallet - User's wallet address
  * @param {boolean} props.hasActiveBooking - Whether user has an active booking
  * @param {string} [props.reservationKey] - Optional reservation key for optimized validation
  * @returns {JSX.Element} Lab access interface with validation and entry controls
  */
-export default function LabAccess({ id, userWallet, hasActiveBooking, reservationKey = null }) {
+export default function LabAccess({ id, hasActiveBooking, reservationKey = null }) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [authURI, setAuthURI] = useState(null);
   const [fetchingAuth, setFetchingAuth] = useState(false);
   const { isSSO } = useUser();
-  const { signMessageAsync } = useSignMessage();
-  const { signTypedDataAsync } = useSignTypedData();
   const { data: reservationData, isFetching: isFetchingReservation } = useReservation(reservationKey, {
     enabled: !!reservationKey && !!hasActiveBooking,
     staleTime: 60 * 1000,
@@ -73,8 +69,8 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
       return;
     }
 
-    if (!isSSO && !userWallet) {
-      setErrorMessage('Please connect your wallet to access this lab.');
+    if (!isSSO) {
+      setErrorMessage('Institutional login is required to access this lab.');
       setTimeout(() => setErrorMessage(null), 1500);
       setLoading(false);
       return;
@@ -83,21 +79,12 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
     try {
       // Use helper function to handle the complete authentication flow
       // Pass reservationKey if available for optimized validation
-      const authResult = isSSO
-        ? await authenticateLabAccessSSO({
-            labId: id,
-            reservationKey,
-            authEndpoint: authURI,
-            skipCheckIn: isReservationInUse,
-          })
-        : await authenticateLabAccess(
-            authURI,
-            userWallet,
-            id,
-            signMessageAsync,
-            reservationKey,
-            { signTypedDataAsync, skipCheckIn: isReservationInUse }
-          );
+      const authResult = await authenticateLabAccessSSO({
+        labId: id,
+        reservationKey,
+        authEndpoint: authURI,
+        skipCheckIn: isReservationInUse,
+      });
 
       // Handle successful authentication
       if (authResult.token && authResult.labURL) {
@@ -116,7 +103,7 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
       
     } catch (error) {
       // Handle authentication process errors
-      const userFriendlyMessage = getAuthErrorMessage(error, isSSO);
+      const userFriendlyMessage = getAuthErrorMessage(error);
       setErrorMessage(userFriendlyMessage);
       setTimeout(() => setErrorMessage(null), 1500);
     } finally {
@@ -166,7 +153,6 @@ export default function LabAccess({ id, userWallet, hasActiveBooking, reservatio
 
 LabAccess.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  userWallet: PropTypes.string,
   hasActiveBooking: PropTypes.bool.isRequired,
   reservationKey: PropTypes.string
 }

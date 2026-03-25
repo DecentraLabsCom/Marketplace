@@ -1,6 +1,7 @@
 import { normalizeReservationKey } from '@/utils/booking/reservationKey'
 
 const RESERVATION_CONFIRM_DEDUPE_WINDOW_MS = 120000
+
 export const RESERVATION_DENY_REASON = {
   PROVIDER_MANUAL: 1,
   PROVIDER_NOT_ELIGIBLE: 2,
@@ -23,18 +24,6 @@ export const reservationToastIds = {
   validationMissingTime: () => 'reservation-validation-missing-time',
   validationMissingLab: () => 'reservation-validation-missing-lab',
   missingInstitutionalBackend: () => 'reservation-missing-institutional-backend',
-  walletNotConnected: () => 'reservation-wallet-not-connected',
-  walletUnsupportedNetwork: (network) => `reservation-wallet-unsupported-network:${String(network || 'unknown').toLowerCase()}`,
-  walletInvalidCost: () => 'reservation-wallet-invalid-cost',
-  walletInsufficientTokens: () => 'reservation-wallet-insufficient-tokens',
-  walletApprovalPending: () => 'reservation-wallet-approval-pending',
-  walletApprovalSuccess: () => 'reservation-wallet-approval-success',
-  walletApprovalRejected: () => 'reservation-wallet-approval-rejected',
-  walletSlotUnavailable: ({ labId, start }) => `reservation-wallet-slot-unavailable:${String(labId)}:${String(start)}`,
-  walletTransactionRejected: () => 'reservation-wallet-transaction-rejected',
-  walletTimeslotConflict: ({ labId, start }) => `reservation-wallet-timeslot-conflict:${String(labId)}:${String(start)}`,
-  walletAwaitingProvider: (reservationKey) => `reservation-wallet-awaiting-provider:${normalizeReservationKey(reservationKey) || 'unknown'}`,
-  walletTxSubmitted: ({ labId, start }) => `reservation-wallet-tx-submitted:${String(labId)}:${String(start)}`,
 }
 
 const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
@@ -46,62 +35,50 @@ const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions
   })
 }
 
-const resolveReservationDeniedMessage = (reason, isSSO) => {
+const resolveReservationDeniedMessage = (reason) => {
   const numericReason = Number(reason)
-
-  // Wallet flow currently maps provider/payment failures only.
-  if (
-    isSSO !== true &&
-    (numericReason === RESERVATION_DENY_REASON.REQUEST_EXPIRED ||
-      numericReason === RESERVATION_DENY_REASON.TREASURY_SPEND_FAILED)
-  ) {
-    return '❌ Reservation denied.'
-  }
 
   switch (numericReason) {
     case RESERVATION_DENY_REASON.PROVIDER_MANUAL:
-      return '❌ Reservation denied by the provider.'
+      return 'Reservation denied by the provider.'
     case RESERVATION_DENY_REASON.PROVIDER_NOT_ELIGIBLE:
-      return '❌ Reservation denied: provider cannot fulfill this reservation right now.'
+      return 'Reservation denied: provider cannot fulfill this reservation right now.'
     case RESERVATION_DENY_REASON.PAYMENT_FAILED:
-      return isSSO
-        ? 'Reservation denied due to payment processing failure.'
-        : 'Reservation denied: service credit charge failed.'
+      return 'Reservation denied due to payment processing failure.'
     case RESERVATION_DENY_REASON.REQUEST_EXPIRED:
-      return isSSO
-        ? '❌ Reservation denied by your institution (request expired).'
-        : '❌ Reservation denied.'
+      return 'Reservation denied by your institution (request expired).'
     case RESERVATION_DENY_REASON.TREASURY_SPEND_FAILED:
-      return isSSO
-        ? '❌ Reservation denied by your institution (credit charge failed).'
-        : '❌ Reservation denied.'
+      return 'Reservation denied by your institution (credit charge failed).'
     default:
-      return '❌ Reservation denied.'
+      return 'Reservation denied.'
   }
 }
 
 export const notifyReservationConfirmed = (addTemporaryNotification, reservationKey) => {
-  notify(addTemporaryNotification, 'success', '✅ Reservation confirmed!', reservationToastIds.confirmed(reservationKey), {
+  notify(addTemporaryNotification, 'success', 'Reservation confirmed.', reservationToastIds.confirmed(reservationKey), {
     dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS,
   })
 }
 
 export const notifyReservationDenied = (addTemporaryNotification, reservationKey, options = {}) => {
-  const deniedMessage = resolveReservationDeniedMessage(options?.reason, options?.isSSO === true)
-  notify(addTemporaryNotification, 'error', deniedMessage, reservationToastIds.denied(reservationKey), {
-    dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS,
-  })
+  notify(
+    addTemporaryNotification,
+    'error',
+    resolveReservationDeniedMessage(options?.reason),
+    reservationToastIds.denied(reservationKey),
+    { dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS }
+  )
 }
 
 export const notifyReservationTxReverted = (addTemporaryNotification) => {
-  notify(addTemporaryNotification, 'error', '❌ Transaction reverted. Reservation was not created.', reservationToastIds.txReverted())
+  notify(addTemporaryNotification, 'error', 'Transaction reverted. Reservation was not created.', reservationToastIds.txReverted())
 }
 
 export const notifyReservationOnChainRequested = (addTemporaryNotification, reservationKey) => {
   notify(
     addTemporaryNotification,
     'success',
-    '✅ Reservation request registered on-chain! Waiting for final confirmation...',
+    'Reservation request registered on-chain. Waiting for final confirmation.',
     reservationToastIds.onchainRequested(reservationKey)
   )
 }
@@ -138,7 +115,7 @@ export const notifyReservationProgressSubmitted = (addTemporaryNotification, pay
   notify(
     addTemporaryNotification,
     'pending',
-    'Reservation request sent! Processing...',
+    'Reservation request sent. Processing...',
     reservationToastIds.progressSubmitted(payload)
   )
 }
@@ -162,89 +139,10 @@ export const notifyReservationMissingCredential = (addTemporaryNotification) => 
 }
 
 export const notifyReservationMissingTimeSelection = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', '⚠️ Please select an available time.', reservationToastIds.validationMissingTime())
+  notify(addTemporaryNotification, 'error', 'Please select an available time.', reservationToastIds.validationMissingTime())
 
 export const notifyReservationMissingLabSelection = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', '⚠️ Please select a lab.', reservationToastIds.validationMissingLab())
+  notify(addTemporaryNotification, 'error', 'Please select a lab.', reservationToastIds.validationMissingLab())
 
 export const notifyReservationMissingInstitutionalBackend = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', '❌ Missing institutional backend URL.', reservationToastIds.missingInstitutionalBackend())
-
-export const notifyReservationWalletDisconnected = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', '🔗 Please connect your wallet first.', reservationToastIds.walletNotConnected())
-
-export const notifyReservationWalletUnsupportedNetwork = (addTemporaryNotification, chainName) =>
-  notify(
-    addTemporaryNotification,
-    'error',
-    `❌ Contract not deployed on ${chainName || 'this network'}. Please switch to a supported network.`,
-    reservationToastIds.walletUnsupportedNetwork(chainName)
-  )
-
-export const notifyReservationWalletInvalidCost = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', '❌ Unable to calculate booking cost.', reservationToastIds.walletInvalidCost())
-
-export const notifyReservationWalletInsufficientTokens = (addTemporaryNotification, required, available) =>
-  notify(
-    addTemporaryNotification,
-    'error',
-    `Insufficient service credits. Required: ${required} credits, Available: ${available} credits`,
-    reservationToastIds.walletInsufficientTokens()
-  )
-
-export const notifyReservationWalletApprovalPending = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'pending', 'Validating service credit ledger...', reservationToastIds.walletApprovalPending(), {
-    duration: 8000,
-  })
-
-export const notifyReservationWalletApprovalSuccess = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'success', 'Service credits ready to spend.', reservationToastIds.walletApprovalSuccess())
-
-export const notifyReservationWalletApprovalRejected = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'warning', 'Service credit validation cancelled.', reservationToastIds.walletApprovalRejected())
-
-export const notifyReservationWalletSlotUnavailable = (addTemporaryNotification, payload) =>
-  notify(
-    addTemporaryNotification,
-    'error',
-    '❌ The selected time slot is no longer available. Please select a different time.',
-    reservationToastIds.walletSlotUnavailable(payload)
-  )
-
-export const notifyReservationWalletTransactionRejected = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'warning', '🚫 Transaction rejected by user.', reservationToastIds.walletTransactionRejected())
-
-export const notifyReservationWalletTimeslotConflict = (addTemporaryNotification, payload) =>
-  notify(
-    addTemporaryNotification,
-    'error',
-    '❌ Time slot was reserved while you were booking. Please try another time.',
-    reservationToastIds.walletTimeslotConflict(payload)
-  )
-
-/**
- * Wallet flow: TX is in the mempool / confirmed on-chain, awaiting provider confirmation.
- * Mirrors the SSO "Accepted by institution, awaiting on-chain registration" fallback toast.
- */
-export const notifyReservationWalletAwaitingProviderConfirmation = (addTemporaryNotification, reservationKey) => {
-  notify(
-    addTemporaryNotification,
-    'pending',
-    'Reservation request on-chain. Awaiting provider confirmation...',
-    reservationToastIds.walletAwaitingProvider(reservationKey),
-    { dedupeWindowMs: RESERVATION_CONFIRM_DEDUPE_WINDOW_MS }
-  )
-}
-
-/**
- * Wallet flow: transaction has been broadcast to the network (TX in mempool).
- * More accurate wording than the shared "progressSubmitted" toast for wallet users.
- */
-export const notifyReservationWalletTransactionSubmitted = (addTemporaryNotification, payload) => {
-  notify(
-    addTemporaryNotification,
-    'pending',
-    'Transaction submitted. Waiting for blockchain confirmation...',
-    reservationToastIds.walletTxSubmitted(payload)
-  )
-}
+  notify(addTemporaryNotification, 'error', 'Missing institutional backend URL.', reservationToastIds.missingInstitutionalBackend())

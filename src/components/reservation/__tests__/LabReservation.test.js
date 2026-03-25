@@ -1,17 +1,11 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import LabReservation from "../LabReservation"
-import * as wagmiHooks from "wagmi"
 import * as userContext from "@/context/UserContext"
 import * as notificationContext from "@/context/NotificationContext"
-import * as labTokenContext from "@/context/LabTokenContext"
 import * as labHooks from "@/hooks/lab/useLabs"
 import * as bookingHooks from "@/hooks/booking/useBookings"
 import * as reservationHooks from "@/hooks/reservation/useLabReservationState"
-
-jest.mock("wagmi", () => ({
-  useConnection: jest.fn(),
-}))
 
 jest.mock("@/context/UserContext", () => ({
   useUser: jest.fn(),
@@ -19,10 +13,6 @@ jest.mock("@/context/UserContext", () => ({
 
 jest.mock("@/context/NotificationContext", () => ({
   useNotifications: jest.fn(),
-}))
-
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: jest.fn(),
 }))
 
 jest.mock("@/hooks/lab/useLabs", () => ({
@@ -54,12 +44,6 @@ jest.mock("@/components/ui", () => ({
   ),
 }))
 
-jest.mock("@/contracts/diamond", () => ({
-  contractAddresses: {
-    sepolia: "0x1111111111111111111111111111111111111111",
-  },
-}))
-
 jest.mock("@/utils/dev/logger", () => ({
   __esModule: true,
   default: {
@@ -67,14 +51,6 @@ jest.mock("@/utils/dev/logger", () => ({
     warn: jest.fn(),
     error: jest.fn(),
   },
-}))
-
-jest.mock("@/utils/booking/bookingStatus", () => ({
-  isCancelledBooking: jest.fn(() => false),
-}))
-
-jest.mock("@/utils/booking/labBookingCalendar", () => ({
-  generateTimeOptions: jest.fn(() => [{ value: "10:00", label: "10:00", disabled: false }]),
 }))
 
 const createTestQueryClient = () =>
@@ -96,35 +72,22 @@ describe("LabReservation Component", () => {
   const mockReservationRequestMutation = {
     mutateAsync: jest.fn(),
   }
+  const mockOpenOnboardingModal = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
 
-    wagmiHooks.useConnection.mockReturnValue({
-      accounts: ["0x3333333333333333333333333333333333333333"],
-      chain: { name: "sepolia", id: 11155111 },
-      status: "connected",
-    })
-
     userContext.useUser.mockReturnValue({
-      isSSO: false,
+      isSSO: true,
       address: "0x3333333333333333333333333333333333333333",
       institutionBackendUrl: "https://institution.example",
-      hasWalletSession: true,
+      institutionalOnboardingStatus: "completed",
+      openOnboardingModal: mockOpenOnboardingModal,
     })
 
     notificationContext.useNotifications.mockReturnValue({
       addTemporaryNotification: mockAddTemporaryNotification,
       addErrorNotification: mockAddErrorNotification,
-    })
-
-    labTokenContext.useLabToken.mockReturnValue({
-      checkBalanceAndAllowance: jest.fn(() => ({
-        hasSufficientBalance: true,
-        hasSufficientAllowance: true,
-        balance: BigInt(1000),
-      })),
-      formatTokenAmount: jest.fn((amount) => amount.toString()),
     })
 
     labHooks.useLabsForReservation.mockReturnValue({
@@ -153,12 +116,10 @@ describe("LabReservation Component", () => {
       maxDate: new Date("2024-12-31"),
       availableTimes: [{ value: "10:00", label: "10:00", disabled: false }],
       totalCost: BigInt(100),
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: "idle",
+      isFlowLocked: false,
       ssoBookingStage: "idle",
       isSSOFlowLocked: false,
-      walletBookingStage: "idle",
-      isWalletFlowLocked: false,
       reservationButtonState: {
         label: "Book Now",
         isBusy: false,
@@ -167,7 +128,6 @@ describe("LabReservation Component", () => {
         ariaBusy: false,
       },
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
       setPendingData: jest.fn(),
       handleDateChange: jest.fn(),
       handleDurationChange: jest.fn(),
@@ -176,8 +136,6 @@ describe("LabReservation Component", () => {
       startSsoProcessing: jest.fn(),
       markSsoRequestSent: jest.fn(),
       resetSsoReservationFlow: jest.fn(),
-      startWalletProcessing: jest.fn(),
-      resetWalletReservationFlow: jest.fn(),
       formatPrice: jest.fn((price) => `${price} LAB`),
       reservationRequestMutation: mockReservationRequestMutation,
     })
@@ -194,47 +152,10 @@ describe("LabReservation Component", () => {
     })
   })
 
-  test("shows insufficient balance notification before booking", async () => {
-    labTokenContext.useLabToken.mockReturnValue({
-      checkBalanceAndAllowance: jest.fn(() => ({
-        hasSufficientBalance: false,
-        hasSufficientAllowance: false,
-        balance: BigInt(50),
-      })),
-      formatTokenAmount: jest.fn((amount) => amount.toString()),
-    })
-
-    renderWithProviders(<LabReservation id="1" />)
-
-    fireEvent.click(await screen.findByRole("button", { name: /book now/i }))
-
-    await waitFor(() => {
-      expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-        "error",
-        expect.stringContaining("Insufficient"),
-        null,
-        expect.objectContaining({
-          dedupeKey: "reservation-wallet-insufficient-tokens",
-        })
-      )
-    })
-
-    expect(mockReservationRequestMutation.mutateAsync).not.toHaveBeenCalled()
-  })
-
-  test("submits the wallet booking without a separate approval step", async () => {
-    labTokenContext.useLabToken.mockReturnValue({
-      checkBalanceAndAllowance: jest.fn(() => ({
-        hasSufficientBalance: true,
-        hasSufficientAllowance: false,
-        balance: BigInt(1000),
-      })),
-      formatTokenAmount: jest.fn((amount) => amount.toString()),
-    })
-
+  test("submits an institutional reservation request", async () => {
     mockReservationRequestMutation.mutateAsync.mockResolvedValueOnce({
-      hash: "0xTransactionHash",
-      optimisticId: "optimistic-1",
+      requestId: "reservation-1",
+      intent: { payload: { reservationKey: "reservation-1" } },
     })
 
     renderWithProviders(<LabReservation id="1" />)
@@ -246,11 +167,13 @@ describe("LabReservation Component", () => {
     })
   })
 
-  test("blocks wallet booking when no wallet is connected", async () => {
-    wagmiHooks.useConnection.mockReturnValue({
-      accounts: [],
-      chain: { name: "sepolia", id: 11155111 },
-      status: "disconnected",
+  test("notifies when institutional backend is missing", async () => {
+    userContext.useUser.mockReturnValue({
+      isSSO: true,
+      address: "0x3333333333333333333333333333333333333333",
+      institutionBackendUrl: null,
+      institutionalOnboardingStatus: "completed",
+      openOnboardingModal: mockOpenOnboardingModal,
     })
 
     renderWithProviders(<LabReservation id="1" />)
@@ -260,10 +183,10 @@ describe("LabReservation Component", () => {
     await waitFor(() => {
       expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
         "error",
-        expect.stringContaining("connect your wallet"),
+        expect.stringContaining("institutional backend"),
         null,
         expect.objectContaining({
-          dedupeKey: "reservation-wallet-not-connected",
+          dedupeKey: "reservation-missing-institutional-backend",
         })
       )
     })

@@ -1,122 +1,95 @@
-import React from "react";
-import { render } from "@testing-library/react";
-import Market from "../Market";
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import Market from '../Market'
 
-jest.mock("@/context/UserContext", () => ({
+const mockUseUserBookingsForMarket = jest.fn()
+
+jest.mock('@/context/UserContext', () => ({
   useUser: jest.fn(),
-}));
+}))
 
-jest.mock("@/hooks/lab/useLabs", () => ({
-  useLabsForMarket: jest.fn(),
-  useLabFilters: jest.fn(),
-}));
+jest.mock('@/hooks/lab/useLabs', () => ({
+  useLabsForMarket: jest.fn(() => ({
+    data: { labs: [] },
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+  })),
+  useLabFilters: jest.fn((labs) => ({
+    selectedCategory: 'All',
+    selectedPrice: 'All',
+    selectedProvider: 'All',
+    selectedFilter: 'All',
+    selectedResourceType: 'All',
+    searchFilteredLabs: labs,
+    setSelectedCategory: jest.fn(),
+    setSelectedPrice: jest.fn(),
+    setSelectedProvider: jest.fn(),
+    setSelectedFilter: jest.fn(),
+    setSelectedResourceType: jest.fn(),
+    categories: [],
+    providers: [],
+    searchInputRef: { current: null },
+    resetFilters: jest.fn(),
+  })),
+}))
 
-jest.mock("@/hooks/booking/useBookings", () => ({
-  useUserBookingsForMarket: jest.fn(),
-}));
+jest.mock('@/hooks/booking/useBookings', () => ({
+  useUserBookingsForMarket: (...args) => mockUseUserBookingsForMarket(...args),
+}))
 
-jest.mock("@/components/ui", () => ({
-  Container: ({ children }) => <div data-testid="container">{children}</div>,
-}));
+jest.mock('@/components/home/LabFilters', () => function MockLabFilters() {
+  return <div>filters</div>
+})
 
-jest.mock("@/components/home/LabFilters", () => () => (
-  <div data-testid="lab-filters" />
-));
+jest.mock('@/components/home/LabGrid', () => function MockLabGrid({ labs }) {
+  return <div>labs:{labs.length}</div>
+})
 
-jest.mock("@/components/home/LabGrid", () => () => (
-  <div data-testid="lab-grid" />
-));
+const { useUser } = jest.requireMock('@/context/UserContext')
 
-const mockUseUser = require("@/context/UserContext").useUser;
-const mockUseLabsForMarket = require("@/hooks/lab/useLabs").useLabsForMarket;
-const mockUseLabFilters = require("@/hooks/lab/useLabs").useLabFilters;
-const mockUseUserBookingsForMarket =
-  require("@/hooks/booking/useBookings").useUserBookingsForMarket;
-
-const getDefaultLabFiltersResult = () => ({
-  selectedCategory: "All",
-  selectedPrice: "Sort by Price",
-  selectedProvider: "All",
-  selectedFilter: "Keyword",
-  selectedResourceType: "All",
-  searchFilteredLabs: [],
-  setSelectedCategory: jest.fn(),
-  setSelectedPrice: jest.fn(),
-  setSelectedProvider: jest.fn(),
-  setSelectedFilter: jest.fn(),
-  setSelectedResourceType: jest.fn(),
-  categories: [],
-  providers: [],
-  searchInputRef: { current: null },
-  resetFilters: jest.fn(),
-});
-
-const getLastBookingsCallEnabled = () => {
-  const calls = mockUseUserBookingsForMarket.mock.calls;
-  const lastCall = calls[calls.length - 1];
-  return lastCall?.[1]?.enabled;
-};
-
-describe("Market", () => {
+describe('Market', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-
-    mockUseLabsForMarket.mockReturnValue({
-      data: { labs: [] },
-      isLoading: false,
-      isFetching: false,
-      isError: false,
-      error: null,
-    });
-
-    mockUseLabFilters.mockReturnValue(getDefaultLabFiltersResult());
-
+    jest.clearAllMocks()
     mockUseUserBookingsForMarket.mockReturnValue({
-      data: null,
+      data: {
+        userLabsWithActiveBookings: new Set(),
+        activeBookingsCount: 0,
+        hasBookingInLab: () => false,
+      },
       isLoading: false,
       isFetching: false,
-    });
-  });
+    })
+  })
 
-  test("enables bookings query for logged-in SSO users without wallet session", () => {
-    mockUseUser.mockReturnValue({
+  test('enables booking queries for institutional sessions', () => {
+    useUser.mockReturnValue({
       isLoggedIn: true,
-      address: null,
-      isWalletLoading: false,
-      hasWalletSession: false,
       isSSO: true,
-    });
+      address: '0xInstitution',
+    })
 
-    render(<Market />);
+    render(<Market />)
 
-    expect(getLastBookingsCallEnabled()).toBe(true);
-  });
+    expect(mockUseUserBookingsForMarket).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({ enabled: true })
+    )
+    expect(screen.getByText('labs:0')).toBeInTheDocument()
+  })
 
-  test("keeps bookings query enabled for wallet users with active wallet session", () => {
-    mockUseUser.mockReturnValue({
-      isLoggedIn: true,
-      address: "0x123",
-      isWalletLoading: false,
-      hasWalletSession: true,
+  test('disables booking queries when the user is not institutionally logged in', () => {
+    useUser.mockReturnValue({
+      isLoggedIn: false,
       isSSO: false,
-    });
+      address: null,
+    })
 
-    render(<Market />);
+    render(<Market />)
 
-    expect(getLastBookingsCallEnabled()).toBe(true);
-  });
-
-  test("disables bookings query for wallet users while wallet state is loading", () => {
-    mockUseUser.mockReturnValue({
-      isLoggedIn: true,
-      address: "0x123",
-      isWalletLoading: true,
-      hasWalletSession: true,
-      isSSO: false,
-    });
-
-    render(<Market />);
-
-    expect(getLastBookingsCallEnabled()).toBe(false);
-  });
-});
+    expect(mockUseUserBookingsForMarket).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({ enabled: false })
+    )
+  })
+})

@@ -244,7 +244,7 @@ export function useBookingCacheUpdates() {
     })
   }, [queryClient])
 
-  // Granular invalidation helper used by BookingEventContext
+  // Granular invalidation helper used by booking status reconciliation
   const smartBookingInvalidation = useCallback((userAddress = null, labId = null, bookingData = null, action = null) => {
     try {
       // If we have enough data, try targeted cache updates first

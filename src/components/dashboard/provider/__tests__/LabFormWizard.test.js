@@ -139,7 +139,6 @@ const getSubmitButton = () =>
   screen.getByRole("button", { name: /create lab|update lab/i });
 
 import LabFormWizard from "../LabFormWizard";
-import { useUserEventContext } from "@/context/UserEventContext";
 
 describe("LabFormWizard - Unit tests", () => {
   beforeEach(() => {

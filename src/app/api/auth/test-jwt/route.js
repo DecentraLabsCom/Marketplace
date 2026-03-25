@@ -8,7 +8,6 @@
  */
 
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
-import authServiceClient from '@/utils/auth/authServiceClient';
 import { timingSafeEqual } from 'crypto';
 
 const isTestJwtEndpointEnabled = () =>
@@ -55,7 +54,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json();
-    const { testUser, labId } = body;
+    const { testUser } = body;
 
     if (!testUser || !testUser.username) {
       return Response.json({
@@ -103,49 +102,6 @@ export async function POST(request) {
       }
     };
 
-    // If labId is provided, also test communication with auth-service
-    if (labId) {
-      try {
-        // First, get lab data from contract to obtain Lab Gateway URL
-        const labResponse = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/contract/lab/getLab?labId=${labId}`);
-        
-        if (!labResponse.ok) {
-          response.data.auth_service_error = `Failed to fetch lab ${labId} from contract`;
-        } else {
-          const labContractData = await labResponse.json();
-          let authURI = null;
-
-          try {
-            const authRes = await fetch(
-              `${process.env.VERCEL_URL || 'http://localhost:3000'}/api/contract/lab/getLabAuthURI?labId=${labId}`
-            );
-            if (authRes.ok) {
-              const authData = await authRes.json();
-              authURI = authData?.authURI || null;
-            }
-          } catch (authError) {
-            response.data.auth_service_error = authError.message;
-          }
-
-          const labContractDataWithAuth = { ...labContractData, authURI };
-
-          response.data.lab_gateway_url = labContractData.base?.accessURI || 'not configured';
-          response.data.auth_service_url = authURI || 'not configured';
-          
-          // Test auth-service connectivity using contract data
-          const healthCheck = await authServiceClient.healthCheck(labContractDataWithAuth);
-          response.data.auth_service_health = healthCheck;
-
-          if (healthCheck) {
-            response.data.auth_service_response = 'skipped';
-            response.data.auth_service_note = 'Wallet auth endpoints require a signed wallet message; JWT-only checks are not supported.';
-          }
-        }
-      } catch (serviceError) {
-        response.data.auth_service_error = serviceError.message;
-      }
-    }
-
     return Response.json(response);
 
   } catch (error) {
@@ -168,15 +124,14 @@ export async function GET(request) {
 
   return Response.json({
     message: 'JWT Test Endpoint',
-    usage: 'POST with { "testUser": { "username": "test@example.com" }, "labId": "optional-lab-id" }',
+    usage: 'POST with { "testUser": { "username": "test@example.com" } }',
     endpoints: {
       public_key: '/.well-known/public-key.pem',
       jwt_test: '/api/auth/test-jwt'
     },
     status: {
       jwt_service_configured: await marketplaceJwtService.isConfigured(),
-      auth_service_mode: 'dynamic (per-lab from smart contract)',
-      note: 'Auth-service URL is now obtained dynamically from each lab provider authURI'
+      auth_service_mode: 'institutional gateway tokens are issued by dedicated lab-access routes'
     }
   });
 }

@@ -16,7 +16,7 @@ export default function FAQ() {
     },
     {
       question: " 3. How do I access a lab on DecentraLabs?",
-      answer: "To access a lab on DecentraLabs, you simply need a compatible cryptocurrency wallet (e.g., MetaMask) or institutional SSO credentials. Once set up, you can browse through the listed labs, make a reservation, and pay using prepaid service credits."
+      answer: "To access a lab on DecentraLabs, you need institutional SSO credentials. Once signed in through your institution, you can browse listed labs, make a reservation, and pay using prepaid service credits."
     },
     {
       question: " 4. So, do I need to pay to access a lab?",
@@ -31,8 +31,8 @@ export default function FAQ() {
       answer: "Owners or providers are those responsible for listing and managing labs on the platform. To become a lab provider, you must be registered as an employee of an educational or research institution and go through a validation process. To start with this process, simply go to the “Register as a provider” section in the marketplace and fill the form."
     },
     {
-      question: " 7. What is wallet authentication?",
-      answer: "In DecentraLabs, user authentication is done through their wallet instead of a traditional username and password system. This provides enhanced security and allows payments and reservations to be directly integrated with the blockchain."
+      question: " 7. How does authentication work?",
+      answer: "DecentraLabs uses institutional SSO for user authentication. This keeps access tied to managed institutional identity while reservations, settlements, and service-credit accounting are executed through the platform's managed blockchain infrastructure."
     },
     {
       question: " 8. What are service credits?",
@@ -48,7 +48,7 @@ export default function FAQ() {
     },
     {
       question: " 11. Can I access labs from anywhere in the world?",
-      answer: "Yes, all labs on DecentraLabs are remotely accessible, allowing you to access them from anywhere in the world, as long as you have an internet connection, and your wallet set up correctly."
+      answer: "Yes, all labs on DecentraLabs are remotely accessible, allowing you to access them from anywhere in the world as long as you have an internet connection and can authenticate through your institution."
     },
     {
       question: " 12. Is there a time limit for accessing a lab?",

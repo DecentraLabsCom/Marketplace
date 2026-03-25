@@ -80,10 +80,7 @@ export class BadRequestError extends HttpError {
 // ===== Authentication Guards =====
 
 /**
- * Requires a valid authenticated session (SSO or wallet users)
- * Both user types now have session cookies:
- *   - SSO users: Session created during SAML callback
- *   - Wallet users: Session created on wallet connection
+ * Requires a valid authenticated session.
  *
  * @returns {Promise<Object>} Session data if authenticated
  * @throws {UnauthorizedError} If no valid session exists
@@ -174,10 +171,9 @@ async function resolveInstitutionWalletFromSession(session) {
 }
 
 /**
- * Requires the user to be the owner of a specific lab
- * Works for BOTH authentication methods since both now have session cookies:
- *   - SSO users: Session with linked wallet from SAML
- *   - Wallet users: Session with wallet address created on connection
+ * Requires the user to be the owner of a specific lab.
+ * Institutional sessions may resolve an organization wallet when no direct wallet
+ * is linked on the session.
  *
  * @param {Object} session - Authenticated session (from requireAuth)
  * @param {string|number} labId - Lab ID to check ownership for

@@ -1,7 +1,6 @@
 export const userDashboardToastIds = {
   missingBookingSelection: () => 'user-dashboard-missing-booking-selection',
   alreadyCanceled: () => 'user-dashboard-already-canceled',
-  walletRequired: () => 'user-dashboard-wallet-required',
   cancellationProcessing: (reservationKey) => `user-dashboard-cancellation-processing:${String(reservationKey || 'unknown')}`,
   cancellationSubmitted: (reservationKey) => `user-dashboard-cancellation-submitted:${String(reservationKey || 'unknown')}`,
   cancellationConfirmed: (reservationKey) => `user-dashboard-cancellation-confirmed:${String(reservationKey || 'unknown')}`,
@@ -32,14 +31,6 @@ export const notifyUserDashboardAlreadyCanceled = (addTemporaryNotification) =>
     'warning',
     'This reservation is already canceled.',
     userDashboardToastIds.alreadyCanceled()
-  )
-
-export const notifyUserDashboardWalletRequired = (addTemporaryNotification) =>
-  notify(
-    addTemporaryNotification,
-    'error',
-    'Please connect your wallet first.',
-    userDashboardToastIds.walletRequired()
   )
 
 export const notifyUserDashboardCancellationRejected = (addTemporaryNotification) =>

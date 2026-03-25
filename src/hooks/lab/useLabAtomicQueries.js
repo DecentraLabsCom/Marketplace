@@ -1,10 +1,6 @@
 /**
- * Atomic React Query Hooks for Lab-related Read Operations
- * Each hook has 3 variants following the same pattern as mutations:
- * - useXSSO: Server-side query via API + Ethers (for SSO users)
- *   * Each hook maps 1:1 to a specific API endpoint in /api/contract/lab
- * - useXWallet: Client-side query via Wagmi (for wallet users)
- * - useX: Router that selects SSO or Wallet based on user.loginType
+ * Atomic React Query Hooks for Lab-related Read Operations.
+ * Marketplace runtime uses institutional/API-backed variants only.
  * 
  * Configuration:
  * - staleTime: 12 hours (43,200,000ms)
@@ -17,8 +13,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { labQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsWallet } from '@/utils/hooks/authMode'
-import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for all lab hooks
@@ -168,52 +162,15 @@ export const useAllLabsSSO = (options = {}) => {
 useAllLabsSSO.queryFn = getAllLabsQueryFn;
 
 /**
- * Hook for getLabsPaginated contract read (Wallet users)
- * Gets first page of lab IDs from the contract directly from blockchain via Wagmi
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with all labs data
- */
-export const useAllLabsWallet = (options = {}) => {
-  const result = useDefaultReadContract('getLabsPaginated', [0, 100], {
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-
-  // Normalize tuple [ids, total] or [total, ids] into ids array for backward compatibility
-  const arrayLike = (value) => value && typeof value.length === 'number';
-  let rawIds =
-    Array.isArray(result.data?.[0]) || arrayLike(result.data?.[0]) ? result.data[0]
-    : Array.isArray(result.data?.[1]) || arrayLike(result.data?.[1]) ? result.data[1]
-    : Array.isArray(result.data?.ids) || arrayLike(result.data?.ids) ? result.data.ids
-    : result.data;
-
-  const normalizedIds = rawIds ? normalizeLabIds(rawIds) : rawIds;
-
-  return {
-    ...result,
-    data: normalizedIds,
-  };
-};
-
-/**
- * Hook for getAllLabs (Router - selects SSO or Wallet)
- * Gets all lab IDs from the contract - routes to API or Wagmi based on user type
+ * Hook for lab-id reads in the institutional runtime.
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with all labs data
  */
 export const useAllLabs = (options = {}) => {
-  // Use a safe fallback during initialization to avoid throwing when UserContext
-  // is not yet mounted. This prevents an early Wallet-mode selection that would
-  // trigger on-chain reads before SSO session is resolved (causing flaky E2E).
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false });
-  
-  const ssoQuery = useAllLabsSSO({ ...options, enabled: !isWallet && options.enabled !== false });
-  const walletQuery = useAllLabsWallet({ ...options, enabled: isWallet && options.enabled !== false });
-  
-  devLog.log(`🔀 useAllLabs → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useAllLabsSSO({
+    ...options,
+    enabled: options.enabled !== false,
+  });
 };
 
 // ===== useLab Hook Family =====
@@ -263,38 +220,16 @@ export const useLabSSO = (labId, options = {}) => {
 useLabSSO.queryFn = getLabQueryFn;
 
 /**
- * Hook for getLab contract read (Wallet users)
- * Gets specific lab data by lab ID directly from blockchain via Wagmi
- * @param {string|number} labId - Lab ID to fetch
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with lab data normalized to match SSO structure
- */
-export const useLabWallet = (labId, options = {}) => {
-  return useDefaultReadContract('getLab', [labId], {
-    enabled: !!labId,
-    select: (data) => selectLabData(data, labId),
-    ...LAB_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-/**
- * Hook for getLab (Router - selects SSO or Wallet)
- * Gets specific lab data by lab ID - routes to API or Wagmi based on user type
+ * Hook for lab-detail reads in the institutional runtime.
  * @param {string|number} labId - Lab ID to fetch
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with lab data
  */
 export const useLab = (labId, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-  
-  const ssoQuery = useLabSSO(labId, { ...options, enabled: !isWallet && !!labId });
-  const walletQuery = useLabWallet(labId, { ...options, enabled: isWallet && !!labId });
-  
-  devLog.log(`🔀 useLab [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useLabSSO(labId, {
+    ...options,
+    enabled: !!labId && options.enabled !== false,
+  });
 };
 
 // ===== useLabBalance Hook Family (renamed from useBalanceOf for clarity) =====
@@ -339,38 +274,16 @@ export const useLabBalanceSSO = (ownerAddress, options = {}) => {
 useLabBalanceSSO.queryFn = getBalanceOfQueryFn;
 
 /**
- * Hook for balanceOf contract read (Wallet users)
- * Gets the number of labs owned by an address directly from blockchain via Wagmi
- * @param {string} ownerAddress - Owner address to check
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with balance count
- */
-export const useLabBalanceWallet = (ownerAddress, options = {}) => {
-  return useDefaultReadContract('balanceOf', [ownerAddress], {
-      enabled: !!ownerAddress,
-      select: selectBalanceData,
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-};
-
-/**
- * Hook for balanceOf (Router - selects SSO or Wallet)
- * Gets the number of labs owned by an address - routes to API or Wagmi based on user type
+ * Hook for owned-lab-count reads in the institutional runtime.
  * @param {string} ownerAddress - Owner address to check
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with balance count
  */
 export const useLabBalance = (ownerAddress, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-  
-  const ssoQuery = useLabBalanceSSO(ownerAddress, { ...options, enabled: !isWallet && !!ownerAddress });
-  const walletQuery = useLabBalanceWallet(ownerAddress, { ...options, enabled: isWallet && !!ownerAddress });
-  
-  devLog.log(`🔀 useLabBalance [${ownerAddress}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useLabBalanceSSO(ownerAddress, {
+    ...options,
+    enabled: !!ownerAddress && options.enabled !== false,
+  });
 };
 
 // ===== useLabOwner Hook Family (renamed from useOwnerOf for clarity) =====
@@ -447,38 +360,16 @@ export const useLabCreatorPucHashSSO = (labId, options = {}) => {
 useLabCreatorPucHashSSO.queryFn = getCreatorPucHashQueryFn;
 
 /**
- * Hook for ownerOf contract read (Wallet users)
- * Gets the owner address of a specific lab directly from blockchain via Wagmi
- * @param {string|number} labId - Lab ID to get owner for
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with owner address
- */
-export const useLabOwnerWallet = (labId, options = {}) => {
-  return useDefaultReadContract('ownerOf', [labId], {
-      enabled: !!labId,
-      select: selectOwnerData,
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-};
-
-/**
- * Hook for ownerOf (Router - selects SSO or Wallet)
- * Gets the owner address of a specific lab - routes to API or Wagmi based on user type
+ * Hook for lab-owner reads in the institutional runtime.
  * @param {string|number} labId - Lab ID to get owner for
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with owner address
  */
 export const useLabOwner = (labId, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-  
-  const ssoQuery = useLabOwnerSSO(labId, { ...options, enabled: !isWallet && !!labId });
-  const walletQuery = useLabOwnerWallet(labId, { ...options, enabled: isWallet && !!labId });
-  
-  devLog.log(`🔀 useLabOwner [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useLabOwnerSSO(labId, {
+    ...options,
+    enabled: !!labId && options.enabled !== false,
+  });
 };
 
 // ===== useTokenOfOwnerByIndex Hook Family =====
@@ -526,41 +417,18 @@ export const useTokenOfOwnerByIndexSSO = (ownerAddress, index, options = {}) => 
 useTokenOfOwnerByIndexSSO.queryFn = getTokenOfOwnerByIndexQueryFn;
 
 /**
- * Hook for tokenOfOwnerByIndex contract read (Wallet users)
- * Gets the token ID owned by an address at a specific index directly from blockchain via Wagmi
- * @param {string} ownerAddress - Owner address
- * @param {number} index - Index of the token to get
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with token ID
- */
-export const useTokenOfOwnerByIndexWallet = (ownerAddress, index, options = {}) => {
-  return useDefaultReadContract('tokenOfOwnerByIndex', [ownerAddress, index], {
-      enabled: !!ownerAddress && (index !== undefined && index !== null),
-      select: selectTokenOfOwnerData,
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-};
-
-/**
- * Hook for tokenOfOwnerByIndex (Router - selects SSO or Wallet)
- * Gets the token ID owned by an address at a specific index - routes to API or Wagmi based on user type
+ * Hook for owner-token-index reads in the institutional runtime.
  * @param {string} ownerAddress - Owner address
  * @param {number} index - Index of the token to get
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with token ID
  */
 export const useTokenOfOwnerByIndex = (ownerAddress, index, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-  
   const enabled = !!ownerAddress && (index !== undefined && index !== null);
-  const ssoQuery = useTokenOfOwnerByIndexSSO(ownerAddress, index, { ...options, enabled: !isWallet && enabled });
-  const walletQuery = useTokenOfOwnerByIndexWallet(ownerAddress, index, { ...options, enabled: isWallet && enabled });
-  
-  devLog.log(`🔀 useTokenOfOwnerByIndex [${ownerAddress}, ${index}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useTokenOfOwnerByIndexSSO(ownerAddress, index, {
+    ...options,
+    enabled: enabled && options.enabled !== false,
+  });
 };
 
 // ===== useTokenURI Hook Family =====
@@ -605,38 +473,16 @@ export const useTokenURISSO = (labId, options = {}) => {
 useTokenURISSO.queryFn = getTokenURIQueryFn;
 
 /**
- * Hook for tokenURI contract read (Wallet users)
- * Gets the metadata URI for a specific lab token directly from blockchain via Wagmi
- * @param {string|number} labId - Lab ID to get URI for
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with token URI
- */
-export const useTokenURIWallet = (labId, options = {}) => {
-  return useDefaultReadContract('tokenURI', [labId], {
-      enabled: !!labId,
-      select: selectTokenUriData,
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-};
-
-/**
- * Hook for tokenURI (Router - selects SSO or Wallet)
- * Gets the metadata URI for a specific lab token - routes to API or Wagmi based on user type
+ * Hook for lab metadata URI reads in the institutional runtime.
  * @param {string|number} labId - Lab ID to get URI for
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with token URI
  */
 export const useTokenURI = (labId, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-  
-  const ssoQuery = useTokenURISSO(labId, { ...options, enabled: !isWallet && !!labId });
-  const walletQuery = useTokenURIWallet(labId, { ...options, enabled: isWallet && !!labId });
-  
-  devLog.log(`🔀 useTokenURI [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useTokenURISSO(labId, {
+    ...options,
+    enabled: !!labId && options.enabled !== false,
+  });
 };
 
 // ===== useIsTokenListed Hook Family =====
@@ -687,38 +533,16 @@ export const useIsTokenListedSSO = (labId, options = {}) => {
 useIsTokenListedSSO.queryFn = getIsTokenListedQueryFn;
 
 /**
- * Hook for isTokenListed contract read (Wallet users)
- * Checks if a specific lab token is listed in the marketplace directly from blockchain via Wagmi
- * @param {string|number} labId - Lab ID to check listing status for
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with listing status
- */
-export const useIsTokenListedWallet = (labId, options = {}) => {
-  return useDefaultReadContract('isTokenListed', [labId], {
-      enabled: !!labId,
-      select: selectTokenListedData,
-      ...LAB_QUERY_CONFIG,
-      ...options,
-    });
-};
-
-/**
- * Hook for isTokenListed (Router - selects SSO or Wallet)
- * Checks if a specific lab token is listed in the marketplace - routes to API or Wagmi based on user type
+ * Hook for listing-status reads in the institutional runtime.
  * @param {string|number} labId - Lab ID to check listing status for
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with listing status
  */
 export const useIsTokenListed = (labId, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-  
-  const ssoQuery = useIsTokenListedSSO(labId, { ...options, enabled: !isWallet && !!labId });
-  const walletQuery = useIsTokenListedWallet(labId, { ...options, enabled: isWallet && !!labId });
-  
-  devLog.log(`🔀 useIsTokenListed [${labId}] → ${isWallet ? 'Wallet' : 'SSO'} mode`);
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useIsTokenListedSSO(labId, {
+    ...options,
+    enabled: !!labId && options.enabled !== false,
+  });
 };
 
 // ===== useLabReputation Hook Family =====
@@ -761,36 +585,16 @@ export const useLabReputationSSO = (labId, options = {}) => {
 useLabReputationSSO.queryFn = getLabReputationQueryFn;
 
 /**
- * Hook for getLabReputation contract read (Wallet users)
- * Gets lab reputation data directly from blockchain via Wagmi
- * @param {string|number} labId - Lab ID to fetch reputation for
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with reputation data
- */
-export const useLabReputationWallet = (labId, options = {}) => {
-  return useDefaultReadContract('getLabReputation', [labId], {
-    enabled: !!labId,
-    select: selectReputationData,
-    ...LAB_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-/**
- * Hook for getLabReputation (Router - selects SSO or Wallet)
- * Gets lab reputation data - routes to API or Wagmi based on user type
+ * Hook for lab-reputation reads in the institutional runtime.
  * @param {string|number} labId - Lab ID to fetch reputation for
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode
  * @returns {Object} React Query result with reputation data
  */
 export const useLabReputation = (labId, options = {}) => {
-  const isWallet = useGetIsWallet(options);
-
-  const ssoQuery = useLabReputationSSO(labId, { ...options, enabled: !isWallet && !!labId });
-  const walletQuery = useLabReputationWallet(labId, { ...options, enabled: isWallet && !!labId });
-
-  devLog.log(`useLabReputation [${labId}] - ${isWallet ? 'Wallet' : 'SSO'} mode`);
-
-  return isWallet ? walletQuery : ssoQuery;
+  return useLabReputationSSO(labId, {
+    ...options,
+    enabled: !!labId && options.enabled !== false,
+  });
 };
+
+

@@ -30,7 +30,6 @@ jest.mock("@/context/UserContext", () => ({
     isConnected: false,
     address: null,
     isLoading: false,
-    isWalletLoading: false,
     institutionalOnboardingStatus: null,
     showOnboardingModal: false,
     needsInstitutionalOnboarding: false,
@@ -62,7 +61,6 @@ jest.mock("@/context/UserContext", () => ({
     isConnected: false,
     address: null,
     isLoading: false,
-    isWalletLoading: false,
     institutionalOnboardingStatus: null,
     showOnboardingModal: false,
     needsInstitutionalOnboarding: false,
@@ -86,23 +84,6 @@ jest.mock("@/context/LabTokenContext", () => ({
     <div data-testid="mock-lab-token-provider">{children}</div>
   ),
   useLabToken: () => ({}),
-}));
-
-// Mock wagmi hooks
-jest.mock("wagmi", () => ({
-  WagmiProvider: ({ children, config }) => <div data-testid="mock-wagmi-provider">{children}</div>,
-  createConfig: jest.fn(() => ({})),
-  http: jest.fn(() => ({})),
-  useConnection: jest.fn(() => ({
-    accounts: [],
-    chain: null,
-    status: 'disconnected',
-  })),
-  useBalance: jest.fn(() => ({
-    data: null,
-    isLoading: false,
-    error: null,
-  })),
 }));
 
 // Mock useInstitutionalOnboarding hook
@@ -228,9 +209,6 @@ describe("InstitutionalOnboardingFlow", () => {
       // Check if the component renders anything at all
       const allElements = screen.getAllByRole('generic');
       expect(allElements.length).toBeGreaterThan(0);
-
-      // Debug: check what is actually rendered
-      screen.debug();
 
       expect(screen.getByText("Secure Your Account")).toBeInTheDocument();
       expect(screen.getByText("Set Up Now")).toBeInTheDocument();

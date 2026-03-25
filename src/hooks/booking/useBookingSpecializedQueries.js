@@ -2,21 +2,16 @@
  * Specialized Booking Hooks - Optimized for specific use cases
  * These hooks use API-only queryFns and derived data for performance
  * 
- * ARCHITECTURE: These hooks use API-based queryFn for BOTH SSO and Wallet users.
- * - SSO: Uses PUC-based endpoints
- * - Wallet: Uses address-based endpoints
+ * ARCHITECTURE: These hooks are institutional-only and use session-derived API queries.
  */
 import { useMemo } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { 
   useReservationsOfSSO,
-  useReservationsOfWallet,
   useReservationKeyOfUserByIndexSSO,
-  useReservationKeyOfUserByIndexWallet,
   useReservationSSO,
   BOOKING_QUERY_CONFIG 
 } from './useBookingAtomicQueries'
-import { useGetIsSSO } from '@/utils/hooks/authMode'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
@@ -25,31 +20,19 @@ const EMPTY_ARRAY = [];
 /**
  * Specialized hook for Market component
  * Uses composed queries to get user reservations and extract active/upcoming lab IDs
- * Works for both SSO and Wallet users
- * @param {string} userAddress - User wallet address (used for wallet users, ignored for SSO)
+ * Institutional-only specialization for the authenticated session.
+ * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
-  const resolvedOptions = { ...(options.queryOptions || {}), ...options };
-  const isSSO = useGetIsSSO(resolvedOptions);
-  
-  // Step 1: Get user reservation count (using appropriate hook based on user type)
-  const ssoCountResult = useQuery({
+  // Step 1: Get user reservation count from the institutional session
+  const reservationCountResult = useQuery({
     queryKey: bookingQueryKeys.ssoReservationsOf(),
     queryFn: () => useReservationsOfSSO.queryFn(),
-    enabled: isSSO && (options.enabled !== false),
+    enabled: options.enabled !== false,
     ...BOOKING_QUERY_CONFIG,
   });
-  
-  const walletCountResult = useQuery({
-    queryKey: bookingQueryKeys.reservationsOf(userAddress),
-    queryFn: () => useReservationsOfWallet.queryFn(userAddress),
-    enabled: !isSSO && !!userAddress && (options.enabled !== false),
-    ...BOOKING_QUERY_CONFIG,
-  });
-  
-  const reservationCountResult = isSSO ? ssoCountResult : walletCountResult;
 
   const totalReservationCount = reservationCountResult.data?.count || 0;
   const hasReservations = totalReservationCount > 0;
@@ -58,21 +41,12 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
   const reservationKeyResults = useQueries({
     queries: hasReservations 
       ? Array.from({ length: Math.min(totalReservationCount, 50) }, (_, index) => {
-        if (isSSO) {
-          return {
-            queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
-            queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
-            enabled: hasReservations,
-            ...BOOKING_QUERY_CONFIG,
-          };
-        } else {
-            return {
-              queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-              queryFn: () => useReservationKeyOfUserByIndexWallet.queryFn(userAddress, index),
-              enabled: !!userAddress && hasReservations,
-              ...BOOKING_QUERY_CONFIG,
-            };
-          }
+        return {
+          queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
+          queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
+          enabled: hasReservations,
+          ...BOOKING_QUERY_CONFIG,
+        };
         })
       : [],
     combine: (results) => results
@@ -170,27 +144,17 @@ const normalizeReservation = (payload, fallbackKey) => {
 };
 
 const useUserReservationDetails = (userAddress, options = {}) => {
-  const isSSO = useGetIsSSO(options);
   const queryEnabled = (options.enabled !== false) && (options.queryOptions?.enabled !== false);
   const baseQueryOptions = { ...(options.queryOptions || {}) };
   delete baseQueryOptions.enabled;
   const queryOptions = { ...BOOKING_QUERY_CONFIG, ...baseQueryOptions };
 
-  const ssoCountResult = useQuery({
+  const reservationCountResult = useQuery({
     queryKey: bookingQueryKeys.ssoReservationsOf(),
     queryFn: () => useReservationsOfSSO.queryFn(),
-    enabled: isSSO && queryEnabled,
+    enabled: queryEnabled,
     ...queryOptions,
   });
-
-  const walletCountResult = useQuery({
-    queryKey: bookingQueryKeys.reservationsOf(userAddress),
-    queryFn: () => useReservationsOfWallet.queryFn(userAddress),
-    enabled: !isSSO && !!userAddress && queryEnabled,
-    ...queryOptions,
-  });
-
-  const reservationCountResult = isSSO ? ssoCountResult : walletCountResult;
   const totalReservationCount = reservationCountResult.data?.count || 0;
   const limitedCount = options.limit ? Math.min(totalReservationCount, options.limit) : totalReservationCount;
   const safeReservationCount = Math.max(0, Math.min(limitedCount, 100));
@@ -198,18 +162,10 @@ const useUserReservationDetails = (userAddress, options = {}) => {
   const reservationKeyResults = useQueries({
     queries: safeReservationCount > 0
       ? Array.from({ length: safeReservationCount }, (_, index) => {
-          if (isSSO) {
-            return {
-              queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
-              queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
-              enabled: queryEnabled,
-              ...queryOptions,
-            };
-          }
           return {
-            queryKey: bookingQueryKeys.reservationKeyOfUserByIndex(userAddress, index),
-            queryFn: () => useReservationKeyOfUserByIndexWallet.queryFn(userAddress, index),
-            enabled: queryEnabled && !!userAddress,
+            queryKey: bookingQueryKeys.ssoReservationKeyOfUserByIndex(index),
+            queryFn: () => useReservationKeyOfUserByIndexSSO.queryFn(index),
+            enabled: queryEnabled,
             ...queryOptions,
           };
         })
@@ -264,7 +220,7 @@ const useUserReservationDetails = (userAddress, options = {}) => {
 /**
  * Specialized hook for calendar availability checking
  * Uses API-only reservation pipeline for user bookings
- * @param {string} userAddress - User wallet address  
+ * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {string|number} labId - Lab ID for lab-specific bookings (not used in this version)
  * @param {Object} options - Configuration options
  * @returns {Object} User booking data for calendar slot validation
@@ -314,7 +270,7 @@ export const useBookingsForCalendar = (userAddress, labId, options = {}) => {
 /**
  * Hook for getting only active user bookings (for dashboard "active now" section)
  * More efficient than full dashboard data when you only need current active booking
- * @param {string} userAddress - User wallet address
+ * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options  
  * @returns {Object} Active booking data - NOTE: lab details need to be fetched separately
  */
@@ -377,7 +333,7 @@ export const useActiveUserBooking = (userAddress, options = {}) => {
  * Specialized hook for BookingSummarySection
  * Gets only booking analytics without lab details or individual bookings
  * Optimized for dashboard summary cards
- * @param {string} userAddress - User wallet address
+ * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options
  * @returns {Object} Booking analytics summary only
  */
@@ -459,7 +415,7 @@ export const useUserBookingSummary = (userAddress, options = {}) => {
 /**
  * Specialized hook for ActiveBookingSection
  * Gets current active and next upcoming booking with minimal lab enrichment
- * @param {string} userAddress - User wallet address
+ * @param {string} userAddress - Unused legacy parameter kept for call-site compatibility
  * @param {Object} options - Configuration options
  * @returns {Object} Active and next booking with basic lab data
  */

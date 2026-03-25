@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
-import { useActiveReservationKeyForUser, useActiveReservationKeyForSessionUserSSO } from '@/hooks/booking/useBookings'
+import { useActiveReservationKeyForSessionUserSSO } from '@/hooks/booking/useBookings'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
@@ -46,7 +46,7 @@ const LabCard = React.memo(function LabCard({
   resourceType = RESOURCE_TYPES.LAB
 }) {
   const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU;
-  const { address, isConnected, isSSO } = useUser();
+  const { isSSO } = useUser();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -61,17 +61,6 @@ const LabCard = React.memo(function LabCard({
     .filter(Boolean)
     .join(' | ');
   
-  // Get active reservation key for wallet users with an active booking.
-  // This allows the lab gateway to perform on-chain check-in.
-  const reservationKeyUserAddress = activeBooking && isConnected && !isSSO ? address : null;
-  const { data: reservationKeyData } = useActiveReservationKeyForUser(
-    id,
-    reservationKeyUserAddress,
-    {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
-
   const { data: ssoReservationKeyData } = useActiveReservationKeyForSessionUserSSO(
     id,
     {
@@ -80,13 +69,11 @@ const LabCard = React.memo(function LabCard({
     }
   );
   
-  const reservationKeyValue = reservationKeyData?.reservationKey ?? reservationKeyData;
-  const walletReservationKey = reservationKeyValue && reservationKeyValue !== ZERO_BYTES32 ? reservationKeyValue : null;
   const ssoReservationKeyValue = ssoReservationKeyData?.reservationKey ?? ssoReservationKeyData;
   const ssoReservationKey = ssoReservationKeyValue && ssoReservationKeyValue !== ZERO_BYTES32
     ? ssoReservationKeyValue
     : null;
-  const reservationKey = isSSO ? ssoReservationKey : walletReservationKey;
+  const reservationKey = isSSO ? ssoReservationKey : null;
  
   return (
     <Card 
@@ -177,10 +164,9 @@ const LabCard = React.memo(function LabCard({
           {isFmu ? 'Explore Simulation' : 'Explore Lab'}
         </div>
       </Link>
-      {isClient && (isConnected || isSSO) && (
+      {isClient && isSSO && (
         <LabAccess 
           id={id} 
-          userWallet={address} 
           hasActiveBooking={activeBooking} 
           reservationKey={reservationKey}
         />

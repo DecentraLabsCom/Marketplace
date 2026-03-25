@@ -12,7 +12,7 @@ To ensure secure, automated, and verifiable access management, DecentraLabs prov
 When a user connects to a lab through the marketplace and initiates a session, the blockchain-services authentication module performs two critical tasks:
 
 1. **Authentication**\
-   It verifies the identity of the user via their Web3 wallet or federated login (e.g., through eduGAIN or RedIRIS).
+   It verifies the identity of the customer through the institutional login flow used by the marketplace (for example eduGAIN- or RedIRIS-backed federation).
 2. **Authorization**\
    It checks whether the user has a valid reservation for a specific lab (based on the smart contracts on-chain) and determines:
    * If access should be granted
@@ -25,6 +25,6 @@ Once validated, the `blockchain-services` authentication module issues a signed 
 
 1. A user reserves a lab through the DecentraLabs marketplace and the booking gets recorded onchain.
 2. At the scheduled time, they request access.
-3. The `blockchain-services` authentication module validates their identity and booking on-chain.
+3. The `blockchain-services` authentication module validates their institutional session context and booking state.
 4. If valid, it issues a signed JWT.
 5. The lab gateway receives the JWT, validates it, and opens the remote desktop session for the corresponding lab.

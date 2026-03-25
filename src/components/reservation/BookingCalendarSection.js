@@ -168,7 +168,7 @@ export default function BookingCalendarSection({
         </div>
       </div>
 
-      {/* Payment Info (Wallet users only) */}
+      {/* Payment info is shown only for the non-SSO fallback path. */}
       {!isSSO && (
         <div className="w-full lg:w-96 flex flex-col">
           <label className="block text-lg font-semibold mb-2">Payment info:</label>
