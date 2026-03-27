@@ -32,30 +32,30 @@ const isMissingLabError = (error) => {
 export async function GET(request) {
   const url = new URL(request.url);
   const labId = url.searchParams.get('labId');
-  
+
   if (!labId) {
-    return Response.json({ 
-      error: 'Missing labId parameter' 
-    }, {status: 400 });
+    return Response.json({
+      error: 'Missing labId parameter'
+    }, { status: 400 });
   }
 
   // Validate labId is a valid number
   const numericLabId = Number(labId);
   if (isNaN(numericLabId) || numericLabId < 0) {
-    return Response.json({ 
+    return Response.json({
       error: 'Invalid labId format - must be a positive number',
-      providedLabId: labId 
-    }, {status: 400 });
+      providedLabId: labId
+    }, { status: 400 });
   }
 
   try {
     console.log(`🔍 Fetching lab data for ID: ${labId}`);
-    
+
     const contract = await getContractInstance();
-    
+
     // Single contract call for specific lab
     const labData = await contract.getLab(numericLabId);
-    
+
     // Transform the raw contract response to expected structure
     // Contract returns: { "0": labId, "1": [uri, price, accessURI, accessKey, createdAt] }
     // Transform to: { labId, base: { uri, price, accessURI, accessKey, createdAt } }
@@ -70,10 +70,10 @@ export async function GET(request) {
         createdAt: labData[1]?.[4] ? Number(labData[1][4]) : 0
       }
     };
-    
+
     console.log(`✅ Successfully fetched lab ${labId} data`);
-    
-    return createSerializedJsonResponse(transformedData, { 
+
+    return createSerializedJsonResponse(transformedData, {
       status: 200
     });
 
@@ -87,11 +87,11 @@ export async function GET(request) {
     }
 
     console.error(`❌ Error fetching lab ${labId} data:`, error);
-    
-    return Response.json({ 
+
+    return Response.json({
       error: `Failed to fetch lab ${labId} data`,
       labId: numericLabId,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, {status: 500 });
+    }, { status: 500 });
   }
 }

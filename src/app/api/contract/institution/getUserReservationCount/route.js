@@ -12,7 +12,7 @@ import {
   resolveInstitutionAddressFromSession,
   getSessionPuc,
 } from '../../utils/institutionSession'
-import { handleGuardError, requireAuth } from '@/utils/auth/guards'
+import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -62,20 +62,22 @@ export async function GET(request) {
     )
   } catch (error) {
     if (
-      error?.code === 'BAD_REQUEST' &&
+      (error instanceof BadRequestError || error?.code === 'BAD_REQUEST') &&
       typeof error?.message === 'string' &&
-      error.message.includes('affiliation domain')
+      (error.message.includes('affiliation domain') || error.message.includes('Institution not registered'))
     ) {
-      devLog.warn(
-        '[API] getUserReservationCount skipped for non-SSO session (missing affiliation domain)',
-      )
+      devLog.warn(`[API] getUserReservationCount: ${error.message}`);
+      
+      if (process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === 'true') {
+        return Response.json(
+          { count: 1, institutionAddress: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965', institutionDomain: 'mock.edu' },
+          { status: 200 }
+        )
+      }
+
       return Response.json(
-        {
-          count: 0,
-          institutionAddress: null,
-          institutionDomain: null,
-        },
-        { status: 200 },
+        { count: 0, institutionAddress: null, institutionDomain: null },
+        { status: 200 }
       )
     }
 

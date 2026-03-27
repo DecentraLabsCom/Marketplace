@@ -86,6 +86,23 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
+    if (
+      (error instanceof BadRequestError || error?.code === 'BAD_REQUEST') &&
+      typeof error?.message === 'string' &&
+      (error.message.includes('affiliation domain') || error.message.includes('Institution not registered'))
+    ) {
+      if (process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === 'true') {
+        return Response.json(
+          { reservationKey: '0x0000000000000000000000000000000000000000000000000000000000mock01', index: 0, institutionAddress: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965', institutionDomain: 'mock.edu' },
+          { status: 200 }
+        )
+      }
+      return Response.json(
+        { reservationKey: null, index: null, institutionAddress: null, institutionDomain: null },
+        { status: 200 }
+      )
+    }
+
     console.error('❌ [API] Error getting institutional user reservation by index:', error)
     return handleGuardError(error)
   }

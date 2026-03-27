@@ -42,6 +42,46 @@ export async function GET(request) {
   }
 
   try {
+    // Intercept mock key to return dummy reservation for testing without contract
+    if (reservationKey === '0x0000000000000000000000000000000000000000000000000000000000mock01') {
+      console.log(`🔍 Fetching MOCK reservation`);
+      return Response.json({
+        reservation: {
+          labId: '1',
+          renter: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965',
+          price: '0',
+          labProvider: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965',
+          start: Math.floor(Date.now() / 1000).toString(),
+          end: (Math.floor(Date.now() / 1000) + 3600).toString(),
+          status: 2,
+          puc: 'mock-puc',
+          requestPeriodStart: '0',
+          requestPeriodDuration: '0',
+          payerInstitution: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965',
+          collectorInstitution: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965',
+          providerShare: '0',
+          projectTreasuryShare: '0',
+          subsidiesShare: '0',
+          governanceShare: '0',
+          reservationState: 'In Use',
+          isPending: false,
+          isBooked: false,
+          isInUse: true,
+          isUsed: true,
+          isCollected: false,
+          isCanceled: false,
+          isActive: true,
+          isCompleted: false,
+          isConfirmed: true,
+          exists: true,
+          isInstitutional: true
+        },
+        reservationKey,
+        notFound: false,
+        invalidReservation: false
+      }, {status: 200});
+    }
+
     console.log(`🔍 Fetching reservation: ${reservationKey.slice(0, 10)}...${reservationKey.slice(-8)}`);
     
     const contract = await getContractInstance();

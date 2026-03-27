@@ -50,6 +50,23 @@ export async function GET() {
       { status: 200 },
     )
   } catch (error) {
+    if (
+      (error instanceof BadRequestError || error?.code === 'BAD_REQUEST') &&
+      typeof error?.message === 'string' &&
+      (error.message.includes('affiliation domain') || error.message.includes('Institution not registered'))
+    ) {
+      if (process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === 'true') {
+        return Response.json(
+          { hasActiveBooking: true, institutionAddress: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965', puc: 'mock-puc', institutionDomain: 'mock.edu' },
+          { status: 200 }
+        )
+      }
+      return Response.json(
+        { hasActiveBooking: false, institutionAddress: null, puc: null, institutionDomain: null },
+        { status: 200 }
+      )
+    }
+
     if (error instanceof BadRequestError) {
       return handleGuardError(error)
     }

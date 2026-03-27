@@ -14,44 +14,44 @@ import { getContractInstance } from '../../utils/contractInstance'
 export async function GET(request) {
   const url = new URL(request.url);
   const labId = url.searchParams.get('labId');
-  
+
   if (!labId) {
-    return Response.json({ 
-      error: 'Missing labId parameter' 
-    }, {status: 400 });
+    return Response.json({
+      error: 'Missing labId parameter'
+    }, { status: 400 });
   }
 
   // Validate labId is a valid number
   const numericLabId = Number(labId);
   if (isNaN(numericLabId) || numericLabId < 0) {
-    return Response.json({ 
+    return Response.json({
       error: 'Invalid labId format - must be a positive number',
-      providedLabId: labId 
-    }, {status: 400 });
+      providedLabId: labId
+    }, { status: 400 });
   }
 
   try {
     console.log(`🔍 Fetching owner for lab ID: ${labId}`);
-    
+
     const contract = await getContractInstance();
-    
+
     // Single contract call for owner
     const owner = await contract.ownerOf(numericLabId);
-    
+
     console.log(`✅ Lab ${labId} owner: ${owner.slice(0, 6)}...${owner.slice(-4)}`);
-    
+
     return Response.json({
       labId: numericLabId,
       owner: owner
-    }, {status: 200});
+    }, { status: 200 });
 
   } catch (error) {
     console.error(`❌ Error fetching owner for lab ${labId}:`, error);
-    
-    return Response.json({ 
+
+    return Response.json({
       error: `Failed to fetch owner for lab ${labId}`,
       labId: numericLabId,
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, {status: 500 });
+    }, { status: 500 });
   }
 }
