@@ -14,6 +14,10 @@ const InstitutionalLogin = dynamic(() => import('@/components/auth/Institutional
   ssr: false,
   loading: () => <div className="text-sm text-neutral-500">Loading institutional login...</div>
 });
+const EntraLoginButton = dynamic(() => import('@/components/auth/EntraLoginButton'), {
+  ssr: false,
+  loading: () => null,
+});
 
 /**
  * Main login component that provides multiple authentication methods
@@ -73,6 +77,10 @@ export default function Login() {
               <div className="flex flex-col space-y-3">
                 <WalletLogin setIsModalOpen={setIsModalOpen} />
                 <InstitutionalLogin setIsModalOpen={setIsModalOpen} />
+                {/* Microsoft Entra ID — shown when NEXT_PUBLIC_ENTRA_ENABLED=true */}
+                {process.env.NEXT_PUBLIC_ENTRA_ENABLED === 'true' && (
+                  <EntraLoginButton setIsModalOpen={setIsModalOpen} />
+                )}
               </div>
             </CardContent>
           </Card>

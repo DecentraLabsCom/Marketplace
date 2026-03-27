@@ -143,7 +143,9 @@ async function resolveInstitutionWalletFromSession(session) {
     session?.schacHomeOrganization ||
     session?.organizationName ||
     session?.organization ||
+    session?.institutionId ||   // Entra ID sessions set this via entraIdAdapter
     null;
+
 
   const normalized = normalizeOrganizationDomain(organization);
   if (!normalized) return null;

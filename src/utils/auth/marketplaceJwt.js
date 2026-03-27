@@ -492,6 +492,66 @@ class MarketplaceJwtService {
       throw new Error(`Institution invite token generation failed: ${error.message}`);
     }
   }
+
+  /**
+   * Generate a signed JWT token for a federated OIDC login (Entra ID, Okta, …).
+   * Accepts a CanonicalPrincipal and emits the same JWT format consumed by
+   * blockchain-services, without ever exposing the external IdP token downstream.
+   *
+   * @param {import('./principal.js').CanonicalPrincipal} principal
+   * @param {Object} [options]
+   * @param {string} [options.audience] - JWT audience override
+   * @returns {Promise<string>} Signed JWT token
+   */
+  async generateEntraAuthToken(principal, { audience } = {}) {
+    try {
+      if (!this.privateKey) {
+        await this.loadPrivateKey();
+      }
+      if (!this.privateKey) {
+        throw new Error('JWT private key is not available.');
+      }
+      if (!principal || !principal.sub) {
+        throw new Error('A valid CanonicalPrincipal with sub is required');
+      }
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '60000', 10) / 1000;
+
+      const payload = {
+        // Canonical identity fields (§4.4 of PLAN_ENTRA_OKTA_M2M_SUPPORT.md)
+        principalType: principal.principalType,
+        externalIssuer: principal.externalIssuer,
+        externalSubject: principal.externalSubject,
+        tenantId: principal.tenantId || undefined,
+        clientId: principal.clientId || undefined,
+        institutionId: principal.institutionId || undefined,
+        authMethod: principal.authMethod,
+
+        // Standard user fields kept for backward compat with blockchain-services
+        userid: principal.sub,
+        email: principal.email || '',
+        roles: principal.roles || [],
+
+        iat: nowSec,
+        exp: expSec,
+      };
+
+      const token = jwt.sign(payload, this.privateKey, {
+        algorithm: 'RS256',
+        issuer: process.env.JWT_ISSUER || 'marketplace',
+        audience: audience || process.env.SAML_AUTH_JWT_AUDIENCE || 'blockchain-services',
+        subject: principal.sub,
+        jwtid: randomUUID(),
+      });
+
+      devLog.log('INFO: Entra auth JWT generated for principal:', principal.sub);
+      return token;
+    } catch (error) {
+      devLog.error('ERROR: Failed to generate Entra auth JWT:', error.message);
+      throw new Error(`Entra auth JWT generation failed: ${error.message}`);
+    }
+  }
 }
 
 // Create singleton instance

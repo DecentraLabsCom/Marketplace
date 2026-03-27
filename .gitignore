@@ -74,6 +74,7 @@ next-env.d.ts
 # development documentation
 dev/
 TODO.md
+TESTS_IMPLEMENTADOS.md
 
 # labs data
 data/
@@ -81,4 +82,4 @@ public/labs
 
 .github/token
 src/server/market/__tests__/getMarketLabsSnapshot.testplan.md
-TESTS_IMPLEMENTADOS.md
+

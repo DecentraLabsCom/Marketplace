@@ -46,6 +46,17 @@ jest.mock("@/components/auth/InstitutionalLogin", () => {
     );
   };
 });
+jest.mock("@/components/auth/EntraLoginButton", () => {
+  return function MockEntraLoginButton({ setIsModalOpen }) {
+    return (
+      <div data-testid="entra-login-button">
+        <button onClick={() => setIsModalOpen(false)}>
+          Mock Entra Login
+        </button>
+      </div>
+    );
+  };
+});
 jest.mock("@/utils/auth/account", () => {
   return function MockAccount() {
     return <div data-testid="account">Account Component</div>;
@@ -245,6 +256,15 @@ describe("Login", () => {
       expect(await screen.findByTestId("institutional-login")).toBeInTheDocument();
     });
 
+    test("renders EntraLoginButton component when modal is open", async () => {
+      useUser.mockReturnValue({ isLoggedIn: false });
+
+      render(<Login />);
+      fireEvent.click(screen.getByTestId("login-button"));
+
+      expect(await screen.findByTestId("entra-login-button")).toBeInTheDocument();
+    });
+
     test("passes setIsModalOpen prop to WalletLogin", async () => {
       useUser.mockReturnValue({ isLoggedIn: false });
 
@@ -267,6 +287,20 @@ describe("Login", () => {
         "Mock Institutional Login"
       );
       fireEvent.click(institutionalLoginButton);
+
+      expect(screen.queryByText("Choose Login Method")).not.toBeInTheDocument();
+    });
+
+    test("passes setIsModalOpen prop to EntraLoginButton", async () => {
+      useUser.mockReturnValue({ isLoggedIn: false });
+
+      render(<Login />);
+      fireEvent.click(screen.getByTestId("login-button"));
+
+      const entraLoginButton = await screen.findByText(
+        "Mock Entra Login"
+      );
+      fireEvent.click(entraLoginButton);
 
       expect(screen.queryByText("Choose Login Method")).not.toBeInTheDocument();
     });
