@@ -66,15 +66,7 @@ export async function GET(request) {
       typeof error?.message === 'string' &&
       (error.message.includes('affiliation domain') || error.message.includes('Institution not registered'))
     ) {
-      devLog.warn(`[API] getUserReservationCount: ${error.message}`);
-      
-      if (process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === 'true') {
-        return Response.json(
-          { count: 1, institutionAddress: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965', institutionDomain: 'mock.edu' },
-          { status: 200 }
-        )
-      }
-
+      devLog.warn(`[API] getUserReservationCount skipped: ${error.message}`);
       return Response.json(
         { count: 0, institutionAddress: null, institutionDomain: null },
         { status: 200 }

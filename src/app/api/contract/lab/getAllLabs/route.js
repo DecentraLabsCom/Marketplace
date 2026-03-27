@@ -135,8 +135,6 @@ export async function GET() {
       });
     }
     
-    console.log(`✅ Successfully fetched ${filteredLabList.length} labs from contract`);
-    
     return createSerializedJsonResponse(filteredLabList, { 
       status: 200
     });

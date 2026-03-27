@@ -55,12 +55,7 @@ export async function GET() {
       typeof error?.message === 'string' &&
       (error.message.includes('affiliation domain') || error.message.includes('Institution not registered'))
     ) {
-      if (process.env.NEXT_PUBLIC_ENABLE_MOCK_SSO === 'true') {
-        return Response.json(
-          { hasActiveBooking: true, institutionAddress: '0x3D3D82982FC4B73cFc5913d2297762FdCeeC0965', puc: 'mock-puc', institutionDomain: 'mock.edu' },
-          { status: 200 }
-        )
-      }
+      devLog.warn(`[API] hasUserActiveBooking skipped: ${error.message}`);
       return Response.json(
         { hasActiveBooking: false, institutionAddress: null, puc: null, institutionDomain: null },
         { status: 200 }
