@@ -42,7 +42,8 @@ class MarketplaceJwtService {
     try {
       // Try environment variable first (for Vercel deployment)
       if (process.env.JWT_PRIVATE_KEY) {
-        this.privateKey = process.env.JWT_PRIVATE_KEY;
+        // Normalize escaped newlines — .env files store \n as literal '\\n'
+        this.privateKey = process.env.JWT_PRIVATE_KEY.replace(/\\n/g, '\n');
         devLog.log('✅ JWT private key loaded from environment variable');
         return;
       }

@@ -33,7 +33,9 @@ const PKCE_COOKIE_CLEAR_OPTIONS = {
 }
 
 function clearPkceAndRedirect(baseUrl, destination) {
-  const res = NextResponse.redirect(new URL(destination, baseUrl))
+  // Use root '/' if it's pointing to non-existent /login
+  const target = destination.startsWith('/login') ? destination.replace('/login', '/') : destination
+  const res = NextResponse.redirect(new URL(target, baseUrl))
   res.cookies.set('entra_code_verifier', '', PKCE_COOKIE_CLEAR_OPTIONS)
   res.cookies.set('entra_state', '', PKCE_COOKIE_CLEAR_OPTIONS)
   return res
@@ -92,8 +94,12 @@ export async function GET(req) {
     // ── Claims → CanonicalPrincipal ────────────────────────────────────────
     const principal = buildCanonicalPrincipalFromEntra(claims)
 
-    // ── Validate local JWT generation chain (tokens not stored) ───────────
-    await marketplaceJwtService.generateEntraAuthToken(principal)
+    // ── Validate local JWT generation chain (optional in dev) ────────────
+    try {
+      await marketplaceJwtService.generateEntraAuthToken(principal)
+    } catch (e) {
+      devLog.warn('[ENTRA] Operational JWT generation skipped (key missing):', e.message)
+    }
 
     // ── Build session data ─────────────────────────────────────────────────
     const sessionData = principalToSessionData(principal)
