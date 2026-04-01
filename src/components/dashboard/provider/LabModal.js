@@ -828,32 +828,32 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
             </div>
 
             <section className="w-full sm:w-auto sm:min-w-[280px]">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 sm:text-right">Resource Type</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 sm:text-right">Resource Type</h3>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })}
-                  className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                     localLab?.resourceType === RESOURCE_TYPES.LAB
                       ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
                       : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
                   }`}
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <Monitor className="w-4 h-4" /> Remote Lab
+                    <Monitor className="w-4 h-4" /> Real Lab
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } })}
-                  className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
                     localLab?.resourceType === RESOURCE_TYPES.FMU
                       ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
                       : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
                   }`}
                 >
                   <span className="inline-flex items-center gap-1.5">
-                    <Cpu className="w-4 h-4" /> FMU Simulation
+                    <Cpu className="w-4 h-4" /> Simulation
                   </span>
                 </button>
               </div>
