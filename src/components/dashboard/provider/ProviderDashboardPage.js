@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { parseUnits } from 'viem'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
@@ -29,6 +28,7 @@ import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
 import getBaseUrl from '@/utils/env/baseUrl'
 import { normalizeResourceTypeCode } from '@/utils/resourceType'
+import { convertHourlyCreditsToRawPerSecond } from '@/utils/blockchain/creditUnits'
 import devLog from '@/utils/dev/logger'
 import {
   notifyLabSettlementRequested,
@@ -714,17 +714,12 @@ export default function ProviderDashboard() {
     // Convert price from user input to credit units for blockchain operations
     if (labData.price && decimals) {
       try {
-        // Convert hourly price (UI) to per-second price (contract format)
-        const pricePerHour = parseFloat(labData.price.toString());
-        const pricePerSecond = pricePerHour / 3600; // Convert to per-second
-        
-        // Convert the per-second price to credit units (multiply by decimals)
-        const priceInTokenUnits = parseUnits(pricePerSecond.toString(), decimals);
-        labData = { ...labData, price: priceInTokenUnits.toString() };
+        const priceInTokenUnits = convertHourlyCreditsToRawPerSecond(labData.price, decimals)
+        labData = { ...labData, price: priceInTokenUnits.toString() }
       } catch (error) {
-        devLog.error('Error converting price to credit units:', error);
-        notifyLabInvalidPrice(addTemporaryNotification);
-        return;
+        devLog.error('Error converting price to credit units:', error)
+        notifyLabInvalidPrice(addTemporaryNotification, error.message)
+        return
       }
     }
     

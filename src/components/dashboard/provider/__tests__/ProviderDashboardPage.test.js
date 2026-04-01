@@ -30,11 +30,6 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-// Mock viem utilities
-jest.mock("viem", () => ({
-  parseUnits: jest.fn((value) => BigInt(Math.floor(parseFloat(value) * 1e18))),
-}));
-
 // Mock wagmi hooks used by staking / contract read hooks
 jest.mock('wagmi', () => ({
   useReadContract: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
@@ -124,7 +119,7 @@ jest.mock("@/context/NotificationContext", () => ({
 }));
 
 jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => ({ decimals: 18 }),
+  useLabToken: () => ({ decimals: 5 }),
 }));
 
 // Mock Optimistic UI context to prevent provider dependency and spy on optimistic state methods
@@ -289,7 +284,7 @@ jest.mock("@/components/dashboard/provider/LabModal", () => ({
             onSubmit({
               ...lab,
               name: lab.name || "New Lab",
-              price: lab.price || "100",
+              price: lab.price || "99",
             })
           }
           data-testid="modal-submit"
@@ -622,7 +617,7 @@ describe("ProviderDashboard Component", () => {
               id: "1",
               name: "Original Lab",
               uri: "Lab-Provider-1.json",
-              price: "100",
+              price: "99",
               auth: "basic",
               accessURI: "https://lab.com",
               accessKey: "key123",

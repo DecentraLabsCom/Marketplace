@@ -22,17 +22,17 @@ import { useOptimisticUI } from "@/context/OptimisticUIContext";
 jest.mock("@/context/LabTokenContext", () => ({
   LabTokenProvider: ({ children }) => children,
   useLabToken: () => ({
-    balance: BigInt("15500000000000000000"),
-    allowance: BigInt("10000000000000000000"),
-    decimals: 18,
+    balance: BigInt("1550000"),
+    allowance: BigInt("1000000"),
+    decimals: 5,
     isLoading: false,
     labTokenAddress: "0xMockLabTokenAddress",
     calculateReservationCost: jest.fn(),
     checkBalanceAndAllowance: jest.fn((requiredAmount = BigInt(0)) => ({
-      hasSufficientBalance: BigInt("15500000000000000000") >= requiredAmount,
-      hasSufficientAllowance: BigInt("10000000000000000000") >= requiredAmount,
-      balance: BigInt("15500000000000000000"),
-      allowance: BigInt("10000000000000000000"),
+      hasSufficientBalance: BigInt("1550000") >= requiredAmount,
+      hasSufficientAllowance: BigInt("1000000") >= requiredAmount,
+      balance: BigInt("1550000"),
+      allowance: BigInt("1000000"),
     })),
     checkSufficientBalance: jest.fn(),
     formatTokenAmount: jest.fn((amount) => "15.50"),
@@ -219,7 +219,7 @@ describe("User Context Integration", () => {
 
       // Verify balance is accessible from LabToken context
       const labTokenData = useLabToken();
-      expect(labTokenData.balance).toBe(BigInt("15500000000000000000"));
+      expect(labTokenData.balance).toBe(BigInt("1550000"));
       expect(labTokenData.formatTokenAmount(labTokenData.balance)).toBe(
         "15.50"
       );
@@ -234,12 +234,12 @@ describe("User Context Integration", () => {
       const labToken = useLabToken();
 
       // Check balance for a booking that requires 20 credits (more than available)
-      const requiredAmount = BigInt("20000000000000000000");
+      const requiredAmount = BigInt("2000000");
       const balanceCheck = labToken.checkBalanceAndAllowance(requiredAmount);
 
       // Verify insufficient balance is detected
       expect(balanceCheck.hasSufficientBalance).toBe(false);
-      expect(balanceCheck.balance).toBe(BigInt("15500000000000000000"));
+      expect(balanceCheck.balance).toBe(BigInt("1550000"));
     });
 
     /**
@@ -251,12 +251,12 @@ describe("User Context Integration", () => {
       const labToken = useLabToken();
 
       // Check balance for a booking that requires 5 credits (less than available)
-      const requiredAmount = BigInt("5000000000000000000");
+      const requiredAmount = BigInt("500000");
       const balanceCheck = labToken.checkBalanceAndAllowance(requiredAmount);
 
       // Verify sufficient balance is detected
       expect(balanceCheck.hasSufficientBalance).toBe(true);
-      expect(balanceCheck.balance).toBe(BigInt("15500000000000000000"));
+      expect(balanceCheck.balance).toBe(BigInt("1550000"));
     });
 
     /**
@@ -268,14 +268,14 @@ describe("User Context Integration", () => {
       const labToken = useLabToken();
 
       // Verify allowance is accessible
-      expect(labToken.allowance).toBe(BigInt("10000000000000000000"));
+      expect(labToken.allowance).toBe(BigInt("1000000"));
 
       // Check if allowance is sufficient for a booking (5 credits)
-      const requiredAmount = BigInt("5000000000000000000");
+      const requiredAmount = BigInt("500000");
       const check = labToken.checkBalanceAndAllowance(requiredAmount);
 
       expect(check.hasSufficientAllowance).toBe(true);
-      expect(check.allowance).toBe(BigInt("10000000000000000000"));
+      expect(check.allowance).toBe(BigInt("1000000"));
     });
 
     /**
@@ -288,12 +288,12 @@ describe("User Context Integration", () => {
       const labToken = useLabToken();
 
       // Check allowance for a booking that requires 15 credits (more than allowed)
-      const requiredAmount = BigInt("15000000000000000000");
+      const requiredAmount = BigInt("1500000");
       const check = labToken.checkBalanceAndAllowance(requiredAmount);
 
       // Allowance (10 LAB) is less than required (15 LAB)
       expect(check.hasSufficientAllowance).toBe(false);
-      expect(check.allowance).toBe(BigInt("10000000000000000000"));
+      expect(check.allowance).toBe(BigInt("1000000"));
     });
   });
 

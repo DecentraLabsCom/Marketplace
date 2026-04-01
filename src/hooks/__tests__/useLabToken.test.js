@@ -55,7 +55,7 @@ describe('useLabTokenHook', () => {
 
     expect(result.current.balance).toBe(1000n)
     expect(result.current.allowance).toBe(1000n)
-    expect(result.current.decimals).toBe(1)
+    expect(result.current.decimals).toBe(5)
     expect(result.current.labTokenAddress).toBe('0xlabtoken')
   })
 

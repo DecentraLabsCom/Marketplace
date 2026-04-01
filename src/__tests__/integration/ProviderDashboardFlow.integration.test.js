@@ -118,14 +118,14 @@ const mockProviderLabs = [
     id: 1,
     name: "AI Research Lab",
     isListed: true,
-    availableBalance: "5000000000000000000", // 5 credits
+    availableBalance: "500000", // 5 credits
   },
   {
     ...mockLab,
     id: 2,
     name: "Quantum Computing Lab",
     isListed: false,
-    availableBalance: "2000000000000000000", // 2 credits
+    availableBalance: "200000", // 2 credits
   },
 ];
 
@@ -266,9 +266,9 @@ jest.mock("@/context/OptimisticUIContext", () => ({
 jest.mock("@/context/LabTokenContext", () => ({
   LabTokenProvider: ({ children }) => children,
   useLabToken: () => ({
-    balance: BigInt("15500000000000000000"),
-    allowance: BigInt("10000000000000000000"),
-    decimals: 18,
+    balance: BigInt("1550000"),
+    allowance: BigInt("1000000"),
+    decimals: 5,
     isLoading: false,
     labTokenAddress: "0xMockLabTokenAddress",
     formatTokenAmount: jest.fn((amount) => "5.00"),

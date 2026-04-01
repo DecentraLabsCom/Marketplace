@@ -11,6 +11,7 @@ import {
   useFundingOrders,
   useCreditMovements,
 } from '@/hooks/billing/useBillingAccount';
+import { trimTrailingZeros } from '@/utils/blockchain/creditUnits';
 
 const STATUS_LABELS = {
   DRAFT: 'Awaiting invoice',
@@ -47,8 +48,10 @@ const MOVEMENT_COLORS = {
 };
 
 const formatCredits = (value) => {
-  if (value === null || value === undefined) return '0.0';
-  return parseFloat(value).toFixed(1);
+  if (value === null || value === undefined) return '0';
+  const parsed = Number.parseFloat(value)
+  if (!Number.isFinite(parsed)) return '0'
+  return trimTrailingZeros(parsed.toFixed(5))
 };
 
 const formatEur = (value) => {

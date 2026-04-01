@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { formatUnits } from 'viem'
 import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
-
-const DEFAULT_LAB_TOKEN_DECIMALS = 1
+import {
+  CREDIT_DECIMALS as DEFAULT_LAB_TOKEN_DECIMALS,
+  formatRawCredits,
+  formatRawPricePerHour,
+} from '@/utils/blockchain/creditUnits'
 
 const tryParseBigInt = (value) => {
   if (typeof value === 'bigint') return value
@@ -23,15 +25,6 @@ const tryParseBigInt = (value) => {
     }
   }
   return null
-}
-
-const formatFixed2FromScaledInt = (scaledValue) => {
-  if (typeof scaledValue !== 'bigint') return '0.00'
-  const sign = scaledValue < 0n ? '-' : ''
-  const absValue = scaledValue < 0n ? -scaledValue : scaledValue
-  const integerPart = absValue / 100n
-  const fractionalPart = absValue % 100n
-  return `${sign}${integerPart.toString()}.${fractionalPart.toString().padStart(2, '0')}`
 }
 
 export const clearDecimalsCache = () => {}
@@ -152,47 +145,26 @@ export function useLabTokenHook() {
   }, [balance, calculateReservationCost])
 
   const formatTokenAmount = useCallback((amount) => {
-    if (!decimals) return '0.00'
-
-    try {
-      const normalizedAmount = tryParseBigInt(amount) ?? 0n
-      const formatted = parseFloat(formatUnits(normalizedAmount, decimals))
-      const rounded = Math.round(formatted * 100) / 100
-      return rounded.toFixed(2)
-    } catch (error) {
-      devLog.error('Error formatting token amount:', error)
-      return '0.00'
-    }
+    if (!decimals) return '0'
+    return formatRawCredits(tryParseBigInt(amount) ?? 0n, decimals)
   }, [decimals])
 
   const formatPrice = useCallback((price) => {
-    if (price === null || price === undefined) return '0.00'
+    if (price === null || price === undefined) return '0'
 
     try {
       const priceUnits = tryParseBigInt(price)
       if (priceUnits !== null) {
-        const pricePerHourUnits = priceUnits * 3600n
-        const divisor = 10n ** BigInt(decimals)
-        if (divisor === 0n) return '0.00'
-
-        const scaledNumerator = pricePerHourUnits * 100n
-        const quotient = scaledNumerator / divisor
-        const remainder = scaledNumerator % divisor
-        const rounded = remainder * 2n >= divisor ? quotient + 1n : quotient
-
-        return formatFixed2FromScaledInt(rounded)
+        return formatRawPricePerHour(priceUnits, decimals)
       }
 
       const numericPrice = Number(price)
-      if (!Number.isFinite(numericPrice)) return '0.00'
+      if (!Number.isFinite(numericPrice)) return '0'
 
-      const pricePerSecondCredits = numericPrice / Math.pow(10, decimals)
-      const pricePerHour = pricePerSecondCredits * 3600
-      const roundedPrice = Math.round((pricePerHour + Number.EPSILON) * 100) / 100
-      return roundedPrice.toFixed(2)
+      return formatRawPricePerHour(BigInt(Math.trunc(numericPrice)), decimals)
     } catch (error) {
       devLog.error('Error formatting price:', error, 'Price:', price, 'Decimals:', decimals)
-      return '0.00'
+      return '0'
     }
   }, [decimals])
 

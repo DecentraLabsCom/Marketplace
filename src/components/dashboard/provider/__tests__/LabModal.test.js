@@ -22,7 +22,7 @@ const mockUploadFile = jest.fn();
 const mockDeleteFile = jest.fn();
 
 let mockLabTokenData = {
-  decimals: 18,
+  decimals: 5,
   formatPrice: mockFormatPrice,
 };
 
@@ -95,7 +95,7 @@ describe("LabModal - Unit Tests", () => {
     jest.clearAllMocks();
 
     mockLabTokenData = {
-      decimals: 18,
+      decimals: 5,
       formatPrice: mockFormatPrice,
     };
   });

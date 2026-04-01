@@ -106,9 +106,9 @@ export const createMockContexts = (overrides = {}) => ({
     ...overrides.user,
   },
   labToken: {
-    balance: BigInt("15500000000000000000"),
-    allowance: BigInt("10000000000000000000"),
-    decimals: 18,
+    balance: BigInt("1550000"),
+    allowance: BigInt("1000000"),
+    decimals: 5,
     isLoading: false,
     formatTokenAmount: jest.fn((amount) => "15.50"),
     formatPrice: jest.fn((price) => "0.50"),

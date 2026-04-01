@@ -178,7 +178,7 @@ describe("useLabAtomicQueries", () => {
       labId,
       base: {
         uri: "ipfs://test",
-        price: "1000000000000000000",
+        price: "100000",
         accessURI: "",
         accessKey: "",
       },
@@ -200,8 +200,8 @@ describe("useLabAtomicQueries", () => {
         labId: 1,
         base: {
           uri: "ipfs://test",
-          price: "1000000000000000000",
-          priceNumber: 1000000000000000000,
+          price: "100000",
+          priceNumber: 100000,
           accessURI: "",
           accessKey: "",
           createdAt: 0,

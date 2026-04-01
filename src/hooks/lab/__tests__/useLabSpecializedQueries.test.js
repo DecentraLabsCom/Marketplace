@@ -26,7 +26,7 @@ const mockLabIds = ["1", "2", "3"];
 
 const mockLabBase = {
   uri: "ipfs://QmTest",
-  price: "1000000000000000000",
+  price: "100000",
   accessURI: "",
   accessKey: "",
 };

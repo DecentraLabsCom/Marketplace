@@ -18,9 +18,9 @@ import { LabTokenProvider, useLabToken } from '@/context/LabTokenContext';
 
 // Mock the underlying useLabToken hook
 const mockLabTokenData = {
-  balance: BigInt('15000000000000000000'), // 15 LAB tokens
-  allowance: BigInt('10000000000000000000'), // 10 LAB tokens
-  decimals: 18,
+  balance: BigInt('1500000'), // 15 LAB credits
+  allowance: BigInt('1000000'), // 10 LAB credits
+  decimals: 5,
   isLoading: false,
   labTokenAddress: '0xMockLabTokenAddress',
   calculateReservationCost: jest.fn(),
@@ -55,9 +55,9 @@ describe('LabTokenContext', () => {
         wrapper: LabTokenProvider,
       });
 
-      expect(result.current.balance).toEqual(BigInt('15000000000000000000'));
-      expect(result.current.allowance).toEqual(BigInt('10000000000000000000'));
-      expect(result.current.decimals).toBe(18);
+      expect(result.current.balance).toEqual(BigInt('1500000'));
+      expect(result.current.allowance).toEqual(BigInt('1000000'));
+      expect(result.current.decimals).toBe(5);
       expect(result.current.isLoading).toBe(false);
       expect(result.current.labTokenAddress).toBe('0xMockLabTokenAddress');
     });
@@ -99,11 +99,11 @@ describe('LabTokenContext', () => {
       });
 
       const formattedAmount = result.current.formatTokenAmount(
-        BigInt('15000000000000000000')
+        BigInt('1500000')
       );
 
       expect(result.current.formatTokenAmount).toHaveBeenCalledWith(
-        BigInt('15000000000000000000')
+        BigInt('1500000')
       );
       expect(formattedAmount).toBe('15.00');
     });
@@ -135,17 +135,16 @@ describe('LabTokenContext', () => {
 
   describe('Price Conversion', () => {
     test('formatPrice converts per-second price to per-hour price', () => {
-      // Mock: 0.5 LAB per hour = 0.5 / 3600 LAB per second
-      // In contract units (18 decimals): (0.5 / 3600) * 10^18 = 138888888888888 wei/second
+      // Mock: 0.54 credits per hour = 15 raw units per second with 5 credit decimals.
       mockLabTokenData.formatPrice.mockReturnValue('0.50');
 
       const { result } = renderHook(() => useLabToken(), {
         wrapper: LabTokenProvider,
       });
 
-      const formattedPrice = result.current.formatPrice('138888888888888');
+      const formattedPrice = result.current.formatPrice('15');
 
-      expect(result.current.formatPrice).toHaveBeenCalledWith('138888888888888');
+      expect(result.current.formatPrice).toHaveBeenCalledWith('15');
       expect(formattedPrice).toBe('0.50');
     });
 
@@ -174,7 +173,7 @@ describe('LabTokenContext', () => {
         wrapper: LabTokenProvider,
       });
 
-      const formattedPrice = result.current.formatPrice('138888888888888');
+      const formattedPrice = result.current.formatPrice('15');
 
       expect(formattedPrice).toBe('0.00');
     });
@@ -183,9 +182,9 @@ describe('LabTokenContext', () => {
   describe('Cost Calculations', () => {
     test('calculateReservationCost calculates booking cost correctly', () => {
       // Mock: price per second * duration in seconds
-      const pricePerSecond = '138888888888888'; // wei/second
+      const pricePerSecond = '15'; // raw credits per second
       const durationMinutes = 60; // 1 hour
-      const expectedCost = BigInt('500000000000000000'); // 0.5 LAB
+      const expectedCost = BigInt('54000'); // 0.54 LAB
 
       mockLabTokenData.calculateReservationCost.mockReturnValue(expectedCost);
 
@@ -212,7 +211,7 @@ describe('LabTokenContext', () => {
         wrapper: LabTokenProvider,
       });
 
-      const cost = result.current.calculateReservationCost('138888888888888', 0);
+      const cost = result.current.calculateReservationCost('15', 0);
 
       expect(cost).toEqual(BigInt('0'));
     });
@@ -232,13 +231,13 @@ describe('LabTokenContext', () => {
 
   describe('Balance Checking', () => {
     test('checkBalanceAndAllowance returns correct status', () => {
-      const requiredAmount = BigInt('5000000000000000000'); // 5 LAB
+      const requiredAmount = BigInt('500000'); // 5 LAB
 
       mockLabTokenData.checkBalanceAndAllowance.mockReturnValue({
         hasSufficientBalance: true,
         hasSufficientAllowance: true,
-        balance: BigInt('15000000000000000000'),
-        allowance: BigInt('10000000000000000000'),
+        balance: BigInt('1500000'),
+        allowance: BigInt('1000000'),
         requiredAmount,
       });
 
@@ -250,18 +249,18 @@ describe('LabTokenContext', () => {
 
       expect(status.hasSufficientBalance).toBe(true);
       expect(status.hasSufficientAllowance).toBe(true);
-      expect(status.balance).toEqual(BigInt('15000000000000000000'));
-      expect(status.allowance).toEqual(BigInt('10000000000000000000'));
+      expect(status.balance).toEqual(BigInt('1500000'));
+      expect(status.allowance).toEqual(BigInt('1000000'));
     });
 
     test('checkBalanceAndAllowance detects insufficient balance', () => {
-      const requiredAmount = BigInt('20000000000000000000'); // 20 LAB (more than balance)
+      const requiredAmount = BigInt('2000000'); // 20 LAB (more than balance)
 
       mockLabTokenData.checkBalanceAndAllowance.mockReturnValue({
         hasSufficientBalance: false,
         hasSufficientAllowance: false,
-        balance: BigInt('15000000000000000000'),
-        allowance: BigInt('10000000000000000000'),
+        balance: BigInt('1500000'),
+        allowance: BigInt('1000000'),
         requiredAmount,
       });
 
@@ -276,13 +275,13 @@ describe('LabTokenContext', () => {
     });
 
     test('checkSufficientBalance returns correct result', () => {
-      const labPrice = '138888888888888'; // per second
+      const labPrice = '15'; // per second
       const durationMinutes = 60; // 1 hour
 
       mockLabTokenData.checkSufficientBalance.mockReturnValue({
         hasSufficient: true,
-        cost: BigInt('500000000000000000'), // 0.5 LAB
-        balance: BigInt('15000000000000000000'),
+        cost: BigInt('54000'),
+        balance: BigInt('1500000'),
         shortfall: BigInt('0'),
       });
 
@@ -296,19 +295,19 @@ describe('LabTokenContext', () => {
       );
 
       expect(status.hasSufficient).toBe(true);
-      expect(status.cost).toEqual(BigInt('500000000000000000'));
+      expect(status.cost).toEqual(BigInt('54000'));
       expect(status.shortfall).toEqual(BigInt('0'));
     });
 
     test('checkSufficientBalance calculates shortfall correctly', () => {
-      const labPrice = '277777777777777'; // ~1 LAB per hour
+      const labPrice = '278'; // 10.008 LAB per hour
       const durationMinutes = 1200; // 20 hours
 
       mockLabTokenData.checkSufficientBalance.mockReturnValue({
         hasSufficient: false,
-        cost: BigInt('20000000000000000000'), // 20 LAB
-        balance: BigInt('15000000000000000000'), // 15 LAB
-        shortfall: BigInt('5000000000000000000'), // 5 LAB shortfall
+        cost: BigInt('20016000'),
+        balance: BigInt('1500000'),
+        shortfall: BigInt('18516000'),
       });
 
       const { result } = renderHook(() => useLabToken(), {
@@ -321,7 +320,7 @@ describe('LabTokenContext', () => {
       );
 
       expect(status.hasSufficient).toBe(false);
-      expect(status.shortfall).toEqual(BigInt('5000000000000000000'));
+      expect(status.shortfall).toEqual(BigInt('18516000'));
     });
   });
 
@@ -436,7 +435,7 @@ describe('LabTokenContext', () => {
       // Update balance
       useLabTokenHook.mockReturnValue({
         ...mockLabTokenData,
-        balance: BigInt('20000000000000000000'), // 20 LAB (changed from 15)
+        balance: BigInt('2000000'), // 20 LAB (changed from 15)
       });
 
       // Rerender to trigger update
@@ -444,7 +443,7 @@ describe('LabTokenContext', () => {
 
       // Balance should update
       expect(result.current.balance).not.toEqual(initialBalance);
-      expect(result.current.balance).toEqual(BigInt('20000000000000000000'));
+      expect(result.current.balance).toEqual(BigInt('2000000'));
     });
 
     test('context value updates when decimals change', () => {
@@ -460,7 +459,7 @@ describe('LabTokenContext', () => {
       // Update decimals (e.g., switching to a different token)
       useLabTokenHook.mockReturnValue({
         ...mockLabTokenData,
-        decimals: 6, // Changed from 18
+        decimals: 6, // Changed from 5
       });
 
       // Rerender to trigger update

@@ -11,18 +11,18 @@ describe("LabTokenInfo", () => {
     jest.clearAllMocks()
 
     useLabToken.mockReturnValue({
-      balance: 5000000n,
-      allowance: 5000000n,
-      decimals: 6,
+      balance: 500000n,
+      allowance: 500000n,
+      decimals: 5,
       labTokenAddress: "0x1234567890123456789012345678901234567890",
-      calculateReservationCost: jest.fn(() => 2000000n),
+      calculateReservationCost: jest.fn(() => 200000n),
       checkBalanceAndAllowance: jest.fn(() => ({
         hasSufficientBalance: true,
         hasSufficientAllowance: true,
       })),
       formatTokenAmount: jest.fn((amount) => {
         if (typeof amount !== "bigint") return "0"
-        return (Number(amount) / 1_000_000).toString()
+        return (Number(amount) / 100_000).toString()
       }),
     })
   })
@@ -64,18 +64,18 @@ describe("LabTokenInfo", () => {
 
   test("shows additional credits required when balance is insufficient", () => {
     useLabToken.mockReturnValue({
-      balance: 500000n,
-      allowance: 500000n,
-      decimals: 6,
+      balance: 50000n,
+      allowance: 50000n,
+      decimals: 5,
       labTokenAddress: "0x1234567890123456789012345678901234567890",
-      calculateReservationCost: jest.fn(() => 2000000n),
+      calculateReservationCost: jest.fn(() => 200000n),
       checkBalanceAndAllowance: jest.fn(() => ({
         hasSufficientBalance: false,
         hasSufficientAllowance: false,
       })),
       formatTokenAmount: jest.fn((amount) => {
         if (typeof amount !== "bigint") return "0"
-        return (Number(amount) / 1_000_000).toString()
+        return (Number(amount) / 100_000).toString()
       }),
     })
 

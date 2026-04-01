@@ -56,8 +56,13 @@ export const notifyLabCreatedFilesWarning = (addTemporaryNotification, labId, me
 export const notifyLabCreatedMetadataWarning = (addTemporaryNotification, labId, message) =>
   notify(addTemporaryNotification, 'warning', `Lab created but metadata failed to save: ${message}`, labToastIds.createMetadataWarning(labId))
 
-export const notifyLabInvalidPrice = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', 'Invalid price format. Please enter a valid number.', labToastIds.invalidPrice())
+export const notifyLabInvalidPrice = (addTemporaryNotification, message = null) =>
+  notify(
+    addTemporaryNotification,
+    'error',
+    message || 'Invalid price format. Please enter a valid number.',
+    labToastIds.invalidPrice()
+  )
 
 export const notifyLabUpdateStarted = (addTemporaryNotification, labId) =>
   notify(addTemporaryNotification, 'pending', 'Updating lab onchain...', labToastIds.updateStarted(labId))
