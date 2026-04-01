@@ -601,9 +601,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       }
     } else if (activeTab === 'quick') {
       newErrors = validateLabQuick(localLab);
-      if (localLab.resourceType === RESOURCE_TYPES.FMU) {
-        newErrors.resourceType = 'FMU simulations require Full Setup to capture model metadata.'
-      }
     }
     dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     return newErrors;
@@ -824,31 +821,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
             >
               Quick Setup
             </button>
-            {!lab?.id && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (localLab?.resourceType === RESOURCE_TYPES.FMU) {
-                    dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })
-                    return
-                  }
-                  dispatch({
-                    type: 'BATCH_UPDATE',
-                    updates: [
-                      { type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } },
-                      { type: 'SET_FIELD', field: 'activeTab', value: 'full' },
-                    ],
-                  })
-                }}
-                className={`ml-auto px-4 py-2 rounded ${
-                  localLab?.resourceType === RESOURCE_TYPES.FMU
-                    ? 'bg-[#7875a8] text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                {localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Remote Lab Setup' : 'FMU Setup'}
-              </button>
-            )}
           </div>
           <div className='mt-4'>
             {activeTab === 'full' && (

@@ -277,4 +277,41 @@ describe("validateLabQuick", () => {
       }
     });
   });
+
+  describe("FMU Quick Setup Validation", () => {
+    const validFmuQuickLab = {
+      resourceType: "fmu",
+      price: 100,
+      accessURI: "https://gateway.example.com",
+      fmuFileName: "spring-damper.fmu",
+      uri: "https://data.example.com/lab.json",
+    };
+
+    test("passes with valid FMU lab data", () => {
+      const errors = validateLabQuick(validFmuQuickLab);
+      expect(errors).toEqual({});
+    });
+
+    test("requires fmuFileName for FMU labs", () => {
+      const errors = validateLabQuick({ ...validFmuQuickLab, fmuFileName: "" });
+      expect(errors.fmuFileName).toBe("FMU file name is required");
+    });
+
+    test("rejects fmuFileName without .fmu extension", () => {
+      const errors = validateLabQuick({ ...validFmuQuickLab, fmuFileName: "spring-damper.exe" });
+      expect(errors.fmuFileName).toBe(
+        "FMU file name must end with .fmu and contain only valid characters"
+      );
+    });
+
+    test("does not require accessKey for FMU labs", () => {
+      const errors = validateLabQuick({ ...validFmuQuickLab, accessKey: "" });
+      expect(errors.accessKey).toBeUndefined();
+    });
+
+    test("still requires accessKey for non-FMU labs", () => {
+      const errors = validateLabQuick({ ...validFmuQuickLab, resourceType: "lab", accessKey: "" });
+      expect(errors.accessKey).toBe("Access Key is required");
+    });
+  });
 });

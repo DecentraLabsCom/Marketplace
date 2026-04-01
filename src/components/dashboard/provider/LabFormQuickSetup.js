@@ -1,5 +1,17 @@
 import PropTypes from 'prop-types'
+import { useState, useRef, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
+import devLog from '@/utils/dev/logger'
+
+function resolveGatewayAuthEndpoint(gatewayUrl) {
+  try {
+    const url = new URL(gatewayUrl)
+    return `${url.origin}/auth/login`
+  } catch {
+    return null
+  }
+}
 
 /**
  * Quick lab setup form for simplified lab creation with minimal required fields
@@ -28,22 +40,72 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
 
   const isFmu = localLab?.resourceType === RESOURCE_TYPES.FMU
 
+  const [describeFetch, setDescribeFetch] = useState({ loading: false, error: null, fetched: false })
+  const abortRef = useRef(null)
+
+  const fetchDescribe = useCallback(async () => {
+    const fmuFileName = localLab?.fmuFileName?.trim()
+    if (!fmuFileName) return
+    const gatewayUrl = localLab?.accessURI?.trim()
+    if (!gatewayUrl) {
+      setDescribeFetch({ loading: false, error: 'Set Gateway URL first', fetched: false })
+      return
+    }
+    if (abortRef.current) abortRef.current.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setDescribeFetch({ loading: true, error: null, fetched: false })
+    try {
+      const gwParam = encodeURIComponent(gatewayUrl)
+      const authEndpoint = resolveGatewayAuthEndpoint(gatewayUrl)
+      let describeAuthHeader = {}
+      if (authEndpoint) {
+        try {
+          const authRes = await fetch('/api/auth/lab-access', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ authEndpoint, includeBookingInfo: false }),
+          })
+          if (authRes.ok) {
+            const authData = await authRes.json()
+            if (authData?.token) describeAuthHeader = { Authorization: `Bearer ${authData.token}` }
+          }
+        } catch (authError) {
+          devLog.warn('FMU describe auth failed, continuing without token', authError)
+        }
+      }
+      const labParam = localLab?.id ? `&labId=${encodeURIComponent(String(localLab.id))}` : ''
+      const res = await fetch(
+        `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`,
+        { signal: controller.signal, headers: describeAuthHeader }
+      )
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `Gateway returned ${res.status}`)
+      }
+      const data = await res.json()
+      setLocalLab({
+        ...localLab,
+        fmuFileName,
+        accessKey: fmuFileName,
+        fmiVersion: data.fmiVersion || '',
+        simulationType: data.simulationType || '',
+        modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
+        ...(data.defaultStartTime != null && { defaultStartTime: data.defaultStartTime }),
+        ...(data.defaultStopTime != null && { defaultStopTime: data.defaultStopTime }),
+        ...(data.defaultStepSize != null && { defaultStepSize: data.defaultStepSize }),
+      })
+      setDescribeFetch({ loading: false, error: null, fetched: true })
+    } catch (err) {
+      if (err.name === 'AbortError') return
+      devLog.error('FMU Quick describe failed:', err)
+      setDescribeFetch({ loading: false, error: err.message, fetched: false })
+    }
+  }, [localLab, setLocalLab])
+
   return (
     <form className="space-y-4 text-gray-600" onSubmit={onSubmit}>
-      {isFmu && (
-        <div className="rounded border border-[#7875a8] bg-[#7875a8]/10 p-3 text-sm">
-          <p className="font-medium text-[#625f8f]">
-            FMU simulations must be configured in Full Setup.
-          </p>
-          <button
-            type="button"
-            onClick={() => onSwitchToFullSetup?.()}
-            className="mt-2 rounded bg-[#7875a8] px-3 py-1.5 text-white hover:bg-[#625f8f]"
-          >
-            Go to Full Setup
-          </button>
-        </div>
-      )}
       {errors.resourceType && <p className="text-red-500 text-sm !mt-1">{errors.resourceType}</p>}
 
       <input
@@ -72,17 +134,61 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
       />
       {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
 
-      <input
-        type="text"
-        placeholder="Access Key"
-        value={localLab?.accessKey || ''}
-        onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
-        className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
-        disabled:cursor-not-allowed disabled:border-gray-300"
-        disabled={isLocalURI}
-        ref={accessKeyRef}
-      />
-      {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
+      {isFmu ? (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="FMU file name (e.g. spring-damper.fmu)"
+              value={localLab?.fmuFileName || ''}
+              onChange={(e) => setLocalLab({ ...localLab, fmuFileName: e.target.value, accessKey: e.target.value })}
+              className="flex-1 p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400
+              disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={isLocalURI}
+            />
+            <button
+              type="button"
+              onClick={fetchDescribe}
+              disabled={isLocalURI || describeFetch.loading || !localLab?.fmuFileName?.trim() || !localLab?.accessURI?.trim()}
+              className="px-3 py-2 rounded bg-[#7875a8] text-white hover:bg-[#625f8f] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-1 text-sm whitespace-nowrap"
+            >
+              {describeFetch.loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {describeFetch.loading ? 'Loading…' : 'Auto-detect'}
+            </button>
+          </div>
+          {errors.fmuFileName && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
+          {describeFetch.error && (
+            <p className="text-amber-600 text-sm">Auto-detect failed: {describeFetch.error}</p>
+          )}
+          {describeFetch.fetched && (
+            <p className="text-green-600 text-sm">✓ FMU metadata loaded successfully</p>
+          )}
+          <p className="text-xs text-gray-400">
+            Access Key is set automatically to match the FMU file name.
+            {onSwitchToFullSetup && (
+              <> For advanced configuration,{' '}
+                <button type="button" onClick={onSwitchToFullSetup} className="underline text-[#7875a8] hover:text-[#625f8f]">
+                  switch to Full Setup
+                </button>.
+              </>
+            )}
+          </p>
+        </div>
+      ) : (
+        <>
+          <input
+            type="text"
+            placeholder="Access Key"
+            value={localLab?.accessKey || ''}
+            onChange={(e) => setLocalLab({ ...localLab, accessKey: e.target.value })}
+            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 
+            disabled:cursor-not-allowed disabled:border-gray-300"
+            disabled={isLocalURI}
+            ref={accessKeyRef}
+          />
+          {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
+        </>
+      )}
 
       <input
         type="text"

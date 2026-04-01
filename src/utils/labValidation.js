@@ -204,6 +204,7 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
 export function validateLabQuick(localLab) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
+    const isFmu = localLab?.resourceType === 'fmu';
 
     if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {
         errors.price = 'Price is required';
@@ -220,7 +221,16 @@ export function validateLabQuick(localLab) {
         errors.accessURI = 'Invalid Access URI format';
     }
 
-    if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
+    if (isFmu) {
+        const fmuFileRegex = /^[\w\-. ]+\.fmu$/i;
+        if (!localLab.fmuFileName?.trim()) {
+            errors.fmuFileName = 'FMU file name is required';
+        } else if (!fmuFileRegex.test(localLab.fmuFileName.trim())) {
+            errors.fmuFileName = 'FMU file name must end with .fmu and contain only valid characters';
+        }
+    } else {
+        if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
+    }
 
     if (!localLab.uri?.trim()) {
         errors.uri = 'Lab Data URL is required';
