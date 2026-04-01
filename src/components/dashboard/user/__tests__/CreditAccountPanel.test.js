@@ -54,14 +54,14 @@ describe('CreditAccountPanel', () => {
   });
 
   // ── Balance grid ──────────────────────────────────────────────────────
-  test('renders balance grid with 1-decimal formatted credits', () => {
+  test('renders balance grid with trimmed credit formatting', () => {
     render(<CreditAccountPanel />);
 
     expect(screen.getByTestId('credit-account-panel')).toBeInTheDocument();
     expect(screen.getByText('Service Credit Account')).toBeInTheDocument();
-    expect(screen.getByText('150.0 credits')).toBeInTheDocument();
-    expect(screen.getByText('20.0 credits')).toBeInTheDocument();
-    expect(screen.getByText('30.0 credits')).toBeInTheDocument();
+    expect(screen.getByText('150 credits')).toBeInTheDocument();
+    expect(screen.getByText('20 credits')).toBeInTheDocument();
+    expect(screen.getByText('30 credits')).toBeInTheDocument();
   });
 
   test('shows adjusted and expired rows only when > 0', () => {
@@ -76,9 +76,9 @@ describe('CreditAccountPanel', () => {
     const { unmount } = render(<CreditAccountPanel />);
 
     expect(screen.getByText('Adjusted')).toBeInTheDocument();
-    expect(screen.getByText('5.0 credits')).toBeInTheDocument();
+    expect(screen.getByText('5 credits')).toBeInTheDocument();
     expect(screen.getByText('Expired')).toBeInTheDocument();
-    expect(screen.getByText('10.0 credits')).toBeInTheDocument();
+    expect(screen.getByText('10 credits')).toBeInTheDocument();
     unmount();
   });
 
@@ -92,7 +92,7 @@ describe('CreditAccountPanel', () => {
     render(<CreditAccountPanel />);
 
     expect(screen.getByText(/Expiring credit lots/)).toBeInTheDocument();
-    expect(screen.getByText('80.0 credits')).toBeInTheDocument();
+    expect(screen.getByText('80 credits')).toBeInTheDocument();
   });
 
   test('does not show lots expiring beyond 30 days', () => {
