@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
+import { Cpu, Monitor } from 'lucide-react'
 import { useLabToken } from '@/context/LabTokenContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
@@ -802,25 +803,61 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto">
       <div onClick={e => e.stopPropagation()}
         className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4 text-black">
-          {lab?.id ? 'Edit Lab' : 'Add New Lab'}
-        </h2>
         <div className="mb-4">
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
-              className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Full Setup
-            </button>
-            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
-              className={`px-4 py-2 rounded ${activeTab === 'quick'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Quick Setup
-            </button>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold mb-4 text-black text-left">
+                {lab?.id ? 'Edit Lab' : 'Add New Lab'}
+              </h2>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
+                  className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Full Setup
+                </button>
+                <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
+                  className={`px-4 py-2 rounded ${activeTab === 'quick'
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Quick Setup
+                </button>
+              </div>
+            </div>
+
+            <section className="w-full sm:w-auto sm:min-w-[280px]">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 sm:text-right">Resource Type</h3>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })}
+                  className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.LAB
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Monitor className="w-4 h-4" /> Remote Lab
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } })}
+                  className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.FMU
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Cpu className="w-4 h-4" /> FMU Simulation
+                  </span>
+                </button>
+              </div>
+            </section>
           </div>
           <div className='mt-4'>
             {activeTab === 'full' && (

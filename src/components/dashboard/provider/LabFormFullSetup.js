@@ -626,31 +626,6 @@ export default function LabFormFullSetup({
         </div>
       )}
 
-      {/* Resource type controls are shown only in FMU setup mode */}
-      {localLab?.resourceType === RESOURCE_TYPES.FMU && (
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Resource Type</h3>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => handleBasicChange('resourceType', RESOURCE_TYPES.LAB)}
-              disabled={disabled}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors font-medium border-gray-300 bg-white text-gray-600 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              🖥️ Remote Lab
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBasicChange('resourceType', RESOURCE_TYPES.FMU)}
-              disabled={disabled}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors font-medium border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Cpu className="w-4 h-4" /> FMU Simulation
-            </button>
-          </div>
-        </section>
-      )}
-
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
         <input
