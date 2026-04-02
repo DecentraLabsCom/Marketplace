@@ -556,6 +556,9 @@ export const useListLabSSO = (options = {}) => {
           timestamp: new Date().toISOString(),
         });
         updateListingCache(queryClient, labId, true);
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(labId), exact: true });
       } catch (error) {
         devLog.error('Failed to handle list intent response:', error);
       }
@@ -563,7 +566,8 @@ export const useListLabSSO = (options = {}) => {
     onError: (error, variables) => {
       if (variables?.labId) {
         clearOptimisticListingState(variables.labId);
-        updateListingCache(queryClient, variables.labId, false);
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(variables.labId), exact: true });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
       }
       devLog.error('Failed to create list intent:', error);
     },
@@ -632,6 +636,9 @@ export const useUnlistLabSSO = (options = {}) => {
           timestamp: new Date().toISOString(),
         });
         updateListingCache(queryClient, labId, false);
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getLab(labId), exact: true });
       } catch (error) {
         devLog.error('Failed to handle unlist intent response:', error);
       }
@@ -639,6 +646,8 @@ export const useUnlistLabSSO = (options = {}) => {
     onError: (error, variables) => {
       if (variables?.labId) {
         clearOptimisticListingState(variables.labId);
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(variables.labId), exact: true });
+        queryClient.invalidateQueries({ queryKey: labQueryKeys.getAllLabs(), exact: true });
       }
       devLog.error('Failed to create unlist intent:', error);
     },

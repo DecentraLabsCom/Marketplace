@@ -574,25 +574,6 @@ describe("useLabSpecializedQueries", () => {
       expect(numberResult.current.data).toBeDefined();
     });
 
-    test("forces live lab and listing refetch on detail mount", () => {
-      const wrapper = createWrapper();
-      renderHook(() => useLabById("1"), { wrapper });
-
-      expect(mockUseLab).toHaveBeenCalledWith(
-        "1",
-        expect.objectContaining({
-          refetchOnMount: "always",
-        })
-      );
-
-      expect(mockUseIsTokenListed).toHaveBeenCalledWith(
-        "1",
-        expect.objectContaining({
-          refetchOnMount: "always",
-        })
-      );
-    });
-
     test("handles null lab ID", () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useLabById(null), { wrapper });
@@ -1122,27 +1103,6 @@ describe("useLabSpecializedQueries", () => {
       const { result } = renderHook(() => useLabsForReservation(), { wrapper });
 
       expect(result.current.data.labs).toEqual([]);
-    });
-
-    test("forces live refetch for reservation lab ids, details, and listing", () => {
-      const wrapper = createWrapper();
-      renderHook(() => useLabsForReservation(), { wrapper });
-
-      expect(mockUseAllLabsSSO).toHaveBeenCalledWith(
-        expect.objectContaining({
-          refetchOnMount: "always",
-        })
-      );
-
-      const getLabUseQuery = mockUseQueries.mock.calls.find(({ 0: config }) =>
-        config?.queries?.some((query) => query.queryKey?.[1] === "getLab")
-      )?.[0];
-      const listingUseQuery = mockUseQueries.mock.calls.find(({ 0: config }) =>
-        config?.queries?.some((query) => query.queryKey?.[1] === "isTokenListed")
-      )?.[0];
-
-      expect(getLabUseQuery?.queries?.every((query) => query.refetchOnMount === "always")).toBe(true);
-      expect(listingUseQuery?.queries?.every((query) => query.refetchOnMount === "always")).toBe(true);
     });
 
     test("respects enabled option", () => {

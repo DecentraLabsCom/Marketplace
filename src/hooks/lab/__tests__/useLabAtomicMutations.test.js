@@ -211,6 +211,49 @@ describe('institutional lab mutations', () => {
     expect(pollIntentStatus).toHaveBeenCalledTimes(2)
   })
 
+  test('list mutation does not poison listing cache to false when polling fails', async () => {
+    const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
+    const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default
+    pollAuth.mockResolvedValueOnce({ status: 'SUCCESS', requestId: 'req-list-fail' })
+    pollIntentStatus.mockResolvedValueOnce({ status: 'failed', reason: 'backend timeout after execution window' })
+
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        authorizationUrl: 'https://backend.example/auth/list',
+        authorizationSessionId: 'auth-list-fail',
+        intent: { meta: { requestId: 'req-list-fail' }, payload: {} },
+        backendAuthToken: 'auth-list-fail',
+      }),
+    })
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+    queryClient.setQueryData(['labs', 'isTokenListed', '4'], { isListed: true })
+
+    const { result } = renderHook(() => useListLabSSO(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ labId: '4', backendUrl: 'https://backend.example' })
+      ).rejects.toThrow('backend timeout after execution window')
+    })
+
+    expect(queryClient.getQueryData(['labs', 'isTokenListed', '4'])).toEqual({ isListed: true })
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['labs', 'isTokenListed', '4'],
+      exact: true,
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['labs', 'getAllLabs'],
+      exact: true,
+    })
+  })
+
   test('update and delete mutations prepare institutional intents', async () => {
     const pollIntentStatus = (await import('@/utils/intents/pollIntentStatus')).default
     const pollAuth = (await import('@/utils/intents/pollIntentAuthorizationStatus')).default

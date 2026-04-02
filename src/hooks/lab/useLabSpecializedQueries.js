@@ -409,9 +409,6 @@ export const useLabById = (labId, options = {}) => {
   const labResult = useLab(normalizedLabId, {
     ...LAB_QUERY_CONFIG,
     enabled: !!normalizedLabId && (options.enabled !== false),
-    // Detail pages must revalidate on mount because query persistence can keep
-    // stale placeholder/null lab data around across reloads.
-    refetchOnMount: 'always',
   });
 
   // Get owner data
@@ -424,9 +421,6 @@ export const useLabById = (labId, options = {}) => {
   const listingResult = useIsTokenListed(normalizedLabId, {
     ...LAB_QUERY_CONFIG,
     enabled: !!normalizedLabId && (options.enabled !== false),
-    // Listing state is user-visible and can be toggled from other surfaces.
-    // Force a fresh read on mount instead of trusting persisted cache.
-    refetchOnMount: 'always',
   });
 
   // Get lab reputation
@@ -786,7 +780,6 @@ export const useLabsForReservation = (options = {}) => {
   const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
     enabled: options.enabled !== false,
-    refetchOnMount: 'always',
     // Convert BigInt IDs to numbers in select to prevent serialization errors
     select: normalizeLabIds
   });
@@ -800,7 +793,6 @@ export const useLabsForReservation = (options = {}) => {
           queryKey: labQueryKeys.getLab(labId),
           queryFn: () => useLabSSO.queryFn(labId),
           enabled: !!labId,
-          refetchOnMount: 'always',
           ...LAB_QUERY_CONFIG,
         }))
       : [],
@@ -814,7 +806,6 @@ export const useLabsForReservation = (options = {}) => {
           queryKey: labQueryKeys.isTokenListed(labId),
           queryFn: () => useIsTokenListedSSO.queryFn(labId),
           enabled: !!labId,
-          refetchOnMount: 'always',
           ...LAB_QUERY_CONFIG,
         }))
       : [],
