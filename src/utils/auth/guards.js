@@ -136,6 +136,13 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const waitForRetryDelay = (attempt, baseDelayMs) => {
+  if (process.env.NODE_ENV === 'test') {
+    return Promise.resolve();
+  }
+  return sleep(baseDelayMs * attempt);
+}
+
 const TRANSIENT_OWNERSHIP_ERROR_PATTERNS = [
   'nonexistent token',
   'invalid token',
@@ -248,7 +255,7 @@ export async function requireLabOwner(session, labId) {
         if (!creatorPucHash || creatorPucHash.toLowerCase() === ZERO_BYTES32) {
           // Right after creation, creator hash can lag briefly on some RPC providers.
           if (attempt < maxAttempts) {
-            await sleep(baseDelayMs * attempt);
+            await waitForRetryDelay(attempt, baseDelayMs);
             continue;
           }
           throw new ConflictError(
@@ -279,7 +286,7 @@ export async function requireLabOwner(session, labId) {
           `requireLabOwner: transient verification error on attempt ${attempt}/${maxAttempts} for lab ${labId}; retrying`,
           error?.message || error
         );
-        await sleep(baseDelayMs * attempt);
+        await waitForRetryDelay(attempt, baseDelayMs);
         continue;
       }
 
