@@ -403,11 +403,15 @@ export const useLabsForMarket = (options = {}) => {
  */
 export const useLabById = (labId, options = {}) => {
   const normalizedLabId = labId ? String(labId) : null;
+  const { getEffectiveListingState } = useOptimisticUI();
 
   // Get lab details
   const labResult = useLab(normalizedLabId, {
     ...LAB_QUERY_CONFIG,
     enabled: !!normalizedLabId && (options.enabled !== false),
+    // Detail pages must revalidate on mount because query persistence can keep
+    // stale placeholder/null lab data around across reloads.
+    refetchOnMount: 'always',
   });
 
   // Get owner data
@@ -420,6 +424,9 @@ export const useLabById = (labId, options = {}) => {
   const listingResult = useIsTokenListed(normalizedLabId, {
     ...LAB_QUERY_CONFIG,
     enabled: !!normalizedLabId && (options.enabled !== false),
+    // Listing state is user-visible and can be toggled from other surfaces.
+    // Force a fresh read on mount instead of trusting persisted cache.
+    refetchOnMount: 'always',
   });
 
   // Get lab reputation
@@ -443,6 +450,10 @@ export const useLabById = (labId, options = {}) => {
   // Extract image URLs from metadata for caching
   const metadata = metadataResult.data;
   const imageUrlsToCache = useMemo(() => collectMetadataImages(metadata), [metadata]);
+  const serverIsListed = listingResult.data?.isListed;
+  const effectiveListingState = listingResult.error
+    ? { isListed: true, isPending: false, operation: null }
+    : getEffectiveListingState(normalizedLabId, serverIsListed);
 
   // Cache images
   const imageResults = useQueries({
@@ -462,13 +473,11 @@ export const useLabById = (labId, options = {}) => {
 
   const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
   
-  // Only critical errors (lab, owner, listing) should fail the entire query
+  // Only critical errors (lab, owner) should fail the entire query.
+  // Listing errors are treated as recoverable to avoid false "Not Available" states.
   // Metadata errors should be gracefully handled with fallbacks
-  const hasCriticalErrors = labResult.error || ownerResult.error || listingResult.error;
+  const hasCriticalErrors = labResult.error || ownerResult.error;
   const hasMetadataError = metadataResult.error;
-
-  // Check if lab is listed
-  const isListed = listingResult.data?.isListed;
 
   // Transform data - Always return lab if it exists, include listing status
   const lab = useMemo(() => {
@@ -481,7 +490,7 @@ export const useLabById = (labId, options = {}) => {
     return buildEnrichedLab({
       lab: labResult.data,
       metadata,
-      isListed,
+      isListed: effectiveListingState.isListed,
       reputation: reputationResult.data,
       ownerAddress,
       providerMapping,
@@ -490,8 +499,8 @@ export const useLabById = (labId, options = {}) => {
       includeProviderFallback: true
     });
   }, [
+    effectiveListingState.isListed,
     imageUrlsToCache,
-    isListed,
     labResult.data,
     metadata,
     ownerResult.data,
@@ -512,7 +521,7 @@ export const useLabById = (labId, options = {}) => {
     isLoading,
     isSuccess: !hasCriticalErrors && !!lab,
     isError: hasCriticalErrors,
-    error: labResult.error || ownerResult.error || listingResult.error,
+    error: labResult.error || ownerResult.error,
     metadataError: hasMetadataError ? metadataResult.error : null, // Separate metadata errors
     refetch: () => {
       labResult.refetch();

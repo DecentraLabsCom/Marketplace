@@ -574,6 +574,25 @@ describe("useLabSpecializedQueries", () => {
       expect(numberResult.current.data).toBeDefined();
     });
 
+    test("forces live lab and listing refetch on detail mount", () => {
+      const wrapper = createWrapper();
+      renderHook(() => useLabById("1"), { wrapper });
+
+      expect(mockUseLab).toHaveBeenCalledWith(
+        "1",
+        expect.objectContaining({
+          refetchOnMount: "always",
+        })
+      );
+
+      expect(mockUseIsTokenListed).toHaveBeenCalledWith(
+        "1",
+        expect.objectContaining({
+          refetchOnMount: "always",
+        })
+      );
+    });
+
     test("handles null lab ID", () => {
       const wrapper = createWrapper();
       const { result } = renderHook(() => useLabById(null), { wrapper });
@@ -618,6 +637,26 @@ describe("useLabSpecializedQueries", () => {
       });
 
       expect(mockUseIsTokenListed).toHaveBeenCalled();
+    });
+
+    test("keeps lab bookable when listing status query fails", async () => {
+      mockUseIsTokenListed.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isSuccess: false,
+        error: new Error("Listing status failed"),
+        refetch: jest.fn(),
+      });
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabById("1"), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.isError).toBeFalsy();
+      expect(result.current.data?.isListed).toBe(true);
     });
 
     test("handles metadata fetch error gracefully", async () => {
