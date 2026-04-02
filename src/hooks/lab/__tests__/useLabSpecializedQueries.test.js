@@ -1124,6 +1124,27 @@ describe("useLabSpecializedQueries", () => {
       expect(result.current.data.labs).toEqual([]);
     });
 
+    test("forces live refetch for reservation lab ids, details, and listing", () => {
+      const wrapper = createWrapper();
+      renderHook(() => useLabsForReservation(), { wrapper });
+
+      expect(mockUseAllLabsSSO).toHaveBeenCalledWith(
+        expect.objectContaining({
+          refetchOnMount: "always",
+        })
+      );
+
+      const getLabUseQuery = mockUseQueries.mock.calls.find(({ 0: config }) =>
+        config?.queries?.some((query) => query.queryKey?.[1] === "getLab")
+      )?.[0];
+      const listingUseQuery = mockUseQueries.mock.calls.find(({ 0: config }) =>
+        config?.queries?.some((query) => query.queryKey?.[1] === "isTokenListed")
+      )?.[0];
+
+      expect(getLabUseQuery?.queries?.every((query) => query.refetchOnMount === "always")).toBe(true);
+      expect(listingUseQuery?.queries?.every((query) => query.refetchOnMount === "always")).toBe(true);
+    });
+
     test("respects enabled option", () => {
       const wrapper = createWrapper();
       renderHook(() => useLabsForReservation({ enabled: false }), { wrapper });

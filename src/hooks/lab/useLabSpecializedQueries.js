@@ -786,6 +786,7 @@ export const useLabsForReservation = (options = {}) => {
   const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
     enabled: options.enabled !== false,
+    refetchOnMount: 'always',
     // Convert BigInt IDs to numbers in select to prevent serialization errors
     select: normalizeLabIds
   });
@@ -799,6 +800,7 @@ export const useLabsForReservation = (options = {}) => {
           queryKey: labQueryKeys.getLab(labId),
           queryFn: () => useLabSSO.queryFn(labId),
           enabled: !!labId,
+          refetchOnMount: 'always',
           ...LAB_QUERY_CONFIG,
         }))
       : [],
@@ -812,6 +814,7 @@ export const useLabsForReservation = (options = {}) => {
           queryKey: labQueryKeys.isTokenListed(labId),
           queryFn: () => useIsTokenListedSSO.queryFn(labId),
           enabled: !!labId,
+          refetchOnMount: 'always',
           ...LAB_QUERY_CONFIG,
         }))
       : [],
