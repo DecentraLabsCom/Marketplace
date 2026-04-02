@@ -136,7 +136,7 @@ describe('LabTokenContext', () => {
   describe('Price Conversion', () => {
     test('formatPrice converts per-second price to per-hour price', () => {
       // Mock: 0.54 credits per hour = 15 raw units per second with 5 credit decimals.
-      mockLabTokenData.formatPrice.mockReturnValue('0.50');
+      mockLabTokenData.formatPrice.mockReturnValue('0.5');
 
       const { result } = renderHook(() => useLabToken(), {
         wrapper: LabTokenProvider,
@@ -145,11 +145,11 @@ describe('LabTokenContext', () => {
       const formattedPrice = result.current.formatPrice('15');
 
       expect(result.current.formatPrice).toHaveBeenCalledWith('15');
-      expect(formattedPrice).toBe('0.50');
+      expect(formattedPrice).toBe('0.5');
     });
 
     test('formatPrice handles zero price', () => {
-      mockLabTokenData.formatPrice.mockReturnValue('0.00');
+      mockLabTokenData.formatPrice.mockReturnValue('0');
 
       const { result } = renderHook(() => useLabToken(), {
         wrapper: LabTokenProvider,
@@ -157,7 +157,7 @@ describe('LabTokenContext', () => {
 
       const formattedPrice = result.current.formatPrice('0');
 
-      expect(formattedPrice).toBe('0.00');
+      expect(formattedPrice).toBe('0');
     });
 
     test('formatPrice handles missing decimals', () => {
@@ -167,7 +167,7 @@ describe('LabTokenContext', () => {
         decimals: undefined,
       });
 
-      mockLabTokenData.formatPrice.mockReturnValue('0.00');
+      mockLabTokenData.formatPrice.mockReturnValue('0');
 
       const { result } = renderHook(() => useLabToken(), {
         wrapper: LabTokenProvider,
@@ -175,7 +175,7 @@ describe('LabTokenContext', () => {
 
       const formattedPrice = result.current.formatPrice('15');
 
-      expect(formattedPrice).toBe('0.00');
+      expect(formattedPrice).toBe('0');
     });
   });
 
