@@ -55,7 +55,6 @@ const sanitizeProviderNameForUri = (name) => {
   const base = (name || 'Provider').toString().trim()
   const sanitized = base
     .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 
   return sanitized || 'Provider'
@@ -496,25 +495,56 @@ export default function ProviderDashboard() {
           });
           
           devLog.log('✅ Files moved successfully:', moveResult);
+
+          if (Array.isArray(moveResult?.errors) && moveResult.errors.length > 0) {
+            notifyLabCreatedFilesWarning(
+              addTemporaryNotification,
+              blockchainLabId,
+              `${moveResult.errors.length} file(s) could not be moved to the lab folder`
+            );
+          }
           
           // Update labData with new file paths
           if (moveResult.movedFiles) {
-            const newImages = [];
-            const newDocs = [];
-            
-            moveResult.movedFiles.forEach(movedFile => {
-              if (movedFile.original.includes('/images/')) {
-                newImages.push(movedFile.new);
-              } else if (movedFile.original.includes('/docs/')) {
-                newDocs.push(movedFile.new);
-              }
-            });
-            
-            if (newImages.length > 0) {
-              labData.images = newImages;
+            const movedPathMap = new Map(
+              moveResult.movedFiles
+                .filter(movedFile => movedFile?.original && movedFile?.new)
+                .map(movedFile => [movedFile.original, movedFile.new])
+            );
+
+            const remapPaths = (paths = []) => (
+              Array.isArray(paths)
+                ? paths.map(filePath => movedPathMap.get(filePath) || filePath)
+                : []
+            );
+
+            const remappedImages = remapPaths(labData.images);
+            const remappedDocs = remapPaths(labData.docs);
+
+            if (remappedImages.length > 0) {
+              labData.images = remappedImages;
             }
-            if (newDocs.length > 0) {
-              labData.docs = newDocs;
+            if (remappedDocs.length > 0) {
+              labData.docs = remappedDocs;
+            }
+
+            // Fallback for cases where arrays were empty but move returned files.
+            if ((!Array.isArray(labData.images) || labData.images.length === 0) && Array.isArray(moveResult.movedFiles)) {
+              const imageMoves = moveResult.movedFiles
+                .filter(movedFile => movedFile?.original?.includes('/images/'))
+                .map(movedFile => movedFile.new);
+              if (imageMoves.length > 0) {
+                labData.images = imageMoves;
+              }
+            }
+
+            if ((!Array.isArray(labData.docs) || labData.docs.length === 0) && Array.isArray(moveResult.movedFiles)) {
+              const docMoves = moveResult.movedFiles
+                .filter(movedFile => movedFile?.original?.includes('/docs/'))
+                .map(movedFile => movedFile.new);
+              if (docMoves.length > 0) {
+                labData.docs = docMoves;
+              }
             }
           }
         } catch (moveError) {
@@ -654,7 +684,6 @@ export default function ProviderDashboard() {
         labData = { ...labData, price: priceInTokenUnits.toString() }
       } catch (error) {
         devLog.error('Error converting price to credit units:', error)
-        notifyLabInvalidPrice(addTemporaryNotification, error.message)
         return
       }
     }

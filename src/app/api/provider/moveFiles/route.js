@@ -17,6 +17,39 @@ import {
   HttpError 
 } from '@/utils/auth/guards'
 
+const MAX_MOVE_ATTEMPTS = 3
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+const normalizePathSeparators = (value = '') => String(value).replace(/\\/g, '/')
+
+const extractTempRelativePath = (filePath) => {
+  const normalizedInput = normalizePathSeparators(filePath)
+
+  if (normalizedInput.startsWith('http')) {
+    const url = new URL(normalizedInput)
+    const normalizedPathname = normalizePathSeparators(url.pathname)
+    const marker = '/data/temp/'
+    const markerIndex = normalizedPathname.indexOf(marker)
+    if (markerIndex === -1) {
+      throw new Error(`Invalid blob URL format: ${filePath}`)
+    }
+    const relative = normalizedPathname.substring(markerIndex + marker.length)
+    if (!relative) {
+      throw new Error(`Invalid blob URL temp path: ${filePath}`)
+    }
+    return decodeURIComponent(relative)
+  }
+
+  const marker = '/temp/'
+  const normalizedWithSlash = normalizedInput.startsWith('/') ? normalizedInput : `/${normalizedInput}`
+  const markerIndex = normalizedWithSlash.indexOf(marker)
+  if (markerIndex === -1) {
+    throw new Error(`Cannot extract path from: ${filePath}`)
+  }
+  return normalizedWithSlash.substring(markerIndex + marker.length)
+}
+
 /**
  * Moves files from temporary folder to lab-specific folder
  * @param {Request} req - HTTP request with JSON body
@@ -65,85 +98,81 @@ export async function POST(req) {
     for (const filePath of filePaths) {
       try {
         // Validate that file is in temp folder
-        if (!filePath.includes('/temp/') && !filePath.includes('temp/')) {
+        const normalizedFilePath = normalizePathSeparators(filePath)
+        if (!normalizedFilePath.includes('/temp/') && !normalizedFilePath.includes('temp/')) {
           throw new Error(`File must be in temp folder: ${filePath}`);
         }
 
-        // Extract the folder (images/docs) and filename from the path
-        // Path formats:
-        // - Local: "/temp/images/file.jpg" or "temp/images/file.jpg"
-        // - Vercel Blob URL: "https://...blob.vercel-storage.com/data/temp/images/file.jpg"
-        
-        let folderAndFile;
-        if (filePath.startsWith('http')) {
-          // Vercel Blob URL - extract path after '/data/temp/'
-          const match = filePath.match(/\/data\/temp\/(.+)/);
-          if (!match) {
-            throw new Error(`Invalid blob URL format: ${filePath}`);
-          }
-          folderAndFile = match[1]; // e.g., "images/file.jpg"
-        } else {
-          // Local relative path - extract after '/temp/' or 'temp/'
-          const tempIndex = filePath.indexOf('/temp/');
-          if (tempIndex !== -1) {
-            folderAndFile = filePath.substring(tempIndex + 6); // After '/temp/'
-          } else {
-            const tempIndex2 = filePath.indexOf('temp/');
-            if (tempIndex2 !== -1) {
-              folderAndFile = filePath.substring(tempIndex2 + 5); // After 'temp/'
-            } else {
-              throw new Error(`Cannot extract path from: ${filePath}`);
-            }
-          }
-        }
+        const folderAndFile = extractTempRelativePath(filePath)
 
         // Construct new path with labId
         const newRelativePath = `/${labId}/${folderAndFile}`;
 
-        if (!isVercel) {
-          // Local development: move file in filesystem
-          const oldLocalPath = path.join('./public', filePath.startsWith('/') ? filePath.substring(1) : filePath);
-          const newLocalPath = path.join(`./public/${labId}`, folderAndFile);
+        let moved = false
+        let lastError = null
 
-          // Ensure destination directory exists
-          await fs.mkdir(path.dirname(newLocalPath), { recursive: true });
+        for (let attempt = 1; attempt <= MAX_MOVE_ATTEMPTS; attempt += 1) {
+          try {
+            if (!isVercel) {
+              // Local development: move file in filesystem
+              const oldLocalPath = path.join('./public', normalizedFilePath.startsWith('/') ? normalizedFilePath.substring(1) : normalizedFilePath)
+              const newLocalPath = path.join(`./public/${labId}`, folderAndFile)
 
-          // Copy file to new location
-          await fs.copyFile(oldLocalPath, newLocalPath);
+              // Ensure destination directory exists
+              await fs.mkdir(path.dirname(newLocalPath), { recursive: true })
 
-          // Delete original file
-          await fs.unlink(oldLocalPath);
+              // Copy file to new location
+              await fs.copyFile(oldLocalPath, newLocalPath)
 
-          devLog.info(`📁 File moved locally: ${oldLocalPath} → ${newLocalPath}`);
-          movedFiles.push({
-            original: filePath,
-            new: newRelativePath,
-            storage: 'local'
-          });
+              // Delete original file
+              await fs.unlink(oldLocalPath)
 
-        } else {
-          // Production: move file in Vercel Blob
-          const oldBlobPath = filePath.startsWith('http') 
-            ? filePath // Already a full URL
-            : `data${filePath}`; // Convert relative path to blob path
+              devLog.info(`📁 File moved locally: ${oldLocalPath} → ${newLocalPath}`)
+              movedFiles.push({
+                original: filePath,
+                new: newRelativePath,
+                storage: 'local'
+              })
+            } else {
+              // Production: move file in Vercel Blob
+              const oldBlobPath = normalizedFilePath.startsWith('http')
+                ? filePath // Keep original URL, may include encoded path
+                : `data${normalizedFilePath}` // Convert relative path to blob path
 
-          const newBlobPath = `data${newRelativePath}`;
+              const newBlobPath = `data${newRelativePath}`
 
-          // Copy to new location
-          const newBlob = await copy(oldBlobPath, newBlobPath, { 
-            access: 'public',
-            addRandomSuffix: false 
-          });
+              // Copy to new location
+              const newBlob = await copy(oldBlobPath, newBlobPath, {
+                access: 'public',
+                addRandomSuffix: false
+              })
 
-          // Delete original
-          await del(oldBlobPath);
+              // Delete original
+              await del(oldBlobPath)
 
-          devLog.info(`📁 File moved in blob: ${oldBlobPath} → ${newBlob.url}`);
-          movedFiles.push({
-            original: filePath,
-            new: newBlob.url,
-            storage: 'blob'
-          });
+              devLog.info(`📁 File moved in blob: ${oldBlobPath} → ${newBlob.url}`)
+              movedFiles.push({
+                original: filePath,
+                new: newBlob.url,
+                storage: 'blob'
+              })
+            }
+
+            moved = true
+            break
+          } catch (attemptError) {
+            lastError = attemptError
+            const shouldRetry = attempt < MAX_MOVE_ATTEMPTS
+            if (!shouldRetry) {
+              break
+            }
+            // Handle transient storage/network issues with small linear backoff.
+            await sleep(200 * attempt)
+          }
+        }
+
+        if (!moved) {
+          throw lastError || new Error('Unknown move error')
         }
 
       } catch (fileError) {

@@ -134,6 +134,25 @@ export async function requireAuthWithWallet() {
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const TRANSIENT_OWNERSHIP_ERROR_PATTERNS = [
+  'nonexistent token',
+  'invalid token',
+  'header not found',
+  'missing trie node',
+  'timeout',
+  'network',
+  'rate limit',
+  'temporarily unavailable'
+];
+
+function isTransientOwnershipError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  if (!message) return false;
+  return TRANSIENT_OWNERSHIP_ERROR_PATTERNS.some(pattern => message.includes(pattern));
+}
+
 function normalizeOrganizationDomain(value) {
   if (!value || typeof value !== 'string') {
     return null;
@@ -205,53 +224,76 @@ export async function requireLabOwner(session, labId) {
     throw new ForbiddenError('No wallet linked to your account. Please link a wallet first.');
   }
 
-  try {
-    const contract = await getContractInstance();
-    const labOwner = await contract.ownerOf(numericLabId);
-    const isOwner = labOwner.toLowerCase() === userWallet.toLowerCase();
+  const maxAttempts = isSsoSession ? 5 : 3;
+  const baseDelayMs = isSsoSession ? 250 : 150;
 
-    if (!isOwner) {
-      devLog.warn(`requireLabOwner: Wallet ${userWallet.slice(0, 8)}... is not owner of lab ${labId}`);
-      throw new ForbiddenError(`You are not the owner of lab ${labId}`);
-    }
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const contract = await getContractInstance();
+      const labOwner = await contract.ownerOf(numericLabId);
+      const isOwner = labOwner.toLowerCase() === userWallet.toLowerCase();
 
-    if (isSsoSession) {
-      const expectedCreatorHash = getPucHashFromSession(session);
-      if (!expectedCreatorHash) {
-        throw new ForbiddenError('Missing stable SSO identity', 'MISSING_SSO_IDENTITY');
+      if (!isOwner) {
+        devLog.warn(`requireLabOwner: Wallet ${userWallet.slice(0, 8)}... is not owner of lab ${labId}`);
+        throw new ForbiddenError(`You are not the owner of lab ${labId}`);
       }
 
-      const creatorPucHash = await readLabCreatorPucHash(contract, numericLabId);
-      if (!creatorPucHash || creatorPucHash.toLowerCase() === ZERO_BYTES32) {
-        throw new ConflictError(
-          'This laboratory is legacy and pending migration.',
-          'LAB_LEGACY_BLOCKED'
+      if (isSsoSession) {
+        const expectedCreatorHash = getPucHashFromSession(session);
+        if (!expectedCreatorHash) {
+          throw new ForbiddenError('Missing stable SSO identity', 'MISSING_SSO_IDENTITY');
+        }
+
+        const creatorPucHash = await readLabCreatorPucHash(contract, numericLabId);
+        if (!creatorPucHash || creatorPucHash.toLowerCase() === ZERO_BYTES32) {
+          // Right after creation, creator hash can lag briefly on some RPC providers.
+          if (attempt < maxAttempts) {
+            await sleep(baseDelayMs * attempt);
+            continue;
+          }
+          throw new ConflictError(
+            'This laboratory is legacy and pending migration.',
+            'LAB_LEGACY_BLOCKED'
+          );
+        }
+
+        if (creatorPucHash.toLowerCase() !== expectedCreatorHash.toLowerCase()) {
+          throw new ForbiddenError(
+            'You are not the creator of this laboratory.',
+            'LAB_CREATOR_MISMATCH'
+          );
+        }
+      }
+
+      devLog.log(`requireLabOwner: Verified ownership of lab ${labId} for ${userWallet.slice(0, 8)}...`);
+      return session;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+
+      const transient = isTransientOwnershipError(error);
+      const hasMoreAttempts = attempt < maxAttempts;
+      if (transient && hasMoreAttempts) {
+        devLog.warn(
+          `requireLabOwner: transient verification error on attempt ${attempt}/${maxAttempts} for lab ${labId}; retrying`,
+          error?.message || error
         );
+        await sleep(baseDelayMs * attempt);
+        continue;
       }
 
-      if (creatorPucHash.toLowerCase() !== expectedCreatorHash.toLowerCase()) {
-        throw new ForbiddenError(
-          'You are not the creator of this laboratory.',
-          'LAB_CREATOR_MISMATCH'
-        );
+      devLog.error(`requireLabOwner: Contract error for lab ${labId}:`, error.message);
+
+      if (error.message?.includes('nonexistent token') || error.message?.includes('invalid token')) {
+        throw new BadRequestError(`Lab ${labId} does not exist`);
       }
+
+      throw new ForbiddenError(`Unable to verify ownership of lab ${labId}`);
     }
-
-    devLog.log(`requireLabOwner: Verified ownership of lab ${labId} for ${userWallet.slice(0, 8)}...`);
-    return session;
-  } catch (error) {
-    if (error instanceof HttpError) {
-      throw error;
-    }
-
-    devLog.error(`requireLabOwner: Contract error for lab ${labId}:`, error.message);
-
-    if (error.message?.includes('nonexistent token') || error.message?.includes('invalid token')) {
-      throw new BadRequestError(`Lab ${labId} does not exist`);
-    }
-
-    throw new ForbiddenError(`Unable to verify ownership of lab ${labId}`);
   }
+
+  throw new ForbiddenError(`Unable to verify ownership of lab ${labId}`);
 }
 
 /**

@@ -44,11 +44,11 @@ export function convertHourlyCreditsToRawPerSecond(hourlyCredits, decimals = CRE
   if (rawPerHour < 0n) {
     throw new Error('Price must be positive')
   }
-  if (rawPerHour % SECONDS_PER_HOUR !== 0n) {
-    throw new Error(
-      `Hourly price must be representable exactly with ${decimals} credit decimals and per-second pricing`
-    )
-  }
 
-  return rawPerHour / SECONDS_PER_HOUR
+  // Contract stores integer raw units per second. Round hourly input to the nearest
+  // representable per-second value so users are not blocked by precision constraints.
+  const base = rawPerHour / SECONDS_PER_HOUR
+  const remainder = rawPerHour % SECONDS_PER_HOUR
+  const shouldRoundUp = remainder * 2n >= SECONDS_PER_HOUR
+  return shouldRoundUp ? base + 1n : base
 }
