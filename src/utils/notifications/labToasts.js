@@ -25,9 +25,6 @@ export const labToastIds = {
   listFailed: (labId) => `lab-list-failed:${normalizeLabId(labId)}`,
   unlisted: (labId) => `lab-unlisted:${normalizeLabId(labId)}`,
   unlistFailed: (labId) => `lab-unlist-failed:${normalizeLabId(labId)}`,
-  settlementStarted: () => 'lab-settlement-started',
-  settlementRequested: () => 'lab-settlement-requested',
-  settlementFailed: () => 'lab-settlement-failed',
   creatorMismatch: () => 'lab-creator-mismatch',
   legacyBlocked: () => 'lab-legacy-blocked',
 }
@@ -113,15 +110,6 @@ export const notifyLabUnlisted = (addTemporaryNotification, labId) =>
 
 export const notifyLabUnlistFailed = (addTemporaryNotification, labId, message) =>
   notify(addTemporaryNotification, 'error', `Failed to unlist lab: ${message}`, labToastIds.unlistFailed(labId))
-
-export const notifyLabSettlementStarted = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'pending', 'Requesting provider settlement...', labToastIds.settlementStarted())
-
-export const notifyLabSettlementRequested = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'success', 'Provider settlement requested successfully!', labToastIds.settlementRequested())
-
-export const notifyLabSettlementFailed = (addTemporaryNotification, message) =>
-  notify(addTemporaryNotification, 'error', `Failed to request provider settlement: ${message}`, labToastIds.settlementFailed())
 
 export const notifyLabCreatorMismatch = (addTemporaryNotification) =>
   notify(

@@ -50,13 +50,6 @@ function normalizeNonNegativeInteger(value) {
   return parsed
 }
 
-function normalizeProviderPayoutMaxBatch(value) {
-  if (value === undefined || value === null || value === '') return null
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) return null
-  return parsed
-}
-
 async function resolveCancellationReservationSnapshot(reservationKey) {
   const contract = await getContractInstance()
   const reservation = await contract.getReservation(reservationKey)
@@ -96,7 +89,7 @@ export async function POST(request) {
 
     let resolvedLabId = payloadInput.labId
     let resolvedPrice = payloadInput.price
-    let resolvedMaxBatch = payloadInput.maxBatch
+    const resolvedMaxBatch = payloadInput.maxBatch
     const reservationKey = payloadInput.reservationKey || ethers.ZeroHash
 
     if (isCancellationAction(action)) {
@@ -117,27 +110,6 @@ export async function POST(request) {
           { status: 502 },
         )
       }
-    }
-
-    if (action === ACTION_CODES.REQUEST_PROVIDER_PAYOUT) {
-      const normalizedLabId = normalizeNonNegativeInteger(resolvedLabId)
-      if (normalizedLabId === null) {
-        return NextResponse.json(
-          { error: 'Missing or invalid labId for REQUEST_PROVIDER_PAYOUT' },
-          { status: 400 },
-        )
-      }
-
-      const normalizedMaxBatch = normalizeProviderPayoutMaxBatch(payloadInput.maxBatch)
-      if (normalizedMaxBatch === null) {
-        return NextResponse.json(
-          { error: 'Missing or invalid maxBatch for REQUEST_PROVIDER_PAYOUT (expected integer 1-100)' },
-          { status: 400 },
-        )
-      }
-
-      resolvedLabId = normalizedLabId
-      resolvedMaxBatch = normalizedMaxBatch
     }
 
     const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)

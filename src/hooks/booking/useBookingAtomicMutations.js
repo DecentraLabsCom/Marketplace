@@ -1,12 +1,12 @@
 "use client";
 /**
  * Atomic React Query Hooks for Booking-related Write Operations
- * Institutional booking mutations route through backend-managed reservation and payout intents.
+ * Institutional booking mutations route through backend-managed reservation intents.
  * Customer wallet mutation variants have been removed.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/context/UserContext'
-import { bookingQueryKeys, stakingQueryKeys } from '@/utils/hooks/queryKeys'
+import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { useBookingCacheUpdates } from './useBookingCacheUpdates'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
 import {
@@ -107,30 +107,6 @@ const awaitBackendAuthorization = async (prepareData, { backendUrl, authToken, p
       ),
     closePopupInFinally: true,
   })
-}
-
-const DEFAULT_PROVIDER_PAYOUT_MAX_BATCH = 100
-
-const normalizePayoutRequestInput = (input, { fallbackBackendUrl } = {}) => {
-  const payload = input && typeof input === 'object' ? input : {}
-  const rawLabId = payload.labId ?? payload.tokenId ?? payload.id
-  const parsedLabId = Number(rawLabId)
-
-  if (!Number.isInteger(parsedLabId) || parsedLabId < 0) {
-    throw new Error('Missing or invalid labId for payout request')
-  }
-
-  const rawMaxBatch = payload.maxBatch ?? DEFAULT_PROVIDER_PAYOUT_MAX_BATCH
-  const parsedMaxBatch = Number(rawMaxBatch)
-  if (!Number.isInteger(parsedMaxBatch) || parsedMaxBatch < 1 || parsedMaxBatch > 100) {
-    throw new Error('Invalid maxBatch for payout request (expected integer 1-100)')
-  }
-
-  return {
-    labId: parsedLabId,
-    maxBatch: parsedMaxBatch,
-    backendUrl: payload.backendUrl || fallbackBackendUrl || null,
-  }
 }
 
 async function runActionIntent(action, payload) {
@@ -816,58 +792,6 @@ export const useCancelBookingSSO = (options = {}) => {
  */
 export const useCancelBooking = (options = {}) => {
   return useCancelBookingSSO(options);
-};
-
-/**
- * Requests funds for SSO users via WebAuthn + backend action intent
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useRequestProviderPayoutSSO = (options = {}) => {
-  const queryClient = useQueryClient();
-  const { institutionBackendUrl } = useUser();
-
-  return useMutation({
-    mutationFn: async (requestInput = {}) => {
-      const { labId, maxBatch, backendUrl } = normalizePayoutRequestInput(requestInput, {
-        fallbackBackendUrl: institutionBackendUrl,
-      })
-      if (!backendUrl) {
-        throw new Error('Missing institutional backend URL');
-      }
-      const data = await runActionIntent(ACTION_CODES.REQUEST_PROVIDER_PAYOUT, {
-        backendUrl,
-        labId,
-        maxBatch,
-      });
-      devLog.log('useRequestProviderPayoutSSO intent (webauthn):', data);
-      return data;
-    },
-    onSuccess: (_result, variables) => {
-      // Invalidate safe balance and related queries
-      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.safeBalance() });
-      queryClient.invalidateQueries({ queryKey: ['staking', 'providerReceivables'], exact: false });
-
-      const normalizedLabId = Number(variables?.labId)
-      if (Number.isInteger(normalizedLabId) && normalizedLabId >= 0) {
-        queryClient.invalidateQueries({ queryKey: stakingQueryKeys.providerReceivable(normalizedLabId) });
-      }
-      devLog.log('Provider payout request submitted successfully, cache invalidated');
-    },
-    onError: (error) => {
-      devLog.error('Failed to request provider payout:', error);
-    },
-    ...options,
-  });
-};
-
-/**
- * Unified Hook for requesting provider payout (institutional / managed path only)
- * @param {Object} [options={}] - Additional mutation options
- * @returns {Object} React Query mutation object
- */
-export const useRequestProviderPayout = (options = {}) => {
-  return useRequestProviderPayoutSSO(options);
 };
 
 // Re-export cache updates utility

@@ -14,7 +14,6 @@ import {
   useLabsForProvider
 } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
-import { useRequestProviderPayout } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
 import { useLabToken } from '@/context/LabTokenContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
@@ -23,7 +22,6 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
-import { useProviderReceivable } from '@/hooks/staking/useStaking'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
 import getBaseUrl from '@/utils/env/baseUrl'
@@ -31,8 +29,6 @@ import { normalizeResourceTypeCode } from '@/utils/resourceType'
 import { convertHourlyCreditsToRawPerSecond } from '@/utils/blockchain/creditUnits'
 import devLog from '@/utils/dev/logger'
 import {
-  notifyLabSettlementRequested,
-  notifyLabSettlementFailed,
   notifyLabCreateCancelled,
   notifyLabCreatorMismatch,
   notifyLabCreated,
@@ -91,37 +87,6 @@ const resolveOnchainLabUri = (uri) => {
     return `${baseUrl}/api/metadata?uri=${encodeURIComponent(trimmed)}`
   }
   return trimmed
-}
-
-const DEFAULT_SETTLEMENT_MAX_BATCH = 100
-
-const hasRequestableReceivable = (receivableData) => {
-  const totalReceivable = receivableData?.totalReceivable
-  if (totalReceivable === undefined || totalReceivable === null) return false
-
-  try {
-    return BigInt(totalReceivable) > 0n
-  } catch {
-    return false
-  }
-}
-
-const isNoCompletedReservationsError = (error) => {
-  const rawMessage = [
-    error?.shortMessage,
-    error?.message,
-    error?.reason,
-    error?.cause?.message,
-    error?.data?.message,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-
-  return (
-    rawMessage.includes('no completed reservations')
-    || rawMessage.includes('nothing to process')
-  )
 }
 
 /**
@@ -187,9 +152,6 @@ export default function ProviderDashboard() {
   const deleteLabMutation = useDeleteLab();
   const listLabMutation = useListLab();
   const unlistLabMutation = useUnlistLab();
-  
-  // React Query mutation for requesting provider payout on the currently selected lab
-  const requestProviderPayoutMutation = useRequestProviderPayout();
   
   // 🚀 React Query mutations for provider data management
   const saveLabDataMutation = useSaveLabData();
@@ -450,32 +412,6 @@ export default function ProviderDashboard() {
     [ownedLabs, selectedLabId]
   );
 
-  const selectedSettlementLabId = useMemo(() => {
-    const rawLabId = selectedLab?.id ?? selectedLab?.tokenId ?? selectedLabId
-    const normalizedLabId = Number(rawLabId)
-    if (!Number.isInteger(normalizedLabId) || normalizedLabId < 0) return null
-    return normalizedLabId
-  }, [selectedLab, selectedLabId])
-
-  const {
-    data: selectedLabProviderReceivable,
-    isLoading: isSelectedLabProviderReceivableLoading,
-  } = useProviderReceivable(selectedSettlementLabId, {
-    enabled: selectedSettlementLabId !== null,
-  })
-
-  const canRequestSettlement = useMemo(() => {
-    if (selectedSettlementLabId === null) return false
-    if (requestProviderPayoutMutation.isPending) return false
-    if (isSelectedLabProviderReceivableLoading) return false
-    return hasRequestableReceivable(selectedLabProviderReceivable)
-  }, [
-    selectedSettlementLabId,
-    requestProviderPayoutMutation.isPending,
-    isSelectedLabProviderReceivableLoading,
-    selectedLabProviderReceivable,
-  ])
-  
   // Ensure we have a valid lab object to pass to the modal
   const modalLab = useMemo(() => 
     selectedLab ? selectedLab : (selectedLabId ? null : newLab),
@@ -1001,44 +937,6 @@ export default function ProviderDashboard() {
     }
   };
 
-// Handle requesting provider settlement from the selected lab
-  const handleRequestSettlement = async () => {
-    const actionKey = 'settlement:selected';
-    try {
-      setActionProgressNotification(actionKey, 'Requesting provider settlement...');
-
-      if (selectedSettlementLabId === null) {
-        throw new Error('Select a lab first');
-      }
-      if (!hasRequestableReceivable(selectedLabProviderReceivable)) {
-        throw new Error('No provider receivable available for the selected lab');
-      }
-
-      try {
-        await requestProviderPayoutMutation.mutateAsync({
-          labId: selectedSettlementLabId,
-          maxBatch: DEFAULT_SETTLEMENT_MAX_BATCH,
-          backendUrl: institutionBackendUrl,
-        });
-      } catch (settlementError) {
-        if (!isNoCompletedReservationsError(settlementError)) {
-          throw settlementError
-        }
-        throw new Error('No completed reservations available for settlement request');
-      }
-      
-      clearActionProgressNotification(actionKey);
-      notifyLabSettlementRequested(addTemporaryNotification);
-    } catch (err) {
-      devLog.error(err);
-      clearActionProgressNotification(actionKey);
-      handleMissingWebauthnCredential(err);
-      if (!handleLabAuthorizationErrorToast(err)) {
-        notifyLabSettlementFailed(addTemporaryNotification, formatErrorMessage(err));
-      }
-    }
-  };
-
   const handleSelectChange = (e) => {
     setSelectedLabId(e.target.value);
   };
@@ -1124,14 +1022,11 @@ export default function ProviderDashboard() {
               minDate={today}
             />
 
-            {/* Provider actions */}
-            <ProviderActions
-              onRequestSettlement={handleRequestSettlement}
-              isSettlementEnabled={canRequestSettlement}
-              isRequestingSettlement={requestProviderPayoutMutation.isPending}
-              onAddNewLab={() => {
-                setNewLab(newLabStructure);
-                setSelectedLabId("");
+              {/* Provider actions */}
+              <ProviderActions
+                onAddNewLab={() => {
+                  setNewLab(newLabStructure);
+                  setSelectedLabId("");
                 setIsModalOpen(true);
               }}
             />

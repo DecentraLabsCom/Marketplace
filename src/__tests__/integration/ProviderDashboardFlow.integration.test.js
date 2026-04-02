@@ -54,12 +54,6 @@ const mockUnlistLabMutation = {
   isError: false,
 };
 
-const mockRequestProviderPayoutMutation = {
-  mutateAsync: jest.fn(() => Promise.resolve({ hash: "0xmockhash" })),
-  isLoading: false,
-  isError: false,
-};
-
 jest.mock("@/hooks/lab/useLabAtomicMutations", () => ({
   useAddLab: jest.fn(() => mockAddLabMutation),
   useUpdateLab: jest.fn(() => mockUpdateLabMutation),
@@ -153,7 +147,6 @@ jest.mock("@/hooks/lab/useLabs", () => ({
  * Mock booking hooks
  */
 jest.mock("@/hooks/booking/useBookings", () => ({
-  useRequestProviderPayout: jest.fn(() => mockRequestProviderPayoutMutation),
   useLabBookingsDashboard: jest.fn(() => ({
     data: { bookings: [] },
     isLoading: false,
@@ -163,16 +156,6 @@ jest.mock("@/hooks/booking/useBookings", () => ({
     filteredBookings: [],
     dayClassName: jest.fn(() => ""),
   })),
-}));
-
-// ===== Mock staking hooks (integration) =====
-jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
-  useStakeInfo: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
-  useStakeInfoWallet: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
-  useRequiredStake: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
-  useRequiredStakeWallet: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
-  useProviderReceivable: jest.fn(() => ({ data: { totalReceivable: '0', providerReceivable: '0', deferredInstitutionalReceivable: '0' }, isLoading: false })),
-  useProviderReceivables: jest.fn(() => ({ data: { receivablesByLabId: {}, items: [] }, isLoading: false })),
 }));
 
 /**
@@ -460,51 +443,6 @@ describe("Provider Dashboard Flow Integration", () => {
       expect(mockDeleteLabMutation.mutateAsync).toHaveBeenCalled();
       expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
       expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
-    });
-  });
-
-  /**
-   * Test Case: Request provider settlement from labs
-   * Verifies that clicking Request Settlement triggers settlement mutation
-    */
-  test("requests provider settlement when Request Settlement button is clicked", async () => {
-    const { useUser } = require("@/context/UserContext");
-    useUser.mockReturnValue({
-      isLoggedIn: true,
-      isProvider: true,
-      isProviderLoading: false,
-      address: "0x1234567890123456789012345678901234567890",
-      isSSO: true,
-      isAuthenticated: true,
-      isInstitutionRegistered: true,
-      isInstitutionRegistrationLoading: false,
-      institutionRegistrationStatus: "registered",
-      user: {
-        name: "Dr. Provider",
-        email: "provider@university.edu",
-        role: "faculty",
-      },
-    });
-
-    const { useProviderReceivable } = require('@/hooks/staking/useStakingAtomicQueries');
-    useProviderReceivable.mockReturnValue({
-      data: { totalReceivable: '5000000000000000000', providerReceivable: '5000000000000000000', deferredInstitutionalReceivable: '0' },
-      isLoading: false,
-    });
-
-    renderWithAllProviders(<ProviderDashboardPage />);
-
-    // Wait for settlement request button to appear
-    const settlementButton = await screen.findByRole("button", {
-      name: /request settlement/i,
-    });
-
-    // Click settlement request button
-    fireEvent.click(settlementButton);
-
-    // Verify mutation was called
-    await waitFor(() => {
-      expect(mockRequestProviderPayoutMutation.mutateAsync).toHaveBeenCalled();
     });
   });
 

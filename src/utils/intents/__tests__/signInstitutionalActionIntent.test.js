@@ -38,8 +38,4 @@ describe('signInstitutionalActionIntent utilities', () => {
     expect(intent.payload.maxBatch).toBe(0n)
   })
 
-  test('ACTION_CODES includes institutional cancels', () => {
-    expect(ACTION_CODES.CANCEL_INSTITUTIONAL_REQUEST_BOOKING).toBe(9)
-    expect(ACTION_CODES.CANCEL_INSTITUTIONAL_BOOKING).toBe(10)
-  })
 })

@@ -7,7 +7,6 @@
  * - Lab selection & auto-select
  * - CRUD (add, edit, delete, list/unlist)
  * - File sync (temp → labId, JSON metadata)
- * - Provider settlement request
  * - Error handling (query, mutation, UI)
  * - Edge cases (empty, null, errors, loading)
  */
@@ -69,12 +68,6 @@ let mockBookingsData = {
   isError: false,
 };
 
-let mockSelectedLabPendingPayout = {
-  data: { providerReceivable: "100", deferredInstitutionalReceivable: "0", totalReceivable: "100", eligibleReservationCount: 0 },
-  isLoading: false,
-  isError: false,
-};
-
 // Mock functions
 const mockAddTemporaryNotification = jest.fn();
 const mockAddPersistentNotification = jest.fn();
@@ -85,7 +78,6 @@ const mockUpdateLabMutate = jest.fn();
 const mockDeleteLabMutate = jest.fn();
 const mockListLabMutate = jest.fn();
 const mockUnlistLabMutate = jest.fn();
-const mockRequestProviderPayoutMutate = jest.fn();
 const mockSaveLabDataMutate = jest.fn();
 const mockDeleteLabDataMutate = jest.fn();
 const mockMoveFilesMutate = jest.fn();
@@ -150,7 +142,6 @@ jest.mock("@/hooks/lab/useLabs", () => ({
 
 jest.mock("@/hooks/booking/useBookings", () => ({
   useLabBookingsDashboard: () => mockBookingsData,
-  useRequestProviderPayout: () => ({ mutateAsync: mockRequestProviderPayoutMutate }),
 }));
 
 jest.mock("@/hooks/provider/useProvider", () => ({
@@ -251,23 +242,13 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
 
 jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   __esModule: true,
-  default: ({ onRequestSettlement, onAddNewLab, isSettlementEnabled, isRequestingSettlement }) => (
+  default: ({ onAddNewLab }) => (
     <div data-testid="actions">
-      <button onClick={onRequestSettlement} disabled={!isSettlementEnabled || isRequestingSettlement} data-testid="request-settlement">
-        Request Settlement
-      </button>
       <button onClick={onAddNewLab} data-testid="add-new-lab">
         Add New Lab
       </button>
     </div>
   ),
-}));
-
-// Mock staking hooks barrel to avoid pulling in wagmi-backed staking helpers during Jest
-jest.mock('@/hooks/staking/useStaking', () => ({
-  useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  useRequiredStake: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  useProviderReceivable: jest.fn(() => mockSelectedLabPendingPayout),
 }));
 
 jest.mock("@/components/dashboard/provider/LabModal", () => ({
@@ -333,11 +314,6 @@ describe("ProviderDashboard Component", () => {
       isError: false,
     };
 
-    mockSelectedLabPendingPayout = {
-      data: { providerReceivable: "100", deferredInstitutionalReceivable: "0", totalReceivable: "100", eligibleReservationCount: 0 },
-      isLoading: false,
-      isError: false,
-    };
   });
 
   describe("Access Control", () => {
@@ -906,81 +882,6 @@ describe("ProviderDashboard Component", () => {
           null,
           expect.any(Object)
         );
-      });
-    });
-  });
-
-  describe("Provider Settlement", () => {
-    test("keeps settlement button visible for SSO providers", () => {
-      mockUserData.isSSO = true;
-
-      renderWithClient(<ProviderDashboard />);
-
-      expect(screen.getByTestId("request-settlement")).toBeInTheDocument();
-    });
-
-    test("requests settlement for selected lab successfully", async () => {
-      mockLabsData.data = {
-        labs: [{ id: "1", name: "Lab 1", listed: true }],
-      };
-      mockRequestProviderPayoutMutate.mockResolvedValueOnce({ success: true });
-
-      renderWithClient(<ProviderDashboard />);
-
-      const settlementButton = screen.getByTestId("request-settlement");
-
-      await act(async () => {
-        fireEvent.click(settlementButton);
-      });
-
-      await waitFor(() => {
-        expect(mockRequestProviderPayoutMutate).toHaveBeenCalled();
-        expectTempNotificationCall("success", expect.stringContaining("Provider settlement requested successfully"));
-      });
-    });
-
-    test("disables settlement when selected lab has no pending receivable", async () => {
-      mockLabsData.data = {
-        labs: [{ id: "1", name: "Lab 1", listed: true }],
-      };
-      mockSelectedLabPendingPayout = {
-        data: { providerReceivable: "0", deferredInstitutionalReceivable: "0", totalReceivable: "0", eligibleReservationCount: 0 },
-        isLoading: false,
-        isError: false,
-      };
-
-      renderWithClient(<ProviderDashboard />);
-
-      const settlementButton = await screen.findByTestId("request-settlement");
-      expect(settlementButton).toBeDisabled();
-
-      await act(async () => {
-        fireEvent.click(settlementButton);
-      });
-
-      expect(mockRequestProviderPayoutMutate).not.toHaveBeenCalled();
-    });
-
-    test("handles settlement error", async () => {
-      mockLabsData.data = {
-        labs: [{ id: "1", name: "Lab 1", listed: true }],
-      };
-      const error = new Error("Settlement failed");
-      mockRequestProviderPayoutMutate.mockRejectedValueOnce(error);
-
-      renderWithClient(<ProviderDashboard />);
-
-      const settlementButton = screen.getByTestId("request-settlement");
-
-      await act(async () => {
-        fireEvent.click(settlementButton);
-      });
-
-      await waitFor(() => {
-          expectTempNotificationCall(
-            "error",
-            expect.stringContaining("Failed to request provider settlement")
-          );
       });
     });
   });
