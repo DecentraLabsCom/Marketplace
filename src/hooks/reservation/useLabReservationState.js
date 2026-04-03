@@ -10,12 +10,18 @@ import {
   useReservationRequest,
   useBookingCacheUpdates
 } from '@/hooks/booking/useBookings'
-import { BOOKING_STATUS, isCancelledBooking } from '@/utils/booking/bookingStatus'
+import {
+  BOOKING_STATE,
+  BOOKING_STATUS,
+  isCancelledBooking,
+  normalizeBookingStatusCode,
+  normalizeBookingStatusState,
+} from '@/utils/booking/bookingStatus'
 import { generateTimeOptions } from '@/utils/booking/labBookingCalendar'
 import { normalizeReservationKey } from '@/utils/booking/reservationKey'
 import { useSsoReservationFlow, SSO_BOOKING_STAGE } from './useSsoReservationFlow'
 import { useReservationButtonState } from './useReservationButtonState'
-import { findTrackedBookingForFlow } from './flowTracking'
+import { findTrackedBookingForFlow, isFinalBookingState } from './flowTracking'
 import devLog from '@/utils/dev/logger'
 import {
   notifyReservationConfirmed,
@@ -85,6 +91,60 @@ const buildPendingCalendarBooking = (request) => {
     isPending: true,
     isOptimistic: true,
   }
+}
+
+const getBookingPreferenceScore = (booking) => {
+  const state = normalizeBookingStatusState(booking)
+  const statusCode = normalizeBookingStatusCode(booking)
+  let score = 0
+
+  if (isFinalBookingState(state)) {
+    score += 1000
+  } else if (state === BOOKING_STATE.PENDING || state === BOOKING_STATE.REQUESTED) {
+    score += 100
+  }
+
+  if (booking?.isOptimistic !== true) {
+    score += 10
+  }
+
+  if (Number.isFinite(statusCode)) {
+    score += statusCode
+  }
+
+  return score
+}
+
+const preferBooking = (current, candidate) => {
+  if (!current) return candidate
+  if (!candidate) return current
+
+  const currentScore = getBookingPreferenceScore(current)
+  const candidateScore = getBookingPreferenceScore(candidate)
+  if (candidateScore !== currentScore) {
+    return candidateScore > currentScore ? candidate : current
+  }
+
+  const candidateHasKey = Boolean(normalizeReservationKey(candidate?.reservationKey || candidate?.id))
+  const currentHasKey = Boolean(normalizeReservationKey(current?.reservationKey || current?.id))
+  if (candidateHasKey !== currentHasKey) {
+    return candidateHasKey ? candidate : current
+  }
+
+  return current
+}
+
+const reconcileBookings = (bookings) => {
+  const deduped = new Map()
+
+  bookings.forEach((booking) => {
+    const dedupeKey = buildRequestMatchKey(booking)
+    const mapKey = dedupeKey || `fallback-${deduped.size}`
+    const existing = deduped.get(mapKey)
+    deduped.set(mapKey, preferBooking(existing, booking))
+  })
+
+  return Array.from(deduped.values())
 }
 
 export function useLabReservationState({
@@ -175,63 +235,58 @@ export function useLabReservationState({
     })
   }, [selectedLab, date, duration, labBookings])
 
-  const calendarUserBookingsForLab = useMemo(() => {
-    const baseUserBookings = Array.isArray(userBookingsForLab) ? userBookingsForLab : []
-    const combinedBookings = [
-      ...baseUserBookings,
+  const reconciledBookingsForLab = useMemo(() => (
+    reconcileBookings([
+      ...(Array.isArray(userBookingsForLab) ? userBookingsForLab : []),
       ...(Array.isArray(labBookings) ? labBookings : []),
-    ]
-
-    let trackedBooking = null
-    let syntheticBooking = null
-
-    if (isSSO && ssoBookingStage === SSO_BOOKING_STAGE.REQUEST_REGISTERED) {
-      trackedBooking = findTrackedBookingForFlow(combinedBookings, activeSsoRequest)
-      syntheticBooking = buildPendingCalendarBooking(activeSsoRequest)
-    }
-
-    const merged = [...baseUserBookings]
-    if (trackedBooking) {
-      merged.push(trackedBooking)
-    } else if (syntheticBooking) {
-      merged.push(syntheticBooking)
-    }
-
-    const deduped = new Map()
-    merged.forEach((booking) => {
-      const dedupeKey = buildRequestMatchKey(booking)
-      if (!dedupeKey) {
-        deduped.set(`fallback-${deduped.size}`, booking)
-        return
-      }
-
-      const existing = deduped.get(dedupeKey)
-      if (!existing || existing?.isOptimistic) {
-        deduped.set(dedupeKey, booking)
-      }
-    })
-
-    return Array.from(deduped.values())
-  }, [
-    userBookingsForLab,
-    labBookings,
-    isSSO,
-    ssoBookingStage,
-    activeSsoRequest,
-  ])
+    ])
+  ), [userBookingsForLab, labBookings])
 
   const trackedSsoBooking = useMemo(() => {
     if (!isSSO || !activeSsoRequest) return null
-    return findTrackedBookingForFlow([
-      ...(Array.isArray(userBookingsForLab) ? userBookingsForLab : []),
-      ...(Array.isArray(labBookings) ? labBookings : []),
-    ], activeSsoRequest)
-  }, [isSSO, activeSsoRequest, userBookingsForLab, labBookings])
+    return findTrackedBookingForFlow(reconciledBookingsForLab, activeSsoRequest)
+  }, [isSSO, activeSsoRequest, reconciledBookingsForLab])
+
+  const trackedSsoBookingState = useMemo(
+    () => normalizeBookingStatusState(trackedSsoBooking),
+    [trackedSsoBooking]
+  )
+
+  const isTrackedSsoBookingFinal = isFinalBookingState(trackedSsoBookingState)
+
+  const calendarUserBookingsForLab = useMemo(() => {
+    const merged = [...reconciledBookingsForLab]
+
+    if (
+      isSSO &&
+      ssoBookingStage === SSO_BOOKING_STAGE.REQUEST_REGISTERED &&
+      !trackedSsoBooking
+    ) {
+      const syntheticBooking = buildPendingCalendarBooking(activeSsoRequest)
+      if (syntheticBooking) {
+        merged.push(syntheticBooking)
+      }
+    }
+
+    return reconcileBookings(merged)
+  }, [
+    reconciledBookingsForLab,
+    isSSO,
+    ssoBookingStage,
+    activeSsoRequest,
+    trackedSsoBooking,
+  ])
 
   const totalCost = useMemo(
     () => (selectedLab ? calculateReservationCost(selectedLab.price, duration) : 0n),
     [selectedLab, duration, calculateReservationCost]
   )
+
+  const effectiveBookingStage = isTrackedSsoBookingFinal
+    ? SSO_BOOKING_STAGE.IDLE
+    : ssoBookingStage
+
+  const effectiveIsSSOFlowLocked = isSSO && effectiveBookingStage !== SSO_BOOKING_STAGE.IDLE
 
   useEffect(() => {
     if (!selectedLab) return
@@ -288,6 +343,7 @@ export function useLabReservationState({
 
   useEffect(() => {
     if (!isSSO || ssoBookingStage !== SSO_BOOKING_STAGE.REQUEST_REGISTERED) return
+    if (isTrackedSsoBookingFinal) return
 
     const normalizedReservationKey = normalizeReservationKey(
       activeSsoRequest?.reservationKey || pendingData?.reservationKey || pendingData?.optimisticId
@@ -311,6 +367,7 @@ export function useLabReservationState({
     pendingData?.reservationKey,
     pendingData?.optimisticId,
     addTemporaryNotification,
+    isTrackedSsoBookingFinal,
   ])
 
   useEffect(() => {
@@ -324,9 +381,7 @@ export function useLabReservationState({
     )
     if (!normalizedReservationKey) return
 
-    const trackedStatus = Number(trackedSsoBooking?.status)
-    if (!Number.isFinite(trackedStatus) || trackedStatus <= BOOKING_STATUS.PENDING) return
-    if (trackedStatus === BOOKING_STATUS.CANCELLED) return
+    if (!isTrackedSsoBookingFinal) return
     if (confirmedSsoToastKeysRef.current.has(normalizedReservationKey)) return
 
     notifyReservationConfirmed(addTemporaryNotification, normalizedReservationKey)
@@ -338,6 +393,7 @@ export function useLabReservationState({
     pendingData?.reservationKey,
     pendingData?.optimisticId,
     addTemporaryNotification,
+    isTrackedSsoBookingFinal,
   ])
 
   useEffect(() => {
@@ -421,8 +477,8 @@ export function useLabReservationState({
   const reservationButtonState = useReservationButtonState({
     selectedTime,
     isBooking,
-    bookingStage: ssoBookingStage,
-    isFlowLocked: isSSOFlowLocked,
+    bookingStage: effectiveBookingStage,
+    isFlowLocked: effectiveIsSSOFlowLocked,
   })
 
   return {
@@ -437,8 +493,8 @@ export function useLabReservationState({
     availableTimes,
     calendarUserBookingsForLab,
     totalCost,
-    bookingStage: ssoBookingStage,
-    isFlowLocked: isSSOFlowLocked,
+    bookingStage: effectiveBookingStage,
+    isFlowLocked: effectiveIsSSOFlowLocked,
     ssoBookingStage,
     isSSOFlowLocked,
     reservationButtonState,

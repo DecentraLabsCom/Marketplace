@@ -59,6 +59,16 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return "cancelled";
     return null;
   }),
+  normalizeBookingStatusCode: jest.fn((booking) => {
+    const status = booking?.status;
+    if (status === 0 || status === "0" || status === "pending" || status === "requested") return 0;
+    if (status === 1 || status === "1" || status === "confirmed") return 1;
+    if (status === 2 || status === "2" || status === "in_use") return 2;
+    if (status === 3 || status === "3" || status === "completed") return 3;
+    if (status === 4 || status === "4" || status === "collected") return 4;
+    if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return 5;
+    return null;
+  }),
   BOOKING_STATUS: {
     PENDING: 0,
     CONFIRMED: 1,
@@ -749,6 +759,77 @@ describe("useLabReservationState", () => {
           })
         );
       });
+    });
+
+    test("keeps toast, calendar and button aligned when stale pending copy and confirmed copy coexist", async () => {
+      const pendingRequest = {
+        reservationKey: "sso-res-confirmed-2",
+        labId: "lab-1",
+        start: "1704110400",
+        end: "1704114000",
+      };
+
+      const { result, rerender } = renderHookWithClient(
+        ({ userBookings, labBookings }) =>
+          useLabReservationState({
+            selectedLab: mockLab,
+            userBookingsForLab: userBookings,
+            labBookings,
+            isSSO: true,
+          }),
+        { initialProps: { userBookings: [], labBookings: [] } }
+      );
+
+      act(() => {
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
+      });
+
+      rerender({
+        userBookings: [
+          {
+            reservationKey: "sso-res-confirmed-2",
+            labId: "lab-1",
+            start: "1704110400",
+            end: "1704114000",
+            status: 0,
+            isOptimistic: false,
+          },
+        ],
+        labBookings: [
+          {
+            reservationKey: "sso-res-confirmed-2",
+            labId: "lab-1",
+            start: "1704110400",
+            end: "1704114000",
+            status: 1,
+            isOptimistic: false,
+          },
+        ],
+      });
+
+      await waitFor(() => {
+        expect(mockNotifications.addTemporaryNotification).toHaveBeenCalledWith(
+          "success",
+          "Reservation confirmed.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-confirmed:sso-res-confirmed-2",
+          })
+        );
+      });
+
+      expect(result.current.bookingStage).toBe("idle");
+      expect(result.current.isFlowLocked).toBe(false);
+      expect(result.current.reservationButtonState.label).toBe("Book Now");
+      expect(result.current.reservationButtonState.isDisabled).toBe(false);
+      expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
+      expect(result.current.calendarUserBookingsForLab[0]).toEqual(
+        expect.objectContaining({
+          reservationKey: "sso-res-confirmed-2",
+          status: 1,
+        })
+      );
     });
   });
 
