@@ -29,7 +29,7 @@ import { getResourceType } from '@/utils/resourceType'
  * @returns {Object} returns.searchInputRef - Ref for search input element
  * @returns {Function} returns.resetFilters - Reset all filters function
  */
-export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false, isHydrated = true) {
+export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = false, bookingsLoading = false, isHydrated = true, now = null) {
   const searchInputRef = useRef(null)
   const lastAttachedInput = useRef(null)
   
@@ -187,7 +187,7 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
       ...lab,
       hasActiveBooking: isLoggedIn && !bookingsLoading && userBookingsData?.hasBookingInLab?.(lab.id)
     }))
-  }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookingsData])
+  }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookingsData, now])
 
   // Reset filters function
   const resetFilters = useCallback(() => {

@@ -16,10 +16,12 @@ import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import useCurrentTime from '@/hooks/useCurrentTime'
 
 export default function Market({ initialLabs = [] }) {
   const { isLoggedIn, address, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
+  const now = useCurrentTime({ intervalMs: 20000 });
   
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
@@ -124,7 +126,7 @@ export default function Market({ initialLabs = [] }) {
     providers,
     searchInputRef,
     resetFilters
-  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated);
+  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated, now);
 
   const hasFmuResources = useMemo(
     () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.FMU),
