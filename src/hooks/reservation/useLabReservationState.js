@@ -174,6 +174,7 @@ export function useLabReservationState({
   const optimisticRemovedRef = useRef(false)
   const fallbackSsoToastKeysRef = useRef(new Set())
   const confirmedSsoToastKeysRef = useRef(new Set())
+  const confirmPollingStartRef = useRef(null)
 
   const {
     ssoBookingStage,
@@ -394,6 +395,60 @@ export function useLabReservationState({
     pendingData?.optimisticId,
     addTemporaryNotification,
     isTrackedSsoBookingFinal,
+  ])
+
+  // Poll for provider confirmation while a request is registered and not yet final.
+  // Mirrors the backup polling from the main-branch BookingEventContext, adapted for the
+  // SSO-only (no-wagmi) flow. Stops after 2 minutes or when the booking reaches a final state.
+  useEffect(() => {
+    if (!isSSO || ssoBookingStage !== SSO_BOOKING_STAGE.REQUEST_REGISTERED) return undefined
+    if (isTrackedSsoBookingFinal) return undefined
+
+    const labId =
+      activeSsoRequest?.labId !== undefined && activeSsoRequest?.labId !== null
+        ? String(activeSsoRequest.labId)
+        : null
+    const reservationKey = normalizeReservationKey(
+      activeSsoRequest?.reservationKey || pendingData?.reservationKey
+    )
+    if (!labId && !reservationKey) return undefined
+
+    confirmPollingStartRef.current = Date.now()
+
+    const interval = setInterval(() => {
+      if (!confirmPollingStartRef.current) return
+      const elapsed = Date.now() - confirmPollingStartRef.current
+      if (elapsed > 120_000) {
+        confirmPollingStartRef.current = null
+        clearInterval(interval)
+        return
+      }
+      devLog.log('[LabReservationState] Polling for SSO confirmation, elapsed:', Math.round(elapsed / 1000), 's')
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() })
+      if (reservationKey) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byReservationKey(reservationKey) })
+      }
+      if (labId) {
+        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.getReservationsOfToken(labId) })
+        queryClient.invalidateQueries({
+          queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId),
+          exact: false,
+        })
+      }
+    }, 10_000)
+
+    return () => {
+      clearInterval(interval)
+      confirmPollingStartRef.current = null
+    }
+  }, [
+    isSSO,
+    ssoBookingStage,
+    isTrackedSsoBookingFinal,
+    activeSsoRequest?.reservationKey,
+    activeSsoRequest?.labId,
+    pendingData?.reservationKey,
+    queryClient,
   ])
 
   useEffect(() => {
