@@ -431,11 +431,7 @@ describe("LabCard - LabAccess Integration", () => {
       isSSO: true,
     });
 
-    mockUseActiveReservationKeyForSessionUserSSO.mockReturnValue({
-      data: { reservationKey: "0xsso-key" },
-    });
-
-    renderLabCard({ activeBooking: true });
+    renderLabCard({ activeBooking: true, activeBookingKey: "0xsso-key" });
 
     const labAccess = await screen.findByTestId("lab-access-mock");
     expect(labAccess).toHaveTextContent("Key: 0xsso-key");

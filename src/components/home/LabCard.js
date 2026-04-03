@@ -7,12 +7,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
 import { useLabToken } from '@/context/LabTokenContext'
-import { useActiveReservationKeyForSessionUserSSO } from '@/hooks/booking/useBookings'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
-const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
 
 /**
@@ -38,6 +36,7 @@ const LabCard = React.memo(function LabCard({
   price,
   auth = null,
   activeBooking = false,
+  activeBookingKey = null,
   isListed = true,
   image = '',
   imagePriority = false,
@@ -61,19 +60,7 @@ const LabCard = React.memo(function LabCard({
     .filter(Boolean)
     .join(' | ');
   
-  const { data: ssoReservationKeyData } = useActiveReservationKeyForSessionUserSSO(
-    id,
-    {
-      enabled: !!activeBooking && !!isSSO,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
-  
-  const ssoReservationKeyValue = ssoReservationKeyData?.reservationKey ?? ssoReservationKeyData;
-  const ssoReservationKey = ssoReservationKeyValue && ssoReservationKeyValue !== ZERO_BYTES32
-    ? ssoReservationKeyValue
-    : null;
-  const reservationKey = isSSO ? ssoReservationKey : null;
+  const reservationKey = isSSO && activeBooking ? (activeBookingKey || null) : null;
  
   return (
     <Card 
@@ -182,6 +169,7 @@ LabCard.propTypes = {
   price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   auth: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
   activeBooking: PropTypes.bool,
+  activeBookingKey: PropTypes.string,
   isListed: PropTypes.bool,
   image: PropTypes.string,
   imagePriority: PropTypes.bool,

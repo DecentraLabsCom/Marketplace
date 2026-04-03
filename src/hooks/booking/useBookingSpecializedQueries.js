@@ -74,9 +74,10 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
 
   // Step 4: Process reservations to extract ONLY ACTIVE lab IDs (not upcoming)
   const userLabsWithActiveBookings = new Set();
+  const activeBookingKeyByLabId = new Map(); // labId -> reservationKey
   let activeBookingsCount = 0;
 
-  bookingDetailsResults.forEach(result => {
+  bookingDetailsResults.forEach((result, idx) => {
     if (!result.isSuccess || !result.data?.reservation) return;
 
     const r = result.data.reservation;
@@ -94,6 +95,11 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
       // Add active bookings to Set
       userLabsWithActiveBookings.add(labId);
       activeBookingsCount++;
+      // Store reservation key for direct use (avoids a separate hook call)
+      if (!activeBookingKeyByLabId.has(labId)) {
+        const rk = result.data.reservationKey || reservationKeys[idx] || null;
+        if (rk) activeBookingKeyByLabId.set(labId, rk);
+      }
     }
   });
 
@@ -115,7 +121,11 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
         const labIdStr = String(labId);
         const hasBooking = userLabsWithActiveBookings.has(labIdStr);       
         return hasBooking;
-      }
+      },
+      getActiveBookingKey: (labId) => {
+        if (!labId && labId !== 0) return null;
+        return activeBookingKeyByLabId.get(String(labId)) || null;
+      },
     },
     isLoading,
     isFetching,

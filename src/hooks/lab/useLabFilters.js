@@ -185,7 +185,8 @@ export function useLabFilters(labs = [], userBookingsData = null, isLoggedIn = f
   const enrichedLabs = useMemo(() => {
     return searchFilteredLabs.map(lab => ({
       ...lab,
-      hasActiveBooking: isLoggedIn && !bookingsLoading && userBookingsData?.hasBookingInLab?.(lab.id)
+      hasActiveBooking: isLoggedIn && !bookingsLoading && userBookingsData?.hasBookingInLab?.(lab.id),
+      activeBookingKey: isLoggedIn && !bookingsLoading ? (userBookingsData?.getActiveBookingKey?.(lab.id) || null) : null,
     }))
   }, [searchFilteredLabs, isLoggedIn, bookingsLoading, userBookingsData, now])
 

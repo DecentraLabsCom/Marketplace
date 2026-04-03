@@ -65,6 +65,7 @@ export default function LabGrid({
             provider={lab.provider}
             price={lab.price}
             activeBooking={lab.hasActiveBooking}
+            activeBookingKey={lab.activeBookingKey}
             isListed={lab.isListed}
             image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}
             imagePriority={index < 3}

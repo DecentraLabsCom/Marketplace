@@ -30,6 +30,7 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
   const { data: reservationData, isFetching: isFetchingReservation } = useReservation(reservationKey, {
     enabled: !!reservationKey && !!hasActiveBooking,
     staleTime: 60 * 1000,
+    refetchOnMount: 'always',
   });
 
   const isReservationInUse =
