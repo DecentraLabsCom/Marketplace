@@ -18,6 +18,7 @@ import CreditAccountPanel from '@/components/dashboard/user/CreditAccountPanel'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import devLog from '@/utils/dev/logger'
+import useCurrentTime from '@/hooks/useCurrentTime'
 import {
   notifyUserDashboardAlreadyCanceled,
   notifyUserDashboardCancellationProcessing,
@@ -144,7 +145,7 @@ export default function UserDashboard() {
   
   // Additional state variables
   const [userData, setUserData] = useState(null);
-  const [now, setNow] = useState(null);
+  const now = useCurrentTime({ intervalMs: 40000 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
 
@@ -198,20 +199,6 @@ export default function UserDashboard() {
     };
   }, [userBookings, now]);
   
-  // Initialize time on client side and update every minute to auto-move bookings from upcoming to past
-  useEffect(() => {
-    // Set initial time
-    setNow(new Date());
-    
-    // Update time every minute (60000ms) to automatically refresh booking lists
-    const intervalId = setInterval(() => {
-      setNow(new Date());
-      devLog.log('🕐 UserDashboard: Time updated for automatic booking list refresh');
-    }, 60000);
-    
-    // Cleanup interval on unmount
-    return () => clearInterval(intervalId);
-  }, []);
       
   const openModal = (type, labId, booking = null) => {
     setSelectedLabId(labId);

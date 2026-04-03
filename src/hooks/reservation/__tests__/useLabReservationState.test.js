@@ -702,6 +702,56 @@ describe("useLabReservationState", () => {
 
   });
 
+  describe("SSO Final Confirmation Toast", () => {
+    test("emits confirmed toast when tracked reservation reaches confirmed status", async () => {
+      const pendingRequest = {
+        reservationKey: "sso-res-confirmed-1",
+        labId: "lab-1",
+        start: "1704110400",
+        end: "1704114000",
+      };
+
+      const { result, rerender } = renderHookWithClient(
+        ({ userBookings }) =>
+          useLabReservationState({
+            selectedLab: mockLab,
+            labBookings: [],
+            userBookingsForLab: userBookings,
+            isSSO: true,
+          }),
+        { initialProps: { userBookings: [] } }
+      );
+
+      act(() => {
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
+      });
+
+      rerender({
+        userBookings: [
+          {
+            reservationKey: "sso-res-confirmed-1",
+            labId: "lab-1",
+            start: "1704110400",
+            end: "1704114000",
+            status: 1,
+          },
+        ],
+      });
+
+      await waitFor(() => {
+        expect(mockNotifications.addTemporaryNotification).toHaveBeenCalledWith(
+          "success",
+          "Reservation confirmed.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-confirmed:sso-res-confirmed-1",
+          })
+        );
+      });
+    });
+  });
+
   describe("Edge Cases", () => {
     test("handles null labBookings gracefully", () => {
       const { result } = renderHookWithClient(() =>

@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import LabAccess from '../LabAccess'
+import LabAccess, { buildLabAccessUrl } from '../LabAccess'
 
 const mockAuthenticateLabAccessSSO = jest.fn()
 const mockGetAuthErrorMessage = jest.fn(() => 'Connection failed. Please try again.')
@@ -88,5 +88,10 @@ describe('LabAccess', () => {
     })
 
     expect(await screen.findByText('Connection failed. Please try again.')).toBeInTheDocument()
+  })
+
+  test('preserves existing query params when building the redirect URL', () => {
+    expect(buildLabAccessUrl('https://lab.example.com/run?mode=remote', 'jwt-token'))
+      .toBe('https://lab.example.com/run?mode=remote&jwt=jwt-token')
   })
 })

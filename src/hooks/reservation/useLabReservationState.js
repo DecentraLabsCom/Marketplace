@@ -17,7 +17,10 @@ import { useSsoReservationFlow, SSO_BOOKING_STAGE } from './useSsoReservationFlo
 import { useReservationButtonState } from './useReservationButtonState'
 import { findTrackedBookingForFlow } from './flowTracking'
 import devLog from '@/utils/dev/logger'
-import { notifyReservationRequestAcceptedAwaitingOnChain } from '@/utils/notifications/reservationToasts'
+import {
+  notifyReservationConfirmed,
+  notifyReservationRequestAcceptedAwaitingOnChain,
+} from '@/utils/notifications/reservationToasts'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 
 const safeParseDate = (value, fallback = new Date()) => {
@@ -110,6 +113,7 @@ export function useLabReservationState({
 
   const optimisticRemovedRef = useRef(false)
   const fallbackSsoToastKeysRef = useRef(new Set())
+  const confirmedSsoToastKeysRef = useRef(new Set())
 
   const {
     ssoBookingStage,
@@ -216,6 +220,14 @@ export function useLabReservationState({
     activeSsoRequest,
   ])
 
+  const trackedSsoBooking = useMemo(() => {
+    if (!isSSO || !activeSsoRequest) return null
+    return findTrackedBookingForFlow([
+      ...(Array.isArray(userBookingsForLab) ? userBookingsForLab : []),
+      ...(Array.isArray(labBookings) ? labBookings : []),
+    ], activeSsoRequest)
+  }, [isSSO, activeSsoRequest, userBookingsForLab, labBookings])
+
   const totalCost = useMemo(
     () => (selectedLab ? calculateReservationCost(selectedLab.price, duration) : 0n),
     [selectedLab, duration, calculateReservationCost]
@@ -299,6 +311,92 @@ export function useLabReservationState({
     pendingData?.reservationKey,
     pendingData?.optimisticId,
     addTemporaryNotification,
+  ])
+
+  useEffect(() => {
+    if (!isSSO || !activeSsoRequest) return
+
+    const normalizedReservationKey = normalizeReservationKey(
+      trackedSsoBooking?.reservationKey ||
+      activeSsoRequest?.reservationKey ||
+      pendingData?.reservationKey ||
+      pendingData?.optimisticId
+    )
+    if (!normalizedReservationKey) return
+
+    const trackedStatus = Number(trackedSsoBooking?.status)
+    if (!Number.isFinite(trackedStatus) || trackedStatus <= BOOKING_STATUS.PENDING) return
+    if (trackedStatus === BOOKING_STATUS.CANCELLED) return
+    if (confirmedSsoToastKeysRef.current.has(normalizedReservationKey)) return
+
+    notifyReservationConfirmed(addTemporaryNotification, normalizedReservationKey)
+    confirmedSsoToastKeysRef.current.add(normalizedReservationKey)
+  }, [
+    isSSO,
+    activeSsoRequest,
+    trackedSsoBooking,
+    pendingData?.reservationKey,
+    pendingData?.optimisticId,
+    addTemporaryNotification,
+  ])
+
+  useEffect(() => {
+    if (!isSSO || typeof window === 'undefined') return undefined
+
+    const invalidateTrackedQueries = (detail = {}) => {
+      const eventReservationKey = normalizeReservationKey(detail?.reservationKey)
+      const activeReservationKey = normalizeReservationKey(activeSsoRequest?.reservationKey)
+      const pendingReservationKey = normalizeReservationKey(pendingData?.reservationKey || pendingData?.optimisticId)
+      const eventLabId = detail?.labId !== undefined && detail?.labId !== null ? String(detail.labId) : null
+      const activeLabId = activeSsoRequest?.labId !== undefined && activeSsoRequest?.labId !== null
+        ? String(activeSsoRequest.labId)
+        : null
+
+      const matchesKey =
+        !eventReservationKey ||
+        eventReservationKey === activeReservationKey ||
+        eventReservationKey === pendingReservationKey
+      const matchesLab = !eventLabId || eventLabId === activeLabId
+      if (!matchesKey && !matchesLab) return
+
+      queryClient.invalidateQueries({ queryKey: bookingQueryKeys.ssoReservationsOf() })
+      queryClient.invalidateQueries({
+        queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(),
+        exact: false,
+      })
+      if (eventReservationKey) {
+        queryClient.invalidateQueries({
+          queryKey: bookingQueryKeys.byReservationKey(eventReservationKey),
+        })
+      }
+      if (activeLabId) {
+        queryClient.invalidateQueries({
+          queryKey: bookingQueryKeys.getReservationsOfToken(activeLabId),
+        })
+        queryClient.invalidateQueries({
+          queryKey: bookingQueryKeys.reservationOfTokenPrefix(activeLabId),
+          exact: false,
+        })
+      }
+    }
+
+    const handleOnChainRegistered = (event) => invalidateTrackedQueries(event?.detail)
+    const handleDenied = (event) => invalidateTrackedQueries(event?.detail)
+
+    window.addEventListener('reservation-request-onchain', handleOnChainRegistered)
+    window.addEventListener('reservation-request-denied', handleDenied)
+
+    return () => {
+      window.removeEventListener('reservation-request-onchain', handleOnChainRegistered)
+      window.removeEventListener('reservation-request-denied', handleDenied)
+    }
+  }, [
+    isSSO,
+    activeSsoRequest?.reservationKey,
+    activeSsoRequest?.labId,
+    pendingData?.reservationKey,
+    pendingData?.optimisticId,
+    queryClient,
   ])
 
   const handleDateChange = useCallback((newDate) => {

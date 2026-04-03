@@ -6,6 +6,12 @@ import { useReservation } from '@/hooks/booking/useBookings'
 import { authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
 
+export function buildLabAccessUrl(labURL, token) {
+  const redirectUrl = new URL(String(labURL || ''))
+  redirectUrl.searchParams.set('jwt', String(token || ''))
+  return redirectUrl.toString()
+}
+
 /**
  * Lab access component that provides entry controls for booked labs
  * Validates user booking status and provides access credentials/links
@@ -90,7 +96,7 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
       if (authResult.token && authResult.labURL) {
         devLog.log('🚀 Lab access granted, redirecting to:', authResult.labURL);
         // Prefer assign to avoid replacing history unexpectedly during tests
-        window.location.assign(authResult.labURL + `?jwt=${authResult.token}`);
+        window.location.assign(buildLabAccessUrl(authResult.labURL, authResult.token));
       } else if (authResult.error) {
         // Handle authentication errors returned by the service
         setErrorMessage(authResult.error);

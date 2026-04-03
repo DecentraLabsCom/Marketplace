@@ -6,6 +6,7 @@
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useUser } from '@/context/UserContext'
+import { useNotifications } from '@/context/NotificationContext'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import { useBookingCacheUpdates } from './useBookingCacheUpdates'
 import pollIntentStatus from '@/utils/intents/pollIntentStatus'
@@ -24,6 +25,10 @@ import {
   createAuthorizationCancelledError,
   markBrowserCredentialVerifiedFromIntent,
 } from '@/utils/intents/clientFlowShared'
+import {
+  notifyReservationDenied,
+  notifyReservationOnChainRequested,
+} from '@/utils/notifications/reservationToasts'
 
 const resolveBookingContext = (queryClient, reservationKey) => {
   if (!queryClient || !reservationKey) return {};
@@ -177,6 +182,7 @@ export const useReservationRequestSSO = (options = {}) => {
   const queryClient = useQueryClient();
   const { updateBooking, invalidateAllBookings, addBooking } = useBookingCacheUpdates();
   const { setOptimisticBookingState, completeOptimisticBookingState, clearOptimisticBookingState } = useOptimisticUI();
+  const { addTemporaryNotification } = useNotifications();
 
   return useMutation({
     mutationFn: async (requestData) => {
@@ -318,7 +324,7 @@ export const useReservationRequestSSO = (options = {}) => {
               const finalKey = result?.reservationKey || reservationKey;
 
               if (status === 'executed') {
-                        updateBooking(finalKey, {
+                updateBooking(finalKey, {
                   reservationKey: finalKey,
                   labId: variables.tokenId,
                   start: variables.start,
@@ -335,6 +341,14 @@ export const useReservationRequestSSO = (options = {}) => {
                   completeOptimisticBookingState(finalKey);
                 } catch (err) {
                   devLog.warn('Failed to complete optimistic booking state after intent executed:', err);
+                }
+
+                if (reservationKey && finalKey && reservationKey !== finalKey) {
+                  try {
+                    clearOptimisticBookingState(reservationKey);
+                  } catch (err) {
+                    devLog.warn('Failed to clear optimistic booking state for initial reservation key:', err);
+                  }
                 }
 
                 // Invalidate user and lab booking queries so calendar and dashboard update
@@ -374,6 +388,18 @@ export const useReservationRequestSSO = (options = {}) => {
                   tokenId: variables.tokenId
                 });
 
+                notifyReservationOnChainRequested(addTemporaryNotification, finalKey);
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('reservation-request-onchain', {
+                    detail: {
+                      requestId: intentId,
+                      reservationKey: finalKey,
+                      labId: variables.tokenId,
+                      start: variables.start,
+                    },
+                  }));
+                }
+
                 // Reservation confirmation now relies on intent status polling and targeted cache invalidation.
               } else if (status === 'failed' || status === 'rejected') {
                 updateBooking(finalKey, {
@@ -389,6 +415,28 @@ export const useReservationRequestSSO = (options = {}) => {
                   labId: variables.tokenId,
                   reservationKey: finalKey,
                 });
+
+                try {
+                  clearOptimisticBookingState(finalKey);
+                  if (reservationKey && finalKey && reservationKey !== finalKey) {
+                    clearOptimisticBookingState(reservationKey);
+                  }
+                } catch (err) {
+                  devLog.warn('Failed to clear optimistic booking state after reservation denial:', err);
+                }
+
+                notifyReservationDenied(addTemporaryNotification, finalKey, { reason });
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('reservation-request-denied', {
+                    detail: {
+                      requestId: intentId,
+                      reservationKey: finalKey,
+                      labId: variables.tokenId,
+                      start: variables.start,
+                      reason,
+                    },
+                  }));
+                }
               }
             } catch (err) {
               devLog.error('ƒ?O Polling reservation intent failed:', err);

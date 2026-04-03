@@ -37,6 +37,12 @@ jest.mock('@/context/OptimisticUIContext', () => ({
   }),
 }));
 
+jest.mock('@/context/NotificationContext', () => ({
+  useNotifications: () => ({
+    addTemporaryNotification: jest.fn(),
+  }),
+}));
+
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'processing' })));
 jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS' })));
 

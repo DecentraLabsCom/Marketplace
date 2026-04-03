@@ -81,6 +81,8 @@ export function OptimisticUIProvider({ children }) {
         queryKeys.push(bookingQueryKeys.ssoActiveReservationKeySession(labId))
       }
       if (state?.isInstitutional) {
+        queryKeys.push(bookingQueryKeys.ssoReservationsOf())
+        queryKeys.push({ queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(), exact: false })
         queryKeys.push(bookingQueryKeys.ssoHasActiveBookingSession())
       }
       enqueueReconciliationEntry({

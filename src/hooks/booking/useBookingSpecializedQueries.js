@@ -14,6 +14,7 @@ import {
 } from './useBookingAtomicQueries'
 import { bookingQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
+import useCurrentTime from '@/hooks/useCurrentTime'
 
 const EMPTY_ARRAY = [];
 
@@ -26,6 +27,8 @@ const EMPTY_ARRAY = [];
  * @returns {Object} React Query result with minimal booking data for market filtering
  */
 export const useUserBookingsForMarket = (userAddress, options = {}) => {
+  const nowEpochSeconds = Math.floor(useCurrentTime({ intervalMs: 20000 }).getTime() / 1000)
+
   // Step 1: Get user reservation count from the institutional session
   const reservationCountResult = useQuery({
     queryKey: bookingQueryKeys.ssoReservationsOf(),
@@ -70,7 +73,6 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
   });
 
   // Step 4: Process reservations to extract ONLY ACTIVE lab IDs (not upcoming)
-  const now = Math.floor(Date.now() / 1000);
   const userLabsWithActiveBookings = new Set();
   let activeBookingsCount = 0;
 
@@ -88,7 +90,7 @@ export const useUserBookingsForMarket = (userAddress, options = {}) => {
     // Skip cancelled bookings
     if (status === 5) return;
 
-    if (start <= now && now <= end && (status === 1 || status === 2)) {
+    if (start <= nowEpochSeconds && nowEpochSeconds <= end && (status === 1 || status === 2)) {
       // Add active bookings to Set
       userLabsWithActiveBookings.add(labId);
       activeBookingsCount++;
