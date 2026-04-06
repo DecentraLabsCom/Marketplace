@@ -13,6 +13,7 @@ import {
   getSessionPuc,
 } from '../../utils/institutionSession'
 import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
+import devLog from '@/utils/dev/logger'
 
 /**
  * Checks if institutional user has active booking
