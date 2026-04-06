@@ -257,12 +257,17 @@ describe("Login", () => {
     });
 
     test("renders EntraLoginButton component when modal is open", async () => {
+      const originalEnv = process.env.NEXT_PUBLIC_ENTRA_ENABLED;
+      process.env.NEXT_PUBLIC_ENTRA_ENABLED = "true";
+      
       useUser.mockReturnValue({ isLoggedIn: false });
 
       render(<Login />);
       fireEvent.click(screen.getByTestId("login-button"));
 
       expect(await screen.findByTestId("entra-login-button")).toBeInTheDocument();
+      
+      process.env.NEXT_PUBLIC_ENTRA_ENABLED = originalEnv;
     });
 
     test("passes setIsModalOpen prop to WalletLogin", async () => {
@@ -292,6 +297,9 @@ describe("Login", () => {
     });
 
     test("passes setIsModalOpen prop to EntraLoginButton", async () => {
+      const originalEnv = process.env.NEXT_PUBLIC_ENTRA_ENABLED;
+      process.env.NEXT_PUBLIC_ENTRA_ENABLED = "true";
+      
       useUser.mockReturnValue({ isLoggedIn: false });
 
       render(<Login />);
@@ -303,6 +311,8 @@ describe("Login", () => {
       fireEvent.click(entraLoginButton);
 
       expect(screen.queryByText("Choose Login Method")).not.toBeInTheDocument();
+      
+      process.env.NEXT_PUBLIC_ENTRA_ENABLED = originalEnv;
     });
   });
 
