@@ -1,4 +1,5 @@
 import getBaseUrl from '@/utils/env/baseUrl'
+import { labQueryKeys } from '@/utils/hooks/queryKeys'
 
 export function createEmptyLabDraft() {
   return {
@@ -131,4 +132,66 @@ export function remapMovedLabAssetPaths(labData, movedFiles) {
   }
 
   return nextLabData
+}
+
+export function formatErrorMessage(error) {
+  let message = error?.message || 'Unknown error';
+
+  const patterns = [
+    { regex: /execution reverted:?\s*/i, replacement: '' },
+    { regex: /VM Exception while processing transaction:?\s*/i, replacement: '' },
+    { regex: /Error:\s*/i, replacement: '' },
+    { regex: /Failed to.*?:\s*/i, replacement: '' },
+    { regex: /HTTP error! status: (\d+)/, replacement: 'Server error ($1)' },
+    { regex: /network.*?error/i, replacement: 'Network error' },
+    { regex: /insufficient.*?funds/i, replacement: 'Insufficient funds' },
+    { regex: /user.*?rejected/i, replacement: 'Transaction rejected' },
+    { regex: /wallet.*?connection/i, replacement: 'Wallet error' }
+  ];
+
+  patterns.forEach(({ regex, replacement }) => {
+    message = message.replace(regex, replacement);
+  });
+
+  if (message.length > 80) {
+    message = message.substring(0, 77) + '...';
+  }
+
+  return message.trim() || 'Operation failed';
+}
+
+export function updateListingCache(queryClient, labId, isListed) {
+  if (!queryClient) return;
+
+  const ids = new Set();
+  if (labId !== null && labId !== undefined) {
+    ids.add(labId);
+    ids.add(String(labId));
+    const numericId = Number(labId);
+    if (!Number.isNaN(numericId)) {
+      ids.add(numericId);
+    }
+  }
+
+  ids.forEach((id) => {
+    try {
+      queryClient.setQueryData(labQueryKeys.isTokenListed(id), { isListed });
+    } catch {
+      // best-effort cache update
+    }
+  });
+
+  try {
+    queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
+      if (!Array.isArray(old)) return old;
+      if (isLabIdListCache(old)) return old;
+      return old.map((lab) => {
+        const labKey = lab?.labId ?? lab?.id;
+        if (labKey === undefined || labKey === null) return lab;
+        return String(labKey) === String(labId) ? { ...lab, isListed } : lab;
+      });
+    });
+  } catch {
+    // best-effort cache update
+  }
 }

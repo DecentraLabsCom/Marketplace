@@ -26,7 +26,7 @@ describe('/api/contract/lab/getCreatorPucHash route', () => {
 
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Missing labId parameter',
+      error: 'Missing required parameter: labId',
     })
   })
 
@@ -38,8 +38,7 @@ describe('/api/contract/lab/getCreatorPucHash route', () => {
 
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
-      error: 'Invalid labId format - must be a positive number',
-      providedLabId: 'abc',
+      error: 'Invalid labId - must be a non-negative number',
     })
   })
 
@@ -74,8 +73,7 @@ describe('/api/contract/lab/getCreatorPucHash route', () => {
 
     expect(res.status).toBe(500)
     await expect(res.json()).resolves.toEqual({
-      error: 'Failed to fetch creator hash for lab 5',
-      labId: 5,
+      error: 'Failed to call getCreatorPucHash',
       details: undefined,
     })
   })

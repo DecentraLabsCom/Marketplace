@@ -26,14 +26,7 @@ export const reservationToastIds = {
   missingInstitutionalBackend: () => 'reservation-missing-institutional-backend',
 }
 
-const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
-  if (typeof addTemporaryNotification !== 'function') return
-  addTemporaryNotification(type, message, null, {
-    dedupeKey,
-    dedupeWindowMs: 20000,
-    ...extraOptions,
-  })
-}
+import { notify } from './notify'
 
 const resolveReservationDeniedMessage = (reason) => {
   const numericReason = Number(reason)

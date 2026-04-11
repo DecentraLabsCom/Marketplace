@@ -11,10 +11,6 @@ jest.mock('../../../utils/contractInstance', () => ({
   getContractInstance: jest.fn(),
 }))
 
-jest.mock('@/utils/blockchain/bigIntSerializer', () => ({
-  createSerializedJsonResponse: (data, options) => Response.json(data, options),
-}))
-
 const { getContractInstance } = require('../../../utils/contractInstance')
 
 describe('GET /api/contract/provider/getStakeInfo', () => {
@@ -28,7 +24,7 @@ describe('GET /api/contract/provider/getStakeInfo', () => {
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error).toBe('Missing provider parameter')
+    expect(data.error).toBe('Missing required parameter: provider')
   })
 
   test('returns 400 for invalid address format', async () => {
@@ -111,6 +107,6 @@ describe('GET /api/contract/provider/getStakeInfo', () => {
     const data = await response.json()
 
     expect(response.status).toBe(500)
-    expect(data.error).toContain('Failed to fetch stake info')
+    expect(data.error).toContain('Failed to call getStakeInfo')
   })
 })

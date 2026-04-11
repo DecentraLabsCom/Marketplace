@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
 import { ethers, TypedDataEncoder } from 'ethers';
-import { defaultChain } from '@/utils/blockchain/networkConfig';
-import { contractAddresses } from '@/contracts/diamond';
 import { getNextIntentNonce } from './intentNonceStore';
+import { INTENT_META_TYPES, resolveIntentDomain } from './intentDomain';
+
+export { INTENT_META_TYPES };
 
 export const ACTION_CODES = {
   LAB_ADD: 1,
@@ -15,19 +16,6 @@ export const ACTION_CODES = {
   REQUEST_BOOKING: 8,
   CANCEL_REQUEST_BOOKING: 9,
   CANCEL_BOOKING: 10,
-};
-
-export const INTENT_META_TYPES = {
-  IntentMeta: [
-    { name: 'requestId', type: 'bytes32' },
-    { name: 'signer', type: 'address' },
-    { name: 'executor', type: 'address' },
-    { name: 'action', type: 'uint8' },
-    { name: 'payloadHash', type: 'bytes32' },
-    { name: 'nonce', type: 'uint256' },
-    { name: 'requestedAt', type: 'uint64' },
-    { name: 'expiresAt', type: 'uint64' },
-  ],
 };
 
 export const ACTION_PAYLOAD_TYPES = {
@@ -48,17 +36,7 @@ export const ACTION_PAYLOAD_TYPES = {
   ],
 };
 
-const DEFAULT_DOMAIN_NAME = 'DecentraLabsIntent';
-const DEFAULT_DOMAIN_VERSION = '1';
 
-function getDiamondAddress() {
-  const chainKey = (defaultChain?.name || '').toLowerCase();
-  const address = contractAddresses[chainKey];
-  if (!address) {
-    throw new Error(`Diamond contract address not configured for chain ${chainKey}`);
-  }
-  return address;
-}
 
 function toBigIntOrZero(value) {
   if (value === undefined || value === null || value === '') return 0n;
@@ -97,15 +75,6 @@ function normalizeActionPayload(payload) {
 export function hashActionPayload(payload) {
   const normalized = normalizeActionPayload(payload);
   return TypedDataEncoder.hashStruct('ActionIntentPayload', ACTION_PAYLOAD_TYPES, normalized);
-}
-
-function resolveIntentDomain(overrides = {}) {
-  return {
-    name: overrides.name || DEFAULT_DOMAIN_NAME,
-    version: overrides.version || DEFAULT_DOMAIN_VERSION,
-    chainId: overrides.chainId || defaultChain.id,
-    verifyingContract: overrides.verifyingContract || getDiamondAddress(),
-  };
 }
 
 /**

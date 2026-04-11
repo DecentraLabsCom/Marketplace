@@ -1,39 +1,8 @@
-import { NextResponse } from 'next/server';
-import { getContractInstance } from '../../utils/contractInstance';
-import { requireAuth, handleGuardError } from '@/utils/auth/guards';
+import { createContractHandler } from '../../utils/createContractHandler'
 
-/**
- * Get service-credit ledger contract address
- * GET /api/contract/reservation/getLabTokenAddress
- * 
- * @security Protected - requires authenticated session
- * @returns {Object} Service-credit ledger contract address
- */
-export async function GET(request) {
-  try {
-    // Authentication check - contract technical data requires login
-    await requireAuth();
-  } catch (error) {
-    return handleGuardError(error);
-  }
-
-  try {
-    const contract = await getContractInstance();
-
-    // Call getLabTokenAddress function
-    const result = await contract.getLabTokenAddress();
-
-    return NextResponse.json({
-      labTokenAddress: result
-    }, {status: 200});
-
-  } catch (error) {
-    console.error('Error getting credit-ledger address:', error);
-    return NextResponse.json(
-      { error: `Failed to get credit-ledger address: ${error.message}` }, {status: 500 }
-    );
-  }
-}
-
-
+export const { GET } = createContractHandler({
+  auth: true,
+  method: 'getLabTokenAddress',
+  transform: (result) => ({ labTokenAddress: result }),
+})
 

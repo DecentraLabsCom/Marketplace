@@ -10,118 +10,12 @@ import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup
 import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
+import { verifyFmuReference } from './labModalFmuUtils'
 import devLog from '@/utils/dev/logger'
 
 /** Must match the server-side limit in /api/provider/uploadFile/route.js */
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-
-const initialState = (lab) => ({
-  activeTab: 'full',
-  imageInputType: 'link',
-  docInputType: 'link',
-  localImages: [],
-  localDocs: [],
-  imageUrls: [],
-  docUrls: [],
-  localLab: { 
-    // Ensure all form fields have default values to prevent uncontrolled -> controlled warnings
-    id: lab?.id || null,
-    name: lab?.name || '',
-    category: lab?.category || '',
-    keywords: lab?.keywords || [],
-    description: lab?.description || '',
-    price: lab?.price || '',
-    auth: lab?.auth || '',
-    accessURI: lab?.accessURI || '',
-    accessKey: lab?.accessKey || '',
-    timeSlots: lab?.timeSlots || [],
-    opens: lab?.opens ?? null,
-    closes: lab?.closes ?? null,
-    images: lab?.images || [],
-    docs: lab?.docs || [],
-    uri: lab?.uri || '',
-    availableDays: lab?.availableDays || [],
-    availableHours: lab?.availableHours || { start: '', end: '' },
-    timezone: lab?.timezone || '',
-    maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
-    fmuFileName: lab?.fmuFileName || '',
-    fmiVersion: lab?.fmiVersion || '',
-    simulationType: lab?.simulationType || '',
-    modelVariables: lab?.modelVariables || [],
-    defaultStartTime: lab?.defaultStartTime ?? null,
-    defaultStopTime: lab?.defaultStopTime ?? null,
-    defaultStepSize: lab?.defaultStepSize ?? null,
-    unavailableWindows: lab?.unavailableWindows || [],
-    termsOfUse: lab?.termsOfUse || {
-      url: '',
-      version: '',
-      effectiveDate: null,
-      sha256: ''
-    },
-    // Spread the rest of the lab properties after ensuring required fields have defaults
-    ...lab,
-    // Always normalize to canonical string values ('lab' | 'fmu')
-    resourceType: getResourceType(lab),
-  },
-  isExternalURI: false,
-  errors: {},
-  isLocalURI: false,
-  clickedToEditUri: false,
-});
-
-const extractInternalLabUri = (uri) => {
-  if (!uri) return null;
-  const trimmed = String(uri).trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) {
-    return trimmed;
-  }
-  try {
-    const parsed = new URL(trimmed);
-    const param = parsed.searchParams.get('uri');
-    if (param && param.startsWith('Lab-') && param.endsWith('.json')) {
-      return param;
-    }
-    const match = parsed.pathname.match(/Lab-[^/]+-\d+\.json$/);
-    if (match) {
-      return match[0];
-    }
-  } catch {
-    // Ignore invalid URLs.
-  }
-  return null;
-};
-
-const resolveGatewayAuthEndpoint = (gatewayUrl) => {
-  const trimmed = String(gatewayUrl || '').trim().replace(/\/+$/, '')
-  if (!trimmed) return ''
-  return trimmed.toLowerCase().endsWith('/auth') ? trimmed : `${trimmed}/auth`
-}
-
-function reducer(state, action) {
-  switch (action.type) {
-    case 'SET_FIELD':
-      return { ...state, [action.field]: action.value };
-    case 'MERGE_LOCAL_LAB':
-      return { ...state, localLab: { ...state.localLab, ...action.value } };
-    case 'BATCH_UPDATE':
-      // Handle multiple updates in a single render cycle
-      return action.updates.reduce((currentState, update) => {
-        switch (update.type) {
-          case 'SET_FIELD':
-            return { ...currentState, [update.field]: update.value };
-          case 'MERGE_LOCAL_LAB':
-            return { ...currentState, localLab: { ...currentState.localLab, ...update.value } };
-          default:
-            return currentState;
-        }
-      }, state);
-    case 'RESET':
-      return initialState(action.lab);
-    default:
-      return state;
-  }
-}
 
 /**
  * Modal for creating and editing lab information with full and quick setup modes
@@ -606,62 +500,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     dispatch({ type: 'SET_FIELD', field: 'errors', value: newErrors });
     return newErrors;
   };
-
-  const resolveFmuDescribeHeaders = async (gatewayUrl) => {
-    const authEndpoint = resolveGatewayAuthEndpoint(gatewayUrl)
-    if (!authEndpoint) return {}
-
-    try {
-      const authRes = await fetch('/api/auth/lab-access', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          authEndpoint,
-          includeBookingInfo: false,
-        }),
-      })
-      if (!authRes.ok) {
-        return {}
-      }
-      const authData = await authRes.json()
-      if (authData?.token) {
-        return { Authorization: `Bearer ${authData.token}` }
-      }
-    } catch (error) {
-      devLog.warn('Unable to fetch auth token for FMU reference validation', error)
-    }
-    return {}
-  }
-
-  const verifyFmuReference = async (labData) => {
-    const fmuFileName = String(labData?.fmuFileName || '').trim()
-    const gatewayUrl = String(labData?.accessURI || '').trim()
-
-    if (!fmuFileName) {
-      throw new Error('FMU file name is required')
-    }
-    if (!gatewayUrl) {
-      throw new Error('Access URI is required for FMU resources')
-    }
-
-    const headers = await resolveFmuDescribeHeaders(gatewayUrl)
-    const gwParam = encodeURIComponent(gatewayUrl)
-    const labParam = labData?.id ? `&labId=${encodeURIComponent(String(labData.id))}` : ''
-    const describeUrl = `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`
-    const res = await fetch(describeUrl, { headers })
-    if (!res.ok) {
-      let detail = `Gateway returned ${res.status}`
-      try {
-        const body = await res.json()
-        detail = body?.error || body?.details || detail
-      } catch {
-        // Keep fallback detail
-      }
-      throw new Error(detail)
-    }
-    return res.json()
-  }
 
   // Function to focus the first input with an error
   const focusFirstError = (currentErrors, currentTab) => {

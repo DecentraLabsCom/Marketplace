@@ -8,14 +8,7 @@ export const userDashboardToastIds = {
   cancellationFailed: (reservationKey) => `user-dashboard-cancellation-failed:${String(reservationKey || 'unknown')}`,
 }
 
-const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
-  if (typeof addTemporaryNotification !== 'function') return
-  addTemporaryNotification(type, message, null, {
-    dedupeKey,
-    dedupeWindowMs: 20000,
-    ...extraOptions,
-  })
-}
+import { notify } from './notify'
 
 export const notifyUserDashboardMissingBookingSelection = (addTemporaryNotification) =>
   notify(

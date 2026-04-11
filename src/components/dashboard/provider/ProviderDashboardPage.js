@@ -25,9 +25,11 @@ import ProviderActions from '@/components/dashboard/provider/ProviderActions'
 import {
   buildProviderLabUri,
   createEmptyLabDraft,
+  formatErrorMessage,
   isLabIdListCache,
   remapMovedLabAssetPaths,
   resolveOnchainLabUri,
+  updateListingCache,
 } from '@/components/dashboard/provider/providerDashboard.helpers'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
@@ -290,41 +292,8 @@ export default function ProviderDashboard() {
     return false;
   }, [addTemporaryNotification]);
 
-  const updateListingCache = useCallback((labId, isListed) => {
-    if (!queryClient) return;
-
-    const ids = new Set();
-    if (labId !== null && labId !== undefined) {
-      ids.add(labId);
-      ids.add(String(labId));
-
-      const numericId = Number(labId);
-      if (!Number.isNaN(numericId)) {
-        ids.add(numericId);
-      }
-    }
-
-    ids.forEach((id) => {
-      try {
-        queryClient.setQueryData(labQueryKeys.isTokenListed(id), { isListed });
-      } catch (cacheErr) {
-        devLog.warn('Failed to update isTokenListed cache:', cacheErr);
-      }
-    });
-
-    try {
-      queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-        if (!Array.isArray(old)) return old;
-        if (isLabIdListCache(old)) return old;
-        return old.map((lab) => {
-          const labKey = lab?.labId ?? lab?.id;
-          if (labKey === undefined || labKey === null) return lab;
-          return String(labKey) === String(labId) ? { ...lab, isListed } : lab;
-        });
-      });
-    } catch (cacheErr) {
-      devLog.warn('Failed to update lab list cache:', cacheErr);
-    }
+  const handleUpdateListingCache = useCallback((labId, isListed) => {
+    updateListingCache(queryClient, labId, isListed);
   }, [queryClient]);
   
   // 🚀 React Query for lab bookings with user details
@@ -813,7 +782,7 @@ export default function ProviderDashboard() {
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
-      updateListingCache(labId, true);
+      handleUpdateListingCache(labId, true);
 
       notifyLabListed(addTemporaryNotification, labId);
     } catch (error) {
@@ -849,7 +818,7 @@ export default function ProviderDashboard() {
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
-      updateListingCache(labId, false);
+      handleUpdateListingCache(labId, false);
 
       notifyLabUnlisted(addTemporaryNotification, labId);
     } catch (error) {
@@ -872,36 +841,6 @@ export default function ProviderDashboard() {
 
   const handleSelectChange = (e) => {
     setSelectedLabId(e.target.value);
-  };
-
-  // Helper function to clean and shorten error messages
-  const formatErrorMessage = (error) => {
-    let message = error.message || 'Unknown error';
-    
-    // Common patterns to simplify
-    const patterns = [
-      { regex: /execution reverted:?\s*/i, replacement: '' },
-      { regex: /VM Exception while processing transaction:?\s*/i, replacement: '' },
-      { regex: /Error:\s*/i, replacement: '' },
-      { regex: /Failed to.*?:\s*/i, replacement: '' },
-      { regex: /HTTP error! status: (\d+)/, replacement: 'Server error ($1)' },
-      { regex: /network.*?error/i, replacement: 'Network error' },
-      { regex: /insufficient.*?funds/i, replacement: 'Insufficient funds' },
-      { regex: /user.*?rejected/i, replacement: 'Transaction rejected' },
-      { regex: /wallet.*?connection/i, replacement: 'Wallet error' }
-    ];
-    
-    // Apply patterns
-    patterns.forEach(({ regex, replacement }) => {
-      message = message.replace(regex, replacement);
-    });
-    
-    // Truncate if still too long
-    if (message.length > 80) {
-      message = message.substring(0, 77) + '...';
-    }
-    
-    return message.trim() || 'Operation failed';
   };
 
   // ❌ Error handling for React Query

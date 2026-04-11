@@ -1,39 +1,8 @@
-import { NextResponse } from 'next/server';
-import { getContractInstance } from '../../utils/contractInstance';
-import { requireAuth, handleGuardError } from '@/utils/auth/guards';
+import { createContractHandler } from '../../utils/createContractHandler'
 
-/**
- * Get safe balance of service credits in contract
- * GET /api/contract/reservation/getSafeBalance
- * 
- * @security Protected - requires authenticated session (provider data)
- * @returns {Object} Safe balance of service credits
- */
-export async function GET(request) {
-  try {
-    // Authentication check - provider financial data requires login
-    await requireAuth();
-  } catch (error) {
-    return handleGuardError(error);
-  }
-
-  try {
-    const contract = await getContractInstance();
-
-    // Call getSafeBalance function
-    const result = await contract.getSafeBalance();
-
-    return NextResponse.json({
-      safeBalance: result.toString()
-    }, {status: 200});
-
-  } catch (error) {
-    console.error('Error getting safe balance:', error);
-    return NextResponse.json(
-      { error: `Failed to get safe balance: ${error.message}` }, {status: 500 }
-    );
-  }
-}
-
-
+export const { GET } = createContractHandler({
+  auth: true,
+  method: 'getSafeBalance',
+  transform: (result) => ({ safeBalance: result.toString() }),
+})
 

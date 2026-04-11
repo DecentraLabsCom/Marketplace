@@ -29,14 +29,7 @@ export const labToastIds = {
   legacyBlocked: () => 'lab-legacy-blocked',
 }
 
-const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
-  if (typeof addTemporaryNotification !== 'function') return
-  addTemporaryNotification(type, message, null, {
-    dedupeKey,
-    dedupeWindowMs: 20000,
-    ...extraOptions,
-  })
-}
+import { notify } from './notify'
 
 export const notifyLabCreated = (addTemporaryNotification, labId) =>
   notify(addTemporaryNotification, 'success', 'Lab created!', labToastIds.created(labId))

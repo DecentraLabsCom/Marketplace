@@ -21,34 +21,13 @@ import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { processMetadataImages } from '@/hooks/utils/metadataHelpers'
-import { buildEnrichedLab, collectMetadataImages } from './labEnrichmentHelpers'
+import { buildEnrichedLab, collectMetadataImages, normalizeLabIds } from './labEnrichmentHelpers'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
 
 const EMPTY_ARRAY = [];
-
-const normalizeLabIds = (ids) => {
-  if (!Array.isArray(ids)) return [];
-
-  const seen = new Set();
-  const normalized = [];
-
-  ids.forEach((entry) => {
-    const rawId = typeof entry === 'object' && entry !== null
-      ? (entry.labId ?? entry.id ?? entry.tokenId ?? null)
-      : entry;
-    const numericId = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
-
-    if (!Number.isFinite(numericId) || seen.has(numericId)) return;
-
-    seen.add(numericId);
-    normalized.push(numericId);
-  });
-
-  return normalized;
-};
 
 const extractStatusCodeFromError = (error) => {
   const message = String(error?.message || '');

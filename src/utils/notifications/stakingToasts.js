@@ -13,14 +13,7 @@ export const stakingToastIds = {
   insufficientStake: () => 'staking-insufficient',
 }
 
-const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
-  if (typeof addTemporaryNotification !== 'function') return
-  addTemporaryNotification(type, message, null, {
-    dedupeKey,
-    dedupeWindowMs: 20000,
-    ...extraOptions,
-  })
-}
+import { notify } from './notify'
 
 export const notifyStakeStarted = (addTemporaryNotification, amount) => {
   notify(addTemporaryNotification, 'pending', `Bonding ${amount} credits...`, stakingToastIds.stakeStarted())

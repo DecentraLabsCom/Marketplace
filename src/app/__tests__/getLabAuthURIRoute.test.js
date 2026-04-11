@@ -87,12 +87,8 @@ describe('/api/contract/lab/getLabAuthURI route', () => {
     const res = await GET(req);
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toMatchObject({
-      error: 'Contract call failed',
+      error: 'Failed to call getLabAuthURI',
     });
-    expect(devLog.error).toHaveBeenCalledWith(
-      'Error fetching lab authURI:',
-      expect.any(Error)
-    );
   });
 
   test('accepts numeric labId as string', async () => {
