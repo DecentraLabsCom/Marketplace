@@ -7,8 +7,8 @@ import {
   useIsLabProvider, 
   useGetLabProviders,
   useUserCacheUpdates,
-  useInstitutionResolve
 } from '@/hooks/user/useUsers'
+import { useInstitutionRegistration } from '@/hooks/user/useInstitutionRegistration'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
   ErrorBoundary, 
@@ -83,9 +83,6 @@ function UserDataCore({ children }) {
     // Institutional onboarding state (WebAuthn credential at IB)
     const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-    const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
-    const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
-    const [institutionBackendUrl, setInstitutionBackendUrl] = useState(null);
     const onboardingStableUserIdRef = useRef(null);
 
     // React Query hooks for data fetching
@@ -189,6 +186,11 @@ function UserDataCore({ children }) {
     }, [isSSO, user]);
 
     const institutionDomain = user?.affiliation || user?.schacHomeOrganization || null;
+
+    // Resolve whether the institution is registered on-chain and derive
+    // its wallet address and backend URL.
+    const { institutionRegistrationStatus, institutionRegistrationWallet, institutionBackendUrl } =
+        useInstitutionRegistration(isSSO, user, institutionDomain);
 
     // Check institutional onboarding status after SSO login
     // This verifies if the user has registered a WebAuthn credential at their IB
@@ -328,66 +330,11 @@ function UserDataCore({ children }) {
         };
     }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl, institutionDomain]);
 
-    // Check whether the institution is already registered on-chain (for SSO users)
-    // Using React Query for automatic caching, retry, and deduplication
-    const {
-        data: institutionData,
-        isLoading: isInstitutionResolveLoading,
-        error: institutionResolveError,
-    } = useInstitutionResolve(institutionDomain, {
-        enabled: isSSO && Boolean(user) && Boolean(institutionDomain),
-    });
-
-    // Sync React Query state to local state for backward compatibility
-    useEffect(() => {
-        if (!isSSO || !user) {
-            setInstitutionRegistrationStatus(null);
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
-            return;
-        }
-
-        if (!institutionDomain) {
-            setInstitutionRegistrationStatus('error');
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
-            return;
-        }
-
-        if (isInstitutionResolveLoading) {
-            setInstitutionRegistrationStatus('checking');
-            return;
-        }
-
-        if (institutionResolveError) {
-            devLog.warn('[InstitutionRegistration] Resolve failed:', institutionResolveError);
-            setInstitutionRegistrationStatus('error');
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
-            return;
-        }
-
-        if (institutionData) {
-            if (institutionData.registered) {
-                setInstitutionRegistrationStatus('registered');
-                setInstitutionRegistrationWallet(institutionData.wallet || null);
-                setInstitutionBackendUrl(institutionData.backendUrl || null);
-            } else {
-                setInstitutionRegistrationStatus('unregistered');
-                setInstitutionRegistrationWallet(null);
-                setInstitutionBackendUrl(null);
-            }
-        }
-    }, [isSSO, user, institutionDomain, institutionData, isInstitutionResolveLoading, institutionResolveError]);
-
     // Reset institutional onboarding status on logout
     useEffect(() => {
         if (!isSSO || !user) {
             setInstitutionalOnboardingStatus(null);
             setShowOnboardingModal(false);
-            setInstitutionRegistrationStatus(null);
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
             onboardingStableUserIdRef.current = null;
         }
     }, [isSSO, user]);

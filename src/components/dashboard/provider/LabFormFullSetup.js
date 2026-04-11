@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { UploadCloud, Link, XCircle, Plus, Trash2, Loader2, Cpu } from 'lucide-react'
+import { useTermsMetadataAutoFetch } from '@/hooks/lab/useTermsMetadataAutoFetch'
 import { CalendarInput } from '@/components/ui'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
@@ -358,12 +359,9 @@ export default function LabFormFullSetup({
   minOpenDate.setHours(0, 0, 0, 0)
 
   const disabled = isExternalURI
-  const [termsFetchState, setTermsFetchState] = useState({ loading: false, error: null })
   const [timezoneOptions] = useState(() => resolveSupportedTimezones())
   const latestLabRef = useRef(localLab)
   const setLocalLabRef = useRef(setLocalLab)
-  const lastFetchedUrlRef = useRef('')
-  const termsAbortControllerRef = useRef(null)
 
   useEffect(() => {
     latestLabRef.current = localLab
@@ -496,114 +494,8 @@ export default function LabFormFullSetup({
     handleBasicChange('termsOfUse', { ...termsOfUse, [field]: value })
   }
 
-  const convertBufferToHex = (buffer) =>
-    Array.from(new Uint8Array(buffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-
-  const guessVersionFromUrl = (url) => {
-    const filename = url.split('/').pop() || ''
-    const versionRegex = /v(?:ersion)?[-_]?(\d+(?:\.\d+)*)/i
-    const match = filename.match(versionRegex)
-    return match ? match[1] : ''
-  }
-
   const termsUrl = termsOfUse.url?.trim() || ''
-
-  useEffect(() => {
-    if (!termsUrl) {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-        termsAbortControllerRef.current = null
-      }
-      setTermsFetchState((prev) => (prev.loading ? { loading: false, error: null } : prev))
-      lastFetchedUrlRef.current = ''
-      return
-    }
-
-    if (termsUrl === lastFetchedUrlRef.current) {
-      return
-    }
-
-    const fetchMetadata = async () => {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-      }
-
-      if (!/^https?:\/\//i.test(termsUrl)) {
-        setTermsFetchState({ loading: false, error: 'Terms link must be an absolute HTTP(S) URL.' })
-        return
-      }
-
-      const controller = new AbortController()
-      termsAbortControllerRef.current = controller
-      setTermsFetchState({ loading: true, error: null })
-
-      try {
-        const response = await fetch(termsUrl, { signal: controller.signal })
-        if (!response.ok) {
-          throw new Error('Unable to download the Terms of Use document.')
-        }
-
-        const buffer = await response.arrayBuffer()
-        let shaValue = ''
-        if (typeof window !== 'undefined' && window.crypto?.subtle?.digest) {
-          const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer)
-          shaValue = convertBufferToHex(hashBuffer)
-        }
-
-        const versionGuess = guessVersionFromUrl(termsUrl)
-        const today = new Date().toISOString().split('T')[0]
-        const currentLab = latestLabRef.current || {}
-        const currentTerms = currentLab.termsOfUse || {}
-        const updates = { url: termsUrl }
-
-        if (!currentTerms.version && versionGuess) {
-          updates.version = versionGuess
-        }
-        if (!currentTerms.effectiveDate) {
-          updates.effectiveDate = today
-        }
-        if (shaValue) {
-          updates.sha256 = shaValue
-        }
-
-        setLocalLabRef.current({
-          ...currentLab,
-          termsOfUse: {
-            ...currentTerms,
-            ...updates
-          }
-        })
-
-        lastFetchedUrlRef.current = termsUrl
-        setTermsFetchState({ loading: false, error: null })
-      } catch (error) {
-        if (error.name === 'AbortError') return
-        console.error('Failed to auto-populate terms metadata:', error)
-        setTermsFetchState({
-          loading: false,
-          error: 'Unable to auto-fill version/date/hash for this link.'
-        })
-        lastFetchedUrlRef.current = ''
-      } finally {
-        if (termsAbortControllerRef.current === controller) {
-          termsAbortControllerRef.current = null
-        }
-      }
-    }
-
-    fetchMetadata()
-  }, [termsUrl])
-
-  useEffect(() => {
-    return () => {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-        termsAbortControllerRef.current = null
-      }
-    }
-  }, [])
+  const termsFetchState = useTermsMetadataAutoFetch(termsUrl, latestLabRef, setLocalLabRef)
 
   const handleTimeFieldClick = useCallback((event) => {
     if (typeof event.currentTarget.showPicker === 'function') {

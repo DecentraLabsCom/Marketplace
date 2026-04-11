@@ -105,7 +105,6 @@ jest.mock("@/components/home/LabFilters", () => {
   return jest.requireActual("@/components/home/LabFilters");
 });
 
-// eslint-disable-next-line
 const LabFilters = require("../LabFilters").default;
 
 const baseFilterProps = {

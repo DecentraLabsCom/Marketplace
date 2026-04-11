@@ -17,7 +17,6 @@ export default class SimulationErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // eslint-disable-next-line no-console
     console.error('[SimulationErrorBoundary]', error, errorInfo)
   }
 

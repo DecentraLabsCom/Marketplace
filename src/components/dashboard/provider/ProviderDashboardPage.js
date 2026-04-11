@@ -22,9 +22,15 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
+import {
+  buildProviderLabUri,
+  createEmptyLabDraft,
+  isLabIdListCache,
+  remapMovedLabAssetPaths,
+  resolveOnchainLabUri,
+} from '@/components/dashboard/provider/providerDashboard.helpers'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
-import getBaseUrl from '@/utils/env/baseUrl'
 import { normalizeResourceTypeCode } from '@/utils/resourceType'
 import { convertHourlyCreditsToRawPerSecond } from '@/utils/blockchain/creditUnits'
 import devLog from '@/utils/dev/logger'
@@ -50,43 +56,6 @@ import {
   notifyLabUpdated,
   notifyLabUpdateFailed,
 } from '@/utils/notifications/labToasts'
-
-const sanitizeProviderNameForUri = (name) => {
-  const base = (name || 'Provider').toString().trim()
-  const sanitized = base
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-
-  return sanitized || 'Provider'
-}
-
-const isLabIdListCache = (entries) =>
-  Array.isArray(entries) && entries.every((entry) => (
-    entry === null
-    || entry === undefined
-    || typeof entry === 'string'
-    || typeof entry === 'number'
-    || typeof entry === 'bigint'
-  ))
-
-const resolveOnchainLabUri = (uri) => {
-  if (!uri) return uri
-  const trimmed = String(uri).trim()
-  if (!trimmed) return trimmed
-  if (/^https?:\/\//i.test(trimmed) || /^ipfs:\/\//i.test(trimmed)) {
-    return trimmed
-  }
-  if (trimmed.startsWith('Lab-')) {
-    const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
-    if (blobBase && typeof blobBase === 'string' && blobBase.trim().length > 0) {
-      const normalizedBase = blobBase.replace(/\/+$/, '')
-      return `${normalizedBase}/data/${trimmed}`
-    }
-    const baseUrl = getBaseUrl().replace(/\/+$/, '')
-    return `${baseUrl}/api/metadata?uri=${encodeURIComponent(trimmed)}`
-  }
-  return trimmed
-}
 
 /**
  * Provider dashboard page component
@@ -370,34 +339,7 @@ export default function ProviderDashboard() {
   });
   const labBookings = labBookingsData?.bookings || [];
 
-  const newLabStructure = {
-    name: '',
-    category: '',
-    keywords: [],
-    price: '',
-    description: '',
-    provider: '',
-    accessURI: '',
-    accessKey: '',
-    timeSlots: [],
-    opens: null,
-    closes: null,
-    docs: [],
-    images: [],
-    uri: '',
-    availableDays: [],
-    availableHours: { start: '', end: '' },
-    timezone: '',
-    maxConcurrentUsers: 1,
-    unavailableWindows: [],
-    termsOfUse: {
-      url: '',
-      version: '',
-      effectiveDate: null,
-      sha256: ''
-    }
-  };
-  const [newLab, setNewLab] = useState(newLabStructure);
+  const [newLab, setNewLab] = useState(() => createEmptyLabDraft());
   
   const maxId = useMemo(() => 
     Array.isArray(ownedLabs) && ownedLabs.length > 0 
@@ -434,8 +376,7 @@ export default function ProviderDashboard() {
       ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
     const providerSegmentSource = user?.institutionName || user?.name;
-    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
-    labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
+    labData.uri = buildProviderLabUri(labData.uri, providerSegmentSource, maxId + 1);
     const onchainUri = resolveOnchainLabUri(labData.uri);
 
     // Store the original human-readable price before blockchain conversion
@@ -506,46 +447,7 @@ export default function ProviderDashboard() {
           
           // Update labData with new file paths
           if (moveResult.movedFiles) {
-            const movedPathMap = new Map(
-              moveResult.movedFiles
-                .filter(movedFile => movedFile?.original && movedFile?.new)
-                .map(movedFile => [movedFile.original, movedFile.new])
-            );
-
-            const remapPaths = (paths = []) => (
-              Array.isArray(paths)
-                ? paths.map(filePath => movedPathMap.get(filePath) || filePath)
-                : []
-            );
-
-            const remappedImages = remapPaths(labData.images);
-            const remappedDocs = remapPaths(labData.docs);
-
-            if (remappedImages.length > 0) {
-              labData.images = remappedImages;
-            }
-            if (remappedDocs.length > 0) {
-              labData.docs = remappedDocs;
-            }
-
-            // Fallback for cases where arrays were empty but move returned files.
-            if ((!Array.isArray(labData.images) || labData.images.length === 0) && Array.isArray(moveResult.movedFiles)) {
-              const imageMoves = moveResult.movedFiles
-                .filter(movedFile => movedFile?.original?.includes('/images/'))
-                .map(movedFile => movedFile.new);
-              if (imageMoves.length > 0) {
-                labData.images = imageMoves;
-              }
-            }
-
-            if ((!Array.isArray(labData.docs) || labData.docs.length === 0) && Array.isArray(moveResult.movedFiles)) {
-              const docMoves = moveResult.movedFiles
-                .filter(movedFile => movedFile?.original?.includes('/docs/'))
-                .map(movedFile => movedFile.new);
-              if (docMoves.length > 0) {
-                labData.docs = docMoves;
-              }
-            }
+            labData = remapMovedLabAssetPaths(labData, moveResult.movedFiles);
           }
         } catch (moveError) {
           devLog.error('❌ Failed to move temp files:', moveError);
@@ -632,18 +534,21 @@ export default function ProviderDashboard() {
       createLabAbortControllerRef.current = null;
     }
   }, [
-    ownedLabs,
-    user?.name,
     addLabMutation,
-    saveLabDataMutation,
-    moveFilesMutation,
-    address,
-    isSSO,
-    user?.email,
     addTemporaryNotification,
-    setCreateLabProgress,
     clearCreateLabProgress,
     handleMissingWebauthnCredential,
+    institutionBackendUrl,
+    isSSO,
+    moveFilesMutation,
+    ownedLabs,
+    providerOwnerAddress,
+    queryClient,
+    saveLabDataMutation,
+    setCreateLabProgress,
+    user?.email,
+    user?.institutionName,
+    user?.name,
   ]);
 
   const handleCloseModal = useCallback(() => {
@@ -670,7 +575,7 @@ export default function ProviderDashboard() {
         hasInitialized.current = true;
       }
     }
-  }, [ownedLabs.length, selectedLabId, isModalOpen]);
+  }, [ownedLabs, selectedLabId, isModalOpen]);
   
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
@@ -702,8 +607,7 @@ export default function ProviderDashboard() {
     // Use original lab's URI to preserve consistency, regardless of provider name changes
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
     const providerSegmentSource = user?.institutionName || user?.name;
-    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
-    labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
+    labData.uri = buildProviderLabUri(labData.uri || originalLab?.uri, providerSegmentSource, labData.id);
     const onchainUri = resolveOnchainLabUri(labData.uri);
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
@@ -1054,11 +958,11 @@ export default function ProviderDashboard() {
               {/* Provider actions */}
               <ProviderActions
                 onAddNewLab={() => {
-                  setNewLab(newLabStructure);
+                  setNewLab(createEmptyLabDraft());
                   setSelectedLabId("");
-                setIsModalOpen(true);
-              }}
-            />
+                  setIsModalOpen(true);
+                }}
+              />
           </div>
         </div>
 

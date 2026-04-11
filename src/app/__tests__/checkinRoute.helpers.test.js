@@ -38,7 +38,6 @@ describe('checkin route helpers', () => {
     })
 
     test('throws when input is not a string', () => {
-      // eslint-disable-next-line no-undefined
       expect(() => normalizeOrganizationDomain(undefined)).toThrow(
         'Organization domain is required'
       )
