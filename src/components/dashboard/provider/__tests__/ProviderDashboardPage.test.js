@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for ProviderDashboard Component
  *
  * Tests Behaviors:
@@ -6,7 +6,7 @@
  * - Rendering (header, list, calendar, actions)
  * - Lab selection & auto-select
  * - CRUD (add, edit, delete, list/unlist)
- * - File sync (temp → labId, JSON metadata)
+ * - File sync (temp â†’ labId, JSON metadata)
  * - Error handling (query, mutation, UI)
  * - Edge cases (empty, null, errors, loading)
  */
@@ -110,8 +110,8 @@ jest.mock("@/context/NotificationContext", () => ({
   }),
 }));
 
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => ({ decimals: 5 }),
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => ({ decimals: 5 }),
 }));
 
 // Mock Optimistic UI context to prevent provider dependency and spy on optimistic state methods
@@ -995,4 +995,5 @@ describe("ProviderDashboard Component", () => {
     });
   });
 });
+
 

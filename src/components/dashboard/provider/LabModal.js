@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { Cpu, Monitor } from 'lucide-react'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
@@ -29,7 +29,7 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  * @returns {JSX.Element} Lab creation/editing modal component
  */
 export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId = 0, onFilesUploaded = null }) {
-  const { decimals, formatPrice } = useLabToken();
+  const { decimals, formatPrice } = useLabCredit();
   const uploadFileMutation = useUploadFile();
   const { addWarningNotification, addErrorNotification } = useNotifications();
   const deleteFileMutation = useDeleteFile();
@@ -593,7 +593,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
         // Pass uploaded temp files to parent for moving after mint
         if (onFilesUploaded && uploadedTempFiles.current.length > 0) {
           normalizedLabData._tempFiles = [...uploadedTempFiles.current];
-          devLog.log('📎 Passing temp files to parent:', uploadedTempFiles.current);
+          devLog.log('ðŸ“Ž Passing temp files to parent:', uploadedTempFiles.current);
         }
         
         await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
@@ -747,3 +747,4 @@ LabModal.propTypes = {
   }),
   maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
+

@@ -360,11 +360,6 @@ export const useReservationRequestSSO = (options = {}) => {
                   queryClient.invalidateQueries({ 
                     queryKey: bookingQueryKeys.reservationsOf(variables.userAddress) 
                   });
-                  if (variables.tokenId) {
-                    queryClient.invalidateQueries({
-                      queryKey: bookingQueryKeys.hasActiveBookingByToken(variables.tokenId, variables.userAddress)
-                    });
-                  }
                 }
                 if (variables.tokenId) {
                   queryClient.invalidateQueries({ 

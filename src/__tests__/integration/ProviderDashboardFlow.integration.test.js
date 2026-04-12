@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: Provider Dashboard Flow
  *
  * Test Behaviors:
@@ -246,14 +246,14 @@ jest.mock("@/context/OptimisticUIContext", () => ({
 /**
  * Mock LabToken Context
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  LabTokenProvider: ({ children }) => children,
-  useLabToken: () => ({
+jest.mock("@/context/LabCreditContext", () => ({
+  LabCreditProvider: ({ children }) => children,
+  useLabCredit: () => ({
     balance: BigInt("1550000"),
     allowance: BigInt("1000000"),
     decimals: 5,
     isLoading: false,
-    labTokenAddress: "0xMockLabTokenAddress",
+    labCreditAddress: "0xMockLabCreditAddress",
     formatTokenAmount: jest.fn((amount) => "5.00"),
     formatPrice: jest.fn((price) => "0.50"),
   }),
@@ -522,3 +522,4 @@ describe("Provider Dashboard Flow Integration", () => {
     });
   });
 });
+

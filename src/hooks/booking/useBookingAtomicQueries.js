@@ -328,51 +328,6 @@ export const useReservationsOfTokenByUser = (labId, userAddress, options = {}) =
   });
 };
 
-// ===== useTotalReservations Hook Family =====
-
-// Define queryFn first for reuse
-const getTotalReservationsQueryFn = createSSRSafeQuery(async () => {
-  const response = await fetch('/api/contract/reservation/totalReservations', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch total reservations: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useTotalReservationsSSO:', data);
-  return data;
-}, { total: '0' }); // Return '0' during SSR
-
-/**
- * Hook for /api/contract/reservation/totalReservations endpoint (SSO users)
- * Gets the total count of all reservations via API + Ethers
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with total count
- */
-export const useTotalReservationsSSO = (options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.totalReservations(),
-    queryFn: () => getTotalReservationsQueryFn(),
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useTotalReservationsSSO.queryFn = getTotalReservationsQueryFn;
-
-/**
- * Hook for total-reservation reads in the institutional runtime.
- * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with total count
- */
-export const useTotalReservations = (options = {}) => {
-  return useTotalReservationsSSO(options);
-};
-
 // ===== useUserOfReservation Hook Family =====
 
 // Define queryFn first for reuse
@@ -539,122 +494,6 @@ export const useHasActiveBooking = (reservationKey, userAddress, options = {}) =
     enabled: enabled && (options.enabled ?? true),
   });
 };
-// ===== useHasActiveBookingByToken Hook Family =====
-
-// Define queryFn first for reuse
-const getHasActiveBookingByTokenQueryFn = createSSRSafeQuery(async (labId, userAddress) => {
-  if (!labId || !userAddress) throw new Error('Lab ID and user address are required');
-  
-  const response = await fetch(
-    `/api/contract/reservation/hasActiveBookingByToken?tokenId=${encodeURIComponent(labId)}&user=${encodeURIComponent(userAddress)}`,
-    {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    },
-  );
-  
-  if (!response.ok) {
-    throw new Error(`Failed to check active booking for lab ${labId}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('?? useHasActiveBookingByTokenSSO:', labId, userAddress, data);
-  return data;
-}, { hasActiveBooking: false }); // Return false during SSR
-
-/**
- * Hook for /api/contract/reservation/hasActiveBookingByToken endpoint (SSO users)
- * Checks if a specific lab token has any active booking for a user via API + Ethers
- * @param {string|number} labId - Lab ID to check
- * @param {string} userAddress - User address to check
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with active booking status for the lab
- */
-export const useHasActiveBookingByTokenSSO = (labId, userAddress, options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.hasActiveBookingByToken(labId, userAddress),
-    queryFn: () => getHasActiveBookingByTokenQueryFn(labId, userAddress),
-    enabled: !!labId && !!userAddress,
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useHasActiveBookingByTokenSSO.queryFn = getHasActiveBookingByTokenQueryFn;
-
-/**
- * Hook for lab active-booking checks in the institutional runtime.
- * @param {string|number} labId - Lab ID to check
- * @param {string} userAddress - User address to check
- * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with active booking status for the lab
- */
-export const useHasActiveBookingByToken = (labId, userAddress, options = {}) => {
-  const enabled = !!labId && !!userAddress;
-  return useHasActiveBookingByTokenSSO(labId, userAddress, {
-    ...options,
-    enabled: enabled && (options.enabled ?? true),
-  });
-};
-// ===== useActiveReservationKeyForUser Hook Family =====
-
-// Define queryFn first for reuse
-const getActiveReservationKeyForUserQueryFn = createSSRSafeQuery(async (labId, userAddress) => {
-  if (!labId || !userAddress) {
-    throw new Error('Lab ID and user address are required');
-  }
-  
-  const response = await fetch(`/api/contract/reservation/getActiveReservationKeyForUser?labId=${encodeURIComponent(labId)}&userAddress=${encodeURIComponent(userAddress)}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch active reservation key for user ${userAddress} in lab ${labId}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('🔍 useActiveReservationKeyForUserSSO:', labId, userAddress, data);
-  return data;
-}, { reservationKey: '0x0000000000000000000000000000000000000000000000000000000000000000' }); // Return zero bytes32 during SSR
-
-/**
- * Hook for /api/contract/reservation/getActiveReservationKeyForUser endpoint (SSO users)
- * Gets the active reservation key for a user in a specific lab using O(1) contract lookup via API + Ethers
- * @param {string|number} labId - Lab ID to check
- * @param {string} userAddress - User address to check
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
- */
-export const useActiveReservationKeyForUserSSO = (labId, userAddress, options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.activeReservationKeyForUser(labId, userAddress),
-    queryFn: () => getActiveReservationKeyForUserQueryFn(labId, userAddress),
-    enabled: !!labId && !!userAddress,
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useActiveReservationKeyForUserSSO.queryFn = getActiveReservationKeyForUserQueryFn;
-
-/**
- * Hook for active-reservation-key reads in the institutional runtime.
- * @param {string|number} labId - Lab ID to check
- * @param {string} userAddress - User address to check
- * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with reservation key (or 0x0 if no active booking)
- */
-export const useActiveReservationKeyForUser = (labId, userAddress, options = {}) => {
-  const enabled = !!labId && !!userAddress;
-  return useActiveReservationKeyForUserSSO(labId, userAddress, {
-    ...options,
-    enabled: enabled && (options.enabled ?? true),
-  });
-};
-
 // ===== SSO session: useActiveReservationKey Hook (SSO-only) =====
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
@@ -745,92 +584,47 @@ export const useHasActiveBookingForSessionUser = (options = {}) => {
   })
 }
 
-// ===== useLabTokenAddress Hook Family =====
+// ===== useLabCreditAddress Hook Family =====
 
 // Define queryFn first for reuse
-const getLabTokenAddressQueryFn = createSSRSafeQuery(async () => {
-  const response = await fetch('/api/contract/reservation/getLabTokenAddress', {
+const getLabCreditAddressQueryFn = createSSRSafeQuery(async () => {
+  const response = await fetch('/api/contract/reservation/getLabCreditAddress', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
   
   if (!response.ok) {
-    throw new Error(`Failed to fetch lab token address: ${response.status}`);
+    throw new Error(`Failed to fetch service-credit ledger address: ${response.status}`);
   }
   
   const data = await response.json();
-  devLog.log('🔍 useLabTokenAddressSSO:', data);
+  devLog.log('🔍 useLabCreditAddressSSO:', data);
   return data;
-}, { tokenAddress: null }); // Return null during SSR
+}, { labCreditAddress: null }); // Return null during SSR
 
 /**
- * Hook for /api/contract/reservation/getLabTokenAddress endpoint (SSO users)
- * Gets the token contract address for lab tokens via API + Ethers
+ * Hook for /api/contract/reservation/getLabCreditAddress endpoint (SSO users)
+ * Gets the service-credit ledger address via API
  * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with token contract address
+ * @returns {Object} React Query result with ledger address
  */
-export const useLabTokenAddressSSO = (options = {}) => {
+export const useLabCreditAddressSSO = (options = {}) => {
   return useQuery({
-    queryKey: bookingQueryKeys.labTokenAddress(),
-    queryFn: () => getLabTokenAddressQueryFn(),
+    queryKey: bookingQueryKeys.labCreditAddress(),
+    queryFn: () => getLabCreditAddressQueryFn(),
     ...BOOKING_QUERY_CONFIG,
     ...options,
   });
 };
 
 // Export queryFn for use in composed hooks
-useLabTokenAddressSSO.queryFn = getLabTokenAddressQueryFn;
+useLabCreditAddressSSO.queryFn = getLabCreditAddressQueryFn;
 
 /**
- * Hook for lab-token-address reads in the institutional runtime.
+ * Hook for service-credit-ledger-address reads in the institutional runtime.
  * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with token contract address
+ * @returns {Object} React Query result with ledger address
  */
-export const useLabTokenAddress = (options = {}) => {
-  return useLabTokenAddressSSO(options);
-};
-
-// ===== useSafeBalance Hook Family =====
-
-// Define queryFn first for reuse
-const getSafeBalanceQueryFn = createSSRSafeQuery(async () => {
-  const response = await fetch('/api/contract/reservation/getSafeBalance', {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch safe balance: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('?? useSafeBalanceSSO:', data);
-  return data;
-}, { safeBalance: '0' }); // Return '0' during SSR
-
-/**
- * Hook for /api/contract/reservation/getSafeBalance endpoint (SSO users)
- * Gets the safe balance via API + Ethers
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with safe balance
- */
-export const useSafeBalanceSSO = (options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.safeBalance(),
-    queryFn: () => getSafeBalanceQueryFn(),
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useSafeBalanceSSO.queryFn = getSafeBalanceQueryFn;
-
-/**
- * Hook for safe-balance reads in the institutional runtime.
- * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with safe balance
- */
-export const useSafeBalance = (options = {}) => {
-  return useSafeBalanceSSO(options);
+export const useLabCreditAddress = (options = {}) => {
+  return useLabCreditAddressSSO(options);
 };

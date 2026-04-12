@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react'
+﻿import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 
 /**
  * Lab pricing and service credit information display component.
  */
-export default function LabTokenInfo({ labPrice, durationMinutes, className = '' }) {
+export default function LabCreditInfo({ labPrice, durationMinutes, className = '' }) {
   const {
     balance,
     allowance,
@@ -13,8 +13,8 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
     calculateReservationCost,
     checkBalanceAndAllowance,
     formatTokenAmount,
-    labTokenAddress,
-  } = useLabToken()
+    labCreditAddress,
+  } = useLabCredit()
 
   const calculations = useMemo(() => {
     const reservationCost = calculateReservationCost(labPrice, durationMinutes)
@@ -36,7 +36,7 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
 
   const { reservationCost, hasSufficientBalance, hasSufficientAllowance } = calculations
 
-  if (!labTokenAddress || !decimals) {
+  if (!labCreditAddress || !decimals) {
     return (
       <div className={`bg-gray-700 rounded-lg p-4 ${className}`}>
         <div className="text-yellow-400">
@@ -87,8 +87,9 @@ export default function LabTokenInfo({ labPrice, durationMinutes, className = ''
   )
 }
 
-LabTokenInfo.propTypes = {
+LabCreditInfo.propTypes = {
   labPrice: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   durationMinutes: PropTypes.number.isRequired,
   className: PropTypes.string,
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
@@ -52,7 +52,7 @@ const LabCard = React.memo(function LabCard({
     setIsClient(true);
   }, []);
 
-  const { formatPrice } = useLabToken();
+  const { formatPrice } = useLabCredit();
   const ratingValue = getLabRatingValue(reputation);
   const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
   const ageLabel = getLabAgeLabel(createdAt);
@@ -120,7 +120,7 @@ const LabCard = React.memo(function LabCard({
         {/* FMU Badge */}
         {isFmu && (
           <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-[#7875a8]/90 px-2.5 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
-            <span>⚙ FMU</span>
+            <span>âš™ FMU</span>
           </div>
         )}
 
@@ -185,3 +185,4 @@ LabCard.propTypes = {
 }
 
 export default LabCard;
+

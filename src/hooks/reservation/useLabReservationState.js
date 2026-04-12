@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Custom hook for lab reservation state management.
  * Institutional flow only: wallet-based reservation state has been removed.
  */
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNotifications } from '@/context/NotificationContext'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import {
   useReservationRequest,
   useBookingCacheUpdates
@@ -157,7 +157,7 @@ export function useLabReservationState({
   const {
     calculateReservationCost,
     formatPrice,
-  } = useLabToken()
+  } = useLabCredit()
 
   const bookingCacheUpdates = useBookingCacheUpdates()
   const queryClient = useQueryClient()
@@ -568,3 +568,4 @@ export function useLabReservationState({
     bookingCacheUpdates
   }
 }
+

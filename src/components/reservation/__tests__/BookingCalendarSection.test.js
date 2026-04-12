@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for BookingCalendarSection Component
  *
  * Tests the booking calendar section that handles date/time selection and availability display.
@@ -49,8 +49,8 @@ jest.mock("@/components/booking/CalendarWithBookings", () => {
   };
 });
 
-jest.mock("@/components/reservation/LabTokenInfo", () => {
-  return function MockLabTokenInfo({ labPrice, durationMinutes, className }) {
+jest.mock("@/components/reservation/LabCreditInfo", () => {
+  return function MockLabCreditInfo({ labPrice, durationMinutes, className }) {
     return (
       <div data-testid="lab-token-info" className={className}>
         <span data-testid="token-price">{labPrice}</span>
@@ -319,7 +319,7 @@ describe("BookingCalendarSection", () => {
       expect(screen.queryByTestId("lab-token-info")).not.toBeInTheDocument();
     });
 
-    test("passes correct props to LabTokenInfo", () => {
+    test("passes correct props to LabCreditInfo", () => {
       render(
         <BookingCalendarSection {...defaultProps} isSSO={false} duration={45} />
       );
@@ -437,3 +437,4 @@ describe("BookingCalendarSection", () => {
     });
   });
 });
+

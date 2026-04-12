@@ -1,20 +1,20 @@
-import { render, screen } from "@testing-library/react"
-import LabTokenInfo from "../LabTokenInfo"
-import { useLabToken } from "@/context/LabTokenContext"
+﻿import { render, screen } from "@testing-library/react"
+import LabCreditInfo from "../LabCreditInfo"
+import { useLabCredit } from "@/context/LabCreditContext"
 
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: jest.fn(),
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: jest.fn(),
 }))
 
-describe("LabTokenInfo", () => {
+describe("LabCreditInfo", () => {
   beforeEach(() => {
     jest.clearAllMocks()
 
-    useLabToken.mockReturnValue({
+    useLabCredit.mockReturnValue({
       balance: 500000n,
       allowance: 500000n,
       decimals: 5,
-      labTokenAddress: "0x1234567890123456789012345678901234567890",
+      labCreditAddress: "0x1234567890123456789012345678901234567890",
       calculateReservationCost: jest.fn(() => 200000n),
       checkBalanceAndAllowance: jest.fn(() => ({
         hasSufficientBalance: true,
@@ -28,11 +28,11 @@ describe("LabTokenInfo", () => {
   })
 
   test("shows a ledger warning when the service credit ledger is unavailable", () => {
-    useLabToken.mockReturnValue({
+    useLabCredit.mockReturnValue({
       balance: 0n,
       allowance: 0n,
       decimals: null,
-      labTokenAddress: null,
+      labCreditAddress: null,
       calculateReservationCost: jest.fn(() => 0n),
       checkBalanceAndAllowance: jest.fn(() => ({
         hasSufficientBalance: false,
@@ -41,13 +41,13 @@ describe("LabTokenInfo", () => {
       formatTokenAmount: jest.fn(() => "0"),
     })
 
-    render(<LabTokenInfo labPrice="100" durationMinutes={60} />)
+    render(<LabCreditInfo labPrice="100" durationMinutes={60} />)
 
     expect(screen.getByText(/service credit ledger not available/i)).toBeInTheDocument()
   })
 
   test("renders balance and reservation cost in credits", () => {
-    render(<LabTokenInfo labPrice="100" durationMinutes={60} />)
+    render(<LabCreditInfo labPrice="100" durationMinutes={60} />)
 
     expect(screen.getByText(/credit balance:/i)).toBeInTheDocument()
     expect(screen.getByText(/5 credits/i)).toBeInTheDocument()
@@ -56,18 +56,18 @@ describe("LabTokenInfo", () => {
   })
 
   test("shows ready-to-spend state when credit is sufficient", () => {
-    render(<LabTokenInfo labPrice="100" durationMinutes={60} />)
+    render(<LabCreditInfo labPrice="100" durationMinutes={60} />)
 
     expect(screen.getByText(/sufficient balance/i)).toBeInTheDocument()
     expect(screen.getByText(/credits ready to spend/i)).toBeInTheDocument()
   })
 
   test("shows additional credits required when balance is insufficient", () => {
-    useLabToken.mockReturnValue({
+    useLabCredit.mockReturnValue({
       balance: 50000n,
       allowance: 50000n,
       decimals: 5,
-      labTokenAddress: "0x1234567890123456789012345678901234567890",
+      labCreditAddress: "0x1234567890123456789012345678901234567890",
       calculateReservationCost: jest.fn(() => 200000n),
       checkBalanceAndAllowance: jest.fn(() => ({
         hasSufficientBalance: false,
@@ -79,9 +79,10 @@ describe("LabTokenInfo", () => {
       }),
     })
 
-    render(<LabTokenInfo labPrice="100" durationMinutes={60} />)
+    render(<LabCreditInfo labPrice="100" durationMinutes={60} />)
 
     expect(screen.getByText(/insufficient balance/i)).toBeInTheDocument()
     expect(screen.getByText(/additional credits required/i)).toBeInTheDocument()
   })
 })
+

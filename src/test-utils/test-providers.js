@@ -1,9 +1,9 @@
-import { render } from "@testing-library/react";
+﻿import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { OptimisticUIProvider } from "@/context/OptimisticUIContext";
 import { UserData } from "@/context/UserContext";
-import { LabTokenProvider } from "@/context/LabTokenContext";
+import { LabCreditProvider } from "@/context/LabCreditContext";
 
 /**
  * Factory function that creates a test wrapper with all necessary providers.
@@ -32,7 +32,7 @@ export function createTestWrapper() {
         <NotificationProvider>
           <OptimisticUIProvider>
             <UserData>
-              <LabTokenProvider>{children}</LabTokenProvider>
+              <LabCreditProvider>{children}</LabCreditProvider>
             </UserData>
           </OptimisticUIProvider>
         </NotificationProvider>
@@ -56,3 +56,4 @@ export function renderWithAllProviders(ui, options = {}) {
   const Wrapper = createTestWrapper();
   return render(ui, { wrapper: Wrapper, ...options });
 }
+

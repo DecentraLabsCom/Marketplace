@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: Institutional Onboarding Flow
  *
  * Test Behaviors:
@@ -79,11 +79,11 @@ jest.mock("@/context/UserContext", () => ({
   }),
 }));
 
-jest.mock("@/context/LabTokenContext", () => ({
-  LabTokenProvider: ({ children }) => (
+jest.mock("@/context/LabCreditContext", () => ({
+  LabCreditProvider: ({ children }) => (
     <div data-testid="mock-lab-token-provider">{children}</div>
   ),
-  useLabToken: () => ({}),
+  useLabCredit: () => ({}),
 }));
 
 // Mock useInstitutionalOnboarding hook
@@ -369,4 +369,5 @@ describe("InstitutionalOnboardingFlow", () => {
     });
   });
 });
+
 

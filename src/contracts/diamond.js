@@ -11,3 +11,4 @@ export const contractAddresses = {
 }
 
 export const contractABI = contractAbiJson
+export const deploymentModel = 'internal-credit-ledger'

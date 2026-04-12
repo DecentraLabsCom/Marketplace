@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Booking calendar section component
  * Handles date/time selection and availability display
  */
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
-import LabTokenInfo from '@/components/reservation/LabTokenInfo'
+import LabCreditInfo from '@/components/reservation/LabCreditInfo'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
@@ -172,7 +172,7 @@ export default function BookingCalendarSection({
       {!isSSO && (
         <div className="w-full lg:w-96 flex flex-col">
           <label className="block text-lg font-semibold mb-2">Payment info:</label>
-          <LabTokenInfo
+          <LabCreditInfo
             className="h-fit"
             labPrice={lab.price}
             durationMinutes={duration}
@@ -203,3 +203,4 @@ BookingCalendarSection.propTypes = {
   isSSO: PropTypes.bool.isRequired,
   formatPrice: PropTypes.func.isRequired
 }
+

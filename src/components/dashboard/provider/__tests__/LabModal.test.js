@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit tests for LabModal component
  *
  * Tested behaviors:
@@ -27,8 +27,8 @@ let mockLabTokenData = {
 };
 
 // External dependencies
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => mockLabTokenData,
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => mockLabTokenData,
 }));
 
 jest.mock("@/context/NotificationContext", () => ({
@@ -516,3 +516,4 @@ describe("LabModal - Unit Tests", () => {
     });
   });
 });
+

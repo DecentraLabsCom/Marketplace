@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for Simulation components
  *
  * Tests for:
@@ -16,8 +16,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 jest.mock("@/hooks/lab/useLabs", () => ({
   useLabById: jest.fn(),
 }));
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: jest.fn(() => ({ formatPrice: (p) => `€${p}` })),
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: jest.fn(() => ({ formatPrice: (p) => `â‚¬${p}` })),
 }));
 jest.mock("@/components/skeletons", () => ({
   LabHeroSkeleton: () => <div data-testid="skeleton" />,
@@ -35,7 +35,7 @@ jest.mock("@/utils/auth/labAuth", () => ({
   authenticateLabAccessSSO: jest.fn(async () => ({ token: "test-gateway-token" })),
 }));
 
-// ─── ParameterForm ──────────────────────────────────────────────────
+// â”€â”€â”€ ParameterForm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import ParameterForm from "../ParameterForm";
 
@@ -77,7 +77,7 @@ describe("ParameterForm", () => {
   });
 });
 
-// ─── SimulationOptions ──────────────────────────────────────────────
+// â”€â”€â”€ SimulationOptions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import SimulationOptions from "../SimulationOptions";
 
@@ -111,7 +111,7 @@ describe("SimulationOptions", () => {
   });
 });
 
-// ─── ResultsTable ───────────────────────────────────────────────────
+// â”€â”€â”€ ResultsTable â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import ResultsTable from "../ResultsTable";
 
@@ -149,7 +149,7 @@ describe("ResultsTable", () => {
   });
 });
 
-// ─── ResultsChart ───────────────────────────────────────────────────
+// â”€â”€â”€ ResultsChart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import ResultsChart from "../ResultsChart";
 
@@ -182,7 +182,7 @@ describe("ResultsChart", () => {
   });
 });
 
-// ─── DownloadButtons ────────────────────────────────────────────────
+// â”€â”€â”€ DownloadButtons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import DownloadButtons from "../DownloadButtons";
 
@@ -212,7 +212,7 @@ describe("DownloadButtons", () => {
   });
 });
 
-// ─── SimulationRunner ───────────────────────────────────────────────
+// â”€â”€â”€ SimulationRunner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 import SimulationRunner from "../SimulationRunner";
 
@@ -485,3 +485,4 @@ describe("SimulationRunner", () => {
     expect(screen.queryByLabelText("ODE Solver:")).toBeNull();
   });
 });
+

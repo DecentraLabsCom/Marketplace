@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for useLabReservationState hook.
  *
  * Tests the lab reservation state management hook.
@@ -23,7 +23,7 @@ import { useLabReservationState } from "../useLabReservationState";
 
 // External dependencies mocking - isolate the hook from external systems
 import { useNotifications } from "@/context/NotificationContext";
-import { useLabToken } from "@/context/LabTokenContext";
+import { useLabCredit } from "@/context/LabCreditContext";
 import {
   useReservationRequest,
   useBookingCacheUpdates,
@@ -34,7 +34,7 @@ import devLog from "@/utils/dev/logger";
 
 // Mock external contexts to control their behavior and responses
 jest.mock("@/context/NotificationContext");
-jest.mock("@/context/LabTokenContext");
+jest.mock("@/context/LabCreditContext");
 jest.mock("@/hooks/booking/useBookings");
 
 // Mock utility functions to test specific scenarios and edge cases
@@ -137,7 +137,7 @@ describe("useLabReservationState", () => {
     jest.clearAllMocks();
 
     useNotifications.mockReturnValue(mockNotifications);
-    useLabToken.mockReturnValue(mockLabToken);
+    useLabCredit.mockReturnValue(mockLabToken);
     useReservationRequest.mockReturnValue(mockReservationRequest);
     useBookingCacheUpdates.mockReturnValue(mockCacheUpdates);
 
@@ -880,3 +880,4 @@ describe("useLabReservationState", () => {
     jest.useRealTimers();
   });
 });
+

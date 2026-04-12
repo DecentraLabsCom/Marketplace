@@ -1,10 +1,10 @@
-'use client'
+﻿'use client'
 
 import PropTypes from 'prop-types'
 import dynamic from 'next/dynamic'
 import ClientQueryProvider from '@/context/ClientQueryProvider'
 import { UserData } from '@/context/UserContext'
-import { LabTokenProvider } from '@/context/LabTokenContext'
+import { LabCreditProvider } from '@/context/LabCreditContext'
 import { NotificationProvider } from '@/context/NotificationContext'
 import { OptimisticUIProvider } from '@/context/OptimisticUIContext'
 import Navbar from '@/components/layout/Navbar'
@@ -24,7 +24,7 @@ export default function AppProviders({ children }) {
       <NotificationProvider>
         <OptimisticUIProvider>
           <UserData>
-            <LabTokenProvider>
+            <LabCreditProvider>
               <header className="sticky top-0 z-50">
                 <ClientOnly fallback={<div className="bg-header-bg text-hover-dark p-3 shadow-md h-20" />}>
                   <Navbar />
@@ -40,7 +40,7 @@ export default function AppProviders({ children }) {
               <ClientOnly>
                 <InstitutionalOnboardingWrapper />
               </ClientOnly>
-            </LabTokenProvider>
+            </LabCreditProvider>
           </UserData>
         </OptimisticUIProvider>
       </NotificationProvider>
@@ -51,3 +51,4 @@ export default function AppProviders({ children }) {
 AppProviders.propTypes = {
   children: PropTypes.node.isRequired
 }
+

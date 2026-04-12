@@ -1,9 +1,12 @@
-import { createContractHandler } from '../../utils/createContractHandler'
+// Static config route — no on-chain call needed.
+// Does not use createContractHandler because decimals are a compile-time
+// constant for the internal credit ledger; there is no contract to query.
+import { CREDIT_DECIMALS } from '@/utils/blockchain/creditUnits'
 
-export const { GET } = createContractHandler({
-  contractType: 'lab',
-  method: 'decimals',
-  transform: (result) => ({ decimals: Number(result) }),
-  onError: () =>
-    Response.json({ decimals: 6, fallback: true }, { status: 200 })
-})
+export async function GET() {
+  return Response.json({
+    decimals: CREDIT_DECIMALS,
+    ledgerType: 'internal-credit-ledger',
+    fallback: false,
+  })
+}

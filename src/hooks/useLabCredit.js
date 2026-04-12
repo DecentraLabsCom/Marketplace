@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+﻿import { useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useUser } from '@/context/UserContext'
 import devLog from '@/utils/dev/logger'
@@ -46,8 +46,8 @@ async function fetchInstitutionCreditBalance(institutionAddress) {
   return response.json()
 }
 
-async function fetchLabTokenAddress() {
-  const response = await fetch('/api/contract/reservation/getLabTokenAddress', {
+async function fetchLabCreditAddress() {
+  const response = await fetch('/api/contract/reservation/getLabCreditAddress', {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -60,7 +60,7 @@ async function fetchLabTokenAddress() {
   return response.json()
 }
 
-export function useLabTokenHook() {
+export function useLabCreditHook() {
   const { address, isSSO, isLoggedIn } = useUser()
   const shouldFetchInstitutionData = Boolean(isSSO && isLoggedIn && address)
   const shouldFetchLedgerMetadata = Boolean(isSSO && isLoggedIn)
@@ -84,12 +84,12 @@ export function useLabTokenHook() {
   })
 
   const {
-    data: tokenAddressResponse,
-    refetch: refetchTokenAddress,
-    isLoading: isTokenAddressLoading,
+    data: creditAddressResponse,
+    refetch: refetchCreditAddress,
+    isLoading: isCreditAddressLoading,
   } = useQuery({
     queryKey: ['lab-token', 'ledger-address'],
-    queryFn: fetchLabTokenAddress,
+    queryFn: fetchLabCreditAddress,
     enabled: shouldFetchLedgerMetadata,
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
@@ -101,7 +101,7 @@ export function useLabTokenHook() {
   const balance = tryParseBigInt(balanceResponse?.balance) ?? 0n
   const allowance = balance
   const decimals = DEFAULT_LAB_TOKEN_DECIMALS
-  const labTokenAddress = tokenAddressResponse?.labTokenAddress || null
+  const labCreditAddress = creditAddressResponse?.labCreditAddress || null
 
   const calculateReservationCost = useCallback((labPrice, durationMinutes) => {
     if (!labPrice || !durationMinutes) return 0n
@@ -170,15 +170,15 @@ export function useLabTokenHook() {
 
   const refreshTokenData = useCallback(() => {
     refetchBalance()
-    refetchTokenAddress()
-  }, [refetchBalance, refetchTokenAddress])
+    refetchCreditAddress()
+  }, [refetchBalance, refetchCreditAddress])
 
   return {
     balance,
     allowance,
     decimals,
-    isLoading: Boolean(isBalanceLoading || isTokenAddressLoading),
-    labTokenAddress,
+    isLoading: Boolean(isBalanceLoading || isCreditAddressLoading),
+    labCreditAddress,
     calculateReservationCost,
     checkBalanceAndAllowance,
     checkSufficientBalance,
@@ -190,3 +190,4 @@ export function useLabTokenHook() {
     clearDecimalsCache,
   }
 }
+

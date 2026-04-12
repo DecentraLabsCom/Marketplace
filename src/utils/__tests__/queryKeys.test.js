@@ -44,16 +44,12 @@ describe('queryKeys', () => {
       expect(bookingQueryKeys.reservationKeyOfUserPrefix('0x123')).toEqual(['bookings', 'reservationKeyOfUser', '0x123']);
       expect(bookingQueryKeys.reservationKeyOfUserByIndex('0x123', 3)).toEqual(['bookings', 'reservationKeyOfUser', '0x123', 3]);
       expect(bookingQueryKeys.ssoReservationKeyOfUserPrefix()).toEqual(['bookings', 'sso', 'reservationKeyOfUser']);
-      expect(bookingQueryKeys.totalReservations()).toEqual(['bookings', 'totalReservations']);
       expect(bookingQueryKeys.userOfReservation('key123')).toEqual(['bookings', 'userOfReservation', 'key123']);
       expect(bookingQueryKeys.checkAvailable('123', 1000, 3600)).toEqual(['bookings', 'checkAvailable', '123', 1000, 3600]);
       expect(bookingQueryKeys.hasActiveBooking('key123', '0x123')).toEqual(['bookings', 'hasActiveBooking', 'key123', '0x123']);
-      expect(bookingQueryKeys.hasActiveBookingByToken('123', '0x123')).toEqual(['bookings', 'hasActiveBookingByToken', '123', '0x123']);
-      expect(bookingQueryKeys.activeReservationKeyForUser('123', '0x123')).toEqual(['bookings', 'activeReservationKey', '123', '0x123']);
       expect(bookingQueryKeys.ssoHasActiveBookingSession()).toEqual(['bookings', 'sso', 'hasActiveBooking', 'session']);
       expect(bookingQueryKeys.ssoActiveReservationKeySession('123')).toEqual(['bookings', 'sso', 'activeReservationKey', '123']);
-      expect(bookingQueryKeys.labTokenAddress()).toEqual(['bookings', 'labTokenAddress']);
-      expect(bookingQueryKeys.safeBalance()).toEqual(['bookings', 'safeBalance']);
+      expect(bookingQueryKeys.labCreditAddress()).toEqual(['bookings', 'labCreditAddress']);
     });
   });
 
@@ -117,8 +113,6 @@ describe('queryKeys', () => {
           result = keyFn('test'); // has defaults
         } else if (keyFn.name === 'hasActiveBooking') {
           result = keyFn('key', 'user');
-        } else if (keyFn.name === 'hasActiveBookingByToken') {
-          result = keyFn('lab', 'user');
         } else if (keyFn.length === 0) {
           result = keyFn(); // no parameters needed
         } else {
@@ -154,8 +148,6 @@ describe('queryKeys', () => {
             result = keyFn('test');
           } else if (keyFn.name === 'hasActiveBooking') {
             result = keyFn('key', 'user');
-          } else if (keyFn.name === 'hasActiveBookingByToken') {
-            result = keyFn('lab', 'user');
           } else if (keyFn.length === 0) {
             result = keyFn();
           } else {

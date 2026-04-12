@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
@@ -8,7 +8,7 @@ import countries from 'i18n-iso-countries'
 import enLocale from 'i18n-iso-countries/langs/en.json'
 import { Container } from '@/components/ui'
 import { useLabById } from '@/hooks/lab/useLabs'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
@@ -49,12 +49,12 @@ export default function LabDetail({ id }) {
     error: labsErrorDetails,
     metadataError 
   } = useLabById(id);
-  const { formatPrice } = useLabToken();
+  const { formatPrice } = useLabCredit();
   const router = useRouter();
 
   // Lab is directly returned from the hook, no need for additional processing
 
-  // ❌ Error handling for React Query
+  // âŒ Error handling for React Query
   if (labsError) {
     return (
       <Container as="main" padding="sm">
@@ -195,7 +195,7 @@ export default function LabDetail({ id }) {
           {metadataError ? (
             <div className="mt-4 bg-warning-bg border border-warning-border rounded-lg p-4 mb-4">
               <p className="text-warning-text text-sm">
-                ⚠️ <strong>Information Unavailable:</strong> Additional details for this laboratory are currently missing. 
+                Warning: <strong>Information Unavailable:</strong> Additional details for this laboratory are currently missing.
                 Basic information and booking functionality remain accessible.
               </p>
             </div>
@@ -299,7 +299,7 @@ export default function LabDetail({ id }) {
                                   {v.causality || 'local'}
                                 </span>
                               </td>
-                              <td className="px-2 py-1 text-neutral-200">{v.start ?? '—'}</td>
+                              <td className="px-2 py-1 text-neutral-200">{v.start ?? 'â€”'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -310,7 +310,7 @@ export default function LabDetail({ id }) {
               </div>
             )}
 
-            {/* AAS / Digital Twin Panel — shown only when provider has an AAS-capable gateway */}
+            {/* AAS / Digital Twin Panel â€” shown only when provider has an AAS-capable gateway */}
             {lab?.accessURI && (
               <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} />
             )}
@@ -338,3 +338,4 @@ export default function LabDetail({ id }) {
 LabDetail.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
 }
+

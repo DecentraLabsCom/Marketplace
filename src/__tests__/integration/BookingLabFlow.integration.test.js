@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: Lab Booking Flow
  *
  * Test Behaviors:
@@ -152,8 +152,8 @@ jest.mock("@/context/UserContext", () => ({
 /**
  * Mock LabToken Context for token operations
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => ({
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => ({
     formatPrice: (price) => price,
     formatTokenAmount: (amount) => amount,
     checkBalanceAndAllowance: () => ({
@@ -162,7 +162,7 @@ jest.mock("@/context/LabTokenContext", () => ({
       balance: "10.5",
     }),
   }),
-  LabTokenProvider: ({ children }) => children,
+  LabCreditProvider: ({ children }) => children,
 }));
 
 /**
@@ -686,5 +686,6 @@ describe("LabReservation Component", () => {
     });
   });
 });
+
 
 

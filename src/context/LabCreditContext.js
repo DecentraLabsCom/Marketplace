@@ -1,21 +1,21 @@
-"use client";
+﻿"use client";
 import React, { createContext, useContext, useMemo, useRef, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { useLabTokenHook } from '@/hooks/useLabToken';
+import { useLabCreditHook } from '@/hooks/useLabCredit';
 import devLog from '@/utils/dev/logger';
 
 // Create the context
-const LabTokenContext = createContext(null);
+const LabCreditContext = createContext(null);
 
 /**
- * LabTokenProvider component that provides service-credit data to all child components
- * Uses a single instance of useLabToken to avoid multiple contract calls
+ * LabCreditProvider component that provides service-credit data to all child components
+ * Uses a single instance of useLabCredit to avoid multiple contract calls
  * @param {Object} props
  * @param {React.ReactNode} props.children - Child components
  */
-export function LabTokenProvider({ children }) {
-  // Single instance of useLabToken - this is the only place it's called
-  const labTokenData = useLabTokenHook();
+export function LabCreditProvider({ children }) {
+  // Single instance of useLabCredit - this is the only place it's called
+  const labTokenData = useLabCreditHook();
   
   // Track last logged state to prevent duplicate logs
   const lastLoggedState = useRef({
@@ -58,7 +58,7 @@ export function LabTokenProvider({ children }) {
       balance: labTokenData.balance?.toString() || 'undefined',
       decimals: labTokenData.decimals,
       isLoading: labTokenData.isLoading,
-      labTokenAddress: labTokenData.labTokenAddress
+      labCreditAddress: labTokenData.labCreditAddress
     };
     
     // Check if this is actually a new value compared to the last one
@@ -68,7 +68,7 @@ export function LabTokenProvider({ children }) {
         lastState.balance?.toString() === currentState.balance &&
         lastState.decimals === currentState.decimals &&
         lastState.isLoading === currentState.isLoading &&
-        lastState.labTokenAddress === currentState.labTokenAddress &&
+        lastState.labCreditAddress === currentState.labCreditAddress &&
         lastState.allowance?.toString() === labTokenData.allowance?.toString()
       );
       
@@ -102,7 +102,7 @@ export function LabTokenProvider({ children }) {
     );
     
     if (shouldLog) {
-      devLog.log('LabTokenContext: Context value updated', currentState);
+      devLog.log('LabCreditContext: Context value updated', currentState);
       lastLoggedState.current = { ...currentState };
     }
     
@@ -117,7 +117,7 @@ export function LabTokenProvider({ children }) {
       allowance: labTokenData.allowance,
       decimals: labTokenData.decimals,
       isLoading: labTokenData.isLoading,
-      labTokenAddress: labTokenData.labTokenAddress,
+      labCreditAddress: labTokenData.labCreditAddress,
       
       // Token functions - use stable references
       ...stableFunctions
@@ -132,36 +132,37 @@ export function LabTokenProvider({ children }) {
     labTokenData.allowance?.toString() || 'undefined', 
     labTokenData.decimals ?? 'undefined',
     Boolean(labTokenData.isLoading),
-    labTokenData.labTokenAddress || 'undefined'
+    labTokenData.labCreditAddress || 'undefined'
     // Remove stableFunctions from dependencies to prevent unnecessary re-renders
   ]);
 
   return (
-    <LabTokenContext.Provider value={contextValue}>
+    <LabCreditContext.Provider value={contextValue}>
       {children}
-    </LabTokenContext.Provider>
+    </LabCreditContext.Provider>
   );
 }
 
 /**
  * Hook to access service-credit context
- * This replaces direct calls to useLabToken in components
+ * This replaces direct calls to useLabCredit in components
  * @returns {Object} Service-credit data and functions
- * @throws {Error} If used outside of LabTokenProvider
+ * @throws {Error} If used outside of LabCreditProvider
  */
-export function useLabToken() {
-  const context = useContext(LabTokenContext);
+export function useLabCredit() {
+  const context = useContext(LabCreditContext);
   
   if (context === null) {
-    throw new Error('useLabToken must be used within a LabTokenProvider');
+    throw new Error('useLabCredit must be used within a LabCreditProvider');
   }
   
   return context;
 }
 
 // PropTypes
-LabTokenProvider.propTypes = {
+LabCreditProvider.propTypes = {
   children: PropTypes.node.isRequired
 };
 
-export default LabTokenContext;
+export default LabCreditContext;
+

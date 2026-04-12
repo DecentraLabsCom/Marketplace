@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for LabDetail FMU metadata section
  *
  * Tested Behaviors:
@@ -15,11 +15,11 @@ import LabDetail from "../LabDetail";
 
 // Mocks
 jest.mock("@/hooks/lab/useLabs");
-jest.mock("@/context/LabTokenContext");
+jest.mock("@/context/LabCreditContext");
 jest.mock("next/navigation");
 
 const { useLabById } = require("@/hooks/lab/useLabs");
-const { useLabToken } = require("@/context/LabTokenContext");
+const { useLabCredit } = require("@/context/LabCreditContext");
 const { useRouter } = require("next/navigation");
 
 // Mock UI components
@@ -76,7 +76,7 @@ const fmuLab = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  useLabToken.mockReturnValue({ formatPrice: (p) => `€${p}` });
+  useLabCredit.mockReturnValue({ formatPrice: (p) => `â‚¬${p}` });
   useRouter.mockReturnValue({ push: mockPush });
 });
 
@@ -160,8 +160,9 @@ describe("LabDetail - FMU Resource", () => {
 
   test("shows default time range", () => {
     render(<LabDetail id="42" />);
-    // "0s – 10s"
+    // "0s â€“ 10s"
     const timeText = screen.getByText(/0s/);
     expect(timeText).toBeInTheDocument();
   });
 });
+

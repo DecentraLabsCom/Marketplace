@@ -1,12 +1,12 @@
-import { CREDIT_DECIMALS, formatRawCredits } from '@/utils/blockchain/creditUnits'
+﻿import { CREDIT_DECIMALS, formatRawCredits } from '@/utils/blockchain/creditUnits'
 
 /**
  * Credit amount formatting utilities for raw blockchain values.
- * Works with string amounts (smallest credit units) — suitable for both
+ * Works with string amounts (smallest credit units) â€” suitable for both
  * SSO (API) and Wallet (Wagmi) data that has already been serialized to strings.
  *
  * For formatting BigInt values directly from Wagmi hooks, prefer
- * formatTokenAmount from LabTokenContext (uses viem's formatUnits).
+ * formatTokenAmount from LabCreditContext (uses viem's formatUnits).
  */
 
 /**
@@ -18,3 +18,4 @@ import { CREDIT_DECIMALS, formatRawCredits } from '@/utils/blockchain/creditUnit
 export function formatRawAmount(rawAmount, decimals = CREDIT_DECIMALS) {
   return formatRawCredits(rawAmount, decimals)
 }
+

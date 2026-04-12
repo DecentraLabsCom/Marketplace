@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: Lab Listing Flow
  *
  * Test Behaviors:
@@ -125,8 +125,8 @@ jest.mock("@/context/OptimisticUIContext", () => ({
 /**
  * Mock LabToken Context for token operations
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => ({
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => ({
     formatPrice: (price) => price,
     formatTokenAmount: (amount) => amount,
     decimals: 5,
@@ -139,7 +139,7 @@ jest.mock("@/context/LabTokenContext", () => ({
       balance: "15.5",
     }),
   }),
-  LabTokenProvider: ({ children }) => children,
+  LabCreditProvider: ({ children }) => children,
 }));
 
 /**
@@ -482,3 +482,4 @@ describe("LabModal Component - Lab Listing Flow", () => {
     });
   });
 });
+

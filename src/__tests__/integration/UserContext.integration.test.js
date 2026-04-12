@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: User Context Integration
  *
  * Test Behaviors:
@@ -19,14 +19,14 @@ import { useOptimisticUI } from "@/context/OptimisticUIContext";
 /**
  * Mock LabToken Context to avoid blockchain integration complexity
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  LabTokenProvider: ({ children }) => children,
-  useLabToken: () => ({
+jest.mock("@/context/LabCreditContext", () => ({
+  LabCreditProvider: ({ children }) => children,
+  useLabCredit: () => ({
     balance: BigInt("1550000"),
     allowance: BigInt("1000000"),
     decimals: 5,
     isLoading: false,
-    labTokenAddress: "0xMockLabTokenAddress",
+    labCreditAddress: "0xMockLabCreditAddress",
     calculateReservationCost: jest.fn(),
     checkBalanceAndAllowance: jest.fn((requiredAmount = BigInt(0)) => ({
       hasSufficientBalance: BigInt("1550000") >= requiredAmount,
@@ -215,10 +215,10 @@ describe("User Context Integration", () => {
      * Verifies that credit balance information is properly integrated
      */
     test("provides access to credit balance data", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
+      const { useLabCredit } = require("@/context/LabCreditContext");
 
       // Verify balance is accessible from LabToken context
-      const labTokenData = useLabToken();
+      const labTokenData = useLabCredit();
       expect(labTokenData.balance).toBe(BigInt("1550000"));
       expect(labTokenData.formatTokenAmount(labTokenData.balance)).toBe(
         "15.50"
@@ -230,8 +230,8 @@ describe("User Context Integration", () => {
      * Verifies that the system correctly identifies when user has insufficient credits
      */
     test("detects insufficient credit balance for booking", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
       // Check balance for a booking that requires 20 credits (more than available)
       const requiredAmount = BigInt("2000000");
@@ -247,8 +247,8 @@ describe("User Context Integration", () => {
      * Verifies that sufficient balance is correctly detected
      */
     test("detects sufficient credit balance for booking", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
       // Check balance for a booking that requires 5 credits (less than available)
       const requiredAmount = BigInt("500000");
@@ -264,8 +264,8 @@ describe("User Context Integration", () => {
      * Verifies that credit allowance is properly tracked
      */
     test("tracks credit allowance for marketplace operations", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
       // Verify allowance is accessible
       expect(labToken.allowance).toBe(BigInt("1000000"));
@@ -284,8 +284,8 @@ describe("User Context Integration", () => {
      * This triggers approval flow when needed
      */
     test("detects when allowance is insufficient", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
       // Check allowance for a booking that requires 15 credits (more than allowed)
       const requiredAmount = BigInt("1500000");
@@ -358,10 +358,10 @@ describe("User Context Integration", () => {
   describe("Context integration reliability", () => {
     /**
      * Test Case: Multiple context hooks work together
-     * Verifies that UserContext, LabTokenContext, and OptimisticUI work in harmony
+     * Verifies that UserContext, LabCreditContext, and OptimisticUI work in harmony
      */
     test("integrates multiple contexts without conflicts", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
+      const { useLabCredit } = require("@/context/LabCreditContext");
 
       // Render both contexts simultaneously
       const { result: userResult } = renderHook(() => useUser(), { wrapper });
@@ -375,7 +375,7 @@ describe("User Context Integration", () => {
       });
 
       // Verify LabToken context is also accessible
-      const labToken = useLabToken();
+      const labToken = useLabCredit();
       expect(labToken).toBeDefined();
       expect(labToken.balance).toBeDefined();
 
@@ -389,3 +389,4 @@ describe("User Context Integration", () => {
     });
   });
 });
+

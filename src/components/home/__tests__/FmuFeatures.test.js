@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for FMU-specific features in LabCard, LabGrid, LabFilters
  *
  * Tested Behaviors:
@@ -11,12 +11,8 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 
-// ─── LabCard Tests ──────────────────────────────────────────────────
+// â”€â”€â”€ LabCard Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-jest.mock("@/hooks/booking/useBookings", () => ({
-  useActiveReservationKeyForUser: jest.fn(() => ({ data: null })),
-  useActiveReservationKeyForSessionUserSSO: jest.fn(() => ({ data: null })),
-}));
 jest.mock("@/context/UserContext", () => ({
   useUser: jest.fn(() => ({
     address: "0xABC",
@@ -24,9 +20,9 @@ jest.mock("@/context/UserContext", () => ({
     isSSO: false,
   })),
 }));
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: jest.fn(() => ({
-    formatPrice: (p) => `€${Number(p).toFixed(2)}`,
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: jest.fn(() => ({
+    formatPrice: (p) => `â‚¬${Number(p).toFixed(2)}`,
   })),
 }));
 jest.mock("@/components/home/LabAccess", () => {
@@ -97,7 +93,7 @@ describe("LabCard - FMU Support", () => {
   });
 });
 
-// ─── LabFilters Tests ───────────────────────────────────────────────
+// â”€â”€â”€ LabFilters Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Reset modules for LabFilters
 jest.mock("@/components/home/LabFilters", () => {
@@ -152,7 +148,7 @@ describe("LabFilters - Resource Type Toggle", () => {
         onResourceTypeChange={onChange}
       />
     );
-    // Click "All Types" → should call with "lab"
+    // Click "All Types" â†’ should call with "lab"
     fireEvent.click(screen.getByText("All Types"));
     expect(onChange).toHaveBeenCalledWith("lab");
 
@@ -166,7 +162,7 @@ describe("LabFilters - Resource Type Toggle", () => {
     );
     expect(screen.getByText("Labs only")).toBeInTheDocument();
 
-    // Click "Labs only" → should call with "fmu"
+    // Click "Labs only" â†’ should call with "fmu"
     fireEvent.click(screen.getByText("Labs only"));
     expect(onChange).toHaveBeenCalledWith("fmu");
 
@@ -180,8 +176,9 @@ describe("LabFilters - Resource Type Toggle", () => {
     );
     expect(screen.getByText("FMU only")).toBeInTheDocument();
 
-    // Click "FMU only" → should call with "All"
+    // Click "FMU only" â†’ should call with "All"
     fireEvent.click(screen.getByText("FMU only"));
     expect(onChange).toHaveBeenCalledWith("All");
   });
 });
+

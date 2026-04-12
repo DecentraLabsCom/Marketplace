@@ -1,10 +1,10 @@
-/**
- * Unit tests for the useLabToken hook.
+﻿/**
+ * Unit tests for the useLabCredit hook.
  */
 
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useLabTokenHook as useLabToken } from '../useLabToken'
+import { useLabCreditHook as useLabCredit } from '../useLabCredit'
 
 jest.mock('@/context/UserContext', () => ({
   useUser: jest.fn(() => ({
@@ -24,7 +24,7 @@ function createWrapper() {
   )
 }
 
-describe('useLabTokenHook', () => {
+describe('useLabCreditHook', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     global.fetch = jest.fn((url) => {
@@ -35,10 +35,10 @@ describe('useLabTokenHook', () => {
         })
       }
 
-      if (String(url).includes('/api/contract/reservation/getLabTokenAddress')) {
+      if (String(url).includes('/api/contract/reservation/getLabCreditAddress')) {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ labTokenAddress: '0xlabtoken' }),
+          json: async () => ({ labCreditAddress: '0xlabcredit' }),
         })
       }
 
@@ -47,7 +47,7 @@ describe('useLabTokenHook', () => {
   })
 
   test('returns service credit state correctly', async () => {
-    const { result } = renderHook(() => useLabToken(), {
+    const { result } = renderHook(() => useLabCredit(), {
       wrapper: createWrapper(),
     })
 
@@ -56,11 +56,11 @@ describe('useLabTokenHook', () => {
     expect(result.current.balance).toBe(1000n)
     expect(result.current.allowance).toBe(1000n)
     expect(result.current.decimals).toBe(5)
-    expect(result.current.labTokenAddress).toBe('0xlabtoken')
+    expect(result.current.labCreditAddress).toBe('0xlabcredit')
   })
 
   test('calculateReservationCost works', async () => {
-    const { result } = renderHook(() => useLabToken(), {
+    const { result } = renderHook(() => useLabCredit(), {
       wrapper: createWrapper(),
     })
 
@@ -70,7 +70,7 @@ describe('useLabTokenHook', () => {
   })
 
   test('refreshTokenData refetches ledger data', async () => {
-    const { result } = renderHook(() => useLabToken(), {
+    const { result } = renderHook(() => useLabCredit(), {
       wrapper: createWrapper(),
     })
 
@@ -85,3 +85,4 @@ describe('useLabTokenHook', () => {
     expect(global.fetch.mock.calls.length).toBeGreaterThan(initialCalls)
   })
 })
+

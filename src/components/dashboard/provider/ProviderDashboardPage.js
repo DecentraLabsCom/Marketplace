@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+﻿import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
@@ -15,7 +15,7 @@ import {
 } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
@@ -112,7 +112,7 @@ export default function ProviderDashboard() {
 
   const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
   const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
-  const { decimals } = useLabToken();
+  const { decimals } = useLabCredit();
 
   // 🚀 React Query mutations for lab management
   const queryClient = globalQueryClient || null;
@@ -428,7 +428,7 @@ export default function ProviderDashboard() {
       // Save metadata JSON file for locally-managed URIs
       if (labData.uri.startsWith('Lab-')) {
         try {
-          devLog.log('📝 Saving lab metadata JSON after blockchain creation...');
+          devLog.log('📁 Saving lab metadata JSON after blockchain creation...');
           setCreateLabProgress('💾 Saving lab metadata (offchain)...');
           await saveLabDataMutation.mutateAsync({
             ...labData,
@@ -599,7 +599,7 @@ export default function ProviderDashboard() {
       originalResourceType !== nextResourceType;
 
     // Debug logging to help identify what's causing transaction triggers
-    devLog.log('🔍 On-chain comparison debug:', {
+    devLog.log('📁 On-chain comparison debug:', {
       uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
       accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
@@ -911,3 +911,4 @@ export default function ProviderDashboard() {
     </AccessControl>
   );
 }
+

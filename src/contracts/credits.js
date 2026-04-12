@@ -1,13 +1,12 @@
-/**
- * Service-Credit Ledger Contract Addresses
- */
-export const contractAddressesLAB = {
-  ethereum: process.env.NEXT_PUBLIC_LAB_TOKEN_ADDRESS_ETHEREUM || "0x...",
-  polygon: process.env.NEXT_PUBLIC_LAB_TOKEN_ADDRESS_POLYGON || "0x...",
-  sepolia: process.env.NEXT_PUBLIC_LAB_TOKEN_ADDRESS_SEPOLIA || "0x576E75bDE4d27bAf0f83CeE8de4bC7Ce9E4663FF"
-};
+import { contractAddresses } from './diamond'
 
-export const labTokenABI = [
+/**
+ * Service-credit ledger compatibility config.
+ * Credits are currently accounted for inside the Diamond deployment.
+ */
+export const contractAddressesCredits = contractAddresses
+
+export const creditsABI = [
   {
     "inputs": [],
     "name": "name",
@@ -84,7 +83,6 @@ export const labTokenABI = [
     "stateMutability": "nonpayable",
     "type": "function"
   },
-  // Events
   {
     "anonymous": false,
     "inputs": [
@@ -105,4 +103,4 @@ export const labTokenABI = [
     "name": "Transfer",
     "type": "event"
   }
-];
+]

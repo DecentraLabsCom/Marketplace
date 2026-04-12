@@ -1,5 +1,5 @@
-/**
- * Unit Tests: LabTokenContext
+﻿/**
+ * Unit Tests: LabCreditContext
  *
  * Tests the LAB token management system including:
  * - Token balance and allowance state
@@ -14,15 +14,15 @@
  */
 
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { LabTokenProvider, useLabToken } from '@/context/LabTokenContext';
+import { LabCreditProvider, useLabCredit } from '@/context/LabCreditContext';
 
-// Mock the underlying useLabToken hook
+// Mock the underlying useLabCredit hook
 const mockLabTokenData = {
   balance: BigInt('1500000'), // 15 LAB credits
   allowance: BigInt('1000000'), // 10 LAB credits
   decimals: 5,
   isLoading: false,
-  labTokenAddress: '0xMockLabTokenAddress',
+  labCreditAddress: '0xMockLabCreditAddress',
   calculateReservationCost: jest.fn(),
   checkBalanceAndAllowance: jest.fn(),
   checkSufficientBalance: jest.fn(),
@@ -34,8 +34,8 @@ const mockLabTokenData = {
   clearDecimalsCache: jest.fn(),
 };
 
-jest.mock('@/hooks/useLabToken', () => ({
-  useLabTokenHook: jest.fn(() => mockLabTokenData),
+jest.mock('@/hooks/useLabCredit', () => ({
+  useLabCreditHook: jest.fn(() => mockLabTokenData),
 }));
 
 jest.mock('@/utils/dev/logger', () => ({
@@ -44,27 +44,27 @@ jest.mock('@/utils/dev/logger', () => ({
   warn: jest.fn(),
 }));
 
-describe('LabTokenContext', () => {
+describe('LabCreditContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe('Provider Functionality', () => {
     test('provides token data to consumers', () => {
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.balance).toEqual(BigInt('1500000'));
       expect(result.current.allowance).toEqual(BigInt('1000000'));
       expect(result.current.decimals).toBe(5);
       expect(result.current.isLoading).toBe(false);
-      expect(result.current.labTokenAddress).toBe('0xMockLabTokenAddress');
+      expect(result.current.labCreditAddress).toBe('0xMockLabCreditAddress');
     });
 
     test('provides all function references', () => {
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(typeof result.current.calculateReservationCost).toBe('function');
@@ -83,8 +83,8 @@ describe('LabTokenContext', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
       expect(() => {
-        renderHook(() => useLabToken());
-      }).toThrow('useLabToken must be used within a LabTokenProvider');
+        renderHook(() => useLabCredit());
+      }).toThrow('useLabCredit must be used within a LabCreditProvider');
 
       consoleSpy.mockRestore();
     });
@@ -94,8 +94,8 @@ describe('LabTokenContext', () => {
     test('formatTokenAmount formats token amount correctly', () => {
       mockLabTokenData.formatTokenAmount.mockReturnValue('15.00');
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const formattedAmount = result.current.formatTokenAmount(
@@ -111,8 +111,8 @@ describe('LabTokenContext', () => {
     test('formatTokenAmount handles zero balance', () => {
       mockLabTokenData.formatTokenAmount.mockReturnValue('0.00');
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const formattedAmount = result.current.formatTokenAmount(BigInt('0'));
@@ -123,8 +123,8 @@ describe('LabTokenContext', () => {
     test('formatTokenAmount handles null/undefined values', () => {
       mockLabTokenData.formatTokenAmount.mockReturnValue('0.00');
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const formattedAmount = result.current.formatTokenAmount(null);
@@ -138,8 +138,8 @@ describe('LabTokenContext', () => {
       // Mock: 0.54 credits per hour = 15 raw units per second with 5 credit decimals.
       mockLabTokenData.formatPrice.mockReturnValue('0.5');
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const formattedPrice = result.current.formatPrice('15');
@@ -151,8 +151,8 @@ describe('LabTokenContext', () => {
     test('formatPrice handles zero price', () => {
       mockLabTokenData.formatPrice.mockReturnValue('0');
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const formattedPrice = result.current.formatPrice('0');
@@ -161,16 +161,16 @@ describe('LabTokenContext', () => {
     });
 
     test('formatPrice handles missing decimals', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         decimals: undefined,
       });
 
       mockLabTokenData.formatPrice.mockReturnValue('0');
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const formattedPrice = result.current.formatPrice('15');
@@ -188,8 +188,8 @@ describe('LabTokenContext', () => {
 
       mockLabTokenData.calculateReservationCost.mockReturnValue(expectedCost);
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const cost = result.current.calculateReservationCost(
@@ -207,8 +207,8 @@ describe('LabTokenContext', () => {
     test('calculateReservationCost handles zero duration', () => {
       mockLabTokenData.calculateReservationCost.mockReturnValue(BigInt('0'));
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const cost = result.current.calculateReservationCost('15', 0);
@@ -219,8 +219,8 @@ describe('LabTokenContext', () => {
     test('calculateReservationCost handles null price', () => {
       mockLabTokenData.calculateReservationCost.mockReturnValue(BigInt('0'));
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const cost = result.current.calculateReservationCost(null, 60);
@@ -241,8 +241,8 @@ describe('LabTokenContext', () => {
         requiredAmount,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const status = result.current.checkBalanceAndAllowance(requiredAmount);
@@ -264,8 +264,8 @@ describe('LabTokenContext', () => {
         requiredAmount,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const status = result.current.checkBalanceAndAllowance(requiredAmount);
@@ -285,8 +285,8 @@ describe('LabTokenContext', () => {
         shortfall: BigInt('0'),
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const status = result.current.checkSufficientBalance(
@@ -310,8 +310,8 @@ describe('LabTokenContext', () => {
         shortfall: BigInt('18516000'),
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const status = result.current.checkSufficientBalance(
@@ -326,8 +326,8 @@ describe('LabTokenContext', () => {
 
   describe('Refresh Functions', () => {
     test('refreshTokenData refetches balance and allowance', () => {
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       act(() => {
@@ -338,8 +338,8 @@ describe('LabTokenContext', () => {
     });
 
     test('refetchBalance refetches balance', () => {
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       act(() => {
@@ -350,8 +350,8 @@ describe('LabTokenContext', () => {
     });
 
     test('refetchAllowance refetches allowance', () => {
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       act(() => {
@@ -362,8 +362,8 @@ describe('LabTokenContext', () => {
     });
 
     test('clearDecimalsCache clears cached decimals', () => {
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       act(() => {
@@ -376,28 +376,28 @@ describe('LabTokenContext', () => {
 
   describe('Loading State', () => {
     test('isLoading is true when loading', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         isLoading: true,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.isLoading).toBe(true);
     });
 
     test('isLoading is false when not loading', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         isLoading: false,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.isLoading).toBe(false);
@@ -406,8 +406,8 @@ describe('LabTokenContext', () => {
 
   describe('Memoization and Re-render Prevention', () => {
     test('context value remains stable when data does not change', () => {
-      const { result, rerender } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result, rerender } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const firstContextValue = result.current;
@@ -423,17 +423,17 @@ describe('LabTokenContext', () => {
     });
 
     test('context value updates when balance changes', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
 
       // Initial render
-      const { result, rerender } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result, rerender } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const initialBalance = result.current.balance;
 
       // Update balance
-      useLabTokenHook.mockReturnValue({
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         balance: BigInt('2000000'), // 20 LAB (changed from 15)
       });
@@ -447,17 +447,17 @@ describe('LabTokenContext', () => {
     });
 
     test('context value updates when decimals change', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
 
       // Initial render
-      const { result, rerender } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result, rerender } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       const initialDecimals = result.current.decimals;
 
       // Update decimals (e.g., switching to a different token)
-      useLabTokenHook.mockReturnValue({
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         decimals: 6, // Changed from 5
       });
@@ -473,73 +473,74 @@ describe('LabTokenContext', () => {
 
   describe('Edge Cases', () => {
     test('handles undefined balance', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         balance: undefined,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.balance).toBeUndefined();
     });
 
     test('handles undefined allowance', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         allowance: undefined,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.allowance).toBeUndefined();
     });
 
     test('handles undefined decimals', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         decimals: undefined,
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.decimals).toBeUndefined();
     });
 
     test('handles zero balance', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         balance: BigInt('0'),
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.balance).toEqual(BigInt('0'));
     });
 
     test('handles zero allowance', () => {
-      const { useLabTokenHook } = require('@/hooks/useLabToken');
-      useLabTokenHook.mockReturnValue({
+      const { useLabCreditHook } = require('@/hooks/useLabCredit');
+      useLabCreditHook.mockReturnValue({
         ...mockLabTokenData,
         allowance: BigInt('0'),
       });
 
-      const { result } = renderHook(() => useLabToken(), {
-        wrapper: LabTokenProvider,
+      const { result } = renderHook(() => useLabCredit(), {
+        wrapper: LabCreditProvider,
       });
 
       expect(result.current.allowance).toEqual(BigInt('0'));
     });
   });
 });
+
