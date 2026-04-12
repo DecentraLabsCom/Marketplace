@@ -79,6 +79,14 @@ export const OnboardingErrorCode = {
 export function extractStableUserId(userData) {
   if (!userData) return null
 
+  if (typeof userData?.normalizedClaims?.stableUserId === 'string' && userData.normalizedClaims.stableUserId.trim()) {
+    return userData.normalizedClaims.stableUserId.trim().toLowerCase()
+  }
+
+  if (typeof userData?.identityEvidence?.claims?.stableUserId === 'string' && userData.identityEvidence.claims.stableUserId.trim()) {
+    return userData.identityEvidence.claims.stableUserId.trim().toLowerCase()
+  }
+
   if (userData.eduPersonPrincipalName) {
     return (userData.eduPersonTargetedID
       ? `${userData.eduPersonPrincipalName}|${userData.eduPersonTargetedID}`
@@ -146,6 +154,8 @@ export async function initiateInstitutionalOnboarding({ userData, callbackUrl })
   if (userData.samlAssertion) {
     requestPayload.samlAssertion = userData.samlAssertion
     requestPayload.assertionReference = `sha256:${computeAssertionHash(userData.samlAssertion)}`
+  } else if (userData.evidenceHash) {
+    requestPayload.assertionReference = `sha256:${userData.evidenceHash}`
   }
 
   try {

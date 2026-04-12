@@ -128,6 +128,35 @@ describe('sessionCookie', () => {
       expect(decoded.samlAssertionCompressed.length).toBeLessThan(largeAssertion.length);
       expect(decoded.samlAssertionEncoding).toBe('deflate-raw-base64url');
     });
+
+    it('should keep identity rawEvidence available in token storage', () => {
+      const rawEvidence = 'small-raw-evidence';
+      const sessionData = {
+        id: 'user123',
+        email: 'test@example.com',
+        identityEvidence: {
+          type: 'saml',
+          format: 'saml2-base64',
+          rawEvidence,
+          claims: {
+            stableUserId: 'user123',
+            institutionId: 'test.example',
+          },
+          metadata: {
+            issuer: 'test.example',
+            issuedAt: '2026-04-12T10:00:00.000Z',
+          },
+          evidenceHash: '0xabc123',
+        },
+      };
+
+      const token = sessionCookie.createSessionToken(sessionData);
+      const decoded = jwt.decode(token);
+
+      expect(decoded.identityEvidence.rawEvidence).toBe(rawEvidence);
+      expect(decoded.identityEvidence.rawEvidenceCompressed).toBeUndefined();
+      expect(decoded.identityEvidence.rawEvidenceEncoding).toBeUndefined();
+    });
   });
 
   describe('verifySessionToken', () => {
@@ -215,6 +244,35 @@ describe('sessionCookie', () => {
       expect(verified.samlAssertion).toBe(largeAssertion);
       expect(verified.samlAssertionCompressed).toBeUndefined();
       expect(verified.samlAssertionEncoding).toBeUndefined();
+    });
+
+    it('should restore compressed identity rawEvidence data transparently', () => {
+      const largeRawEvidence = `{"vp":"${'C'.repeat(12000)}"}`;
+      const sessionData = {
+        id: 'user123',
+        email: 'test@example.com',
+        identityEvidence: {
+          type: 'openid4vp',
+          format: 'jwt-vp',
+          rawEvidence: largeRawEvidence,
+          claims: {
+            stableUserId: 'user123',
+            institutionId: 'test.example',
+          },
+          metadata: {
+            issuer: 'test.example',
+            issuedAt: '2026-04-12T10:00:00.000Z',
+          },
+          evidenceHash: '0xabc123',
+        },
+      };
+
+      const token = sessionCookie.createSessionToken(sessionData);
+      const verified = sessionCookie.verifySessionToken(token);
+
+      expect(verified.identityEvidence.rawEvidence).toBe(largeRawEvidence);
+      expect(verified.identityEvidence.rawEvidenceCompressed).toBeUndefined();
+      expect(verified.identityEvidence.rawEvidenceEncoding).toBeUndefined();
     });
   });
 

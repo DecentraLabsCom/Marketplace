@@ -14,6 +14,7 @@
 import jwt from 'jsonwebtoken';
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import devLog from '@/utils/dev/logger';
+import { computeEvidenceHash } from './identityEvidence';
 
 const COOKIE_NAME = 'user_session';
 const COOKIE_CHUNK_COUNT_NAME = `${COOKIE_NAME}.count`;
@@ -21,6 +22,7 @@ const DEFAULT_MAX_AGE = 60 * 60 * 24; // 24 hours in seconds
 const MAX_COOKIE_VALUE_LENGTH = 3800;
 const ASSERTION_COMPRESSION_ENCODING = 'deflate-raw-base64url';
 const ASSERTION_COMPRESSION_MIN_LENGTH = 512;
+const RAW_EVIDENCE_COMPRESSION_MIN_LENGTH = 512;
 
 function encodeBase64Url(buffer) {
   return buffer
@@ -42,47 +44,91 @@ function decodeBase64UrlToBuffer(value) {
   }
 }
 
-function compressSamlAssertion(samlAssertion) {
-  if (typeof samlAssertion !== 'string' || samlAssertion.length < ASSERTION_COMPRESSION_MIN_LENGTH) {
+function compressCookieString(value, minLength, valueLabel) {
+  if (typeof value !== 'string' || value.length < minLength) {
     return null;
   }
 
   try {
-    const compressed = deflateRawSync(Buffer.from(samlAssertion, 'utf8'), { level: 9 });
+    const compressed = deflateRawSync(Buffer.from(value, 'utf8'), { level: 9 });
     const encoded = encodeBase64Url(compressed);
 
     // Keep compressed representation only when it is actually smaller.
-    if (!encoded || encoded.length >= samlAssertion.length) {
+    if (!encoded || encoded.length >= value.length) {
       return null;
     }
 
     return encoded;
   } catch (error) {
-    devLog.warn('Failed to compress SAML assertion in session cookie:', error?.message || error);
+    devLog.warn(`Failed to compress ${valueLabel} in session cookie:`, error?.message || error);
     return null;
   }
 }
 
-function decompressSamlAssertion(compressedAssertion) {
-  if (typeof compressedAssertion !== 'string' || compressedAssertion.length === 0) {
+function decompressCookieString(compressedValue, valueLabel) {
+  if (typeof compressedValue !== 'string' || compressedValue.length === 0) {
     return null;
   }
 
   try {
-    const compressedBuffer = decodeBase64UrlToBuffer(compressedAssertion);
+    const compressedBuffer = decodeBase64UrlToBuffer(compressedValue);
     if (!compressedBuffer) {
       return null;
     }
     const restored = inflateRawSync(compressedBuffer);
     return restored.toString('utf8');
   } catch (error) {
-    devLog.warn('Failed to decompress SAML assertion in session cookie:', error?.message || error);
+    devLog.warn(`Failed to decompress ${valueLabel} in session cookie:`, error?.message || error);
     return null;
   }
 }
 
+function compressSamlAssertion(samlAssertion) {
+  return compressCookieString(samlAssertion, ASSERTION_COMPRESSION_MIN_LENGTH, 'SAML assertion');
+}
+
+function decompressSamlAssertion(compressedAssertion) {
+  return decompressCookieString(compressedAssertion, 'SAML assertion');
+}
+
+function compressIdentityRawEvidence(rawEvidence) {
+  return compressCookieString(rawEvidence, RAW_EVIDENCE_COMPRESSION_MIN_LENGTH, 'identity raw evidence');
+}
+
+function decompressIdentityRawEvidence(compressedRawEvidence) {
+  return decompressCookieString(compressedRawEvidence, 'identity raw evidence');
+}
+
 function serializeSessionData(sessionData) {
-  const normalized = { ...sessionData };
+  const normalized = {
+    ...sessionData,
+    // XXX Copy the nested evidence object so the serializer can manage rawEvidence without mutating the original session object.
+    identityEvidence: sessionData.identityEvidence
+      ? { ...sessionData.identityEvidence }
+      : sessionData.identityEvidence,
+  };
+
+  if (normalized.identityEvidence) {
+    if (!normalized.evidenceHash && normalized.identityEvidence.evidenceHash) {
+      normalized.evidenceHash = normalized.identityEvidence.evidenceHash;
+    }
+    if (!normalized.evidenceHash) {
+      const { rawEvidence, ...canonicalIdentityEvidence } = normalized.identityEvidence;
+      normalized.evidenceHash = computeEvidenceHash(canonicalIdentityEvidence);
+    }
+
+    if (typeof normalized.identityEvidence.rawEvidence === 'string' && normalized.identityEvidence.rawEvidence.length > 0) {
+      const compressedRawEvidence = compressIdentityRawEvidence(normalized.identityEvidence.rawEvidence);
+      if (compressedRawEvidence) {
+        normalized.identityEvidence.rawEvidenceCompressed = compressedRawEvidence;
+        normalized.identityEvidence.rawEvidenceEncoding = ASSERTION_COMPRESSION_ENCODING;
+        delete normalized.identityEvidence.rawEvidence;
+      } else {
+        delete normalized.identityEvidence.rawEvidenceCompressed;
+        delete normalized.identityEvidence.rawEvidenceEncoding;
+      }
+    }
+  }
 
   if (typeof normalized.samlAssertion === 'string' && normalized.samlAssertion.length > 0) {
     const compressed = compressSamlAssertion(normalized.samlAssertion);
@@ -101,16 +147,39 @@ function deserializeSessionData(sessionData) {
     return null;
   }
 
-  if (typeof sessionData.samlAssertion === 'string') {
-    return sessionData;
+  const hydrated = {
+    ...sessionData,
+    identityEvidence: sessionData.identityEvidence
+      ? { ...sessionData.identityEvidence }
+      : sessionData.identityEvidence,
+  };
+
+  if (hydrated.identityEvidence) {
+    if (typeof hydrated.identityEvidence.rawEvidence !== 'string' || hydrated.identityEvidence.rawEvidence.length === 0) {
+      const compressedRawEvidence = hydrated.identityEvidence.rawEvidenceCompressed;
+      if (typeof compressedRawEvidence === 'string' && compressedRawEvidence.length > 0) {
+        const rawEvidence = decompressIdentityRawEvidence(compressedRawEvidence);
+        if (!rawEvidence) {
+          return null;
+        }
+        hydrated.identityEvidence.rawEvidence = rawEvidence;
+      }
+    }
+
+    delete hydrated.identityEvidence.rawEvidenceCompressed;
+    delete hydrated.identityEvidence.rawEvidenceEncoding;
   }
 
-  const compressedAssertion = sessionData.samlAssertionCompressed;
+  if (typeof hydrated.samlAssertion === 'string') {
+    return hydrated;
+  }
+
+  const compressedAssertion = hydrated.samlAssertionCompressed;
   if (typeof compressedAssertion !== 'string' || compressedAssertion.length === 0) {
-    return sessionData;
+    return hydrated;
   }
 
-  const encoding = sessionData.samlAssertionEncoding || ASSERTION_COMPRESSION_ENCODING;
+  const encoding = hydrated.samlAssertionEncoding || ASSERTION_COMPRESSION_ENCODING;
   if (encoding !== ASSERTION_COMPRESSION_ENCODING) {
     devLog.warn('Unsupported SAML assertion encoding in session cookie:', encoding);
     return null;
@@ -121,7 +190,7 @@ function deserializeSessionData(sessionData) {
     return null;
   }
 
-  const hydrated = { ...sessionData, samlAssertion };
+  hydrated.samlAssertion = samlAssertion;
   delete hydrated.samlAssertionCompressed;
   delete hydrated.samlAssertionEncoding;
   return hydrated;

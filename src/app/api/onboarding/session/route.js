@@ -21,6 +21,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { buildSignedOnboardingCallbackUrl } from '@/utils/onboarding/callbackAuth'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveSessionIdentity } from '@/utils/auth/identityEvidence'
 
 /**
  * GET /api/onboarding/session
@@ -32,7 +33,11 @@ export async function GET() {
   try {
     const cookieStore = await cookies()
     const session = getSessionFromCookies(cookieStore)
-    
+    const sessionIdentity = resolveSessionIdentity(session)
+    const identityEvidence = sessionIdentity?.identityEvidence || null
+    const normalizedClaims = sessionIdentity?.normalizedClaims || null
+    const evidenceHash = sessionIdentity?.evidenceHash || null
+
     if (!session || !session.isSSO) {
       return NextResponse.json(
         { error: 'SSO session required for institutional onboarding' },
@@ -40,6 +45,7 @@ export async function GET() {
       )
     }
 
+    const samlAssertion = sessionIdentity?.legacySamlAssertion || session.samlAssertion
     const userData = {
       id: session.id,
       eduPersonTargetedID: session.eduPersonTargetedID,
@@ -48,7 +54,10 @@ export async function GET() {
       affiliation: resolveInstitutionDomainFromSession(session),
       role: session.role,
       scopedRole: session.scopedRole || session.eduPersonScopedAffiliation,
-      samlAssertion: session.samlAssertion,
+      samlAssertion,
+      identityEvidence,
+      normalizedClaims,
+      evidenceHash,
     }
 
     if (!userData.affiliation) {
@@ -93,6 +102,8 @@ export async function GET() {
       payload.assertionReference = `sha256:${computeAssertionHash(userData.samlAssertion)}`
       // Note: We don't include the full samlAssertion in browser-direct calls
       // The IB can verify the user via the assertionReference if needed
+    } else if (evidenceHash) {
+      payload.assertionReference = `sha256:${evidenceHash}`
     }
 
     const onboardingAuth = await marketplaceJwtService.generateIntentBackendToken({
@@ -110,6 +121,9 @@ export async function GET() {
     return NextResponse.json({
       status: 'ok',
       payload,
+      identityEvidence,
+      normalizedClaims,
+      evidenceHash,
       auth: {
         backendAuthToken: onboardingAuth.token,
         expiresAt: onboardingAuth.expiresAt,
@@ -122,6 +136,7 @@ export async function GET() {
         displayName: payload.displayName,
         backendAuthToken: onboardingAuth.token,
         backendAuthExpiresAt: onboardingAuth.expiresAt,
+        evidenceHash,
       },
     })
 

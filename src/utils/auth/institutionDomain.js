@@ -27,6 +27,8 @@ export function resolveInstitutionDomain(candidates = []) {
 export function resolveInstitutionDomainFromSession(session, overrideDomain) {
   return resolveInstitutionDomain([
     overrideDomain,
+    session?.normalizedClaims?.institutionId,
+    session?.identityEvidence?.claims?.institutionId,
     session?.affiliation,
     session?.schacHomeOrganization,
     session?.eduPersonScopedAffiliation,

@@ -17,6 +17,7 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveSessionIdentity } from '@/utils/auth/identityEvidence'
 import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
@@ -40,9 +41,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Cannot book in the past' }, { status: 400 })
     }
 
-    const samlAssertion = session.samlAssertion
-    if (!samlAssertion) {
-      return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
+    const sessionIdentity = resolveSessionIdentity(session)
+    const identityEvidence = sessionIdentity?.identityEvidence || null
+    const normalizedClaims = sessionIdentity?.normalizedClaims || null
+    const evidenceHash = sessionIdentity?.evidenceHash || null
+    const samlAssertion = sessionIdentity?.legacySamlAssertion || session.samlAssertion
+    if (!identityEvidence && !samlAssertion) {
+      return NextResponse.json({ error: 'Missing identity evidence in session' }, { status: 400 })
     }
 
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
@@ -68,9 +73,14 @@ export async function POST(request) {
     const durationSeconds = BigInt(timeslot)
     const price = pricePerSecond * durationSeconds
     const reservationKey = ethers.solidityPackedKeccak256(['uint256', 'uint32'], [BigInt(labId), BigInt(start)])
-    const assertionHash = computeReservationAssertionHash(samlAssertion)
 
     const chainNowSec = await resolveChainNowSec()
+    const assertionHash = samlAssertion
+      ? computeReservationAssertionHash(samlAssertion)
+      : evidenceHash
+        ? `0x${evidenceHash}`
+        : ethers.ZeroHash
+
     const intentPackage = await buildReservationIntent({
       executor: executorAddress,
       signer: adminAddress,
@@ -119,6 +129,9 @@ export async function POST(request) {
         meta: serializedMeta,
         payload: serializedPayload,
         signature: adminSignature,
+        identityEvidence,
+        normalizedClaims,
+        evidenceHash,
         samlAssertion,
         returnUrl: returnUrl || null,
       })

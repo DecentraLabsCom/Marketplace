@@ -6,6 +6,8 @@ import esLocale from 'i18n-iso-countries/langs/es.json'
 import devLog from '@/utils/dev/logger'
 import { createSessionCookie } from './sessionCookie'
 import { resolveInstitutionDomain } from './institutionDomain'
+import { buildValidatedIdentity } from './identityEvidence'
+import { mapSamlClaimsToNormalizedClaims } from './claimsMapping.js'
 export { inferCountryFromDomain } from '@/utils/country/inferCountryFromDomain'
 
 let countriesInitialized = false
@@ -290,6 +292,33 @@ export async function parseSAMLResponse(samlResponse) {
         ? `${eduPersonPrincipalName}|${eduPersonTargetedID}`
         : eduPersonPrincipalName
 
+      // role priority: scoped affiliation first, fallback to generic affiliation
+      const role = scopedAffiliation || eduPersonAffiliation || null
+      const organizationName = getFirstAttribute(attrs, ['organizationName', 'o', 'urn:oid:2.5.4.10'])
+      const normalizedClaims = mapSamlClaimsToNormalizedClaims({
+        userid: stableId,
+        schacHomeOrganization,
+        affiliation,
+        role,
+        scopedRole: scopedAffiliation || null,
+        puc: stableId,
+        email,
+        name: personName,
+      })
+
+      const identityEvidence = buildValidatedIdentity({
+        type: 'saml',
+        format: 'saml2-base64',
+        claims: normalizedClaims,
+        metadata: {
+          issuer: samlAssertion?.issuer || schacHomeOrganization || affiliation || 'unknown',
+          issuedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        },
+        // XXX legacy rawEvidence kept during transition; remove once downstream consumers stop needing raw SAML
+        rawEvidence: samlResponse,
+      })
+
       // Build user information from the assertion
       const userData = {
         id: stableId,
@@ -299,15 +328,15 @@ export async function parseSAMLResponse(samlResponse) {
         authType: 'sso',
         isSSO: true,
         affiliation,
-        schacHomeOrganization: schacHomeOrganization || null,
-        // role priority: scoped affiliation first, fallback to generic affiliation
+        schacHomeOrganization: schacHomeOrganization || null,        
         scopedRole: scopedAffiliation,
         eduPersonScopedAffiliation: scopedAffiliation,
-        role:
-          scopedAffiliation ||
-          eduPersonAffiliation,
-        organizationName: getFirstAttribute(attrs, ['organizationName', 'o', 'urn:oid:2.5.4.10']),
-        samlAssertion: samlResponse, // Preserve raw Base64 assertion for downstream intents
+        role,
+        organizationName,
+        samlAssertion: samlResponse, // XXX legacy compatibility: keep raw Base64 assertion until intents fully consume identityEvidence
+        identityEvidence,
+        normalizedClaims,
+        evidenceHash: identityEvidence.evidenceHash,
       };
 
       if (eduPersonTargetedID) {

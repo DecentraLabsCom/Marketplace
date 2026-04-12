@@ -3,6 +3,7 @@ import { requireAuth, HttpError, ForbiddenError } from '@/utils/auth/guards';
 import { hasAdminRole } from '@/utils/auth/roleValidation';
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt';
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain';
+import { resolveSessionIdentity } from '@/utils/auth/identityEvidence';
 import devLog from '@/utils/dev/logger';
 import {
   normalizeHttpsUrl,
@@ -42,8 +43,12 @@ export async function POST(request) {
   try {
     const session = await requireAuth();
 
+    const sessionIdentity = resolveSessionIdentity(session);
+    const identityEvidence = sessionIdentity?.identityEvidence || null;
+    const samlAssertion = sessionIdentity?.legacySamlAssertion || session.samlAssertion;
+
     // Enforce SSO session with institutional roles
-    if (!session?.samlAssertion) {
+    if (!identityEvidence && !samlAssertion) {
       throw new ForbiddenError('Consumer provisioning token requires SSO session');
     }
     if (!hasAdminRole(session.role, session.scopedRole)) {

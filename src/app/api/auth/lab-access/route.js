@@ -3,6 +3,7 @@ import devLog from '@/utils/dev/logger'
 import marketplaceJwtService from '@/utils/auth/marketplaceJwt'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { resolveSessionIdentity } from '@/utils/auth/identityEvidence'
 import {
   BadRequestError,
   handleGuardError,
@@ -79,11 +80,23 @@ async function resolveInstitutionWallet(domain) {
 }
 
 function resolveUserId(session) {
-  return session?.id || session?.eduPersonPrincipalName || null
+  return (
+    session?.normalizedClaims?.stableUserId ||
+    session?.identityEvidence?.claims?.stableUserId ||
+    session?.id ||
+    session?.eduPersonPrincipalName ||
+    null
+  )
 }
 
 function resolveAffiliation(session) {
-  return session?.affiliation || session?.schacHomeOrganization || null
+  return (
+    session?.normalizedClaims?.institutionId ||
+    session?.identityEvidence?.claims?.institutionId ||
+    session?.affiliation ||
+    session?.schacHomeOrganization ||
+    null
+  )
 }
 
 export async function POST(req) {
@@ -96,7 +109,13 @@ export async function POST(req) {
       throw new BadRequestError('Missing labId or reservationKey')
     }
 
-    if (!session?.samlAssertion) {
+    const sessionIdentity = resolveSessionIdentity(session)
+    const identityEvidence = sessionIdentity?.identityEvidence || null
+    const normalizedClaims = sessionIdentity?.normalizedClaims || null
+    const evidenceHash = sessionIdentity?.evidenceHash || null
+    const samlAssertion = sessionIdentity?.legacySamlAssertion || session.samlAssertion
+
+    if (!identityEvidence && !samlAssertion) {
       throw new BadRequestError('Missing SSO session')
     }
 
@@ -138,7 +157,10 @@ export async function POST(req) {
 
     const payload = {
       marketplaceToken,
-      samlAssertion: session.samlAssertion,
+      samlAssertion,
+      identityEvidence,
+      normalizedClaims,
+      evidenceHash,
       labId,
       reservationKey,
       timestamp: Math.floor(Date.now() / 1000),

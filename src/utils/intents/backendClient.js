@@ -79,6 +79,9 @@ export async function requestIntentAuthorizationSession({
   meta,
   payload,
   signature,
+  identityEvidence,
+  normalizedClaims,
+  evidenceHash,
   samlAssertion,
   returnUrl = null,
 }) {
@@ -86,6 +89,10 @@ export async function requestIntentAuthorizationSession({
   const body = {
     meta,
     signature,
+    identityEvidence,
+    normalizedClaims,
+    evidenceHash,
+    // XXX Temporary legacy fallback: keep samlAssertion until backend intent endpoints fully consume identityEvidence.
     samlAssertion,
     returnUrl,
     [payloadKey]: payload,
@@ -112,6 +119,9 @@ export async function submitIntentExecutionToBackend({
   meta,
   payload,
   signature,
+  identityEvidence,
+  normalizedClaims,
+  evidenceHash,
   samlAssertion,
   webauthnCredentialId,
   webauthnClientDataJSON,
@@ -122,6 +132,10 @@ export async function submitIntentExecutionToBackend({
   const body = {
     meta,
     signature,
+    identityEvidence,
+    normalizedClaims,
+    evidenceHash,
+    // XXX Temporary legacy fallback: keep samlAssertion until backend intent execution accepts identityEvidence end-to-end.
     samlAssertion,
     webauthnCredentialId,
     webauthnClientDataJSON,

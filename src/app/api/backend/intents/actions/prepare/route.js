@@ -17,6 +17,7 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveSessionIdentity } from '@/utils/auth/identityEvidence'
 import devLog from '@/utils/dev/logger'
 
 function normalizeAction(action) {
@@ -70,12 +71,16 @@ async function resolveCancellationReservationSnapshot(reservationKey) {
 export async function POST(request) {
   try {
     const session = await requireAuth()
-    const samlAssertion = session.samlAssertion
+    const sessionIdentity = resolveSessionIdentity(session)
+    const identityEvidence = sessionIdentity?.identityEvidence || null
+    const normalizedClaims = sessionIdentity?.normalizedClaims || null
+    const evidenceHash = sessionIdentity?.evidenceHash || null
+    const samlAssertion = sessionIdentity?.legacySamlAssertion || session.samlAssertion
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
     const puc = getPucFromSession(session)
 
-    if (!samlAssertion) {
-      return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
+    if (!identityEvidence && !samlAssertion) {
+      return NextResponse.json({ error: 'Missing identity evidence in session' }, { status: 400 })
     }
     const body = await request.json().catch(() => ({}))
     const action = normalizeAction(body?.action)
@@ -144,12 +149,18 @@ export async function POST(request) {
     const adminAddress = await getAdminAddress()
 
     const chainNowSec = await resolveChainNowSec()
+    const assertionHash = samlAssertion
+      ? computeAssertionHash(samlAssertion)
+      : evidenceHash
+        ? `0x${evidenceHash}`
+        : ethers.ZeroHash
+
     const intentPackage = await buildActionIntent({
       action,
       executor: executorAddress,
       signer: adminAddress,
       schacHomeOrganization,
-      assertionHash: computeAssertionHash(samlAssertion),
+      assertionHash,
       puc: puc || '',
       labId: resolvedLabId ?? 0,
       reservationKey,
@@ -196,6 +207,9 @@ export async function POST(request) {
         meta: serializedMeta,
         payload: serializedPayload,
         signature: adminSignature,
+        identityEvidence,
+        normalizedClaims,
+        evidenceHash,
         samlAssertion,
         returnUrl,
       })

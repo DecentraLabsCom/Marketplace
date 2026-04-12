@@ -552,7 +552,7 @@ describe("SSO Utilities", () => {
 
       const result = await parseSAMLResponse("saml-response-data");
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         id: "user@university.edu|targeted-user-1",
         eduPersonTargetedID: "targeted-user-1",
         eduPersonPrincipalName: "user@university.edu",
@@ -567,7 +567,39 @@ describe("SSO Utilities", () => {
         eduPersonScopedAffiliation: "student@university.edu",
         organizationName: "Test University",
         samlAssertion: "saml-response-data",
+        normalizedClaims: {
+          stableUserId: "user@university.edu|targeted-user-1",
+          institutionId: "university.edu",
+          role: "student@university.edu",
+          scopedRole: "student@university.edu",
+          puc: "user@university.edu|targeted-user-1",
+          email: "user@example.com",
+          name: "Test User",
+        },
+        identityEvidence: expect.objectContaining({
+          type: "saml",
+          format: "saml2-base64",
+          rawEvidence: "saml-response-data",
+          claims: {
+            stableUserId: "user@university.edu|targeted-user-1",
+            institutionId: "university.edu",
+            role: "student@university.edu",
+            scopedRole: "student@university.edu",
+            puc: "user@university.edu|targeted-user-1",
+            email: "user@example.com",
+            name: "Test User",
+          },
+          metadata: expect.objectContaining({
+            issuer: "university.edu",
+            issuedAt: expect.any(String),
+            expiresAt: expect.any(String),
+          }),
+          evidenceHash: expect.any(String),
+        }),
+        evidenceHash: expect.any(String),
       });
+
+      expect(result.identityEvidence.evidenceHash).toBe(result.evidenceHash);
     });
 
     test("derives institution domain from scoped affiliation when schacHomeOrganization is missing", async () => {

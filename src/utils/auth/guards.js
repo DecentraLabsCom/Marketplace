@@ -21,6 +21,7 @@ import { getSessionFromCookies } from './sessionCookie';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
 import { readLabCreatorPucHash, ZERO_BYTES32 } from '@/utils/blockchain/labCreatorHash';
 import { getPucHashFromSession } from './puc';
+import { resolveSessionIdentity } from './identityEvidence';
 import devLog from '@/utils/dev/logger';
 
 // ===== Custom Error Classes =====
@@ -150,7 +151,11 @@ function normalizeOrganizationDomain(value) {
 }
 
 async function resolveInstitutionWalletFromSession(session) {
+  const sessionIdentity = resolveSessionIdentity(session);
   const organization =
+    session?.normalizedClaims?.institutionId ||
+    sessionIdentity?.normalizedClaims?.institutionId ||
+    sessionIdentity?.identityEvidence?.claims?.institutionId ||
     session?.affiliation ||
     session?.schacHomeOrganization ||
     session?.organizationName ||
@@ -195,7 +200,14 @@ export async function requireLabOwner(session, labId) {
     throw new BadRequestError('Invalid lab ID format');
   }
 
-  const isSsoSession = Boolean(session?.authType === 'sso' || session?.isSSO || session?.samlAssertion);
+  const sessionIdentity = resolveSessionIdentity(session);
+  const isSsoSession = Boolean(
+    session?.authType === 'sso' ||
+    session?.isSSO ||
+    sessionIdentity?.identityEvidence ||
+    sessionIdentity?.legacySamlAssertion ||
+    session?.samlAssertion,
+  );
   let userWallet = session?.wallet;
   if ((!userWallet || !isValidAddress(userWallet)) && isSsoSession) {
     const institutionalWallet = await resolveInstitutionWalletFromSession(session);

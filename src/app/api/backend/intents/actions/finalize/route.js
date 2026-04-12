@@ -8,6 +8,7 @@ import { getAssertionChallenge, clearAssertionChallenge, getCredentialById, save
 import { registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { serializeIntent } from '@/utils/intents/serialize'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { resolveSessionIdentity } from '@/utils/auth/identityEvidence'
 import {
   getIntentBackendAuthToken,
   submitIntentExecutionToBackend,
@@ -33,13 +34,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing intent meta' }, { status: 400 })
     }
 
+    const sessionIdentity = resolveSessionIdentity(session)
+    const identityEvidence = sessionIdentity?.identityEvidence || null
+    const normalizedClaims = sessionIdentity?.normalizedClaims || null
+    const evidenceHash = sessionIdentity?.evidenceHash || null
+    const samlAssertion = sessionIdentity?.legacySamlAssertion || session.samlAssertion
     const puc = getPucFromSession(session)
-    const samlAssertion = session.samlAssertion
     if (!puc) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
-    if (!samlAssertion) {
-      return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
+    if (!identityEvidence && !samlAssertion) {
+      return NextResponse.json({ error: 'Missing identity evidence in session' }, { status: 400 })
     }
 
     const stored = getAssertionChallenge(meta.requestId)
@@ -143,6 +148,9 @@ export async function POST(request) {
           meta: serializedMeta,
           payload: serializedPayload,
           signature: adminSignatureForUse,
+          identityEvidence,
+          normalizedClaims,
+          evidenceHash,
           samlAssertion,
           webauthnCredentialId: credential.credentialId,
           webauthnClientDataJSON,

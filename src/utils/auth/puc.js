@@ -45,6 +45,11 @@ export function normalizePuc(value) {
  * @returns {string | null}
  */
 export function getNormalizedPucFromSession(session) {
+  const normalizedStableId = session?.normalizedClaims?.stableUserId || session?.identityEvidence?.claims?.stableUserId
+  if (typeof normalizedStableId === 'string' && normalizedStableId.trim()) {
+    return normalizedStableId.trim().toLowerCase()
+  }
+
   const principalNameRaw = session?.eduPersonPrincipalName
   const targetedIdRaw = session?.eduPersonTargetedID
   const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
