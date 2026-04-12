@@ -99,6 +99,12 @@ export async function GET(request) {
     if (shellRes.status === 404) {
       return NextResponse.json({ notFound: true }, { status: 404 })
     }
+    if (shellRes.status === 403) {
+      return NextResponse.json(
+        { notFound: true, reason: 'AAS is not available on this gateway (Lite mode)' },
+        { status: 404 },
+      )
+    }
     if (!shellRes.ok) {
       const errBody = await shellRes.text()
       devLog.error(`[aas/shell] Shell fetch error ${shellRes.status}: ${errBody}`)

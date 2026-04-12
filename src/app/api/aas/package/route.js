@@ -64,6 +64,12 @@ export async function GET(request) {
     if (pkgRes.status === 404) {
       return NextResponse.json({ notFound: true }, { status: 404 })
     }
+    if (pkgRes.status === 403) {
+      return NextResponse.json(
+        { notFound: true, reason: 'AAS is not available on this gateway (Lite mode)' },
+        { status: 404 },
+      )
+    }
     if (!pkgRes.ok) {
       const errBody = await pkgRes.text()
       devLog.error(`[aas/package] Package fetch error ${pkgRes.status}: ${errBody}`)
