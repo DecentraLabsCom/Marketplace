@@ -285,49 +285,6 @@ export const useReservationKeyOfUserByIndex = (userAddress, index, options = {})
   });
 };
 
-// ===== useReservationsOfTokenByUser Hook Family =====
-
-const getReservationsOfTokenByUserQueryFn = createSSRSafeQuery(async (labId, userAddress, offset = 0, limit = 50) => {
-  if (!labId || !userAddress) {
-    throw new Error('labId and userAddress are required');
-  }
-
-  const response = await fetch(`/api/contract/reservation/getReservationsOfTokenByUser?labId=${labId}&userAddress=${userAddress}&offset=${offset}&limit=${limit}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch reservations of token by user: ${response.status}`);
-  }
-
-  const data = await response.json();
-  devLog.log('🔍 useReservationsOfTokenByUserSSO:', labId, userAddress, data);
-  return data;
-}, { keys: [], total: 0 });
-
-export const useReservationsOfTokenByUserSSO = (labId, userAddress, options = {}) => {
-  const offset = options.offset ?? 0;
-  const limit = options.limit ?? 50;
-  return useQuery({
-    queryKey: bookingQueryKeys.getReservationsOfTokenByUser(labId, userAddress, offset, limit),
-    queryFn: () => getReservationsOfTokenByUserQueryFn(labId, userAddress, offset, limit),
-    enabled: !!labId && !!userAddress && (options.enabled ?? true),
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-useReservationsOfTokenByUserSSO.queryFn = getReservationsOfTokenByUserQueryFn;
-
-export const useReservationsOfTokenByUser = (labId, userAddress, options = {}) => {
-  const enabled = !!labId && !!userAddress && (options.enabled ?? true);
-  return useReservationsOfTokenByUserSSO(labId, userAddress, {
-    ...options,
-    enabled,
-  });
-};
-
 // ===== useUserOfReservation Hook Family =====
 
 // Define queryFn first for reuse
@@ -436,64 +393,6 @@ export const useCheckAvailable = (labId, start, duration, options = {}) => {
   });
 };
 
-// ===== useHasActiveBooking Hook Family =====
-
-// Define queryFn first for reuse
-const getHasActiveBookingQueryFn = createSSRSafeQuery(async (reservationKey, userAddress) => {
-  if (!reservationKey || !userAddress) throw new Error('Reservation key and user address are required');
-  
-  const response = await fetch(
-    `/api/contract/reservation/hasActiveBooking?reservationKey=${encodeURIComponent(reservationKey)}&userAddress=${encodeURIComponent(userAddress)}`,
-    {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    },
-  );
-  
-  if (!response.ok) {
-    throw new Error(`Failed to check active booking for reservation ${reservationKey}: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  devLog.log('?? useHasActiveBookingSSO:', reservationKey, userAddress, data);
-  return data;
-}, { hasActiveBooking: false }); // Return false during SSR
-
-/**
- * Hook for /api/contract/reservation/hasActiveBooking endpoint (SSO users)
- * Checks if a reservation is active for a specific user via API + Ethers
- * @param {string} reservationKey - Reservation key (bytes32)
- * @param {string} userAddress - User address to check
- * @param {Object} [options={}] - Additional react-query options
- * @returns {Object} React Query result with active booking status
- */
-export const useHasActiveBookingSSO = (reservationKey, userAddress, options = {}) => {
-  return useQuery({
-    queryKey: bookingQueryKeys.hasActiveBooking(reservationKey, userAddress),
-    queryFn: () => getHasActiveBookingQueryFn(reservationKey, userAddress),
-    enabled: !!reservationKey && !!userAddress,
-    ...BOOKING_QUERY_CONFIG,
-    ...options,
-  });
-};
-
-// Export queryFn for use in composed hooks
-useHasActiveBookingSSO.queryFn = getHasActiveBookingQueryFn;
-
-/**
- * Hook for active-booking checks in the institutional runtime.
- * @param {string} reservationKey - Reservation key (bytes32)
- * @param {string} userAddress - User address to check
- * @param {Object} [options={}] - Additional query options
- * @returns {Object} React Query result with active booking status
- */
-export const useHasActiveBooking = (reservationKey, userAddress, options = {}) => {
-  const enabled = !!reservationKey && !!userAddress;
-  return useHasActiveBookingSSO(reservationKey, userAddress, {
-    ...options,
-    enabled: enabled && (options.enabled ?? true),
-  });
-};
 // ===== SSO session: useActiveReservationKey Hook (SSO-only) =====
 
 const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';

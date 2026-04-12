@@ -8,45 +8,29 @@
 // Booking query keys
 export const bookingQueryKeys = {
   all: () => ['bookings'],
-  byUserPrefix: () => ['bookings', 'user'],
-  byUser: (address) => ['bookings', 'user', address],
   byLabPrefix: () => ['bookings', 'lab'],
   byLab: (labId) => ['bookings', 'lab', labId],
   byReservationKey: (key) => ['bookings', 'reservation', key],
-  userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
   labComposed: (labId, includeMetrics = true) => ['bookings', 'lab-composed', labId, includeMetrics],
   multiLab: (labIds, includeMetrics = false) => ['bookings', 'multi-lab', labIds.sort(), includeMetrics],
-  userReservationsComplete: (userAddress, limit) => ['bookings', 'userReservationsComplete', userAddress, limit],
 
-  
-  // Additional atomic query keys for all booking/reservation endpoints
+  // Lab-centric reservation queries
   getReservationsOfToken: (labId) => ['bookings', 'reservationsOfToken', labId],
   reservationOfTokenRoot: () => ['bookings', 'reservationOfToken'],
   reservationOfTokenPrefix: (labId) => ['bookings', 'reservationOfToken', labId],
-  getReservationsOfTokenByUser: (labId, userAddress, offset = 0, limit = 50) => ['bookings', 'reservationsOfTokenByUser', labId, userAddress, offset, limit],
   getReservationOfTokenByIndex: (labId, index) => ['bookings', 'reservationOfToken', labId, index],
-  reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress?.toLowerCase?.() ?? userAddress],
+
+  // SSO institutional user queries (session-based, no wallet address)
   ssoReservationsOf: () => ['bookings', 'sso', 'reservationsOf'],
-  reservationKeyOfUserPrefix: (userAddress) =>
-    userAddress ? ['bookings', 'reservationKeyOfUser', userAddress] : ['bookings', 'reservationKeyOfUser'],
-  reservationKeyOfUserByIndex: (userAddress, index) => ['bookings', 'reservationKeyOfUser', userAddress, index],
   ssoReservationKeyOfUserPrefix: () => ['bookings', 'sso', 'reservationKeyOfUser'],
   ssoReservationKeyOfUserByIndex: (index) => ['bookings', 'sso', 'reservationKeyOfUser', index],
-  userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
-  checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
-  hasActiveBooking: (reservationKey, userAddress) => [
-    'bookings',
-    'hasActiveBooking',
-    reservationKey,
-    userAddress,
-  ],
   ssoHasActiveBookingSession: () => ['bookings', 'sso', 'hasActiveBooking', 'session'],
   ssoActiveReservationKeySession: (labId) => ['bookings', 'sso', 'activeReservationKey', labId],
+
+  // Shared queries
+  userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
+  checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
   labCreditAddress: () => ['bookings', 'labCreditAddress'],
-  
-  // Institutional user query keys (SSO mode only)
-  // NOTE: SSO users never provide wallet address; all SSO keys are PUC-based
-  // kept above as ssoReservationsOf / ssoReservationKeyOfUserByIndex
 };
 
 // Lab query keys

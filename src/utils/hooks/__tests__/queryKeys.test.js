@@ -30,13 +30,6 @@ describe("queryKeys", () => {
       expect(result).toEqual(["bookings"]);
     });
 
-    test("byUser() includes user address", () => {
-      const address = "0x123";
-      const result = bookingQueryKeys.byUser(address);
-
-      expect(result).toEqual(["bookings", "user", "0x123"]);
-    });
-
     test("byLab() includes lab ID", () => {
       const labId = "42";
       const result = bookingQueryKeys.byLab(labId);
@@ -49,20 +42,6 @@ describe("queryKeys", () => {
       const result = bookingQueryKeys.byReservationKey(key);
 
       expect(result).toEqual(["bookings", "reservation", "reservation-123"]);
-    });
-
-    test("userComposed() includes address and includeDetails flag", () => {
-      const address = "0x456";
-      const result = bookingQueryKeys.userComposed(address, true);
-
-      expect(result).toEqual(["bookings", "user-composed", "0x456", true]);
-    });
-
-    test("userComposed() defaults includeDetails to false", () => {
-      const address = "0x456";
-      const result = bookingQueryKeys.userComposed(address);
-
-      expect(result).toEqual(["bookings", "user-composed", "0x456", false]);
     });
 
     test("labComposed() includes labId and includeMetrics flag", () => {
@@ -93,19 +72,6 @@ describe("queryKeys", () => {
       expect(result).toEqual(["bookings", "multi-lab", ["1", "2"], false]);
     });
 
-    test("userReservationsComplete() includes userAddress and limit", () => {
-      const address = "0x789";
-      const limit = 10;
-      const result = bookingQueryKeys.userReservationsComplete(address, limit);
-
-      expect(result).toEqual([
-        "bookings",
-        "userReservationsComplete",
-        "0x789",
-        10,
-      ]);
-    });
-
     test("getReservationsOfToken() includes labId", () => {
       const labId = "5";
       const result = bookingQueryKeys.getReservationsOfToken(labId);
@@ -124,44 +90,10 @@ describe("queryKeys", () => {
       expect(result).toEqual(["bookings", "reservationOfToken", "5", 2]);
     });
 
-    test("reservationsOf() includes userAddress", () => {
-      const address = "0xabc";
-      const result = bookingQueryKeys.reservationsOf(address);
+    test("ssoReservationsOf() returns SSO reservation key", () => {
+      const result = bookingQueryKeys.ssoReservationsOf();
 
-      expect(result).toEqual(["bookings", "reservationsOf", "0xabc"]);
-    });
-
-    test("reservationKeyOfUserByIndex() includes userAddress and index", () => {
-      const address = "0xdef";
-      const index = 3;
-      const result = bookingQueryKeys.reservationKeyOfUserByIndex(
-        address,
-        index
-      );
-
-      expect(result).toEqual(["bookings", "reservationKeyOfUser", "0xdef", 3]);
-    });
-
-    test("getReservationsOfTokenByUser() includes labId, user, offset and limit", () => {
-      const labId = "7";
-      const user = "0xabc";
-      const offset = 10;
-      const limit = 20;
-      const result = bookingQueryKeys.getReservationsOfTokenByUser(
-        labId,
-        user,
-        offset,
-        limit
-      );
-
-      expect(result).toEqual([
-        "bookings",
-        "reservationsOfTokenByUser",
-        "7",
-        "0xabc",
-        10,
-        20,
-      ]);
+      expect(result).toEqual(["bookings", "sso", "reservationsOf"]);
     });
 
     test("userOfReservation() includes reservationKey", () => {
@@ -186,10 +118,10 @@ describe("queryKeys", () => {
       ]);
     });
 
-    test("hasActiveBooking() includes reservationKey and userAddress", () => {
-      const result = bookingQueryKeys.hasActiveBooking("key-1", "0x111");
+    test("ssoHasActiveBookingSession() returns SSO active booking key", () => {
+      const result = bookingQueryKeys.ssoHasActiveBookingSession();
 
-      expect(result).toEqual(["bookings", "hasActiveBooking", "key-1", "0x111"]);
+      expect(result).toEqual(["bookings", "sso", "hasActiveBooking", "session"]);
     });
 
     test("labCreditAddress() returns static key", () => {
@@ -444,8 +376,8 @@ describe("queryKeys", () => {
 
   describe("Key uniqueness", () => {
     test("different parameters generate different booking keys", () => {
-      const key1 = bookingQueryKeys.byUser("0x111");
-      const key2 = bookingQueryKeys.byUser("0x222");
+      const key1 = bookingQueryKeys.byLab("1");
+      const key2 = bookingQueryKeys.byLab("2");
 
       expect(key1).not.toEqual(key2);
     });

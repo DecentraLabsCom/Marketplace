@@ -351,27 +351,7 @@ export const useReservationRequestSSO = (options = {}) => {
                   }
                 }
 
-                // Invalidate user and lab booking queries so calendar and dashboard update
-                // After institutional reservation is executed onchain, we need to refresh:
-                // - User's reservation list (for dashboard)
-                // - Lab's reservation list (for calendar)
-                // - Active booking checks
-                if (variables.userAddress) {
-                  queryClient.invalidateQueries({ 
-                    queryKey: bookingQueryKeys.reservationsOf(variables.userAddress) 
-                  });
-                }
-                if (variables.tokenId) {
-                  queryClient.invalidateQueries({ 
-                    queryKey: bookingQueryKeys.getReservationsOfToken(variables.tokenId) 
-                  });
-                }
-                if (finalKey) {
-                  queryClient.invalidateQueries({
-                    queryKey: bookingQueryKeys.byReservationKey(finalKey)
-                  });
-                }
-
+                // Invalidate institutional booking queries so calendar and dashboard update
                 invalidateInstitutionalReservationQueries(queryClient, {
                   labId: variables.tokenId,
                   reservationKey: finalKey,
@@ -565,33 +545,23 @@ export const useCancelReservationRequestSSO = (options = {}) => {
                   devLog.warn('Failed to complete optimistic booking state after cancel executed:', err);
                 }
 
-                // Invalidate relevant caches after cancellation is executed
-                const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
-                if (userAddress) {
-                  queryClient.invalidateQueries({ 
-                    queryKey: bookingQueryKeys.reservationsOf(userAddress) 
-                  });
-                }
-                if (labId) {
-                  queryClient.invalidateQueries({ 
-                    queryKey: bookingQueryKeys.getReservationsOfToken(labId) 
-                  });
-                }
-                queryClient.invalidateQueries({
-                  queryKey: bookingQueryKeys.byReservationKey(reservationKey)
+                // Invalidate institutional caches after cancellation is executed
+                const { labId } = resolveBookingContext(queryClient, reservationKey);
+                invalidateInstitutionalReservationQueries(queryClient, {
+                  labId,
+                  reservationKey,
                 });
 
                 devLog.log('✅ Invalidated booking queries after reservation request cancellation executed');
 
                 // Enqueue for reconciliation - will auto-invalidate until blockchain event confirms
-                const cancelReconciliationKeys = [];
-                if (userAddress) {
-                  cancelReconciliationKeys.push(bookingQueryKeys.reservationsOf(userAddress));
-                }
+                const cancelReconciliationKeys = [
+                  bookingQueryKeys.ssoReservationsOf(),
+                  bookingQueryKeys.byReservationKey(reservationKey),
+                ];
                 if (labId) {
                   cancelReconciliationKeys.push(bookingQueryKeys.getReservationsOfToken(labId));
                 }
-                cancelReconciliationKeys.push(bookingQueryKeys.byReservationKey(reservationKey));
                 
                 enqueueReconciliationEntry({
                   id: `booking:cancel-request:${reservationKey}`,
@@ -754,33 +724,23 @@ export const useCancelBookingSSO = (options = {}) => {
                   devLog.warn('Failed to complete optimistic booking state after cancel booking executed:', err);
                 }
 
-                // Invalidate relevant caches after booking cancellation is executed
-                const { labId, userAddress } = resolveBookingContext(queryClient, reservationKey);
-                if (userAddress) {
-                  queryClient.invalidateQueries({ 
-                    queryKey: bookingQueryKeys.reservationsOf(userAddress) 
-                  });
-                }
-                if (labId) {
-                  queryClient.invalidateQueries({ 
-                    queryKey: bookingQueryKeys.getReservationsOfToken(labId) 
-                  });
-                }
-                queryClient.invalidateQueries({
-                  queryKey: bookingQueryKeys.byReservationKey(reservationKey)
+                // Invalidate institutional caches after booking cancellation is executed
+                const { labId } = resolveBookingContext(queryClient, reservationKey);
+                invalidateInstitutionalReservationQueries(queryClient, {
+                  labId,
+                  reservationKey,
                 });
 
                 devLog.log('✅ Invalidated booking queries after booking cancellation executed');
 
                 // Enqueue for reconciliation - will auto-invalidate until BookingCanceled event confirms
-                const bookingCancelKeys = [];
-                if (userAddress) {
-                  bookingCancelKeys.push(bookingQueryKeys.reservationsOf(userAddress));
-                }
+                const bookingCancelKeys = [
+                  bookingQueryKeys.ssoReservationsOf(),
+                  bookingQueryKeys.byReservationKey(reservationKey),
+                ];
                 if (labId) {
                   bookingCancelKeys.push(bookingQueryKeys.getReservationsOfToken(labId));
                 }
-                bookingCancelKeys.push(bookingQueryKeys.byReservationKey(reservationKey));
                 
                 enqueueReconciliationEntry({
                   id: `booking:cancel:${reservationKey}`,
