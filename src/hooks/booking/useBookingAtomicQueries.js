@@ -99,7 +99,7 @@ const getReservationsOfTokenQueryFn = createSSRSafeQuery(async (labId) => {
   const data = await response.json();
   devLog.log('🔍 useReservationsOfTokenSSO:', labId, data);
   return data;
-}, []); // Return empty array during SSR
+}, { count: 0 }); // Return a stable object shape during SSR
 
 /**
  * Hook for /api/contract/reservation/getReservationsOfToken endpoint (SSO users)

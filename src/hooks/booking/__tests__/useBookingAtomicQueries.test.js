@@ -158,10 +158,10 @@ describe("useBookingAtomicQueries", () => {
 
   // useReservationsOfTokenSSO Tests
   describe("useReservationsOfTokenSSO", () => {
-    const mockReservations = [
-      { id: 1, renter: "0xABC", status: 1 },
-      { id: 2, renter: "0xDEF", status: 0 },
-    ];
+    const mockReservations = {
+      count: 2,
+      labId: "42",
+    };
 
     test("fetches all reservations for a lab token successfully", async () => {
       global.fetch.mockResolvedValueOnce({

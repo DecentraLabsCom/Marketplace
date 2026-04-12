@@ -53,10 +53,6 @@ export const useLabBookingsDashboard = (labId, {
   });
   
   const reservationCount = reservationCountResult.data?.count || 0;
-  // Temporary compatibility seam.
-  // Remove this branch when Reservation_Reads_Compatibility restores
-  // enumerable reservation reads for provider calendars.
-  const canEnumerateLabReservations = reservationCountResult.data?.enumerableReservations !== false;
   
   // Debug log for reservation count
   devLog.log('📊 Lab reservations count:', {
@@ -70,7 +66,7 @@ export const useLabBookingsDashboard = (labId, {
   
   // Step 2: Get all reservation keys for this lab using indices
   const reservationKeyResults = useQueries({
-    queries: canEnumerateLabReservations && reservationCount > 0 
+    queries: reservationCount > 0 
       ? Array.from({ length: reservationCount }, (_, index) => ({
           queryKey: bookingQueryKeys.getReservationOfTokenByIndex(labId, index),
           queryFn: () => useReservationOfTokenByIndexSSO.queryFn(labId, index),
@@ -100,7 +96,7 @@ export const useLabBookingsDashboard = (labId, {
   
   // Step 3: Get detailed reservation data for each key
   const reservationDetailResults = useQueries({
-    queries: canEnumerateLabReservations && reservationKeys.length > 0 
+    queries: reservationKeys.length > 0 
       ? reservationKeys.map(reservationKey => ({
           queryKey: bookingQueryKeys.byReservationKey(reservationKey),
           queryFn: () => useReservationSSO.queryFn(reservationKey),
@@ -272,7 +268,6 @@ export const useLabBookingsDashboard = (labId, {
     meta: {
       includeUserDetails,
       reservationCount,
-      reservationsEnumerable: canEnumerateLabReservations,
       totalQueries: 1 + reservationKeyResults.length + reservationDetailResults.length,
       successfulQueries: [reservationCountResult].concat(reservationKeyResults, reservationDetailResults).filter(r => r.isSuccess).length,
       failedQueries: [reservationCountResult].concat(reservationKeyResults, reservationDetailResults).filter(r => r.isError).length,
