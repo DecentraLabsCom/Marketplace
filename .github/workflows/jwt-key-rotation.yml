@@ -180,7 +180,7 @@ jobs:
       - name: Enable Auto-Merge
         if: steps.check-rotation.outputs.needs_rotation == 'true' && steps.create-pr.outputs.pull-request-number != ''
         continue-on-error: true
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.BOT_PR_TOKEN }}
           script: |
