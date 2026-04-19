@@ -204,10 +204,14 @@ export async function POST(req) {
       );
     }
 
+    // If a full blob URL was passed instead of the short Lab-*.json form, normalize it.
+    // This can happen when the on-chain URI (full URL) is forwarded from the client.
+    const normalizedUri = uri.startsWith('Lab-') ? uri : (extractInternalLabUri(uri) || uri);
+
     // ===== AUTHORIZATION =====
     // Prefer explicit labId from request/body, fallback to extracting from URI.
     const resolvedLabId = body?.labId || labData?.labId || labData?.id;
-    const labIdFromUri = uri?.match(/-(\d+)\.json$/)?.[1];
+    const labIdFromUri = normalizedUri?.match(/-(\d+)\.json$/)?.[1];
     const labId = (resolvedLabId || labIdFromUri)?.toString?.();
 
     if (!labId) {
@@ -217,12 +221,12 @@ export async function POST(req) {
     await requireLabOwner(session, labId);
 
     // Extra safety: when persisting local "Lab-*.json" metadata, ensure the on-chain URI matches.
-    if (uri.startsWith('Lab-')) {
+    if (normalizedUri.startsWith('Lab-')) {
       try {
         const contract = await getContractInstance();
         const onchainTokenUri = await contract.tokenURI(labId);
         const normalizedOnchainUri = extractInternalLabUri(onchainTokenUri)
-        const matchesLocalUri = onchainTokenUri === uri || normalizedOnchainUri === uri
+        const matchesLocalUri = onchainTokenUri === normalizedUri || normalizedOnchainUri === normalizedUri
         if (!matchesLocalUri) {
           throw new BadRequestError('URI does not match the on-chain tokenURI for this lab');
         }
@@ -233,8 +237,8 @@ export async function POST(req) {
     }
 
     const isVercel = getIsVercel();
-    const filePath = path.join(process.cwd(), 'data', uri);
-    const blobName = uri;
+    const filePath = path.join(process.cwd(), 'data', normalizedUri);
+    const blobName = normalizedUri;
     let existingData = null;
     const timestamp = new Date().toISOString();
 
@@ -328,7 +332,7 @@ export async function POST(req) {
       ],
       _meta: {
         lastUpdated: timestamp,
-        uri: uri,
+        uri: normalizedUri,
         version: existingData?._meta?.version ? existingData._meta.version + 1 : 1,
         // Add cache-busting timestamp for Vercel production
         cacheBreaker: Date.now()
@@ -376,14 +380,17 @@ export async function POST(req) {
     }
 
     // Return success response optimized for React Query
+    // Include finalData so the client can populate the metadata cache directly
+    // without a CDN round-trip (avoids CDN propagation race on first fetch).
     const successResponse = NextResponse.json(
       { 
         message: 'Lab data saved/updated successfully',
-        uri: uri,
+        uri: normalizedUri,
         version: finalData._meta.version,
         timestamp: timestamp,
         isUpdate: !!existingData,
-        cacheBreaker: finalData._meta.cacheBreaker
+        cacheBreaker: finalData._meta.cacheBreaker,
+        metadata: finalData
       }, 
       { status: 200 }
     );

@@ -80,6 +80,15 @@ export const useSaveLabData = (options = {}) => {
         // the on-chain URI (full blob URL), not the local 'Lab-*.json' form stored in variables.uri.
         const cacheKeyUri = variables.onchainUri || variables.uri;
 
+        // If the route returned the saved metadata directly, use it to populate the cache
+        // immediately without a CDN round-trip. This avoids the CDN propagation race where
+        // the blob was just written but the CDN edge hasn't picked it up yet.
+        if (data?.metadata) {
+          queryClient.setQueryData(metadataQueryKeys.byUri(cacheKeyUri), data.metadata);
+          devLog.log('✅ [useSaveLabData] Cache populated from response payload for key:', cacheKeyUri);
+          return;
+        }
+
         // Small delay to ensure the Vercel blob CDN propagates the write before we read it back.
         await new Promise(resolve => setTimeout(resolve, 200));
 

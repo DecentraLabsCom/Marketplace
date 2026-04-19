@@ -433,7 +433,8 @@ export default function ProviderDashboard() {
           await saveLabDataMutation.mutateAsync({
             ...labData,
             id: blockchainLabId, // Use the blockchain labId
-            price: originalPrice // Save with human-readable price for JSON consistency
+            price: originalPrice, // Save with human-readable price for JSON consistency
+            onchainUri            // Ensures onSuccess updates the correct cache key (full blob URL)
           });
           
           // Add a small delay to ensure cache propagation in production
