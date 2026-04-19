@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: Lab Booking Flow
  *
  * Test Behaviors:
@@ -83,10 +83,9 @@ jest.mock("@/hooks/reservation/useLabReservationState", () => ({
       { value: "14:00", label: "02:00 PM", disabled: false },
     ],
     totalCost: 0.5,
-    isWaitingForReceipt: false,
-    isReceiptError: false,
+    bookingStage: 'idle',
+    isFlowLocked: false,
     setIsBooking: jest.fn(),
-    setLastTxHash: jest.fn(),
     setPendingData: jest.fn(),
     handleDateChange: jest.fn(),
     handleDurationChange: jest.fn(),
@@ -153,8 +152,8 @@ jest.mock("@/context/UserContext", () => ({
 /**
  * Mock LabToken Context for token operations
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => ({
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => ({
     formatPrice: (price) => price,
     formatTokenAmount: (amount) => amount,
     checkBalanceAndAllowance: () => ({
@@ -162,9 +161,8 @@ jest.mock("@/context/LabTokenContext", () => ({
       hasSufficientAllowance: true,
       balance: "10.5",
     }),
-    approveLabTokens: jest.fn(),
   }),
-  LabTokenProvider: ({ children }) => children,
+  LabCreditProvider: ({ children }) => children,
 }));
 
 /**
@@ -348,11 +346,10 @@ describe("LabReservation Component", () => {
         { value: "11:00", label: "11:00 AM", disabled: false },
       ],
       totalCost: 0.5,
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: 'idle',
+      isFlowLocked: false,
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
-      setPendingData: jest.fn(),
+        setPendingData: jest.fn(),
       handleDateChange: jest.fn(),
       handleDurationChange: jest.fn(),
       handleTimeChange: mockHandleTimeChange,
@@ -437,11 +434,10 @@ describe("LabReservation Component", () => {
         { value: "14:00", label: "02:00 PM", disabled: false },
       ],
       totalCost: 0.5,
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: 'idle',
+      isFlowLocked: false,
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
-      setPendingData: jest.fn(),
+        setPendingData: jest.fn(),
       handleDateChange: jest.fn(),
       handleDurationChange: jest.fn(),
       handleTimeChange: mockHandleTimeChange,
@@ -487,11 +483,10 @@ describe("LabReservation Component", () => {
         { value: "14:00", label: "02:00 PM", disabled: false },
       ],
       totalCost: 0.5,
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: 'idle',
+      isFlowLocked: false,
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
-      setPendingData: jest.fn(),
+        setPendingData: jest.fn(),
       handleDateChange: jest.fn(),
       handleDurationChange: jest.fn(),
       handleTimeChange: mockHandleTimeChange,
@@ -546,11 +541,10 @@ describe("LabReservation Component", () => {
         { value: "14:00", label: "02:00 PM", disabled: false },
       ],
       totalCost: 0.5,
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: 'idle',
+      isFlowLocked: false,
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
-      setPendingData: jest.fn(),
+        setPendingData: jest.fn(),
       handleDateChange: jest.fn(),
       handleDurationChange: jest.fn(),
       handleTimeChange: jest.fn(),
@@ -613,11 +607,10 @@ describe("LabReservation Component", () => {
         { value: "11:00", label: "11:00 AM", disabled: false },
       ],
       totalCost: 0.5,
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: 'idle',
+      isFlowLocked: false,
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
-      setPendingData: jest.fn(),
+        setPendingData: jest.fn(),
       handleDateChange: mockHandleDateChange,
       handleDurationChange: jest.fn(),
       handleTimeChange: mockHandleTimeChange,
@@ -662,11 +655,10 @@ describe("LabReservation Component", () => {
         { value: "11:00", label: "11:00 AM", disabled: false },
       ],
       totalCost: 0.5,
-      isWaitingForReceipt: false,
-      isReceiptError: false,
+      bookingStage: 'idle',
+      isFlowLocked: false,
       setIsBooking: jest.fn(),
-      setLastTxHash: jest.fn(),
-      setPendingData: jest.fn(),
+        setPendingData: jest.fn(),
       handleDateChange: mockHandleDateChange,
       handleDurationChange: jest.fn(),
       handleTimeChange: mockHandleTimeChange,
@@ -694,3 +686,6 @@ describe("LabReservation Component", () => {
     });
   });
 });
+
+
+

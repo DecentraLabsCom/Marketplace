@@ -113,6 +113,12 @@ const sanitizeUnixDate = (value) => {
   return Math.floor(parsed.getTime() / 1000)
 }
 
+const parseOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 /**
  * Saves lab data to file system (local) or cloud storage (Vercel)
  * @param {Request} req - HTTP request with lab data
@@ -132,7 +138,7 @@ const sanitizeUnixDate = (value) => {
 export async function POST(req) {
   try {
     // ===== AUTHENTICATION =====
-    // Require valid session (works for both SSO and wallet users)
+    // Require a valid authenticated session
     const session = await requireAuth();
     
     const body = await req.json();
@@ -165,7 +171,15 @@ export async function POST(req) {
       maxConcurrentUsers,
       unavailableWindows,
       termsOfUse,
-      timezone
+      timezone,
+      resourceType,
+      fmuFileName,
+      fmiVersion,
+      simulationType,
+      modelVariables,
+      defaultStartTime,
+      defaultStopTime,
+      defaultStepSize
     } = labData || {};
 
     // Validate required fields
@@ -274,6 +288,11 @@ export async function POST(req) {
     const normalizedUnavailableWindows = sanitizeUnavailableWindows(unavailableWindows)
     const normalizedTerms = sanitizeTermsOfUse(termsOfUse)
     const normalizedTimezone = typeof timezone === 'string' ? timezone.trim() : ''
+    const normalizedResourceType = typeof resourceType === 'string' ? resourceType.trim().toLowerCase() : ''
+    const normalizedFmuFileName = typeof fmuFileName === 'string' ? fmuFileName.trim() : ''
+    const normalizedDefaultStartTime = parseOptionalNumber(defaultStartTime)
+    const normalizedDefaultStopTime = parseOptionalNumber(defaultStopTime)
+    const normalizedDefaultStepSize = parseOptionalNumber(defaultStepSize)
 
     // Prepare new data structure
     const newData = {
@@ -297,7 +316,15 @@ export async function POST(req) {
         { trait_type: "maxConcurrentUsers", value: normalizedMaxUsers },
         { trait_type: "unavailableWindows", value: normalizedUnavailableWindows },
         { trait_type: "termsOfUse", value: normalizedTerms },
-        { trait_type: "timezone", value: normalizedTimezone }
+        { trait_type: "timezone", value: normalizedTimezone },
+        ...(normalizedResourceType ? [{ trait_type: "resourceType", value: normalizedResourceType }] : []),
+        ...(normalizedResourceType === 'fmu' && normalizedFmuFileName ? [{ trait_type: "fmuFileName", value: normalizedFmuFileName }] : []),
+        ...(fmiVersion ? [{ trait_type: "fmiVersion", value: fmiVersion }] : []),
+        ...(simulationType ? [{ trait_type: "simulationType", value: simulationType }] : []),
+        ...(modelVariables ? [{ trait_type: "modelVariables", value: modelVariables }] : []),
+        ...(normalizedDefaultStartTime !== null ? [{ trait_type: "defaultStartTime", value: normalizedDefaultStartTime }] : []),
+        ...(normalizedDefaultStopTime !== null ? [{ trait_type: "defaultStopTime", value: normalizedDefaultStopTime }] : []),
+        ...(normalizedDefaultStepSize !== null ? [{ trait_type: "defaultStepSize", value: normalizedDefaultStepSize }] : [])
       ],
       _meta: {
         lastUpdated: timestamp,

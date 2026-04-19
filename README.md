@@ -11,7 +11,7 @@ DecentraLabs is a community-driven initiative led by [Nebulous Systems](https://
 
 ### 🧪 DecentraLabs Marketplace
 
-The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories, manage access conditions, and receive $LAB tokens as compensation for usage. At the same time, students, teachers, and researchers around the world can discover, reserve, and interact with real lab equipment remotely, using only a crypto wallet or institutional Single Sign-On (SSO).
+The DecentraLabs Marketplace is a decentralized platform where educational and research institutions, as well as original lab equipment manufacturers, can list their online laboratories, manage access conditions, and receive EUR-denominated settlement for usage. At the same time, students, teachers, and researchers around the world can discover, reserve, and interact with real lab equipment remotely, using only a crypto wallet or institutional Single Sign-On (SSO).
 
 Each lab can be offered for free or for a fee, at the discretion of the provider. Access is controlled via smart contracts and enforced through a secure, tokenized infrastructure. This ensures transparency, verifiability, and fair rewards for contributors; all without centralized intermediaries.
 
@@ -23,7 +23,7 @@ Register and tokenize your online lab assets using smart contracts.
 
 Manage availability and access conditions.
 
-Earn $LAB tokens as users reserve and utilize your labs.
+Earn service credits as users reserve and utilize your labs.
 
 Leverage a decentralized, tamper-proof system without intermediaries.
 
@@ -33,13 +33,13 @@ Explore a growing catalog of online labs, from electronics to robotics.
 
 Authenticate using your crypto wallet or institutional SSO (e.g., eduGAIN).
 
-Make reservations using $LAB tokens, with smart-contract-backed guarantees.
+Make reservations using prepaid service credits, with smart-contract-backed guarantees.
 
 Access labs remotely, safely, and on-demand.
 
 #### 🛠️ Powered by
 
-Ethereum-compatible smart contracts (ERC-2535 + NFTs + $LAB token).
+Ethereum-compatible smart contracts (ERC-2535 + NFTs + managed service-credit ledger).
 
 Federated authentication for institutional users.
 

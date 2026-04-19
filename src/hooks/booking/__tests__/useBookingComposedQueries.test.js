@@ -37,12 +37,6 @@ jest.mock("@/utils/dev/logger", () => ({
   },
 }));
 
-// Mock dependencies
-jest.mock("@/utils/hooks/authMode", () => ({
-  useGetIsWallet: jest.fn(() => false),
-  useGetIsSSO: jest.fn(() => true),
-}));
-
 jest.mock("@/utils/hooks/useProviderMapping", () => ({
   useProviderMapping: jest.fn(() => ({})),
 }));
@@ -62,14 +56,11 @@ jest.mock("@/hooks/metadata/useMetadata", () => ({
 }));
 
 jest.mock("../useBookingAtomicQueries", () => ({
-  useReservationsOf: jest.fn(),
   useReservationsOfSSO: jest.fn(),
-  useReservationsOfWallet: jest.fn(),
   useReservationSSO: { queryFn: jest.fn() },
   useReservationsOfToken: jest.fn(),
   useReservationOfTokenByIndexSSO: { queryFn: jest.fn() },
   useReservationKeyOfUserByIndexSSO: { queryFn: jest.fn() },
-  useReservationKeyOfUserByIndex: { queryFn: jest.fn() },
   useReservation: { queryFn: jest.fn() },
   BOOKING_QUERY_CONFIG: {},
 }));
@@ -86,9 +77,7 @@ jest.mock("@tanstack/react-query", () => {
   };
 });
 
-const mockUseReservationsOf = require("../useBookingAtomicQueries").useReservationsOf;
 const mockUseReservationsOfSSO = require("../useBookingAtomicQueries").useReservationsOfSSO;
-const mockUseReservationsOfWallet = require("../useBookingAtomicQueries").useReservationsOfWallet;
 const mockUseReservationsOfToken = require("../useBookingAtomicQueries").useReservationsOfToken;
 
 const createWrapper = () => {
@@ -558,12 +547,6 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
         isSuccess: true,
         error: null,
       });
-      mockUseReservationsOfWallet.mockReturnValue({
-        data: { count: 0 },
-        isLoading: false,
-        isSuccess: true,
-        error: null,
-      });
     });
 
     test("initializes with default options", () => {
@@ -605,7 +588,7 @@ describe("Booking Composed Hooks - Cache Extraction Helpers", () => {
     });
 
     test("handles zero reservations", () => {
-      mockUseReservationsOf.mockReturnValue({
+      mockUseReservationsOfSSO.mockReturnValue({
         data: { count: 0 },
         isLoading: false,
         isSuccess: true,

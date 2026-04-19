@@ -25,35 +25,22 @@ describe('queryKeys', () => {
   describe('booking', () => {
     test('should have correct booking query keys', () => {
       expect(bookingQueryKeys.all()).toEqual(['bookings']);
-      expect(bookingQueryKeys.byUserPrefix()).toEqual(['bookings', 'user']);
-      expect(bookingQueryKeys.byUser('0x123')).toEqual(['bookings', 'user', '0x123']);
       expect(bookingQueryKeys.byLabPrefix()).toEqual(['bookings', 'lab']);
       expect(bookingQueryKeys.byLab('123')).toEqual(['bookings', 'lab', '123']);
       expect(bookingQueryKeys.byReservationKey('key123')).toEqual(['bookings', 'reservation', 'key123']);
-      expect(bookingQueryKeys.userComposed('0x123')).toEqual(['bookings', 'user-composed', '0x123', false]);
       expect(bookingQueryKeys.labComposed('123')).toEqual(['bookings', 'lab-composed', '123', true]);
       expect(bookingQueryKeys.multiLab(['1', '2'])).toEqual(['bookings', 'multi-lab', ['1', '2'], false]);
-      expect(bookingQueryKeys.userReservationsComplete('0x123', 10)).toEqual(['bookings', 'userReservationsComplete', '0x123', 10]);
       expect(bookingQueryKeys.getReservationsOfToken('123')).toEqual(['bookings', 'reservationsOfToken', '123']);
       expect(bookingQueryKeys.reservationOfTokenRoot()).toEqual(['bookings', 'reservationOfToken']);
       expect(bookingQueryKeys.reservationOfTokenPrefix('123')).toEqual(['bookings', 'reservationOfToken', '123']);
-      expect(bookingQueryKeys.getReservationsOfTokenByUser('123', '0x123')).toEqual(['bookings', 'reservationsOfTokenByUser', '123', '0x123', 0, 50]);
       expect(bookingQueryKeys.getReservationOfTokenByIndex('123', 5)).toEqual(['bookings', 'reservationOfToken', '123', 5]);
-      expect(bookingQueryKeys.reservationsOf('0x123')).toEqual(['bookings', 'reservationsOf', '0x123']);
-      expect(bookingQueryKeys.reservationKeyOfUserPrefix()).toEqual(['bookings', 'reservationKeyOfUser']);
-      expect(bookingQueryKeys.reservationKeyOfUserPrefix('0x123')).toEqual(['bookings', 'reservationKeyOfUser', '0x123']);
-      expect(bookingQueryKeys.reservationKeyOfUserByIndex('0x123', 3)).toEqual(['bookings', 'reservationKeyOfUser', '0x123', 3]);
+      expect(bookingQueryKeys.ssoReservationsOf()).toEqual(['bookings', 'sso', 'reservationsOf']);
       expect(bookingQueryKeys.ssoReservationKeyOfUserPrefix()).toEqual(['bookings', 'sso', 'reservationKeyOfUser']);
-      expect(bookingQueryKeys.totalReservations()).toEqual(['bookings', 'totalReservations']);
       expect(bookingQueryKeys.userOfReservation('key123')).toEqual(['bookings', 'userOfReservation', 'key123']);
       expect(bookingQueryKeys.checkAvailable('123', 1000, 3600)).toEqual(['bookings', 'checkAvailable', '123', 1000, 3600]);
-      expect(bookingQueryKeys.hasActiveBooking('key123', '0x123')).toEqual(['bookings', 'hasActiveBooking', 'key123', '0x123']);
-      expect(bookingQueryKeys.hasActiveBookingByToken('123', '0x123')).toEqual(['bookings', 'hasActiveBookingByToken', '123', '0x123']);
-      expect(bookingQueryKeys.activeReservationKeyForUser('123', '0x123')).toEqual(['bookings', 'activeReservationKey', '123', '0x123']);
       expect(bookingQueryKeys.ssoHasActiveBookingSession()).toEqual(['bookings', 'sso', 'hasActiveBooking', 'session']);
       expect(bookingQueryKeys.ssoActiveReservationKeySession('123')).toEqual(['bookings', 'sso', 'activeReservationKey', '123']);
-      expect(bookingQueryKeys.labTokenAddress()).toEqual(['bookings', 'labTokenAddress']);
-      expect(bookingQueryKeys.safeBalance()).toEqual(['bookings', 'safeBalance']);
+      expect(bookingQueryKeys.labCreditAddress()).toEqual(['bookings', 'labCreditAddress']);
     });
   });
 
@@ -109,16 +96,10 @@ describe('queryKeys', () => {
         let result;
         if (keyFn.name === 'multiLab') {
           result = keyFn(['1', '2']); // multiLab expects array
-        } else if (keyFn.name === 'getReservationsOfTokenByUser') {
-          result = keyFn('lab1', 'user1'); // has defaults for offset and limit
-        } else if (keyFn.name === 'userComposed' || keyFn.name === 'labComposed') {
+        } else if (keyFn.name === 'labComposed') {
           result = keyFn('test'); // has defaults
         } else if (keyFn.name === 'status') {
           result = keyFn('test'); // has defaults
-        } else if (keyFn.name === 'hasActiveBooking') {
-          result = keyFn('key', 'user');
-        } else if (keyFn.name === 'hasActiveBookingByToken') {
-          result = keyFn('lab', 'user');
         } else if (keyFn.length === 0) {
           result = keyFn(); // no parameters needed
         } else {
@@ -131,7 +112,7 @@ describe('queryKeys', () => {
     test('query keys should follow hierarchical structure', () => {
       // Test that child keys include parent keys
       expect(labQueryKeys.byId('123')).toEqual(['labs', 'data', '123']);
-      expect(bookingQueryKeys.byUser('0x123')).toEqual(['bookings', 'user', '0x123']);
+      expect(bookingQueryKeys.byLab('123')).toEqual(['bookings', 'lab', '123']);
       expect(userQueryKeys.byAddress('0x123')).toEqual(['user', 'profile', '0x123']);
       expect(providerQueryKeys.byAddress('0x123')).toEqual(['provider', 'profile', '0x123']);
       expect(metadataQueryKeys.byUri('uri123')).toEqual(['metadata', 'uri123']);
@@ -146,16 +127,10 @@ describe('queryKeys', () => {
           let result;
           if (keyFn.name === 'multiLab') {
             result = keyFn(['1', '2']);
-          } else if (keyFn.name === 'getReservationsOfTokenByUser') {
-            result = keyFn('lab1', 'user1');
-          } else if (keyFn.name === 'userComposed' || keyFn.name === 'labComposed') {
+          } else if (keyFn.name === 'labComposed') {
             result = keyFn('test');
           } else if (keyFn.name === 'status') {
             result = keyFn('test');
-          } else if (keyFn.name === 'hasActiveBooking') {
-            result = keyFn('key', 'user');
-          } else if (keyFn.name === 'hasActiveBookingByToken') {
-            result = keyFn('lab', 'user');
           } else if (keyFn.length === 0) {
             result = keyFn();
           } else {

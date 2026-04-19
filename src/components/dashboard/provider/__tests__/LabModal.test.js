@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit tests for LabModal component
  *
  * Tested behaviors:
@@ -22,13 +22,13 @@ const mockUploadFile = jest.fn();
 const mockDeleteFile = jest.fn();
 
 let mockLabTokenData = {
-  decimals: 18,
+  decimals: 5,
   formatPrice: mockFormatPrice,
 };
 
 // External dependencies
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => mockLabTokenData,
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => mockLabTokenData,
 }));
 
 jest.mock("@/context/NotificationContext", () => ({
@@ -51,6 +51,7 @@ jest.mock("@/hooks/provider/useProvider", () => ({
 jest.mock("@/utils/labValidation", () => ({
   validateLabFull: jest.fn(() => ({})),
   validateLabQuick: jest.fn(() => ({})),
+  validateFmuFields: jest.fn(() => ({})),
 }));
 
 jest.mock("@/utils/dates/dateFormatter", () => ({
@@ -94,7 +95,7 @@ describe("LabModal - Unit Tests", () => {
     jest.clearAllMocks();
 
     mockLabTokenData = {
-      decimals: 18,
+      decimals: 5,
       formatPrice: mockFormatPrice,
     };
   });
@@ -379,6 +380,92 @@ describe("LabModal - Unit Tests", () => {
         expect(mockOnSubmit).toHaveBeenCalled();
       });
     });
+
+    test("validates FMU reference before submitting Full Setup", async () => {
+      const user = userEvent.setup();
+      mockOnSubmit.mockResolvedValue();
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: "gateway-token" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            fmiVersion: "2.0",
+            simulationType: "CoSimulation",
+            modelVariables: [{ name: "u", causality: "input", type: "Real" }],
+            defaultStartTime: 0,
+            defaultStopTime: 10,
+            defaultStepSize: 0.01,
+          }),
+        });
+
+      render(
+        <LabModal
+          isOpen={true}
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          lab={{
+            resourceType: "fmu",
+            fmuFileName: "model.fmu",
+            accessURI: "https://gateway.example/fmu",
+          }}
+          maxId={0}
+        />
+      );
+
+      await user.click(screen.getByText("Submit Full"));
+
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalledWith(
+          expect.objectContaining({
+            accessKey: "model.fmu",
+            fmiVersion: "2.0",
+            simulationType: "CoSimulation",
+          })
+        );
+      });
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      delete global.fetch;
+    });
+
+    test("blocks FMU submit when reference validation fails", async () => {
+      const user = userEvent.setup();
+      mockOnSubmit.mockResolvedValue();
+      global.fetch = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ token: "gateway-token" }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          json: async () => ({ error: "FMU file not found" }),
+        });
+
+      render(
+        <LabModal
+          isOpen={true}
+          onClose={mockOnClose}
+          onSubmit={mockOnSubmit}
+          lab={{
+            resourceType: "fmu",
+            fmuFileName: "missing.fmu",
+            accessURI: "https://gateway.example/fmu",
+          }}
+          maxId={0}
+        />
+      );
+
+      await user.click(screen.getByText("Submit Full"));
+
+      await waitFor(() => {
+        expect(mockOnSubmit).not.toHaveBeenCalled();
+      });
+      delete global.fetch;
+    });
   });
 
   describe("Edge Cases", () => {
@@ -429,3 +516,4 @@ describe("LabModal - Unit Tests", () => {
     });
   });
 });
+

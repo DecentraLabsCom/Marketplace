@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import PropTypes from 'prop-types'
@@ -6,12 +6,11 @@ import Link from 'next/link'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSearch, faStar } from '@fortawesome/free-solid-svg-icons'
 import { useUser } from '@/context/UserContext'
-import { useLabToken } from '@/context/LabTokenContext'
-import { useActiveReservationKeyForUser, useActiveReservationKeyForSessionUserSSO } from '@/hooks/booking/useBookings'
+import { useLabCredit } from '@/context/LabCreditContext'
 import { Card, cn, LabCardImage } from '@/components/ui'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 
-const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000';
 const LabAccess = dynamic(() => import('@/components/home/LabAccess'), { ssr: false });
 
 /**
@@ -37,20 +36,23 @@ const LabCard = React.memo(function LabCard({
   price,
   auth = null,
   activeBooking = false,
+  activeBookingKey = null,
   isListed = true,
   image = '',
   imagePriority = false,
   reputation = null,
-  createdAt = null
+  createdAt = null,
+  resourceType = RESOURCE_TYPES.LAB
 }) {
-  const { address, isConnected, isSSO } = useUser();
+  const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU;
+  const { isSSO } = useUser();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const { formatPrice } = useLabToken();
+  const { formatPrice } = useLabCredit();
   const ratingValue = getLabRatingValue(reputation);
   const ratingLabel = ratingValue !== null ? ratingValue.toFixed(1) : null;
   const ageLabel = getLabAgeLabel(createdAt);
@@ -58,32 +60,7 @@ const LabCard = React.memo(function LabCard({
     .filter(Boolean)
     .join(' | ');
   
-  // Get active reservation key for wallet users with an active booking.
-  // This allows the lab gateway to perform on-chain check-in.
-  const reservationKeyUserAddress = activeBooking && isConnected && !isSSO ? address : null;
-  const { data: reservationKeyData } = useActiveReservationKeyForUser(
-    id,
-    reservationKeyUserAddress,
-    {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
-
-  const { data: ssoReservationKeyData } = useActiveReservationKeyForSessionUserSSO(
-    id,
-    {
-      enabled: !!activeBooking && !!isSSO,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
-  
-  const reservationKeyValue = reservationKeyData?.reservationKey ?? reservationKeyData;
-  const walletReservationKey = reservationKeyValue && reservationKeyValue !== ZERO_BYTES32 ? reservationKeyValue : null;
-  const ssoReservationKeyValue = ssoReservationKeyData?.reservationKey ?? ssoReservationKeyData;
-  const ssoReservationKey = ssoReservationKeyValue && ssoReservationKeyValue !== ZERO_BYTES32
-    ? ssoReservationKeyValue
-    : null;
-  const reservationKey = isSSO ? ssoReservationKey : walletReservationKey;
+  const reservationKey = isSSO && activeBooking ? (activeBookingKey || null) : null;
  
   return (
     <Card 
@@ -140,6 +117,13 @@ const LabCard = React.memo(function LabCard({
           </div>
         )}
 
+        {/* FMU Badge */}
+        {isFmu && (
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-[#7875a8]/90 px-2.5 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
+            <span>âš™ FMU</span>
+          </div>
+        )}
+
         {/* Unlisted Badge */}
         {!isListed && (
           <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand border-l-2 border-brand px-3 py-2 rounded-bl-lg shadow-lg backdrop-blur-sm`}>
@@ -155,7 +139,7 @@ const LabCard = React.memo(function LabCard({
         <h2 className="text-xl min-[700px]:text-2xl font-bold md:mt-2 text-hover-dark">{name}</h2>
         <div className="md:flex md:justify-between md:items-center min-[700px]:block md:mt-4">
           <p className="text-ui-label-dark font-semibold text-base mt-2">{provider}</p>
-          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{formatPrice(price)} $LAB / hour</p> 
+          <p className="text-text-secondary font-semibold mt-2 md:mt-2">{formatPrice(price)} credits / hour</p> 
         </div>
       </div>
 
@@ -164,13 +148,12 @@ const LabCard = React.memo(function LabCard({
           group-hover:opacity-100 transition-opacity duration-300 hover:scale-110
           text-white text-lg font-bold">
           <FontAwesomeIcon icon={faSearch} className="mr-2" />
-          Explore Lab
+          {isFmu ? 'Explore Simulation' : 'Explore Lab'}
         </div>
       </Link>
-      {isClient && (isConnected || isSSO) && (
+      {isClient && isSSO && (
         <LabAccess 
           id={id} 
-          userWallet={address} 
           hasActiveBooking={activeBooking} 
           reservationKey={reservationKey}
         />
@@ -186,6 +169,7 @@ LabCard.propTypes = {
   price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
   auth: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
   activeBooking: PropTypes.bool,
+  activeBookingKey: PropTypes.string,
   isListed: PropTypes.bool,
   image: PropTypes.string,
   imagePriority: PropTypes.bool,
@@ -196,7 +180,9 @@ LabCard.propTypes = {
     institutionalCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
-  createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+  createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
 
 export default LabCard;
+

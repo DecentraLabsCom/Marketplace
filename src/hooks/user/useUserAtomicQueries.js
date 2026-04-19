@@ -1,12 +1,8 @@
 /**
- * Atomic React Query Hooks for User/Provider-related queries
- * Each hook has 3 variants following the same pattern as mutations:
- * - useXSSO: Server-side query via API + Ethers (for SSO users)
- *   * Each hook maps 1:1 to a specific API endpoint in /api/contract/user
- * - useXWallet: Client-side query via Wagmi (for wallet users)
- * - useX: Router that selects SSO or Wallet based on user.loginType
+ * Atomic React Query Hooks for User/Provider-related queries.
+ * Marketplace runtime uses institutional/API-backed variants only.
  * 
- * Note: useSSOSessionQuery is SSO-only by nature (no Wallet variant)
+ * Note: useSSOSessionQuery is institutional SSO-only.
  * 
  * Configuration:
  * - staleTime: 2 hours (7,200,000ms)
@@ -19,8 +15,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { createSSRSafeQuery } from '@/utils/hooks/ssrSafe'
 import { userQueryKeys, providerQueryKeys } from '@/utils/hooks/queryKeys'
-import { useGetIsWallet } from '@/utils/hooks/authMode'
-import useDefaultReadContract from '@/hooks/contract/useDefaultReadContract'
 import devLog from '@/utils/dev/logger'
 
 // Common configuration for all user/provider hooks
@@ -69,56 +63,15 @@ export const useGetLabProvidersSSO = (options = {}) => {
 useGetLabProvidersSSO.queryFn = getLabProvidersQueryFn;
 
 /**
- * Hook for getLabProviders contract read (Wallet users)
- * Gets all registered lab providers directly from blockchain via Wagmi
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with providers data normalized to match SSO structure
- */
-export const useGetLabProvidersWallet = (options = {}) => {
-  const result = useDefaultReadContract('getLabProviders', [], {
-      ...USER_QUERY_CONFIG,
-      ...options,
-    });
-  
-  // Normalize the data after it's fetched
-  return {
-    ...result,
-    data: result.data ? (() => {
-      const data = result.data;
-      if (!data || !Array.isArray(data)) return { providers: [], count: 0 };
-      
-      // Transform blockchain data to match API format
-      const providers = data.map(provider => ({
-        account: provider.account,
-        name: provider.base?.name || provider.name,
-        email: provider.base?.email || provider.email,
-        country: provider.base?.country || provider.country,
-        authURI: provider.base?.authURI || provider.authURI || ''
-      }));
-      
-      return {
-        providers,
-        count: providers.length,
-        timestamp: new Date().toISOString()
-      };
-    })() : null
-  };
-};
-
-/**
- * Hook for getLabProviders (Router - selects SSO or Wallet)
- * Gets all registered lab providers - routes to API or Wagmi based on user type
+ * Hook for provider-list reads in the institutional runtime.
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with providers data
  */
 export const useGetLabProviders = (options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false });
-  
-  const ssoQuery = useGetLabProvidersSSO({ ...options, enabled: !isWallet && options.enabled !== false });
-  const walletQuery = useGetLabProvidersWallet({ ...options, enabled: isWallet && options.enabled !== false });
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useGetLabProvidersSSO({
+    ...options,
+    enabled: options.enabled !== false,
+  });
 };
 
 // ===== useIsLabProvider Hook Family =====
@@ -161,45 +114,16 @@ export const useIsLabProviderSSO = (address, options = {}) => {
 useIsLabProviderSSO.queryFn = getIsLabProviderQueryFn;
 
 /**
- * Hook for isLabProvider contract read (Wallet users)
- * Checks if an address is a registered lab provider directly from blockchain via Wagmi
- * @param {string} address - Address to check
- * @param {Object} [options={}] - Additional wagmi options
- * @returns {Object} Wagmi query result with provider status normalized to match SSO structure
- */
-export const useIsLabProviderWallet = (address, options = {}) => {
-  const result = useDefaultReadContract('isLabProvider', [address], {
-      enabled: !!address,
-      ...USER_QUERY_CONFIG,
-      ...options,
-    });
-  
-  // Normalize the data after it's fetched
-  return {
-    ...result,
-    data: result.data !== undefined ? {
-      wallet: address?.toLowerCase(),
-      isLabProvider: Boolean(result.data),
-      checked: true
-    } : null
-  };
-};
-
-/**
- * Hook for isLabProvider (Router - selects SSO or Wallet)
- * Checks if an address is a registered lab provider - routes to API or Wagmi based on user type
+ * Hook for provider-status reads in the institutional runtime.
  * @param {string} address - Address to check
  * @param {Object} [options={}] - Additional query options
- * @param {boolean} [options.isSSO] - Optional: force SSO or Wallet mode (for use outside UserContext)
  * @returns {Object} React Query result with provider status
  */
 export const useIsLabProvider = (address, options = {}) => {
-  const isWallet = useGetIsWallet({ ...options, fallbackDuringInit: false });
-  
-  const ssoQuery = useIsLabProviderSSO(address, { ...options, enabled: !isWallet && options.enabled !== false });
-  const walletQuery = useIsLabProviderWallet(address, { ...options, enabled: isWallet && options.enabled !== false });
-  
-  return isWallet ? walletQuery : ssoQuery;
+  return useIsLabProviderSSO(address, {
+    ...options,
+    enabled: options.enabled !== false && !!address,
+  });
 };
 
 // ===== SSO SESSION QUERIES =====
@@ -223,15 +147,10 @@ const getSSOSessionQueryFn = createSSRSafeQuery(async () => {
   const data = await response.json();
   devLog.log('getSSOSessionQueryFn:', data);
   
-  const isWalletSession = Boolean(
-    data.user?.authType === 'wallet' ||
-    (typeof data.user?.id === 'string' && data.user.id.startsWith('wallet:'))
-  );
-
   // Return consistent format
   return {
     user: data.user,
-    isSSO: Boolean(data.user) && !isWalletSession
+    isSSO: Boolean(data.user)
   };
 }, { user: null, isSSO: false }); // Return null user during SSR
 

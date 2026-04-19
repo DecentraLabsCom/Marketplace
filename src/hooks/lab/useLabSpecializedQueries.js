@@ -21,34 +21,13 @@ import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { processMetadataImages } from '@/hooks/utils/metadataHelpers'
-import { buildEnrichedLab, collectMetadataImages } from './labEnrichmentHelpers'
+import { buildEnrichedLab, collectMetadataImages, normalizeLabIds } from './labEnrichmentHelpers'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
 import devLog from '@/utils/dev/logger'
 
 const EMPTY_ARRAY = [];
-
-const normalizeLabIds = (ids) => {
-  if (!Array.isArray(ids)) return [];
-
-  const seen = new Set();
-  const normalized = [];
-
-  ids.forEach((entry) => {
-    const rawId = typeof entry === 'object' && entry !== null
-      ? (entry.labId ?? entry.id ?? entry.tokenId ?? null)
-      : entry;
-    const numericId = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
-
-    if (!Number.isFinite(numericId) || seen.has(numericId)) return;
-
-    seen.add(numericId);
-    normalized.push(numericId);
-  });
-
-  return normalized;
-};
 
 const extractStatusCodeFromError = (error) => {
   const message = String(error?.message || '');
@@ -129,7 +108,7 @@ const usePruneDeletedLabIds = (labIds, labDetailResults, listingResults) => {
  */
 /**
  * ⚠️ ARCHITECTURAL NOTE: This specialized hook uses useQueries with SSO .queryFn
- * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * API endpoints are read-only blockchain queries used by the institutional runtime
  * This is the correct pattern for composed/specialized hooks per project architecture
  */
 export const useLabsForMarket = (options = {}) => {
@@ -403,6 +382,7 @@ export const useLabsForMarket = (options = {}) => {
  */
 export const useLabById = (labId, options = {}) => {
   const normalizedLabId = labId ? String(labId) : null;
+  const { getEffectiveListingState } = useOptimisticUI();
 
   // Get lab details
   const labResult = useLab(normalizedLabId, {
@@ -443,6 +423,10 @@ export const useLabById = (labId, options = {}) => {
   // Extract image URLs from metadata for caching
   const metadata = metadataResult.data;
   const imageUrlsToCache = useMemo(() => collectMetadataImages(metadata), [metadata]);
+  const serverIsListed = listingResult.data?.isListed;
+  const effectiveListingState = listingResult.error
+    ? { isListed: true, isPending: false, operation: null }
+    : getEffectiveListingState(normalizedLabId, serverIsListed);
 
   // Cache images
   const imageResults = useQueries({
@@ -462,13 +446,11 @@ export const useLabById = (labId, options = {}) => {
 
   const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
   
-  // Only critical errors (lab, owner, listing) should fail the entire query
+  // Only critical errors (lab, owner) should fail the entire query.
+  // Listing errors are treated as recoverable to avoid false "Not Available" states.
   // Metadata errors should be gracefully handled with fallbacks
-  const hasCriticalErrors = labResult.error || ownerResult.error || listingResult.error;
+  const hasCriticalErrors = labResult.error || ownerResult.error;
   const hasMetadataError = metadataResult.error;
-
-  // Check if lab is listed
-  const isListed = listingResult.data?.isListed;
 
   // Transform data - Always return lab if it exists, include listing status
   const lab = useMemo(() => {
@@ -481,7 +463,7 @@ export const useLabById = (labId, options = {}) => {
     return buildEnrichedLab({
       lab: labResult.data,
       metadata,
-      isListed,
+      isListed: effectiveListingState.isListed,
       reputation: reputationResult.data,
       ownerAddress,
       providerMapping,
@@ -490,8 +472,8 @@ export const useLabById = (labId, options = {}) => {
       includeProviderFallback: true
     });
   }, [
+    effectiveListingState.isListed,
     imageUrlsToCache,
-    isListed,
     labResult.data,
     metadata,
     ownerResult.data,
@@ -512,7 +494,7 @@ export const useLabById = (labId, options = {}) => {
     isLoading,
     isSuccess: !hasCriticalErrors && !!lab,
     isError: hasCriticalErrors,
-    error: labResult.error || ownerResult.error || listingResult.error,
+    error: labResult.error || ownerResult.error,
     metadataError: hasMetadataError ? metadataResult.error : null, // Separate metadata errors
     refetch: () => {
       labResult.refetch();
@@ -533,7 +515,7 @@ export const useLabById = (labId, options = {}) => {
  * @returns {Object} Labs owned by the address
  * 
  * ⚠️ ARCHITECTURAL NOTE: Uses useQueries with SSO .queryFn
- * API endpoints work for both SSO and Wallet users - correct pattern for composed hooks
+ * API endpoints are safe for composed hooks in the institutional runtime
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
   // Get all lab IDs first - Use SSO variant directly per architecture
@@ -770,7 +752,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
  * @returns {Object} Labs with complete data needed for reservation functionality
  * 
  * ⚠️ ARCHITECTURAL NOTE: Uses SSO variant directly per architecture
- * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * API endpoints are read-only blockchain queries used by the institutional runtime
  */
 export const useLabsForReservation = (options = {}) => {
   // Step 1: Get all lab IDs - Use SSO variant directly per architecture

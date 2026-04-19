@@ -1,15 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback, useContext, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { useConnection } from 'wagmi'
 import { useQueryClient } from '@tanstack/react-query'
 import { 
   useSSOSessionQuery, 
   useIsLabProvider, 
   useGetLabProviders,
   useUserCacheUpdates,
-  useInstitutionResolve
 } from '@/hooks/user/useUsers'
+import { useInstitutionRegistration } from '@/hooks/user/useInstitutionRegistration'
 import { providerQueryKeys } from '@/utils/hooks/queryKeys'
 import { 
   ErrorBoundary, 
@@ -18,12 +17,6 @@ import {
   ErrorCategory 
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
-import {
-    getConnectionAddress,
-    isConnectionConnected,
-    isConnectionConnecting,
-    isConnectionReconnecting,
-} from '@/utils/blockchain/connection'
 import devLog from '@/utils/dev/logger'
 import { transformRegistrationOptions, attestationToJSON } from '@/utils/webauthn/client'
 import {
@@ -71,13 +64,6 @@ function resolveAdvisoryCooldownMs() {
 
 const WEBAUTHN_ADVISORY_COOLDOWN_MS = resolveAdvisoryCooldownMs();
 
-function isWalletSessionUser(sessionUser) {
-    return Boolean(
-        sessionUser?.authType === 'wallet' ||
-        (typeof sessionUser?.id === 'string' && sessionUser.id.startsWith('wallet:'))
-    );
-}
-
 /**
  * Core user data provider component with React Query integration
  * Manages user state, SSO authentication, and provider status
@@ -86,32 +72,18 @@ function isWalletSessionUser(sessionUser) {
  * @returns {JSX.Element} Provider with user data and authentication state
  */
 function UserDataCore({ children }) {
-    const connection = useConnection();
-    const address = getConnectionAddress(connection);
-    const isConnected = isConnectionConnected(connection);
-    const isReconnecting = isConnectionReconnecting(connection);
-    const isConnecting = isConnectionConnecting(connection);
     const queryClient = useQueryClient();
     const { handleError: originalHandleError } = useErrorHandler();
-    // undefined = unknown/initializing; prevents early Wallet-mode selection in hooks
+    // undefined = unknown/initializing until the SSO session resolves
     const [isSSO, setIsSSO] = useState(undefined);
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const [walletSessionCreated, setWalletSessionCreated] = useState(false);
-    const walletSessionRequestInFlightRef = useRef(false);
     const [webAuthnBootstrapDone, setWebAuthnBootstrapDone] = useState(false);
-    const lastWalletAddressRef = useRef(null);
     
     // Institutional onboarding state (WebAuthn credential at IB)
     const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-    const [institutionRegistrationStatus, setInstitutionRegistrationStatus] = useState(null); // null, 'checking', 'registered', 'unregistered', 'error'
-    const [institutionRegistrationWallet, setInstitutionRegistrationWallet] = useState(null);
-    const [institutionBackendUrl, setInstitutionBackendUrl] = useState(null);
     const onboardingStableUserIdRef = useRef(null);
-
-    // Track initial connection state to prevent flash of authenticated content
-    const isWalletLoading = isReconnecting || isConnecting;
 
     // React Query hooks for data fetching
     const { 
@@ -120,7 +92,7 @@ function UserDataCore({ children }) {
         error: ssoError,
         refetch: refetchSSO
     } = useSSOSessionQuery({
-        enabled: !isWalletLoading && !isLoggingOut, // Disable completely during logout
+        enabled: !isLoggingOut, // Disable completely during logout
         refetchOnWindowFocus: !isLoggingOut, // Disable window focus refetch during logout
         refetchInterval: isLoggingOut ? false : 30000, // Disable interval during logout
         retry: isLoggingOut ? false : 1, // Disable retries during logout
@@ -214,6 +186,11 @@ function UserDataCore({ children }) {
     }, [isSSO, user]);
 
     const institutionDomain = user?.affiliation || user?.schacHomeOrganization || null;
+
+    // Resolve whether the institution is registered on-chain and derive
+    // its wallet address and backend URL.
+    const { institutionRegistrationStatus, institutionRegistrationWallet, institutionBackendUrl } =
+        useInstitutionRegistration(isSSO, user, institutionDomain);
 
     // Check institutional onboarding status after SSO login
     // This verifies if the user has registered a WebAuthn credential at their IB
@@ -353,75 +330,18 @@ function UserDataCore({ children }) {
         };
     }, [isSSO, user, institutionalOnboardingStatus, institutionRegistrationStatus, institutionBackendUrl, institutionDomain]);
 
-    // Check whether the institution is already registered on-chain (for SSO users)
-    // Using React Query for automatic caching, retry, and deduplication
-    const {
-        data: institutionData,
-        isLoading: isInstitutionResolveLoading,
-        error: institutionResolveError,
-    } = useInstitutionResolve(institutionDomain, {
-        enabled: isSSO && Boolean(user) && Boolean(institutionDomain),
-    });
-
-    // Sync React Query state to local state for backward compatibility
-    useEffect(() => {
-        if (!isSSO || !user) {
-            setInstitutionRegistrationStatus(null);
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
-            return;
-        }
-
-        if (!institutionDomain) {
-            setInstitutionRegistrationStatus('error');
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
-            return;
-        }
-
-        if (isInstitutionResolveLoading) {
-            setInstitutionRegistrationStatus('checking');
-            return;
-        }
-
-        if (institutionResolveError) {
-            devLog.warn('[InstitutionRegistration] Resolve failed:', institutionResolveError);
-            setInstitutionRegistrationStatus('error');
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
-            return;
-        }
-
-        if (institutionData) {
-            if (institutionData.registered) {
-                setInstitutionRegistrationStatus('registered');
-                setInstitutionRegistrationWallet(institutionData.wallet || null);
-                setInstitutionBackendUrl(institutionData.backendUrl || null);
-            } else {
-                setInstitutionRegistrationStatus('unregistered');
-                setInstitutionRegistrationWallet(null);
-                setInstitutionBackendUrl(null);
-            }
-        }
-    }, [isSSO, user, institutionDomain, institutionData, isInstitutionResolveLoading, institutionResolveError]);
-
     // Reset institutional onboarding status on logout
     useEffect(() => {
         if (!isSSO || !user) {
             setInstitutionalOnboardingStatus(null);
             setShowOnboardingModal(false);
-            setInstitutionRegistrationStatus(null);
-            setInstitutionRegistrationWallet(null);
-            setInstitutionBackendUrl(null);
             onboardingStableUserIdRef.current = null;
         }
     }, [isSSO, user]);
 
-    const sessionIsWallet = isWalletSessionUser(ssoData?.user);
-
-    // Determine current isSSO state based on session data
-    // This needs to be calculated BEFORE using the router hooks
-    const currentIsSSO = Boolean(ssoData?.user) && !sessionIsWallet;
+    const currentIsSSO = Boolean(ssoData?.user);
+    const address = institutionRegistrationWallet || null;
+    const isConnected = Boolean(address);
 
     const { 
         data: providerStatus, 
@@ -429,7 +349,7 @@ function UserDataCore({ children }) {
         error: providerError 
     } = useIsLabProvider(address, {
         isSSO: currentIsSSO, // Pass explicitly to avoid context dependency
-        enabled: Boolean(address) && !isWalletLoading, // Only fetch when wallet connection is stable
+        enabled: currentIsSSO && Boolean(address),
         retry: false, // Don't retry failed provider status queries
     });
 
@@ -445,182 +365,6 @@ function UserDataCore({ children }) {
 
     // Cache update utilities
     const { refreshProviderStatus: refreshProviderStatusFromCache, clearSSOSession } = useUserCacheUpdates();
-
-    const syncWalletProviderUi = useCallback(async (walletAddress) => {
-        if (!walletAddress) {
-            return;
-        }
-
-        try {
-            const refreshedStatus = await refreshProviderStatusFromCache(walletAddress);
-            const isWalletProvider = Boolean(refreshedStatus?.isLabProvider);
-
-            setUser((prev) => ({
-                ...(prev || {}),
-                address: walletAddress,
-                isProvider: isWalletProvider,
-            }));
-
-            if (!isWalletProvider) {
-                return;
-            }
-
-            const providersResponse = await fetch('/api/contract/provider/getLabProviders', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-            });
-            if (!providersResponse.ok) {
-                return;
-            }
-
-            const providersPayload = await providersResponse.json().catch(() => null);
-            const providers = providersPayload?.providers;
-            const providerInfo = Array.isArray(providers)
-                ? providers.find((provider) => provider?.account?.toLowerCase() === walletAddress.toLowerCase())
-                : null;
-
-            queryClient.setQueryData(providerQueryKeys.getLabProviders(), providersPayload);
-
-            if (providerInfo?.name) {
-                setUser((prev) => ({
-                    ...(prev || {}),
-                    address: walletAddress,
-                    isProvider: true,
-                    name: providerInfo.name,
-                }));
-            }
-        } catch (error) {
-            devLog.warn('Failed to sync wallet provider UI state:', error?.message || error);
-        }
-    }, [queryClient, refreshProviderStatusFromCache]);
-    // Create wallet session when wallet connects (only for non-SSO users)
-    useEffect(() => {
-        const createWalletSession = async () => {
-            // Skip if: logging out, SSO user, no address, already created, wallet loading, or request in-flight
-            if (
-                isLoggingOut ||
-                isSSO ||
-                !address ||
-                walletSessionCreated ||
-                isWalletLoading ||
-                walletSessionRequestInFlightRef.current
-            ) {
-                return;
-            }
-            walletSessionRequestInFlightRef.current = true;
-            try {
-                devLog.log('Creating wallet session for:', address);
-                const response = await fetch('/api/auth/wallet-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ walletAddress: address }),
-                });
-                if (response.ok) {
-                    setWalletSessionCreated(true);
-                    devLog.log('Wallet session created successfully');
-                    await syncWalletProviderUi(address);
-                    // Refetch SSO query to pick up the new session
-                    refetchSSO();
-                    return;
-                }
-                let errorPayload = null;
-                try {
-                    errorPayload = await response.json();
-                } catch {
-                    errorPayload = null;
-                }
-                const requiresSignature =
-                    response.status === 401 &&
-                    (errorPayload?.code === 'MISSING_SIGNATURE' ||
-                        String(errorPayload?.error || '').toLowerCase().includes('signature'));
-                if (!requiresSignature) {
-                    devLog.warn('Failed to create wallet session:', response.status, errorPayload);
-                    return;
-                }
-                devLog.log('Wallet session requires signature challenge, requesting challenge...');
-                const challengeResponse = await fetch(
-                    '/api/auth/wallet-session?walletAddress=' + encodeURIComponent(address),
-                    {
-                        method: 'GET',
-                        credentials: 'include',
-                    }
-                );
-                if (!challengeResponse.ok) {
-                    const challengeBody = await challengeResponse.text().catch(() => '');
-                    devLog.warn('Failed to fetch wallet session challenge:', challengeResponse.status, challengeBody);
-                    return;
-                }
-                const challengeData = await challengeResponse.json().catch(() => null);
-                const challenge = challengeData?.challenge;
-                if (!challenge) {
-                    devLog.warn('Wallet session challenge payload missing challenge value');
-                    return;
-                }
-                const provider = typeof window !== 'undefined' ? window.ethereum : null;
-                if (!provider?.request) {
-                    devLog.warn('Wallet provider unavailable for personal_sign');
-                    return;
-                }
-                let signature;
-                try {
-                    signature = await provider.request({
-                        method: 'personal_sign',
-                        params: [challenge, address],
-                    });
-                } catch (signError) {
-                    devLog.warn('Wallet session signature rejected/failed:', signError?.message || signError);
-                    return;
-                }
-                const signedResponse = await fetch('/api/auth/wallet-session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        walletAddress: address,
-                        challenge,
-                        signature,
-                    }),
-                });
-                if (signedResponse.ok) {
-                    setWalletSessionCreated(true);
-                    devLog.log('Wallet session created successfully (signed challenge)');
-                    await syncWalletProviderUi(address);
-                    refetchSSO();
-                    return;
-                }
-                const signedErrorBody = await signedResponse.text().catch(() => '');
-                devLog.warn('Failed to create signed wallet session:', signedResponse.status, signedErrorBody);
-            } catch (error) {
-                devLog.error('Error creating wallet session:', error);
-            } finally {
-                walletSessionRequestInFlightRef.current = false;
-            }
-        };
-        if (isConnected && address && !isSSO) {
-            createWalletSession();
-        }
-    }, [isConnected, address, isSSO, walletSessionCreated, isWalletLoading, isLoggingOut, refetchSSO, syncWalletProviderUi]);
-
-    // Destroy wallet session when wallet disconnects
-    const destroyWalletSession = useCallback(async (options = {}) => {
-        const forceDestroy = Boolean(options.force);
-        if (!walletSessionCreated && !forceDestroy) return;
-        
-        try {
-            devLog.log('Destroying wallet session...');
-            await fetch('/api/auth/wallet-logout', {
-                method: 'POST',
-                credentials: 'include',
-            });
-            devLog.log('Wallet session destroyed');
-        } catch (error) {
-            devLog.error('Error destroying wallet session:', error);
-        } finally {
-            setWalletSessionCreated(false);
-        }
-    }, [walletSessionCreated]);
 
     // Safe error handler wrapper
     const handleError = useCallback((error, context = {}) => {
@@ -658,22 +402,15 @@ function UserDataCore({ children }) {
 
       // Computed values
       const isProvider = Boolean(providerStatus?.isLabProvider ?? user?.isProvider);
-      const hasWalletSession = Boolean(sessionIsWallet);
-      // Consider user logged in if either:
-      // - Wallet is connected and stable, or
-      // - We have any user object (SSO session)
-      const isLoggedIn =
-        (isConnected && Boolean(address) && !isWalletLoading) ||
-        (Boolean(user) && isSSO);
+      const isLoggedIn = Boolean(user) && isSSO;
     const hasIncompleteData = isLoggedIn && (isProviderLoading || ssoLoading);
     
     // Combined loading state - wait for SSO session resolution to prevent early redirects
     const isAuthInitializing = isSSO === undefined;
     const isLoading =
-        isWalletLoading ||
         ssoLoading ||
         isAuthInitializing ||
-        (isConnected && isProviderLoading);
+        (Boolean(address) && isProviderLoading);
 
     // Combined effect to handle both SSO and provider data with proper name priority
     useEffect(() => {
@@ -694,23 +431,15 @@ function UserDataCore({ children }) {
             return;
         }
         
-        if (!isConnected && sessionIsWallet) {
-            if (isSSO) {
-                setIsSSO(false);
-            }
-            setUser(null);
-            return;
-        }
-        
         let updatedUser = {};
         let shouldUpdate = false;
 
-        // Handle SSO session data - this should work even without wallet connection
+        // Handle SSO session data - authentication is institutional-only.
         if (ssoData) {
             devLog.log('🔑 Processing SSO data:', ssoData);
             
             // Only update isSSO if it has changed to prevent infinite loops
-            const newIsSSO = Boolean(ssoData.user) && !isWalletSessionUser(ssoData.user);
+            const newIsSSO = Boolean(ssoData.user);
             if (isSSO !== newIsSSO) {
                 setIsSSO(newIsSSO);
             }
@@ -721,7 +450,7 @@ function UserDataCore({ children }) {
                     ...ssoData.user,
                     // Use the best available institution name from SAML attributes
                     institutionName: getInstitutionName(ssoData.user),
-                    address: address || updatedUser.address
+                    address
                 };
                 shouldUpdate = true;
                 devLog.log('👤 Will update user with SSO data');
@@ -733,17 +462,12 @@ function UserDataCore({ children }) {
                     setIsSSO(false);
                 }
                 
-                // Only clear user data if we don't have a wallet connected
-                // If wallet is connected, let the wallet data processing handle the user state
-                if (!address) {
-                    devLog.log('🚪 No wallet connected, clearing user state');
-                    setUser(null);
-                    return;
-                }
+                setUser(null);
+                return;
             }
         }
 
-        // Handle provider data only when wallet is connected
+        // Provider state is resolved against the institution-managed wallet.
         if (address && providerStatus) {
             updatedUser = {
                 ...updatedUser,
@@ -769,13 +493,14 @@ function UserDataCore({ children }) {
             shouldUpdate = true;
         }
 
-        // If we have SSO data but no wallet connection, still update the user
+        // Keep the SSO profile even before the institution wallet is resolved.
         if (ssoData?.user && !address) {
             updatedUser = {
                 ...ssoData.user,
                 // Use the best available institution name from SAML attributes
                 institutionName: getInstitutionName(ssoData.user),
-                isProvider: false, // SSO users without wallet can't be providers
+                address: null,
+                isProvider: false,
             };
             shouldUpdate = true;
         }
@@ -791,37 +516,21 @@ function UserDataCore({ children }) {
                 return prev;
             });
         }
-    }, [ssoData, address, providerStatus, providersData?.providers, isLoggingOut, isSSO, isConnected, sessionIsWallet]);
+    }, [ssoData, address, providerStatus, providersData?.providers, isLoggingOut, isSSO]);
 
-    // Handle connection changes - only clear wallet-related data, preserve SSO
     useEffect(() => {
-        if (isConnected && address) {
-            lastWalletAddressRef.current = address;
-        }
-
-        const addressToClear = address || lastWalletAddressRef.current;
-
-        if (!isConnected) {
-            // Wallet disconnected - only clear wallet-related data
-            if (addressToClear) {
-                queryClient.removeQueries({ queryKey: providerQueryKeys.isLabProvider(addressToClear) });
-            }
-            
-            // Destroy wallet session when wallet disconnects (manual or external)
-            if (!isSSO) {
-                destroyWalletSession({ force: sessionIsWallet });
-                setUser(null);
-            }
+        if (address) {
+            queryClient.invalidateQueries({
+                queryKey: providerQueryKeys.isLabProvider(address)
+            });
             return;
         }
 
-        if (address) {
-            // Invalidate provider status cache when wallet connects
-            queryClient.invalidateQueries({ 
-                queryKey: providerQueryKeys.isLabProvider(address) 
-            });
-        }
-    }, [isConnected, address, queryClient, isSSO, destroyWalletSession, sessionIsWallet]);
+        queryClient.removeQueries({
+            queryKey: ['providers', 'isLabProvider'],
+            exact: false,
+        });
+    }, [address, queryClient]);
 
     // Handle errors
     useEffect(() => {
@@ -990,10 +699,8 @@ function UserDataCore({ children }) {
         isLoggedIn,
         isConnected,
         address,
-        hasWalletSession,
         hasIncompleteData,
         isLoading,
-        isWalletLoading,
         
         // Institutional onboarding state
         institutionalOnboardingStatus,
@@ -1052,13 +759,11 @@ export function UserData({ children }) {
  * Hook to access user context data
  * Provides user state, authentication status, and user management functions
  * @returns {Object} User context data including address, SSO status, and helper functions
- * @returns {string|null} returns.address - User's wallet address
- * @returns {boolean} returns.isConnected - Whether wallet is connected
+ * @returns {string|null} returns.address - Institution-managed wallet address when registered
+ * @returns {boolean} returns.isConnected - Whether an institution-managed wallet is available
  * @returns {boolean} returns.isSSO - Whether user is authenticated via SSO
  * @returns {Object|null} returns.user - User data object
- * @returns {boolean} returns.hasWalletSession - Whether wallet backend session is active
  * @returns {boolean} returns.isLoading - General loading state for user data
- * @returns {boolean} returns.isWalletLoading - Specific loading state for wallet connection/reconnection
  * @returns {string|null} returns.institutionalOnboardingStatus - Status: null, 'pending', 'required', 'completed', 'advisory', 'no_backend', 'error'
  * @returns {boolean} returns.showOnboardingModal - Whether to show the onboarding modal
  * @returns {boolean} returns.needsInstitutionalOnboarding - Whether user needs institutional onboarding

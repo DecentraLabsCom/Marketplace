@@ -39,23 +39,6 @@ export function useGetIsSSO(options = {}) {
 }
 
 /**
- * Hook to get isWallet from context or options (for use in router hooks)
- *
- * Wallet is considered active only when:
- * - User is NOT SSO
- * - Wallet is connected and stable (address present and not loading)
- *
- * Supports explicit overrides via options.isWallet or options.isSSO.
- * When context is still initializing, defaults to false (SSO) unless
- * fallbackDuringInit is provided.
- */
-export function useGetIsWallet(options = {}) {
-  const context = useOptionalUser()
-  const hasContext = context !== null
-  return resolveIsWalletValue(options, context, hasContext)
-}
-
-/**
  * Non-hook helper for environments where React context is unavailable.
  * Useful for SSR utilities or initialization code.
  */
@@ -87,40 +70,5 @@ function resolveIsSSOValue(options = {}, contextIsSSO, hasContext = false) {
   throw new Error(
     'Router hook: isSSO not available from context or options. ' +
     'Either ensure UserContextProvider is mounted or pass isSSO explicitly in options.'
-  )
-}
-
-function resolveIsWalletValue(options = {}, context, hasContext = false) {
-  // 1. Explicit override for wallet
-  if (options.isWallet !== undefined) {
-    return options.isWallet
-  }
-
-  // 2. Respect explicit isSSO override (tests and forced flows)
-  if (options.isSSO !== undefined) {
-    return !options.isSSO
-  }
-
-  // 3. Derive from context when available
-  if (context) {
-    const { isSSO, isConnected, address, isWalletLoading } = context
-    const hasWallet = Boolean(isConnected && address && !isWalletLoading)
-
-    if (isSSO === true) return false
-    if (isSSO === false) return hasWallet
-  }
-
-  // 4. Fallback during initialization
-  if (options.fallbackDuringInit !== undefined) {
-    return options.fallbackDuringInit
-  }
-
-  if (hasContext) {
-    return false
-  }
-
-  throw new Error(
-    'Router hook: isWallet not available from context or options. ' +
-    'Either ensure UserContextProvider is mounted or pass isWallet/isSSO explicitly in options.'
   )
 }

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * Booking calendar section component
  * Handles date/time selection and availability display
  */
 import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import CalendarWithBookings from '@/components/booking/CalendarWithBookings'
-import LabTokenInfo from '@/components/reservation/LabTokenInfo'
+import LabCreditInfo from '@/components/reservation/LabCreditInfo'
 import { isCancelledBooking } from '@/utils/booking/bookingStatus'
 import { isDayFullyUnavailable } from '@/utils/booking/labBookingCalendar'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
@@ -159,24 +159,26 @@ export default function BookingCalendarSection({
                 disabled={timeOption.disabled}
                 style={{ color: timeOption.isReserved ? 'gray' : 'white' }}
               >
-                {timeOption.label}
+                {timeOption.maxConcurrent
+                  ? `${timeOption.label} (${timeOption.occupancy}/${timeOption.maxConcurrent})`
+                  : timeOption.label}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Payment Info (Wallet users only) */}
+      {/* Payment info is shown only for the non-SSO fallback path. */}
       {!isSSO && (
         <div className="w-full lg:w-96 flex flex-col">
           <label className="block text-lg font-semibold mb-2">Payment info:</label>
-          <LabTokenInfo
+          <LabCreditInfo
             className="h-fit"
             labPrice={lab.price}
             durationMinutes={duration}
           />
           <p className="text-text-secondary font-semibold text-xl mt-4 text-center">
-            {formatPrice(lab.price)} $LAB / hour
+            {formatPrice(lab.price)} credits / hour
           </p>
         </div>
       )}
@@ -201,3 +203,4 @@ BookingCalendarSection.propTypes = {
   isSSO: PropTypes.bool.isRequired,
   formatPrice: PropTypes.func.isRequired
 }
+

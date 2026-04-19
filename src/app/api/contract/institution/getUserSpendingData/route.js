@@ -1,75 +1,18 @@
-/**
- * API endpoint for retrieving institutional user spending data
- * Returns detailed spending information for an institutional user
- * 
- * @security Protected - requires authenticated session
- */
+import { createContractHandler } from '../../utils/createContractHandler'
 
-import { getContractInstance } from '../../utils/contractInstance'
-import { requireAuth, handleGuardError } from '@/utils/auth/guards'
-import { isAddress } from 'viem'
-
-/**
- * Retrieves institutional user spending data
- * @param {Request} request - HTTP request with query parameters
- * @param {string} request.searchParams.institutionAddress - Institution wallet address (required)
- * @param {string} request.searchParams.puc - schacPersonalUniqueCode (required)
- * @returns {Response} JSON response with spending data
- */
-export async function GET(request) {
-  try {
-    await requireAuth();
-  } catch (error) {
-    return handleGuardError(error);
-  }
-
-  const url = new URL(request.url);
-  const institutionAddress = url.searchParams.get('institutionAddress');
-  const puc = url.searchParams.get('puc');
-  
-  if (!institutionAddress) {
-    return Response.json({ 
-      error: 'Missing institutionAddress parameter' 
-    }, { status: 400 });
-  }
-
-  if (!puc) {
-    return Response.json({ 
-      error: 'Missing puc parameter' 
-    }, { status: 400 });
-  }
-
-  if (!isAddress(institutionAddress)) {
-    return Response.json({ 
-      error: 'Invalid address format' 
-    }, { status: 400 });
-  }
-
-  try {
-    console.log(`🔍 Fetching spending data for PUC: ${puc}`);
-    
-    const contract = await getContractInstance();
-    
-    const spendingData = await contract.getInstitutionalUserSpendingData(institutionAddress, puc);
-    
-    console.log(`✅ Successfully fetched spending data`);
-    
-    // Contract returns: (amount, periodStart)
-    return Response.json({ 
-      spendingData: {
-        amount: spendingData.amount?.toString() || spendingData[0]?.toString?.() || '0',
-        periodStart: spendingData.periodStart?.toString() || spendingData[1]?.toString?.() || '0'
-      },
-      institutionAddress,
-      puc
-    }, { status: 200 });
-
-  } catch (error) {
-    console.error('❌ Error fetching spending data:', error);
-    
-    return Response.json({ 
-      error: 'Failed to fetch spending data',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    }, { status: 500 });
-  }
-}
+export const { GET } = createContractHandler({
+  auth: true,
+  params: [
+    { name: 'institutionAddress', type: 'address' },
+    { name: 'puc', type: 'string' }
+  ],
+  method: 'getInstitutionalUserSpendingData',
+  transform: (result, { institutionAddress, puc }) => ({
+    spendingData: {
+      amount: result.amount?.toString() || result[0]?.toString?.() || '0',
+      periodStart: result.periodStart?.toString() || result[1]?.toString?.() || '0'
+    },
+    institutionAddress,
+    puc
+  })
+})

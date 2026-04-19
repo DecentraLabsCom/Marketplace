@@ -1,8 +1,5 @@
 import {
   labToastIds,
-  notifyLabCollectFailed,
-  notifyLabCollected,
-  notifyLabCollectStarted,
   notifyLabCreatorMismatch,
   notifyLabCreateCancelled,
   notifyLabCreated,
@@ -70,7 +67,7 @@ describe('labToasts', () => {
     expect(calls[11][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-no-changes:1', dedupeWindowMs: 20000 }))
   })
 
-  test('emits deletion/listing/collect toasts via unified notification signature', () => {
+  test('emits deletion/listing toasts via unified notification signature', () => {
     notifyLabDeleteStarted(addTemporaryNotification, 1)
     notifyLabDeleted(addTemporaryNotification, 1)
     notifyLabDeletedCascadeWarning(addTemporaryNotification, 1)
@@ -80,14 +77,11 @@ describe('labToasts', () => {
     notifyLabListFailed(addTemporaryNotification, 1, 'cannot list')
     notifyLabUnlisted(addTemporaryNotification, 1)
     notifyLabUnlistFailed(addTemporaryNotification, 1, 'cannot unlist')
-    notifyLabCollectStarted(addTemporaryNotification)
-    notifyLabCollected(addTemporaryNotification)
-    notifyLabCollectFailed(addTemporaryNotification, 'transfer failed')
     notifyLabCreatorMismatch(addTemporaryNotification)
     notifyLabLegacyBlocked(addTemporaryNotification)
 
     const calls = addTemporaryNotification.mock.calls
-    expect(calls).toHaveLength(14)
+    expect(calls).toHaveLength(11)
     expect(calls[0][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-delete-started:1' }))
     expect(calls[1][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-deleted:1' }))
     expect(calls[2][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-delete-cascade-warning:1' }))
@@ -97,15 +91,12 @@ describe('labToasts', () => {
     expect(calls[6][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-list-failed:1' }))
     expect(calls[7][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-unlisted:1' }))
     expect(calls[8][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-unlist-failed:1' }))
-    expect(calls[9][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-collect-started' }))
-    expect(calls[10][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-collected' }))
-    expect(calls[11][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-collect-failed' }))
-    expect(calls[12][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-creator-mismatch' }))
-    expect(calls[13][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-legacy-blocked' }))
+    expect(calls[9][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-creator-mismatch' }))
+    expect(calls[10][3]).toEqual(expect.objectContaining({ dedupeKey: 'lab-legacy-blocked' }))
   })
 
   test('no-ops when callback is not provided', () => {
     expect(() => notifyLabCreated(undefined, 1)).not.toThrow()
-    expect(() => notifyLabCollectFailed(null, 'x')).not.toThrow()
+    expect(() => notifyLabLegacyBlocked(null)).not.toThrow()
   })
 })

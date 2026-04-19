@@ -1,5 +1,28 @@
 const EMPTY_ARRAY = [];
 
+export const extractLabIdValue = (value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'object') {
+    return value.labId ?? value.id ?? value.tokenId ?? null;
+  }
+  return value;
+};
+
+export const normalizeLabIds = (ids) => {
+  if (!Array.isArray(ids)) return [];
+  const seen = new Set();
+  const unique = [];
+  ids.forEach((id) => {
+    const rawId = extractLabIdValue(id);
+    const value = typeof rawId === 'bigint' ? Number(rawId) : Number(rawId);
+    if (!Number.isFinite(value)) return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    unique.push(value);
+  });
+  return unique;
+};
+
 /**
  * Helper function to format wallet address for display
  */
@@ -42,6 +65,14 @@ export const applyMetadataAttributes = (lab, metadata) => {
   if (attributeMap.unavailableWindows !== undefined) lab.unavailableWindows = attributeMap.unavailableWindows
   if (attributeMap.termsOfUse !== undefined) lab.termsOfUse = attributeMap.termsOfUse
   if (attributeMap.timezone !== undefined) lab.timezone = attributeMap.timezone
+  if (attributeMap.resourceType !== undefined) lab.resourceType = attributeMap.resourceType
+  if (attributeMap.fmuFileName !== undefined) lab.fmuFileName = attributeMap.fmuFileName
+  if (attributeMap.fmiVersion !== undefined) lab.fmiVersion = attributeMap.fmiVersion
+  if (attributeMap.simulationType !== undefined) lab.simulationType = attributeMap.simulationType
+  if (attributeMap.modelVariables !== undefined) lab.modelVariables = attributeMap.modelVariables
+  if (attributeMap.defaultStartTime !== undefined) lab.defaultStartTime = attributeMap.defaultStartTime
+  if (attributeMap.defaultStopTime !== undefined) lab.defaultStopTime = attributeMap.defaultStopTime
+  if (attributeMap.defaultStepSize !== undefined) lab.defaultStepSize = attributeMap.defaultStepSize
 
   return attributeMap
 }

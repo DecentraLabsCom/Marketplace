@@ -26,7 +26,7 @@ const mockLabIds = ["1", "2", "3"];
 
 const mockLabBase = {
   uri: "ipfs://QmTest",
-  price: "1000000000000000000",
+  price: "100000",
   accessURI: "",
   accessKey: "",
 };
@@ -618,6 +618,26 @@ describe("useLabSpecializedQueries", () => {
       });
 
       expect(mockUseIsTokenListed).toHaveBeenCalled();
+    });
+
+    test("keeps lab bookable when listing status query fails", async () => {
+      mockUseIsTokenListed.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isSuccess: false,
+        error: new Error("Listing status failed"),
+        refetch: jest.fn(),
+      });
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useLabById("1"), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.isError).toBeFalsy();
+      expect(result.current.data?.isListed).toBe(true);
     });
 
     test("handles metadata fetch error gracefully", async () => {

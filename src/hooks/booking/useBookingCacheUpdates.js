@@ -81,17 +81,6 @@ export function useBookingCacheUpdates() {
       return [newBooking, ...oldData]
     })
 
-    // Update user bookings if available
-    if (newBooking.userAddress) {
-      queryClient.setQueryData(
-        bookingQueryKeys.byUser(newBooking.userAddress), 
-        (oldData) => {
-          if (!oldData) return [newBooking]
-          return [newBooking, ...oldData]
-        }
-      )
-    }
-
     // Update lab bookings if available
     if (newBooking.labId) {
       queryClient.setQueryData(
@@ -175,19 +164,6 @@ export function useBookingCacheUpdates() {
       );
     });
 
-    // Update user bookings if available
-    if (realBooking.userAddress) {
-      queryClient.setQueryData(
-        bookingQueryKeys.byUser(realBooking.userAddress), 
-        (oldData) => {
-          if (!oldData) return [realBooking];
-          return oldData.map(booking => 
-            booking.id === optimisticId ? realBooking : booking
-          );
-        }
-      );
-    }
-
     // Update lab bookings if available
     if (realBooking.labId) {
       queryClient.setQueryData(
@@ -218,12 +194,6 @@ export function useBookingCacheUpdates() {
       pruneBookingCollection(oldData, references)
     )
 
-    // Update user bookings
-    queryClient.setQueriesData(
-      { queryKey: bookingQueryKeys.byUserPrefix(), exact: false },
-      (oldData) => pruneBookingCollection(oldData, references)
-    )
-
     // Update lab bookings
     queryClient.setQueriesData(
       { queryKey: bookingQueryKeys.byLabPrefix(), exact: false },
@@ -244,7 +214,7 @@ export function useBookingCacheUpdates() {
     })
   }, [queryClient])
 
-  // Granular invalidation helper used by BookingEventContext
+  // Granular invalidation helper used by booking status reconciliation
   const smartBookingInvalidation = useCallback((userAddress = null, labId = null, bookingData = null, action = null) => {
     try {
       // If we have enough data, try targeted cache updates first
@@ -255,18 +225,12 @@ export function useBookingCacheUpdates() {
         else if (action === 'remove' && key) removeBooking(key)
       }
 
-      // Invalidate user and lab specific caches if keys are provided
-      if (userAddress) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byUser(userAddress) })
-      }
+      // Invalidate lab specific caches if key is provided
       if (labId) {
         queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byLab(labId) })
       }
     } catch (e) {
       // Fallback to targeted invalidation on error
-      if (userAddress) {
-        queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byUser(userAddress) })
-      }
       if (labId) {
         queryClient.invalidateQueries({ queryKey: bookingQueryKeys.byLab(labId) })
       }

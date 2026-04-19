@@ -25,21 +25,11 @@ export const labToastIds = {
   listFailed: (labId) => `lab-list-failed:${normalizeLabId(labId)}`,
   unlisted: (labId) => `lab-unlisted:${normalizeLabId(labId)}`,
   unlistFailed: (labId) => `lab-unlist-failed:${normalizeLabId(labId)}`,
-  collectStarted: () => 'lab-collect-started',
-  collected: () => 'lab-collected',
-  collectFailed: () => 'lab-collect-failed',
   creatorMismatch: () => 'lab-creator-mismatch',
   legacyBlocked: () => 'lab-legacy-blocked',
 }
 
-const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
-  if (typeof addTemporaryNotification !== 'function') return
-  addTemporaryNotification(type, message, null, {
-    dedupeKey,
-    dedupeWindowMs: 20000,
-    ...extraOptions,
-  })
-}
+import { notify } from './notify'
 
 export const notifyLabCreated = (addTemporaryNotification, labId) =>
   notify(addTemporaryNotification, 'success', 'Lab created!', labToastIds.created(labId))
@@ -56,8 +46,13 @@ export const notifyLabCreatedFilesWarning = (addTemporaryNotification, labId, me
 export const notifyLabCreatedMetadataWarning = (addTemporaryNotification, labId, message) =>
   notify(addTemporaryNotification, 'warning', `Lab created but metadata failed to save: ${message}`, labToastIds.createMetadataWarning(labId))
 
-export const notifyLabInvalidPrice = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'error', 'Invalid price format. Please enter a valid number.', labToastIds.invalidPrice())
+export const notifyLabInvalidPrice = (addTemporaryNotification, message = null) =>
+  notify(
+    addTemporaryNotification,
+    'error',
+    message || 'Invalid price format. Please enter a valid number.',
+    labToastIds.invalidPrice()
+  )
 
 export const notifyLabUpdateStarted = (addTemporaryNotification, labId) =>
   notify(addTemporaryNotification, 'pending', 'Updating lab onchain...', labToastIds.updateStarted(labId))
@@ -108,15 +103,6 @@ export const notifyLabUnlisted = (addTemporaryNotification, labId) =>
 
 export const notifyLabUnlistFailed = (addTemporaryNotification, labId, message) =>
   notify(addTemporaryNotification, 'error', `Failed to unlist lab: ${message}`, labToastIds.unlistFailed(labId))
-
-export const notifyLabCollectStarted = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'pending', 'Collecting all balances...', labToastIds.collectStarted())
-
-export const notifyLabCollected = (addTemporaryNotification) =>
-  notify(addTemporaryNotification, 'success', 'Balance collected!', labToastIds.collected())
-
-export const notifyLabCollectFailed = (addTemporaryNotification, message) =>
-  notify(addTemporaryNotification, 'error', `Failed to collect balances: ${message}`, labToastIds.collectFailed())
 
 export const notifyLabCreatorMismatch = (addTemporaryNotification) =>
   notify(

@@ -4,6 +4,7 @@ import path from 'path'
 const SRC_ROOT = path.resolve(__dirname, '../../../')
 const ALLOWED_FILES = new Set([
   'src/context/NotificationContext.js',
+  'src/utils/notifications/notify.js',
   'src/utils/notifications/institutionToasts.js',
   'src/utils/notifications/labToasts.js',
   'src/utils/notifications/reservationToasts.js',

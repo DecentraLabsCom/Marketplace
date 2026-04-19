@@ -1,84 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { UploadCloud, Link, XCircle, Plus, Trash2, Loader2 } from 'lucide-react'
+import { useTermsMetadataAutoFetch } from '@/hooks/lab/useTermsMetadataAutoFetch'
 import { CalendarInput } from '@/components/ui'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
 import CategoryMultiSelect from '../../ui/forms/CategoryMultiSelect'
-
-const WEEKDAY_OPTIONS = [
-  { value: 'MONDAY', label: 'Mon' },
-  { value: 'TUESDAY', label: 'Tue' },
-  { value: 'WEDNESDAY', label: 'Wed' },
-  { value: 'THURSDAY', label: 'Thu' },
-  { value: 'FRIDAY', label: 'Fri' },
-  { value: 'SATURDAY', label: 'Sat' },
-  { value: 'SUNDAY', label: 'Sun' }
-]
-
-const DEFAULT_TIMEZONES = [
-  'UTC',
-  'Europe/Madrid',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Europe/Rome',
-  'Europe/Amsterdam',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Mexico_City',
-  'America/Bogota',
-  'America/Sao_Paulo',
-  'America/Argentina/Buenos_Aires',
-  'Africa/Johannesburg',
-  'Asia/Tokyo',
-  'Asia/Seoul',
-  'Asia/Shanghai',
-  'Asia/Singapore',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-  'Pacific/Auckland'
-]
-
-function resolveSupportedTimezones() {
-  if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
-    try {
-      const values = Intl.supportedValuesOf('timeZone')
-      if (Array.isArray(values) && values.length > 0) {
-        return values
-      }
-    } catch (error) {
-      // Ignore and fall back to defaults.
-    }
-  }
-  return DEFAULT_TIMEZONES
-}
-
-function resolveBrowserTimezone() {
-  if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
-    try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      if (timezone && typeof timezone === 'string') {
-        return timezone
-      }
-    } catch (error) {
-      // Ignore and fall back to UTC.
-    }
-  }
-  return 'UTC'
-}
-
-function normalizeArray(value) {
-  return Array.isArray(value) ? value : []
-}
-
-function normalizeObject(value, fallback = {}) {
-  // Treat null, undefined, non-objects AND empty objects as needing the fallback
-  if (!value || typeof value !== 'object' || Object.keys(value).length === 0) return fallback
-  return value
-}
+import { RESOURCE_TYPES } from '@/utils/resourceType'
+import FmuFieldsSection from './FmuFieldsSection'
+import {
+  WEEKDAY_OPTIONS,
+  resolveSupportedTimezones,
+  resolveBrowserTimezone,
+  normalizeArray,
+  normalizeObject,
+} from './labFormUtils'
 
 export default function LabFormFullSetup({
   localLab = {},
@@ -135,12 +71,9 @@ export default function LabFormFullSetup({
   minOpenDate.setHours(0, 0, 0, 0)
 
   const disabled = isExternalURI
-  const [termsFetchState, setTermsFetchState] = useState({ loading: false, error: null })
   const [timezoneOptions] = useState(() => resolveSupportedTimezones())
   const latestLabRef = useRef(localLab)
   const setLocalLabRef = useRef(setLocalLab)
-  const lastFetchedUrlRef = useRef('')
-  const termsAbortControllerRef = useRef(null)
 
   useEffect(() => {
     latestLabRef.current = localLab
@@ -273,114 +206,8 @@ export default function LabFormFullSetup({
     handleBasicChange('termsOfUse', { ...termsOfUse, [field]: value })
   }
 
-  const convertBufferToHex = (buffer) =>
-    Array.from(new Uint8Array(buffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-
-  const guessVersionFromUrl = (url) => {
-    const filename = url.split('/').pop() || ''
-    const versionRegex = /v(?:ersion)?[-_]?(\d+(?:\.\d+)*)/i
-    const match = filename.match(versionRegex)
-    return match ? match[1] : ''
-  }
-
   const termsUrl = termsOfUse.url?.trim() || ''
-
-  useEffect(() => {
-    if (!termsUrl) {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-        termsAbortControllerRef.current = null
-      }
-      setTermsFetchState((prev) => (prev.loading ? { loading: false, error: null } : prev))
-      lastFetchedUrlRef.current = ''
-      return
-    }
-
-    if (termsUrl === lastFetchedUrlRef.current) {
-      return
-    }
-
-    const fetchMetadata = async () => {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-      }
-
-      if (!/^https?:\/\//i.test(termsUrl)) {
-        setTermsFetchState({ loading: false, error: 'Terms link must be an absolute HTTP(S) URL.' })
-        return
-      }
-
-      const controller = new AbortController()
-      termsAbortControllerRef.current = controller
-      setTermsFetchState({ loading: true, error: null })
-
-      try {
-        const response = await fetch(termsUrl, { signal: controller.signal })
-        if (!response.ok) {
-          throw new Error('Unable to download the Terms of Use document.')
-        }
-
-        const buffer = await response.arrayBuffer()
-        let shaValue = ''
-        if (typeof window !== 'undefined' && window.crypto?.subtle?.digest) {
-          const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer)
-          shaValue = convertBufferToHex(hashBuffer)
-        }
-
-        const versionGuess = guessVersionFromUrl(termsUrl)
-        const today = new Date().toISOString().split('T')[0]
-        const currentLab = latestLabRef.current || {}
-        const currentTerms = currentLab.termsOfUse || {}
-        const updates = { url: termsUrl }
-
-        if (!currentTerms.version && versionGuess) {
-          updates.version = versionGuess
-        }
-        if (!currentTerms.effectiveDate) {
-          updates.effectiveDate = today
-        }
-        if (shaValue) {
-          updates.sha256 = shaValue
-        }
-
-        setLocalLabRef.current({
-          ...currentLab,
-          termsOfUse: {
-            ...currentTerms,
-            ...updates
-          }
-        })
-
-        lastFetchedUrlRef.current = termsUrl
-        setTermsFetchState({ loading: false, error: null })
-      } catch (error) {
-        if (error.name === 'AbortError') return
-        console.error('Failed to auto-populate terms metadata:', error)
-        setTermsFetchState({
-          loading: false,
-          error: 'Unable to auto-fill version/date/hash for this link.'
-        })
-        lastFetchedUrlRef.current = ''
-      } finally {
-        if (termsAbortControllerRef.current === controller) {
-          termsAbortControllerRef.current = null
-        }
-      }
-    }
-
-    fetchMetadata()
-  }, [termsUrl])
-
-  useEffect(() => {
-    return () => {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-        termsAbortControllerRef.current = null
-      }
-    }
-  }, [])
+  const termsFetchState = useTermsMetadataAutoFetch(termsUrl, latestLabRef, setLocalLabRef)
 
   const handleTimeFieldClick = useCallback((event) => {
     if (typeof event.currentTarget.showPicker === 'function') {
@@ -494,6 +321,17 @@ export default function LabFormFullSetup({
           {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
         </div>
       </section>
+
+      {/* FMU-Specific Fields — shown only when resourceType === 'fmu' */}
+      {localLab?.resourceType === RESOURCE_TYPES.FMU && (
+        <FmuFieldsSection
+          localLab={localLab}
+          handleBasicChange={handleBasicChange}
+          errors={errors}
+          disabled={disabled}
+          gatewayUrl={localLab?.accessURI}
+        />
+      )}
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Availability & Scheduling</h3>
@@ -954,7 +792,7 @@ export default function LabFormFullSetup({
           disabled={disabled || isUploading}
           className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68] disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300"
         >
-          {isUploading ? 'Uploading…' : (localLab?.id ? 'Save Changes' : 'Add Lab')}
+          {isUploading ? 'Uploading…' : (localLab?.id ? 'Save Changes' : (localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Add FMU Simulation' : 'Add Lab'))}
         </button>
         <button
           type="button"

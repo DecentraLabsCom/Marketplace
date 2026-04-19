@@ -55,16 +55,6 @@ jest.mock("@/utils/hooks/ssrSafe", () => ({
   }),
 }));
 
-// Mock dependencies to isolate the test
-jest.mock("@/utils/hooks/authMode", () => ({
-  useGetIsWallet: jest.fn(() => false),
-}));
-
-jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
-  __esModule: true,
-  default: jest.fn(),
-}));
-
 // Mock query keys
 jest.mock("@/utils/hooks/queryKeys", () => ({
   labQueryKeys: {
@@ -188,7 +178,7 @@ describe("useLabAtomicQueries", () => {
       labId,
       base: {
         uri: "ipfs://test",
-        price: "1000000000000000000",
+        price: "100000",
         accessURI: "",
         accessKey: "",
       },
@@ -210,8 +200,8 @@ describe("useLabAtomicQueries", () => {
         labId: 1,
         base: {
           uri: "ipfs://test",
-          price: "1000000000000000000",
-          priceNumber: 1000000000000000000,
+          price: "100000",
+          priceNumber: 100000,
           accessURI: "",
           accessKey: "",
           createdAt: 0,

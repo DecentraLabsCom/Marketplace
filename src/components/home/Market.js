@@ -15,10 +15,13 @@ import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import useCurrentTime from '@/hooks/useCurrentTime'
 
 export default function Market({ initialLabs = [] }) {
-  const { isLoggedIn, address, isWalletLoading, hasWalletSession, isSSO } = useUser();
+  const { isLoggedIn, address, isSSO } = useUser();
   const [isHydrated, setIsHydrated] = useState(false);
+  const now = useCurrentTime({ intervalMs: 20000 });
   
   // State for show unlisted option
   const [showUnlisted, setShowUnlisted] = useState(false);
@@ -36,7 +39,7 @@ export default function Market({ initialLabs = [] }) {
     enabled: shouldFetchLiveLabs
   });
   
-  const { 
+  const {
     data: labsData, 
     isLoading: labsInitialLoading,
     isFetching: labsFetching,
@@ -65,14 +68,12 @@ export default function Market({ initialLabs = [] }) {
   const labs = useMemo(() => labsArray, [labsArray]);
   const shouldShowLabsError = shouldFetchLiveLabs ? labsError : false;
 
-  // React Query for user bookings (memoized options) - supports both SSO and wallet sessions
+  // React Query for user bookings scoped to institutional sessions.
   const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
     isLoggedIn,
     isSSO,
     address,
-    hasWalletSession,
-    isWalletLoading,
-  }), [isLoggedIn, isSSO, address, hasWalletSession, isWalletLoading]);
+  }), [isLoggedIn, isSSO, address]);
 
   const bookingsUserAddress = useMemo(
     () => resolveBookingsUserAddress({ isSSO, address }),
@@ -114,16 +115,28 @@ export default function Market({ initialLabs = [] }) {
     selectedPrice,
     selectedProvider,
     selectedFilter,
+    selectedResourceType,
     searchFilteredLabs,
     setSelectedCategory,
     setSelectedPrice,
     setSelectedProvider,
     setSelectedFilter,
+    setSelectedResourceType,
     categories,
     providers,
     searchInputRef,
     resetFilters
-  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated);
+  } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated, now);
+
+  const hasFmuResources = useMemo(
+    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.FMU),
+    [labs]
+  )
+  const hasLabResources = useMemo(
+    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.LAB),
+    [labs]
+  )
+  const showResourceTypeFilter = hasFmuResources && hasLabResources
 
   const handleCategoryChange = useCallback((value) => {
     startFilterTransition(() => setSelectedCategory(value));
@@ -140,6 +153,16 @@ export default function Market({ initialLabs = [] }) {
   const handleFilterChange = useCallback((value) => {
     startFilterTransition(() => setSelectedFilter(value));
   }, [setSelectedFilter, startFilterTransition]);
+
+  const handleResourceTypeChange = useCallback((value) => {
+    startFilterTransition(() => setSelectedResourceType(value));
+  }, [setSelectedResourceType, startFilterTransition]);
+
+  useEffect(() => {
+    if (!showResourceTypeFilter && selectedResourceType !== 'All') {
+      setSelectedResourceType('All')
+    }
+  }, [showResourceTypeFilter, selectedResourceType, setSelectedResourceType])
 
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {
@@ -169,6 +192,8 @@ export default function Market({ initialLabs = [] }) {
           onProviderChange={handleProviderChange}
           onFilterChange={handleFilterChange}
           onShowUnlistedChange={setShowUnlisted}
+          selectedResourceType={selectedResourceType}
+          onResourceTypeChange={showResourceTypeFilter ? handleResourceTypeChange : undefined}
           onReset={handleReset}
           searchInputRef={searchInputRef}
           loading={labsLoading || isFilterTransitionPending}

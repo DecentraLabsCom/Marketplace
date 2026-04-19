@@ -32,7 +32,7 @@ export default function ActiveBookingSection({
   const canTriggerBookingAction =
     typeof onBookingAction === 'function' &&
     Boolean(displayedReservationKey) &&
-    (bookingStatus === 0 || bookingStatus === 1 || bookingStatus === 2);
+    (bookingStatus === 0 || bookingStatus === 1);
 
   const getBookingTimes = (booking) => {
     if (!booking?.start || !booking?.end) return { start: null, end: null };
@@ -77,8 +77,7 @@ export default function ActiveBookingSection({
               userAddress={userAddress}
               isActive={true}
               bookingTimes={getBookingTimes(activeBooking)}
-              actionLabel="Request for Refund"
-              onBookingAction={canTriggerBookingAction ? onBookingAction : null}
+              onBookingAction={null}
               actionState={cancellationState || null}
             />
           ) : nextBooking && labData ? (

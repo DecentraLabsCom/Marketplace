@@ -51,7 +51,7 @@ export async function GET(request) {
 
     // Contract returns: { labId, renter, price, labProvider, status, start, end, puc,
     //   requestPeriodStart, requestPeriodDuration, payerInstitution, collectorInstitution,
-    //   providerShare, projectTreasuryShare, subsidiesShare, governanceShare }
+    //   providerShare }
     // Status: 0=PENDING, 1=CONFIRMED, 2=IN_USE, 3=COMPLETED, 4=COLLECTED, 5=CANCELLED
     const status = Number(reservationData.status);
     const renterAddress = reservationData.renter || '0x0000000000000000000000000000000000000000';
@@ -123,9 +123,6 @@ export async function GET(request) {
         payerInstitution: payerInstitutionAddress,
         collectorInstitution: collectorInstitutionAddress,
         providerShare: reservationData.providerShare?.toString() || null,
-        projectTreasuryShare: reservationData.projectTreasuryShare?.toString() || null,
-        subsidiesShare: reservationData.subsidiesShare?.toString() || null,
-        governanceShare: reservationData.governanceShare?.toString() || null,
         reservationState: reservationState,
         isPending: status === 0,
         isBooked: status === 1,

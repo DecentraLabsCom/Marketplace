@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for LabDetail Component
  *
  * Tests the detailed lab information display component that shows comprehensive lab data.
@@ -21,11 +21,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LabDetail from "../LabDetail";
 import { useLabById } from "@/hooks/lab/useLabs";
-import { useLabToken } from "@/context/LabTokenContext";
+import { useLabCredit } from "@/context/LabCreditContext";
 import { useRouter } from "next/navigation";
 
 jest.mock("@/hooks/lab/useLabs");
-jest.mock("@/context/LabTokenContext");
+jest.mock("@/context/LabCreditContext");
 jest.mock("next/navigation");
 jest.mock("@/components/ui", () => ({
   Container: ({ children, as = "div" }) =>
@@ -85,7 +85,7 @@ describe("LabDetail", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useRouter.mockReturnValue(mockRouter);
-    useLabToken.mockReturnValue({
+    useLabCredit.mockReturnValue({
       formatPrice: jest.fn((price) => price),
     });
     useLabById.mockReturnValue(defaultMockResponse);
@@ -145,12 +145,12 @@ describe("LabDetail", () => {
   describe("Price Display", () => {
     test("displays formatted price using formatPrice function", () => {
       const formatPrice = jest.fn((price) => `$${price}`);
-      useLabToken.mockReturnValue({ formatPrice });
+      useLabCredit.mockReturnValue({ formatPrice });
 
       render(<LabDetail id="lab-123" />);
 
       expect(formatPrice).toHaveBeenCalledWith("150");
-      expect(screen.getByText("$150 $LAB / hour")).toBeInTheDocument();
+      expect(screen.getByText("$150 credits / hour")).toBeInTheDocument();
     });
   });
 
@@ -315,3 +315,4 @@ describe("LabDetail", () => {
     });
   });
 });
+

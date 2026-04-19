@@ -1,110 +1,21 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useLabToken } from '@/context/LabTokenContext'
+import { Cpu, Monitor } from 'lucide-react'
+import { useLabCredit } from '@/context/LabCreditContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
-import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
+import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
+import { verifyFmuReference } from './labModalFmuUtils'
 import devLog from '@/utils/dev/logger'
 
 /** Must match the server-side limit in /api/provider/uploadFile/route.js */
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-
-const initialState = (lab) => ({
-  activeTab: 'full',
-  imageInputType: 'link',
-  docInputType: 'link',
-  localImages: [],
-  localDocs: [],
-  imageUrls: [],
-  docUrls: [],
-  localLab: { 
-    // Ensure all form fields have default values to prevent uncontrolled -> controlled warnings
-    id: lab?.id || null,
-    name: lab?.name || '',
-    category: lab?.category || '',
-    keywords: lab?.keywords || [],
-    description: lab?.description || '',
-    price: lab?.price || '',
-    auth: lab?.auth || '',
-    accessURI: lab?.accessURI || '',
-    accessKey: lab?.accessKey || '',
-    timeSlots: lab?.timeSlots || [],
-    opens: lab?.opens ?? null,
-    closes: lab?.closes ?? null,
-    images: lab?.images || [],
-    docs: lab?.docs || [],
-    uri: lab?.uri || '',
-    availableDays: lab?.availableDays || [],
-    availableHours: lab?.availableHours || { start: '', end: '' },
-    timezone: lab?.timezone || '',
-    maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
-    unavailableWindows: lab?.unavailableWindows || [],
-    termsOfUse: lab?.termsOfUse || {
-      url: '',
-      version: '',
-      effectiveDate: null,
-      sha256: ''
-    },
-    // Spread the rest of the lab properties after ensuring required fields have defaults
-    ...lab
-  },
-  isExternalURI: false,
-  errors: {},
-  isLocalURI: false,
-  clickedToEditUri: false,
-});
-
-const extractInternalLabUri = (uri) => {
-  if (!uri) return null;
-  const trimmed = String(uri).trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) {
-    return trimmed;
-  }
-  try {
-    const parsed = new URL(trimmed);
-    const param = parsed.searchParams.get('uri');
-    if (param && param.startsWith('Lab-') && param.endsWith('.json')) {
-      return param;
-    }
-    const match = parsed.pathname.match(/Lab-[^/]+-\d+\.json$/);
-    if (match) {
-      return match[0];
-    }
-  } catch {
-    // Ignore invalid URLs.
-  }
-  return null;
-};
-
-function reducer(state, action) {
-  switch (action.type) {
-    case 'SET_FIELD':
-      return { ...state, [action.field]: action.value };
-    case 'MERGE_LOCAL_LAB':
-      return { ...state, localLab: { ...state.localLab, ...action.value } };
-    case 'BATCH_UPDATE':
-      // Handle multiple updates in a single render cycle
-      return action.updates.reduce((currentState, update) => {
-        switch (update.type) {
-          case 'SET_FIELD':
-            return { ...currentState, [update.field]: update.value };
-          case 'MERGE_LOCAL_LAB':
-            return { ...currentState, localLab: { ...currentState.localLab, ...update.value } };
-          default:
-            return currentState;
-        }
-      }, state);
-    case 'RESET':
-      return initialState(action.lab);
-    default:
-      return state;
-  }
-}
 
 /**
  * Modal for creating and editing lab information with full and quick setup modes
@@ -118,7 +29,7 @@ function reducer(state, action) {
  * @returns {JSX.Element} Lab creation/editing modal component
  */
 export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId = 0, onFilesUploaded = null }) {
-  const { decimals, formatPrice } = useLabToken();
+  const { decimals, formatPrice } = useLabCredit();
   const uploadFileMutation = useUploadFile();
   const { addWarningNotification, addErrorNotification } = useNotifications();
   const deleteFileMutation = useDeleteFile();
@@ -263,6 +174,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
+    labToMerge.resourceType = getResourceType(lab)
     const normalizedUri = extractInternalLabUri(lab?.uri);
     if (normalizedUri) {
       labToMerge.uri = normalizedUri;
@@ -576,6 +488,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     if (activeTab === 'full') {
       if (!isExternalURI) {
         newErrors = validateLabFull(localLab, { imageInputType, docInputType });
+        // Additional FMU-specific validation
+        if (localLab.resourceType === RESOURCE_TYPES.FMU) {
+          const fmuErrors = validateFmuFields(localLab);
+          newErrors = { ...newErrors, ...fmuErrors };
+        }
       }
     } else if (activeTab === 'quick') {
       newErrors = validateLabQuick(localLab);
@@ -631,13 +548,52 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
+        const isFmuResource = localLab.resourceType === RESOURCE_TYPES.FMU
+        const fmuAccessKey = isFmuResource
+          ? (localLab.fmuFileName || '').trim()
+          : localLab.accessKey
+        let labForSubmit = {
+          ...localLab,
+          accessKey: fmuAccessKey,
+        }
+
+        if (isFmuResource) {
+          try {
+            const describeData = await verifyFmuReference(labForSubmit)
+            labForSubmit = {
+              ...labForSubmit,
+              fmiVersion: describeData?.fmiVersion || '',
+              simulationType: describeData?.simulationType || '',
+              modelVariables: Array.isArray(describeData?.modelVariables) ? describeData.modelVariables : [],
+              defaultStartTime: describeData?.defaultStartTime ?? null,
+              defaultStopTime: describeData?.defaultStopTime ?? null,
+              defaultStepSize: describeData?.defaultStepSize ?? null,
+            }
+            dispatch({ type: 'MERGE_LOCAL_LAB', value: {
+              fmiVersion: labForSubmit.fmiVersion,
+              simulationType: labForSubmit.simulationType,
+              modelVariables: labForSubmit.modelVariables,
+              defaultStartTime: labForSubmit.defaultStartTime,
+              defaultStopTime: labForSubmit.defaultStopTime,
+              defaultStepSize: labForSubmit.defaultStepSize,
+            } })
+          } catch (error) {
+            const nextErrors = {
+              ...currentErrors,
+              fmuFileName: `FMU reference validation failed: ${error.message}`,
+            }
+            dispatch({ type: 'SET_FIELD', field: 'errors', value: nextErrors })
+            focusFirstError(nextErrors, 'full')
+            return
+          }
+        }
         // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(localLab);
+        const normalizedLabData = normalizeLabDates(labForSubmit);
         
         // Pass uploaded temp files to parent for moving after mint
         if (onFilesUploaded && uploadedTempFiles.current.length > 0) {
           normalizedLabData._tempFiles = [...uploadedTempFiles.current];
-          devLog.log('📎 Passing temp files to parent:', uploadedTempFiles.current);
+          devLog.log('ðŸ“Ž Passing temp files to parent:', uploadedTempFiles.current);
         }
         
         await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
@@ -658,8 +614,16 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
+        const fmuAccessKey =
+          localLab.resourceType === RESOURCE_TYPES.FMU
+            ? (localLab.fmuFileName || '').trim()
+            : localLab.accessKey
+        const labForSubmit = {
+          ...localLab,
+          accessKey: fmuAccessKey,
+        }
         // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(localLab);
+        const normalizedLabData = normalizeLabDates(labForSubmit);
         await onSubmit(normalizedLabData);
         devLog.log('LabModal: Quick form submitted successfully with normalized dates, modal remains open');
       } else {
@@ -677,25 +641,61 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto">
       <div onClick={e => e.stopPropagation()}
         className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4 text-black">
-          {lab?.id ? 'Edit Lab' : 'Add New Lab'}
-        </h2>
         <div className="mb-4">
-          <div className="flex">
-            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
-              className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Full Setup
-            </button>
-            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
-              className={`px-4 py-2 rounded ${activeTab === 'quick'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Quick Setup
-            </button>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold mb-4 text-black text-left">
+                {lab?.id ? 'Edit Lab' : 'Add New Lab'}
+              </h2>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
+                  className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Full Setup
+                </button>
+                <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
+                  className={`px-4 py-2 rounded ${activeTab === 'quick'
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Quick Setup
+                </button>
+              </div>
+            </div>
+
+            <section className="w-full sm:w-auto sm:min-w-[280px]">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 sm:text-right">Resource Type</h3>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })}
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.LAB
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Monitor className="w-4 h-4" /> Real Lab
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } })}
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.FMU
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Cpu className="w-4 h-4" /> Simulation
+                  </span>
+                </button>
+              </div>
+            </section>
           </div>
           <div className='mt-4'>
             {activeTab === 'full' && (
@@ -721,6 +721,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 accessKeyRef={accessKeyRef} clickedToEditUri={clickedToEditUri} handleUriChange={handleUriChange}
                 setClickedToEditUri={value => dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value })}
                 onSubmit={handleSubmitQuick} onCancel={handleClose} uriRef={uriRef} localLab={localLab}
+                onSwitchToFullSetup={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
               />
             )}
           </div>
@@ -746,3 +747,4 @@ LabModal.propTypes = {
   }),
   maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
+

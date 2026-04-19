@@ -6,14 +6,13 @@
  * Server-side logic is tested in baseUrl.server.test.js using @jest-environment node.
  *
  * Test Behaviors:
- * - getWalletConnectMetadata(): Validates metadata structure (name, description)
  * - envUtils.isDevelopment(): Tests NODE_ENV === 'development' detection
  * - envUtils.isProduction(): Tests NODE_ENV === 'production' detection
  * - envUtils.isVercel(): Tests VERCEL_URL and VERCEL flag detection
  *
  */
 
-import { getWalletConnectMetadata, envUtils } from "../baseUrl";
+import { envUtils } from "../baseUrl";
 
 describe("baseUrl utility", () => {
   const originalProcessEnv = process.env;
@@ -25,22 +24,6 @@ describe("baseUrl utility", () => {
 
   afterEach(() => {
     process.env = originalProcessEnv;
-  });
-
-  describe("getWalletConnectMetadata", () => {
-    test("includes correct name", () => {
-      const result = getWalletConnectMetadata();
-
-      expect(result.name).toBe("DecentraLabs Marketplace");
-    });
-
-    test("includes description", () => {
-      const result = getWalletConnectMetadata();
-
-      expect(result.description).toContain("DecentraLabs");
-      expect(result.description).toContain("decentralized marketplace");
-      expect(result.description).toContain("laboratories");
-    });
   });
 
   describe("envUtils", () => {

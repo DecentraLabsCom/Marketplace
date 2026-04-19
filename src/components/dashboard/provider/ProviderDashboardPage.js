@@ -1,6 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { parseUnits } from 'viem'
+﻿import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { Container } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
@@ -16,26 +14,29 @@ import {
   useLabsForProvider
 } from '@/hooks/lab/useLabs'
 import { useLabBookingsDashboard } from '@/hooks/booking/useBookings'
-import { useRequestFunds } from '@/hooks/booking/useBookings'
 import { useSaveLabData, useDeleteLabData, useMoveFiles } from '@/hooks/provider/useProvider'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import LabModal from '@/components/dashboard/provider/LabModal'
 import AccessControl from '@/components/auth/AccessControl'
 import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ProviderLabsList from '@/components/dashboard/provider/ProviderLabsList'
 import ReservationsCalendar from '@/components/dashboard/provider/ReservationsCalendar'
 import ProviderActions from '@/components/dashboard/provider/ProviderActions'
-import ProviderStakingCompactCard from '@/components/dashboard/provider/staking/ProviderStakingCompactCard'
-import ProviderStakingModal from '@/components/dashboard/provider/staking/ProviderStakingModal'
-import { useStakeInfo, useRequiredStake, usePendingLabPayout } from '@/hooks/staking/useStaking'
+import {
+  buildProviderLabUri,
+  createEmptyLabDraft,
+  formatErrorMessage,
+  isLabIdListCache,
+  remapMovedLabAssetPaths,
+  resolveOnchainLabUri,
+  updateListingCache,
+} from '@/components/dashboard/provider/providerDashboard.helpers'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { getPucHashFromSession } from '@/utils/auth/puc'
-import getBaseUrl from '@/utils/env/baseUrl'
+import { normalizeResourceTypeCode } from '@/utils/resourceType'
+import { convertHourlyCreditsToRawPerSecond } from '@/utils/blockchain/creditUnits'
 import devLog from '@/utils/dev/logger'
 import {
-  notifyLabCollected,
-  notifyLabCollectFailed,
-  notifyLabCollectStarted,
   notifyLabCreateCancelled,
   notifyLabCreatorMismatch,
   notifyLabCreated,
@@ -45,10 +46,8 @@ import {
   notifyLabDeleted,
   notifyLabDeletedCascadeWarning,
   notifyLabDeleteFailed,
-  notifyLabDeleteStarted,
   notifyLabInvalidPrice,
   notifyLabListed,
-  notifyLabListingRequested,
   notifyLabListFailed,
   notifyLabLegacyBlocked,
   notifyLabMetadataSaveFailed,
@@ -58,77 +57,7 @@ import {
   notifyLabUnlistFailed,
   notifyLabUpdated,
   notifyLabUpdateFailed,
-  notifyLabUpdateStarted,
 } from '@/utils/notifications/labToasts'
-
-const sanitizeProviderNameForUri = (name) => {
-  const base = (name || 'Provider').toString().trim()
-  const sanitized = base
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-
-  return sanitized || 'Provider'
-}
-
-const isLabIdListCache = (entries) =>
-  Array.isArray(entries) && entries.every((entry) => (
-    entry === null
-    || entry === undefined
-    || typeof entry === 'string'
-    || typeof entry === 'number'
-    || typeof entry === 'bigint'
-  ))
-
-const resolveOnchainLabUri = (uri) => {
-  if (!uri) return uri
-  const trimmed = String(uri).trim()
-  if (!trimmed) return trimmed
-  if (/^https?:\/\//i.test(trimmed) || /^ipfs:\/\//i.test(trimmed)) {
-    return trimmed
-  }
-  if (trimmed.startsWith('Lab-')) {
-    const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL
-    if (blobBase && typeof blobBase === 'string' && blobBase.trim().length > 0) {
-      const normalizedBase = blobBase.replace(/\/+$/, '')
-      return `${normalizedBase}/data/${trimmed}`
-    }
-    const baseUrl = getBaseUrl().replace(/\/+$/, '')
-    return `${baseUrl}/api/metadata?uri=${encodeURIComponent(trimmed)}`
-  }
-  return trimmed
-}
-
-const DEFAULT_COLLECT_MAX_BATCH = 100
-
-const hasCollectablePayout = (payoutData) => {
-  const totalPayout = payoutData?.totalPayout
-  if (totalPayout === undefined || totalPayout === null) return false
-
-  try {
-    return BigInt(totalPayout) > 0n
-  } catch {
-    return false
-  }
-}
-
-const isNoCompletedReservationsError = (error) => {
-  const rawMessage = [
-    error?.shortMessage,
-    error?.message,
-    error?.reason,
-    error?.cause?.message,
-    error?.data?.message,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-
-  return (
-    rawMessage.includes('no completed reservations')
-    || rawMessage.includes('nothing to process')
-  )
-}
 
 /**
  * Provider dashboard page component
@@ -143,18 +72,15 @@ export default function ProviderDashboard() {
     isProvider,
     isProviderLoading,
     isLoading,
-    hasWalletSession,
     institutionBackendUrl,
     institutionRegistrationWallet,
     institutionalOnboardingStatus,
     openOnboardingModal,
   } = useUser();
 
-  const router = useRouter();
-
   const providerOwnerAddress = useMemo(
-    () => (isSSO ? institutionRegistrationWallet : address),
-    [isSSO, institutionRegistrationWallet, address]
+    () => institutionRegistrationWallet || address || null,
+    [institutionRegistrationWallet, address]
   );
 
   const currentCreatorPucHash = useMemo(
@@ -186,7 +112,7 @@ export default function ProviderDashboard() {
 
   const { addTemporaryNotification, addNotification, removeNotification } = useNotifications();
   const { setOptimisticListingState, completeOptimisticListingState, clearOptimisticListingState, setOptimisticLabState, clearOptimisticLabState } = useOptimisticUI();
-  const { decimals } = useLabToken();
+  const { decimals } = useLabCredit();
 
   // 🚀 React Query mutations for lab management
   const queryClient = globalQueryClient || null;
@@ -196,9 +122,6 @@ export default function ProviderDashboard() {
   const deleteLabMutation = useDeleteLab();
   const listLabMutation = useListLab();
   const unlistLabMutation = useUnlistLab();
-  
-  // 🚀 React Query mutations for requesting funds (claiming $LAB tokens)
-  const requestFundsMutation = useRequestFunds();
   
   // 🚀 React Query mutations for provider data management
   const saveLabDataMutation = useSaveLabData();
@@ -369,45 +292,12 @@ export default function ProviderDashboard() {
     return false;
   }, [addTemporaryNotification]);
 
-  const updateListingCache = useCallback((labId, isListed) => {
-    if (!queryClient) return;
-
-    const ids = new Set();
-    if (labId !== null && labId !== undefined) {
-      ids.add(labId);
-      ids.add(String(labId));
-
-      const numericId = Number(labId);
-      if (!Number.isNaN(numericId)) {
-        ids.add(numericId);
-      }
-    }
-
-    ids.forEach((id) => {
-      try {
-        queryClient.setQueryData(labQueryKeys.isTokenListed(id), { isListed });
-      } catch (cacheErr) {
-        devLog.warn('Failed to update isTokenListed cache:', cacheErr);
-      }
-    });
-
-    try {
-      queryClient.setQueryData(labQueryKeys.getAllLabs(), (old = []) => {
-        if (!Array.isArray(old)) return old;
-        if (isLabIdListCache(old)) return old;
-        return old.map((lab) => {
-          const labKey = lab?.labId ?? lab?.id;
-          if (labKey === undefined || labKey === null) return lab;
-          return String(labKey) === String(labId) ? { ...lab, isListed } : lab;
-        });
-      });
-    } catch (cacheErr) {
-      devLog.warn('Failed to update lab list cache:', cacheErr);
-    }
+  const handleUpdateListingCache = useCallback((labId, isListed) => {
+    updateListingCache(queryClient, labId, isListed);
   }, [queryClient]);
   
   // 🚀 React Query for lab bookings with user details
-  const canFetchLabBookings = Boolean(selectedLabId && (isSSO || hasWalletSession));
+  const canFetchLabBookings = Boolean(selectedLabId && providerOwnerAddress);
   const { 
     data: labBookingsData, 
     isError: bookingsError
@@ -418,34 +308,7 @@ export default function ProviderDashboard() {
   });
   const labBookings = labBookingsData?.bookings || [];
 
-  const newLabStructure = {
-    name: '',
-    category: '',
-    keywords: [],
-    price: '',
-    description: '',
-    provider: '',
-    accessURI: '',
-    accessKey: '',
-    timeSlots: [],
-    opens: null,
-    closes: null,
-    docs: [],
-    images: [],
-    uri: '',
-    availableDays: [],
-    availableHours: { start: '', end: '' },
-    timezone: '',
-    maxConcurrentUsers: 1,
-    unavailableWindows: [],
-    termsOfUse: {
-      url: '',
-      version: '',
-      effectiveDate: null,
-      sha256: ''
-    }
-  };
-  const [newLab, setNewLab] = useState(newLabStructure);
+  const [newLab, setNewLab] = useState(() => createEmptyLabDraft());
   
   const maxId = useMemo(() => 
     Array.isArray(ownedLabs) && ownedLabs.length > 0 
@@ -459,34 +322,6 @@ export default function ProviderDashboard() {
     [ownedLabs, selectedLabId]
   );
 
-  const selectedCollectLabId = useMemo(() => {
-    const rawLabId = selectedLab?.id ?? selectedLab?.tokenId ?? selectedLabId
-    const normalizedLabId = Number(rawLabId)
-    if (!Number.isInteger(normalizedLabId) || normalizedLabId < 0) return null
-    return normalizedLabId
-  }, [selectedLab, selectedLabId])
-
-  const {
-    data: selectedLabPendingPayout,
-    isLoading: isSelectedLabPendingPayoutLoading,
-  } = usePendingLabPayout(selectedCollectLabId, {
-    enabled: !isSSO && selectedCollectLabId !== null,
-  })
-
-  const canCollectSelectedLab = useMemo(() => {
-    if (isSSO) return false
-    if (selectedCollectLabId === null) return false
-    if (requestFundsMutation.isPending) return false
-    if (isSelectedLabPendingPayoutLoading) return false
-    return hasCollectablePayout(selectedLabPendingPayout)
-  }, [
-    isSSO,
-    selectedCollectLabId,
-    requestFundsMutation.isPending,
-    isSelectedLabPendingPayoutLoading,
-    selectedLabPendingPayout,
-  ])
-  
   // Ensure we have a valid lab object to pass to the modal
   const modalLab = useMemo(() => 
     selectedLab ? selectedLab : (selectedLabId ? null : newLab),
@@ -504,28 +339,13 @@ export default function ProviderDashboard() {
   // Calendar
   const today = new Date();
   const [date, setDate] = useState(new Date());
-  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false)
-  const { data: stakeInfo } = useStakeInfo(providerOwnerAddress, {
-    enabled: !!providerOwnerAddress && !isSSO,
-  })
-  const { data: requiredStakeData } = useRequiredStake(providerOwnerAddress, {
-    enabled: !!providerOwnerAddress && !isSSO,
-  })
-  const compactStakeInfo = useMemo(() => ({
-    ...stakeInfo,
-    requiredStake: requiredStakeData?.requiredStake || '0',
-  }), [stakeInfo, requiredStakeData])
-
   // Handle adding a new lab using React Query mutation
   const handleAddLab = useCallback(async ({ labData }) => {
     const maxId = Array.isArray(ownedLabs) && ownedLabs.length > 0 
       ? Math.max(...ownedLabs.map(lab => parseInt(lab.id) || 0).filter(id => !isNaN(id))) 
       : 0;
-    const providerSegmentSource = isSSO
-      ? (user?.institutionName || user?.name)
-      : user?.name;
-    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
-    labData.uri = labData.uri || `Lab-${providerSegment}-${maxId + 1}.json`;
+    const providerSegmentSource = user?.institutionName || user?.name;
+    labData.uri = buildProviderLabUri(labData.uri, providerSegmentSource, maxId + 1);
     const onchainUri = resolveOnchainLabUri(labData.uri);
 
     // Store the original human-readable price before blockchain conversion
@@ -537,17 +357,17 @@ export default function ProviderDashboard() {
 
     try {
       setIsCreatingLab(true);
-      createLabAbortControllerRef.current = isSSO ? new AbortController() : null;
-      setCreateLabProgress(isSSO ? 'Sending lab to institution for execution...' : 'Confirm the transaction in your wallet...');
+      createLabAbortControllerRef.current = new AbortController();
+      setCreateLabProgress('Sending lab to institution for execution...');
       
       // 🚀 Use React Query mutation for lab creation (blockchain transaction)
       const result = await addLabMutation.mutateAsync({
         ...labData,
         uri: onchainUri,
-        providerId: providerOwnerAddress || address, // Add provider info
+        providerId: providerOwnerAddress, // Add provider info
         isSSO,
         userEmail: user.email,
-        backendUrl: isSSO ? institutionBackendUrl : undefined,
+        backendUrl: institutionBackendUrl,
         abortSignal: createLabAbortControllerRef.current?.signal,
         // SSO: be more tolerant to backend propagation delays
         pollMaxDurationMs: 12 * 60 * 1000,
@@ -585,26 +405,18 @@ export default function ProviderDashboard() {
           });
           
           devLog.log('✅ Files moved successfully:', moveResult);
+
+          if (Array.isArray(moveResult?.errors) && moveResult.errors.length > 0) {
+            notifyLabCreatedFilesWarning(
+              addTemporaryNotification,
+              blockchainLabId,
+              `${moveResult.errors.length} file(s) could not be moved to the lab folder`
+            );
+          }
           
           // Update labData with new file paths
           if (moveResult.movedFiles) {
-            const newImages = [];
-            const newDocs = [];
-            
-            moveResult.movedFiles.forEach(movedFile => {
-              if (movedFile.original.includes('/images/')) {
-                newImages.push(movedFile.new);
-              } else if (movedFile.original.includes('/docs/')) {
-                newDocs.push(movedFile.new);
-              }
-            });
-            
-            if (newImages.length > 0) {
-              labData.images = newImages;
-            }
-            if (newDocs.length > 0) {
-              labData.docs = newDocs;
-            }
+            labData = remapMovedLabAssetPaths(labData, moveResult.movedFiles);
           }
         } catch (moveError) {
           devLog.error('❌ Failed to move temp files:', moveError);
@@ -616,7 +428,7 @@ export default function ProviderDashboard() {
       // Save metadata JSON file for locally-managed URIs
       if (labData.uri.startsWith('Lab-')) {
         try {
-          devLog.log('📝 Saving lab metadata JSON after blockchain creation...');
+          devLog.log('📁 Saving lab metadata JSON after blockchain creation...');
           setCreateLabProgress('💾 Saving lab metadata (offchain)...');
           await saveLabDataMutation.mutateAsync({
             ...labData,
@@ -691,22 +503,25 @@ export default function ProviderDashboard() {
       createLabAbortControllerRef.current = null;
     }
   }, [
-    ownedLabs,
-    user?.name,
     addLabMutation,
-    saveLabDataMutation,
-    moveFilesMutation,
-    address,
-    isSSO,
-    user?.email,
     addTemporaryNotification,
-    setCreateLabProgress,
     clearCreateLabProgress,
     handleMissingWebauthnCredential,
+    institutionBackendUrl,
+    isSSO,
+    moveFilesMutation,
+    ownedLabs,
+    providerOwnerAddress,
+    queryClient,
+    saveLabDataMutation,
+    setCreateLabProgress,
+    user?.email,
+    user?.institutionName,
+    user?.name,
   ]);
 
   const handleCloseModal = useCallback(() => {
-    if (isCreatingLab && isSSO && createLabAbortControllerRef.current) {
+    if (isCreatingLab && createLabAbortControllerRef.current) {
       try {
         createLabAbortControllerRef.current.abort();
         notifyLabCreateCancelled(addTemporaryNotification);
@@ -718,16 +533,7 @@ export default function ProviderDashboard() {
     }
 
     setIsModalOpen(false);
-  }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab, isSSO]);
-
-  // Redirect non-providers to home page for wallet users
-  useEffect(() => {
-    // Only redirect after loading is complete to avoid false redirects
-    if (!isLoading && !isProviderLoading && address && !isProvider && !isSSO) {
-      router.push('/');
-      return;
-    }
-  }, [isProvider, isProviderLoading, isLoading, address, isSSO, router]);
+  }, [addTemporaryNotification, clearCreateLabProgress, isCreatingLab]);
 
   // Automatically set the first lab as the selected lab (only once)
   useEffect(() => {
@@ -738,27 +544,21 @@ export default function ProviderDashboard() {
         hasInitialized.current = true;
       }
     }
-  }, [ownedLabs.length, selectedLabId, isModalOpen]);
+  }, [ownedLabs, selectedLabId, isModalOpen]);
   
   // Handle saving a lab (either when editing an existing one or adding a new one)
   const handleSaveLab = async (labData) => {
     // Store the original human-readable price for local state updates
     const originalPrice = labData.price;
     
-    // Convert price from user input to token units for blockchain operations
+    // Convert price from user input to credit units for blockchain operations
     if (labData.price && decimals) {
       try {
-        // Convert hourly price (UI) to per-second price (contract format)
-        const pricePerHour = parseFloat(labData.price.toString());
-        const pricePerSecond = pricePerHour / 3600; // Convert to per-second
-        
-        // Convert the per-second price to token units (multiply by decimals)
-        const priceInTokenUnits = parseUnits(pricePerSecond.toString(), decimals);
-        labData = { ...labData, price: priceInTokenUnits.toString() };
+        const priceInTokenUnits = convertHourlyCreditsToRawPerSecond(labData.price, decimals)
+        labData = { ...labData, price: priceInTokenUnits.toString() }
       } catch (error) {
-        devLog.error('Error converting price to token units:', error);
-        notifyLabInvalidPrice(addTemporaryNotification);
-        return;
+        devLog.error('Error converting price to credit units:', error)
+        return
       }
     }
     
@@ -775,11 +575,8 @@ export default function ProviderDashboard() {
     
     // Use original lab's URI to preserve consistency, regardless of provider name changes
     // Only generate new URI if both labData.uri and originalLab.uri are missing (shouldn't happen)
-    const providerSegmentSource = isSSO
-      ? (user?.institutionName || user?.name)
-      : user?.name;
-    const providerSegment = sanitizeProviderNameForUri(providerSegmentSource);
-    labData.uri = labData.uri || originalLab?.uri || `Lab-${providerSegment}-${labData.id}.json`;
+    const providerSegmentSource = user?.institutionName || user?.name;
+    labData.uri = buildProviderLabUri(labData.uri || originalLab?.uri, providerSegmentSource, labData.id);
     const onchainUri = resolveOnchainLabUri(labData.uri);
 
     const wasLocalJson = originalLab.uri && originalLab.uri.startsWith('Lab-');
@@ -789,21 +586,25 @@ export default function ProviderDashboard() {
 
     // Helper function to normalize values for comparison (treat undefined/null as empty string)
     const normalize = (value) => value === undefined || value === null ? '' : value;
+    const originalResourceType = normalizeResourceTypeCode(originalLab?.resourceType)
+    const nextResourceType = normalizeResourceTypeCode(labData?.resourceType)
     
     // ONLY compare on-chain fields that are stored in the smart contract
-    // According to smart contract ABI: uri, price, accessURI, accessKey (auth removed - now per provider)
+    // According to smart contract ABI: uri, price, accessURI, accessKey, resourceType
     const hasChangedOnChainData =
       normalize(originalLab.uri) !== normalize(onchainUri) ||
       normalize(originalLab.price) !== normalize(labData.price) ||
       normalize(originalLab.accessURI) !== normalize(labData.accessURI) ||
-      normalize(originalLab.accessKey) !== normalize(labData.accessKey);
+      normalize(originalLab.accessKey) !== normalize(labData.accessKey) ||
+      originalResourceType !== nextResourceType;
 
     // Debug logging to help identify what's causing transaction triggers
-    devLog.log('🔍 On-chain comparison debug:', {
+    devLog.log('📁 On-chain comparison debug:', {
       uri: { original: normalize(originalLab.uri), new: normalize(onchainUri), changed: normalize(originalLab.uri) !== normalize(onchainUri) },
       price: { original: normalize(originalLab.price), new: normalize(labData.price), changed: normalize(originalLab.price) !== normalize(labData.price) },
       accessURI: { original: normalize(originalLab.accessURI), new: normalize(labData.accessURI), changed: normalize(originalLab.accessURI) !== normalize(labData.accessURI) },
       accessKey: { original: normalize(originalLab.accessKey), new: normalize(labData.accessKey), changed: normalize(originalLab.accessKey) !== normalize(labData.accessKey) },
+      resourceType: { original: originalResourceType, new: nextResourceType, changed: originalResourceType !== nextResourceType },
       hasChangedOnChainData
     });
 
@@ -811,11 +612,7 @@ export default function ProviderDashboard() {
       if (hasChangedOnChainData) {
         // 1a. If there are on-chain changes, update blockchain via mutation
         const actionKey = `update:${labData.id}`;
-        if (isSSO) {
-          setActionProgressNotification(actionKey, 'Updating lab onchain...');
-        } else {
-          notifyLabUpdateStarted(addTemporaryNotification, labData.id);
-        }
+        setActionProgressNotification(actionKey, 'Updating lab onchain...');
         setOptimisticLabState(String(labData.id), { editing: true, isPending: true });
         devLog.log('ProviderDashboard: Executing blockchain update for on-chain changes');
 
@@ -825,24 +622,21 @@ export default function ProviderDashboard() {
             labId: labData.id,
             labData: {
               uri: onchainUri,
-              price: labData.price, // Already in token units
+              price: labData.price, // Already in credit units
               accessURI: labData.accessURI,
-              accessKey: labData.accessKey
+              accessKey: labData.accessKey,
+              resourceType: nextResourceType,
             },
-            backendUrl: isSSO ? institutionBackendUrl : undefined
+            backendUrl: institutionBackendUrl
           });
 
-          if (isSSO) {
-            clearActionProgressNotification(actionKey);
-          }
+          clearActionProgressNotification(actionKey);
           notifyLabUpdated(addTemporaryNotification, labData.id);
           // Clear optimistic editing marker
           clearOptimisticLabState(String(labData.id));
         } catch (err) {
           devLog.error('Error updating lab onchain:', err);
-          if (isSSO) {
-            clearActionProgressNotification(actionKey);
-          }
+          clearActionProgressNotification(actionKey);
           clearOptimisticLabState(String(labData.id));
           try {
             queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labData.id), exact: true });
@@ -923,18 +717,11 @@ export default function ProviderDashboard() {
     const actionKey = `delete:${labId}`;
     try {
       // Optimistic UI: mark deleting and provide immediate feedback
-      if (isSSO) {
-        setActionProgressNotification(actionKey, 'Deleting lab...');
-      } else {
-        notifyLabDeleteStarted(addTemporaryNotification, labId);
-      }
+      setActionProgressNotification(actionKey, 'Deleting lab...');
       setOptimisticLabState(String(labId), { deleting: true, isPending: true });
 
       // 🚀 Use React Query mutation for lab deletion
-      const deletePayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await deleteLabMutation.mutateAsync(deletePayload);
+      await deleteLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Remove from cached list immediately when possible
       try {
@@ -952,9 +739,7 @@ export default function ProviderDashboard() {
         devLog.warn('Failed to remove deleted lab from cache immediately:', cacheErr);
       }
 
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
+      clearActionProgressNotification(actionKey);
       notifyLabDeleted(addTemporaryNotification, labId);
 
       // React Query mutations and event contexts will further ensure cache consistency
@@ -966,9 +751,7 @@ export default function ProviderDashboard() {
       clearOptimisticLabState(String(labId));
     } catch (error) {
       devLog.error('Error deleting lab:', error);
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
+      clearActionProgressNotification(actionKey);
       clearOptimisticLabState(labId);
       try {
         queryClient?.invalidateQueries({ queryKey: labQueryKeys.isTokenListed(labId), exact: true });
@@ -988,34 +771,23 @@ export default function ProviderDashboard() {
     const actionKey = `list:${labId}`;
     try {
       // Immediate user feedback: notify and set optimistic pending state
-      if (isSSO) {
-        setListingProgressNotification(actionKey, 'Listing lab...');
-      } else {
-        notifyLabListingRequested(addTemporaryNotification, labId);
-      }
+      setListingProgressNotification(actionKey, 'Listing lab...');
       setOptimisticListingState(String(labId), true, true);
 
       // ?Ys? Use React Query mutation for lab listing
-      const listPayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await listLabMutation.mutateAsync(listPayload);
+      await listLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Mark optimistic as completed (still keep new state)
-      if (isSSO) {
-        clearListingProgressNotification(actionKey);
-      }
+      clearListingProgressNotification(actionKey);
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
-      updateListingCache(labId, true);
+      handleUpdateListingCache(labId, true);
 
       notifyLabListed(addTemporaryNotification, labId);
     } catch (error) {
       devLog.error('Error listing lab:', error);
-      if (isSSO) {
-        clearListingProgressNotification(actionKey);
-      }
+      clearListingProgressNotification(actionKey);
       // Clear optimistic pending state on error
       clearOptimisticListingState(String(labId));
       try {
@@ -1039,17 +811,14 @@ export default function ProviderDashboard() {
       setOptimisticListingState(String(labId), false, true);
 
       // ?Ys? Use React Query mutation for lab unlisting
-      const unlistPayload = isSSO
-        ? { labId, backendUrl: institutionBackendUrl }
-        : labId;
-      await unlistLabMutation.mutateAsync(unlistPayload);
+      await unlistLabMutation.mutateAsync({ labId, backendUrl: institutionBackendUrl });
       
       // Mark optimistic as completed (keep new state)
       clearListingProgressNotification(labId);
       completeOptimisticListingState(String(labId));
 
       // Immediately update cache so UI reflects onchain change without waiting for events
-      updateListingCache(labId, false);
+      handleUpdateListingCache(labId, false);
 
       notifyLabUnlisted(addTemporaryNotification, labId);
     } catch (error) {
@@ -1070,84 +839,8 @@ export default function ProviderDashboard() {
     }
   };
 
-// Handle collecting balance from selected lab
-  const handleCollect = async () => {
-    const actionKey = 'collect:selected';
-    try {
-      if (isSSO) {
-        setActionProgressNotification(actionKey, 'Collecting lab balance...');
-      } else {
-        notifyLabCollectStarted(addTemporaryNotification);
-      }
-
-      if (selectedCollectLabId === null) {
-        throw new Error('Select a lab first');
-      }
-      if (!hasCollectablePayout(selectedLabPendingPayout)) {
-        throw new Error('No pending payout for selected lab');
-      }
-
-      try {
-        await requestFundsMutation.mutateAsync({
-          labId: selectedCollectLabId,
-          maxBatch: DEFAULT_COLLECT_MAX_BATCH,
-          ...(isSSO ? { backendUrl: institutionBackendUrl } : {}),
-        });
-      } catch (collectError) {
-        if (!isNoCompletedReservationsError(collectError)) {
-          throw collectError
-        }
-        throw new Error('No completed reservations to collect');
-      }
-      
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
-      notifyLabCollected(addTemporaryNotification);
-    } catch (err) {
-      devLog.error(err);
-      if (isSSO) {
-        clearActionProgressNotification(actionKey);
-      }
-      handleMissingWebauthnCredential(err);
-      if (!handleLabAuthorizationErrorToast(err)) {
-        notifyLabCollectFailed(addTemporaryNotification, formatErrorMessage(err));
-      }
-    }
-  };
-
   const handleSelectChange = (e) => {
     setSelectedLabId(e.target.value);
-  };
-
-  // Helper function to clean and shorten error messages
-  const formatErrorMessage = (error) => {
-    let message = error.message || 'Unknown error';
-    
-    // Common patterns to simplify
-    const patterns = [
-      { regex: /execution reverted:?\s*/i, replacement: '' },
-      { regex: /VM Exception while processing transaction:?\s*/i, replacement: '' },
-      { regex: /Error:\s*/i, replacement: '' },
-      { regex: /Failed to.*?:\s*/i, replacement: '' },
-      { regex: /HTTP error! status: (\d+)/, replacement: 'Server error ($1)' },
-      { regex: /network.*?error/i, replacement: 'Network error' },
-      { regex: /insufficient.*?funds/i, replacement: 'Insufficient funds' },
-      { regex: /user.*?rejected/i, replacement: 'Transaction rejected' },
-      { regex: /wallet.*?connection/i, replacement: 'Wallet error' }
-    ];
-    
-    // Apply patterns
-    patterns.forEach(({ regex, replacement }) => {
-      message = message.replace(regex, replacement);
-    });
-    
-    // Truncate if still too long
-    if (message.length > 80) {
-      message = message.substring(0, 77) + '...';
-    }
-    
-    return message.trim() || 'Operation failed';
   };
 
   // ❌ Error handling for React Query
@@ -1201,45 +894,16 @@ export default function ProviderDashboard() {
               minDate={today}
             />
 
-            {/* Provider actions */}
-            <ProviderActions
-              isSSO={isSSO}
-              onCollect={handleCollect}
-              isCollectEnabled={canCollectSelectedLab}
-              isCollecting={requestFundsMutation.isPending}
-              onAddNewLab={() => {
-                setNewLab(newLabStructure);
-                setSelectedLabId("");
-                setIsModalOpen(true);
-              }}
-            />
-          </div>
-
-          {/* Staking card spans both columns */}
-          {!isSSO && (
-            <div className="min-[1080px]:col-span-2 mt-6">
-              <ProviderStakingCompactCard
-                stakeInfo={compactStakeInfo}
-                onManage={() => setIsStakingModalOpen(true)}
+              {/* Provider actions */}
+              <ProviderActions
+                onAddNewLab={() => {
+                  setNewLab(createEmptyLabDraft());
+                  setSelectedLabId("");
+                  setIsModalOpen(true);
+                }}
               />
-            </div>
-          )}
+          </div>
         </div>
-
-        {!isSSO && (
-          <ProviderStakingModal
-            isOpen={isStakingModalOpen}
-            onClose={() => setIsStakingModalOpen(false)}
-            providerAddress={providerOwnerAddress}
-            labs={ownedLabs}
-            isSSO={isSSO}
-            labCount={ownedLabs.length}
-            addTemporaryNotification={addTemporaryNotification}
-            onCollect={handleCollect}
-            isCollectEnabled={canCollectSelectedLab}
-            isCollecting={requestFundsMutation.isPending}
-          />
-        )}
 
         <LabModal isOpen={shouldShowModal} onClose={handleCloseModal} onSubmit={handleSaveLab}
           lab={labForModal} maxId={maxId} key={labForModal?.id || 'new'} />
@@ -1247,3 +911,4 @@ export default function ProviderDashboard() {
     </AccessControl>
   );
 }
+

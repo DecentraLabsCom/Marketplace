@@ -97,7 +97,7 @@ const optimizeImageForUpload = async (buffer, contentType) => {
 export async function POST(req) {
   try {
     // ===== AUTHENTICATION & AUTHORIZATION =====
-    // Require valid session (works for both SSO and wallet users)
+    // Require a valid authenticated session
     const session = await requireAuth();
     
     // Parse form data to get file and labId

@@ -6,7 +6,6 @@ import {
   notifyUserDashboardCancellationRejected,
   notifyUserDashboardCancellationSubmitted,
   notifyUserDashboardMissingBookingSelection,
-  notifyUserDashboardWalletRequired,
   userDashboardToastIds,
 } from '../userDashboardToasts'
 
@@ -29,7 +28,6 @@ describe('userDashboardToasts', () => {
   test('emits all dashboard toasts with unified notification signature', () => {
     notifyUserDashboardMissingBookingSelection(addTemporaryNotification)
     notifyUserDashboardAlreadyCanceled(addTemporaryNotification)
-    notifyUserDashboardWalletRequired(addTemporaryNotification)
     notifyUserDashboardCancellationProcessing(addTemporaryNotification, 'res-123', { isRequest: false })
     notifyUserDashboardCancellationSubmitted(addTemporaryNotification, 'res-123', { isRequest: true })
     notifyUserDashboardCancellationConfirmed(addTemporaryNotification, 'res-123', { isRequest: false })
@@ -37,7 +35,7 @@ describe('userDashboardToasts', () => {
     notifyUserDashboardCancellationFailed(addTemporaryNotification, 'res-123')
 
     const calls = addTemporaryNotification.mock.calls
-    expect(calls).toHaveLength(8)
+    expect(calls).toHaveLength(7)
     expect(calls[0]).toEqual([
       'error',
       'No booking selected or missing reservation key.',
@@ -48,8 +46,7 @@ describe('userDashboardToasts', () => {
       }),
     ])
     expect(calls[1][3]).toEqual(expect.objectContaining({ dedupeKey: 'user-dashboard-already-canceled', dedupeWindowMs: 20000 }))
-    expect(calls[2][3]).toEqual(expect.objectContaining({ dedupeKey: 'user-dashboard-wallet-required', dedupeWindowMs: 20000 }))
-    expect(calls[3]).toEqual([
+    expect(calls[2]).toEqual([
       'pending',
       'Cancelling booking...',
       null,
@@ -58,7 +55,7 @@ describe('userDashboardToasts', () => {
         dedupeWindowMs: 20000,
       }),
     ])
-    expect(calls[4]).toEqual([
+    expect(calls[3]).toEqual([
       'pending',
       'Cancellation request sent. Waiting for on-chain confirmation...',
       null,
@@ -67,7 +64,7 @@ describe('userDashboardToasts', () => {
         dedupeWindowMs: 20000,
       }),
     ])
-    expect(calls[5]).toEqual([
+    expect(calls[4]).toEqual([
       'success',
       'Booking cancelled successfully.',
       null,
@@ -76,12 +73,11 @@ describe('userDashboardToasts', () => {
         dedupeWindowMs: 120000,
       }),
     ])
-    expect(calls[6][3]).toEqual(expect.objectContaining({ dedupeKey: 'user-dashboard-cancellation-rejected', dedupeWindowMs: 20000 }))
-    expect(calls[7][3]).toEqual(expect.objectContaining({ dedupeKey: 'user-dashboard-cancellation-failed:res-123', dedupeWindowMs: 20000 }))
+    expect(calls[5][3]).toEqual(expect.objectContaining({ dedupeKey: 'user-dashboard-cancellation-rejected', dedupeWindowMs: 20000 }))
+    expect(calls[6][3]).toEqual(expect.objectContaining({ dedupeKey: 'user-dashboard-cancellation-failed:res-123', dedupeWindowMs: 20000 }))
   })
 
   test('no-ops when callback is not provided', () => {
-    expect(() => notifyUserDashboardWalletRequired(undefined)).not.toThrow()
     expect(() => notifyUserDashboardCancellationFailed(null)).not.toThrow()
   })
 })

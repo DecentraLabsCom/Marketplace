@@ -91,8 +91,9 @@ export async function POST(req) {
     const session = await requireAuth()
     const body = await req.json().catch(() => ({}))
     const { labId, reservationKey, authEndpoint } = body || {}
+    const includeBookingInfo = body?.includeBookingInfo !== false
 
-    if (!labId && !reservationKey) {
+    if (includeBookingInfo && !labId && !reservationKey) {
       throw new BadRequestError('Missing labId or reservationKey')
     }
 
@@ -139,12 +140,16 @@ export async function POST(req) {
     const payload = {
       marketplaceToken,
       samlAssertion: session.samlAssertion,
-      labId,
-      reservationKey,
       timestamp: Math.floor(Date.now() / 1000),
     }
+    if (includeBookingInfo) {
+      payload.labId = labId
+      payload.reservationKey = reservationKey
+    }
 
-    const response = await fetch(`${authBase}/saml-auth2`, {
+    const authPath = includeBookingInfo ? 'saml-auth2' : 'saml-auth'
+
+    const response = await fetch(`${authBase}/${authPath}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

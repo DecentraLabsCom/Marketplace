@@ -280,6 +280,7 @@ export async function registerIntentOnChain(kind, meta, payload, signature) {
       payload.accessURI || '',
       payload.accessKey || '',
       payload.tokenURI || '',
+      toBigInt(payload.resourceType || 0),
     ]
     const tx = await contract.registerActionIntent(normalizedMeta, normalizedPayload, signature)
     const receipt = await tx.wait?.()

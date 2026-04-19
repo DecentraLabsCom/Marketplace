@@ -6,7 +6,7 @@
  * - Error handling: error screen and retry when bookings query fails
  * - Successful render: all dashboard sections visible with bookings data
  * - Booking cancellation: handles confirmed and pending bookings
- * - Edge cases: empty bookings, missing data, wallet validation
+ * - Edge cases: empty bookings, missing data, session edge cases
  */
 
 import { render, screen } from '@testing-library/react';
@@ -42,10 +42,8 @@ const mockUser = {
         affiliation: 'Test University'
     },
     isLoggedIn: true,
-    isSSO: false,
+    isSSO: true,
     isConnected: true,
-    hasWalletSession: true,
-    isWalletLoading: false
 };
 
 // Mock state
@@ -61,7 +59,6 @@ let mockBookingsData = {
 const mockCancelBooking = jest.fn();
 const mockCancelReservation = jest.fn();
 const mockAddTemporaryNotification = jest.fn();
-const mockRegisterPendingCancellation = jest.fn();
 
 // Context mocks
 jest.mock('@/context/UserContext', () => ({
@@ -71,12 +68,6 @@ jest.mock('@/context/UserContext', () => ({
 jest.mock('@/context/NotificationContext', () => ({
     useNotifications: () => ({
         addTemporaryNotification: mockAddTemporaryNotification
-    })
-}));
-
-jest.mock('@/context/BookingEventContext', () => ({
-    useOptionalBookingEventContext: () => ({
-        registerPendingCancellation: mockRegisterPendingCancellation
     })
 }));
 
@@ -115,6 +106,11 @@ jest.mock('@/components/dashboard/user/ActiveBookingSection', () => ({
 jest.mock('@/components/dashboard/user/BookingSummarySection', () => ({
     __esModule: true,
     default: () => <div data-testid="booking-summary-section">Summary</div>
+}));
+
+jest.mock('@/components/dashboard/user/CreditAccountPanel', () => ({
+    __esModule: true,
+    default: () => <div data-testid="credit-account-panel">Credit Panel</div>
 }));
 
 jest.mock('@/components/booking/CalendarWithBookings', () => ({
@@ -208,27 +204,30 @@ describe('UserDashboard - Unit Tests', () => {
     });
 
     describe('Dashboard Render', () => {
-        test('keeps booking query enabled and addressed correctly for wallet users', async () => {
+        test('keeps booking query disabled and null-addressed for non-SSO users', async () => {
+            mockUserData = {
+                ...mockUser,
+                isSSO: false,
+            };
+
             render(<UserDashboard />);
 
             expect(await screen.findByText('User Dashboard')).toBeInTheDocument();
             expect(mockUseUserBookingsDashboard).toHaveBeenCalledWith(
-                '0x123',
+                null,
                 expect.objectContaining({
                     includeLabDetails: true,
-                    queryOptions: expect.objectContaining({ enabled: true })
+                    queryOptions: expect.objectContaining({ enabled: false })
                 })
             );
         });
 
-        test('keeps booking query enabled and null-addressed for SSO users', async () => {
+        test('keeps booking query enabled for SSO users even when booking address is null', async () => {
             mockUserData = {
                 ...mockUser,
                 isSSO: true,
                 address: null,
                 isConnected: false,
-                hasWalletSession: false,
-                isWalletLoading: false,
                 user: {
                     ...mockUser.user,
                     userid: 'sso-user-id'
@@ -295,7 +294,6 @@ describe('UserDashboard - Unit Tests', () => {
                     dedupeWindowMs: 20000,
                 })
             );
-            expect(mockRegisterPendingCancellation).toHaveBeenCalledWith('1', '101', '0x123');
         });
 
         test('cancels pending reservation', async () => {
@@ -375,7 +373,6 @@ describe('UserDashboard - Unit Tests', () => {
             expect(mockCancelBooking).toHaveBeenCalledWith(
                 expect.objectContaining({ reservationKey: '9' })
             );
-            expect(mockRegisterPendingCancellation).toHaveBeenCalledWith('9', '109', '0x123');
         });
     });
 
@@ -404,23 +401,26 @@ describe('UserDashboard - Unit Tests', () => {
             expect(await screen.findByText('Lab 103')).toBeInTheDocument();
         });
 
-        test('prevents cancellation without wallet', async () => {
-            mockUserData = { ...mockUser, isConnected: false, isSSO: false };
+        test('does not require an active connection state to cancel', async () => {
+            mockUserData = { ...mockUser, address: null, isConnected: false, isSSO: true };
             mockBookingsData.data = { bookings: [mockBookings[0]] };
+            mockCancelBooking.mockResolvedValue({});
             render(<UserDashboard />);
 
             await userEvent.click(await screen.findByText('Cancel'));
 
             expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
-                'error',
-                'Please connect your wallet first.',
+                'pending',
+                'Booking cancellation sent. Waiting for on-chain confirmation...',
                 null,
                 expect.objectContaining({
-                    dedupeKey: 'user-dashboard-wallet-required',
+                    dedupeKey: 'user-dashboard-cancellation-submitted:1',
                     dedupeWindowMs: 20000,
                 })
             );
-            expect(mockCancelBooking).not.toHaveBeenCalled();
+            expect(mockCancelBooking).toHaveBeenCalledWith(
+                expect.objectContaining({ reservationKey: '1' })
+            );
         });
     });
 });

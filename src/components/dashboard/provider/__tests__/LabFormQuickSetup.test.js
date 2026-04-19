@@ -33,6 +33,7 @@ const mockHandlers = {
   handleUriChange: jest.fn(),
   onSubmit: jest.fn((e) => e?.preventDefault()),
   onCancel: jest.fn(),
+  onSwitchToFullSetup: jest.fn(),
 };
 
 /**
@@ -54,6 +55,7 @@ const renderForm = (overrides = {}) => {
     handleUriChange: mockHandlers.handleUriChange,
     onSubmit: mockHandlers.onSubmit,
     onCancel: mockHandlers.onCancel,
+    onSwitchToFullSetup: mockHandlers.onSwitchToFullSetup,
     lab: mockLab,
     ...overrides,
   };
@@ -337,4 +339,70 @@ describe("LabFormQuickSetup", () => {
       expect(screen.getByPlaceholderText("Price per hour")).toBeInTheDocument();
     });
   });
+
+  describe("FMU handling in quick setup", () => {
+    const fmuLab = { ...mockLab, resourceType: "fmu", fmuFileName: "spring-damper.fmu" };
+
+    test("shows FMU file name field instead of Access Key for FMU labs", () => {
+      renderForm({ localLab: fmuLab, lab: {} });
+
+      expect(
+        screen.getByPlaceholderText(/FMU file name/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText("Access Key")).not.toBeInTheDocument();
+    });
+
+    test("shows Auto-detect button for FMU labs", () => {
+      renderForm({ localLab: fmuLab, lab: {} });
+
+      expect(
+        screen.getByRole("button", { name: /Auto-detect/i })
+      ).toBeInTheDocument();
+    });
+
+    test("shows switch to Full Setup link when onSwitchToFullSetup is provided", () => {
+      renderForm({ localLab: fmuLab, lab: {} });
+
+      expect(
+        screen.getByRole("button", { name: /switch to Full Setup/i })
+      ).toBeInTheDocument();
+    });
+
+    test("calls onSwitchToFullSetup when Full Setup link is clicked", async () => {
+      const user = userEvent.setup();
+      renderForm({ localLab: fmuLab, lab: {} });
+
+      await user.click(screen.getByRole("button", { name: /switch to Full Setup/i }));
+      expect(mockHandlers.onSwitchToFullSetup).toHaveBeenCalledTimes(1);
+    });
+
+    test("updates fmuFileName and accessKey together on change", () => {
+      renderForm({ localLab: { ...mockLab, resourceType: "fmu", fmuFileName: "" }, lab: {} });
+
+      const fmuInput = screen.getByPlaceholderText(/FMU file name/i);
+      fireEvent.change(fmuInput, { target: { value: "motor.fmu" } });
+
+      expect(mockHandlers.setLocalLab).toHaveBeenCalledWith(
+        expect.objectContaining({ fmuFileName: "motor.fmu", accessKey: "motor.fmu" })
+      );
+    });
+
+    test("shows Access Key field and hides FMU file name field for regular labs", () => {
+      renderForm({ localLab: { ...mockLab, resourceType: "lab" }, lab: {} });
+
+      expect(screen.getByPlaceholderText("Access Key")).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/FMU file name/i)).not.toBeInTheDocument();
+    });
+
+    test("displays fmuFileName validation error", () => {
+      renderForm({
+        localLab: fmuLab,
+        errors: { fmuFileName: "FMU file name is required" },
+        lab: {},
+      });
+
+      expect(screen.getByText("FMU file name is required")).toBeInTheDocument();
+    });
+  });
+
 });

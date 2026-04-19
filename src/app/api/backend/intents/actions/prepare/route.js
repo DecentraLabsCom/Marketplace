@@ -50,13 +50,6 @@ function normalizeNonNegativeInteger(value) {
   return parsed
 }
 
-function normalizeRequestFundsMaxBatch(value) {
-  if (value === undefined || value === null || value === '') return null
-  const parsed = Number(value)
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) return null
-  return parsed
-}
-
 async function resolveCancellationReservationSnapshot(reservationKey) {
   const contract = await getContractInstance()
   const reservation = await contract.getReservation(reservationKey)
@@ -96,7 +89,7 @@ export async function POST(request) {
 
     let resolvedLabId = payloadInput.labId
     let resolvedPrice = payloadInput.price
-    let resolvedMaxBatch = payloadInput.maxBatch
+    const resolvedMaxBatch = payloadInput.maxBatch
     const reservationKey = payloadInput.reservationKey || ethers.ZeroHash
 
     if (isCancellationAction(action)) {
@@ -119,27 +112,6 @@ export async function POST(request) {
       }
     }
 
-    if (action === ACTION_CODES.REQUEST_FUNDS) {
-      const normalizedLabId = normalizeNonNegativeInteger(resolvedLabId)
-      if (normalizedLabId === null) {
-        return NextResponse.json(
-          { error: 'Missing or invalid labId for REQUEST_FUNDS' },
-          { status: 400 },
-        )
-      }
-
-      const normalizedMaxBatch = normalizeRequestFundsMaxBatch(payloadInput.maxBatch)
-      if (normalizedMaxBatch === null) {
-        return NextResponse.json(
-          { error: 'Missing or invalid maxBatch for REQUEST_FUNDS (expected integer 1-100)' },
-          { status: 400 },
-        )
-      }
-
-      resolvedLabId = normalizedLabId
-      resolvedMaxBatch = normalizedMaxBatch
-    }
-
     const executorAddress = await resolveIntentExecutorForInstitution(schacHomeOrganization)
     const adminAddress = await getAdminAddress()
 
@@ -158,6 +130,7 @@ export async function POST(request) {
       accessURI: payloadInput.accessURI || '',
       accessKey: payloadInput.accessKey || '',
       tokenURI: payloadInput.tokenURI || '',
+      resourceType: payloadInput.resourceType ?? 0,
       maxBatch: resolvedMaxBatch ?? 0,
       nowSec: chainNowSec,
     })

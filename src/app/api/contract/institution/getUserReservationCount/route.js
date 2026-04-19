@@ -61,13 +61,10 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
-    if (
-      error?.code === 'BAD_REQUEST' &&
-      typeof error?.message === 'string' &&
-      error.message.includes('affiliation domain')
-    ) {
+    if (error?.code === 'BAD_REQUEST') {
       devLog.warn(
-        '[API] getUserReservationCount skipped for non-SSO session (missing affiliation domain)',
+        '[API] getUserReservationCount skipped — session missing institutional context:',
+        error.message,
       )
       return Response.json(
         {
