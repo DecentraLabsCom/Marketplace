@@ -45,25 +45,44 @@ export function normalizePuc(value) {
  * @returns {string | null}
  */
 export function getNormalizedPucFromSession(session) {
+  const candidates = getNormalizedPucCandidatesFromSession(session)
+  return candidates[0] || null
+}
+
+/**
+ * Resolve all compatible stable identifier candidates from a session.
+ *
+ * Order is important and preserves canonical preference:
+ *  1) eduPersonPrincipalName|eduPersonTargetedID
+ *  2) eduPersonPrincipalName
+ *  3) session.id
+ *
+ * @param {Object} session
+ * @returns {string[]}
+ */
+export function getNormalizedPucCandidatesFromSession(session) {
   const principalNameRaw = session?.eduPersonPrincipalName
   const targetedIdRaw = session?.eduPersonTargetedID
 
-  // Apply normalizePuc to each SAML component individually
-  // This handles URN SCHAC extraction and lowercase conversion consistently
-  // with blockchain-services PucNormalizer logic
   const principalName = normalizePuc(principalNameRaw)
   const targetedId = normalizePuc(targetedIdRaw)
+  const sessionId = normalizePuc(session?.id)
+
+  const candidates = []
+
+  if (principalName && targetedId) {
+    candidates.push(`${principalName}|${targetedId}`)
+  }
 
   if (principalName) {
-    return targetedId ? `${principalName}|${targetedId}` : principalName
+    candidates.push(principalName)
   }
 
-  // Session id is expected to already be the canonical shared identifier.
-  if (typeof session?.id === 'string' && session.id.trim()) {
-    return normalizePuc(session.id)
+  if (sessionId) {
+    candidates.push(sessionId)
   }
 
-  return null
+  return Array.from(new Set(candidates))
 }
 
 export function hashNormalizedPuc(value) {
@@ -76,4 +95,14 @@ export function getPucHashFromSession(session) {
   const normalized = getNormalizedPucFromSession(session)
   if (!normalized) return null
   return keccak256(toUtf8Bytes(normalized))
+}
+
+/**
+ * Resolve all compatible PUC hash candidates from a session.
+ * @param {Object} session
+ * @returns {string[]}
+ */
+export function getPucHashCandidatesFromSession(session) {
+  return getNormalizedPucCandidatesFromSession(session)
+    .map((value) => keccak256(toUtf8Bytes(value)))
 }

@@ -518,6 +518,20 @@ export const useLabById = (labId, options = {}) => {
  * API endpoints are safe for composed hooks in the institutional runtime
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
+  const expectedCreatorHashes = useMemo(() => {
+    if (Array.isArray(options.creatorPucHashes)) {
+      return options.creatorPucHashes
+        .filter((value) => typeof value === 'string' && value.length > 0)
+        .map((value) => value.toLowerCase())
+    }
+
+    if (typeof options.creatorPucHash === 'string' && options.creatorPucHash.length > 0) {
+      return [options.creatorPucHash.toLowerCase()]
+    }
+
+    return EMPTY_ARRAY
+  }, [options.creatorPucHash, options.creatorPucHashes])
+
   // Get all lab IDs first - Use SSO variant directly per architecture
   const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
@@ -553,7 +567,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   }, [labIds, ownerAddress, ownerResults]);
 
   const creatorHashResults = useQueries({
-    queries: ownerMatchedLabIds.length > 0 && options.creatorPucHash
+    queries: ownerMatchedLabIds.length > 0 && expectedCreatorHashes.length > 0
       ? ownerMatchedLabIds.map((labId) => ({
           queryKey: labQueryKeys.getCreatorPucHash(labId),
           queryFn: () => useLabCreatorPucHashSSO.queryFn(labId),
@@ -565,7 +579,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   const ownedLabIds = useMemo(() => {
-    if (!options.creatorPucHash) {
+    if (expectedCreatorHashes.length === 0) {
       return ownerMatchedLabIds;
     }
 
@@ -574,10 +588,10 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       const creatorPucHash = creatorHashData?.creatorPucHash || creatorHashData;
       return (
         typeof creatorPucHash === 'string'
-        && creatorPucHash.toLowerCase() === options.creatorPucHash.toLowerCase()
+        && expectedCreatorHashes.includes(creatorPucHash.toLowerCase())
       );
     });
-  }, [creatorHashResults, options.creatorPucHash, ownerMatchedLabIds]);
+  }, [creatorHashResults, expectedCreatorHashes, ownerMatchedLabIds]);
 
   // Get lab details only for owned labs
   const labDetailResults = useQueries({

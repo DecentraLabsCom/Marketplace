@@ -32,7 +32,7 @@ import {
   updateListingCache,
 } from '@/components/dashboard/provider/providerDashboard.helpers'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
-import { getPucHashFromSession } from '@/utils/auth/puc'
+import { getPucHashCandidatesFromSession } from '@/utils/auth/puc'
 import { normalizeResourceTypeCode } from '@/utils/resourceType'
 import { convertHourlyCreditsToRawPerSecond } from '@/utils/blockchain/creditUnits'
 import devLog from '@/utils/dev/logger'
@@ -83,15 +83,15 @@ export default function ProviderDashboard() {
     [institutionRegistrationWallet, address]
   );
 
-  const currentCreatorPucHash = useMemo(
-    () => (isSSO ? getPucHashFromSession(user) : null),
+  const currentCreatorPucHashes = useMemo(
+    () => (isSSO ? getPucHashCandidatesFromSession(user) : []),
     [isSSO, user]
   );
 
   // 🚀 React Query for labs owned by this provider - with safe defaults
   const allLabsResult = useLabsForProvider(providerOwnerAddress, {
     enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading,
-    creatorPucHash: currentCreatorPucHash,
+    creatorPucHashes: currentCreatorPucHashes,
   });
   
   // Safe destructuring with guaranteed defaults to prevent Rules of Hooks violations
