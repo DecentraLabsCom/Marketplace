@@ -6,10 +6,40 @@ import { useReservation } from '@/hooks/booking/useBookings'
 import { authenticateLabAccessSSO, getAuthErrorMessage } from '@/utils/auth/labAuth'
 import devLog from '@/utils/dev/logger'
 
+const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
 export function buildLabAccessUrl(labURL, token) {
   const redirectUrl = new URL(String(labURL || ''))
   redirectUrl.searchParams.set('jwt', String(token || ''))
   return redirectUrl.toString()
+}
+
+async function resolveActiveReservationKey(labId) {
+  if (!labId && labId !== 0) {
+    return null
+  }
+
+  const response = await fetch(
+    `/api/contract/institution/getActiveReservationKey?labId=${encodeURIComponent(String(labId))}`,
+    {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to resolve active reservation key. Status: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const resolvedReservationKey = data?.reservationKey
+
+  if (!resolvedReservationKey || resolvedReservationKey === ZERO_BYTES32) {
+    return null
+  }
+
+  return resolvedReservationKey
 }
 
 /**
@@ -84,13 +114,23 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
     }
 
     try {
+      let resolvedReservationKey = reservationKey
+      if (!resolvedReservationKey && hasActiveBooking) {
+        resolvedReservationKey = await resolveActiveReservationKey(id)
+        if (resolvedReservationKey) {
+          devLog.log(`🔑 LabAccess - Resolved active reservationKey for lab ${id}:`, resolvedReservationKey)
+        } else {
+          devLog.warn(`⚠️ LabAccess - No active reservationKey resolved for lab ${id}; falling back to labId-only access`)
+        }
+      }
+
       // Use helper function to handle the complete authentication flow
       // Pass reservationKey if available for optimized validation
       const authResult = await authenticateLabAccessSSO({
         labId: id,
-        reservationKey,
+        reservationKey: resolvedReservationKey,
         authEndpoint: authURI,
-        skipCheckIn: isReservationInUse,
+        skipCheckIn: Boolean(resolvedReservationKey) && isReservationInUse,
       });
 
       // Handle successful authentication

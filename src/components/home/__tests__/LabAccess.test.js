@@ -26,10 +26,26 @@ const { useUser } = jest.requireMock('@/context/UserContext')
 describe('LabAccess', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    global.fetch = jest.fn(async () => ({
-      ok: true,
-      json: async () => ({ authURI: 'https://auth.example.com/auth' }),
-    }))
+    global.fetch = jest.fn(async (input) => {
+      if (String(input).includes('/api/contract/lab/getLabAuthURI?labId=')) {
+        return {
+          ok: true,
+          json: async () => ({ authURI: 'https://auth.example.com/auth' }),
+        }
+      }
+
+      if (String(input).includes('/api/contract/institution/getActiveReservationKey?labId=')) {
+        return {
+          ok: true,
+          json: async () => ({
+            reservationKey: '0xabc123',
+            hasActiveReservation: true,
+          }),
+        }
+      }
+
+      throw new Error(`Unexpected fetch call: ${String(input)}`)
+    })
   })
 
   test('blocks access when the user is not institutionally logged in', async () => {
@@ -93,5 +109,40 @@ describe('LabAccess', () => {
   test('preserves existing query params when building the redirect URL', () => {
     expect(buildLabAccessUrl('https://lab.example.com/run?mode=remote', 'jwt-token'))
       .toBe('https://lab.example.com/run?mode=remote&jwt=jwt-token')
+  })
+
+  test('resolves the active reservation key before authenticating when Home does not provide one', async () => {
+    useUser.mockReturnValue({ isSSO: true })
+    mockAuthenticateLabAccessSSO.mockResolvedValue({
+      token: 'jwt-token',
+      labURL: 'https://lab.example.com/run',
+    })
+
+    render(<LabAccess id="123" hasActiveBooking reservationKey={null} />)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/contract/lab/getLabAuthURI?labId=123')
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: /access/i }))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/contract/institution/getActiveReservationKey?labId=123',
+        expect.objectContaining({
+          method: 'GET',
+          credentials: 'include',
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(mockAuthenticateLabAccessSSO).toHaveBeenCalledWith({
+        labId: '123',
+        reservationKey: '0xabc123',
+        authEndpoint: 'https://auth.example.com/auth',
+        skipCheckIn: false,
+      })
+    })
   })
 })
