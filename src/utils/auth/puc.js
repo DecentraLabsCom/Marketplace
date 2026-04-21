@@ -3,8 +3,7 @@ import { keccak256, toUtf8Bytes } from 'ethers'
 /**
  * Normalize an identifier string.
  * Historically this was used for SCHAC Personal Unique Codes, but it now
- * also functions as a generic normalizer for whatever stable user ID we
- * derive from the SAML session (e.g. eduPersonTargetedID or session id).
+ * also functions as a generic normalizer for stable SSO user identifiers.
  * If the value resembles a SCHAC PUC urn we still strip the urn semantics,
  * otherwise the trimmed string is returned verbatim.
  *
@@ -39,7 +38,6 @@ export function normalizePuc(value) {
  *
  * Canonical format for on-chain usage:
  *   - eduPersonPrincipalName
- *   - eduPersonPrincipalName|eduPersonTargetedID
  *
  * @param {Object} session
  * @returns {string | null}
@@ -52,34 +50,19 @@ export function getNormalizedPucFromSession(session) {
 /**
  * Resolve all compatible stable identifier candidates from a session.
  *
- * Order is important and preserves canonical preference:
- *  1) eduPersonPrincipalName|eduPersonTargetedID
- *  2) eduPersonPrincipalName
- *  3) session.id
+ * Canonical policy: only eduPersonPrincipalName (eppn).
  *
  * @param {Object} session
  * @returns {string[]}
  */
 export function getNormalizedPucCandidatesFromSession(session) {
   const principalNameRaw = session?.eduPersonPrincipalName
-  const targetedIdRaw = session?.eduPersonTargetedID
-
   const principalName = normalizePuc(principalNameRaw)
-  const targetedId = normalizePuc(targetedIdRaw)
-  const sessionId = normalizePuc(session?.id)
 
   const candidates = []
 
-  if (principalName && targetedId) {
-    candidates.push(`${principalName}|${targetedId}`)
-  }
-
   if (principalName) {
     candidates.push(principalName)
-  }
-
-  if (sessionId) {
-    candidates.push(sessionId)
   }
 
   return Array.from(new Set(candidates))

@@ -15,17 +15,17 @@ describe('puc normalization', () => {
     expect(normalizePuc('  urn:schac:personalUniqueCode:ES:DNI:12345678A  ')).toBe('12345678a')
   })
 
-  test('getNormalizedPucFromSession lowercases composite shared identifier', () => {
+  test('getNormalizedPucFromSession lowercases eppn and ignores targeted id', () => {
     expect(
       getNormalizedPucFromSession({
         eduPersonPrincipalName: 'Alice@UNED.ES ',
         eduPersonTargetedID: ' Targeted-Alice ',
       })
-    ).toBe('alice@uned.es|targeted-alice')
+    ).toBe('alice@uned.es')
   })
 
-  test('getNormalizedPucFromSession lowercases fallback session id', () => {
-    expect(getNormalizedPucFromSession({ id: ' MixedCase-UserId ' })).toBe('mixedcase-userid')
+  test('getNormalizedPucFromSession returns null when eppn is missing', () => {
+    expect(getNormalizedPucFromSession({ id: ' MixedCase-UserId ' })).toBeNull()
   })
 
   test('hashNormalizedPuc hashes canonical lowercase value', () => {
@@ -34,12 +34,12 @@ describe('puc normalization', () => {
     )
   })
 
-  test('getPucHashFromSession hashes canonical composite shared identifier', () => {
+  test('getPucHashFromSession hashes canonical eppn only', () => {
     expect(
       getPucHashFromSession({
         eduPersonPrincipalName: 'Alice@UNED.ES',
         eduPersonTargetedID: 'Targeted-Alice',
       })
-    ).toBe(keccak256(toUtf8Bytes('alice@uned.es|targeted-alice')))
+    ).toBe(keccak256(toUtf8Bytes('alice@uned.es')))
   })
 })
