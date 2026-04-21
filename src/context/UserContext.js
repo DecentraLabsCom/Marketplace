@@ -325,7 +325,7 @@ function UserDataCore({ children }) {
     }, [isSSO, user]);
 
     const currentIsSSO = Boolean(ssoData?.user);
-    const address = institutionRegistrationWallet || null;
+    const address = institutionRegistrationWallet || user?.wallet || null;
     const isConnected = Boolean(address);
 
     const { 
