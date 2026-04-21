@@ -252,7 +252,7 @@ export async function requireLabOwner(session, labId) {
         }
 
         const pucHash = await readLabPucHash(contract, numericLabId);
-        if (!PucHash || pucHash.toLowerCase() === ZERO_BYTES32) {
+        if (!pucHash || pucHash.toLowerCase() === ZERO_BYTES32) {
           // Right after creation, creator hash can lag briefly on some RPC providers.
           if (attempt < maxAttempts) {
             await waitForRetryDelay(attempt, baseDelayMs);
