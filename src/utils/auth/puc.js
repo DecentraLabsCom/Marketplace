@@ -66,6 +66,7 @@ export function getNormalizedPucCandidatesFromSession(session) {
 
   const principalName = normalizePuc(principalNameRaw)
   const targetedId = normalizePuc(targetedIdRaw)
+  const sessionId = normalizePuc(session?.id)
 
   const candidates = []
 
@@ -75,6 +76,10 @@ export function getNormalizedPucCandidatesFromSession(session) {
 
   if (principalName) {
     candidates.push(principalName)
+  }
+
+  if (sessionId) {
+    candidates.push(sessionId)
   }
 
   return Array.from(new Set(candidates))
