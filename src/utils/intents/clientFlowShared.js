@@ -53,7 +53,7 @@ export const markBrowserCredentialVerifiedFromIntent = (
       (includeReservationPayload ? prepareData?.intent?.reservationPayload : null) ||
       null
 
-    const stableUserId = actionPayload?.puc || actionPayload?.stableUserId || null
+    const stableUserId = actionPayload?.stableUserId || null
     if (!stableUserId) return
 
     markBrowserCredentialVerified({

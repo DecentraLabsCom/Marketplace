@@ -625,9 +625,7 @@ function UserDataCore({ children }) {
     const resolveBrowserMarkerIdentity = useCallback(() => ({
         stableUserId:
             onboardingStableUserIdRef.current ||
-            user?.schacPersonalUniqueCode ||
-            user?.personalUniqueCode ||
-            user?.personal_unique_code ||
+            user?.stableUserId ||
             null,
         institutionId: institutionDomain || null,
     }), [user, institutionDomain]);
