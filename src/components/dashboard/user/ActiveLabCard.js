@@ -7,6 +7,7 @@ import Link from 'next/link';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Carrousel from '@/components/ui/Carrousel';
+import DocsCarrousel from '@/components/ui/DocsCarrousel';
 import LabAccess from '@/components/home/LabAccess';
 import { getBookingStatusDisplay, isConfirmedBooking } from '@/utils/booking/bookingStatus';
 import devLog from '@/utils/dev/logger';
@@ -162,13 +163,7 @@ export default function ActiveLabCard({
         
         {lab.docs && lab.docs.length > 0 && (
           <div className="mt-1">
-            <iframe 
-              src={lab.docs[0]} 
-              title="description" 
-              height="260px" 
-              width="100%" 
-              className='rounded-lg' 
-            />
+            <DocsCarrousel docs={lab.docs} maxHeight={260} />
           </div>
         )}
         
