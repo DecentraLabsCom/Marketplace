@@ -521,12 +521,12 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const normalizedOwnerAddress = typeof ownerAddress === 'string' ? ownerAddress.toLowerCase() : null
 
   const expectedCreatorHashes = useMemo(() => {
-    if (typeof options.PucHash === 'string' && options.PucHash.length > 0) {
-      return [options.PucHash.toLowerCase()]
+    if (typeof options.pucHash === 'string' && options.pucHash.length > 0) {
+      return [options.pucHash.toLowerCase()]
     }
 
     return EMPTY_ARRAY
-  }, [options.PucHash])
+  }, [options.pucHash])
 
   // Get all lab IDs first - Use SSO variant directly per architecture
   const labIdsResult = useAllLabsSSO({
@@ -581,7 +581,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
     return ownerMatchedLabIds.filter((labId, index) => {
       const creatorHashData = creatorHashResults[index]?.data;
-      const pucHash = creatorHashData?.PucHash || creatorHashData;
+      const pucHash = creatorHashData?.pucHash || creatorHashData;
       return (
         typeof pucHash === 'string'
         && expectedCreatorHashes.includes(pucHash.toLowerCase())

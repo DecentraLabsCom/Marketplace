@@ -72,7 +72,7 @@ const selectOwnerData = (data) => ({
 });
 
 const selectPucHashData = (data) => ({
-  pucHash: data?.PucHash ?? data ?? null
+  pucHash: data?.pucHash ?? data ?? null
 });
 
 const selectTokenOfOwnerData = (data) => {

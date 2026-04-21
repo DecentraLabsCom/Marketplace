@@ -33,7 +33,7 @@ describe('signInstitutionalActionIntent utilities', () => {
     })
 
     expect(intent.payload.assertionHash).toBe(hash)
-    expect(intent.payload.PucHash).toBe(ethers.ZeroHash)
+    expect(intent.payload.pucHash).toBe(ethers.ZeroHash)
     expect(intent.meta.signer).toBe('0x000000000000000000000000000000000000dead')
     expect(intent.payload.labId).toBe(10n)
     expect(intent.payload.maxBatch).toBe(0n)
@@ -51,7 +51,7 @@ describe('signInstitutionalActionIntent utilities', () => {
       expiresInSec: 300,
     })
 
-    expect(intent.payload.PucHash).toBe(pucHash)
+    expect(intent.payload.pucHash).toBe(pucHash)
   })
 
 })

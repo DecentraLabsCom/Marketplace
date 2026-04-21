@@ -58,7 +58,7 @@ function normalizeActionPayload(payload) {
   return {
     executor: payload.executor,
     schacHomeOrganization: payload.schacHomeOrganization || '',
-    pucHash: payload.PucHash || ethers.ZeroHash,
+    pucHash: payload.pucHash || ethers.ZeroHash,
     assertionHash: payload.assertionHash || ethers.ZeroHash,
     labId: toBigIntOrZero(payload.labId || 0),
     reservationKey: payload.reservationKey || ethers.ZeroHash,
