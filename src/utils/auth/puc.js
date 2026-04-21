@@ -47,16 +47,20 @@ export function normalizePuc(value) {
 export function getNormalizedPucFromSession(session) {
   const principalNameRaw = session?.eduPersonPrincipalName
   const targetedIdRaw = session?.eduPersonTargetedID
-  const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
-  const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
+
+  // Apply normalizePuc to each SAML component individually
+  // This handles URN SCHAC extraction and lowercase conversion consistently
+  // with blockchain-services PucNormalizer logic
+  const principalName = normalizePuc(principalNameRaw)
+  const targetedId = normalizePuc(targetedIdRaw)
 
   if (principalName) {
-    return (targetedId ? `${principalName}|${targetedId}` : principalName).toLowerCase()
+    return targetedId ? `${principalName}|${targetedId}` : principalName
   }
 
   // Session id is expected to already be the canonical shared identifier.
   if (typeof session?.id === 'string' && session.id.trim()) {
-    return session.id.trim().toLowerCase()
+    return normalizePuc(session.id)
   }
 
   return null
