@@ -17,6 +17,7 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { extractStableUserId } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
@@ -51,6 +52,7 @@ export async function POST(request) {
     if (!puc) {
       return NextResponse.json({ error: 'Missing PUC in session' }, { status: 400 })
     }
+    const stableUserId = extractStableUserId(session) || puc
 
     const backendUrl = backendUrlOverride || process.env.INSTITUTION_BACKEND_URL
     if (!backendUrl) {
@@ -163,7 +165,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       kind: 'reservation',
-      stableUserId: puc,
+      stableUserId,
       intent: intentForTransport,
       adminSignature,
       requestId: intentPackage.meta.requestId,

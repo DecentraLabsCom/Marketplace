@@ -18,6 +18,7 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { extractStableUserId } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
 
 function normalizeAction(action) {
@@ -68,6 +69,7 @@ export async function POST(request) {
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
     const pucHash = getPucHashFromSession(session) || ethers.ZeroHash
     const puc = getPucFromSession(session) || null
+    const stableUserId = extractStableUserId(session) || puc
 
     if (!samlAssertion) {
       return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
@@ -215,7 +217,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       kind: 'action',
-      stableUserId: puc,
+      stableUserId,
       intent: intentForTransport,
       adminSignature,
       requestId: intentPackage.meta.requestId,
