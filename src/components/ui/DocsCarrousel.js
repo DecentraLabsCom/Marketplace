@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import PropTypes from 'prop-types'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
@@ -16,6 +16,12 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
   const [isMaximized, setIsMaximized] = useState(false);
   const normalizedDocs = useMemo(() => docs.filter((doc) => Boolean(doc)), [docs]);
   const currentDoc = normalizedDocs[currentIndex] || null;
+
+  useEffect(() => {
+    if (currentIndex >= normalizedDocs.length) {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, normalizedDocs.length]);
 
   const handleSlide = (index) => {
     setCurrentIndex(index);
@@ -165,7 +171,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
             mediaPath={currentDoc}
             mediaType={'doc'}
             title={'maximized document'}
-            height="calc(100% - 2rem)"
+            height="100%"
             width="100%"
             className="rounded"
           />
