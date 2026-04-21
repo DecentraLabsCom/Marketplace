@@ -23,7 +23,6 @@ import {
     hasBrowserCredentialMarkerVerified,
     markBrowserCredentialAdvisoryDismissed,
     markBrowserCredentialVerified,
-    shouldShowBrowserCredentialAdvisory,
 } from '@/utils/onboarding/browserCredentialMarker'
 
 // Create optimized context with automatic memoization
@@ -52,17 +51,6 @@ function getInstitutionName(userData) {
     
     return null;
 }
-
-function resolveAdvisoryCooldownMs() {
-    const rawHours = process.env.NEXT_PUBLIC_WEBAUTHN_ADVISORY_COOLDOWN_HOURS;
-    const parsedHours = Number(rawHours);
-    if (!Number.isFinite(parsedHours) || parsedHours < 0) {
-        return 12 * 60 * 60 * 1000;
-    }
-    return parsedHours * 60 * 60 * 1000;
-}
-
-const WEBAUTHN_ADVISORY_COOLDOWN_MS = resolveAdvisoryCooldownMs();
 
 /**
  * Core user data provider component with React Query integration
@@ -293,12 +281,9 @@ function UserDataCore({ children }) {
                     // Browser-level marker: if this browser has never acknowledged/used
                     // the passkey for this institutional account, force advisory.
                     if (!isVerifiedBrowser) {
-                        const shouldShowAdvisory = shouldShowBrowserCredentialAdvisory(browserMarker, {
-                            cooldownMs: WEBAUTHN_ADVISORY_COOLDOWN_MS,
-                        });
-                        devLog.log('[InstitutionalOnboarding] IB has credential but browser marker is missing; showing advisory');
+                        devLog.log('[InstitutionalOnboarding] IB has credential but browser marker is missing; forcing advisory modal');
                         setInstitutionalOnboardingStatus('advisory');
-                        setShowOnboardingModal(shouldShowAdvisory);
+                        setShowOnboardingModal(true);
                         return;
                     }
 
