@@ -16,6 +16,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
   const [isMaximized, setIsMaximized] = useState(false);
   const normalizedDocs = useMemo(() => docs.filter((doc) => Boolean(doc)), [docs]);
   const currentDoc = normalizedDocs[currentIndex] || null;
+  const viewerHeight = maxHeight ? `${maxHeight}px` : '200px';
 
   useEffect(() => {
     if (currentIndex >= normalizedDocs.length) {
@@ -37,7 +38,7 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
 
   if (normalizedDocs.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded-lg bg-gray-200 text-gray-700" style={{ height: maxHeight ? `${maxHeight}px` : '200px' }}>
+      <div className="flex items-center justify-center rounded-lg bg-gray-200 text-gray-700" style={{ height: viewerHeight }}>
         No documents available
       </div>
     );
@@ -46,11 +47,11 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
   return (
     <>
     <div className="relative w-full overflow-hidden" 
-      style={{ height: maxHeight ? `${maxHeight}px` : '200px' }}>
+      style={{ height: viewerHeight }}>
         {normalizedDocs.map((doc, index) => (
           <div key={index} className={`absolute inset-0 transition-opacity duration-700 ${
                     index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-            <MediaDisplayWithFallback mediaPath={doc} mediaType={'doc'} title={`doc ${index + 1}`} height="200px" width="100%" 
+            <MediaDisplayWithFallback mediaPath={doc} mediaType={'doc'} title={`doc ${index + 1}`} height={viewerHeight} width="100%" 
             className="rounded-lg" />
           </div>
         ))}
