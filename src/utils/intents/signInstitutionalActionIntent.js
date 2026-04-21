@@ -22,7 +22,7 @@ export const ACTION_PAYLOAD_TYPES = {
   ActionIntentPayload: [
     { name: 'executor', type: 'address' },
     { name: 'schacHomeOrganization', type: 'string' },
-    { name: 'puc', type: 'string' },
+    { name: 'pucHash', type: 'bytes32' },
     { name: 'assertionHash', type: 'bytes32' },
     { name: 'labId', type: 'uint256' },
     { name: 'reservationKey', type: 'bytes32' },
@@ -58,7 +58,7 @@ function normalizeActionPayload(payload) {
   return {
     executor: payload.executor,
     schacHomeOrganization: payload.schacHomeOrganization || '',
-    puc: payload.puc || '',
+    pucHash: payload.PucHash || ethers.ZeroHash,
     assertionHash: payload.assertionHash || ethers.ZeroHash,
     labId: toBigIntOrZero(payload.labId || 0),
     reservationKey: payload.reservationKey || ethers.ZeroHash,
@@ -86,7 +86,7 @@ export async function buildActionIntent({
   executor,
   signer,
   schacHomeOrganization,
-  puc = '',
+  pucHash = ethers.ZeroHash,
   assertionHash = ethers.ZeroHash,
   labId = 0,
   reservationKey = ethers.ZeroHash,
@@ -122,7 +122,7 @@ export async function buildActionIntent({
   const payload = normalizeActionPayload({
     executor,
     schacHomeOrganization,
-    puc,
+    pucHash,
     assertionHash,
     labId,
     reservationKey,

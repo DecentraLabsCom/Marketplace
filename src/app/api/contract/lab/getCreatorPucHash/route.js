@@ -1,12 +1,12 @@
 import { createContractHandler } from '../../utils/createContractHandler'
-import { readLabCreatorPucHash } from '@/utils/blockchain/labCreatorHash'
+import { readLabPucHash } from '@/utils/blockchain/labCreatorHash'
 
 export const { GET } = createContractHandler({
   params: [{ name: 'labId', type: 'number' }],
-  method: 'getCreatorPucHash',
-  call: (contract, { labId }) => readLabCreatorPucHash(contract, labId),
-  transform: (creatorPucHash, { labId }) => ({
+  method: 'getPucHash',
+  call: (contract, { labId }) => readLabPucHash(contract, labId),
+  transform: (pucHash, { labId }) => ({
     labId,
-    creatorPucHash
+    pucHash
   })
 })

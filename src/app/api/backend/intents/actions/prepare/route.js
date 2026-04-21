@@ -3,7 +3,7 @@ import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
-import { getPucFromSession } from '@/utils/webauthn/service'
+import { getPucHashFromSession } from '@/utils/auth/puc'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -65,7 +65,7 @@ export async function POST(request) {
     const session = await requireAuth()
     const samlAssertion = session.samlAssertion
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
-    const puc = getPucFromSession(session)
+    const pucHash = getPucHashFromSession(session) || ethers.ZeroHash
 
     if (!samlAssertion) {
       return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
@@ -122,7 +122,7 @@ export async function POST(request) {
       signer: adminAddress,
       schacHomeOrganization,
       assertionHash: computeAssertionHash(samlAssertion),
-      puc: puc || '',
+      pucHash,
       labId: resolvedLabId ?? 0,
       reservationKey,
       uri: payloadInput.uri || '',

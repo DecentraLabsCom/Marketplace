@@ -9,7 +9,7 @@ import {
   useLab,
   useLabSSO,
   useLabOwner,
-  useLabCreatorPucHashSSO,
+  useLabPucHashSSO,
   useLabOwnerSSO,
   useIsTokenListed,
   useIsTokenListedSSO,
@@ -521,18 +521,12 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const normalizedOwnerAddress = typeof ownerAddress === 'string' ? ownerAddress.toLowerCase() : null
 
   const expectedCreatorHashes = useMemo(() => {
-    if (Array.isArray(options.creatorPucHashes)) {
-      return options.creatorPucHashes
-        .filter((value) => typeof value === 'string' && value.length > 0)
-        .map((value) => value.toLowerCase())
-    }
-
-    if (typeof options.creatorPucHash === 'string' && options.creatorPucHash.length > 0) {
-      return [options.creatorPucHash.toLowerCase()]
+    if (typeof options.PucHash === 'string' && options.PucHash.length > 0) {
+      return [options.PucHash.toLowerCase()]
     }
 
     return EMPTY_ARRAY
-  }, [options.creatorPucHash, options.creatorPucHashes])
+  }, [options.PucHash])
 
   // Get all lab IDs first - Use SSO variant directly per architecture
   const labIdsResult = useAllLabsSSO({
@@ -571,8 +565,8 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const creatorHashResults = useQueries({
     queries: ownerMatchedLabIds.length > 0 && expectedCreatorHashes.length > 0
       ? ownerMatchedLabIds.map((labId) => ({
-          queryKey: labQueryKeys.getCreatorPucHash(labId),
-          queryFn: () => useLabCreatorPucHashSSO.queryFn(labId),
+          queryKey: labQueryKeys.getPucHash(labId),
+          queryFn: () => useLabPucHashSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -587,10 +581,10 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
     return ownerMatchedLabIds.filter((labId, index) => {
       const creatorHashData = creatorHashResults[index]?.data;
-      const creatorPucHash = creatorHashData?.creatorPucHash || creatorHashData;
+      const pucHash = creatorHashData?.PucHash || creatorHashData;
       return (
-        typeof creatorPucHash === 'string'
-        && expectedCreatorHashes.includes(creatorPucHash.toLowerCase())
+        typeof pucHash === 'string'
+        && expectedCreatorHashes.includes(pucHash.toLowerCase())
       );
     });
   }, [creatorHashResults, expectedCreatorHashes, ownerMatchedLabIds]);

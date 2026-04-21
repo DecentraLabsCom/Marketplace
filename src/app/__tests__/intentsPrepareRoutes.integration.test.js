@@ -40,6 +40,10 @@ jest.mock('@/utils/webauthn/service', () => ({
   getPucFromSession: jest.fn(),
 }))
 
+jest.mock('@/utils/auth/puc', () => ({
+  getPucHashFromSession: jest.fn(),
+}))
+
 jest.mock('@/utils/intents/adminIntentSigner', () => ({
   signIntentMeta: jest.fn(),
   getAdminAddress: jest.fn(),
@@ -83,6 +87,7 @@ import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/i
 import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { getPucHashFromSession } from '@/utils/auth/puc'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -117,6 +122,7 @@ describe('Intent prepare routes integration', () => {
       schacHomeOrganization: 'uni.example',
     })
     getPucFromSession.mockReturnValue('puc-123')
+    getPucHashFromSession.mockReturnValue(`0x${'34'.repeat(32)}`)
     resolveIntentExecutorForInstitution.mockResolvedValue('0x00000000000000000000000000000000000000a1')
     getAdminAddress.mockResolvedValue('0x00000000000000000000000000000000000000a2')
     resolveChainNowSec.mockResolvedValue(1_700_000_000)
@@ -226,7 +232,7 @@ describe('Intent prepare routes integration', () => {
 
     expect(res.status).toBe(200)
     expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
-      puc: 'alice@uned.es|targeted-alice',
+      pucHash: `0x${'34'.repeat(32)}`,
     }))
   })
 

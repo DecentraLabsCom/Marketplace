@@ -229,7 +229,7 @@ describe("queryKeys", () => {
         ["labs", "tokenURI", "42"],
         ["labs", "isTokenListed", "42"],
         ["labs", "ownerOf", "42"],
-        ["labs", "getCreatorPucHash", "42"],
+        ["labs", "getPucHash", "42"],
         ["labs", "getLabReputation", "42"],
       ]);
     });

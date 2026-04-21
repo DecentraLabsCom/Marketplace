@@ -71,7 +71,7 @@ jest.mock("@/hooks/lab/useLabAtomicQueries", () => ({
   useAllLabsSSO: jest.fn(),
   useLab: jest.fn(),
   useLabOwner: jest.fn(),
-  useLabCreatorPucHashSSO: { queryFn: jest.fn() },
+  useLabPucHashSSO: { queryFn: jest.fn() },
   useLabOwnerSSO: { queryFn: jest.fn() },
   useLabSSO: { queryFn: jest.fn() },
   useIsTokenListed: jest.fn(),
@@ -222,8 +222,8 @@ describe("useLabSpecializedQueries", () => {
       Promise.resolve({ owner: mockOwnerAddress })
     );
 
-    labAtomicQueries.useLabCreatorPucHashSSO.queryFn = jest.fn(() =>
-      Promise.resolve({ creatorPucHash: '0xcreatorhash' })
+    labAtomicQueries.useLabPucHashSSO.queryFn = jest.fn(() =>
+      Promise.resolve({ pucHash: '0xcreatorhash' })
     );
 
     labAtomicQueries.useLabSSO.queryFn = jest.fn(() =>
@@ -761,9 +761,9 @@ describe("useLabSpecializedQueries", () => {
             };
           }
 
-          if (queryKey && queryKey[0] === "labs" && queryKey[1] === "getCreatorPucHash") {
+          if (queryKey && queryKey[0] === "labs" && queryKey[1] === "getPucHash") {
             return {
-              data: { creatorPucHash: "0xcreatorhash" },
+              data: { pucHash: "0xcreatorhash" },
               isLoading: false,
               isSuccess: true,
               isError: false,
@@ -809,7 +809,7 @@ describe("useLabSpecializedQueries", () => {
 
       const wrapper = createWrapper();
       const { result } = renderHook(
-        () => useLabsForProvider(mockOwnerAddress, { creatorPucHash: "0xcreatorhash" }),
+        () => useLabsForProvider(mockOwnerAddress, { pucHash: "0xcreatorhash" }),
         { wrapper }
       );
 

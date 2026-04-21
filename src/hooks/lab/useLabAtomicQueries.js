@@ -71,8 +71,8 @@ const selectOwnerData = (data) => ({
   owner: data?.owner ?? data ?? null
 });
 
-const selectCreatorPucHashData = (data) => ({
-  creatorPucHash: data?.creatorPucHash ?? data ?? null
+const selectPucHashData = (data) => ({
+  pucHash: data?.PucHash ?? data ?? null
 });
 
 const selectTokenOfOwnerData = (data) => {
@@ -305,12 +305,12 @@ export const useLabOwnerSSO = (labId, options = {}) => {
 // Export queryFn for use in composed hooks
 useLabOwnerSSO.queryFn = getOwnerOfQueryFn;
 
-// ===== useLabCreatorPucHash Hook Family =====
+// ===== useLabPucHash Hook Family =====
 
-const getCreatorPucHashQueryFn = createSSRSafeQuery(async (labId) => {
+const getPucHashQueryFn = createSSRSafeQuery(async (labId) => {
   if (!labId) throw new Error('Lab ID is required');
 
-  const response = await fetch(`/api/contract/lab/getCreatorPucHash?labId=${labId}`, {
+  const response = await fetch(`/api/contract/lab/getPucHash?labId=${labId}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' }
   });
@@ -320,22 +320,22 @@ const getCreatorPucHashQueryFn = createSSRSafeQuery(async (labId) => {
   }
 
   const data = await response.json();
-  devLog.log('useLabCreatorPucHashSSO:', labId, data);
+  devLog.log('useLabPucHashSSO:', labId, data);
   return data;
-}, { creatorPucHash: null });
+}, { pucHash: null });
 
-export const useLabCreatorPucHashSSO = (labId, options = {}) => {
+export const useLabPucHashSSO = (labId, options = {}) => {
   return useQuery({
-    queryKey: labQueryKeys.getCreatorPucHash(labId),
-    queryFn: () => getCreatorPucHashQueryFn(labId),
+    queryKey: labQueryKeys.getPucHash(labId),
+    queryFn: () => getPucHashQueryFn(labId),
     enabled: !!labId,
-    select: selectCreatorPucHashData,
+    select: selectPucHashData,
     ...LAB_QUERY_CONFIG,
     ...options,
   });
 };
 
-useLabCreatorPucHashSSO.queryFn = getCreatorPucHashQueryFn;
+useLabPucHashSSO.queryFn = getPucHashQueryFn;
 
 /**
  * Hook for lab-owner reads in the institutional runtime.
