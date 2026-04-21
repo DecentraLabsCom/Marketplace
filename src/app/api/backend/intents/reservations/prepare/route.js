@@ -163,6 +163,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       kind: 'reservation',
+      stableUserId: puc,
       intent: intentForTransport,
       adminSignature,
       requestId: intentPackage.meta.requestId,

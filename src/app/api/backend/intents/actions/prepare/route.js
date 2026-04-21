@@ -4,6 +4,7 @@ import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucHashFromSession } from '@/utils/auth/puc'
+import { getPucFromSession } from '@/utils/webauthn/service'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -66,6 +67,7 @@ export async function POST(request) {
     const samlAssertion = session.samlAssertion
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
     const pucHash = getPucHashFromSession(session) || ethers.ZeroHash
+    const puc = getPucFromSession(session) || null
 
     if (!samlAssertion) {
       return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
@@ -213,6 +215,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       kind: 'action',
+      stableUserId: puc,
       intent: intentForTransport,
       adminSignature,
       requestId: intentPackage.meta.requestId,
