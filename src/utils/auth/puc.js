@@ -3,7 +3,8 @@ import { keccak256, toUtf8Bytes } from 'ethers'
 /**
  * Normalize an identifier string.
  * Historically this was used for SCHAC Personal Unique Codes, but it now
- * also functions as a generic normalizer for stable SSO user identifiers.
+ * also functions as a generic normalizer for whatever stable user ID we
+ * derive from the SAML session (e.g. eduPersonTargetedID or session id).
  * If the value resembles a SCHAC PUC urn we still strip the urn semantics,
  * otherwise the trimmed string is returned verbatim.
  *
@@ -38,34 +39,27 @@ export function normalizePuc(value) {
  *
  * Canonical format for on-chain usage:
  *   - eduPersonPrincipalName
+ *   - eduPersonPrincipalName|eduPersonTargetedID
  *
  * @param {Object} session
  * @returns {string | null}
  */
 export function getNormalizedPucFromSession(session) {
-  const candidates = getNormalizedPucCandidatesFromSession(session)
-  return candidates[0] || null
-}
-
-/**
- * Resolve all compatible stable identifier candidates from a session.
- *
- * Canonical policy: only eduPersonPrincipalName (eppn).
- *
- * @param {Object} session
- * @returns {string[]}
- */
-export function getNormalizedPucCandidatesFromSession(session) {
   const principalNameRaw = session?.eduPersonPrincipalName
-  const principalName = normalizePuc(principalNameRaw)
-
-  const candidates = []
+  const targetedIdRaw = session?.eduPersonTargetedID
+  const principalName = typeof principalNameRaw === 'string' ? principalNameRaw.trim() : ''
+  const targetedId = typeof targetedIdRaw === 'string' ? targetedIdRaw.trim() : ''
 
   if (principalName) {
-    candidates.push(principalName)
+    return (targetedId ? `${principalName}|${targetedId}` : principalName).toLowerCase()
   }
 
-  return Array.from(new Set(candidates))
+  // Session id is expected to already be the canonical shared identifier.
+  if (typeof session?.id === 'string' && session.id.trim()) {
+    return session.id.trim().toLowerCase()
+  }
+
+  return null
 }
 
 export function hashNormalizedPuc(value) {
@@ -78,14 +72,4 @@ export function getPucHashFromSession(session) {
   const normalized = getNormalizedPucFromSession(session)
   if (!normalized) return null
   return keccak256(toUtf8Bytes(normalized))
-}
-
-/**
- * Resolve all compatible PUC hash candidates from a session.
- * @param {Object} session
- * @returns {string[]}
- */
-export function getPucHashCandidatesFromSession(session) {
-  return getNormalizedPucCandidatesFromSession(session)
-    .map((value) => keccak256(toUtf8Bytes(value)))
 }

@@ -19,7 +19,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getSessionFromCookies } from './sessionCookie';
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance';
-import { readLabPucHash, ZERO_BYTES32 } from '@/utils/blockchain/labCreatorHash';
+import { readLabCreatorPucHash, ZERO_BYTES32 } from '@/utils/blockchain/labCreatorHash';
 import { getPucHashFromSession } from './puc';
 import devLog from '@/utils/dev/logger';
 
@@ -251,8 +251,8 @@ export async function requireLabOwner(session, labId) {
           throw new ForbiddenError('Missing stable SSO identity', 'MISSING_SSO_IDENTITY');
         }
 
-        const pucHash = await readLabPucHash(contract, numericLabId);
-        if (!pucHash || pucHash.toLowerCase() === ZERO_BYTES32) {
+        const creatorPucHash = await readLabCreatorPucHash(contract, numericLabId);
+        if (!creatorPucHash || creatorPucHash.toLowerCase() === ZERO_BYTES32) {
           // Right after creation, creator hash can lag briefly on some RPC providers.
           if (attempt < maxAttempts) {
             await waitForRetryDelay(attempt, baseDelayMs);
@@ -264,7 +264,7 @@ export async function requireLabOwner(session, labId) {
           );
         }
 
-        if (pucHash.toLowerCase() !== expectedCreatorHash.toLowerCase()) {
+        if (creatorPucHash.toLowerCase() !== expectedCreatorHash.toLowerCase()) {
           throw new ForbiddenError(
             'You are not the creator of this laboratory.',
             'LAB_CREATOR_MISMATCH'

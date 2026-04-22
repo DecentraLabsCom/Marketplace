@@ -47,7 +47,7 @@ export const labQueryKeys = {
   getLab: (labId) => ['labs', 'getLab', labId],
   balanceOf: (ownerAddress) => ['labs', 'balanceOf', ownerAddress],
   ownerOf: (labId) => ['labs', 'ownerOf', labId],
-  getPucHash: (labId) => ['labs', 'getPucHash', labId],
+  getCreatorPucHash: (labId) => ['labs', 'getCreatorPucHash', labId],
   tokenOfOwnerByIndex: (ownerAddress, index) => ['labs', 'tokenOfOwnerByIndex', ownerAddress, index],
   tokenURI: (labId) => ['labs', 'tokenURI', labId],
   isTokenListed: (labId) => ['labs', 'isTokenListed', labId],
@@ -62,7 +62,7 @@ export const labQueryKeys = {
     ['labs', 'tokenURI', labId],
     ['labs', 'isTokenListed', labId],
     ['labs', 'ownerOf', labId],
-    ['labs', 'getPucHash', labId],
+    ['labs', 'getCreatorPucHash', labId],
     ['labs', 'getLabReputation', labId],
   ],
   

@@ -3,8 +3,8 @@ import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
 import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/intents/signInstitutionalActionIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
-import { getPucHashFromSession } from '@/utils/auth/puc'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { normalizePuc } from '@/utils/auth/puc'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -18,7 +18,6 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
-import { extractStableUserId } from '@/utils/onboarding'
 import devLog from '@/utils/dev/logger'
 
 function normalizeAction(action) {
@@ -67,9 +66,11 @@ export async function POST(request) {
     const session = await requireAuth()
     const samlAssertion = session.samlAssertion
     const schacHomeOrganization = resolveInstitutionDomainFromSession(session)
-    const pucHash = getPucHashFromSession(session) || ethers.ZeroHash
-    const puc = getPucFromSession(session) || null
-    const stableUserId = extractStableUserId(session) || puc
+    const puc = getPucFromSession(session)
+    const normalizedPuc = normalizePuc(puc) || ''
+    const pucHash = normalizedPuc
+      ? ethers.keccak256(ethers.toUtf8Bytes(normalizedPuc))
+      : ethers.ZeroHash
 
     if (!samlAssertion) {
       return NextResponse.json({ error: 'Missing SAML assertion in session' }, { status: 400 })
@@ -217,7 +218,6 @@ export async function POST(request) {
 
     return NextResponse.json({
       kind: 'action',
-      stableUserId,
       intent: intentForTransport,
       adminSignature,
       requestId: intentPackage.meta.requestId,

@@ -83,7 +83,7 @@ export default function ProviderDashboard() {
     [institutionRegistrationWallet, address]
   );
 
-  const currentPucHash = useMemo(
+  const currentCreatorPucHash = useMemo(
     () => (isSSO ? getPucHashFromSession(user) : null),
     [isSSO, user]
   );
@@ -91,7 +91,7 @@ export default function ProviderDashboard() {
   // 🚀 React Query for labs owned by this provider - with safe defaults
   const allLabsResult = useLabsForProvider(providerOwnerAddress, {
     enabled: !!providerOwnerAddress && !isLoading && !isProviderLoading,
-    pucHash: currentPucHash,
+    creatorPucHash: currentCreatorPucHash,
   });
   
   // Safe destructuring with guaranteed defaults to prevent Rules of Hooks violations

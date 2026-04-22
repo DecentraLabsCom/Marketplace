@@ -9,7 +9,7 @@ import {
   useLab,
   useLabSSO,
   useLabOwner,
-  useLabPucHashSSO,
+  useLabCreatorPucHashSSO,
   useLabOwnerSSO,
   useIsTokenListed,
   useIsTokenListedSSO,
@@ -518,20 +518,10 @@ export const useLabById = (labId, options = {}) => {
  * API endpoints are safe for composed hooks in the institutional runtime
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
-  const normalizedOwnerAddress = typeof ownerAddress === 'string' ? ownerAddress.toLowerCase() : null
-
-  const expectedCreatorHashes = useMemo(() => {
-    if (typeof options.pucHash === 'string' && options.pucHash.length > 0) {
-      return [options.pucHash.toLowerCase()]
-    }
-
-    return EMPTY_ARRAY
-  }, [options.pucHash])
-
   // Get all lab IDs first - Use SSO variant directly per architecture
   const labIdsResult = useAllLabsSSO({
     ...LAB_QUERY_CONFIG,
-    enabled: !!normalizedOwnerAddress && (options.enabled !== false),
+    enabled: !!ownerAddress && (options.enabled !== false),
     // Convert BigInt IDs to numbers in select to prevent serialization errors
     select: normalizeLabIds
   });
@@ -553,20 +543,20 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   // Filter lab IDs by ownership and get details only for owned labs
   const ownerMatchedLabIds = useMemo(() => {
-    if (!normalizedOwnerAddress) return EMPTY_ARRAY;
+    if (!ownerAddress) return EMPTY_ARRAY;
 
     return labIds.filter((labId, index) => {
       const ownerData = ownerResults[index]?.data;
       const labOwner = ownerData?.owner || ownerData;
-      return labOwner && labOwner.toLowerCase() === normalizedOwnerAddress;
+      return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
     });
-  }, [normalizedOwnerAddress, labIds, ownerResults]);
+  }, [labIds, ownerAddress, ownerResults]);
 
   const creatorHashResults = useQueries({
-    queries: ownerMatchedLabIds.length > 0 && expectedCreatorHashes.length > 0
+    queries: ownerMatchedLabIds.length > 0 && options.creatorPucHash
       ? ownerMatchedLabIds.map((labId) => ({
-          queryKey: labQueryKeys.getPucHash(labId),
-          queryFn: () => useLabPucHashSSO.queryFn(labId),
+          queryKey: labQueryKeys.getCreatorPucHash(labId),
+          queryFn: () => useLabCreatorPucHashSSO.queryFn(labId),
           enabled: !!labId,
           ...LAB_QUERY_CONFIG,
         }))
@@ -575,19 +565,19 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   const ownedLabIds = useMemo(() => {
-    if (expectedCreatorHashes.length === 0) {
+    if (!options.creatorPucHash) {
       return ownerMatchedLabIds;
     }
 
     return ownerMatchedLabIds.filter((labId, index) => {
       const creatorHashData = creatorHashResults[index]?.data;
-      const pucHash = creatorHashData?.pucHash || creatorHashData;
+      const creatorPucHash = creatorHashData?.creatorPucHash || creatorHashData;
       return (
-        typeof pucHash === 'string'
-        && expectedCreatorHashes.includes(pucHash.toLowerCase())
+        typeof creatorPucHash === 'string'
+        && creatorPucHash.toLowerCase() === options.creatorPucHash.toLowerCase()
       );
     });
-  }, [creatorHashResults, expectedCreatorHashes, ownerMatchedLabIds]);
+  }, [creatorHashResults, options.creatorPucHash, ownerMatchedLabIds]);
 
   // Get lab details only for owned labs
   const labDetailResults = useQueries({

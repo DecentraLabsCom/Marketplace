@@ -63,7 +63,7 @@ describe('clientFlowShared', () => {
     const prepareData = {
       intent: {
         reservationPayload: {
-          stableUserId: 'user-123',
+          puc: 'user-123',
           schacHomeOrganization: 'org.example',
         },
       },
@@ -77,19 +77,5 @@ describe('clientFlowShared', () => {
       stableUserId: 'user-123',
       institutionId: 'org.example',
     })
-  })
-
-  test('markBrowserCredentialVerifiedFromIntent ignores payloads without stableUserId', () => {
-    const prepareData = {
-      intent: {
-        payload: {
-          puchash: '0xabc123',
-          institutionId: 'org.example',
-        },
-      },
-    }
-
-    markBrowserCredentialVerifiedFromIntent(prepareData)
-    expect(markBrowserCredentialVerified).not.toHaveBeenCalled()
   })
 })

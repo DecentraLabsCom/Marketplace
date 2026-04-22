@@ -28,7 +28,7 @@ jest.mock('@/app/api/contract/utils/contractInstance', () => ({
 
 jest.mock('@/utils/blockchain/labCreatorHash', () => ({
   ZERO_BYTES32: `0x${'0'.repeat(64)}`,
-  readLabPucHash: jest.fn(),
+  readLabCreatorPucHash: jest.fn(),
 }));
 
 jest.mock('@/utils/auth/puc', () => ({
@@ -49,7 +49,7 @@ describe('guards', () => {
   let mockCookies;
   let mockGetSessionFromCookies;
   let mockGetContractInstance;
-  let mockReadLabPucHash;
+  let mockReadLabCreatorPucHash;
   let mockGetPucHashFromSession;
 
   beforeEach(async () => {
@@ -65,7 +65,7 @@ describe('guards', () => {
     mockCookies = headersModule.cookies;
     mockGetSessionFromCookies = sessionCookieModule.getSessionFromCookies;
     mockGetContractInstance = contractInstanceModule.getContractInstance;
-    mockReadLabPucHash = labCreatorHashModule.readLabPucHash;
+    mockReadLabCreatorPucHash = labCreatorHashModule.readLabCreatorPucHash;
     mockGetPucHashFromSession = pucModule.getPucHashFromSession;
     
     // Import guards module
@@ -217,7 +217,7 @@ describe('guards', () => {
       };
       mockGetContractInstance.mockResolvedValue(mockContract);
       mockGetPucHashFromSession.mockReturnValue('0x' + '1'.repeat(64));
-      mockReadLabPucHash.mockResolvedValue('0x' + '2'.repeat(64));
+      mockReadLabCreatorPucHash.mockResolvedValue('0x' + '2'.repeat(64));
 
       await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toThrow(guards.ForbiddenError);
       await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toMatchObject({
@@ -236,7 +236,7 @@ describe('guards', () => {
       };
       mockGetContractInstance.mockResolvedValue(mockContract);
       mockGetPucHashFromSession.mockReturnValue('0x' + '1'.repeat(64));
-      mockReadLabPucHash.mockResolvedValue('0x' + '0'.repeat(64));
+      mockReadLabCreatorPucHash.mockResolvedValue('0x' + '0'.repeat(64));
 
       await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toThrow(guards.ConflictError);
       await expect(guards.requireLabOwner(ssoSession, '123')).rejects.toMatchObject({

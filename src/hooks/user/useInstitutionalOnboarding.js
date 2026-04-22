@@ -100,7 +100,9 @@ export function useInstitutionalOnboarding({
     const markerPayload = {
       stableUserId:
         session?.stableUserId ||
-        user?.stableUserId ||
+        user?.schacPersonalUniqueCode ||
+        user?.personalUniqueCode ||
+        user?.personal_unique_code ||
         null,
       institutionId: session?.institutionId || institutionDomain || null,
     }

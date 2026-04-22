@@ -6,7 +6,7 @@ const LAB_CREATOR_HASH_INTERFACE = new Interface([
   'function getPucHash(uint256 labId) view returns (bytes32)',
 ])
 
-export async function readLabPucHash(contract, labId) {
+export async function readLabCreatorPucHash(contract, labId) {
   if (!contract?.runner?.call) {
     throw new Error('Contract runner does not support read calls')
   }
@@ -18,6 +18,6 @@ export async function readLabPucHash(contract, labId) {
 
   const data = LAB_CREATOR_HASH_INTERFACE.encodeFunctionData('getPucHash', [BigInt(labId)])
   const raw = await contract.runner.call({ to: target, data })
-  const [pucHash] = LAB_CREATOR_HASH_INTERFACE.decodeFunctionResult('getPucHash', raw)
-  return String(pucHash)
+  const [creatorPucHash] = LAB_CREATOR_HASH_INTERFACE.decodeFunctionResult('getPucHash', raw)
+  return String(creatorPucHash)
 }

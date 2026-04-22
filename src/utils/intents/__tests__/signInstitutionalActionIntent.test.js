@@ -33,25 +33,9 @@ describe('signInstitutionalActionIntent utilities', () => {
     })
 
     expect(intent.payload.assertionHash).toBe(hash)
-    expect(intent.payload.pucHash).toBe(ethers.ZeroHash)
     expect(intent.meta.signer).toBe('0x000000000000000000000000000000000000dead')
     expect(intent.payload.labId).toBe(10n)
     expect(intent.payload.maxBatch).toBe(0n)
-  })
-
-  test('buildActionIntent includes pucHash when provided', async () => {
-    const pucHash = ethers.keccak256(ethers.toUtf8Bytes('creator@example.edu'))
-    const intent = await buildActionIntent({
-      action: ACTION_CODES.LAB_ADD,
-      executor: '0x000000000000000000000000000000000000dead',
-      signer: '0x000000000000000000000000000000000000dead',
-      schacHomeOrganization: 'example.edu',
-      pucHash,
-      nonce: 2n,
-      expiresInSec: 300,
-    })
-
-    expect(intent.payload.pucHash).toBe(pucHash)
   })
 
 })

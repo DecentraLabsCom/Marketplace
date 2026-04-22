@@ -55,7 +55,7 @@ export function normalizeOrganizationDomain(domain) {
 /**
  * Extracts and validates the canonical on-chain user identifier from session
  * (formerly the PUC). Canonical format:
- *   <eduPersonPrincipalName>
+ *   <eduPersonPrincipalName> or <eduPersonPrincipalName>|<eduPersonTargetedID>
  * @param {Object} session - The authenticated session object
  * @returns {string} Trimmed identifier string
  * @throws {BadRequestError} If no usable identifier is found
