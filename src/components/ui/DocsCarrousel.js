@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import PropTypes from 'prop-types'
 import MediaDisplayWithFallback from '@/components/ui/media/MediaDisplayWithFallback'
 
@@ -137,8 +138,8 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
       )}
     </div>
 
-    {isMaximized && currentDoc && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Maximized document viewer">
+    {isMaximized && currentDoc && createPortal(
+      <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Maximized document viewer">
         <div className="relative h-[90vh] w-full max-w-6xl rounded-lg bg-white p-2">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="text-sm font-medium text-gray-700">Document viewer</div>
@@ -177,7 +178,8 @@ const DocsCarrousel = React.memo(function DocsCarrousel({ docs, maxHeight = 200 
             className="rounded"
           />
         </div>
-      </div>
+      </div>,
+      document.body
     )}
     </>
   );
