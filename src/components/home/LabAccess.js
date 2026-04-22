@@ -97,18 +97,18 @@ export default function LabAccess({ id, hasActiveBooking, reservationKey = null 
     setLoading(true);
     setErrorMessage(null);
     
+    if (!isSSO) {
+      setErrorMessage('Institutional login is required to access this lab.');
+      setTimeout(() => setErrorMessage(null), 1500);
+      setLoading(false);
+      return;
+    }
+
     // Validate auth endpoint before attempting authentication
     if (!authURI || authURI === '') {
       devLog.error('❌ Missing auth endpoint for lab:', id);
       setErrorMessage('This lab does not have authentication configured. Please contact the lab provider.');
       setTimeout(() => setErrorMessage(null), 3000);
-      setLoading(false);
-      return;
-    }
-
-    if (!isSSO) {
-      setErrorMessage('Institutional login is required to access this lab.');
-      setTimeout(() => setErrorMessage(null), 1500);
       setLoading(false);
       return;
     }
