@@ -105,6 +105,10 @@
   --color-booking-cancelled-text: oklch(0.5771 0.2152 27.33);
   --color-booking-cancelled-border: oklch(0.8845 0.0593 18.33);
 
+  --color-booking-expired-bg: oklch(0.9793 0.0108 75.53);
+  --color-booking-expired-text: oklch(0.5017 0.0946 60.37);
+  --color-booking-expired-border: oklch(0.8831 0.0469 68.92);
+
   /* Brand color family (was colors.brand in Tailwind 3) */
   /* DEFAULT brand color -> bg-brand / text-brand */
   --color-brand: oklch(0.5147 0.0779 303.87);

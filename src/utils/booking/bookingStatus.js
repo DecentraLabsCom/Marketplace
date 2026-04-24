@@ -47,6 +47,18 @@ const toSemanticStatus = (status) => {
   return status.trim().toLowerCase()
 }
 
+const isExpiredPendingBooking = (booking) => {
+  const numericStatus = normalizeBookingStatusCode(booking)
+  if (numericStatus !== BOOKING_STATUS.PENDING) return false
+
+  const endRaw = booking?.end ?? booking?.endTime
+  const end = Number(endRaw)
+  if (!Number.isFinite(end) || end <= 0) return false
+
+  const now = Math.floor(Date.now() / 1000)
+  return now > end
+}
+
 const isTemporallyCompletedBooking = (booking) => {
   const numericStatus = normalizeBookingStatusCode(booking)
   if (numericStatus !== BOOKING_STATUS.CONFIRMED && numericStatus !== BOOKING_STATUS.IN_USE) {
@@ -164,6 +176,10 @@ export const isCollectedBooking = (booking) => {
  * @returns {string} Human-readable status
  */
 export const getBookingStatusText = (booking) => {
+  if (isExpiredPendingBooking(booking)) {
+    return 'Expired'
+  }
+
   if (isTemporallyCompletedBooking(booking)) {
     return 'Completed'
   }
@@ -214,6 +230,14 @@ export const getBookingStatusColor = (booking) => {
  * @returns {Object} Display object with text, className, and icon
  */
 export const getBookingStatusDisplay = (booking) => {
+  if (isExpiredPendingBooking(booking)) {
+    return {
+      text: "Expired",
+      className: "bg-booking-expired-bg text-booking-expired-text border-booking-expired-border",
+      icon: "⏰"
+    }
+  }
+
   if (isTemporallyCompletedBooking(booking)) {
     return {
       text: "Completed",

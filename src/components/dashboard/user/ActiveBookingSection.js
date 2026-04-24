@@ -10,18 +10,21 @@ import ActiveLabCard from './ActiveLabCard';
  * @param {Object} props - Component props
  * @param {Object|null} props.activeBooking - Current active booking
  * @param {Object|null} props.nextBooking - Next upcoming booking when no active booking exists
+ * @param {Object|null} props.lastBooking - Most recent past booking when neither active nor upcoming exists
  * @param {string|null} props.userAddress - User wallet address
  * @returns {JSX.Element} Active booking section
  */
 export default function ActiveBookingSection({
   activeBooking = null,
   nextBooking = null,
+  lastBooking = null,
   userAddress,
   onBookingAction = null,
   cancellationStates = new Map()
 }) {
   const hasActiveBooking = Boolean(activeBooking);
-  const targetBooking = activeBooking || nextBooking;
+  const targetBooking = activeBooking || nextBooking || lastBooking;
+  const isLastBooking = !activeBooking && !nextBooking && Boolean(lastBooking);
   const labData = targetBooking?.labDetails || null;
 
   const displayedReservationKey = targetBooking?.reservationKey;
@@ -30,6 +33,7 @@ export default function ActiveBookingSection({
     : null;
   const bookingStatus = Number.parseInt(targetBooking?.status, 10);
   const canTriggerBookingAction =
+    !isLastBooking &&
     typeof onBookingAction === 'function' &&
     Boolean(displayedReservationKey) &&
     (bookingStatus === 0 || bookingStatus === 1);
@@ -67,6 +71,10 @@ export default function ActiveBookingSection({
           <h2 className="text-2xl font-semibold mb-4 text-white text-center">
             Next: {labData.name}
           </h2>
+        ) : isLastBooking && labData ? (
+          <h2 className="text-2xl font-semibold mb-4 text-white text-center">
+            Last: {labData.name}
+          </h2>
         ) : null}
 
         <div className="w-full">
@@ -91,6 +99,16 @@ export default function ActiveBookingSection({
               onBookingAction={canTriggerBookingAction ? onBookingAction : null}
               actionState={cancellationState || null}
             />
+          ) : isLastBooking && labData ? (
+            <ActiveLabCard
+              lab={labData}
+              booking={lastBooking}
+              userAddress={userAddress}
+              isActive={false}
+              bookingTimes={getBookingTimes(lastBooking)}
+              onBookingAction={null}
+              actionState={null}
+            />
           ) : (
             <span className="text-gray-300 text-center">
               No upcoming or active lab
@@ -105,6 +123,7 @@ export default function ActiveBookingSection({
 ActiveBookingSection.propTypes = {
   activeBooking: PropTypes.object,
   nextBooking: PropTypes.object,
+  lastBooking: PropTypes.object,
   userAddress: PropTypes.string,
   onBookingAction: PropTypes.func,
   cancellationStates: PropTypes.instanceOf(Map)

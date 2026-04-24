@@ -149,7 +149,7 @@ export default function UserDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
 
-  const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking } = useMemo(() => {
+  const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking, lastBookingForDashboard } = useMemo(() => {
     if (!now || !Array.isArray(userBookings) || userBookings.length === 0) {
       return {
         activeBookingForDashboard: null,
@@ -192,10 +192,29 @@ export default function UserDashboard() {
         })
         .sort((a, b) => Number(a.start) - Number(b.start))[0] || null;
 
+    const lastBooking = (!activeBooking && !nextUpcomingBooking)
+      ? userBookings
+        .filter((booking) => {
+          const status = parseStatus(booking?.status);
+          const end = parseUnix(booking?.end);
+          if (status === 5) return true; // Cancelled
+          if (status === 3 || status === 4) return true; // Completed / Collected
+          if ((status === 1 || status === 2) && end !== null && end < nowUnix) return true; // Temporally completed
+          if (status === 0 && end !== null && end < nowUnix) return true; // Expired pending
+          return false;
+        })
+        .sort((a, b) => {
+          const endA = parseUnix(a?.end) ?? parseUnix(a?.start) ?? 0;
+          const endB = parseUnix(b?.end) ?? parseUnix(b?.start) ?? 0;
+          return endB - endA; // Most recent first
+        })[0] || null
+      : null;
+
     return {
       activeBookingForDashboard: activeBooking,
       nextBookingForDashboard: nextUpcomingBooking,
       highlightedUpcomingBooking: nextUpcomingBooking,
+      lastBookingForDashboard: lastBooking,
     };
   }, [userBookings, now]);
   
@@ -434,6 +453,7 @@ export default function UserDashboard() {
                 <ActiveBookingSection 
                   activeBooking={activeBookingForDashboard}
                   nextBooking={nextBookingForDashboard}
+                  lastBooking={lastBookingForDashboard}
                   userAddress={effectiveUserAddress}
                   onBookingAction={handleCancellation}
                   cancellationStates={cancellationStates}
