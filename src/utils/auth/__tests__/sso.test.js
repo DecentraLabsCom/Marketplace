@@ -68,6 +68,7 @@ describe("SSO Utilities", () => {
       SAML_SP_CERTIFICATE: "test-certificate\\nwith-newlines",
       NEXT_PUBLIC_SAML_SP_METADATA_URL: "https://sp.example.com/metadata",
       NEXT_PUBLIC_SAML_SP_CALLBACK_URL: "https://sp.example.com/callback",
+      NEXT_PUBLIC_SAML_SP_LOGOUT_URL: "https://sp.example.com/logout",
       NEXT_PUBLIC_SAML_IDP_METADATA_URL: "https://idp.example.com/metadata",
     };
   });
@@ -171,6 +172,15 @@ describe("SSO Utilities", () => {
       });
 
       expect(result).toBe(mockSP);
+      expect(typeof mockSP.createSingleLogoutServiceUrl).toBe("function");
+      expect(
+        mockSP.createSingleLogoutServiceUrl({
+          request_body: {
+            SAMLRequest: "REQ",
+            RelayState: "STATE",
+          },
+        })
+      ).toBe("https://sp.example.com/logout?SAMLRequest=REQ&RelayState=STATE");
     });
 
     test("replaces escaped newlines in private key and certificate", () => {
@@ -219,6 +229,16 @@ describe("SSO Utilities", () => {
           certificate: "",
         })
       );
+    });
+
+    test("does not add SingleLogoutService when logout URL is missing", () => {
+      delete process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
+      const mockSP = {};
+      ServiceProvider.mockImplementation(() => mockSP);
+
+      createServiceProvider();
+
+      expect(mockSP.createSingleLogoutServiceUrl).toBeUndefined();
     });
   });
 
@@ -483,6 +503,43 @@ describe("SSO Utilities", () => {
         expect.objectContaining({
           sso_logout_url: "https://idp.example.com/logout1",
         })
+      );
+    });
+
+    test("uses test IdP metadata URL when test metadata is configured in non-production", async () => {
+      process.env.NEXT_PUBLIC_SAML_TEST_IDP_METADATA_URL =
+        "https://test-idp.example.com/metadata";
+      process.env.NODE_ENV = "development";
+
+      xml2js.parseStringPromise.mockResolvedValue({
+        "md:EntityDescriptor": {
+          "md:IDPSSODescriptor": {
+            "md:SingleSignOnService": {
+              $: {
+                Binding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
+                Location: "https://idp.example.com/sso",
+              },
+            },
+            "md:SingleLogoutService": {
+              $: { Location: "https://idp.example.com/logout" },
+            },
+            "md:KeyDescriptor": {
+              "ds:KeyInfo": {
+                "ds:X509Data": {
+                  "ds:X509Certificate": "MIIC8DCCAdigAwIBAgIQBQa",
+                },
+              },
+            },
+          },
+        },
+      });
+
+      IdentityProvider.mockImplementation(() => ({}));
+
+      await createIdentityProvider();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://test-idp.example.com/metadata"
       );
     });
   });

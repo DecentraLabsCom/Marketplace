@@ -152,6 +152,7 @@ export function createServiceProvider() {
   const privateKey = process.env.SAML_SP_PRIVATE_KEY?.replace(/\\n/g, "\n") ?? "";
   const certificate = process.env.SAML_SP_CERTIFICATE?.replace(/\\n/g, "\n") ?? "";
   
+  const spLogoutUrl = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
   const sp = new ServiceProvider({
     entity_id: process.env.NEXT_PUBLIC_SAML_SP_METADATA_URL,
     assert_endpoint: process.env.NEXT_PUBLIC_SAML_SP_CALLBACK_URL,
@@ -160,18 +161,50 @@ export function createServiceProvider() {
     allow_unencrypted_assertion: true,
   });
 
-  /*sp.createSingleLogoutServiceUrl = function (options) {
-    const { request_body } = options;
-    const { SAMLRequest, RelayState } = request_body;
-    const baseUrl = process.env.NEXT_PUBLIC_SAML_SP_LOGOUT_URL;
-    return `${baseUrl}?SAMLRequest=${SAMLRequest}&RelayState=${RelayState}`;
-  };*/
+  if (spLogoutUrl) {
+    sp.createSingleLogoutServiceUrl = function (options) {
+      const requestBody = options?.request_body || {};
+      const { SAMLRequest, RelayState } = requestBody;
+      const params = new URLSearchParams();
+      if (SAMLRequest) params.set('SAMLRequest', SAMLRequest);
+      if (RelayState) params.set('RelayState', RelayState);
+
+      const query = params.toString();
+      return query ? `${spLogoutUrl}${spLogoutUrl.includes('?') ? '&' : '?'}${query}` : spLogoutUrl;
+    };
+  }
 
   return sp;
 }
 
+function getSamlIdpMetadataUrl() {
+  const prodMetadataUrl = process.env.NEXT_PUBLIC_SAML_IDP_METADATA_URL;
+  const testMetadataUrl = process.env.NEXT_PUBLIC_SAML_TEST_IDP_METADATA_URL;
+  const vercelEnv = process.env.VERCEL_ENV;
+
+  const shouldUseTestMetadata = Boolean(testMetadataUrl) && (
+    vercelEnv === 'preview' ||
+    vercelEnv === 'development' ||
+    process.env.NODE_ENV !== 'production'
+  );
+
+  const selectedMetadataUrl = shouldUseTestMetadata ? testMetadataUrl : prodMetadataUrl;
+  if (!selectedMetadataUrl) {
+    throw new Error('SAML IdP metadata URL is not configured');
+  }
+
+  devLog.info('[SAML] Selected IdP metadata URL', {
+    selectedMetadataUrl,
+    vercelEnv,
+    nodeEnv: process.env.NODE_ENV,
+  });
+
+  return selectedMetadataUrl;
+}
+
 export async function createIdentityProvider() {
-  const res = await fetch(process.env.NEXT_PUBLIC_SAML_IDP_METADATA_URL);
+  const metadataUrl = getSamlIdpMetadataUrl();
+  const res = await fetch(metadataUrl);
   const metadata = await res.text();
   
   // Parse XML
