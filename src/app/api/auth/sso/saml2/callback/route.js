@@ -30,11 +30,8 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error("Error processing SAML response:", error);
-    // TODO: Remove debug details before production release
     return NextResponse.json({
-      error: "Internal server error",
-      debug_message: error?.message,
-      debug_stack: error?.stack,
+      error: "Internal server error"
     }, { status: 500 });
   }
 }

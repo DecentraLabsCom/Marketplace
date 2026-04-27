@@ -246,9 +246,19 @@ export async function parseSAMLResponse(samlResponse) {
   const sp = createServiceProvider();
   const idp = await createIdentityProvider();
 
+  // Build a lowercase-keyed mirror of attributes for case-insensitive lookup
+  const normalizeAttrs = (attributes) => {
+    const normalized = {};
+    for (const key of Object.keys(attributes || {})) {
+      normalized[key.toLowerCase()] = attributes[key];
+    }
+    return normalized;
+  };
+
   const getFirstAttribute = (attributes, keys) => {
+    const normalizedAttributes = normalizeAttrs(attributes);
     for (const key of keys) {
-      const raw = attributes?.[key];
+      const raw = normalizedAttributes[key.toLowerCase()];
       const value = Array.isArray(raw) ? raw[0] : raw;
       if (value) return value;
     }
