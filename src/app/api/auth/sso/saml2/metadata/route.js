@@ -48,10 +48,16 @@ export async function GET() {
     </md:AttributeConsumingService>`;
 
         // Insert before the closing </md:SPSSODescriptor> tag
-        const enrichedMetadata = metadata.replace(
-            '</md:SPSSODescriptor>',
-            `${attributeConsumingService}\n  </md:SPSSODescriptor>`
-        );
+        const enrichedMetadata = metadata
+            .replace(
+                '</md:SPSSODescriptor>',
+                `${attributeConsumingService}\n  </md:SPSSODescriptor>`
+            )
+            // Extend validUntil to 2 years from now so federation caches don't reject it
+            .replace(
+                /validUntil="[^"]*"/,
+                `validUntil="${new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000).toISOString()}"`
+            );
 
         // Return XML metadata as response
         return new NextResponse(enrichedMetadata, {
