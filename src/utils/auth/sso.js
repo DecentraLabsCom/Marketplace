@@ -304,7 +304,7 @@ export async function parseSAMLResponse(samlResponse) {
         'ePTI',                             // RedIRIS SIR abbreviated form
       ])
       if (!eduPersonPrincipalName) {
-        return reject(new Error('Missing required SAML attribute: eduPersonPrincipalName'))
+        return reject(new Error(`Missing required SAML attribute: eduPersonPrincipalName. Received keys: ${Object.keys(attrs).join(', ')}`))
       }
       const email = getFirstAttribute(attrs, ['mail', 'urn:oid:0.9.2342.19200300.100.1.3'])
       if (!email) {
