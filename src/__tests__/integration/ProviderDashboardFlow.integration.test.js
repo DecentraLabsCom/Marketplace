@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration Tests: Provider Dashboard Flow
  *
  * Test Behaviors:
@@ -54,19 +54,12 @@ const mockUnlistLabMutation = {
   isError: false,
 };
 
-const mockRequestFundsMutation = {
-  mutateAsync: jest.fn(() => Promise.resolve({ hash: "0xmockhash" })),
-  isLoading: false,
-  isError: false,
-};
-
 jest.mock("@/hooks/lab/useLabAtomicMutations", () => ({
   useAddLab: jest.fn(() => mockAddLabMutation),
   useUpdateLab: jest.fn(() => mockUpdateLabMutation),
   useDeleteLab: jest.fn(() => mockDeleteLabMutation),
   useListLab: jest.fn(() => mockListLabMutation),
   useUnlistLab: jest.fn(() => mockUnlistLabMutation),
-  useRequestFunds: jest.fn(() => mockRequestFundsMutation),
 }));
 
 /**
@@ -119,14 +112,14 @@ const mockProviderLabs = [
     id: 1,
     name: "AI Research Lab",
     isListed: true,
-    availableBalance: "5000000000000000000", // 5 LAB tokens
+    availableBalance: "500000", // 5 credits
   },
   {
     ...mockLab,
     id: 2,
     name: "Quantum Computing Lab",
     isListed: false,
-    availableBalance: "2000000000000000000", // 2 LAB tokens
+    availableBalance: "200000", // 2 credits
   },
 ];
 
@@ -154,7 +147,6 @@ jest.mock("@/hooks/lab/useLabs", () => ({
  * Mock booking hooks
  */
 jest.mock("@/hooks/booking/useBookings", () => ({
-  useRequestFunds: jest.fn(() => mockRequestFundsMutation),
   useLabBookingsDashboard: jest.fn(() => ({
     data: { bookings: [] },
     isLoading: false,
@@ -164,21 +156,6 @@ jest.mock("@/hooks/booking/useBookings", () => ({
     filteredBookings: [],
     dayClassName: jest.fn(() => ""),
   })),
-}));
-
-// ===== Mock staking hooks (integration) =====
-jest.mock('@/hooks/staking/useStakingAtomicQueries', () => ({
-  useStakeInfo: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
-  useStakeInfoWallet: jest.fn(() => ({ data: { stakedAmount: '0', slashedAmount: '0', unlockTimestamp: 0, canUnstake: false }, isLoading: false })),
-  useRequiredStake: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
-  useRequiredStakeWallet: jest.fn(() => ({ data: { requiredStake: '0' }, isLoading: false })),
-  usePendingLabPayout: jest.fn(() => ({ data: { totalPayout: '0', walletPayout: '0', institutionalPayout: '0' }, isLoading: false })),
-  usePendingLabPayouts: jest.fn(() => ({ data: { payoutsByLabId: {}, items: [] }, isLoading: false })),
-}));
-
-jest.mock('@/hooks/staking/useStakingAtomicMutations', () => ({
-  useStakeTokens: jest.fn(() => ({ mutateAsync: jest.fn(), isLoading: false })),
-  useUnstakeTokens: jest.fn(() => ({ mutateAsync: jest.fn(), isLoading: false })),
 }));
 
 /**
@@ -199,6 +176,7 @@ jest.mock("next/navigation", () => ({
  */
 jest.mock("@/context/UserContext", () => ({
   useUser: jest.fn(() => ({
+    isLoggedIn: true,
     isProvider: true,
     isProviderLoading: false,
     address: "0x1234567890123456789012345678901234567890",
@@ -268,14 +246,14 @@ jest.mock("@/context/OptimisticUIContext", () => ({
 /**
  * Mock LabToken Context
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  LabTokenProvider: ({ children }) => children,
-  useLabToken: () => ({
-    balance: BigInt("15500000000000000000"),
-    allowance: BigInt("10000000000000000000"),
-    decimals: 18,
+jest.mock("@/context/LabCreditContext", () => ({
+  LabCreditProvider: ({ children }) => children,
+  useLabCredit: () => ({
+    balance: BigInt("1550000"),
+    allowance: BigInt("1000000"),
+    decimals: 5,
     isLoading: false,
-    labTokenAddress: "0xMockLabTokenAddress",
+    labCreditAddress: "0xMockLabCreditAddress",
     formatTokenAmount: jest.fn((amount) => "5.00"),
     formatPrice: jest.fn((price) => "0.50"),
   }),
@@ -468,11 +446,7 @@ describe("Provider Dashboard Flow Integration", () => {
     });
   });
 
-  /**
-   * Test Case: Collect All funds from labs
-   * Verifies that clicking Collect All triggers fund collection mutation
-   */
-  test("collects all funds when Collect All button is clicked", async () => {
+  test("does not expose legacy staking modal controls in the cleaned provider runtime", async () => {
     const { useUser } = require("@/context/UserContext");
     useUser.mockReturnValue({
       isProvider: true,
@@ -490,63 +464,12 @@ describe("Provider Dashboard Flow Integration", () => {
       },
     });
 
-    const { usePendingLabPayout } = require('@/hooks/staking/useStakingAtomicQueries');
-    usePendingLabPayout.mockReturnValue({
-      data: { totalPayout: '5000000000000000000', walletPayout: '5000000000000000000', institutionalPayout: '0' },
-      isLoading: false,
-    });
-
     renderWithAllProviders(<ProviderDashboardPage />);
 
-    // Wait for Collect button to appear
-    const collectButton = await screen.findByRole("button", {
-      name: /collect/i,
-    });
-
-    // Click Collect All button
-    fireEvent.click(collectButton);
-
-    // Verify mutation was called
     await waitFor(() => {
-      expect(mockRequestFundsMutation.mutateAsync).toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /Staking & Economics/i })).not.toBeInTheDocument();
     });
-  });
-
-  test("opens staking modal from compact card for wallet users", async () => {
-    const { useUser } = require("@/context/UserContext");
-    useUser.mockReturnValue({
-      isProvider: true,
-      isProviderLoading: false,
-      address: "0x1234567890123456789012345678901234567890",
-      isSSO: false,
-      isAuthenticated: true,
-      isInstitutionRegistered: true,
-      isInstitutionRegistrationLoading: false,
-      institutionRegistrationStatus: "registered",
-      user: {
-        name: "Dr. Provider",
-        email: "provider@university.edu",
-        role: "faculty",
-      },
-    });
-
-    renderWithAllProviders(<ProviderDashboardPage />);
-
-    // compact staking card should be visible
-    const manageBtn = await screen.findByRole('button', { name: /manage staking/i });
-    expect(manageBtn).toBeInTheDocument();
-
-    // open modal
-    fireEvent.click(manageBtn);
-
-    // wait for modal title (ensures modal opened)
-    const modalTitle = await screen.findByRole('heading', { name: /Staking & Economics/i });
-    const dialog = modalTitle.closest('[role="dialog"]') || document.body;
-
-    // assert panels inside modal using semantic headings to avoid ambiguous matches
-    const { within } = require('@testing-library/react');
-    expect(within(dialog).getByRole('heading', { name: /Staking/i, level: 3 })).toBeInTheDocument();
-    expect(within(dialog).getByRole('heading', { name: /Pending Payouts/i, level: 3 })).toBeInTheDocument();
   });
 
   /**
@@ -599,3 +522,4 @@ describe("Provider Dashboard Flow Integration", () => {
     });
   });
 });
+

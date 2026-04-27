@@ -97,7 +97,7 @@ const optimizeImageForUpload = async (buffer, contentType) => {
 export async function POST(req) {
   try {
     // ===== AUTHENTICATION & AUTHORIZATION =====
-    // Require valid session (works for both SSO and wallet users)
+    // Require a valid authenticated session
     const session = await requireAuth();
     
     // Parse form data to get file and labId
@@ -142,8 +142,8 @@ export async function POST(req) {
       );
     }
 
-    // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    // Validate file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
       return NextResponse.json(
         { 

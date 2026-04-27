@@ -76,7 +76,7 @@ describe("useBookingCacheUpdates", () => {
       expect(allBookings).toEqual([mockBooking]);
     });
 
-    test("adds booking to user-specific cache when userAddress provided", () => {
+    test("does not populate wallet-specific user cache (SSO-only mode)", () => {
       const { result } = renderHook(() => useBookingCacheUpdates(), {
         wrapper,
       });
@@ -88,7 +88,7 @@ describe("useBookingCacheUpdates", () => {
         "user",
         "0xUser123",
       ]);
-      expect(userBookings).toEqual([mockBooking]);
+      expect(userBookings).toBeUndefined();
     });
 
     test("adds booking to lab-specific cache when labId provided", () => {

@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
 import { useOptionalUser } from '@/context/UserContext'
-import { validateProviderRole, hasAdminRole } from '@/utils/auth/roleValidation'
+import { hasAdminRole } from '@/utils/auth/roleValidation'
 
 const Login = dynamic(() => import('@/components/auth/Login'), {
   ssr: false,
@@ -56,10 +56,9 @@ export default function Navbar() {
   const showRegisterButton = () => {
     // Don't show if not logged in, already a provider, or currently loading provider status
     if (!isLoggedIn || isProvider || isProviderLoading) return false;
-    
-    // For wallet users, always show (they can register manually via form)
-    if (!isSSO) return true;
-    
+
+    if (!isSSO) return false;
+
     // For SSO users, only show if they have institutional admin-level role
     if (!user) return false;
     if (!hasAdminRole(user.role, user.scopedRole)) return false;
@@ -113,7 +112,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 font-bold">
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
-            {showRegisterButton() && menuButton("/register", isInstitutionAdmin ? "Register my Institution" : "Register as a Provider")}
+            {showRegisterButton() && menuButton("/register", "Register my Institution")}
             {showProviderButton() && menuButton("/providerdashboard", "Lab Panel")}
           </div>
           )}
@@ -161,7 +160,7 @@ export default function Navbar() {
                 </Link>
                 {showRegisterButton() && (
                   <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
-                    {isInstitutionAdmin ? "Register my Institution" : "Register as a Provider"}
+                    Register my Institution
                   </Link>
                 )}
                 {showProviderButton() && (

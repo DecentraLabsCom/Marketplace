@@ -212,7 +212,7 @@ describe('classifyBlockchainError', () => {
 
     test('classifies allowance not updated', () => {
       const result = classifyBlockchainError(new Error('Allowance not updated after approval confirmation'))
-      expect(result.message).toBe('❌ Token approval not confirmed')
+      expect(result.message).toBe('❌ Credit authorization not confirmed')
     })
 
     test('classifies rate limit errors', () => {

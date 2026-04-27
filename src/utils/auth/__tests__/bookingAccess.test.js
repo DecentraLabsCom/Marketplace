@@ -9,43 +9,27 @@ describe('bookingAccess', () => {
       })).toBe(false)
     })
 
-    test('returns true for logged-in SSO users without wallet session', () => {
+    test('returns true for logged-in SSO users', () => {
       expect(canFetchUserBookings({
         isLoggedIn: true,
         isSSO: true,
         address: null,
-        hasWalletSession: false,
-        isWalletLoading: true,
       })).toBe(true)
     })
 
-    test('returns true for wallet users with stable wallet session', () => {
+    test('returns false for non-SSO users', () => {
       expect(canFetchUserBookings({
         isLoggedIn: true,
         isSSO: false,
         address: '0x123',
-        hasWalletSession: true,
-        isWalletLoading: false,
-      })).toBe(true)
-    })
-
-    test('returns false for wallet users while wallet is loading', () => {
-      expect(canFetchUserBookings({
-        isLoggedIn: true,
-        isSSO: false,
-        address: '0x123',
-        hasWalletSession: true,
-        isWalletLoading: true,
       })).toBe(false)
     })
 
-    test('returns false for wallet users without wallet session or address', () => {
+    test('returns false for non-SSO users without address', () => {
       expect(canFetchUserBookings({
         isLoggedIn: true,
         isSSO: false,
         address: null,
-        hasWalletSession: false,
-        isWalletLoading: false,
       })).toBe(false)
     })
   })
@@ -58,14 +42,14 @@ describe('bookingAccess', () => {
       })).toBeNull()
     })
 
-    test('returns wallet address for wallet users', () => {
+    test('returns null for non-SSO users too because bookings are session-scoped', () => {
       expect(resolveBookingsUserAddress({
         isSSO: false,
         address: '0x123',
-      })).toBe('0x123')
+      })).toBeNull()
     })
 
-    test('returns null when wallet user has no address', () => {
+    test('returns null when non-SSO user has no address', () => {
       expect(resolveBookingsUserAddress({
         isSSO: false,
         address: null,

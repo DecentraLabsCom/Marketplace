@@ -22,7 +22,6 @@ jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
     LAB_SET_URI: 5,
     CANCEL_REQUEST_BOOKING: 6,
     CANCEL_BOOKING: 7,
-    REQUEST_FUNDS: 8,
   },
   buildActionIntent: jest.fn(),
   computeAssertionHash: jest.fn(),
@@ -211,6 +210,26 @@ describe('Intent prepare routes integration', () => {
     }))
   })
 
+  test('actions/prepare: forwards canonical puc hash from session into signed payload', async () => {
+    getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
+
+    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
+      action: ACTION_CODES.LAB_UPDATE,
+      backendUrl: 'https://ib.example',
+      payload: {
+        labId: 101,
+        price: 7,
+      },
+    })
+
+    const res = await actionPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
+      pucHash: '0x7fe5d7dcc5cb9b92f130b0e011fe4ac4f2efa319e74ad62bece3039af9acca0f',
+    }))
+  })
+
   test('actions/prepare: cancellation action resolves reservation snapshot before signing', async () => {
     const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
       action: ACTION_CODES.CANCEL_BOOKING,
@@ -231,44 +250,6 @@ describe('Intent prepare routes integration', () => {
       labId: '9',
       price: '123',
     }))
-  })
-
-  test('actions/prepare: request funds requires valid labId and maxBatch payload', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.REQUEST_FUNDS,
-      backendUrl: 'https://ib.example',
-      payload: {
-        labId: '12',
-        maxBatch: 25,
-      },
-    })
-
-    const res = await actionPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(payload.kind).toBe('action')
-    expect(buildActionIntent).toHaveBeenCalledWith(expect.objectContaining({
-      action: ACTION_CODES.REQUEST_FUNDS,
-      labId: 12,
-      maxBatch: 25,
-    }))
-  })
-
-  test('actions/prepare: request funds rejects missing maxBatch', async () => {
-    const req = buildRequest('http://localhost/api/backend/intents/actions/prepare', {
-      action: ACTION_CODES.REQUEST_FUNDS,
-      backendUrl: 'https://ib.example',
-      payload: {
-        labId: 12,
-      },
-    })
-
-    const res = await actionPreparePOST(req)
-    const payload = await res.json()
-
-    expect(res.status).toBe(400)
-    expect(payload.error).toContain('maxBatch')
   })
 
   test('actions/prepare: propagates mapped backend authorization errors', async () => {
@@ -324,6 +305,24 @@ describe('Intent prepare routes integration', () => {
     expect(requestIntentAuthorizationSession).toHaveBeenCalledWith(expect.objectContaining({
       payloadKey: 'reservationPayload',
       returnUrl: 'https://market.example/callback',
+    }))
+  })
+
+  test('reservations/prepare: forwards canonical puc from session into signed payload', async () => {
+    getPucFromSession.mockReturnValueOnce('alice@uned.es|targeted-alice')
+
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 22,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
+      puc: 'alice@uned.es|targeted-alice',
     }))
   })
 

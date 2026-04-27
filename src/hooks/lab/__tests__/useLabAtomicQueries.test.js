@@ -55,16 +55,6 @@ jest.mock("@/utils/hooks/ssrSafe", () => ({
   }),
 }));
 
-// Mock dependencies to isolate the test
-jest.mock("@/utils/hooks/authMode", () => ({
-  useGetIsWallet: jest.fn(() => false),
-}));
-
-jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
-  __esModule: true,
-  default: jest.fn(),
-}));
-
 // Mock query keys
 jest.mock("@/utils/hooks/queryKeys", () => ({
   labQueryKeys: {
@@ -141,6 +131,22 @@ describe("useLabAtomicQueries", () => {
       expect(result.current.error).toBe(null);
     });
 
+    test("normalizes lab IDs even when cache payload includes lab objects", async () => {
+      const mixedLabIds = [{ id: "7", name: "Temp lab" }, "8", { labId: 9 }];
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mixedLabIds,
+      });
+
+      const { result } = renderHook(() => useAllLabsSSO(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(result.current.data).toEqual([7, 8, 9]);
+    });
+
     test("uses correct query key", () => {
       const { labQueryKeys } = require("@/utils/hooks/queryKeys");
 
@@ -172,7 +178,7 @@ describe("useLabAtomicQueries", () => {
       labId,
       base: {
         uri: "ipfs://test",
-        price: "1000000000000000000",
+        price: "100000",
         accessURI: "",
         accessKey: "",
       },
@@ -194,8 +200,8 @@ describe("useLabAtomicQueries", () => {
         labId: 1,
         base: {
           uri: "ipfs://test",
-          price: "1000000000000000000",
-          priceNumber: 1000000000000000000,
+          price: "100000",
+          priceNumber: 100000,
           accessURI: "",
           accessKey: "",
           createdAt: 0,

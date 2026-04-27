@@ -39,10 +39,9 @@ export const createMockReservationState = (overrides = {}) => ({
     { value: "14:00", label: "02:00 PM", disabled: false },
   ],
   totalCost: 0.5,
-  isWaitingForReceipt: false,
-  isReceiptError: false,
+  bookingStage: "idle",
+  isFlowLocked: false,
   setIsBooking: jest.fn(),
-  setLastTxHash: jest.fn(),
   setPendingData: jest.fn(),
   handleDateChange: jest.fn(),
   handleDurationChange: jest.fn(),
@@ -107,9 +106,9 @@ export const createMockContexts = (overrides = {}) => ({
     ...overrides.user,
   },
   labToken: {
-    balance: BigInt("15500000000000000000"),
-    allowance: BigInt("10000000000000000000"),
-    decimals: 18,
+    balance: BigInt("1550000"),
+    allowance: BigInt("1000000"),
+    decimals: 5,
     isLoading: false,
     formatTokenAmount: jest.fn((amount) => "15.50"),
     formatPrice: jest.fn((price) => "0.50"),
@@ -128,26 +127,6 @@ export const createMockContexts = (overrides = {}) => ({
     })),
     ...overrides.optimisticUI,
   },
-});
-
-/**
- * Creates mock wagmi connector objects
- * Useful for WalletConnectionFlow tests
- *
- * @param {string} name - Connector name (e.g., "MetaMask", "WalletConnect")
- * @param {Object} overrides - Properties to override
- * @returns {Object} Mock connector
- *
- * @example
- * const metaMask = createMockConnector("MetaMask", { ready: false });
- */
-export const createMockConnector = (name, overrides = {}) => ({
-  uid: `${name.toLowerCase()}-connector`,
-  name,
-  type: name === "WalletConnect" ? "walletConnect" : "injected",
-  ready: true,
-  getProvider: jest.fn().mockResolvedValue({}),
-  ...overrides,
 });
 
 /**

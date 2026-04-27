@@ -48,22 +48,6 @@ export const getBaseUrl = () => {
 };
 
 /**
- * Get WalletConnect metadata with environment-aware URL
- * @returns {Object} WalletConnect metadata object
- */
-export const getWalletConnectMetadata = () => {
-  const baseUrl = getBaseUrl();
-  
-  return {
-    name: 'DecentraLabs Marketplace',
-    url: baseUrl,
-    description: 'DecentraLabs is the first decentralized marketplace for laboratories and research facilities, ' +
-                 'allowing users to book and access a wide range of lab services and resources.',
-    iconUrl: `${baseUrl}/favicon.svg`,
-  };
-};
-
-/**
  * Environment detection utilities
  */
 export const envUtils = {

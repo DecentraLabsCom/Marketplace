@@ -9,24 +9,19 @@ import { Container } from '../ui/Layout'
  * @param {object} props
  * @param {React.ReactNode} props.children
  * @param {string} [props.message]
- * @param {boolean} [props.requireWallet]
  * @param {boolean} [props.requireSSO]
  * @param {boolean} [props.requireProvider]
  */
 export default function AccessControl({
   children,
   message = "Please log in to access this page.",
-  requireWallet = false,
   requireSSO = false,
   requireProvider = false,
 }) {
   const {
     isLoggedIn,
     isSSO,
-    isConnected,
     isLoading,
-    isWalletLoading,
-    address,
     user,
     isProvider,
     isProviderLoading,
@@ -38,7 +33,6 @@ export default function AccessControl({
   const isInstitutionRegistrationPending =
     isSSO && (isInstitutionRegistrationLoading || institutionRegistrationStatus == null);
 
-  // Check if user has faculty role (professor)
   const isFaculty = () => {
     if (!isSSO || !user) return false;
     const userRole = (user.role || '').toLowerCase().trim();
@@ -46,65 +40,42 @@ export default function AccessControl({
     return userRole.includes('faculty') || userScopedRole.includes('faculty');
   };
 
-  // Check if user can access Provider Dashboard
   const canAccessProviderDashboard = () => {
-    // Wallet users need to be confirmed providers
-    if (!isSSO && address) {
-      return isProvider && !isProviderLoading;
-    }
-    
-    // SSO users: confirmed providers OR faculty members with registered institution
-    if (isSSO) {
-      if (isProvider && !isProviderLoading) return true;
-      if (isInstitutionRegistrationPending) return false;
-      return isFaculty() && isInstitutionRegistered;
-    }
-    
-    return false;
+    if (!isSSO) return false;
+    if (isProvider && !isProviderLoading) return true;
+    if (isInstitutionRegistrationPending) return false;
+    return isFaculty() && isInstitutionRegistered;
   };
 
-  // Determine access status
   let hasAccess = false;
   let accessMessage = message;
 
-  // Cypress headless test mock bypass
-  const isCypressMock = typeof window !== 'undefined' && window.localStorage.getItem("mockIsProvider") === "true";
-  
-  if (isCypressMock) {
-    hasAccess = true;
-  } else if (requireProvider) {
+  if (requireProvider) {
     hasAccess = canAccessProviderDashboard();
     if (!hasAccess && !isLoading && !isProviderLoading) {
-      if (isSSO) {
-        if (!isFaculty()) {
-          accessMessage = "Only faculty members can access the Lab Panel.";
-        } else if (!isInstitutionRegistered) {
-          accessMessage = "Your institution is not registered yet. Please register it first.";
-        } else {
-          accessMessage = "Only faculty members and confirmed providers can access the Lab Panel.";
-        }
+      if (!isSSO) {
+        accessMessage = "Institutional login is required to access the Lab Panel.";
+      } else if (!isFaculty()) {
+        accessMessage = "Only faculty members can access the Lab Panel.";
+      } else if (!isInstitutionRegistered) {
+        accessMessage = "Your institution is not registered yet. Please register it first.";
       } else {
-        accessMessage = "Only confirmed providers can access the Lab Panel. Please register as a provider first.";
+        accessMessage = "Only faculty members and confirmed providers can access the Lab Panel.";
       }
     }
-  } else if (requireWallet) {
-    hasAccess = isConnected;
   } else if (requireSSO) {
     hasAccess = isSSO;
   } else {
     hasAccess = isLoggedIn;
   }
 
-  // Handle redirect logic - must be called before any conditional returns
   useEffect(() => {
-    // Only redirect after loading is complete and we know the real connection state
-    if (!isLoading && !isWalletLoading && !isInstitutionRegistrationPending && !hasAccess) {
+    if (!isLoading && !isInstitutionRegistrationPending && !hasAccess) {
       router.push('/');
     }
-  }, [hasAccess, router, isLoading, isWalletLoading, isInstitutionRegistrationPending]);
+  }, [hasAccess, router, isLoading, isInstitutionRegistrationPending]);
 
-  // Show loading state while wallet connection is being determined
-  if (isWalletLoading || isLoading || isInstitutionRegistrationPending) {
+  if (isLoading || isInstitutionRegistrationPending) {
     return (
       <Container padding="sm" className="text-white text-center mt-6">
         <div className="flex items-center justify-center space-x-2">
@@ -116,7 +87,6 @@ export default function AccessControl({
   }
 
   if (!hasAccess) {
-    // Special handling for provider access
     if (requireProvider) {
       return (
         <Container padding="sm" className="text-center">
@@ -125,20 +95,11 @@ export default function AccessControl({
             <p className="text-yellow-600 mb-4">
               {accessMessage}
             </p>
-            {!isSSO && (
-              <button 
-                onClick={() => router.push('/register')}
-                className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 transition-colors"
-              >
-                Register as Provider
-              </button>
-            )}
           </div>
         </Container>
       );
     }
-    
-    // Standard access denied message
+
     return (
       <Container padding="sm" className="text-white text-center mt-6">
         {accessMessage}
@@ -152,7 +113,6 @@ export default function AccessControl({
 AccessControl.propTypes = {
   children: PropTypes.node.isRequired,
   message: PropTypes.string,
-  requireWallet: PropTypes.bool,
   requireSSO: PropTypes.bool,
   requireProvider: PropTypes.bool
 }

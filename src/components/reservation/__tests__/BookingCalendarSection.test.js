@@ -1,9 +1,9 @@
-/**
+﻿/**
  * Unit Tests for BookingCalendarSection Component
  *
  * Tests the booking calendar section that handles date/time selection and availability display.
  * Validates booking filtering, calendar key generation, form interactions, and conditional
- * rendering based on authentication type (SSO vs Wallet).
+ * rendering based on authentication mode.
  *
  * Test Behaviors:
  * - Null Safety: Returns null when lab prop is not provided
@@ -49,8 +49,8 @@ jest.mock("@/components/booking/CalendarWithBookings", () => {
   };
 });
 
-jest.mock("@/components/reservation/LabTokenInfo", () => {
-  return function MockLabTokenInfo({ labPrice, durationMinutes, className }) {
+jest.mock("@/components/reservation/LabCreditInfo", () => {
+  return function MockLabCreditInfo({ labPrice, durationMinutes, className }) {
     return (
       <div data-testid="lab-token-info" className={className}>
         <span data-testid="token-price">{labPrice}</span>
@@ -306,11 +306,11 @@ describe("BookingCalendarSection", () => {
   });
 
   describe("SSO Conditional Rendering", () => {
-    test("shows payment info for wallet users", () => {
+    test("shows payment info for non-SSO sessions", () => {
       render(<BookingCalendarSection {...defaultProps} isSSO={false} />);
 
       expect(screen.getByTestId("lab-token-info")).toBeInTheDocument();
-      expect(screen.getByText(/\$LAB \/ hour/)).toBeInTheDocument();
+      expect(screen.getByText(/credits \/ hour/)).toBeInTheDocument();
     });
 
     test("hides payment info for SSO users", () => {
@@ -319,7 +319,7 @@ describe("BookingCalendarSection", () => {
       expect(screen.queryByTestId("lab-token-info")).not.toBeInTheDocument();
     });
 
-    test("passes correct props to LabTokenInfo", () => {
+    test("passes correct props to LabCreditInfo", () => {
       render(
         <BookingCalendarSection {...defaultProps} isSSO={false} duration={45} />
       );
@@ -373,7 +373,7 @@ describe("BookingCalendarSection", () => {
       );
 
       expect(formatPrice).toHaveBeenCalledWith("100");
-      expect(screen.getByText("100.00 $LAB / hour")).toBeInTheDocument();
+      expect(screen.getByText("100.00 credits / hour")).toBeInTheDocument();
     });
     
     test("recalculates price when duration changes", () => {
@@ -391,7 +391,50 @@ describe("BookingCalendarSection", () => {
       });
 
       expect(formatPrice).toHaveBeenCalledWith("100");
-      expect(screen.getByText(/-formatted \$LAB/)).toBeInTheDocument();
+      expect(screen.getByText(/-formatted credits/)).toBeInTheDocument();
+    });
+  });
+
+  describe("Concurrent occupancy display", () => {
+    test("shows occupancy label for concurrent time slots", () => {
+      const concurrentTimes = [
+        { value: "09:00", label: "09:00", disabled: false, isReserved: false, occupancy: 2, maxConcurrent: 5 },
+        { value: "10:00", label: "10:00", disabled: true, isReserved: true, occupancy: 5, maxConcurrent: 5 },
+        { value: "11:00", label: "11:00", disabled: false, isReserved: false, occupancy: 0, maxConcurrent: 5 },
+      ];
+
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          availableTimes={concurrentTimes}
+          selectedTime="09:00"
+        />
+      );
+
+      const options = screen.getAllByRole("option");
+      const labels = options.map((o) => o.textContent);
+      expect(labels).toContain("09:00 (2/5)");
+      expect(labels).toContain("10:00 (5/5)");
+      expect(labels).toContain("11:00 (0/5)");
+    });
+
+    test("shows plain label when no concurrent info", () => {
+      const regularTimes = [
+        { value: "09:00", label: "09:00", disabled: false, isReserved: false },
+      ];
+
+      render(
+        <BookingCalendarSection
+          {...defaultProps}
+          availableTimes={regularTimes}
+          selectedTime="09:00"
+        />
+      );
+
+      const options = screen.getAllByRole("option");
+      expect(options.some((o) => o.textContent === "09:00")).toBe(true);
+      expect(options.some((o) => o.textContent.includes("/"))).toBe(false);
     });
   });
 });
+

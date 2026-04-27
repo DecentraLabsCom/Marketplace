@@ -31,6 +31,14 @@ jest.mock("@/components/ui/Carrousel", () => ({
   ),
 }));
 
+// Mock DocsCarrousel shared PDF viewer component
+jest.mock("@/components/ui/DocsCarrousel", () => ({
+  __esModule: true,
+  default: ({ docs }) => (
+    <div data-testid="docs-carrousel-mock">Docs: {Array.isArray(docs) ? docs.length : 0}</div>
+  ),
+}));
+
 // Mock LabAccess component
 jest.mock("@/components/home/LabAccess", () => ({
   __esModule: true,
@@ -245,19 +253,19 @@ describe("ActiveLabCard Component Details", () => {
   });
 
   describe("Documents Display", () => {
-    test("displays iframe with first document when docs available", () => {
+    test("displays shared docs viewer when docs available", () => {
       renderCard();
 
-      const iframe = screen.getByTitle("description");
-      expect(iframe).toBeInTheDocument();
-      expect(iframe).toHaveAttribute("src", "https://example.com/doc1.pdf");
+      const docsViewer = screen.getByTestId("docs-carrousel-mock");
+      expect(docsViewer).toBeInTheDocument();
+      expect(docsViewer).toHaveTextContent("Docs: 2");
     });
 
     test('displays "no documents" message when docs array is empty', () => {
       renderCard({ lab: { ...mockLab, docs: [] } });
 
       expect(screen.getByText("No documents available")).toBeInTheDocument();
-      expect(screen.queryByTitle("description")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("docs-carrousel-mock")).not.toBeInTheDocument();
     });
 
     test('displays "no documents" message when docs is null', () => {
@@ -272,12 +280,11 @@ describe("ActiveLabCard Component Details", () => {
       expect(screen.getByText("No documents available")).toBeInTheDocument();
     });
 
-    test("only displays first document even when multiple docs exist", () => {
+    test("passes all docs to shared docs viewer", () => {
       renderCard();
 
-      const iframes = screen.getAllByTitle("description");
-      expect(iframes).toHaveLength(1);
-      expect(iframes[0]).toHaveAttribute("src", "https://example.com/doc1.pdf");
+      const docsViewer = screen.getByTestId("docs-carrousel-mock");
+      expect(docsViewer).toHaveTextContent("Docs: 2");
     });
   });
 

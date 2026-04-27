@@ -6,10 +6,6 @@ import { useUser } from '@/context/UserContext'
 import Account from '@/utils/auth/account'
 import { Button, Card, CardHeader, CardContent } from '@/components/ui'
 
-const WalletLogin = dynamic(() => import('@/components/auth/WalletLogin'), {
-  ssr: false,
-  loading: () => <div className="text-sm text-neutral-500">Loading wallet options...</div>
-});
 const InstitutionalLogin = dynamic(() => import('@/components/auth/InstitutionalLogin'), {
   ssr: false,
   loading: () => <div className="text-sm text-neutral-500">Loading institutional login...</div>
@@ -20,15 +16,14 @@ const EntraLoginButton = dynamic(() => import('@/components/auth/EntraLoginButto
 });
 
 /**
- * Main login component that provides multiple authentication methods
- * Renders a login button that opens a modal with wallet and institutional login options
+ * Main login component for institutional authentication.
  * @returns {JSX.Element} Login button and modal interface
  */
 export default function Login() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const toggleModal = () => setIsModalOpen(!isModalOpen);
 
-  const { isLoggedIn, isSSO } = useUser();
+  const { isLoggedIn } = useUser();
 
   // Close modal on Escape key press
   useEffect(() => {
@@ -41,11 +36,7 @@ export default function Login() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isModalOpen]);
 
-  // Wallet-only users: show account summary + logout
-  if (isLoggedIn && !isSSO) return <Account />;
-
-  // SSO users: show account summary only (wallet connection not supported for SSO users)
-  if (isLoggedIn && isSSO) {
+  if (isLoggedIn) {
     return <Account />;
   }
 
@@ -72,10 +63,9 @@ export default function Login() {
             className="my-auto w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100dvh-1.5rem)] overflow-y-auto transition duration-300 starting:opacity-0 opacity-100 sm:max-h-[calc(100dvh-2rem)]"
             onClick={(e) => e.stopPropagation()}
           >
-            <CardHeader title="Choose Login Method" />
+            <CardHeader title="Institutional Login" />
             <CardContent>
               <div className="flex flex-col space-y-3">
-                <WalletLogin setIsModalOpen={setIsModalOpen} />
                 <InstitutionalLogin setIsModalOpen={setIsModalOpen} />
                 {/* Microsoft Entra ID — shown when NEXT_PUBLIC_ENTRA_ENABLED=true */}
                 {process.env.NEXT_PUBLIC_ENTRA_ENABLED === 'true' && (

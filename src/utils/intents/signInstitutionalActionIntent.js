@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
 import { ethers, TypedDataEncoder } from 'ethers';
-import { defaultChain } from '@/utils/blockchain/networkConfig';
-import { contractAddresses } from '@/contracts/diamond';
 import { getNextIntentNonce } from './intentNonceStore';
+import { INTENT_META_TYPES, resolveIntentDomain } from './intentDomain';
+
+export { INTENT_META_TYPES };
 
 export const ACTION_CODES = {
   LAB_ADD: 1,
@@ -15,29 +16,13 @@ export const ACTION_CODES = {
   REQUEST_BOOKING: 8,
   CANCEL_REQUEST_BOOKING: 9,
   CANCEL_BOOKING: 10,
-  REQUEST_FUNDS: 11,
-  CANCEL_INSTITUTIONAL_REQUEST_BOOKING: 9,
-  CANCEL_INSTITUTIONAL_BOOKING: 10,
-};
-
-export const INTENT_META_TYPES = {
-  IntentMeta: [
-    { name: 'requestId', type: 'bytes32' },
-    { name: 'signer', type: 'address' },
-    { name: 'executor', type: 'address' },
-    { name: 'action', type: 'uint8' },
-    { name: 'payloadHash', type: 'bytes32' },
-    { name: 'nonce', type: 'uint256' },
-    { name: 'requestedAt', type: 'uint64' },
-    { name: 'expiresAt', type: 'uint64' },
-  ],
 };
 
 export const ACTION_PAYLOAD_TYPES = {
   ActionIntentPayload: [
     { name: 'executor', type: 'address' },
     { name: 'schacHomeOrganization', type: 'string' },
-    { name: 'puc', type: 'string' },
+    { name: 'pucHash', type: 'bytes32' },
     { name: 'assertionHash', type: 'bytes32' },
     { name: 'labId', type: 'uint256' },
     { name: 'reservationKey', type: 'bytes32' },
@@ -47,24 +32,21 @@ export const ACTION_PAYLOAD_TYPES = {
     { name: 'accessURI', type: 'string' },
     { name: 'accessKey', type: 'string' },
     { name: 'tokenURI', type: 'string' },
+    { name: 'resourceType', type: 'uint8' },
   ],
 };
 
-const DEFAULT_DOMAIN_NAME = 'DecentraLabsIntent';
-const DEFAULT_DOMAIN_VERSION = '1';
 
-function getDiamondAddress() {
-  const chainKey = (defaultChain?.name || '').toLowerCase();
-  const address = contractAddresses[chainKey];
-  if (!address) {
-    throw new Error(`Diamond contract address not configured for chain ${chainKey}`);
-  }
-  return address;
-}
 
 function toBigIntOrZero(value) {
   if (value === undefined || value === null || value === '') return 0n;
   return BigInt(value);
+}
+
+function normalizeResourceType(value) {
+  if (value === 'fmu' || value === 'FMU') return 1n;
+  if (value === 'lab' || value === 'LAB') return 0n;
+  return toBigIntOrZero(value);
 }
 
 export function computeAssertionHash(assertion) {
@@ -76,7 +58,7 @@ function normalizeActionPayload(payload) {
   return {
     executor: payload.executor,
     schacHomeOrganization: payload.schacHomeOrganization || '',
-    puc: payload.puc || '',
+    pucHash: payload.pucHash || ethers.ZeroHash,
     assertionHash: payload.assertionHash || ethers.ZeroHash,
     labId: toBigIntOrZero(payload.labId || 0),
     reservationKey: payload.reservationKey || ethers.ZeroHash,
@@ -86,21 +68,13 @@ function normalizeActionPayload(payload) {
     accessURI: payload.accessURI || '',
     accessKey: payload.accessKey || '',
     tokenURI: payload.tokenURI || '',
+    resourceType: normalizeResourceType(payload.resourceType || 0),
   };
 }
 
 export function hashActionPayload(payload) {
   const normalized = normalizeActionPayload(payload);
   return TypedDataEncoder.hashStruct('ActionIntentPayload', ACTION_PAYLOAD_TYPES, normalized);
-}
-
-function resolveIntentDomain(overrides = {}) {
-  return {
-    name: overrides.name || DEFAULT_DOMAIN_NAME,
-    version: overrides.version || DEFAULT_DOMAIN_VERSION,
-    chainId: overrides.chainId || defaultChain.id,
-    verifyingContract: overrides.verifyingContract || getDiamondAddress(),
-  };
 }
 
 /**
@@ -112,7 +86,7 @@ export async function buildActionIntent({
   executor,
   signer,
   schacHomeOrganization,
-  puc = '',
+  pucHash = ethers.ZeroHash,
   assertionHash = ethers.ZeroHash,
   labId = 0,
   reservationKey = ethers.ZeroHash,
@@ -121,6 +95,7 @@ export async function buildActionIntent({
   accessURI = '',
   accessKey = '',
   tokenURI = '',
+  resourceType = 0,
   maxBatch = 0,
   expiresInSec = 15 * 60,
   nowSec,
@@ -147,7 +122,7 @@ export async function buildActionIntent({
   const payload = normalizeActionPayload({
     executor,
     schacHomeOrganization,
-    puc,
+    pucHash,
     assertionHash,
     labId,
     reservationKey,
@@ -156,6 +131,7 @@ export async function buildActionIntent({
     accessURI,
     accessKey,
     tokenURI,
+    resourceType,
     maxBatch,
   });
 

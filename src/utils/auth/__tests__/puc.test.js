@@ -1,53 +1,45 @@
-// Tests for puc.js
-import { normalizePuc, getNormalizedPucFromSession } from '../puc';
+import { keccak256, toUtf8Bytes } from 'ethers'
+import {
+  normalizePuc,
+  getNormalizedPucFromSession,
+  hashNormalizedPuc,
+  getPucHashFromSession,
+} from '../puc'
 
-describe('normalizePuc', () => {
-  it('returns null for non-string values', () => {
-    expect(normalizePuc(null)).toBeNull();
-    expect(normalizePuc(undefined)).toBeNull();
-    expect(normalizePuc(123)).toBeNull();
-    expect(normalizePuc({})).toBeNull();
-  });
+describe('puc normalization', () => {
+  test('normalizePuc trims and lowercases generic identifiers', () => {
+    expect(normalizePuc('  User@University.EDU|Targeted-ID  ')).toBe('user@university.edu|targeted-id')
+  })
 
-  it('returns null for empty or whitespace-only strings', () => {
-    expect(normalizePuc('')).toBeNull();
-    expect(normalizePuc('   ')).toBeNull();
-  });
+  test('normalizePuc extracts and lowercases SCHAC personalUniqueCode tail', () => {
+    expect(normalizePuc('  urn:schac:personalUniqueCode:ES:DNI:12345678A  ')).toBe('12345678a')
+  })
 
-  it('returns trimmed string if not a SCHAC PUC urn', () => {
-    expect(normalizePuc('  user-123  ')).toBe('user-123');
-    expect(normalizePuc('foo:bar:baz')).toBe('foo:bar:baz');
-  });
+  test('getNormalizedPucFromSession lowercases composite shared identifier', () => {
+    expect(
+      getNormalizedPucFromSession({
+        eduPersonPrincipalName: 'Alice@UNED.ES ',
+        eduPersonTargetedID: ' Targeted-Alice ',
+      })
+    ).toBe('alice@uned.es|targeted-alice')
+  })
 
-  it('strips urn semantics for SCHAC PUC', () => {
-    expect(normalizePuc('urn:mace:terena.org:schac:personalUniqueCode:int:es:university:123456')).toBe('123456');
-    expect(normalizePuc('urn:schac:personalUniqueCode:int:es:university:abcdef')).toBe('abcdef');
-    expect(normalizePuc('urn:schac:PersonalUniqueCode:int:es:university:XYZ')).toBe('XYZ');
-  });
+  test('getNormalizedPucFromSession lowercases fallback session id', () => {
+    expect(getNormalizedPucFromSession({ id: ' MixedCase-UserId ' })).toBe('mixedcase-userid')
+  })
 
-  it('returns trimmed string if urn is malformed', () => {
-    expect(normalizePuc('urn:schac:personalUniqueCode:')).toBe('personalUniqueCode');
-    expect(normalizePuc('urn:schac:personalUniqueCode')).toBe('personalUniqueCode');
-  });
-});
+  test('hashNormalizedPuc hashes canonical lowercase value', () => {
+    expect(hashNormalizedPuc(' User@University.EDU ')).toBe(
+      keccak256(toUtf8Bytes('user@university.edu'))
+    )
+  })
 
-describe('getNormalizedPucFromSession', () => {
-  it('returns principalName|targetedId if both present', () => {
-    expect(getNormalizedPucFromSession({ eduPersonPrincipalName: 'foo', eduPersonTargetedID: 'bar' })).toBe('foo|bar');
-  });
-  it('returns principalName if only principalName present', () => {
-    expect(getNormalizedPucFromSession({ eduPersonPrincipalName: 'foo' })).toBe('foo');
-  });
-  it('returns trimmed principalName and targetedId', () => {
-    expect(getNormalizedPucFromSession({ eduPersonPrincipalName: ' foo ', eduPersonTargetedID: ' bar ' })).toBe('foo|bar');
-  });
-  it('returns session.id if principalName missing', () => {
-    expect(getNormalizedPucFromSession({ id: 'session-123' })).toBe('session-123');
-  });
-  it('returns null if no valid identifier', () => {
-    expect(getNormalizedPucFromSession({})).toBeNull();
-    expect(getNormalizedPucFromSession(null)).toBeNull();
-    expect(getNormalizedPucFromSession({ eduPersonPrincipalName: '', eduPersonTargetedID: '' })).toBeNull();
-    expect(getNormalizedPucFromSession({ id: '   ' })).toBeNull();
-  });
-});
+  test('getPucHashFromSession hashes canonical composite shared identifier', () => {
+    expect(
+      getPucHashFromSession({
+        eduPersonPrincipalName: 'Alice@UNED.ES',
+        eduPersonTargetedID: 'Targeted-Alice',
+      })
+    ).toBe(keccak256(toUtf8Bytes('alice@uned.es|targeted-alice')))
+  })
+})

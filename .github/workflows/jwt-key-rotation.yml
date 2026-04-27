@@ -179,6 +179,43 @@ jobs:
 
       - name: Enable Auto-Merge
         if: steps.check-rotation.outputs.needs_rotation == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.BOT_PR_TOKEN }}
+          script: |
+            const pull_number = Number('${{ steps.create-pr.outputs.pull-request-number }}')
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const timeoutMs = 5 * 60 * 1000
+            const pollMs = 15 * 1000
+            const startedAt = Date.now()
+
+            while (Date.now() - startedAt < timeoutMs) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number,
+              })
+
+              const mergeable = pr.mergeable
+              const mergeableState = pr.mergeable_state
+
+              core.info(`PR #${pull_number} mergeable=${mergeable} mergeable_state=${mergeableState}`)
+
+              if (mergeable === true && mergeableState !== 'unknown') {
+                core.info('Pull request is stable enough to attempt auto-merge')
+                return
+              }
+
+              await new Promise((resolve) => setTimeout(resolve, pollMs))
+            }
+
+            core.warning('Pull request did not become stable before timeout; continuing to auto-merge attempt anyway')
+
+      - name: Enable Auto-Merge
+        if: steps.check-rotation.outputs.needs_rotation == 'true' && steps.create-pr.outputs.pull-request-number != ''
+        continue-on-error: true
         uses: peter-evans/enable-pull-request-automerge@v3
         with:
           token: ${{ secrets.BOT_PR_TOKEN }}

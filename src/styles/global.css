@@ -39,7 +39,7 @@
 
   /* Text */
   --color-text-primary: oklch(0.24 0 0);
-  --color-text-secondary: oklch(0.4346 0.0458 221.3);
+  --color-text-secondary: oklch(0.4546 0.0458 221.3);
   --color-text-muted: oklch(0.551 0.0234 264.36);
   --color-text-inverse: oklch(1 0 0);
   --color-text-accent: oklch(0.5147 0.0779 303.87);
@@ -64,7 +64,7 @@
   --color-hover-dark: oklch(0.3744 0.064 269.15);
   --color-brand-primary: oklch(0.5147 0.0779 303.87);
   --color-brand-secondary: oklch(0.8943 0.0512 262.12);
-  --color-text-secondary-token: oklch(0.4346 0.0458 221.3);
+  --color-text-secondary-token: oklch(0.4546 0.0458 221.3);
   --color-ui-label-dark-token: oklch(0.3581 0.0816 293.36);
 
   /* Status tokens */
@@ -104,6 +104,10 @@
   --color-booking-cancelled-bg: oklch(0.9705 0.0129 17.38);
   --color-booking-cancelled-text: oklch(0.5771 0.2152 27.33);
   --color-booking-cancelled-border: oklch(0.8845 0.0593 18.33);
+
+  --color-booking-expired-bg: oklch(0.9793 0.0108 75.53);
+  --color-booking-expired-text: oklch(0.5017 0.0946 60.37);
+  --color-booking-expired-border: oklch(0.8831 0.0469 68.92);
 
   /* Brand color family (was colors.brand in Tailwind 3) */
   /* DEFAULT brand color -> bg-brand / text-brand */

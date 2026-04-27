@@ -113,6 +113,12 @@ const sanitizeUnixDate = (value) => {
   return Math.floor(parsed.getTime() / 1000)
 }
 
+const parseOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 /**
  * Saves lab data to file system (local) or cloud storage (Vercel)
  * @param {Request} req - HTTP request with lab data
@@ -132,7 +138,7 @@ const sanitizeUnixDate = (value) => {
 export async function POST(req) {
   try {
     // ===== AUTHENTICATION =====
-    // Require valid session (works for both SSO and wallet users)
+    // Require a valid authenticated session
     const session = await requireAuth();
     
     const body = await req.json();
@@ -165,7 +171,15 @@ export async function POST(req) {
       maxConcurrentUsers,
       unavailableWindows,
       termsOfUse,
-      timezone
+      timezone,
+      resourceType,
+      fmuFileName,
+      fmiVersion,
+      simulationType,
+      modelVariables,
+      defaultStartTime,
+      defaultStopTime,
+      defaultStepSize
     } = labData || {};
 
     // Validate required fields
@@ -190,10 +204,14 @@ export async function POST(req) {
       );
     }
 
+    // If a full blob URL was passed instead of the short Lab-*.json form, normalize it.
+    // This can happen when the on-chain URI (full URL) is forwarded from the client.
+    const normalizedUri = uri.startsWith('Lab-') ? uri : (extractInternalLabUri(uri) || uri);
+
     // ===== AUTHORIZATION =====
     // Prefer explicit labId from request/body, fallback to extracting from URI.
     const resolvedLabId = body?.labId || labData?.labId || labData?.id;
-    const labIdFromUri = uri?.match(/-(\d+)\.json$/)?.[1];
+    const labIdFromUri = normalizedUri?.match(/-(\d+)\.json$/)?.[1];
     const labId = (resolvedLabId || labIdFromUri)?.toString?.();
 
     if (!labId) {
@@ -203,12 +221,12 @@ export async function POST(req) {
     await requireLabOwner(session, labId);
 
     // Extra safety: when persisting local "Lab-*.json" metadata, ensure the on-chain URI matches.
-    if (uri.startsWith('Lab-')) {
+    if (normalizedUri.startsWith('Lab-')) {
       try {
         const contract = await getContractInstance();
         const onchainTokenUri = await contract.tokenURI(labId);
         const normalizedOnchainUri = extractInternalLabUri(onchainTokenUri)
-        const matchesLocalUri = onchainTokenUri === uri || normalizedOnchainUri === uri
+        const matchesLocalUri = onchainTokenUri === normalizedUri || normalizedOnchainUri === normalizedUri
         if (!matchesLocalUri) {
           throw new BadRequestError('URI does not match the on-chain tokenURI for this lab');
         }
@@ -219,8 +237,8 @@ export async function POST(req) {
     }
 
     const isVercel = getIsVercel();
-    const filePath = path.join(process.cwd(), 'data', uri);
-    const blobName = uri;
+    const filePath = path.join(process.cwd(), 'data', normalizedUri);
+    const blobName = normalizedUri;
     let existingData = null;
     const timestamp = new Date().toISOString();
 
@@ -245,7 +263,8 @@ export async function POST(req) {
       }
     } else {
       try {
-        const blobUrl = path.join(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL, 'data', blobName);
+        const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL.replace(/\/+$/, '');
+        const blobUrl = `${blobBase}/data/${blobName}`;
         const response = await fetch(blobUrl);
         if (response.ok) {
           try {
@@ -273,6 +292,11 @@ export async function POST(req) {
     const normalizedUnavailableWindows = sanitizeUnavailableWindows(unavailableWindows)
     const normalizedTerms = sanitizeTermsOfUse(termsOfUse)
     const normalizedTimezone = typeof timezone === 'string' ? timezone.trim() : ''
+    const normalizedResourceType = typeof resourceType === 'string' ? resourceType.trim().toLowerCase() : ''
+    const normalizedFmuFileName = typeof fmuFileName === 'string' ? fmuFileName.trim() : ''
+    const normalizedDefaultStartTime = parseOptionalNumber(defaultStartTime)
+    const normalizedDefaultStopTime = parseOptionalNumber(defaultStopTime)
+    const normalizedDefaultStepSize = parseOptionalNumber(defaultStepSize)
 
     // Prepare new data structure
     const newData = {
@@ -296,11 +320,19 @@ export async function POST(req) {
         { trait_type: "maxConcurrentUsers", value: normalizedMaxUsers },
         { trait_type: "unavailableWindows", value: normalizedUnavailableWindows },
         { trait_type: "termsOfUse", value: normalizedTerms },
-        { trait_type: "timezone", value: normalizedTimezone }
+        { trait_type: "timezone", value: normalizedTimezone },
+        ...(normalizedResourceType ? [{ trait_type: "resourceType", value: normalizedResourceType }] : []),
+        ...(normalizedResourceType === 'fmu' && normalizedFmuFileName ? [{ trait_type: "fmuFileName", value: normalizedFmuFileName }] : []),
+        ...(fmiVersion ? [{ trait_type: "fmiVersion", value: fmiVersion }] : []),
+        ...(simulationType ? [{ trait_type: "simulationType", value: simulationType }] : []),
+        ...(modelVariables ? [{ trait_type: "modelVariables", value: modelVariables }] : []),
+        ...(normalizedDefaultStartTime !== null ? [{ trait_type: "defaultStartTime", value: normalizedDefaultStartTime }] : []),
+        ...(normalizedDefaultStopTime !== null ? [{ trait_type: "defaultStopTime", value: normalizedDefaultStopTime }] : []),
+        ...(normalizedDefaultStepSize !== null ? [{ trait_type: "defaultStepSize", value: normalizedDefaultStepSize }] : [])
       ],
       _meta: {
         lastUpdated: timestamp,
-        uri: uri,
+        uri: normalizedUri,
         version: existingData?._meta?.version ? existingData._meta.version + 1 : 1,
         // Add cache-busting timestamp for Vercel production
         cacheBreaker: Date.now()
@@ -348,14 +380,17 @@ export async function POST(req) {
     }
 
     // Return success response optimized for React Query
+    // Include finalData so the client can populate the metadata cache directly
+    // without a CDN round-trip (avoids CDN propagation race on first fetch).
     const successResponse = NextResponse.json(
       { 
         message: 'Lab data saved/updated successfully',
-        uri: uri,
+        uri: normalizedUri,
         version: finalData._meta.version,
         timestamp: timestamp,
         isUpdate: !!existingData,
-        cacheBreaker: finalData._meta.cacheBreaker
+        cacheBreaker: finalData._meta.cacheBreaker,
+        metadata: finalData
       }, 
       { status: 200 }
     );

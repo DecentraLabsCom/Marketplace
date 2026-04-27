@@ -8,54 +8,29 @@
 // Booking query keys
 export const bookingQueryKeys = {
   all: () => ['bookings'],
-  byUserPrefix: () => ['bookings', 'user'],
-  byUser: (address) => ['bookings', 'user', address],
   byLabPrefix: () => ['bookings', 'lab'],
   byLab: (labId) => ['bookings', 'lab', labId],
   byReservationKey: (key) => ['bookings', 'reservation', key],
-  userComposed: (address, includeDetails = false) => ['bookings', 'user-composed', address, includeDetails],
   labComposed: (labId, includeMetrics = true) => ['bookings', 'lab-composed', labId, includeMetrics],
   multiLab: (labIds, includeMetrics = false) => ['bookings', 'multi-lab', labIds.sort(), includeMetrics],
-  userReservationsComplete: (userAddress, limit) => ['bookings', 'userReservationsComplete', userAddress, limit],
 
-  
-  // Additional atomic query keys for all booking/reservation endpoints
+  // Lab-centric reservation queries
   getReservationsOfToken: (labId) => ['bookings', 'reservationsOfToken', labId],
   reservationOfTokenRoot: () => ['bookings', 'reservationOfToken'],
   reservationOfTokenPrefix: (labId) => ['bookings', 'reservationOfToken', labId],
-  getReservationsOfTokenByUser: (labId, userAddress, offset = 0, limit = 50) => ['bookings', 'reservationsOfTokenByUser', labId, userAddress, offset, limit],
   getReservationOfTokenByIndex: (labId, index) => ['bookings', 'reservationOfToken', labId, index],
-  reservationsOf: (userAddress) => ['bookings', 'reservationsOf', userAddress?.toLowerCase?.() ?? userAddress],
+
+  // SSO institutional user queries (session-based, no wallet address)
   ssoReservationsOf: () => ['bookings', 'sso', 'reservationsOf'],
-  reservationKeyOfUserPrefix: (userAddress) =>
-    userAddress ? ['bookings', 'reservationKeyOfUser', userAddress] : ['bookings', 'reservationKeyOfUser'],
-  reservationKeyOfUserByIndex: (userAddress, index) => ['bookings', 'reservationKeyOfUser', userAddress, index],
   ssoReservationKeyOfUserPrefix: () => ['bookings', 'sso', 'reservationKeyOfUser'],
   ssoReservationKeyOfUserByIndex: (index) => ['bookings', 'sso', 'reservationKeyOfUser', index],
-  totalReservations: () => ['bookings', 'totalReservations'],
-  userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
-  checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
-  hasActiveBooking: (reservationKey, userAddress) => [
-    'bookings',
-    'hasActiveBooking',
-    reservationKey,
-    userAddress,
-  ],
-  hasActiveBookingByToken: (labId, userAddress) => [
-    'bookings',
-    'hasActiveBookingByToken',
-    labId,
-    userAddress,
-  ],
-  activeReservationKeyForUser: (labId, userAddress) => ['bookings', 'activeReservationKey', labId, userAddress],
   ssoHasActiveBookingSession: () => ['bookings', 'sso', 'hasActiveBooking', 'session'],
   ssoActiveReservationKeySession: (labId) => ['bookings', 'sso', 'activeReservationKey', labId],
-  labTokenAddress: () => ['bookings', 'labTokenAddress'],
-  safeBalance: () => ['bookings', 'safeBalance'],
-  
-  // Institutional user query keys (SSO mode only)
-  // NOTE: SSO users never provide wallet address; all SSO keys are PUC-based
-  // kept above as ssoReservationsOf / ssoReservationKeyOfUserByIndex
+
+  // Shared queries
+  userOfReservation: (reservationKey) => ['bookings', 'userOfReservation', reservationKey],
+  checkAvailable: (labId, start, duration) => ['bookings', 'checkAvailable', labId, start, duration],
+  labCreditAddress: () => ['bookings', 'labCreditAddress'],
 };
 
 // Lab query keys
@@ -72,6 +47,7 @@ export const labQueryKeys = {
   getLab: (labId) => ['labs', 'getLab', labId],
   balanceOf: (ownerAddress) => ['labs', 'balanceOf', ownerAddress],
   ownerOf: (labId) => ['labs', 'ownerOf', labId],
+  getCreatorPucHash: (labId) => ['labs', 'getCreatorPucHash', labId],
   tokenOfOwnerByIndex: (ownerAddress, index) => ['labs', 'tokenOfOwnerByIndex', ownerAddress, index],
   tokenURI: (labId) => ['labs', 'tokenURI', labId],
   isTokenListed: (labId) => ['labs', 'isTokenListed', labId],
@@ -86,6 +62,7 @@ export const labQueryKeys = {
     ['labs', 'tokenURI', labId],
     ['labs', 'isTokenListed', labId],
     ['labs', 'ownerOf', labId],
+    ['labs', 'getCreatorPucHash', labId],
     ['labs', 'getLabReputation', labId],
   ],
   
@@ -117,16 +94,6 @@ export const providerQueryKeys = {
   
   // Provider status specific query keys
   isLabProvider: (address) => ['providers', 'isLabProvider', address],
-};
-
-// Staking query keys
-export const stakingQueryKeys = {
-  all: () => ['staking'],
-  stakeInfo: (providerAddress) => ['staking', 'stakeInfo', providerAddress],
-  requiredStake: (providerAddress) => ['staking', 'requiredStake', providerAddress],
-  pendingPayout: (labId) => ['staking', 'pendingPayout', labId],
-  pendingPayoutsMulti: (labIds) => ['staking', 'pendingPayouts', ...(labIds || []).sort()],
-  lockPeriod: () => ['staking', 'lockPeriod'],
 };
 
 // Metadata query keys

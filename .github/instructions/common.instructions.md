@@ -67,8 +67,8 @@ This project follows a set of coding standards and best practices to ensure code
    
    **Contract Interaction Guidelines**:
    - **Diamond Contract**: Use `useContractWriteFunction` for write operations and `useDefaultReadContract` for read operations. These wrappers handle contract addresses from environment variables and provide consistent error handling.
-   - **Standard ERC20 Contracts (LAB Token)**: Use Wagmi hooks directly (`useReadContract`, `useWriteContract`) when working with standard token operations, especially when:
-     * The contract address is resolved dynamically (e.g., from on-chain reads via `getLabTokenAddress()`)
+   - **Service-credit ledger / ERC20-compatible flows**: Use Wagmi hooks directly (`useReadContract`, `useWriteContract`) when working with standard token-like operations, especially when:
+     * The contract address is resolved dynamically (e.g., from deployment-backed credit-ledger resolution)
      * You need to interact with multiple token addresses
      * The wrapper abstractions become limiting
    - **Custom ABIs**: For contracts with custom ABIs or dynamic addresses, prefer direct Wagmi hooks with explicit ABI and address parameters.

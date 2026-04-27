@@ -31,6 +31,7 @@ jest.mock("@/utils/dev/logger", () => ({
   default: {
     info: jest.fn(),
     error: jest.fn(),
+    warn: jest.fn(),
     log: jest.fn(),
     moduleLoaded: jest.fn(),
   },
@@ -113,16 +114,17 @@ describe("Provider Mutation Hooks", () => {
       });
     });
 
-    test("removes old cache and invalidates queries on success", async () => {
+    test("falls back to invalidateQueries when direct metadata fetch fails", async () => {
       const mockLabData = { uri: "lab-456", name: "Another Lab" };
 
+      // Only mock the POST — the second fetch (metadata cache-bust) is intentionally
+      // left unmocked so it returns undefined, triggering the fallback invalidation path.
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ success: true }),
       });
 
       const queryClient = createTestQueryClient();
-      const removeQueriesSpy = jest.spyOn(queryClient, "removeQueries");
       const invalidateQueriesSpy = jest.spyOn(queryClient, "invalidateQueries");
 
       const { result } = renderHook(() => useSaveLabData(), {
@@ -133,16 +135,46 @@ describe("Provider Mutation Hooks", () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      expect(removeQueriesSpy).toHaveBeenCalledWith({
-        queryKey: metadataQueryKeys.byUri("lab-456"),
-        exact: true,
-      });
-
       expect(invalidateQueriesSpy).toHaveBeenCalledWith({
         queryKey: metadataQueryKeys.byUri("lab-456"),
         exact: true,
         refetchType: "all",
       });
+    });
+
+    test("updates cache directly when metadata fetch succeeds", async () => {
+      const mockLabData = { uri: "lab-456", name: "Another Lab" };
+      const freshMetadata = { name: "Another Lab", description: "Updated" };
+
+      // First call: the POST to saveLabData
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, cacheBreaker: 9999 }),
+      });
+      // Second call: the cache-busted GET to /api/metadata
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => freshMetadata,
+      });
+
+      const queryClient = createTestQueryClient();
+      const setQueryDataSpy = jest.spyOn(queryClient, "setQueryData");
+      const invalidateQueriesSpy = jest.spyOn(queryClient, "invalidateQueries");
+
+      const { result } = renderHook(() => useSaveLabData(), {
+        wrapper: createWrapper(queryClient),
+      });
+
+      result.current.mutate(mockLabData);
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(setQueryDataSpy).toHaveBeenCalledWith(
+        metadataQueryKeys.byUri("lab-456"),
+        freshMetadata
+      );
+      // invalidateQueries should NOT be called when the direct fetch succeeds
+      expect(invalidateQueriesSpy).not.toHaveBeenCalled();
     });
 
     test("calls custom onSuccess callback when provided", async () => {

@@ -65,11 +65,13 @@ export default function LabGrid({
             provider={lab.provider}
             price={lab.price}
             activeBooking={lab.hasActiveBooking}
+            activeBookingKey={lab.activeBookingKey}
             isListed={lab.isListed}
             image={lab.image || lab.images?.[0] || lab.imageUrls?.[0]}
             imagePriority={index < 3}
             reputation={lab.reputation}
             createdAt={lab.createdAt}
+            resourceType={lab.resourceType}
           />
         ))}
       </div>
@@ -97,7 +99,8 @@ LabGrid.propTypes = {
       institutionalCancellations: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
       lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
     }),
-    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   })),
   loading: PropTypes.bool,
   error: PropTypes.bool,

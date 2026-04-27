@@ -13,10 +13,6 @@ export {
   OnboardingStatus,
   OnboardingErrorCode,
   extractStableUserId,
-  initiateInstitutionalOnboarding,
-  checkOnboardingStatus,
-  pollOnboardingStatus,
-  checkUserOnboardingStatus,
 } from './institutionalOnboarding'
 export {
   storeOnboardingResult,

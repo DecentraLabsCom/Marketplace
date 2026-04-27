@@ -90,7 +90,8 @@ export async function GET(request) {
         }
       } else {
         try {
-          const blobUrl = path.join(process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL, 'data', metadataUri);
+          const blobBase = process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL.replace(/\/+$/, '');
+          const blobUrl = `${blobBase}/data/${metadataUri}`;
           // Add cache-busting parameter if 't' query param is present (from client)
           const cacheBuster = searchParams.get('t');
           const fetchUrl = cacheBuster ? `${blobUrl}?t=${cacheBuster}` : blobUrl;
@@ -143,10 +144,18 @@ export async function GET(request) {
       }
     } else {
       // External URI - proxy the request
+      // Forward the ?t= cache-buster if present so the Vercel Blob CDN is bypassed.
       try {
+        const cacheBuster = searchParams.get('t');
+        const fetchUri = cacheBuster ? `${metadataUri}?t=${cacheBuster}` : metadataUri;
         // Race between external fetch and timeout
         const response = await Promise.race([
-          fetch(metadataUri),
+          fetch(fetchUri, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          }),
           timeoutPromise(METADATA_FETCH_TIMEOUT)
         ]);
         

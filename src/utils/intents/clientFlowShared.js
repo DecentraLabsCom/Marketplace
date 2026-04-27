@@ -23,7 +23,7 @@ export const createIntentMutationError = (payload, fallbackMessage) => {
   } else if (code === 'lab_not_listed' || code === 'lab_not_found') {
     err.userMessage = 'Lab is not available'
   } else if (code === 'insufficient_balance') {
-    err.userMessage = 'Insufficient token balance'
+    err.userMessage = 'Insufficient credit balance'
   } else if (code === 'provider_rejected') {
     err.userMessage = 'Request rejected by provider'
   }

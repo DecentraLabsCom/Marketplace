@@ -7,6 +7,7 @@ import Link from 'next/link';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import Carrousel from '@/components/ui/Carrousel';
+import DocsCarrousel from '@/components/ui/DocsCarrousel';
 import LabAccess from '@/components/home/LabAccess';
 import { getBookingStatusDisplay, isConfirmedBooking } from '@/utils/booking/bookingStatus';
 import devLog from '@/utils/dev/logger';
@@ -157,18 +158,12 @@ export default function ActiveLabCard({
       </div>
       
       <div className={`w-full ${lab.docs?.length > 0 ? `` : 'h-25'} 
-        xl:flex-1 mb-4 flex flex-col justify-center p-2 
+        xl:flex-1 mb-4 flex flex-col justify-start p-2 pt-1 
         text-center rounded-lg shadow-md bg-gray-300`}>
         
         {lab.docs && lab.docs.length > 0 && (
-          <div className="mt-1">
-            <iframe 
-              src={lab.docs[0]} 
-              title="description" 
-              height="260px" 
-              width="100%" 
-              className='rounded-lg' 
-            />
+          <div className="flex-1">
+            <DocsCarrousel docs={lab.docs} maxHeight={320} />
           </div>
         )}
         
@@ -180,7 +175,7 @@ export default function ActiveLabCard({
         
         <Link 
           href={`/lab/${lab.id}`} 
-          className='px-3 mt-3 py-1 rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'
+          className='px-3 mt-2 py-1 rounded text-sm bg-[#759ca8] hover:bg-[#5f7a91] text-white'
         >
           Explore this lab
         </Link>

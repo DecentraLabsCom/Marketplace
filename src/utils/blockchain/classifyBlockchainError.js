@@ -145,7 +145,7 @@ const MESSAGE_PATTERNS = [
   // Allowance / approval issues
   {
     pattern: /allowance.*not\s*updated|approval\s*confirmation/i,
-    message: '❌ Token approval not confirmed',
+    message: '❌ Credit authorization not confirmed',
     priority: 'high',
     duration: 5000,
   },

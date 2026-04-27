@@ -59,30 +59,15 @@ export function OptimisticUIProvider({ children }) {
         bookingQueryKeys.byReservationKey(key),
       ]
       const labId = state?.labId
-      const userAddress = state?.userAddress && state?.userAddress !== 'unknown'
-        ? state.userAddress
-        : null
       if (labId !== null && labId !== undefined) {
         queryKeys.push(bookingQueryKeys.byLab(labId))
         queryKeys.push(bookingQueryKeys.getReservationsOfToken(labId))
         queryKeys.push({ queryKey: bookingQueryKeys.reservationOfTokenPrefix(labId), exact: false })
-      }
-      if (userAddress) {
-        queryKeys.push(bookingQueryKeys.byUser(userAddress))
-        queryKeys.push(bookingQueryKeys.reservationsOf(userAddress))
-        queryKeys.push({ queryKey: bookingQueryKeys.reservationKeyOfUserPrefix(userAddress), exact: false })
-      }
-      if (labId !== null && labId !== undefined && userAddress) {
-        queryKeys.push(bookingQueryKeys.activeReservationKeyForUser(labId, userAddress))
-        queryKeys.push(bookingQueryKeys.hasActiveBookingByToken(labId, userAddress))
-        queryKeys.push(bookingQueryKeys.hasActiveBooking(key, userAddress))
-      }
-      if (state?.isInstitutional && labId !== null && labId !== undefined) {
         queryKeys.push(bookingQueryKeys.ssoActiveReservationKeySession(labId))
       }
-      if (state?.isInstitutional) {
-        queryKeys.push(bookingQueryKeys.ssoHasActiveBookingSession())
-      }
+      queryKeys.push(bookingQueryKeys.ssoReservationsOf())
+      queryKeys.push({ queryKey: bookingQueryKeys.ssoReservationKeyOfUserPrefix(), exact: false })
+      queryKeys.push(bookingQueryKeys.ssoHasActiveBookingSession())
       enqueueReconciliationEntry({
         id: `booking:${key}`,
         category: 'booking',

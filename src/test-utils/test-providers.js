@@ -1,22 +1,9 @@
-import { render } from "@testing-library/react";
+﻿import { render } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiProvider, createConfig, http } from "wagmi";
-import { mainnet } from "wagmi/chains";
 import { NotificationProvider } from "@/context/NotificationContext";
 import { OptimisticUIProvider } from "@/context/OptimisticUIContext";
 import { UserData } from "@/context/UserContext";
-import { LabTokenProvider } from "@/context/LabTokenContext";
-
-/**
- * Creates a mock Wagmi configuration for testing purposes.
- * Uses a basic HTTP transport to avoid network calls during tests.
- */
-const testWagmiConfig = createConfig({
-  chains: [mainnet],
-  transports: {
-    [mainnet.id]: http(),
-  },
-});
+import { LabCreditProvider } from "@/context/LabCreditContext";
 
 /**
  * Factory function that creates a test wrapper with all necessary providers.
@@ -42,15 +29,13 @@ export function createTestWrapper() {
   return function TestWrapper({ children }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider config={testWagmiConfig}>
-          <NotificationProvider>
-            <OptimisticUIProvider>
-              <UserData>
-                <LabTokenProvider>{children}</LabTokenProvider>
-              </UserData>
-            </OptimisticUIProvider>
-          </NotificationProvider>
-        </WagmiProvider>
+        <NotificationProvider>
+          <OptimisticUIProvider>
+            <UserData>
+              <LabCreditProvider>{children}</LabCreditProvider>
+            </UserData>
+          </OptimisticUIProvider>
+        </NotificationProvider>
       </QueryClientProvider>
     );
   };
@@ -58,7 +43,7 @@ export function createTestWrapper() {
 
 /**
  * Utility function to render components with all application providers.
- * Wraps the component in QueryClient, Wagmi, and all context providers.
+ * Wraps the component in QueryClient and all application context providers.
  *
  * @param {React.ReactElement} ui - The component to render
  * @param {Object} options - Additional options to pass to the render function
@@ -71,3 +56,4 @@ export function renderWithAllProviders(ui, options = {}) {
   const Wrapper = createTestWrapper();
   return render(ui, { wrapper: Wrapper, ...options });
 }
+

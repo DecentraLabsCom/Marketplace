@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { Container, Stack } from '@/components/ui'
 import { useUser } from '@/context/UserContext'
 import { useNotifications } from '@/context/NotificationContext'
-import { useOptionalBookingEventContext } from '@/context/BookingEventContext'
 import { 
   useUserBookingsDashboard,
   useCancelBooking, 
@@ -15,9 +14,11 @@ import DashboardHeader from '@/components/dashboard/user/DashboardHeader'
 import ActiveBookingSection from '@/components/dashboard/user/ActiveBookingSection'
 import BookingSummarySection from '@/components/dashboard/user/BookingSummarySection'
 import BookingsList from '@/components/dashboard/user/BookingsList'
+import CreditAccountPanel from '@/components/dashboard/user/CreditAccountPanel'
 import { mapBookingsForCalendar } from '@/utils/booking/calendarBooking'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
 import devLog from '@/utils/dev/logger'
+import useCurrentTime from '@/hooks/useCurrentTime'
 import {
   notifyUserDashboardAlreadyCanceled,
   notifyUserDashboardCancellationProcessing,
@@ -25,7 +26,6 @@ import {
   notifyUserDashboardCancellationFailed,
   notifyUserDashboardCancellationRejected,
   notifyUserDashboardMissingBookingSelection,
-  notifyUserDashboardWalletRequired,
 } from '@/utils/notifications/userDashboardToasts'
 
 /**
@@ -38,23 +38,14 @@ export default function UserDashboard() {
     user,
     isLoggedIn,
     isSSO,
-    hasWalletSession,
-    isWalletLoading,
-    isConnected,
     address,
-    institutionRegistrationWallet,
   } = useUser();
   
-  // 🚀 React Query for user bookings with lab details
-  // NOTE: useUserBookingsDashboard is a composed hook that works for BOTH SSO and Wallet users
-  // It forces API mode (Ethers.js backend) because useQueries cannot extract Wagmi hooks as queryFn
-  // API endpoints are read-only blockchain queries that work for any wallet address
+  // Institutional bookings are resolved through backend/API queries only.
   const canFetchBookings = canFetchUserBookings({
     isLoggedIn,
     isSSO,
     address,
-    hasWalletSession,
-    isWalletLoading,
   });
   const effectiveUserAddress = resolveBookingsUserAddress({ isSSO, address });
   const { 
@@ -80,8 +71,6 @@ export default function UserDashboard() {
   );
 
   const { addTemporaryNotification } = useNotifications();
-  const { registerPendingCancellation } = useOptionalBookingEventContext();
-
   // 🚀 Unified React Query mutations for cancellation
   const cancelBookingUnified = useCancelBooking();
   const cancelReservationUnified = useCancelReservationRequest();
@@ -129,25 +118,6 @@ export default function UserDashboard() {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const handleCancelled = (event) => {
-      const reservationKey = event?.detail?.reservationKey;
-      if (!reservationKey) return;
-      cancellingKeysRef.current.delete(reservationKey);
-      setCancellationStage(reservationKey, null);
-      setFailedCancellations((prev) => {
-        const next = new Set(prev);
-        next.delete(reservationKey);
-        return next;
-      });
-    };
-
-    window.addEventListener('reservation-cancelled', handleCancelled);
-    return () => window.removeEventListener('reservation-cancelled', handleCancelled);
-  }, []);
-
-  useEffect(() => {
     if (!Array.isArray(userBookings) || userBookings.length === 0) {
       setCancellationStates(new Map());
       return;
@@ -175,11 +145,11 @@ export default function UserDashboard() {
   
   // Additional state variables
   const [userData, setUserData] = useState(null);
-  const [now, setNow] = useState(null);
+  const now = useCurrentTime({ intervalMs: 40000 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedLabId, setSelectedLabId] = useState(null);
 
-  const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking } = useMemo(() => {
+  const { activeBookingForDashboard, nextBookingForDashboard, highlightedUpcomingBooking, lastBookingForDashboard } = useMemo(() => {
     if (!now || !Array.isArray(userBookings) || userBookings.length === 0) {
       return {
         activeBookingForDashboard: null,
@@ -222,27 +192,32 @@ export default function UserDashboard() {
         })
         .sort((a, b) => Number(a.start) - Number(b.start))[0] || null;
 
+    const lastBooking = (!activeBooking && !nextUpcomingBooking)
+      ? userBookings
+        .filter((booking) => {
+          const status = parseStatus(booking?.status);
+          const end = parseUnix(booking?.end);
+          if (status === 5) return true; // Cancelled
+          if (status === 3 || status === 4) return true; // Completed / Collected
+          if ((status === 1 || status === 2) && end !== null && end < nowUnix) return true; // Temporally completed
+          if (status === 0 && end !== null && end < nowUnix) return true; // Expired pending
+          return false;
+        })
+        .sort((a, b) => {
+          const endA = parseUnix(a?.end) ?? parseUnix(a?.start) ?? 0;
+          const endB = parseUnix(b?.end) ?? parseUnix(b?.start) ?? 0;
+          return endB - endA; // Most recent first
+        })[0] || null
+      : null;
+
     return {
       activeBookingForDashboard: activeBooking,
       nextBookingForDashboard: nextUpcomingBooking,
       highlightedUpcomingBooking: nextUpcomingBooking,
+      lastBookingForDashboard: lastBooking,
     };
   }, [userBookings, now]);
   
-  // Initialize time on client side and update every minute to auto-move bookings from upcoming to past
-  useEffect(() => {
-    // Set initial time
-    setNow(new Date());
-    
-    // Update time every minute (60000ms) to automatically refresh booking lists
-    const intervalId = setInterval(() => {
-      setNow(new Date());
-      devLog.log('🕐 UserDashboard: Time updated for automatic booking list refresh');
-    }, 60000);
-    
-    // Cleanup interval on unmount
-    return () => clearInterval(intervalId);
-  }, []);
       
   const openModal = (type, labId, booking = null) => {
     setSelectedLabId(labId);
@@ -275,12 +250,6 @@ export default function UserDashboard() {
     // Check if already canceled
     if (booking.status === "5" || booking.status === 5) {
       notifyUserDashboardAlreadyCanceled(addTemporaryNotification);
-      return;
-    }
-
-    // Require wallet only for wallet path; allow SSO without wallet
-    if (!isSSO && !isConnected) {
-      notifyUserDashboardWalletRequired(addTemporaryNotification);
       return;
     }
 
@@ -323,17 +292,6 @@ export default function UserDashboard() {
         booking.reservationKey,
         { isRequest: isPending }
       );
-
-      if (typeof registerPendingCancellation === 'function') {
-        registerPendingCancellation(
-          booking.reservationKey,
-          booking.labId,
-          address || user?.userid
-        );
-      }
-
-      // UI removal is handled by BookingEventContext upon on-chain confirmation
-      // This prevents premature list updates and avoids full list refreshes
 
     } catch (error) {
       devLog.error('Cancellation failed:', error);
@@ -495,6 +453,7 @@ export default function UserDashboard() {
                 <ActiveBookingSection 
                   activeBooking={activeBookingForDashboard}
                   nextBooking={nextBookingForDashboard}
+                  lastBooking={lastBookingForDashboard}
                   userAddress={effectiveUserAddress}
                   onBookingAction={handleCancellation}
                   cancellationStates={cancellationStates}
@@ -522,13 +481,20 @@ export default function UserDashboard() {
                 {/* Booking summary section - uses optimized hook */}
                 <div className="w-full">
                   <BookingSummarySection 
-                    userAddress={isSSO ? null : (user?.userid || address)}
+                    userAddress={null}
                     options={{
                       enabled: canFetchBookings,
                       staleTime: 10 * 60 * 1000, // 10 minutes - summary is less dynamic
                     }}
                   />
                 </div>
+
+                {/* Credit account panel - SSO institutional users only */}
+                {isSSO && (
+                  <div className="w-full">
+                    <CreditAccountPanel />
+                  </div>
+                )}
               </div>
             </div>
             {/* Bottom panel: bookings lists */}
@@ -567,7 +533,7 @@ export default function UserDashboard() {
                 selectedBooking={selectedBooking}
                 selectedLabId={selectedLabId}
                 isSSOUser={Boolean(isSSO)}
-                userInstitutionWallet={institutionRegistrationWallet}
+                userInstitutionWallet={address}
                 closeModal={closeModal}
               />
             </div>

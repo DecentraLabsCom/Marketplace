@@ -9,6 +9,7 @@ import {
   useLab,
   useLabSSO,
   useLabOwner,
+  useLabCreatorPucHashSSO,
   useLabOwnerSSO,
   useIsTokenListed,
   useIsTokenListedSSO,
@@ -20,7 +21,7 @@ import { useProviderMapping } from '@/utils/hooks/useProviderMapping'
 import { useMetadata, METADATA_QUERY_CONFIG } from '@/hooks/metadata/useMetadata'
 import { useLabImageQuery } from '@/hooks/metadata/useLabImage'
 import { processMetadataImages } from '@/hooks/utils/metadataHelpers'
-import { buildEnrichedLab, collectMetadataImages } from './labEnrichmentHelpers'
+import { buildEnrichedLab, collectMetadataImages, normalizeLabIds } from './labEnrichmentHelpers'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { labQueryKeys, metadataQueryKeys, labImageQueryKeys } from '@/utils/hooks/queryKeys'
 import { useOptimisticUI } from '@/context/OptimisticUIContext'
@@ -107,7 +108,7 @@ const usePruneDeletedLabIds = (labIds, labDetailResults, listingResults) => {
  */
 /**
  * ⚠️ ARCHITECTURAL NOTE: This specialized hook uses useQueries with SSO .queryFn
- * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * API endpoints are read-only blockchain queries used by the institutional runtime
  * This is the correct pattern for composed/specialized hooks per project architecture
  */
 export const useLabsForMarket = (options = {}) => {
@@ -127,10 +128,7 @@ export const useLabsForMarket = (options = {}) => {
     enabled: queryOptions.enabled !== false,
     
     // ✅ Convert BigInt IDs to numbers in select to prevent serialization errors
-    select: (data) => {
-      if (!data || !Array.isArray(data)) return [];
-      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
-    }
+    select: normalizeLabIds
   });
 
   const labIds = labIdsResult.data || EMPTY_ARRAY;
@@ -384,6 +382,7 @@ export const useLabsForMarket = (options = {}) => {
  */
 export const useLabById = (labId, options = {}) => {
   const normalizedLabId = labId ? String(labId) : null;
+  const { getEffectiveListingState } = useOptimisticUI();
 
   // Get lab details
   const labResult = useLab(normalizedLabId, {
@@ -424,6 +423,10 @@ export const useLabById = (labId, options = {}) => {
   // Extract image URLs from metadata for caching
   const metadata = metadataResult.data;
   const imageUrlsToCache = useMemo(() => collectMetadataImages(metadata), [metadata]);
+  const serverIsListed = listingResult.data?.isListed;
+  const effectiveListingState = listingResult.error
+    ? { isListed: true, isPending: false, operation: null }
+    : getEffectiveListingState(normalizedLabId, serverIsListed);
 
   // Cache images
   const imageResults = useQueries({
@@ -443,13 +446,11 @@ export const useLabById = (labId, options = {}) => {
 
   const isLoading = labResult.isLoading || ownerResult.isLoading || listingResult.isLoading || metadataResult.isLoading || imageResults.some(r => r.isLoading);
   
-  // Only critical errors (lab, owner, listing) should fail the entire query
+  // Only critical errors (lab, owner) should fail the entire query.
+  // Listing errors are treated as recoverable to avoid false "Not Available" states.
   // Metadata errors should be gracefully handled with fallbacks
-  const hasCriticalErrors = labResult.error || ownerResult.error || listingResult.error;
+  const hasCriticalErrors = labResult.error || ownerResult.error;
   const hasMetadataError = metadataResult.error;
-
-  // Check if lab is listed
-  const isListed = listingResult.data?.isListed;
 
   // Transform data - Always return lab if it exists, include listing status
   const lab = useMemo(() => {
@@ -462,7 +463,7 @@ export const useLabById = (labId, options = {}) => {
     return buildEnrichedLab({
       lab: labResult.data,
       metadata,
-      isListed,
+      isListed: effectiveListingState.isListed,
       reputation: reputationResult.data,
       ownerAddress,
       providerMapping,
@@ -471,8 +472,8 @@ export const useLabById = (labId, options = {}) => {
       includeProviderFallback: true
     });
   }, [
+    effectiveListingState.isListed,
     imageUrlsToCache,
-    isListed,
     labResult.data,
     metadata,
     ownerResult.data,
@@ -493,7 +494,7 @@ export const useLabById = (labId, options = {}) => {
     isLoading,
     isSuccess: !hasCriticalErrors && !!lab,
     isError: hasCriticalErrors,
-    error: labResult.error || ownerResult.error || listingResult.error,
+    error: labResult.error || ownerResult.error,
     metadataError: hasMetadataError ? metadataResult.error : null, // Separate metadata errors
     refetch: () => {
       labResult.refetch();
@@ -514,7 +515,7 @@ export const useLabById = (labId, options = {}) => {
  * @returns {Object} Labs owned by the address
  * 
  * ⚠️ ARCHITECTURAL NOTE: Uses useQueries with SSO .queryFn
- * API endpoints work for both SSO and Wallet users - correct pattern for composed hooks
+ * API endpoints are safe for composed hooks in the institutional runtime
  */
 export const useLabsForProvider = (ownerAddress, options = {}) => {
   // Get all lab IDs first - Use SSO variant directly per architecture
@@ -522,10 +523,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     ...LAB_QUERY_CONFIG,
     enabled: !!ownerAddress && (options.enabled !== false),
     // Convert BigInt IDs to numbers in select to prevent serialization errors
-    select: (data) => {
-      if (!data || !Array.isArray(data)) return [];
-      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
-    }
+    select: normalizeLabIds
   });
 
   const labIds = labIdsResult.data || EMPTY_ARRAY;
@@ -544,7 +542,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   });
 
   // Filter lab IDs by ownership and get details only for owned labs
-  const ownedLabIds = useMemo(() => {
+  const ownerMatchedLabIds = useMemo(() => {
     if (!ownerAddress) return EMPTY_ARRAY;
 
     return labIds.filter((labId, index) => {
@@ -553,6 +551,33 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
       return labOwner && labOwner.toLowerCase() === ownerAddress.toLowerCase();
     });
   }, [labIds, ownerAddress, ownerResults]);
+
+  const creatorHashResults = useQueries({
+    queries: ownerMatchedLabIds.length > 0 && options.creatorPucHash
+      ? ownerMatchedLabIds.map((labId) => ({
+          queryKey: labQueryKeys.getCreatorPucHash(labId),
+          queryFn: () => useLabCreatorPucHashSSO.queryFn(labId),
+          enabled: !!labId,
+          ...LAB_QUERY_CONFIG,
+        }))
+      : [],
+    combine: (results) => results
+  });
+
+  const ownedLabIds = useMemo(() => {
+    if (!options.creatorPucHash) {
+      return ownerMatchedLabIds;
+    }
+
+    return ownerMatchedLabIds.filter((labId, index) => {
+      const creatorHashData = creatorHashResults[index]?.data;
+      const creatorPucHash = creatorHashData?.creatorPucHash || creatorHashData;
+      return (
+        typeof creatorPucHash === 'string'
+        && creatorPucHash.toLowerCase() === options.creatorPucHash.toLowerCase()
+      );
+    });
+  }, [creatorHashResults, options.creatorPucHash, ownerMatchedLabIds]);
 
   // Get lab details only for owned labs
   const labDetailResults = useQueries({
@@ -641,6 +666,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   const isLoading = labIdsResult.isLoading || 
                    ownerResults.some(r => r.isLoading) ||
+                   creatorHashResults.some(r => r.isLoading) ||
                    labDetailResults.some(r => r.isLoading) ||
                    listingResults.some(r => r.isLoading) ||
                    metadataResults.some(r => r.isLoading) ||
@@ -648,6 +674,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
 
   const hasCriticalError = Boolean(labIdsResult.error);
   const hasRecoverableErrors =
+    creatorHashResults.some(r => r.error) ||
     labDetailResults.some(r => r.error);
 
   // Transform data
@@ -687,12 +714,14 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
   const shouldReportError =
     hasCriticalError || (ownedLabs.length === 0 && hasRecoverableErrors);
   const firstRecoverableError =
+    creatorHashResults.find(r => r.error)?.error ||
     labDetailResults.find(r => r.error)?.error ||
     null;
 
   devLog.log('👨‍🔬 useLabsForProvider - Result:', {
     ownerAddress,
     totalLabsChecked: labIds.length,
+    ownerMatchedLabsCount: ownerMatchedLabIds.length,
     ownedLabsCount: ownedLabs.length,
     ownedLabIds: ownedLabs.map(lab => lab.id)
   });
@@ -706,6 +735,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
     refetch: () => {
       labIdsResult.refetch();
       ownerResults.forEach(r => r.refetch && r.refetch());
+      creatorHashResults.forEach(r => r.refetch && r.refetch());
       labDetailResults.forEach(r => r.refetch && r.refetch());
       listingResults.forEach(r => r.refetch && r.refetch());
       metadataResults.forEach(r => r.refetch && r.refetch());
@@ -722,7 +752,7 @@ export const useLabsForProvider = (ownerAddress, options = {}) => {
  * @returns {Object} Labs with complete data needed for reservation functionality
  * 
  * ⚠️ ARCHITECTURAL NOTE: Uses SSO variant directly per architecture
- * API endpoints are read-only blockchain queries that work for both SSO and Wallet users
+ * API endpoints are read-only blockchain queries used by the institutional runtime
  */
 export const useLabsForReservation = (options = {}) => {
   // Step 1: Get all lab IDs - Use SSO variant directly per architecture
@@ -730,10 +760,7 @@ export const useLabsForReservation = (options = {}) => {
     ...LAB_QUERY_CONFIG,
     enabled: options.enabled !== false,
     // Convert BigInt IDs to numbers in select to prevent serialization errors
-    select: (data) => {
-      if (!data || !Array.isArray(data)) return [];
-      return data.map(id => typeof id === 'bigint' ? Number(id) : Number(id));
-    }
+    select: normalizeLabIds
   });
 
   const labIds = labIdsResult.data || EMPTY_ARRAY;

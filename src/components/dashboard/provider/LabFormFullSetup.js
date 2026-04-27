@@ -1,82 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { UploadCloud, Link, XCircle, Plus, Trash2, Loader2 } from 'lucide-react'
+import { useTermsMetadataAutoFetch } from '@/hooks/lab/useTermsMetadataAutoFetch'
 import { CalendarInput } from '@/components/ui'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
 import CategoryMultiSelect from '../../ui/forms/CategoryMultiSelect'
-
-const WEEKDAY_OPTIONS = [
-  { value: 'MONDAY', label: 'Mon' },
-  { value: 'TUESDAY', label: 'Tue' },
-  { value: 'WEDNESDAY', label: 'Wed' },
-  { value: 'THURSDAY', label: 'Thu' },
-  { value: 'FRIDAY', label: 'Fri' },
-  { value: 'SATURDAY', label: 'Sat' },
-  { value: 'SUNDAY', label: 'Sun' }
-]
-
-const DEFAULT_TIMEZONES = [
-  'UTC',
-  'Europe/Madrid',
-  'Europe/London',
-  'Europe/Paris',
-  'Europe/Berlin',
-  'Europe/Rome',
-  'Europe/Amsterdam',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Mexico_City',
-  'America/Bogota',
-  'America/Sao_Paulo',
-  'America/Argentina/Buenos_Aires',
-  'Africa/Johannesburg',
-  'Asia/Tokyo',
-  'Asia/Seoul',
-  'Asia/Shanghai',
-  'Asia/Singapore',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-  'Pacific/Auckland'
-]
-
-function resolveSupportedTimezones() {
-  if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
-    try {
-      const values = Intl.supportedValuesOf('timeZone')
-      if (Array.isArray(values) && values.length > 0) {
-        return values
-      }
-    } catch (error) {
-      // Ignore and fall back to defaults.
-    }
-  }
-  return DEFAULT_TIMEZONES
-}
-
-function resolveBrowserTimezone() {
-  if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
-    try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      if (timezone && typeof timezone === 'string') {
-        return timezone
-      }
-    } catch (error) {
-      // Ignore and fall back to UTC.
-    }
-  }
-  return 'UTC'
-}
-
-function normalizeArray(value) {
-  return Array.isArray(value) ? value : []
-}
-
-function normalizeObject(value, fallback = {}) {
-  return value && typeof value === 'object' ? value : fallback
-}
+import { RESOURCE_TYPES } from '@/utils/resourceType'
+import FmuFieldsSection from './FmuFieldsSection'
+import {
+  WEEKDAY_OPTIONS,
+  resolveSupportedTimezones,
+  resolveBrowserTimezone,
+  normalizeArray,
+  normalizeObject,
+} from './labFormUtils'
 
 export default function LabFormFullSetup({
   localLab = {},
@@ -116,7 +54,8 @@ export default function LabFormFullSetup({
   termsShaRef,
   showMediaSections = true,
   onSubmit,
-  onCancel
+  onCancel,
+  isUploading = false,
 }) {
   const availableDays = normalizeArray(localLab.availableDays)
   const availableHours = normalizeObject(localLab.availableHours, { start: '', end: '' })
@@ -132,12 +71,9 @@ export default function LabFormFullSetup({
   minOpenDate.setHours(0, 0, 0, 0)
 
   const disabled = isExternalURI
-  const [termsFetchState, setTermsFetchState] = useState({ loading: false, error: null })
   const [timezoneOptions] = useState(() => resolveSupportedTimezones())
   const latestLabRef = useRef(localLab)
   const setLocalLabRef = useRef(setLocalLab)
-  const lastFetchedUrlRef = useRef('')
-  const termsAbortControllerRef = useRef(null)
 
   useEffect(() => {
     latestLabRef.current = localLab
@@ -270,114 +206,8 @@ export default function LabFormFullSetup({
     handleBasicChange('termsOfUse', { ...termsOfUse, [field]: value })
   }
 
-  const convertBufferToHex = (buffer) =>
-    Array.from(new Uint8Array(buffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-
-  const guessVersionFromUrl = (url) => {
-    const filename = url.split('/').pop() || ''
-    const versionRegex = /v(?:ersion)?[-_]?(\d+(?:\.\d+)*)/i
-    const match = filename.match(versionRegex)
-    return match ? match[1] : ''
-  }
-
   const termsUrl = termsOfUse.url?.trim() || ''
-
-  useEffect(() => {
-    if (!termsUrl) {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-        termsAbortControllerRef.current = null
-      }
-      setTermsFetchState((prev) => (prev.loading ? { loading: false, error: null } : prev))
-      lastFetchedUrlRef.current = ''
-      return
-    }
-
-    if (termsUrl === lastFetchedUrlRef.current) {
-      return
-    }
-
-    const fetchMetadata = async () => {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-      }
-
-      if (!/^https?:\/\//i.test(termsUrl)) {
-        setTermsFetchState({ loading: false, error: 'Terms link must be an absolute HTTP(S) URL.' })
-        return
-      }
-
-      const controller = new AbortController()
-      termsAbortControllerRef.current = controller
-      setTermsFetchState({ loading: true, error: null })
-
-      try {
-        const response = await fetch(termsUrl, { signal: controller.signal })
-        if (!response.ok) {
-          throw new Error('Unable to download the Terms of Use document.')
-        }
-
-        const buffer = await response.arrayBuffer()
-        let shaValue = ''
-        if (typeof window !== 'undefined' && window.crypto?.subtle?.digest) {
-          const hashBuffer = await window.crypto.subtle.digest('SHA-256', buffer)
-          shaValue = convertBufferToHex(hashBuffer)
-        }
-
-        const versionGuess = guessVersionFromUrl(termsUrl)
-        const today = new Date().toISOString().split('T')[0]
-        const currentLab = latestLabRef.current || {}
-        const currentTerms = currentLab.termsOfUse || {}
-        const updates = { url: termsUrl }
-
-        if (!currentTerms.version && versionGuess) {
-          updates.version = versionGuess
-        }
-        if (!currentTerms.effectiveDate) {
-          updates.effectiveDate = today
-        }
-        if (shaValue) {
-          updates.sha256 = shaValue
-        }
-
-        setLocalLabRef.current({
-          ...currentLab,
-          termsOfUse: {
-            ...currentTerms,
-            ...updates
-          }
-        })
-
-        lastFetchedUrlRef.current = termsUrl
-        setTermsFetchState({ loading: false, error: null })
-      } catch (error) {
-        if (error.name === 'AbortError') return
-        console.error('Failed to auto-populate terms metadata:', error)
-        setTermsFetchState({
-          loading: false,
-          error: 'Unable to auto-fill version/date/hash for this link.'
-        })
-        lastFetchedUrlRef.current = ''
-      } finally {
-        if (termsAbortControllerRef.current === controller) {
-          termsAbortControllerRef.current = null
-        }
-      }
-    }
-
-    fetchMetadata()
-  }, [termsUrl])
-
-  useEffect(() => {
-    return () => {
-      if (termsAbortControllerRef.current) {
-        termsAbortControllerRef.current.abort()
-        termsAbortControllerRef.current = null
-      }
-    }
-  }, [])
+  const termsFetchState = useTermsMetadataAutoFetch(termsUrl, latestLabRef, setLocalLabRef)
 
   const handleTimeFieldClick = useCallback((event) => {
     if (typeof event.currentTarget.showPicker === 'function') {
@@ -411,7 +241,7 @@ export default function LabFormFullSetup({
           disabled={disabled}
           ref={nameRef}
         />
-        {errors.name && <p className="text-red-500 text-sm !mt-1">{errors.name}</p>}
+        {errors.name && <p className="text-red-500 text-sm mt-1!">{errors.name}</p>}
 
         <div>
           <label className="block text-sm font-medium text-gray-900 mb-1">Categories</label>
@@ -436,7 +266,7 @@ export default function LabFormFullSetup({
             disabled={disabled}
             ref={priceRef}
           />
-          {errors.price && <p className="text-red-500 text-sm !mt-1">{errors.price}</p>}
+          {errors.price && <p className="text-red-500 text-sm mt-1!">{errors.price}</p>}
         </div>
 
         <input
@@ -450,7 +280,7 @@ export default function LabFormFullSetup({
           disabled={disabled}
           ref={keywordsRef}
         />
-        {errors.keywords && <p className="text-red-500 text-sm !mt-1">{errors.keywords}</p>}
+        {errors.keywords && <p className="text-red-500 text-sm mt-1!">{errors.keywords}</p>}
 
         <textarea
           placeholder="Description"
@@ -461,7 +291,7 @@ export default function LabFormFullSetup({
           disabled={disabled}
           ref={descriptionRef}
         />
-        {errors.description && <p className="text-red-500 text-sm !mt-1">{errors.description}</p>}
+        {errors.description && <p className="text-red-500 text-sm mt-1!">{errors.description}</p>}
       </section>
 
       <section className="space-y-4">
@@ -476,7 +306,7 @@ export default function LabFormFullSetup({
             disabled={disabled}
             ref={accessURIRef}
           />
-          {errors.accessURI && <p className="text-red-500 text-sm !mt-1">{errors.accessURI}</p>}
+          {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
         </div>
         <div>
           <input
@@ -488,9 +318,20 @@ export default function LabFormFullSetup({
             disabled={disabled}
             ref={accessKeyRef}
           />
-          {errors.accessKey && <p className="text-red-500 text-sm !mt-1">{errors.accessKey}</p>}
+          {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
         </div>
       </section>
+
+      {/* FMU-Specific Fields — shown only when resourceType === 'fmu' */}
+      {localLab?.resourceType === RESOURCE_TYPES.FMU && (
+        <FmuFieldsSection
+          localLab={localLab}
+          handleBasicChange={handleBasicChange}
+          errors={errors}
+          disabled={disabled}
+          gatewayUrl={localLab?.accessURI}
+        />
+      )}
 
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Availability & Scheduling</h3>
@@ -505,7 +346,7 @@ export default function LabFormFullSetup({
               containerClassName="w-full"
               labelClassName="md:text-left"
             />
-            {errors.opens && <p className="text-red-500 text-sm !mt-1">{errors.opens}</p>}
+            {errors.opens && <p className="text-red-500 text-sm mt-1!">{errors.opens}</p>}
           </div>
           <div className="w-full md:flex-1">
             <CalendarInput
@@ -515,7 +356,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
               containerClassName="w-full"
             />
-            {errors.closes && <p className="text-red-500 text-sm !mt-1">{errors.closes}</p>}
+            {errors.closes && <p className="text-red-500 text-sm mt-1!">{errors.closes}</p>}
           </div>
         </div>
 
@@ -537,7 +378,7 @@ export default function LabFormFullSetup({
             </button>
           ))}
         </div>
-        {errors.availableDays && <p className="text-red-500 text-sm !mt-1">{errors.availableDays}</p>}
+        {errors.availableDays && <p className="text-red-500 text-sm mt-1!">{errors.availableDays}</p>}
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
@@ -563,7 +404,7 @@ export default function LabFormFullSetup({
                   </option>
                 ))}
             </select>
-            {errors.timezone && <p className="text-red-500 text-sm !mt-1">{errors.timezone}</p>}
+            {errors.timezone && <p className="text-red-500 text-sm mt-1!">{errors.timezone}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">Time Slots (minutes)</label>
@@ -577,7 +418,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
               ref={timeSlotsRef}
             />
-            {errors.timeSlots && <p className="text-red-500 text-sm !mt-1">{errors.timeSlots}</p>}
+            {errors.timeSlots && <p className="text-red-500 text-sm mt-1!">{errors.timeSlots}</p>}
           </div>
         </div>
 
@@ -594,7 +435,7 @@ export default function LabFormFullSetup({
               ref={availableHoursStartRef}
             />
             {errors.availableHoursStart && (
-              <p className="text-red-500 text-sm !mt-1">{errors.availableHoursStart}</p>
+              <p className="text-red-500 text-sm mt-1!">{errors.availableHoursStart}</p>
             )}
           </div>
           <div>
@@ -609,7 +450,7 @@ export default function LabFormFullSetup({
               ref={availableHoursEndRef}
             />
             {errors.availableHoursEnd && (
-              <p className="text-red-500 text-sm !mt-1">{errors.availableHoursEnd}</p>
+              <p className="text-red-500 text-sm mt-1!">{errors.availableHoursEnd}</p>
             )}
           </div>
         </div>
@@ -627,7 +468,7 @@ export default function LabFormFullSetup({
             ref={maxConcurrentUsersRef}
           />
           {errors.maxConcurrentUsers && (
-            <p className="text-red-500 text-sm !mt-1">{errors.maxConcurrentUsers}</p>
+            <p className="text-red-500 text-sm mt-1!">{errors.maxConcurrentUsers}</p>
           )}
         </div>
       </section>
@@ -705,7 +546,7 @@ export default function LabFormFullSetup({
           ))}
         </div>
         {errors.unavailableWindows && (
-          <p className="text-red-500 text-sm !mt-1">{errors.unavailableWindows}</p>
+          <p className="text-red-500 text-sm mt-1!">{errors.unavailableWindows}</p>
         )}
       </section>
 
@@ -732,7 +573,7 @@ export default function LabFormFullSetup({
             <p className="text-sm text-red-500 mt-1">{termsFetchState.error}</p>
           )}
           {errors.termsOfUseUrl && (
-            <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseUrl}</p>
+            <p className="text-red-500 text-sm mt-1!">{errors.termsOfUseUrl}</p>
           )}
         </div>
         <input
@@ -752,10 +593,10 @@ export default function LabFormFullSetup({
           ref={termsShaRef}
         />
         {errors.termsOfUseEffectiveDate && (
-          <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseEffectiveDate}</p>
+          <p className="text-red-500 text-sm mt-1!">{errors.termsOfUseEffectiveDate}</p>
         )}
         {errors.termsOfUseSha && (
-          <p className="text-red-500 text-sm !mt-1">{errors.termsOfUseSha}</p>
+          <p className="text-red-500 text-sm mt-1!">{errors.termsOfUseSha}</p>
         )}
       </section>
 
@@ -774,7 +615,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <Link className="mr-2 ml-[-2px] w-4" />
+                <Link className="mr-2 -ml-0.5 w-4" />
                 <span>Link</span>
               </div>
             </button>
@@ -787,7 +628,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <UploadCloud className="mr-2 ml-[-2px] w-4" />
+                <UploadCloud className="mr-2 -ml-0.5 w-4" />
                 <span>Upload</span>
               </div>
             </button>
@@ -865,7 +706,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <Link className="mr-2 ml-[-2px] w-4" />
+                <Link className="mr-2 -ml-0.5 w-4" />
                 <span>Link</span>
               </div>
             </button>
@@ -878,7 +719,7 @@ export default function LabFormFullSetup({
               disabled={disabled}
             >
               <div className="flex items-center justify-center">
-                <UploadCloud className="mr-2 ml-[-2px] w-4" />
+                <UploadCloud className="mr-2 -ml-0.5 w-4" />
                 <span>Upload</span>
               </div>
             </button>
@@ -948,10 +789,10 @@ export default function LabFormFullSetup({
       <div className="flex justify-between pt-4">
         <button
           type="submit"
-          disabled={disabled}
+          disabled={disabled || isUploading}
           className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68] disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300"
         >
-          {localLab?.id ? 'Save Changes' : 'Add Lab'}
+          {isUploading ? 'Uploading…' : (localLab?.id ? 'Save Changes' : (localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Add FMU Simulation' : 'Add Lab'))}
         </button>
         <button
           type="button"
@@ -1003,5 +844,6 @@ LabFormFullSetup.propTypes = {
   termsShaRef: PropTypes.object,
   showMediaSections: PropTypes.bool,
   onSubmit: PropTypes.func.isRequired,
-  onCancel: PropTypes.func.isRequired
+  onCancel: PropTypes.func.isRequired,
+  isUploading: PropTypes.bool,
 }

@@ -13,14 +13,7 @@ export const institutionToastIds = {
   providerRegistrationFailed: () => 'institution-provider-registration-failed',
 }
 
-const notify = (addTemporaryNotification, type, message, dedupeKey, extraOptions = {}) => {
-  if (typeof addTemporaryNotification !== 'function') return
-  addTemporaryNotification(type, message, null, {
-    dedupeKey,
-    dedupeWindowMs: 20000,
-    ...extraOptions,
-  })
-}
+import { notify } from './notify'
 
 export const notifyInstitutionProvisioningAccessDenied = (addTemporaryNotification, tokenType = 'provider') =>
   notify(

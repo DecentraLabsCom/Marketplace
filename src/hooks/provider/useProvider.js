@@ -7,6 +7,19 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { metadataQueryKeys } from '@/utils/hooks/queryKeys'
 import devLog from '@/utils/dev/logger'
 
+const createApiError = async (response, fallbackMessage) => {
+  const errorData = await response.json().catch(() => ({}))
+  const error = new Error(errorData.error || fallbackMessage)
+  if (errorData.code) {
+    error.code = errorData.code
+  }
+  error.status = response.status
+  if (errorData.details) {
+    error.details = errorData.details
+  }
+  return error
+}
+
 
 /**
  * Hook for saving lab data
@@ -48,8 +61,7 @@ export const useSaveLabData = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to save lab data: ${response.status}`);
+          throw await createApiError(response, `Failed to save lab data: ${response.status}`);
         }
         
         const data = await response.json();
@@ -64,54 +76,50 @@ export const useSaveLabData = (options = {}) => {
       devLog.log('🔄 [useSaveLabData] onSuccess - starting cache updates for:', variables?.uri);
       
       if (variables?.uri) {
-        // Step 1: Remove the old data from cache immediately so we start fresh
-        queryClient.removeQueries({
-          queryKey: metadataQueryKeys.byUri(variables.uri),
-          exact: true
-        });
-        devLog.log('�️ [useSaveLabData] Removed old cache for:', variables.uri);
+        // Use the on-chain URI as the cache key when available — components subscribe to
+        // the on-chain URI (full blob URL), not the local 'Lab-*.json' form stored in variables.uri.
+        const cacheKeyUri = variables.onchainUri || variables.uri;
 
-        // Step 1b: Pre-populate metadata cache with the provided labData so UI shows name immediately
-        try {
-          const labData = variables.labData || {};
-          const prepopulated = {
-            name: labData.name || '',
-            description: labData.description || '',
-            image: (Array.isArray(labData.images) && labData.images[0]) || labData.image || '',
-            images: Array.isArray(labData.images) ? labData.images : (labData.images ? [labData.images] : []),
-            attributes: [
-              { trait_type: 'category', value: Array.isArray(labData.category) ? labData.category : (labData.category || '') },
-              { trait_type: 'keywords', value: Array.isArray(labData.keywords) ? labData.keywords : (labData.keywords ? labData.keywords.split(',').map(k => k.trim()) : []) }
-            ],
-            _meta: {
-              uri: variables.uri,
-              version: data?.version || 1,
-              timestamp: data?.timestamp || Date.now(),
-              cacheBreaker: data?.cacheBreaker || null
-            }
-          };
-
-          queryClient.setQueryData(metadataQueryKeys.byUri(variables.uri), (old) => {
-            if (!old) return prepopulated;
-            return { ...old, ...prepopulated };
-          });
-
-          devLog.log('🛠️ [useSaveLabData] Prepopulated metadata cache for:', variables.uri);
-        } catch (err) {
-          devLog.error('Failed to prepopulate metadata cache:', err);
+        // If the route returned the saved metadata directly, use it to populate the cache
+        // immediately without a CDN round-trip. This avoids the CDN propagation race where
+        // the blob was just written but the CDN edge hasn't picked it up yet.
+        if (data?.metadata) {
+          queryClient.setQueryData(metadataQueryKeys.byUri(cacheKeyUri), data.metadata);
+          devLog.log('✅ [useSaveLabData] Cache populated from response payload for key:', cacheKeyUri);
+          return;
         }
 
-        // Step 2: Add a small delay to ensure blob propagation in Vercel
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Step 3: Force invalidation with aggressive settings so the real remote metadata replaces the prepopulated one
+        // Small delay to ensure the Vercel blob CDN propagates the write before we read it back.
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Force-fetch fresh metadata with cache-busting to bypass the CDN stale entry.
+        // Always use the local 'Lab-*.json' URI for the API call so the route takes the
+        // blob path (which supports the '?t=' cache-buster) regardless of the on-chain URI format.
+        const cacheBuster = data?.cacheBreaker || Date.now();
+        try {
+          const freshResponse = await fetch(
+            `/api/metadata?uri=${encodeURIComponent(variables.uri)}&t=${cacheBuster}`,
+            { headers: { 'Cache-Control': 'no-cache' } }
+          );
+          if (freshResponse.ok) {
+            const freshData = await freshResponse.json();
+            // Populate under the correct cache key so subscribed components re-render.
+            queryClient.setQueryData(metadataQueryKeys.byUri(cacheKeyUri), freshData);
+            devLog.log('✅ [useSaveLabData] Cache updated with fresh server data for key:', cacheKeyUri);
+            return;
+          }
+        } catch (fetchErr) {
+          devLog.error('[useSaveLabData] Direct metadata fetch failed, falling back to invalidation:', fetchErr);
+        }
+
+        // Fallback: mark as stale so the next render triggers a regular refetch.
         await queryClient.invalidateQueries({ 
-          queryKey: metadataQueryKeys.byUri(variables.uri),
+          queryKey: metadataQueryKeys.byUri(cacheKeyUri),
           exact: true,
           refetchType: 'all'
         });
         
-        devLog.log('✅ [useSaveLabData] Cache invalidation completed for:', variables.uri);
+        devLog.log('✅ [useSaveLabData] Cache invalidation completed for key:', cacheKeyUri);
       }
     },
     onError: (error, variables) => {
@@ -143,8 +151,7 @@ export const useSaveProviderRegistration = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to save provider registration: ${response.status}`);
+          throw await createApiError(response, `Failed to save provider registration: ${response.status}`);
         }
         
         const data = await response.json();
@@ -190,8 +197,7 @@ export const useUploadFile = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to upload file: ${response.status}`);
+          throw await createApiError(response, `Failed to upload file: ${response.status}`);
         }
         
         const data = await response.json();
@@ -231,8 +237,7 @@ export const useMoveFiles = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to move files: ${response.status}`);
+          throw await createApiError(response, `Failed to move files: ${response.status}`);
         }
         
         const data = await response.json();
@@ -272,8 +277,7 @@ export const useDeleteFile = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to delete file: ${response.status}`);
+          throw await createApiError(response, `Failed to delete file: ${response.status}`);
         }
         
         const data = await response.json();
@@ -312,8 +316,7 @@ export const useDeleteLabData = (options = {}) => {
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Failed to delete lab data: ${response.status}`);
+          throw await createApiError(response, `Failed to delete lab data: ${response.status}`);
         }
         
         const data = await response.json();

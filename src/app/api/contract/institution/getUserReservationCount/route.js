@@ -12,7 +12,7 @@ import {
   resolveInstitutionAddressFromSession,
   getSessionPuc,
 } from '../../utils/institutionSession'
-import { BadRequestError, handleGuardError, requireAuth } from '@/utils/auth/guards'
+import { handleGuardError, requireAuth } from '@/utils/auth/guards'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -61,15 +61,18 @@ export async function GET(request) {
       { status: 200 },
     )
   } catch (error) {
-    if (
-      (error instanceof BadRequestError || error?.code === 'BAD_REQUEST') &&
-      typeof error?.message === 'string' &&
-      (error.message.includes('affiliation domain') || error.message.includes('Institution not registered'))
-    ) {
-      devLog.warn(`[API] getUserReservationCount skipped: ${error.message}`);
+    if (error?.code === 'BAD_REQUEST') {
+      devLog.warn(
+        '[API] getUserReservationCount skipped — session missing institutional context:',
+        error.message,
+      )
       return Response.json(
-        { count: 0, institutionAddress: null, institutionDomain: null },
-        { status: 200 }
+        {
+          count: 0,
+          institutionAddress: null,
+          institutionDomain: null,
+        },
+        { status: 200 },
       )
     }
 

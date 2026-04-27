@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Integration Tests: User Context Integration
  *
  * Test Behaviors:
  * - User context integrates properly with LabToken context
  * - User context integrates properly with OptimisticUI context
- * - User balance syncs with token balance changes
+ * - User balance syncs with credit balance changes
  * - Optimistic UI state updates are tracked correctly
  * - SSO session management integration
  * - Provider status transitions
@@ -17,100 +17,22 @@ import { useUser } from "@/context/UserContext";
 import { useOptimisticUI } from "@/context/OptimisticUIContext";
 
 /**
- * Mock contract read hook to avoid real blockchain calls
- */
-jest.mock("@/hooks/contract/useDefaultReadContract", () => ({
-  __esModule: true,
-  default: jest.fn((functionName, args, skip) => {
-    // Mock balance response
-    if (functionName === "balanceOf") {
-      return {
-        data: BigInt("15500000000000000000"), // 15.5 LAB tokens in wei
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-      };
-    }
-
-    // Mock allowance response
-    if (functionName === "allowance") {
-      return {
-        data: BigInt("10000000000000000000"), // 10 LAB tokens in wei
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-      };
-    }
-
-    // Mock decimals response (use skip parameter to avoid calling when cached)
-    if (functionName === "decimals") {
-      return {
-        data: skip ? undefined : 18,
-        isLoading: false,
-        isError: false,
-        refetch: jest.fn(),
-      };
-    }
-
-    return {
-      data: null,
-      isLoading: false,
-      isError: false,
-      refetch: jest.fn(),
-    };
-  }),
-}));
-
-/**
- * Mock contract write hook to avoid real blockchain calls
- */
-jest.mock("@/hooks/contract/useContractWriteFunction", () => ({
-  __esModule: true,
-  default: jest.fn(() => ({
-    contractWriteFunction: jest.fn(() => Promise.resolve("0xmocktxhash")),
-    isLoading: false,
-    isError: false,
-  })),
-}));
-
-/**
- * Mock environment utilities
- */
-jest.mock("@/utils/env/baseUrl", () => ({
-  getWalletConnectMetadata: jest.fn(() => ({
-    name: "Test App",
-    description: "Test Description",
-    url: "http://localhost:3000",
-    icons: ["http://localhost:3000/icon.png"],
-  })),
-}));
-
-/**
- * Mock wagmi connectors to avoid wallet connection issues
- */
-jest.mock("wagmi/connectors", () => ({
-  walletConnect: jest.fn(() => ({})),
-  metaMask: jest.fn(() => ({})),
-}));
-
-/**
  * Mock LabToken Context to avoid blockchain integration complexity
  */
-jest.mock("@/context/LabTokenContext", () => ({
-  LabTokenProvider: ({ children }) => children,
-  useLabToken: () => ({
-    balance: BigInt("15500000000000000000"),
-    allowance: BigInt("10000000000000000000"),
-    decimals: 18,
+jest.mock("@/context/LabCreditContext", () => ({
+  LabCreditProvider: ({ children }) => children,
+  useLabCredit: () => ({
+    balance: BigInt("1550000"),
+    allowance: BigInt("1000000"),
+    decimals: 5,
     isLoading: false,
-    labTokenAddress: "0xMockLabTokenAddress",
+    labCreditAddress: "0xMockLabCreditAddress",
     calculateReservationCost: jest.fn(),
-    approveLabTokens: jest.fn(),
     checkBalanceAndAllowance: jest.fn((requiredAmount = BigInt(0)) => ({
-      hasSufficientBalance: BigInt("15500000000000000000") >= requiredAmount,
-      hasSufficientAllowance: BigInt("10000000000000000000") >= requiredAmount,
-      balance: BigInt("15500000000000000000"),
-      allowance: BigInt("10000000000000000000"),
+      hasSufficientBalance: BigInt("1550000") >= requiredAmount,
+      hasSufficientAllowance: BigInt("1000000") >= requiredAmount,
+      balance: BigInt("1550000"),
+      allowance: BigInt("1000000"),
     })),
     checkSufficientBalance: jest.fn(),
     formatTokenAmount: jest.fn((amount) => "15.50"),
@@ -122,19 +44,8 @@ jest.mock("@/context/LabTokenContext", () => ({
   }),
 }));
 
-// Setup window.ethereum before tests run
 beforeAll(() => {
-  // Mock window.ethereum for wallet interactions
-  Object.defineProperty(window, "ethereum", {
-    value: {
-      request: jest.fn(),
-      on: jest.fn(),
-      removeListener: jest.fn(),
-    },
-    writable: true,
-  });
-
-  // Mock sessionStorage for decimals cache
+  // Mock sessionStorage for client-side cache interactions
   const sessionStorageMock = {
     getItem: jest.fn(),
     setItem: jest.fn(),
@@ -298,17 +209,17 @@ describe("User Context Integration", () => {
     });
   });
 
-  describe("Token balance sync integration", () => {
+  describe("Credit balance sync integration", () => {
     /**
-     * Test Case: Token balance is accessible through contexts
-     * Verifies that token balance information is properly integrated
+     * Test Case: Credit balance is accessible through contexts
+     * Verifies that credit balance information is properly integrated
      */
-    test("provides access to token balance data", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
+    test("provides access to credit balance data", async () => {
+      const { useLabCredit } = require("@/context/LabCreditContext");
 
       // Verify balance is accessible from LabToken context
-      const labTokenData = useLabToken();
-      expect(labTokenData.balance).toBe(BigInt("15500000000000000000"));
+      const labTokenData = useLabCredit();
+      expect(labTokenData.balance).toBe(BigInt("1550000"));
       expect(labTokenData.formatTokenAmount(labTokenData.balance)).toBe(
         "15.50"
       );
@@ -316,55 +227,55 @@ describe("User Context Integration", () => {
 
     /**
      * Test Case: Insufficient balance detection
-     * Verifies that the system correctly identifies when user has insufficient tokens
+     * Verifies that the system correctly identifies when user has insufficient credits
      */
-    test("detects insufficient token balance for booking", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+    test("detects insufficient credit balance for booking", async () => {
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
-      // Check balance for a booking that requires 20 LAB tokens (more than available)
-      const requiredAmount = BigInt("20000000000000000000");
+      // Check balance for a booking that requires 20 credits (more than available)
+      const requiredAmount = BigInt("2000000");
       const balanceCheck = labToken.checkBalanceAndAllowance(requiredAmount);
 
       // Verify insufficient balance is detected
       expect(balanceCheck.hasSufficientBalance).toBe(false);
-      expect(balanceCheck.balance).toBe(BigInt("15500000000000000000"));
+      expect(balanceCheck.balance).toBe(BigInt("1550000"));
     });
 
     /**
      * Test Case: Sufficient balance for booking
      * Verifies that sufficient balance is correctly detected
      */
-    test("detects sufficient token balance for booking", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+    test("detects sufficient credit balance for booking", async () => {
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
-      // Check balance for a booking that requires 5 LAB tokens (less than available)
-      const requiredAmount = BigInt("5000000000000000000");
+      // Check balance for a booking that requires 5 credits (less than available)
+      const requiredAmount = BigInt("500000");
       const balanceCheck = labToken.checkBalanceAndAllowance(requiredAmount);
 
       // Verify sufficient balance is detected
       expect(balanceCheck.hasSufficientBalance).toBe(true);
-      expect(balanceCheck.balance).toBe(BigInt("15500000000000000000"));
+      expect(balanceCheck.balance).toBe(BigInt("1550000"));
     });
 
     /**
-     * Test Case: Token allowance for marketplace contract
-     * Verifies that token allowance is properly tracked
+     * Test Case: Credit allowance for marketplace contract
+     * Verifies that credit allowance is properly tracked
      */
-    test("tracks token allowance for marketplace operations", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+    test("tracks credit allowance for marketplace operations", async () => {
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
       // Verify allowance is accessible
-      expect(labToken.allowance).toBe(BigInt("10000000000000000000"));
+      expect(labToken.allowance).toBe(BigInt("1000000"));
 
-      // Check if allowance is sufficient for a booking (5 LAB tokens)
-      const requiredAmount = BigInt("5000000000000000000");
+      // Check if allowance is sufficient for a booking (5 credits)
+      const requiredAmount = BigInt("500000");
       const check = labToken.checkBalanceAndAllowance(requiredAmount);
 
       expect(check.hasSufficientAllowance).toBe(true);
-      expect(check.allowance).toBe(BigInt("10000000000000000000"));
+      expect(check.allowance).toBe(BigInt("1000000"));
     });
 
     /**
@@ -373,16 +284,16 @@ describe("User Context Integration", () => {
      * This triggers approval flow when needed
      */
     test("detects when allowance is insufficient", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
-      const labToken = useLabToken();
+      const { useLabCredit } = require("@/context/LabCreditContext");
+      const labToken = useLabCredit();
 
-      // Check allowance for a booking that requires 15 LAB tokens (more than allowed)
-      const requiredAmount = BigInt("15000000000000000000");
+      // Check allowance for a booking that requires 15 credits (more than allowed)
+      const requiredAmount = BigInt("1500000");
       const check = labToken.checkBalanceAndAllowance(requiredAmount);
 
       // Allowance (10 LAB) is less than required (15 LAB)
       expect(check.hasSufficientAllowance).toBe(false);
-      expect(check.allowance).toBe(BigInt("10000000000000000000"));
+      expect(check.allowance).toBe(BigInt("1000000"));
     });
   });
 
@@ -447,10 +358,10 @@ describe("User Context Integration", () => {
   describe("Context integration reliability", () => {
     /**
      * Test Case: Multiple context hooks work together
-     * Verifies that UserContext, LabTokenContext, and OptimisticUI work in harmony
+     * Verifies that UserContext, LabCreditContext, and OptimisticUI work in harmony
      */
     test("integrates multiple contexts without conflicts", async () => {
-      const { useLabToken } = require("@/context/LabTokenContext");
+      const { useLabCredit } = require("@/context/LabCreditContext");
 
       // Render both contexts simultaneously
       const { result: userResult } = renderHook(() => useUser(), { wrapper });
@@ -464,7 +375,7 @@ describe("User Context Integration", () => {
       });
 
       // Verify LabToken context is also accessible
-      const labToken = useLabToken();
+      const labToken = useLabCredit();
       expect(labToken).toBeDefined();
       expect(labToken.balance).toBeDefined();
 
@@ -478,3 +389,4 @@ describe("User Context Integration", () => {
     });
   });
 });
+

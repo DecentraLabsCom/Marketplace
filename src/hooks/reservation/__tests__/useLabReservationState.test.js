@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for useLabReservationState hook.
  *
  * Tests the lab reservation state management hook.
@@ -23,25 +23,19 @@ import { useLabReservationState } from "../useLabReservationState";
 
 // External dependencies mocking - isolate the hook from external systems
 import { useNotifications } from "@/context/NotificationContext";
-import { useLabToken } from "@/context/LabTokenContext";
+import { useLabCredit } from "@/context/LabCreditContext";
 import {
   useReservationRequest,
   useBookingCacheUpdates,
 } from "@/hooks/booking/useBookings";
-import * as wagmi from "wagmi";
 import { isCancelledBooking } from "@/utils/booking/bookingStatus";
 import { generateTimeOptions } from "@/utils/booking/labBookingCalendar";
 import devLog from "@/utils/dev/logger";
-import { selectChain } from "@/utils/blockchain/selectChain";
 
 // Mock external contexts to control their behavior and responses
 jest.mock("@/context/NotificationContext");
-jest.mock("@/context/LabTokenContext");
+jest.mock("@/context/LabCreditContext");
 jest.mock("@/hooks/booking/useBookings");
-jest.mock("@/utils/blockchain/selectChain");
-
-// Mock blockchain/WAGMI hooks to simulate web3 interactions without real connections
-jest.mock("wagmi");
 
 // Mock utility functions to test specific scenarios and edge cases
 jest.mock("@/utils/booking/bookingStatus", () => ({
@@ -63,6 +57,16 @@ jest.mock("@/utils/booking/bookingStatus", () => ({
     if (status === 3 || status === "3" || status === "completed") return "completed";
     if (status === 4 || status === "4" || status === "collected") return "collected";
     if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return "cancelled";
+    return null;
+  }),
+  normalizeBookingStatusCode: jest.fn((booking) => {
+    const status = booking?.status;
+    if (status === 0 || status === "0" || status === "pending" || status === "requested") return 0;
+    if (status === 1 || status === "1" || status === "confirmed") return 1;
+    if (status === 2 || status === "2" || status === "in_use") return 2;
+    if (status === 3 || status === "3" || status === "completed") return 3;
+    if (status === 4 || status === "4" || status === "collected") return 4;
+    if (status === 5 || status === "5" || status === "cancelled" || status === "canceled") return 5;
     return null;
   }),
   BOOKING_STATUS: {
@@ -133,24 +137,9 @@ describe("useLabReservationState", () => {
     jest.clearAllMocks();
 
     useNotifications.mockReturnValue(mockNotifications);
-    useLabToken.mockReturnValue(mockLabToken);
+    useLabCredit.mockReturnValue(mockLabToken);
     useReservationRequest.mockReturnValue(mockReservationRequest);
     useBookingCacheUpdates.mockReturnValue(mockCacheUpdates);
-    selectChain.mockReturnValue({ id: 11155111, name: "sepolia" });
-
-    jest.spyOn(wagmi, "useConnection").mockReturnValue({
-      accounts: ['0x123'],
-      chain: { id: 11155111, name: "sepolia" },
-      status: 'connected',
-    });
-
-    jest.spyOn(wagmi, "useWaitForTransactionReceipt").mockReturnValue({
-      data: null,
-      isLoading: false,
-      isSuccess: false,
-      isError: false,
-      error: null,
-    });
 
     mockLabToken.calculateReservationCost.mockReturnValue(1500n);
     mockLabToken.formatPrice.mockImplementation((val) => `$${val}`);
@@ -528,16 +517,16 @@ describe("useLabReservationState", () => {
   });
 
   describe("Calendar Pending Merge", () => {
-    test("merges wallet pending booking into calendar data without duplicates", () => {
+    test("merges pending SSO booking into calendar data without duplicates", () => {
       const pendingRequest = {
-        reservationKey: "wallet-res-42",
+        reservationKey: "sso-res-42",
         labId: "lab-1",
         start: "1704110400",
         end: "1704114000",
       };
 
       const trackedPendingBooking = {
-        reservationKey: "wallet-res-42",
+        reservationKey: "sso-res-42",
         labId: "lab-1",
         start: "1704110400",
         end: "1704114000",
@@ -550,27 +539,27 @@ describe("useLabReservationState", () => {
             selectedLab: mockLab,
             labBookings: bookings,
             userBookingsForLab: [],
-            isSSO: false,
+            isSSO: true,
           }),
         { initialProps: { bookings: [] } }
       );
 
       act(() => {
-        result.current.startWalletProcessing();
-        result.current.markWalletRequestSent(pendingRequest);
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
         result.current.setPendingData({
-          optimisticId: "optimistic-wallet-42",
+          optimisticId: "optimistic-sso-42",
           isOptimistic: true,
           ...pendingRequest,
         });
       });
 
       rerender({ bookings: [trackedPendingBooking] });
-      expect(result.current.walletBookingStage).toBe("request_registered");
+      expect(result.current.bookingStage).toBe("request_registered");
       expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
       expect(result.current.calendarUserBookingsForLab[0]).toEqual(
         expect.objectContaining({
-          reservationKey: "wallet-res-42",
+          reservationKey: "sso-res-42",
           labId: "lab-1",
           start: "1704110400",
         })
@@ -578,11 +567,11 @@ describe("useLabReservationState", () => {
 
       // If tracked booking disappears temporarily, synthetic fallback remains single-entry.
       rerender({ bookings: [] });
-      expect(result.current.walletBookingStage).toBe("request_registered");
+      expect(result.current.bookingStage).toBe("request_registered");
       expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
       expect(result.current.calendarUserBookingsForLab[0]).toEqual(
         expect.objectContaining({
-          reservationKey: "wallet-res-42",
+          reservationKey: "sso-res-42",
           labId: "lab-1",
           start: 1704110400,
           status: 0,
@@ -594,14 +583,14 @@ describe("useLabReservationState", () => {
 
     test("keeps a single official booking when official and synthetic pending match", async () => {
       const pendingRequest = {
-        reservationKey: "wallet-res-43",
+        reservationKey: "sso-res-43",
         labId: "lab-1",
         start: "1704110500",
         end: "1704114100",
       };
 
       const officialBooking = {
-        reservationKey: "wallet-res-43",
+        reservationKey: "sso-res-43",
         labId: "lab-1",
         start: "1704110500",
         end: "1704114100",
@@ -614,28 +603,28 @@ describe("useLabReservationState", () => {
           selectedLab: mockLab,
           labBookings: [],
           userBookingsForLab: [officialBooking],
-          isSSO: false,
+          isSSO: true,
         })
       );
 
       act(() => {
-        result.current.startWalletProcessing();
-        result.current.markWalletRequestSent(pendingRequest);
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
         result.current.setPendingData({
-          optimisticId: "optimistic-wallet-43",
+          optimisticId: "optimistic-sso-43",
           isOptimistic: true,
           ...pendingRequest,
         });
       });
 
       await waitFor(() => {
-        expect(result.current.walletBookingStage).toBe("request_registered");
+        expect(result.current.bookingStage).toBe("request_registered");
       });
 
       expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
       expect(result.current.calendarUserBookingsForLab[0]).toEqual(
         expect.objectContaining({
-          reservationKey: "wallet-res-43",
+          reservationKey: "sso-res-43",
           labId: "lab-1",
           start: "1704110500",
           isOptimistic: false,
@@ -721,13 +710,15 @@ describe("useLabReservationState", () => {
       expect(fallbackCalls).toHaveLength(1);
     });
 
-    test("does not emit fallback toast when on-chain requested signal arrives first", () => {
-      jest.useFakeTimers();
+  });
 
+  describe("SSO Final Confirmation Toast", () => {
+    test("emits confirmed toast when tracked reservation reaches confirmed status", async () => {
       const pendingRequest = {
-        reservationKey: "sso-res-200",
+        reservationKey: "sso-res-confirmed-1",
         labId: "lab-1",
         start: "1704110400",
+        end: "1704114000",
       };
 
       const { result, rerender } = renderHookWithClient(
@@ -749,33 +740,96 @@ describe("useLabReservationState", () => {
       rerender({
         userBookings: [
           {
-            reservationKey: "sso-res-200",
+            reservationKey: "sso-res-confirmed-1",
             labId: "lab-1",
             start: "1704110400",
-            status: 0,
+            end: "1704114000",
+            status: 1,
           },
         ],
       });
-      expect(result.current.ssoBookingStage).toBe("request_registered");
+
+      await waitFor(() => {
+        expect(mockNotifications.addTemporaryNotification).toHaveBeenCalledWith(
+          "success",
+          "Reservation confirmed.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-confirmed:sso-res-confirmed-1",
+          })
+        );
+      });
+    });
+
+    test("keeps toast, calendar and button aligned when stale pending copy and confirmed copy coexist", async () => {
+      const pendingRequest = {
+        reservationKey: "sso-res-confirmed-2",
+        labId: "lab-1",
+        start: "1704110400",
+        end: "1704114000",
+      };
+
+      const { result, rerender } = renderHookWithClient(
+        ({ userBookings, labBookings }) =>
+          useLabReservationState({
+            selectedLab: mockLab,
+            userBookingsForLab: userBookings,
+            labBookings,
+            isSSO: true,
+          }),
+        { initialProps: { userBookings: [], labBookings: [] } }
+      );
 
       act(() => {
-        window.dispatchEvent(
-          new CustomEvent("reservation-requested-onchain", {
-            detail: { reservationKey: "sso-res-200", tokenId: "1" },
+        result.current.startSsoProcessing();
+        result.current.markSsoRequestSent(pendingRequest);
+      });
+
+      rerender({
+        userBookings: [
+          {
+            reservationKey: "sso-res-confirmed-2",
+            labId: "lab-1",
+            start: "1704110400",
+            end: "1704114000",
+            status: 0,
+            isOptimistic: false,
+          },
+        ],
+        labBookings: [
+          {
+            reservationKey: "sso-res-confirmed-2",
+            labId: "lab-1",
+            start: "1704110400",
+            end: "1704114000",
+            status: 1,
+            isOptimistic: false,
+          },
+        ],
+      });
+
+      await waitFor(() => {
+        expect(mockNotifications.addTemporaryNotification).toHaveBeenCalledWith(
+          "success",
+          "Reservation confirmed.",
+          null,
+          expect.objectContaining({
+            dedupeKey: "reservation-confirmed:sso-res-confirmed-2",
           })
         );
       });
 
-      act(() => {
-        jest.advanceTimersByTime(1500);
-      });
-
-      const fallbackCalls = mockNotifications.addTemporaryNotification.mock.calls.filter(
-        (call) =>
-          call?.[0] === "pending" &&
-          String(call?.[1] || "").includes("Waiting for on-chain registration")
+      expect(result.current.bookingStage).toBe("idle");
+      expect(result.current.isFlowLocked).toBe(false);
+      expect(result.current.reservationButtonState.label).toBe("Book Now");
+      expect(result.current.reservationButtonState.isDisabled).toBe(false);
+      expect(result.current.calendarUserBookingsForLab).toHaveLength(1);
+      expect(result.current.calendarUserBookingsForLab[0]).toEqual(
+        expect.objectContaining({
+          reservationKey: "sso-res-confirmed-2",
+          status: 1,
+        })
       );
-      expect(fallbackCalls).toHaveLength(0);
     });
   });
 
@@ -826,3 +880,4 @@ describe("useLabReservationState", () => {
     jest.useRealTimers();
   });
 });
+

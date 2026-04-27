@@ -72,29 +72,29 @@ describe("formatPrice", () => {
 
 describe("formatPriceRange", () => {
   test("formats single price when min equals max", () => {
-    expect(formatPriceRange(10, 10)).toBe("10.00 LAB");
-    expect(formatPriceRange(50.5, 50.5)).toBe("50.50 LAB");
+    expect(formatPriceRange(10, 10)).toBe("10.00 credits");
+    expect(formatPriceRange(50.5, 50.5)).toBe("50.50 credits");
   });
 
   test("formats price range when min differs from max", () => {
-    expect(formatPriceRange(10, 20)).toBe("10.00 - 20.00 LAB");
-    expect(formatPriceRange(5.5, 15.75)).toBe("5.50 - 15.75 LAB");
+    expect(formatPriceRange(10, 20)).toBe("10.00 - 20.00 credits");
+    expect(formatPriceRange(5.5, 15.75)).toBe("5.50 - 15.75 credits");
   });
 
   test("formats range with custom decimals", () => {
-    expect(formatPriceRange(10, 20, 0)).toBe("10 - 20 LAB");
-    expect(formatPriceRange(10.123, 20.456, 3)).toBe("10.123 - 20.456 LAB");
+    expect(formatPriceRange(10, 20, 0)).toBe("10 - 20 credits");
+    expect(formatPriceRange(10.123, 20.456, 3)).toBe("10.123 - 20.456 credits");
   });
 
   test("handles zero prices", () => {
-    expect(formatPriceRange(0, 0)).toBe("0.00 LAB");
-    expect(formatPriceRange(0, 10)).toBe("0.00 - 10.00 LAB");
+    expect(formatPriceRange(0, 0)).toBe("0.00 credits");
+    expect(formatPriceRange(0, 10)).toBe("0.00 - 10.00 credits");
   });
 
   test("handles invalid input gracefully", () => {
-    expect(formatPriceRange(NaN, 10)).toBe("0.00 - 10.00 LAB");
-    expect(formatPriceRange(10, NaN)).toBe("10.00 - 0.00 LAB");
-    expect(formatPriceRange(NaN, NaN)).toBe("0.00 - 0.00 LAB");
+    expect(formatPriceRange(NaN, 10)).toBe("0.00 - 10.00 credits");
+    expect(formatPriceRange(10, NaN)).toBe("10.00 - 0.00 credits");
+    expect(formatPriceRange(NaN, NaN)).toBe("0.00 - 0.00 credits");
   });
 });
 
@@ -179,24 +179,24 @@ describe("calculateTotalPrice", () => {
 
 describe("formatCurrency", () => {
   test("formats amount with thousand separators", () => {
-    expect(formatCurrency(1000)).toBe("1,000.00 LAB");
-    expect(formatCurrency(10000)).toBe("10,000.00 LAB");
-    expect(formatCurrency(1000000)).toBe("1,000,000.00 LAB");
+    expect(formatCurrency(1000)).toBe("1,000.00 credits");
+    expect(formatCurrency(10000)).toBe("10,000.00 credits");
+    expect(formatCurrency(1000000)).toBe("1,000,000.00 credits");
   });
 
   test("formats decimals correctly", () => {
-    expect(formatCurrency(10.5)).toBe("10.50 LAB");
-    expect(formatCurrency(99.99)).toBe("99.99 LAB");
+    expect(formatCurrency(10.5)).toBe("10.50 credits");
+    expect(formatCurrency(99.99)).toBe("99.99 credits");
   });
 
   test("pads decimals to 2 places", () => {
-    expect(formatCurrency(10)).toBe("10.00 LAB");
-    expect(formatCurrency(10.5)).toBe("10.50 LAB");
+    expect(formatCurrency(10)).toBe("10.00 credits");
+    expect(formatCurrency(10.5)).toBe("10.50 credits");
   });
 
   test("rounds to 2 decimal places", () => {
-    expect(formatCurrency(10.126)).toBe("10.13 LAB");
-    expect(formatCurrency(10.124)).toBe("10.12 LAB");
+    expect(formatCurrency(10.126)).toBe("10.13 credits");
+    expect(formatCurrency(10.124)).toBe("10.12 credits");
   });
 
   test("uses custom currency symbol", () => {
@@ -206,20 +206,20 @@ describe("formatCurrency", () => {
   });
 
   test("handles zero", () => {
-    expect(formatCurrency(0)).toBe("0.00 LAB");
+    expect(formatCurrency(0)).toBe("0.00 credits");
   });
 
   test("handles negative amounts", () => {
-    expect(formatCurrency(-100.5)).toBe("-100.50 LAB");
-    expect(formatCurrency(-1000)).toBe("-1,000.00 LAB");
+    expect(formatCurrency(-100.5)).toBe("-100.50 credits");
+    expect(formatCurrency(-1000)).toBe("-1,000.00 credits");
   });
 
   test("handles very large numbers", () => {
-    expect(formatCurrency(1234567.89)).toBe("1,234,567.89 LAB");
+    expect(formatCurrency(1234567.89)).toBe("1,234,567.89 credits");
   });
 
   test("handles very small positive numbers", () => {
-    expect(formatCurrency(0.01)).toBe("0.01 LAB");
-    expect(formatCurrency(0.99)).toBe("0.99 LAB");
+    expect(formatCurrency(0.01)).toBe("0.01 credits");
+    expect(formatCurrency(0.99)).toBe("0.99 credits");
   });
 });

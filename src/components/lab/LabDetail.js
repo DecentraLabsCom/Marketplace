@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
@@ -8,11 +8,13 @@ import countries from 'i18n-iso-countries'
 import enLocale from 'i18n-iso-countries/langs/en.json'
 import { Container } from '@/components/ui'
 import { useLabById } from '@/hooks/lab/useLabs'
-import { useLabToken } from '@/context/LabTokenContext'
+import { useLabCredit } from '@/context/LabCreditContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
+import { isFmu, getFmuMetadata, getFmuCompatibilityLabel, formatFmuSimulationType } from '@/utils/resourceType'
+import AasPanel from '@/components/lab/AasPanel'
 
 let countryLocaleRegistered = false
 
@@ -47,12 +49,12 @@ export default function LabDetail({ id }) {
     error: labsErrorDetails,
     metadataError 
   } = useLabById(id);
-  const { formatPrice } = useLabToken();
+  const { formatPrice } = useLabCredit();
   const router = useRouter();
 
   // Lab is directly returned from the hook, no need for additional processing
 
-  // ❌ Error handling for React Query
+  // âŒ Error handling for React Query
   if (labsError) {
     return (
       <Container as="main" padding="sm">
@@ -92,6 +94,10 @@ export default function LabDetail({ id }) {
   const eventsLabel = totalEvents > 0 ? `${totalEvents} events` : 'No events yet';
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
+  const labIsFmu = isFmu(lab);
+  const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
+  const fmuCompatibilityLabel = fmuMeta ? getFmuCompatibilityLabel(fmuMeta) : '';
+  const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
 
   return (
     <Container as="main" padding="sm">
@@ -102,7 +108,7 @@ export default function LabDetail({ id }) {
             <Carrousel lab={lab} />
             {/* Price and Provider info - moved here */}
             <div className="flex justify-between items-start text-text-secondary font-semibold mt-4 mb-2">
-              <span className="text-text-secondary">{formatPrice(lab?.price)} $LAB / hour</span>
+              <span className="text-text-secondary">{formatPrice(lab?.price)} credits / hour</span>
               {(lab?.provider || providerCountryLabel) && (
                 <div className="text-right max-w-[55%]">
                   {lab?.provider && (
@@ -130,8 +136,8 @@ export default function LabDetail({ id }) {
                 }
               }} 
               disabled={lab?.isListed === false}
-              aria-label={lab?.isListed === false ? 'Lab not available for booking' : `Rent ${lab?.name}`}>
-              {lab?.isListed === false ? 'Not Available' : 'Book Lab'}
+              aria-label={lab?.isListed === false ? 'Lab not available for booking' : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
+              {lab?.isListed === false ? 'Not Available' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
             </button>
           </div>
         </article>
@@ -189,7 +195,7 @@ export default function LabDetail({ id }) {
           {metadataError ? (
             <div className="mt-4 bg-warning-bg border border-warning-border rounded-lg p-4 mb-4">
               <p className="text-warning-text text-sm">
-                ⚠️ <strong>Information Unavailable:</strong> Additional details for this laboratory are currently missing. 
+                Warning: <strong>Information Unavailable:</strong> Additional details for this laboratory are currently missing.
                 Basic information and booking functionality remain accessible.
               </p>
             </div>
@@ -225,6 +231,90 @@ export default function LabDetail({ id }) {
               ))}
             </div>
 
+            {/* FMU Metadata Section */}
+            {labIsFmu && fmuMeta && (
+              <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
+                <h3 className="text-header-bg text-lg font-semibold mb-3">FMU Simulation Details</h3>
+                <p className="text-xs text-text-secondary mb-3">
+                  {fmuCompatibilityLabel}
+                </p>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {fmuMeta.fmuFileName && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">File</span>
+                      <p className="text-neutral-200 font-medium truncate" title={fmuMeta.fmuFileName}>{fmuMeta.fmuFileName}</p>
+                    </div>
+                  )}
+                  {fmuMeta.fmiVersion && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">FMI Version</span>
+                      <p className="text-neutral-200 font-medium">{fmuMeta.fmiVersion}</p>
+                    </div>
+                  )}
+                  {fmuMeta.simulationType && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Type</span>
+                      <p className="text-neutral-200 font-medium">{fmuSimulationTypeLabel}</p>
+                    </div>
+                  )}
+                  {(fmuMeta.defaultStartTime != null || fmuMeta.defaultStopTime != null) && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Default Time</span>
+                      <p className="text-neutral-200 font-medium">
+                        {fmuMeta.defaultStartTime ?? 0}s &ndash; {fmuMeta.defaultStopTime ?? '?'}s
+                      </p>
+                    </div>
+                  )}
+                  {fmuMeta.defaultStepSize != null && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Step Size</span>
+                      <p className="text-neutral-200 font-medium">{fmuMeta.defaultStepSize}s</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Model Variables Table */}
+                {Array.isArray(fmuMeta.modelVariables) && fmuMeta.modelVariables.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-header-bg text-sm font-semibold mb-2">Model Variables</h4>
+                    <div className="max-h-48 overflow-y-auto rounded border border-[#2a2f33]">
+                      <table className="w-full text-xs">
+                        <thead className="bg-[#181b1d] sticky top-0">
+                          <tr>
+                            <th className="text-left px-2 py-1 text-text-secondary">Name</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Causality</th>
+                            <th className="text-left px-2 py-1 text-text-secondary">Start</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fmuMeta.modelVariables.map((v, i) => (
+                            <tr key={v.name || i} className="border-t border-[#2a2f33]">
+                              <td className="px-2 py-1 text-neutral-200 font-mono truncate max-w-35" title={v.name}>{v.name}</td>
+                              <td className="px-2 py-1">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  v.causality === 'input' ? 'bg-blue-900/50 text-blue-300' :
+                                  v.causality === 'output' ? 'bg-green-900/50 text-green-300' :
+                                  'bg-gray-700 text-gray-300'
+                                }`}>
+                                  {v.causality || 'local'}
+                                </span>
+                              </td>
+                              <td className="px-2 py-1 text-neutral-200">{v.start ?? 'â€”'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AAS / Digital Twin Panel â€” shown only when provider has an AAS-capable gateway */}
+            {lab?.accessURI && (
+              <AasPanel labId={lab.id} gatewayUrl={lab.accessURI} />
+            )}
+
             {/* Documentation */}
             <div className={`flex flex-col text-center mt-4 overflow-hidden`}>
               <h3 className="text-header-bg text-lg font-semibold">
@@ -248,3 +338,4 @@ export default function LabDetail({ id }) {
 LabDetail.propTypes = {
   id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired
 }
+

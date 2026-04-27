@@ -447,6 +447,99 @@ describe("generateTimeOptions", () => {
       expect(result).toHaveLength(24);
     });
   });
+
+  describe("Concurrent occupancy (maxConcurrentUsers)", () => {
+    const mkBooking = (startHour) => ({
+      start: new Date(`2025-06-15T${String(startHour).padStart(2, "0")}:00:00`).getTime() / 1000,
+      end: new Date(`2025-06-15T${String(startHour + 1).padStart(2, "0")}:00:00`).getTime() / 1000,
+    });
+
+    test("single-user lab blocks slot with 1 booking", () => {
+      const date = new Date("2025-06-15T00:00:00");
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [mkBooking(10)],
+        lab: { resourceType: "fmu", maxConcurrentUsers: 1 },
+      });
+      const slot10 = result.find((s) => s.value === "10:00");
+      expect(slot10.disabled).toBe(true);
+      expect(slot10.isReserved).toBe(true);
+      expect(slot10.occupancy).toBeUndefined();
+      expect(slot10.maxConcurrent).toBeUndefined();
+    });
+
+    test("concurrent lab allows slot with fewer bookings than max", () => {
+      const date = new Date("2025-06-15T00:00:00");
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [mkBooking(10), mkBooking(10)],
+        lab: { resourceType: "fmu", maxConcurrentUsers: 5 },
+      });
+      const slot10 = result.find((s) => s.value === "10:00");
+      expect(slot10.disabled).toBe(false);
+      expect(slot10.isReserved).toBe(false);
+      expect(slot10.occupancy).toBe(2);
+      expect(slot10.maxConcurrent).toBe(5);
+    });
+
+    test("concurrent lab blocks slot when bookings reach max", () => {
+      const date = new Date("2025-06-15T00:00:00");
+      const bookings = Array.from({ length: 3 }, () => mkBooking(14));
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: bookings,
+        lab: { resourceType: "fmu", maxConcurrentUsers: 3 },
+      });
+      const slot14 = result.find((s) => s.value === "14:00");
+      expect(slot14.disabled).toBe(true);
+      expect(slot14.isReserved).toBe(true);
+      expect(slot14.occupancy).toBe(3);
+      expect(slot14.maxConcurrent).toBe(3);
+    });
+
+    test("occupancy fields are undefined when maxConcurrentUsers is 1", () => {
+      const date = new Date("2025-06-15T00:00:00");
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [],
+        lab: { resourceType: "fmu", maxConcurrentUsers: 1 },
+      });
+      expect(result[0].occupancy).toBeUndefined();
+      expect(result[0].maxConcurrent).toBeUndefined();
+    });
+
+    test("occupancy shows 0/N for empty concurrent slot", () => {
+      const date = new Date("2025-06-15T00:00:00");
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [],
+        lab: { resourceType: "fmu", maxConcurrentUsers: 5 },
+      });
+      const slot = result.find((s) => s.value === "10:00");
+      expect(slot.occupancy).toBe(0);
+      expect(slot.maxConcurrent).toBe(5);
+      expect(slot.disabled).toBe(false);
+    });
+
+    test("regular labs remain exclusive even if maxConcurrentUsers is > 1", () => {
+      const date = new Date("2025-06-15T00:00:00");
+      const result = generateTimeOptions({
+        date,
+        interval: 60,
+        bookingInfo: [mkBooking(10), mkBooking(10)],
+        lab: { resourceType: "lab", maxConcurrentUsers: 5 },
+      });
+      const slot10 = result.find((s) => s.value === "10:00");
+      expect(slot10.disabled).toBe(true);
+      expect(slot10.occupancy).toBeUndefined();
+      expect(slot10.maxConcurrent).toBeUndefined();
+    });
+  });
 });
 
 describe("renderDayContents", () => {

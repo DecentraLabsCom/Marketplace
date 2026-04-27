@@ -12,7 +12,7 @@ flowchart TD
 
     E --> F1(⚙️ Full Setup)
     F1 --> F11[Complete web form]:::step
-    F11 --> G1[⛓️ Submit transaction & mint lab token]:::step
+    F11 --> G1[⛓️ Submit transaction & register lab on-chain]:::step
 
     E --> F2(⚡ Quick Setup)
     F2 --> F21[Prepare JSON metadata & upload metadata file]:::step

@@ -1,106 +1,21 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { useLabToken } from '@/context/LabTokenContext'
+import { Cpu, Monitor } from 'lucide-react'
+import { useLabCredit } from '@/context/LabCreditContext'
+import { useNotifications } from '@/context/NotificationContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
-import { validateLabFull, validateLabQuick } from '@/utils/labValidation'
+import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
+import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
+import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
+import { verifyFmuReference } from './labModalFmuUtils'
 import devLog from '@/utils/dev/logger'
 
-const initialState = (lab) => ({
-  activeTab: 'full',
-  imageInputType: 'link',
-  docInputType: 'link',
-  localImages: [],
-  localDocs: [],
-  imageUrls: [],
-  docUrls: [],
-  localLab: { 
-    // Ensure all form fields have default values to prevent uncontrolled -> controlled warnings
-    id: lab?.id || null,
-    name: lab?.name || '',
-    category: lab?.category || '',
-    keywords: lab?.keywords || [],
-    description: lab?.description || '',
-    price: lab?.price || '',
-    auth: lab?.auth || '',
-    accessURI: lab?.accessURI || '',
-    accessKey: lab?.accessKey || '',
-    timeSlots: lab?.timeSlots || [],
-    opens: lab?.opens ?? null,
-    closes: lab?.closes ?? null,
-    images: lab?.images || [],
-    docs: lab?.docs || [],
-    uri: lab?.uri || '',
-    availableDays: lab?.availableDays || [],
-    availableHours: lab?.availableHours || { start: '', end: '' },
-    timezone: lab?.timezone || '',
-    maxConcurrentUsers: lab?.maxConcurrentUsers || 1,
-    unavailableWindows: lab?.unavailableWindows || [],
-    termsOfUse: lab?.termsOfUse || {
-      url: '',
-      version: '',
-      effectiveDate: null,
-      sha256: ''
-    },
-    // Spread the rest of the lab properties after ensuring required fields have defaults
-    ...lab
-  },
-  isExternalURI: false,
-  errors: {},
-  isLocalURI: false,
-  clickedToEditUri: false,
-});
-
-const extractInternalLabUri = (uri) => {
-  if (!uri) return null;
-  const trimmed = String(uri).trim();
-  if (!trimmed) return null;
-  if (trimmed.startsWith('Lab-') && trimmed.endsWith('.json')) {
-    return trimmed;
-  }
-  try {
-    const parsed = new URL(trimmed);
-    const param = parsed.searchParams.get('uri');
-    if (param && param.startsWith('Lab-') && param.endsWith('.json')) {
-      return param;
-    }
-    const match = parsed.pathname.match(/Lab-[^/]+-\d+\.json$/);
-    if (match) {
-      return match[0];
-    }
-  } catch {
-    // Ignore invalid URLs.
-  }
-  return null;
-};
-
-function reducer(state, action) {
-  switch (action.type) {
-    case 'SET_FIELD':
-      return { ...state, [action.field]: action.value };
-    case 'MERGE_LOCAL_LAB':
-      return { ...state, localLab: { ...state.localLab, ...action.value } };
-    case 'BATCH_UPDATE':
-      // Handle multiple updates in a single render cycle
-      return action.updates.reduce((currentState, update) => {
-        switch (update.type) {
-          case 'SET_FIELD':
-            return { ...currentState, [update.field]: update.value };
-          case 'MERGE_LOCAL_LAB':
-            return { ...currentState, localLab: { ...currentState.localLab, ...update.value } };
-          default:
-            return currentState;
-        }
-      }, state);
-    case 'RESET':
-      return initialState(action.lab);
-    default:
-      return state;
-  }
-}
+/** Must match the server-side limit in /api/provider/uploadFile/route.js */
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
  * Modal for creating and editing lab information with full and quick setup modes
@@ -114,8 +29,9 @@ function reducer(state, action) {
  * @returns {JSX.Element} Lab creation/editing modal component
  */
 export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId = 0, onFilesUploaded = null }) {
-  const { decimals, formatPrice } = useLabToken();
+  const { decimals, formatPrice } = useLabCredit();
   const uploadFileMutation = useUploadFile();
+  const { addWarningNotification, addErrorNotification } = useNotifications();
   const deleteFileMutation = useDeleteFile();
   const [state, dispatch] = useReducer(reducer, lab, initialState);
   const {
@@ -258,6 +174,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     
     // Create a stable lab object to merge with local state
     let labToMerge = { ...lab };
+    labToMerge.resourceType = getResourceType(lab)
     const normalizedUri = extractInternalLabUri(lab?.uri);
     if (normalizedUri) {
       labToMerge.uri = normalizedUri;
@@ -316,123 +233,101 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
   }, [isOpen, lab?.id, decimals, formatPrice, jsonFileRegex]); // Include all dependencies
 
   const handleImageChange = useCallback((e) => {
-        if (e.target.files) {
-            const files = Array.from(e.target.files);
-            // Filter out non-image files.
-            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (!e.target.files) return;
 
-            if (!currentLabId) {
-              devLog.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
-              return;
-            }
+    if (!currentLabId) {
+      devLog.error("No valid lab ID available for image upload. Lab:", lab, "Missing ID:", currentLabId);
+      return;
+    }
 
-            if (imageFiles.length !== files.length) {
-                alert('Only valid image files are allowed: (JPEG, PNG, GIF, etc.).');
-                // Only use the valid images and discard the rest
-                dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...imageFiles] });
+    const files = Array.from(e.target.files);
 
-                // Create URLs for previewing immediately.
-                const newImageUrls = imageFiles.map(file => URL.createObjectURL(file));
-                dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
+    // Filter out non-image files
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      addWarningNotification('Only valid image files are allowed (JPEG, PNG, GIF, etc.).');
+    }
+    if (imageFiles.length === 0) return;
 
-                // Upload files *asynchronously* and update lab.images
-                const uploadImages = async () => {
-                    try {
-                        const uploadedPaths = await Promise.all(
-                            imageFiles.map(async (file) => {
-                                return await uploadFile(file, 'images', currentLabId);
-                            })
-                        );
-                        dispatch({
-                            type: 'MERGE_LOCAL_LAB',
-                            value: {
-                              images: [...(localLab.images || []), ...uploadedPaths],
-                            },
-                        });
-                    } catch (error) {
-                        devLog.error("Error uploading", error);
-                    }
-                }
-                uploadImages();
+    // Client-side file size validation
+    const validImages = imageFiles.filter(file => file.size <= MAX_FILE_SIZE_BYTES);
+    const oversizeImages = imageFiles.filter(file => file.size > MAX_FILE_SIZE_BYTES);
+    oversizeImages.forEach(file => {
+      addWarningNotification(
+        `"${file.name}" exceeds the maximum allowed size of ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB and will not be uploaded.`
+      );
+    });
+    if (validImages.length === 0) return;
 
-            } else {
-                dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...files] });
-                const newImageUrls = files.map(file => URL.createObjectURL(file));
-                dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
+    // Show previews immediately
+    dispatch({ type: 'SET_FIELD', field: 'localImages', value: [...localImages, ...validImages] });
+    const newImageUrls = validImages.map(file => URL.createObjectURL(file));
+    dispatch({ type: 'SET_FIELD', field: 'imageUrls', value: [...imageUrls, ...newImageUrls] });
 
-                const uploadImages = async () => {
-                    try {
-                        const uploadedPaths = await Promise.all(
-                            files.map(async (file) => {
-                                return await uploadFile(file, 'images', currentLabId);
-                            })
-                        );
-                        dispatch({
-                            type: 'MERGE_LOCAL_LAB',
-                            value: {
-                              images: [...(localLab.images || []), ...uploadedPaths],
-                            },
-                        });
-                    } catch (error) {
-                        devLog.error("Error uploading", error);
-                    }
-                }
-                uploadImages();
-            }
-        }
-    }, [localLab, localImages, imageUrls, currentLabId, lab]);
+    // Upload asynchronously
+    const uploadImages = async () => {
+      try {
+        const uploadedPaths = await Promise.all(
+          validImages.map(file => uploadFile(file, 'images', currentLabId))
+        );
+        dispatch({
+          type: 'MERGE_LOCAL_LAB',
+          value: { images: [...(localLab.images || []), ...uploadedPaths] },
+        });
+      } catch (error) {
+        devLog.error("Error uploading images", error);
+        addErrorNotification(error, 'image upload');
+      }
+    };
+    uploadImages();
+  }, [localLab, localImages, imageUrls, currentLabId, lab, addWarningNotification, addErrorNotification]);
 
   const handleDocChange = useCallback(async (e) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      // Filter out non-PDF files.
       const pdfFiles = files.filter(file => file.type === 'application/pdf');
 
       if (pdfFiles.length !== files.length) {
-        alert('Only PDF files are allowed for documents.');
-        // Only use the valid PDFs and discard the rest
-        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...pdfFiles]});
+        addWarningNotification('Only PDF files are allowed for documents.');
+      }
+      if (pdfFiles.length === 0) return;
 
-        try {
-          const newDocUrls = await Promise.all(
-            pdfFiles.map(async (file) => {
-              const filePath = await uploadFile(file, 'docs', currentLabId);
-              return filePath;
-            })
-          );
+      // Client-side file size validation before upload
+      const validFiles = pdfFiles.filter(file => file.size <= MAX_FILE_SIZE_BYTES);
+      const oversizeFiles = pdfFiles.filter(file => file.size > MAX_FILE_SIZE_BYTES);
+      oversizeFiles.forEach(file => {
+        addWarningNotification(
+          `"${file.name}" exceeds the maximum allowed size of ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB and will not be uploaded.`
+        );
+      });
+      if (validFiles.length === 0) return;
 
-          dispatch({
-            type: 'MERGE_LOCAL_LAB',
-            value: {
-              docs: [...(localLab.docs || []), ...newDocUrls],
-            },
-          });
-        } catch (error) {
-          devLog.error("Error uploading docs", error);
-        }
-      } else { // If all files are PDFs
-        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...files] });
+      // Show file names immediately in the pending list for visual feedback during upload
+      dispatch({ type: 'SET_FIELD', field: 'localDocs', value: [...localDocs, ...validFiles] });
 
-        try {
-          const newDocUrls = await Promise.all(
-            files.map(async (file) => {
-              const filePath = await uploadFile(file, 'docs', currentLabId);
-              return filePath;
-            })
-          );
+      try {
+        const newDocUrls = await Promise.all(
+          validFiles.map(async (file) => {
+            const filePath = await uploadFile(file, 'docs', currentLabId);
+            return filePath;
+          })
+        );
 
-          dispatch({
-            type: 'MERGE_LOCAL_LAB',
-            value: {
-              docs: [...(localLab.docs || []), ...newDocUrls],
-            },
-          });
-        } catch (error) {
-          devLog.error("Error uploading docs", error);
-        }
+        // Move uploaded files from pending list to the permanent URL list
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !validFiles.includes(f)) });
+        dispatch({ type: 'SET_FIELD', field: 'docUrls', value: [...docUrls, ...newDocUrls] });
+        dispatch({
+          type: 'MERGE_LOCAL_LAB',
+          value: { docs: [...(localLab.docs || []), ...newDocUrls] },
+        });
+      } catch (error) {
+        // Remove failed files from the pending list so the user can retry
+        dispatch({ type: 'SET_FIELD', field: 'localDocs', value: localDocs.filter(f => !validFiles.includes(f)) });
+        devLog.error("Error uploading docs", error);
+        addErrorNotification(error, 'document upload');
       }
     }
-  }, [localLab, localDocs, currentLabId]);
+  }, [localLab, localDocs, docUrls, currentLabId, addWarningNotification, addErrorNotification]);
 
   const removeImage = (index) => {
     const newImages = localImages.filter((_, i) => i !== index);
@@ -467,9 +362,6 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
   };
 
   const removeDoc = (index) => {
-    const newDocs = localDocs.filter((_, i) => i !== index);
-    dispatch({ type: 'SET_FIELD', field: 'localDocs', value: newDocs });
-
     const newUrls = docUrls.filter((_, i) => i !== index);
     const urlToRemove = docUrls[index];
     if (urlToRemove) {
@@ -596,6 +488,11 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     if (activeTab === 'full') {
       if (!isExternalURI) {
         newErrors = validateLabFull(localLab, { imageInputType, docInputType });
+        // Additional FMU-specific validation
+        if (localLab.resourceType === RESOURCE_TYPES.FMU) {
+          const fmuErrors = validateFmuFields(localLab);
+          newErrors = { ...newErrors, ...fmuErrors };
+        }
       }
     } else if (activeTab === 'quick') {
       newErrors = validateLabQuick(localLab);
@@ -651,13 +548,52 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
+        const isFmuResource = localLab.resourceType === RESOURCE_TYPES.FMU
+        const fmuAccessKey = isFmuResource
+          ? (localLab.fmuFileName || '').trim()
+          : localLab.accessKey
+        let labForSubmit = {
+          ...localLab,
+          accessKey: fmuAccessKey,
+        }
+
+        if (isFmuResource) {
+          try {
+            const describeData = await verifyFmuReference(labForSubmit)
+            labForSubmit = {
+              ...labForSubmit,
+              fmiVersion: describeData?.fmiVersion || '',
+              simulationType: describeData?.simulationType || '',
+              modelVariables: Array.isArray(describeData?.modelVariables) ? describeData.modelVariables : [],
+              defaultStartTime: describeData?.defaultStartTime ?? null,
+              defaultStopTime: describeData?.defaultStopTime ?? null,
+              defaultStepSize: describeData?.defaultStepSize ?? null,
+            }
+            dispatch({ type: 'MERGE_LOCAL_LAB', value: {
+              fmiVersion: labForSubmit.fmiVersion,
+              simulationType: labForSubmit.simulationType,
+              modelVariables: labForSubmit.modelVariables,
+              defaultStartTime: labForSubmit.defaultStartTime,
+              defaultStopTime: labForSubmit.defaultStopTime,
+              defaultStepSize: labForSubmit.defaultStepSize,
+            } })
+          } catch (error) {
+            const nextErrors = {
+              ...currentErrors,
+              fmuFileName: `FMU reference validation failed: ${error.message}`,
+            }
+            dispatch({ type: 'SET_FIELD', field: 'errors', value: nextErrors })
+            focusFirstError(nextErrors, 'full')
+            return
+          }
+        }
         // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(localLab);
+        const normalizedLabData = normalizeLabDates(labForSubmit);
         
         // Pass uploaded temp files to parent for moving after mint
         if (onFilesUploaded && uploadedTempFiles.current.length > 0) {
           normalizedLabData._tempFiles = [...uploadedTempFiles.current];
-          devLog.log('📎 Passing temp files to parent:', uploadedTempFiles.current);
+          devLog.log('ðŸ“Ž Passing temp files to parent:', uploadedTempFiles.current);
         }
         
         await onSubmit(normalizedLabData); // Call to the original submit function with normalized dates
@@ -678,8 +614,16 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     const currentErrors = validateForm();
     try {
       if (Object.keys(currentErrors).length === 0) {
+        const fmuAccessKey =
+          localLab.resourceType === RESOURCE_TYPES.FMU
+            ? (localLab.fmuFileName || '').trim()
+            : localLab.accessKey
+        const labForSubmit = {
+          ...localLab,
+          accessKey: fmuAccessKey,
+        }
         // Normalize dates to MM/DD/YYYY format before submitting
-        const normalizedLabData = normalizeLabDates(localLab);
+        const normalizedLabData = normalizeLabDates(labForSubmit);
         await onSubmit(normalizedLabData);
         devLog.log('LabModal: Quick form submitted successfully with normalized dates, modal remains open');
       } else {
@@ -697,25 +641,61 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
       className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 overflow-y-auto">
       <div onClick={e => e.stopPropagation()}
         className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4 text-black">
-          {lab?.id ? 'Edit Lab' : 'Add New Lab'}
-        </h2>
         <div className="mb-4">
-          <div className="flex">
-            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
-              className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Full Setup
-            </button>
-            <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
-              className={`px-4 py-2 rounded ${activeTab === 'quick'
-                ? 'bg-[#7875a8] text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-            >
-              Quick Setup
-            </button>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold mb-4 text-black text-left">
+                {lab?.id ? 'Edit Lab' : 'Add New Lab'}
+              </h2>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
+                  className={`px-4 py-2 rounded mr-2 ${activeTab === 'full'
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Full Setup
+                </button>
+                <button type="button" onClick={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'quick' })}
+                  className={`px-4 py-2 rounded ${activeTab === 'quick'
+                    ? 'bg-[#7875a8] text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                >
+                  Quick Setup
+                </button>
+              </div>
+            </div>
+
+            <section className="w-full sm:w-auto sm:min-w-[280px]">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 sm:text-right">Resource Type</h3>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })}
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.LAB
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Monitor className="w-4 h-4" /> Real Lab
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.FMU } })}
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.FMU
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Cpu className="w-4 h-4" /> Simulation
+                  </span>
+                </button>
+              </div>
+            </section>
           </div>
           <div className='mt-4'>
             {activeTab === 'full' && (
@@ -732,7 +712,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 timezoneRef={timezoneRef} timeSlotsRef={timeSlotsRef}
                 availableHoursStartRef={availableHoursStartRef} availableHoursEndRef={availableHoursEndRef}
                 maxConcurrentUsersRef={maxConcurrentUsersRef} termsUrlRef={termsUrlRef} termsShaRef={termsShaRef}
-                onSubmit={handleSubmitFull}
+                onSubmit={handleSubmitFull} isUploading={uploadFileMutation.isPending}
               />
             )}
             {activeTab === 'quick' && (
@@ -741,6 +721,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 accessKeyRef={accessKeyRef} clickedToEditUri={clickedToEditUri} handleUriChange={handleUriChange}
                 setClickedToEditUri={value => dispatch({ type: 'SET_FIELD', field: 'clickedToEditUri', value })}
                 onSubmit={handleSubmitQuick} onCancel={handleClose} uriRef={uriRef} localLab={localLab}
+                onSwitchToFullSetup={() => dispatch({ type: 'SET_FIELD', field: 'activeTab', value: 'full' })}
               />
             )}
           </div>
@@ -766,3 +747,4 @@ LabModal.propTypes = {
   }),
   maxId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
 }
+

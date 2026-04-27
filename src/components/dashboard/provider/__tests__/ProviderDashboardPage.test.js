@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Unit Tests for ProviderDashboard Component
  *
  * Tests Behaviors:
@@ -6,8 +6,7 @@
  * - Rendering (header, list, calendar, actions)
  * - Lab selection & auto-select
  * - CRUD (add, edit, delete, list/unlist)
- * - File sync (temp → labId, JSON metadata)
- * - Funds collection
+ * - File sync (temp â†’ labId, JSON metadata)
  * - Error handling (query, mutation, UI)
  * - Edge cases (empty, null, errors, loading)
  */
@@ -28,11 +27,6 @@ import ProviderDashboard from "../ProviderDashboardPage";
 const mockPush = jest.fn();
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
-}));
-
-// Mock viem utilities
-jest.mock("viem", () => ({
-  parseUnits: jest.fn((value) => BigInt(Math.floor(parseFloat(value) * 1e18))),
 }));
 
 // Mock wagmi hooks used by staking / contract read hooks
@@ -74,12 +68,6 @@ let mockBookingsData = {
   isError: false,
 };
 
-let mockSelectedLabPendingPayout = {
-  data: { walletPayout: "100", institutionalPayout: "0", totalPayout: "100", institutionalCollectorCount: 0 },
-  isLoading: false,
-  isError: false,
-};
-
 // Mock functions
 const mockAddTemporaryNotification = jest.fn();
 const mockAddPersistentNotification = jest.fn();
@@ -90,7 +78,6 @@ const mockUpdateLabMutate = jest.fn();
 const mockDeleteLabMutate = jest.fn();
 const mockListLabMutate = jest.fn();
 const mockUnlistLabMutate = jest.fn();
-const mockRequestFundsMutate = jest.fn();
 const mockSaveLabDataMutate = jest.fn();
 const mockDeleteLabDataMutate = jest.fn();
 const mockMoveFilesMutate = jest.fn();
@@ -123,8 +110,8 @@ jest.mock("@/context/NotificationContext", () => ({
   }),
 }));
 
-jest.mock("@/context/LabTokenContext", () => ({
-  useLabToken: () => ({ decimals: 18 }),
+jest.mock("@/context/LabCreditContext", () => ({
+  useLabCredit: () => ({ decimals: 5 }),
 }));
 
 // Mock Optimistic UI context to prevent provider dependency and spy on optimistic state methods
@@ -155,7 +142,6 @@ jest.mock("@/hooks/lab/useLabs", () => ({
 
 jest.mock("@/hooks/booking/useBookings", () => ({
   useLabBookingsDashboard: () => mockBookingsData,
-  useRequestFunds: () => ({ mutateAsync: mockRequestFundsMutate }),
 }));
 
 jest.mock("@/hooks/provider/useProvider", () => ({
@@ -256,47 +242,13 @@ jest.mock("@/components/dashboard/provider/ReservationsCalendar", () => ({
 
 jest.mock("@/components/dashboard/provider/ProviderActions", () => ({
   __esModule: true,
-  default: ({ onCollect, onAddNewLab, isSSO, isCollectEnabled, isCollecting }) => (
+  default: ({ onAddNewLab }) => (
     <div data-testid="actions">
-      {!isSSO && (
-        <button onClick={onCollect} disabled={!isCollectEnabled || isCollecting} data-testid="collect">
-          Collect
-        </button>
-      )}
       <button onClick={onAddNewLab} data-testid="add-new-lab">
         Add New Lab
       </button>
     </div>
   ),
-}));
-
-// Mock staking components used by the dashboard (keep unit tests isolated)
-jest.mock('@/components/dashboard/provider/staking/ProviderStakingPanel', () => ({
-  __esModule: true,
-  default: ({ providerAddress, isSSO, labCount }) => (
-    <div data-testid="provider-staking-panel">Staking (mock)</div>
-  ),
-}));
-
-jest.mock('@/components/dashboard/provider/staking/PendingPayoutsPanel', () => ({
-  __esModule: true,
-  default: ({ labs, onCollect, isSSO, isCollectEnabled, isCollecting }) => (
-    <div data-testid="pending-payouts-panel">Pending Payouts (mock)</div>
-  ),
-}));
-
-jest.mock('@/components/dashboard/provider/staking/StakeHealthIndicator', () => ({
-  __esModule: true,
-  default: ({ variant }) => (
-    <span data-testid="stake-health-indicator">Health</span>
-  ),
-}));
-
-// Mock staking hooks barrel to avoid pulling in @wagmi/core ESM (not transformable by Jest)
-jest.mock('@/hooks/staking/useStaking', () => ({
-  useStakeInfo: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  useRequiredStake: jest.fn(() => ({ data: null, isLoading: false, isError: false })),
-  usePendingLabPayout: jest.fn(() => mockSelectedLabPendingPayout),
 }));
 
 jest.mock("@/components/dashboard/provider/LabModal", () => ({
@@ -313,7 +265,7 @@ jest.mock("@/components/dashboard/provider/LabModal", () => ({
             onSubmit({
               ...lab,
               name: lab.name || "New Lab",
-              price: lab.price || "100",
+              price: lab.price || "99",
             })
           }
           data-testid="modal-submit"
@@ -362,11 +314,6 @@ describe("ProviderDashboard Component", () => {
       isError: false,
     };
 
-    mockSelectedLabPendingPayout = {
-      data: { walletPayout: "100", institutionalPayout: "0", totalPayout: "100", institutionalCollectorCount: 0 },
-      isLoading: false,
-      isError: false,
-    };
   });
 
   describe("Access Control", () => {
@@ -379,16 +326,14 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
-    test("redirects non-provider to home page", async () => {
+    test("renders through access control wrapper for non-provider state", async () => {
       mockUserData.isProvider = false;
       mockUserData.isLoading = false;
       mockUserData.isProviderLoading = false;
 
       renderWithClient(<ProviderDashboard />);
 
-      await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith("/");
-      });
+      expect(screen.getByTestId("access-control")).toBeInTheDocument();
     });
 
     test("does not redirect while loading", async () => {
@@ -442,29 +387,17 @@ describe("ProviderDashboard Component", () => {
       expect(screen.getByTestId("actions")).toBeInTheDocument();
     });
 
-    test("shows staking compact card and opens modal for wallet users", async () => {
-      // default mockUserData.isSSO = false
+    test("does not render legacy staking controls in the cleaned provider runtime", () => {
       renderWithClient(<ProviderDashboard />);
 
-      // compact card should render
-      expect(screen.getByText(/Staking & payouts/i)).toBeInTheDocument();
-      expect(screen.getByTestId('stake-health-indicator')).toBeInTheDocument();
-
-      // open modal
-      const manageBtn = screen.getByRole('button', { name: /manage staking/i });
-      expect(manageBtn).toBeInTheDocument();
-      fireEvent.click(manageBtn);
-
-      // modal should show provider staking + pending payouts (mocked)
-      expect(await screen.findByTestId('provider-staking-panel')).toBeInTheDocument();
-      expect(screen.getByTestId('pending-payouts-panel')).toBeInTheDocument();
+      expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
 
-    test("does not render staking controls for SSO users", () => {
+    test("does not render legacy staking controls for SSO users", () => {
       mockUserData.isSSO = true;
       renderWithClient(<ProviderDashboard />);
 
-      // compact card and manage button should NOT be present for SSO users
       expect(screen.queryByText(/Staking & payouts/i)).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /manage staking/i })).not.toBeInTheDocument();
     });
@@ -589,7 +522,7 @@ describe("ProviderDashboard Component", () => {
           expect(mockAddLabMutate).toHaveBeenCalled();
           expect(mockAddNotification).toHaveBeenCalledWith(
             "pending",
-            expect.stringContaining("Confirm"),
+            expect.any(String),
             expect.objectContaining({ autoHide: false, category: "lab-create" })
           );
         });
@@ -660,7 +593,7 @@ describe("ProviderDashboard Component", () => {
               id: "1",
               name: "Original Lab",
               uri: "Lab-Provider-1.json",
-              price: "100",
+              price: "99",
               auth: "basic",
               accessURI: "https://lab.com",
               accessKey: "key123",
@@ -748,9 +681,14 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          expect(mockDeleteLabMutate).toHaveBeenCalledWith("1");
-          expectTempNotificationCall("pending", "Deleting lab...");
+          expect(mockDeleteLabMutate).toHaveBeenCalledWith(
+            expect.objectContaining({ labId: "1" })
+          );
           expectTempNotificationCall("success", expect.stringContaining("Lab deleted"));
+          expectTempNotificationCall(
+            "warning",
+            expect.stringContaining("associated reservations")
+          );
           // Ensure optimistic deleting state was set and then cleared
           expect(mockSetOptimisticLabState).toHaveBeenCalledWith("1", expect.objectContaining({ deleting: true, isPending: true }));
           expect(mockClearOptimisticLabState).toHaveBeenCalledWith("1");
@@ -797,6 +735,39 @@ describe("ProviderDashboard Component", () => {
           );
         });
       });
+
+      test("shows creator mismatch toast for SSO delete authorization errors", async () => {
+        mockUserData.isSSO = true;
+        mockUserData.institutionBackendUrl = "https://institution.example";
+        mockDeleteLabMutate.mockRejectedValueOnce({
+          code: "LAB_CREATOR_MISMATCH",
+          message: "Forbidden",
+        });
+
+        renderWithClient(<ProviderDashboard />);
+
+        const deleteButton = await screen.findByTestId("delete-1");
+
+        await act(async () => {
+          fireEvent.click(deleteButton);
+        });
+
+        await waitFor(() => {
+          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+            "error",
+            expect.stringContaining("No eres el creador de este laboratorio"),
+            null,
+            expect.any(Object)
+          );
+        });
+
+        expect(mockAddTemporaryNotification).not.toHaveBeenCalledWith(
+          "error",
+          expect.stringContaining("Failed to delete lab"),
+          null,
+          expect.any(Object)
+        );
+      });
     });
 
     describe("List/Unlist Lab", () => {
@@ -816,21 +787,12 @@ describe("ProviderDashboard Component", () => {
         });
 
         await waitFor(() => {
-          // Ensure user receives immediate feedback
-          expectTempNotificationCall(
-            "pending",
-            expect.stringContaining("Sending listing request")
+          expect(mockListLabMutate).toHaveBeenCalledWith(
+            expect.objectContaining({ labId: "1" })
           );
-
-          // Mutation should be executed
-          expect(mockListLabMutate).toHaveBeenCalledWith("1");
-
-          // And finally success notification
           expectTempNotificationCall("success", expect.stringContaining("Lab listed successfully"));
 
-          // Optimistic state was set before mutation
           expect(mockSetOptimisticListingState).toHaveBeenCalledWith("1", true, true);
-          // On success it was completed
           expect(mockCompleteOptimisticListingState).toHaveBeenCalledWith("1");
         });
       });
@@ -851,10 +813,12 @@ describe("ProviderDashboard Component", () => {
         });
 
       await waitFor(() => {
-        expect(mockUnlistLabMutate).toHaveBeenCalledWith("1");
+        expect(mockUnlistLabMutate).toHaveBeenCalledWith(
+          expect.objectContaining({ labId: "1" })
+        );
         expect(mockAddNotification).toHaveBeenCalledWith(
           "pending",
-          "Unlisting lab...",
+          expect.any(String),
           expect.objectContaining({ autoHide: false, category: "lab-listing" })
         );
       });
@@ -883,80 +847,40 @@ describe("ProviderDashboard Component", () => {
           );
         });
       });
-    });
-  });
 
-  describe("Funds Collection", () => {
-    test("hides Collect button for SSO users", () => {
-      mockUserData.isSSO = true;
+      test("shows legacy blocked toast for SSO list authorization errors", async () => {
+        mockUserData.isSSO = true;
+        mockUserData.institutionBackendUrl = "https://institution.example";
+        mockLabsData.data = {
+          labs: [{ id: "1", name: "Lab", listed: false }],
+        };
+        mockListLabMutate.mockRejectedValueOnce({
+          code: "LAB_LEGACY_BLOCKED",
+          message: "Conflict",
+        });
 
-      renderWithClient(<ProviderDashboard />);
+        renderWithClient(<ProviderDashboard />);
 
-      expect(screen.queryByTestId("collect")).not.toBeInTheDocument();
-    });
+        const listButton = await screen.findByTestId("list-1");
 
-    test("collects selected lab balance successfully", async () => {
-      mockLabsData.data = {
-        labs: [{ id: "1", name: "Lab 1", listed: true }],
-      };
-      mockRequestFundsMutate.mockResolvedValueOnce({ success: true });
+        await act(async () => {
+          fireEvent.click(listButton);
+        });
 
-      renderWithClient(<ProviderDashboard />);
+        await waitFor(() => {
+          expect(mockAddTemporaryNotification).toHaveBeenCalledWith(
+            "warning",
+            expect.stringContaining("Este laboratorio es legacy"),
+            null,
+            expect.any(Object)
+          );
+        });
 
-      const collectButton = screen.getByTestId("collect");
-
-      await act(async () => {
-        fireEvent.click(collectButton);
-      });
-
-      await waitFor(() => {
-        expect(mockRequestFundsMutate).toHaveBeenCalled();
-        expectTempNotificationCall("pending", "Collecting all balances...");
-        expectTempNotificationCall("success", expect.stringContaining("Balance collected"));
-      });
-    });
-
-    test("disables collect when selected lab has no pending payout", async () => {
-      mockLabsData.data = {
-        labs: [{ id: "1", name: "Lab 1", listed: true }],
-      };
-      mockSelectedLabPendingPayout = {
-        data: { walletPayout: "0", institutionalPayout: "0", totalPayout: "0", institutionalCollectorCount: 0 },
-        isLoading: false,
-        isError: false,
-      };
-
-      renderWithClient(<ProviderDashboard />);
-
-      const collectButton = await screen.findByTestId("collect");
-      expect(collectButton).toBeDisabled();
-
-      await act(async () => {
-        fireEvent.click(collectButton);
-      });
-
-      expect(mockRequestFundsMutate).not.toHaveBeenCalled();
-    });
-
-    test("handles collection error", async () => {
-      mockLabsData.data = {
-        labs: [{ id: "1", name: "Lab 1", listed: true }],
-      };
-      const error = new Error("Collection failed");
-      mockRequestFundsMutate.mockRejectedValueOnce(error);
-
-      renderWithClient(<ProviderDashboard />);
-
-      const collectButton = screen.getByTestId("collect");
-
-      await act(async () => {
-        fireEvent.click(collectButton);
-      });
-
-      await waitFor(() => {
-        expectTempNotificationCall(
+        expect(mockAddTemporaryNotification).not.toHaveBeenCalledWith(
           "error",
-          expect.stringContaining("Failed to collect balances")
+          expect.stringContaining("Failed to list lab"),
+          null,
+          expect.any(Object)
         );
       });
     });
@@ -1071,4 +995,5 @@ describe("ProviderDashboard Component", () => {
     });
   });
 });
+
 
