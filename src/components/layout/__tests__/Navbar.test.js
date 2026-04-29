@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Navbar from "../Navbar";
 import { useOptionalUser } from "@/context/UserContext";
-import { hasAdminRole } from "@/utils/auth/roleValidation";
+import { hasAdminRole, validateProviderRole } from "@/utils/auth/roleValidation";
 
 jest.mock("next/link", () => {
   return ({ children, href }) => <a href={href}>{children}</a>;
@@ -24,6 +24,7 @@ describe("Navbar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     hasAdminRole.mockReturnValue(false);
+    validateProviderRole.mockReturnValue({ isValid: false, reason: "" });
   });
 
   test("renders logo and auth control for logged-out users", () => {
@@ -95,6 +96,7 @@ describe("Navbar", () => {
       institutionRegistrationStatus: "registered",
     });
     hasAdminRole.mockReturnValue(true);
+    validateProviderRole.mockReturnValue({ isValid: true, reason: "" });
 
     render(<Navbar />);
 

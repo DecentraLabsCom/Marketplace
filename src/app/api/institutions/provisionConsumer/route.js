@@ -43,7 +43,8 @@ export async function POST(request) {
     const session = await requireAuth();
 
     // Enforce SSO session with institutional roles
-    if (!session?.samlAssertion) {
+    const isSsoSession = Boolean(session?.isSSO || session?.authType === 'sso' || session?.samlAssertion);
+    if (!isSsoSession) {
       throw new ForbiddenError('Consumer provisioning token requires SSO session');
     }
     if (!hasAdminRole(session.role, session.scopedRole)) {

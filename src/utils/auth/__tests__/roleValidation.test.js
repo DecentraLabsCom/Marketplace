@@ -294,7 +294,7 @@ describe("getRoleDisplayName", () => {
 
 describe("Role Constants", () => {
   test("PROVIDER_ALLOWED_ROLES contains expected roles", () => {
-    expect(PROVIDER_ALLOWED_ROLES).toEqual(["faculty", "staff", "employee"]);
+    expect(PROVIDER_ALLOWED_ROLES).toEqual(["faculty", "staff", "employee", "provider", "admin"]);
   });
 
   test("PROVIDER_DENIED_ROLES contains expected roles", () => {

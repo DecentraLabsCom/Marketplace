@@ -77,10 +77,14 @@ function deriveInstitutionId(claims) {
  * @returns {import('./principal.js').CanonicalPrincipal}
  * @throws {Error} If required claims are missing or tenant is not allowed
  */
+import devLog from '@/utils/dev/logger'
+
 export function buildCanonicalPrincipalFromEntra(claims) {
   if (!claims || typeof claims !== 'object') {
     throw new Error('[EntraAdapter] claims must be a non-null object')
   }
+
+  devLog.log('[ENTRA CLAIMS DEBUG]', JSON.stringify(claims, null, 2))
 
   // Required: oid — stable per-tenant user identifier
   const oid = claims.oid
@@ -177,5 +181,6 @@ export function principalToSessionData(principal) {
     clientId: principal.clientId,
 
     roles: principal.roles,
+    role: principal.roles.join(','), // Mapped for requireProviderRole compatibility
   }
 }

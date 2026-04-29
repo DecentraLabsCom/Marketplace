@@ -38,6 +38,7 @@ function clearPkceAndRedirect(baseUrl, destination) {
   const res = NextResponse.redirect(new URL(target, baseUrl))
   res.cookies.set('entra_code_verifier', '', PKCE_COOKIE_CLEAR_OPTIONS)
   res.cookies.set('entra_state', '', PKCE_COOKIE_CLEAR_OPTIONS)
+  res.cookies.set('entra_tenant', '', PKCE_COOKIE_CLEAR_OPTIONS)
   return res
 }
 
@@ -65,6 +66,7 @@ export async function GET(req) {
   const cookieStore = await cookies()
   const codeVerifier = cookieStore.get('entra_code_verifier')?.value
   const stateFromCookie = cookieStore.get('entra_state')?.value
+  const customTenantId = cookieStore.get('entra_tenant')?.value
 
   if (!codeVerifier || !stateFromCookie) {
     devLog.warn('[ENTRA] Missing PKCE verifier or state cookie')
@@ -79,7 +81,7 @@ export async function GET(req) {
 
   try {
     // ── Token exchange (openid-client v6) ──────────────────────────────────
-    const config = await getOidcConfig('entra')
+    const config = await getOidcConfig('entra', customTenantId)
 
     // authorizationCodeGrant parses the full callback URL + validates id_token
     const tokens = await exchangeCode(config, req.url, {
@@ -110,6 +112,7 @@ export async function GET(req) {
     // Clear PKCE cookies
     successResponse.cookies.set('entra_code_verifier', '', PKCE_COOKIE_CLEAR_OPTIONS)
     successResponse.cookies.set('entra_state', '', PKCE_COOKIE_CLEAR_OPTIONS)
+    successResponse.cookies.set('entra_tenant', '', PKCE_COOKIE_CLEAR_OPTIONS)
 
     // Write session cookie(s) — handles chunking automatically
     const cookieConfigs = createSessionCookie(sessionData)

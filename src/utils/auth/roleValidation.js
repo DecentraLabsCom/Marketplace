@@ -20,7 +20,9 @@
 export const PROVIDER_ALLOWED_ROLES = [
   'faculty',
   'staff',
-  'employee'
+  'employee',
+  'provider',
+  'admin'
 ];
 
 // Define roles that are explicitly denied (students, etc.)
@@ -38,6 +40,8 @@ export const ADMIN_ALLOWED_ROLES = [
   'staff',
   'employee',
   'faculty',
+  'admin',
+  'provider'
 ];
 
 /**

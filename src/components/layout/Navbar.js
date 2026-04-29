@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faBars } from '@fortawesome/free-solid-svg-icons'
 import { Container } from '@/components/ui'
 import { useOptionalUser } from '@/context/UserContext'
-import { hasAdminRole } from '@/utils/auth/roleValidation'
+import { hasAdminRole, validateProviderRole } from '@/utils/auth/roleValidation'
 
 const Login = dynamic(() => import('@/components/auth/Login'), {
   ssr: false,
@@ -44,12 +44,11 @@ export default function Navbar() {
   // More tolerant approach - show buttons if we're logged in, even if loading provider data
   const showMenuButtons = isLoggedIn;
 
-  // Check if user has faculty role (professor)
+  // Check if user has provider role (or faculty/staff)
   const isFaculty = () => {
     if (!isSSO || !user) return false;
-    const userRole = (user.role || '').toLowerCase().trim();
-    const userScopedRole = (user.scopedRole || '').toLowerCase().trim();
-    return userRole.includes('faculty') || userScopedRole.includes('faculty');
+    const validation = validateProviderRole(user.role, user.scopedRole);
+    return validation.isValid;
   };
 
   // Check if user can see and access the registration option

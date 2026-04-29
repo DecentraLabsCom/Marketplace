@@ -12,9 +12,12 @@ import devLog from '@/utils/dev/logger'
 
 const PKCE_COOKIE_MAX_AGE = 5 * 60 // 5 minutes
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const config = await getOidcConfig('entra')
+    const { searchParams } = new URL(request.url)
+    const customTenantId = searchParams.get('tenant') || undefined
+
+    const config = await getOidcConfig('entra', customTenantId)
     const redirectUri = getRedirectUri('entra')
     const { codeVerifier, state } = generatePkceParams()
 
@@ -34,6 +37,9 @@ export async function GET() {
 
     response.cookies.set('entra_code_verifier', codeVerifier, cookieOptions)
     response.cookies.set('entra_state', state, cookieOptions)
+    if (customTenantId) {
+      response.cookies.set('entra_tenant', customTenantId, cookieOptions)
+    }
 
     return response
   } catch (error) {

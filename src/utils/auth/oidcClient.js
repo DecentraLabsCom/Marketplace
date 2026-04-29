@@ -23,17 +23,18 @@ import {
 } from 'openid-client'
 
 // Per-provider server config cache
-const configCache = new Map()
+const configCache = {}
 
 /**
- * Returns the discovery URL for a given provider ID.
+ * Returns the OIDC issuer URL for a given provider.
  *
  * @param {'entra'} providerId
+ * @param {string} [customTenantId] - Optional specific tenant UUID
  * @returns {URL}
  */
-function getIssuerUrl(providerId) {
+function getIssuerUrl(providerId, customTenantId) {
   if (providerId === 'entra') {
-    const tenant = process.env.ENTRA_TENANT_ID || 'common'
+    const tenant = customTenantId || process.env.ENTRA_TENANT_ID || 'common'
     return new URL(`https://login.microsoftonline.com/${tenant}/v2.0`)
   }
   throw new Error(`[OIDCClient] Unknown provider: ${providerId}`)
@@ -60,24 +61,25 @@ export function getRedirectUri(providerId) {
  * Performs OIDC discovery the first time and caches the result.
  *
  * @param {'entra'} providerId
+ * @param {string} [customTenantId] - Optional specific tenant UUID to use for discovery
  * @returns {Promise<import('openid-client').Configuration>}
  */
-export async function getOidcConfig(providerId) {
-  if (configCache.has(providerId)) {
-    return configCache.get(providerId)
+export async function getOidcConfig(providerId, customTenantId) {
+  const cacheKey = customTenantId ? `${providerId}:${customTenantId}` : providerId
+  if (configCache[cacheKey]) {
+    return configCache[cacheKey]
   }
 
-  const clientId = process.env.ENTRA_CLIENT_ID
+  const issuerUrl = getIssuerUrl(providerId, customTenantId)
   const clientSecret = process.env.ENTRA_CLIENT_SECRET
+  const clientId = process.env.ENTRA_CLIENT_ID
 
   if (!clientId || !clientSecret) {
     throw new Error('[OIDCClient] ENTRA_CLIENT_ID and ENTRA_CLIENT_SECRET must be set')
   }
 
-  const issuerUrl = getIssuerUrl(providerId)
   const config = await discovery(issuerUrl, clientId, clientSecret)
-
-  configCache.set(providerId, config)
+  configCache[cacheKey] = config
   return config
 }
 
@@ -112,6 +114,7 @@ export async function buildEntraAuthUrl(config, codeVerifier, redirectUri, state
     code_challenge: codeChallenge,
     code_challenge_method: 'S256',
     state: state || undefined,
+    prompt: 'select_account',
   })
 }
 
