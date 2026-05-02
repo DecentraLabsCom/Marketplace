@@ -5,16 +5,6 @@
 jest.mock('../useBookingCacheUpdates', () => ({
   useBookingCacheUpdates: jest.fn(),
 }));
-jest.mock('@/utils/webauthn/client', () => ({
-  transformAssertionOptions: jest.fn((opts) => opts),
-  assertionToJSON: jest.fn(() => ({
-    response: {
-      clientDataJSON: 'cd',
-      authenticatorData: 'ad',
-      signature: 'sig',
-    },
-  })),
-}));
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

@@ -10,16 +10,6 @@ jest.mock('@/context/UserContext', () => ({
     institutionBackendUrl: 'https://institution.example',
   })),
 }));
-jest.mock('@/utils/webauthn/client', () => ({
-  transformAssertionOptions: jest.fn((opts) => opts),
-  assertionToJSON: jest.fn(() => ({
-    response: {
-      clientDataJSON: 'cd',
-      authenticatorData: 'ad',
-      signature: 'sig',
-    },
-  })),
-}));
 jest.mock('@/utils/intents/pollIntentStatus', () => jest.fn(() => Promise.resolve({ status: 'executed' })));
 jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => jest.fn(() => Promise.resolve({ status: 'SUCCESS', requestId: 'req-1' })));
 

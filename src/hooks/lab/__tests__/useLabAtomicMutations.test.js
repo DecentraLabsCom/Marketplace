@@ -33,17 +33,6 @@ jest.mock('@/utils/intents/pollIntentAuthorizationStatus', () => ({
   default: jest.fn(),
 }))
 
-jest.mock('@/utils/webauthn/client', () => ({
-  __esModule: true,
-  transformAssertionOptions: jest.fn(() => ({ challenge: 'challenge' })),
-  assertionToJSON: jest.fn(() => ({
-    response: {
-      clientDataJSON: 'clientData',
-      authenticatorData: 'authData',
-      signature: 'sig',
-    },
-  })),
-}))
 
 jest.mock('@/context/OptimisticUIContext', () => ({
   __esModule: true,
