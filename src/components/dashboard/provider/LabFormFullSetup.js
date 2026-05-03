@@ -308,18 +308,20 @@ export default function LabFormFullSetup({
           />
           {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
         </div>
-        <div>
-          <input
-            type="text"
-            placeholder="Access Key"
-            value={localLab?.accessKey || ''}
-            onChange={(e) => handleBasicChange('accessKey', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-            disabled={disabled}
-            ref={accessKeyRef}
-          />
-          {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
-        </div>
+        {localLab?.resourceType !== RESOURCE_TYPES.FMU && (
+          <div>
+            <input
+              type="text"
+              placeholder="Access Key"
+              value={localLab?.accessKey || ''}
+              onChange={(e) => handleBasicChange('accessKey', e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              ref={accessKeyRef}
+            />
+            {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
+          </div>
+        )}
       </section>
 
       {/* FMU-Specific Fields — shown only when resourceType === 'fmu' */}
