@@ -86,6 +86,15 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, applyFmu
     return () => { if (abortRef.current) abortRef.current.abort() }
   }, [])
 
+  // Reset auto-detect status when fmuFileName changes so stale state doesn't persist
+  const prevFmuFileName = useRef(localLab?.fmuFileName)
+  useEffect(() => {
+    if (localLab?.fmuFileName !== prevFmuFileName.current) {
+      prevFmuFileName.current = localLab?.fmuFileName
+      setDescribeFetch({ loading: false, error: null, fetched: false })
+    }
+  }, [localLab?.fmuFileName])
+
   // Clear stale error when gatewayUrl is provided after a failed attempt
   useEffect(() => {
     if (gatewayUrl && describeFetch.error === 'Gateway URL not available (set Access URI first)') {
@@ -126,7 +135,7 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, applyFmu
             {describeFetch.loading ? 'Loading…' : 'Auto-detect'}
           </button>
         </div>
-        {errors.fmuFileName && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
+        {errors.fmuFileName && !describeFetch.fetched && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
         {!gatewayUrl && !describeFetch.error && (
           <p className="text-gray-400 text-sm mt-1">Set Access URI above to enable auto-detect</p>
         )}

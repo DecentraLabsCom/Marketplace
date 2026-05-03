@@ -1,29 +1,20 @@
-import { resolveGatewayAuthEndpoint } from '@/components/dashboard/provider/labFormUtils'
 import devLog from '@/utils/dev/logger'
 
-export async function resolveFmuDescribeHeaders(gatewayUrl) {
-  const authEndpoint = resolveGatewayAuthEndpoint(gatewayUrl)
-  if (!authEndpoint) return {}
+export async function resolveFmuDescribeHeaders(fmuFileName, gatewayUrl) {
+  if (!fmuFileName || !gatewayUrl) return {}
 
   try {
-    const authRes = await fetch('/api/auth/lab-access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        authEndpoint,
-        includeBookingInfo: false,
-      }),
-    })
-    if (!authRes.ok) {
-      return {}
-    }
-    const authData = await authRes.json()
-    if (authData?.token) {
-      return { Authorization: `Bearer ${authData.token}` }
+    const tokenRes = await fetch(
+      `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${encodeURIComponent(gatewayUrl)}`,
+      { credentials: 'include' },
+    )
+    if (!tokenRes.ok) return {}
+    const data = await tokenRes.json()
+    if (data?.token) {
+      return { Authorization: `Bearer ${data.token}` }
     }
   } catch (error) {
-    devLog.warn('Unable to fetch auth token for FMU reference validation', error)
+    devLog.warn('Unable to fetch describe token for FMU reference validation', error)
   }
   return {}
 }
@@ -39,7 +30,7 @@ export async function verifyFmuReference(labData) {
     throw new Error('Access URI is required for FMU resources')
   }
 
-  const headers = await resolveFmuDescribeHeaders(gatewayUrl)
+  const headers = await resolveFmuDescribeHeaders(fmuFileName, gatewayUrl)
   const gwParam = encodeURIComponent(gatewayUrl)
   const labParam = labData?.id ? `&labId=${encodeURIComponent(String(labData.id))}` : ''
   const describeUrl = `/api/simulations/describe?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}${labParam}`
