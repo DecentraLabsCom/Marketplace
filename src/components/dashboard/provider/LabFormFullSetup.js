@@ -98,7 +98,7 @@ export default function LabFormFullSetup({
   }, [disabled, timezoneValue])
 
   const handleBasicChange = (field, value) => {
-    setLocalLab({ ...localLab, [field]: value })
+    setLocalLab(prev => ({ ...prev, [field]: value }))
   }
 
   // State for keywords input field (string representation)
