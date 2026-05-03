@@ -3,7 +3,7 @@ import { Loader2, Cpu } from 'lucide-react'
 import { normalizeArray } from './labFormUtils'
 import devLog from '@/utils/dev/logger'
 
-export default function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatewayUrl }) {
+export default function FmuFieldsSection({ localLab, handleBasicChange, applyFmuMetadata, errors, disabled, gatewayUrl }) {
   const [describeFetch, setDescribeFetch] = useState({ loading: false, error: null, fetched: false })
   const abortRef = useRef(null)
 
@@ -55,13 +55,25 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, errors, 
         throw new Error(body.error || `Gateway returned ${res.status}`)
       }
       const data = await res.json()
-      // Auto-populate read-only fields
-      handleBasicChange('fmiVersion', data.fmiVersion || '')
-      handleBasicChange('simulationType', data.simulationType || '')
-      handleBasicChange('modelVariables', Array.isArray(data.modelVariables) ? data.modelVariables : [])
-      if (data.defaultStartTime != null) handleBasicChange('defaultStartTime', data.defaultStartTime)
-      if (data.defaultStopTime != null) handleBasicChange('defaultStopTime', data.defaultStopTime)
-      if (data.defaultStepSize != null) handleBasicChange('defaultStepSize', data.defaultStepSize)
+      // Apply all metadata fields in a single update to avoid stale-closure overwrites
+      const applyMetadata = applyFmuMetadata || handleBasicChange
+      if (applyFmuMetadata) {
+        applyFmuMetadata({
+          fmiVersion: data.fmiVersion || '',
+          simulationType: data.simulationType || '',
+          modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
+          ...(data.defaultStartTime != null ? { defaultStartTime: data.defaultStartTime } : {}),
+          ...(data.defaultStopTime != null ? { defaultStopTime: data.defaultStopTime } : {}),
+          ...(data.defaultStepSize != null ? { defaultStepSize: data.defaultStepSize } : {}),
+        })
+      } else {
+        handleBasicChange('fmiVersion', data.fmiVersion || '')
+        handleBasicChange('simulationType', data.simulationType || '')
+        handleBasicChange('modelVariables', Array.isArray(data.modelVariables) ? data.modelVariables : [])
+        if (data.defaultStartTime != null) handleBasicChange('defaultStartTime', data.defaultStartTime)
+        if (data.defaultStopTime != null) handleBasicChange('defaultStopTime', data.defaultStopTime)
+        if (data.defaultStepSize != null) handleBasicChange('defaultStepSize', data.defaultStepSize)
+      }
       setDescribeFetch({ loading: false, error: null, fetched: true })
     } catch (err) {
       if (err.name === 'AbortError') return

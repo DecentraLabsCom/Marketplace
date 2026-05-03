@@ -98,8 +98,12 @@ export default function LabFormFullSetup({
   }, [disabled, timezoneValue])
 
   const handleBasicChange = (field, value) => {
-    setLocalLab(prev => ({ ...prev, [field]: value }))
+    setLocalLab({ ...latestLabRef.current, [field]: value })
   }
+
+  const applyFmuMetadata = useCallback((metadata) => {
+    setLocalLabRef.current({ ...latestLabRef.current, ...metadata })
+  }, [])
 
   // State for keywords input field (string representation)
   const [keywordsInput, setKeywordsInput] = useState('')
@@ -329,6 +333,7 @@ export default function LabFormFullSetup({
         <FmuFieldsSection
           localLab={localLab}
           handleBasicChange={handleBasicChange}
+          applyFmuMetadata={applyFmuMetadata}
           errors={errors}
           disabled={disabled}
           gatewayUrl={localLab?.accessURI}
