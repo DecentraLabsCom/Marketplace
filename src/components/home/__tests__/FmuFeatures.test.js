@@ -141,9 +141,9 @@ describe("LabFilters - Resource Type Dropdown", () => {
     const select = screen.getByRole("combobox", { name: /filter by type/i });
     expect(select).toBeInTheDocument();
     const selectEl = within(select.closest('div'));
-    expect(selectEl.getByRole("option", { name: "All" })).toBeInTheDocument();
+    expect(selectEl.getByRole("option", { name: "Modality" })).toBeInTheDocument();
     expect(selectEl.getByRole("option", { name: "Real" })).toBeInTheDocument();
-    expect(selectEl.getByRole("option", { name: "Simulations" })).toBeInTheDocument();
+    expect(selectEl.getByRole("option", { name: "Simulated" })).toBeInTheDocument();
   });
 
   test("calls onResourceTypeChange with 'lab' when 'Real' is selected", () => {
