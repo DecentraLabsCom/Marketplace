@@ -377,15 +377,7 @@ export default function ProviderDashboard() {
         postExecutePollInitialDelayMs: 2_000,
         postExecutePollMaxDelayMs: 5_000,
       });
-      // Close modal and notify success
-      try {
-        setIsModalOpen(false);
-        notifyLabCreated(addTemporaryNotification, labData?.id);
-      } catch (err) {
-        devLog.warn('Failed to close modal or notify success:', err);
-      } finally {
-        clearCreateLabProgress();
-      }      
+      // Close modal and notify success after all post-processing
       const blockchainLabId = result?.labId?.toString?.() || result?.id?.toString?.();
       
       if (!blockchainLabId) {

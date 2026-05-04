@@ -211,9 +211,9 @@ export default function LabFilters({
           className="pl-4 pr-8 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
           disabled={effectiveLoading}
         >
-          <option value="All">All</option>
+          <option value="All">Modality</option>
           <option value="lab">Real</option>
-          <option value="fmu">Simulations</option>
+          <option value="fmu">Simulated</option>
         </select>
       </div>
     </section>

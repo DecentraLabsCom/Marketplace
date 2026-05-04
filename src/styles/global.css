@@ -685,3 +685,21 @@ body::-webkit-scrollbar-thumb:hover {
   height: 220px !important;
   width: 100%;
 }
+
+/* Time-only picker for Daily Start/End Time fields */
+.time-only-picker .react-datepicker {
+  min-width: 100px;
+}
+
+.time-only-picker .react-datepicker__time-container {
+  width: 100px;
+  float: none;
+}
+
+.time-only-picker .react-datepicker__time {
+  width: 100px;
+}
+
+.time-only-picker .react-datepicker__time-list {
+  height: 200px !important;
+}
