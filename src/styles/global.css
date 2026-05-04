@@ -264,7 +264,7 @@
   /* ===== Animations (from tailwind.config.js keyframes + animation) ===== */
   --animate-fadeIn: fadeIn 0.2s ease-out;
   --animate-slide-in: slide-in 0.3s ease-out forwards;
-  --animate-glow: glow 2s infinite alternate;
+  --animate-glow: glow 2.5s ease-in-out infinite alternate;
   --animate-separator-width: separator-width 1s ease-out forwards;
 }
 
@@ -352,10 +352,10 @@ body {
 
 @keyframes glow {
   from {
-    box-shadow: 0 0 5px rgb(113 92 140 / 0.2), 0 0 2px rgb(113 92 140 / 0.1);
+    box-shadow: 0 0 4px 1px rgb(113 92 140 / 0.15), 0 0 0px rgb(113 92 140 / 0.0);
   }
   to {
-    box-shadow: 0 0 18px rgb(113 92 140 / 0.55), 0 0 8px rgb(113 92 140 / 0.3);
+    box-shadow: 0 0 22px 6px rgb(113 92 140 / 0.65), 0 0 40px 10px rgb(113 92 140 / 0.25);
   }
 }
 
