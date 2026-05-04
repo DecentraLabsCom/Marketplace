@@ -2,7 +2,7 @@
  * Booking status utilities for filtering and categorizing bookings
  * Centralized logic for determining booking states and visibility
  */
-import { faSpinner } from '@fortawesome/free-solid-svg-icons'
+import { faSpinner, faClock, faCircleCheck, faCheck, faPlay, faXmark, faCircleQuestion } from '@fortawesome/free-solid-svg-icons'
 import devLog from '@/utils/dev/logger'
 
 /**
@@ -234,7 +234,7 @@ export const getBookingStatusDisplay = (booking) => {
     return {
       text: "Expired",
       className: "bg-booking-expired-bg text-booking-expired-text border-booking-expired-border",
-      icon: "⏰"
+      icon: faClock
     }
   }
 
@@ -242,7 +242,7 @@ export const getBookingStatusDisplay = (booking) => {
     return {
       text: "Completed",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
-      icon: "🎯"
+      icon: faCircleCheck
     }
   }
 
@@ -255,32 +255,32 @@ export const getBookingStatusDisplay = (booking) => {
     case 1: return {
       text: "Confirmed",
       className: "bg-booking-confirmed-bg text-booking-confirmed-text border-booking-confirmed-border",
-      icon: "✓"
+      icon: faCheck
     };
     case 2: return {
       text: "In Use",
       className: "bg-booking-used-bg text-booking-used-text border-booking-used-border",
-      icon: "✅"
+      icon: faPlay
     };
     case 3: return {
       text: "Completed",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
-      icon: "🎯"
+      icon: faCircleCheck
     };
     case 4: return {
       text: "Collected",
       className: "bg-booking-collected-bg text-booking-collected-text border-booking-collected-border",
-      icon: "🎯"
+      icon: faCircleCheck
     };
     case 5: return {
       text: "Cancelled",
       className: "bg-booking-cancelled-bg text-booking-cancelled-text border-booking-cancelled-border",
-      icon: "❌"
+      icon: faXmark
     };
     default: return {
       text: "Unknown",
       className: "bg-neutral-100 text-neutral-800 border-neutral-200",
-      icon: "❓"
+      icon: faCircleQuestion
     };
   }
 }
