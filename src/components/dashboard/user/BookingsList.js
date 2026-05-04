@@ -83,9 +83,10 @@ export default function BookingsList({
       const endDateTime = new Date(parseInt(booking.end) * 1000);
       
       if (isUpcoming) {
-        const startDateTime = new Date(parseInt(booking.start) * 1000);
-        const isUpcomingBooking = startDateTime.getTime() > currentTime.getTime();
-        if (!isUpcomingBooking) return false;
+        // Keep bookings that haven't ended yet — this includes both future bookings and
+        // currently-active bookings that are NOT the one shown in "Active Now".
+        const hasNotEnded = endDateTime.getTime() > currentTime.getTime();
+        if (!hasNotEnded) return false;
         const bookingKey = normalizeKey(booking.reservationKey);
         if (excludedKey && bookingKey && bookingKey === excludedKey) return false;
         if (

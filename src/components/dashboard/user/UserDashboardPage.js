@@ -509,8 +509,12 @@ export default function UserDashboard() {
                 onClearError={handleClearCancellationError}
                 failedCancellations={failedCancellations}
                 cancellationStates={cancellationStates}
-                excludeReservationKey={highlightedUpcomingBooking?.reservationKey || null}
-                excludeBooking={highlightedUpcomingBooking}
+                excludeReservationKey={
+                  activeBookingForDashboard?.reservationKey ||
+                  highlightedUpcomingBooking?.reservationKey ||
+                  null
+                }
+                excludeBooking={activeBookingForDashboard || highlightedUpcomingBooking}
                 closeModal={closeModal}
               />
               

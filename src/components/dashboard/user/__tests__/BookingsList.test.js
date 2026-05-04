@@ -155,7 +155,7 @@ describe('BookingsList - Unit Tests', () => {
             expect(screen.getByText('No upcoming bookings found.')).toBeInTheDocument();
         });
 
-        test('excludes currently active bookings from upcoming list', () => {
+        test('excludes currently active bookings from upcoming list when passed as excludeBooking', () => {
             const activeBooking = {
                 id: '4',
                 labId: '104',
@@ -166,10 +166,37 @@ describe('BookingsList - Unit Tests', () => {
                 labDetails: { id: '104', name: 'Active Lab' }
             };
 
-            renderList({ bookings: [...bookings, activeBooking], type: 'upcoming' });
+            // The active booking must be excluded explicitly (as UserDashboardPage does).
+            // Without excludeBooking it appears in upcoming because it hasn't ended yet.
+            renderList({
+                bookings: [...bookings, activeBooking],
+                type: 'upcoming',
+                excludeBooking: activeBooking,
+                excludeReservationKey: activeBooking.reservationKey,
+            });
 
             expect(screen.getByText('Future Lab')).toBeInTheDocument();
             expect(screen.queryByText('Active Lab')).not.toBeInTheDocument();
+            expect(screen.queryByText('Past Lab')).not.toBeInTheDocument();
+        });
+
+        test('shows currently active overlapping bookings in upcoming list if not excluded', () => {
+            const activeBooking = {
+                id: '4',
+                labId: '104',
+                reservationKey: 'k4',
+                start: Math.floor(new Date('2024-01-15T11:00:00Z').getTime() / 1000),
+                end: Math.floor(new Date('2024-01-15T13:00:00Z').getTime() / 1000),
+                status: '1',
+                labDetails: { id: '104', name: 'Active Lab' }
+            };
+
+            // An overlapping active booking that is NOT the one shown in Active Now
+            // should remain visible in upcoming bookings.
+            renderList({ bookings: [...bookings, activeBooking], type: 'upcoming' });
+
+            expect(screen.getByText('Future Lab')).toBeInTheDocument();
+            expect(screen.getByText('Active Lab')).toBeInTheDocument();
             expect(screen.queryByText('Past Lab')).not.toBeInTheDocument();
         });
 
