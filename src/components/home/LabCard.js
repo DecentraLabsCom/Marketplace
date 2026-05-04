@@ -119,7 +119,7 @@ const LabCard = React.memo(function LabCard({
 
         {/* Unlisted Badge */}
         {!isListed && (
-          <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand border-l-2 border-brand px-3 py-2 rounded-bl-lg shadow-lg backdrop-blur-sm`}>
+          <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand px-3 py-2 rounded-bl-lg shadow-lg`}>
             <span className="text-xs font-semibold uppercase tracking-wide">
               Unlisted
             </span>

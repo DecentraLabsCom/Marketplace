@@ -179,11 +179,11 @@ export default function LabFilters({
         <button 
           onClick={handlePriceClick} 
           value={selectedPrice}
-          className="w-32.5 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-32.5 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
           disabled={effectiveLoading}
         >
-          {selectedPrice === 'Low to High' ? 'Price \u2191'
-            : selectedPrice === 'High to Low' ? 'Price \u2193'
+          {selectedPrice === 'Low to High' ? (<><span>Price</span><span className="text-sm leading-none">↑</span></>) 
+            : selectedPrice === 'High to Low' ? (<><span>Price</span><span className="text-sm leading-none">↓</span></>) 
             : selectedPrice}
         </button>
       </div>
