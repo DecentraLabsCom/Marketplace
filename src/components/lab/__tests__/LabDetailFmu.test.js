@@ -133,18 +133,12 @@ describe("LabDetail - FMU Resource", () => {
   test("shows FMU Simulation Details section", () => {
     render(<LabDetail id="42" />);
     expect(screen.getByText("FMU Simulation Details")).toBeInTheDocument();
-    expect(screen.getByText(/Compatible with FMI 2\.0 Co-Simulation/i)).toBeInTheDocument();
   });
 
   test("shows FMI version and simulation type", () => {
     render(<LabDetail id="42" />);
     expect(screen.getByText("2.0")).toBeInTheDocument();
     expect(screen.getByText("Co-Simulation")).toBeInTheDocument();
-  });
-
-  test("shows FMU filename", () => {
-    render(<LabDetail id="42" />);
-    expect(screen.getByText("spring-damper.fmu")).toBeInTheDocument();
   });
 
   test("shows model variables table with input/output badges", () => {

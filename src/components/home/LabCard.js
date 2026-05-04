@@ -117,10 +117,14 @@ const LabCard = React.memo(function LabCard({
           </div>
         )}
 
-        {/* FMU Badge */}
-        {isFmu && (
-          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-[#7875a8]/90 px-2.5 py-1 text-xs font-semibold text-white shadow-sm backdrop-blur-sm">
-            <span>âš™ FMU</span>
+        {/* Resource Type Badge */}
+        {isFmu ? (
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-hover-dark/90 px-2.5 py-1 text-xs font-semibold text-white shadow-sm">
+            <span>Sim</span>
+          </div>
+        ) : (
+          <div className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-header-bg/90 px-2.5 py-1 text-xs font-semibold text-hover-dark shadow-sm">
+            <span>Real</span>
           </div>
         )}
 

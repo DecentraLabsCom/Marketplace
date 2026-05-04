@@ -72,14 +72,16 @@ const baseLabProps = {
 };
 
 describe("LabCard - FMU Support", () => {
-  test("does NOT show FMU badge when resourceType is 'lab' (default)", () => {
+  test("shows 'Real' badge when resourceType is 'lab' (default)", () => {
     render(<LabCard {...baseLabProps} />);
-    expect(screen.queryByText(/FMU/)).toBeNull();
+    expect(screen.getByText("Real")).toBeInTheDocument();
+    expect(screen.queryByText("Sim")).toBeNull();
   });
 
-  test("shows FMU badge when resourceType is 'fmu'", () => {
+  test("shows 'Sim' badge when resourceType is 'fmu'", () => {
     render(<LabCard {...baseLabProps} resourceType="fmu" />);
-    expect(screen.getByText(/FMU/)).toBeInTheDocument();
+    expect(screen.getByText("Sim")).toBeInTheDocument();
+    expect(screen.queryByText("Real")).toBeNull();
   });
 
   test("shows 'Explore Simulation' hover text for FMU resources", () => {
