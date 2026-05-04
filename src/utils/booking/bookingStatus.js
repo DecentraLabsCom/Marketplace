@@ -250,7 +250,8 @@ export const getBookingStatusDisplay = (booking) => {
     case 0: return {
       text: "Pending",
       className: "bg-booking-pending-bg text-booking-pending-text border-booking-pending-border",
-      icon: faSpinner
+      icon: faSpinner,
+      spin: true,
     };
     case 1: return {
       text: "Confirmed",

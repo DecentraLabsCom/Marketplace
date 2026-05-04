@@ -350,6 +350,15 @@ body {
   100% { width: 100%; }
 }
 
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px rgb(113 92 140 / 0.2), 0 0 2px rgb(113 92 140 / 0.1);
+  }
+  to {
+    box-shadow: 0 0 18px rgb(113 92 140 / 0.55), 0 0 8px rgb(113 92 140 / 0.3);
+  }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

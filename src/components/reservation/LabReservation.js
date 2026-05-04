@@ -216,6 +216,7 @@ export default function LabReservation({ id }) {
           labId,
           start: String(start),
           end: String(start + timeslot),
+          action: result?.intent?.meta?.action,
         })
       }
       await handleBookingSuccess()
