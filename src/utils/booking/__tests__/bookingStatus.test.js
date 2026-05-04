@@ -12,7 +12,7 @@
  * - Complex filtering logic by display mode
  */
 
-import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+import { faSpinner, faCheck, faCircleQuestion } from "@fortawesome/free-solid-svg-icons";
 import {
   BOOKING_STATUS,
   BOOKING_STATE,
@@ -194,7 +194,7 @@ describe("Display Utilities", () => {
       const display = getBookingStatusDisplay(booking);
 
       expect(display.text).toBe("Confirmed");
-      expect(display.icon).toBe("✓");
+      expect(display.icon).toBe(faCheck);
     });
 
     test("returns completed display for in-use booking whose end is in the past", () => {
@@ -213,7 +213,7 @@ describe("Display Utilities", () => {
       const display = getBookingStatusDisplay(booking);
 
       expect(display.text).toBe("Unknown");
-      expect(display.icon).toBe("❓");
+      expect(display.icon).toBe(faCircleQuestion);
     });
   });
 });
