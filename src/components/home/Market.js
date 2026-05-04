@@ -15,7 +15,6 @@ import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
-import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 import useCurrentTime from '@/hooks/useCurrentTime'
 
 export default function Market({ initialLabs = [] }) {
@@ -128,16 +127,6 @@ export default function Market({ initialLabs = [] }) {
     resetFilters
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated, now);
 
-  const hasFmuResources = useMemo(
-    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.FMU),
-    [labs]
-  )
-  const hasLabResources = useMemo(
-    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.LAB),
-    [labs]
-  )
-  const showResourceTypeFilter = hasFmuResources && hasLabResources
-
   const handleCategoryChange = useCallback((value) => {
     startFilterTransition(() => setSelectedCategory(value));
   }, [setSelectedCategory, startFilterTransition]);
@@ -157,12 +146,6 @@ export default function Market({ initialLabs = [] }) {
   const handleResourceTypeChange = useCallback((value) => {
     startFilterTransition(() => setSelectedResourceType(value));
   }, [setSelectedResourceType, startFilterTransition]);
-
-  useEffect(() => {
-    if (!showResourceTypeFilter && selectedResourceType !== 'All') {
-      setSelectedResourceType('All')
-    }
-  }, [showResourceTypeFilter, selectedResourceType, setSelectedResourceType])
 
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {
@@ -193,7 +176,7 @@ export default function Market({ initialLabs = [] }) {
           onFilterChange={handleFilterChange}
           onShowUnlistedChange={setShowUnlisted}
           selectedResourceType={selectedResourceType}
-          onResourceTypeChange={showResourceTypeFilter ? handleResourceTypeChange : undefined}
+          onResourceTypeChange={handleResourceTypeChange}
           onReset={handleReset}
           searchInputRef={searchInputRef}
           loading={labsLoading || isFilterTransitionPending}
