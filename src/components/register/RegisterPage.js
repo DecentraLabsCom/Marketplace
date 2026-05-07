@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 export default function RegisterPage() {
   const {
     isSSO,
+    isLoggedIn,
     user,
     isLoading,
     isInstitutionRegistered,
@@ -43,6 +44,11 @@ export default function RegisterPage() {
         </div>
       </Container>
     )
+  }
+
+  if (!isLoggedIn) {
+    router.replace('/')
+    return null
   }
 
   if (!isSSO) {

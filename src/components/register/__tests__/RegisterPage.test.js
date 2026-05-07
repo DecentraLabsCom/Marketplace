@@ -57,6 +57,7 @@ describe("RegisterPage", () => {
 
   test("shows loading while user data resolves", () => {
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isSSO: false,
       user: null,
       isLoading: true,
@@ -69,6 +70,7 @@ describe("RegisterPage", () => {
 
   test("denies access to non-SSO users", () => {
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isSSO: false,
       user: null,
       isLoading: false,
@@ -84,6 +86,7 @@ describe("RegisterPage", () => {
 
   test("shows validating state for SSO users before user payload is available", () => {
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isSSO: true,
       user: null,
       isLoading: false,
@@ -97,6 +100,7 @@ describe("RegisterPage", () => {
 
   test("renders institution choices for eligible SSO admins", () => {
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isSSO: true,
       user: { role: "employee", scopedRole: "" },
       isLoading: false,
@@ -115,6 +119,7 @@ describe("RegisterPage", () => {
 
   test("denies SSO users without institution admin privileges", () => {
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isSSO: true,
       user: { role: "student", scopedRole: "learner" },
       isLoading: false,
@@ -134,6 +139,7 @@ describe("RegisterPage", () => {
 
   test("blocks the page when institution is already registered", () => {
     useUser.mockReturnValue({
+      isLoggedIn: true,
       isSSO: true,
       user: { role: "staff", scopedRole: "" },
       isLoading: false,
