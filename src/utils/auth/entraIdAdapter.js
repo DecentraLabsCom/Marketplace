@@ -19,6 +19,8 @@
  */
 
 import { PrincipalType, AuthMethod, buildFederatedSub } from './principal.js'
+import { getRoleMappingRules } from './idpRegistry.js'
+import { mapClaimsToRoles } from './roleMapper.js'
 
 // ─── Tenant allow-list ──────────────────────────────────────────────────────
 
@@ -120,12 +122,13 @@ export function buildCanonicalPrincipalFromEntra(claims) {
   // clientId — app that requested the token (azp for delegated, appid for application)
   const clientId = claims.azp || claims.appid || null
 
-  // Roles — app roles configured in Entra App Registration
-  const roles = Array.isArray(claims.roles)
-    ? claims.roles
-    : typeof claims.roles === 'string'
-      ? [claims.roles]
-      : []
+  // Roles — resolved via the IdP registry and role mapper.
+  // The mapper reads the configured claim attribute (default: `roles`) and
+  // returns the canonical DecentraLabs roles granted to this principal.
+  // This replaces the previous hardcoded `claims.roles` read, allowing
+  // per-tenant configuration of which claim and which values grant access.
+  const roleMappingRule = getRoleMappingRules('entra', tid)
+  const roles = mapClaimsToRoles(claims, roleMappingRule)
 
   const institutionId = deriveInstitutionId(claims)
 
