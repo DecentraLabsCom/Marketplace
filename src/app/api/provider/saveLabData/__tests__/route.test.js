@@ -21,6 +21,7 @@ jest.mock('@/utils/auth/guards', () => {
     HttpError,
     BadRequestError,
     requireAuth: jest.fn(),
+    requireProviderRole: jest.fn((session) => session),
     requireLabOwner: jest.fn(),
     handleGuardError: jest.fn((err) => ({ status: err.statusCode || 400, body: { error: err.message } })),
   }

@@ -20,6 +20,7 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,10 @@ jest.mock('@/utils/auth/guards', () => {
 jest.mock('@/utils/intents/signInstitutionalReservationIntent', () => ({
   buildReservationIntent: jest.fn(),
   computeReservationAssertionHash: jest.fn(),
+  ACTION_CODES: {
+    REQUEST_BOOKING: 8,
+    DIRECT_BOOKING: 11,
+  },
 }))
 jest.mock('@/utils/intents/resolveIntentExecutor', () => ({
   resolveIntentExecutorForInstitution: jest.fn(),
@@ -80,6 +85,9 @@ jest.mock('@/utils/intents/onchainHelpers', () => ({
 jest.mock('@/utils/auth/institutionDomain', () => ({
   resolveInstitutionDomainFromSession: jest.fn(),
 }))
+jest.mock('@/app/api/contract/utils/institutionSession', () => ({
+  resolveInstitutionAddressFromSession: jest.fn(),
+}))
 jest.mock('@/utils/dev/logger', () => ({
   error: jest.fn(),
   log: jest.fn(),
@@ -107,7 +115,9 @@ describe('POST /api/backend/intents/reservations/prepare', () => {
     
     getContractInstance.mockResolvedValue({
       getLab: jest.fn().mockResolvedValue({ base: { price: BigInt(100) } }),
+      ownerOf: jest.fn().mockResolvedValue('0xLabOwner'),
     })
+    resolveInstitutionAddressFromSession.mockResolvedValue({ institutionAddress: '0xLabOwner' })
     resolveIntentExecutorForInstitution.mockResolvedValue('0xExecutor')
     getAdminAddress.mockResolvedValue('0xAdmin')
     computeReservationAssertionHash.mockReturnValue('0xAssertionHash')
