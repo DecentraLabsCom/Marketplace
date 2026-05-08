@@ -43,7 +43,7 @@ export default function EntraLoginButton({ setIsModalOpen }) {
           </svg>
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-lg text-white">Institutional Login</h3>
+          <h3 className="font-semibold text-lg text-white">Microsoft Login</h3>
           <p className="text-sm text-white/80">Sign in with your organization account</p>
         </div>
         <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
