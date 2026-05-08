@@ -90,6 +90,16 @@ jest.mock("@/components/ui/media/DocPreviewList.js", () => ({
   ),
 }));
 
+// Mock FmuFieldsSection to avoid fetch calls in unit tests
+jest.mock("../FmuFieldsSection", () => ({
+  __esModule: true,
+  default: ({ localLab }) => (
+    <div data-testid="fmu-fields-section">
+      <span>{localLab?.fmuFileName}</span>
+    </div>
+  ),
+}));
+
 // Component under test
 import LabFormFullSetup from "../LabFormFullSetup";
 
@@ -620,6 +630,57 @@ describe("LabFormFullSetup", () => {
       expect(
         screen.getByPlaceholderText("Keywords (comma-separated)")
       ).toHaveValue("");
+    });
+  });
+
+  describe("FMU resource type", () => {
+    const fmuLab = {
+      ...mockLab,
+      resourceType: "fmu",
+      fmuFileName: "BouncingBall.fmu",
+      accessKey: "",
+    };
+
+    test("hides Access Key field when resourceType is fmu", () => {
+      renderForm({ localLab: fmuLab });
+
+      expect(screen.queryByPlaceholderText("Access Key")).not.toBeInTheDocument();
+    });
+
+    test("shows Access Key field when resourceType is not fmu", () => {
+      renderForm({ localLab: { ...mockLab, resourceType: "lab" } });
+
+      expect(screen.getByPlaceholderText("Access Key")).toBeInTheDocument();
+    });
+
+    test("shows Access Key field when resourceType is undefined", () => {
+      renderForm({ localLab: { ...mockLab, resourceType: undefined } });
+
+      expect(screen.getByPlaceholderText("Access Key")).toBeInTheDocument();
+    });
+
+    test("renders FmuFieldsSection when resourceType is fmu", () => {
+      renderForm({ localLab: fmuLab });
+
+      expect(screen.getByTestId("fmu-fields-section")).toBeInTheDocument();
+    });
+
+    test("does not render FmuFieldsSection when resourceType is not fmu", () => {
+      renderForm({ localLab: { ...mockLab, resourceType: "lab" } });
+
+      expect(screen.queryByTestId("fmu-fields-section")).not.toBeInTheDocument();
+    });
+
+    test("shows 'Add FMU Simulation' button text for new FMU lab", () => {
+      renderForm({ localLab: { ...fmuLab, id: undefined } });
+
+      expect(screen.getByText("Add FMU Simulation")).toBeInTheDocument();
+    });
+
+    test("shows 'Save Changes' for existing FMU lab", () => {
+      renderForm({ localLab: { ...fmuLab, id: "42" } });
+
+      expect(screen.getByText("Save Changes")).toBeInTheDocument();
     });
   });
 });

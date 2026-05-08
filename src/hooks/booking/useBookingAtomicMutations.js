@@ -363,7 +363,13 @@ export const useReservationRequestSSO = (options = {}) => {
                   tokenId: variables.tokenId
                 });
 
-                notifyReservationOnChainRequested(addTemporaryNotification, finalKey);
+                // DIRECT_BOOKING atomically requests and confirms in a single tx;
+                // the "Waiting for final confirmation" toast is misleading and would
+                // appear after "Reservation confirmed." is already shown.
+                const isDirectBooking = data?.intent?.meta?.action === 11 /* DIRECT_BOOKING */;
+                if (!isDirectBooking) {
+                  notifyReservationOnChainRequested(addTemporaryNotification, finalKey);
+                }
                 if (typeof window !== 'undefined') {
                   window.dispatchEvent(new CustomEvent('reservation-request-onchain', {
                     detail: {

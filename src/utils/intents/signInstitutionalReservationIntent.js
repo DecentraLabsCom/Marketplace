@@ -8,6 +8,7 @@ export { INTENT_META_TYPES };
 export const ACTION_CODES = {
   REQUEST_BOOKING: 8,
   CANCEL_REQUEST_BOOKING: 9,
+  DIRECT_BOOKING: 11,
 };
 
 export const RESERVATION_TYPES = {

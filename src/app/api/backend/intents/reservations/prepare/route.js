@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { ethers } from 'ethers'
 import { requireAuth, handleGuardError } from '@/utils/auth/guards'
-import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
+import { buildReservationIntent, computeReservationAssertionHash, ACTION_CODES } from '@/utils/intents/signInstitutionalReservationIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { getPucFromSession } from '@/utils/webauthn/service'
@@ -17,6 +17,7 @@ import {
 } from '@/utils/intents/backendClient'
 import { extractOnchainErrorDetails, resolveChainNowSec } from '@/utils/intents/onchainHelpers'
 import { resolveInstitutionDomainFromSession } from '@/utils/auth/institutionDomain'
+import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import devLog from '@/utils/dev/logger'
 
 export async function POST(request) {
@@ -64,6 +65,12 @@ export async function POST(request) {
     const rawPrice = labData?.base?.price ?? labData?.price ?? 0n
     const pricePerSecond = BigInt(rawPrice)
 
+    const labOwner = await priceProvider.ownerOf(BigInt(labId))
+    const { institutionAddress } = await resolveInstitutionAddressFromSession(session, priceProvider)
+    const bookingAction = labOwner.toLowerCase() === institutionAddress.toLowerCase()
+      ? ACTION_CODES.DIRECT_BOOKING
+      : ACTION_CODES.REQUEST_BOOKING
+
     const end = BigInt(start) + BigInt(timeslot)
     const durationSeconds = BigInt(timeslot)
     const price = pricePerSecond * durationSeconds
@@ -83,6 +90,7 @@ export async function POST(request) {
       price,
       reservationKey,
       nowSec: chainNowSec,
+      action: bookingAction,
     })
 
     const adminSignature = await signIntentMeta(intentPackage.meta, intentPackage.typedData)

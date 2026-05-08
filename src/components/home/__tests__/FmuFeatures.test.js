@@ -9,7 +9,7 @@
  */
 
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 
 // â”€â”€â”€ LabCard Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -72,14 +72,16 @@ const baseLabProps = {
 };
 
 describe("LabCard - FMU Support", () => {
-  test("does NOT show FMU badge when resourceType is 'lab' (default)", () => {
+  test("shows 'Real' badge when resourceType is 'lab' (default)", () => {
     render(<LabCard {...baseLabProps} />);
-    expect(screen.queryByText(/FMU/)).toBeNull();
+    expect(screen.getByText("Real")).toBeInTheDocument();
+    expect(screen.queryByText("Sim")).toBeNull();
   });
 
-  test("shows FMU badge when resourceType is 'fmu'", () => {
+  test("shows 'Sim' badge when resourceType is 'fmu'", () => {
     render(<LabCard {...baseLabProps} resourceType="fmu" />);
-    expect(screen.getByText(/FMU/)).toBeInTheDocument();
+    expect(screen.getByText("Sim")).toBeInTheDocument();
+    expect(screen.queryByText("Real")).toBeNull();
   });
 
   test("shows 'Explore Simulation' hover text for FMU resources", () => {
@@ -121,13 +123,13 @@ const baseFilterProps = {
   loading: false,
 };
 
-describe("LabFilters - Resource Type Toggle", () => {
-  test("does NOT render resource type button when onResourceTypeChange is not provided", () => {
+describe("LabFilters - Resource Type Dropdown", () => {
+  test("renders resource type dropdown even when onResourceTypeChange is not provided", () => {
     render(<LabFilters {...baseFilterProps} />);
-    expect(screen.queryByText(/All Types|Labs only|FMU only/)).toBeNull();
+    expect(screen.getByRole("combobox", { name: /filter by type/i })).toBeInTheDocument();
   });
 
-  test("renders 'All Types' button when onResourceTypeChange is provided", () => {
+  test("renders dropdown with correct options", () => {
     const onChange = jest.fn();
     render(
       <LabFilters
@@ -136,49 +138,53 @@ describe("LabFilters - Resource Type Toggle", () => {
         onResourceTypeChange={onChange}
       />
     );
-    expect(screen.getByText("All Types")).toBeInTheDocument();
+    const select = screen.getByRole("combobox", { name: /filter by type/i });
+    expect(select).toBeInTheDocument();
+    const selectEl = within(select.closest('div'));
+    expect(selectEl.getByRole("option", { name: "Modality" })).toBeInTheDocument();
+    expect(selectEl.getByRole("option", { name: "Real" })).toBeInTheDocument();
+    expect(selectEl.getByRole("option", { name: "Simulated" })).toBeInTheDocument();
   });
 
-  test("cycles through resource type values on click", () => {
+  test("calls onResourceTypeChange with 'lab' when 'Real' is selected", () => {
     const onChange = jest.fn();
-    const { rerender } = render(
+    render(
       <LabFilters
         {...baseFilterProps}
         selectedResourceType="All"
         onResourceTypeChange={onChange}
       />
     );
-    // Click "All Types" â†’ should call with "lab"
-    fireEvent.click(screen.getByText("All Types"));
+    const select = screen.getByRole("combobox", { name: /filter by type/i });
+    fireEvent.change(select, { target: { value: "lab" } });
     expect(onChange).toHaveBeenCalledWith("lab");
+  });
 
-    // Rerender with "lab"
-    rerender(
+  test("calls onResourceTypeChange with 'fmu' when 'Simulations' is selected", () => {
+    const onChange = jest.fn();
+    render(
       <LabFilters
         {...baseFilterProps}
         selectedResourceType="lab"
         onResourceTypeChange={onChange}
       />
     );
-    expect(screen.getByText("Labs only")).toBeInTheDocument();
-
-    // Click "Labs only" â†’ should call with "fmu"
-    fireEvent.click(screen.getByText("Labs only"));
+    const select = screen.getByRole("combobox", { name: /filter by type/i });
+    fireEvent.change(select, { target: { value: "fmu" } });
     expect(onChange).toHaveBeenCalledWith("fmu");
+  });
 
-    // Rerender with "fmu"
-    rerender(
+  test("calls onResourceTypeChange with 'All' when 'All' is selected", () => {
+    const onChange = jest.fn();
+    render(
       <LabFilters
         {...baseFilterProps}
         selectedResourceType="fmu"
         onResourceTypeChange={onChange}
       />
     );
-    expect(screen.getByText("FMU only")).toBeInTheDocument();
-
-    // Click "FMU only" â†’ should call with "All"
-    fireEvent.click(screen.getByText("FMU only"));
+    const select = screen.getByRole("combobox", { name: /filter by type/i });
+    fireEvent.change(select, { target: { value: "All" } });
     expect(onChange).toHaveBeenCalledWith("All");
   });
 });
-

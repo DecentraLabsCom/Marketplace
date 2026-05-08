@@ -2835,9 +2835,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3488,9 +3488,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3573,9 +3573,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3658,9 +3658,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3743,9 +3743,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3828,9 +3828,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3913,9 +3913,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -3998,9 +3998,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -5076,9 +5076,9 @@
             "internalType": "string"
           },
           {
-            "name": "puc",
-            "type": "string",
-            "internalType": "string"
+            "name": "pucHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "assertionHash",
@@ -5204,6 +5204,71 @@
   {
     "type": "function",
     "name": "institutionalReservationRequestWithIntent",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "payload",
+        "type": "tuple",
+        "internalType": "struct ReservationIntentPayload",
+        "components": [
+          {
+            "name": "executor",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "schacHomeOrganization",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "puc",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "assertionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "labId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "start",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "end",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "price",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "reservationKey",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "institutionalDirectBookingWithIntent",
     "inputs": [
       {
         "name": "requestId",
@@ -7779,15 +7844,5 @@
   {
     "type": "fallback",
     "stateMutability": "payable"
-  },
-  {
-    "type": "constructor",
-    "inputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "constructor",
-    "inputs": [],
-    "stateMutability": "nonpayable"
   }
 ]

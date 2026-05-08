@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Loader2, Cpu } from 'lucide-react'
-import { normalizeArray, resolveGatewayAuthEndpoint } from './labFormUtils'
+import { normalizeArray } from './labFormUtils'
 import devLog from '@/utils/dev/logger'
 
-export default function FmuFieldsSection({ localLab, handleBasicChange, errors, disabled, gatewayUrl }) {
+export default function FmuFieldsSection({ localLab, handleBasicChange, applyFmuMetadata, errors, disabled, gatewayUrl }) {
   const [describeFetch, setDescribeFetch] = useState({ loading: false, error: null, fetched: false })
   const abortRef = useRef(null)
 
@@ -22,26 +22,27 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, errors, 
 
     try {
       const gwParam = encodeURIComponent(gatewayUrl)
-      const authEndpoint = resolveGatewayAuthEndpoint(gatewayUrl)
+
+      // Obtain a short-lived describe token from blockchain-services via the
+      // Marketplace proxy. This avoids re-validating the (potentially expired)
+      // SAML assertion and issues a JWT with the required accessKey claim.
       let describeAuthHeader = {}
       try {
-        const authRes = await fetch('/api/auth/lab-access', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            authEndpoint,
-            includeBookingInfo: false,
-          }),
-        })
-        if (authRes.ok) {
-          const authData = await authRes.json()
-          if (authData?.token) {
-            describeAuthHeader = { Authorization: `Bearer ${authData.token}` }
+        const tokenRes = await fetch(
+          `/api/fmu/provider-describe-token?fmuFileName=${encodeURIComponent(fmuFileName)}&gatewayUrl=${gwParam}`,
+          { credentials: 'include', signal: controller.signal },
+        )
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json()
+          if (tokenData?.token) {
+            describeAuthHeader = { Authorization: `Bearer ${tokenData.token}` }
           }
+        } else {
+          devLog.warn('FMU provider describe token request failed:', tokenRes.status)
         }
-      } catch (authError) {
-        devLog.warn('FMU describe auth token request failed, continuing without bearer token', authError)
+      } catch (tokenError) {
+        if (tokenError.name === 'AbortError') throw tokenError
+        devLog.warn('FMU provider describe token request failed, continuing without bearer token', tokenError)
       }
 
       const labParam = localLab?.id ? `&labId=${encodeURIComponent(String(localLab.id))}` : ''
@@ -54,13 +55,25 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, errors, 
         throw new Error(body.error || `Gateway returned ${res.status}`)
       }
       const data = await res.json()
-      // Auto-populate read-only fields
-      handleBasicChange('fmiVersion', data.fmiVersion || '')
-      handleBasicChange('simulationType', data.simulationType || '')
-      handleBasicChange('modelVariables', Array.isArray(data.modelVariables) ? data.modelVariables : [])
-      if (data.defaultStartTime != null) handleBasicChange('defaultStartTime', data.defaultStartTime)
-      if (data.defaultStopTime != null) handleBasicChange('defaultStopTime', data.defaultStopTime)
-      if (data.defaultStepSize != null) handleBasicChange('defaultStepSize', data.defaultStepSize)
+      // Apply all metadata fields in a single update to avoid stale-closure overwrites
+      const applyMetadata = applyFmuMetadata || handleBasicChange
+      if (applyFmuMetadata) {
+        applyFmuMetadata({
+          fmiVersion: data.fmiVersion || '',
+          simulationType: data.simulationType || '',
+          modelVariables: Array.isArray(data.modelVariables) ? data.modelVariables : [],
+          ...(data.defaultStartTime != null ? { defaultStartTime: data.defaultStartTime } : {}),
+          ...(data.defaultStopTime != null ? { defaultStopTime: data.defaultStopTime } : {}),
+          ...(data.defaultStepSize != null ? { defaultStepSize: data.defaultStepSize } : {}),
+        })
+      } else {
+        handleBasicChange('fmiVersion', data.fmiVersion || '')
+        handleBasicChange('simulationType', data.simulationType || '')
+        handleBasicChange('modelVariables', Array.isArray(data.modelVariables) ? data.modelVariables : [])
+        if (data.defaultStartTime != null) handleBasicChange('defaultStartTime', data.defaultStartTime)
+        if (data.defaultStopTime != null) handleBasicChange('defaultStopTime', data.defaultStopTime)
+        if (data.defaultStepSize != null) handleBasicChange('defaultStepSize', data.defaultStepSize)
+      }
       setDescribeFetch({ loading: false, error: null, fetched: true })
     } catch (err) {
       if (err.name === 'AbortError') return
@@ -72,6 +85,22 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, errors, 
   useEffect(() => {
     return () => { if (abortRef.current) abortRef.current.abort() }
   }, [])
+
+  // Reset auto-detect status when fmuFileName changes so stale state doesn't persist
+  const prevFmuFileName = useRef(localLab?.fmuFileName)
+  useEffect(() => {
+    if (localLab?.fmuFileName !== prevFmuFileName.current) {
+      prevFmuFileName.current = localLab?.fmuFileName
+      setDescribeFetch({ loading: false, error: null, fetched: false })
+    }
+  }, [localLab?.fmuFileName])
+
+  // Clear stale error when gatewayUrl is provided after a failed attempt
+  useEffect(() => {
+    if (gatewayUrl && describeFetch.error === 'Gateway URL not available (set Access URI first)') {
+      setDescribeFetch({ loading: false, error: null, fetched: false })
+    }
+  }, [gatewayUrl, describeFetch.error])
 
   const modelVariables = normalizeArray(localLab?.modelVariables)
 
@@ -99,14 +128,17 @@ export default function FmuFieldsSection({ localLab, handleBasicChange, errors, 
           <button
             type="button"
             onClick={fetchDescribe}
-            disabled={disabled || describeFetch.loading || !localLab?.fmuFileName?.trim()}
+            disabled={disabled || describeFetch.loading || !localLab?.fmuFileName?.trim() || !gatewayUrl}
             className="px-3 py-2 rounded bg-[#7875a8] text-white hover:bg-[#625f8f] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-1 text-sm"
           >
             {describeFetch.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {describeFetch.loading ? 'Loading…' : 'Auto-detect'}
           </button>
         </div>
-        {errors.fmuFileName && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
+        {errors.fmuFileName && !describeFetch.fetched && <p className="text-red-500 text-sm mt-1!">{errors.fmuFileName}</p>}
+        {!gatewayUrl && !describeFetch.error && (
+          <p className="text-gray-400 text-sm mt-1">Set Access URI above to enable auto-detect</p>
+        )}
         {describeFetch.error && (
           <p className="text-red-500 text-sm mt-1!">Auto-detect failed: {describeFetch.error}</p>
         )}

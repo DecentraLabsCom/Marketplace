@@ -179,10 +179,12 @@ export default function LabFilters({
         <button 
           onClick={handlePriceClick} 
           value={selectedPrice}
-          className="w-32.5 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-32.5 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
           disabled={effectiveLoading}
         >
-          {selectedPrice}
+          {selectedPrice === 'Low to High' ? (<><span>Price</span><span className="text-sm leading-none">↑</span></>) 
+            : selectedPrice === 'High to Low' ? (<><span>Price</span><span className="text-sm leading-none">↓</span></>) 
+            : selectedPrice}
         </button>
       </div>
 
@@ -198,24 +200,22 @@ export default function LabFilters({
       </div>
 
       {/* Resource type filter */}
-      {onResourceTypeChange && (
-        <div className="w-full md:w-auto flex justify-center md:justify-start items-center">
-          <button
-            onClick={() => {
-              const next = selectedResourceType === 'All' ? 'lab'
-                : selectedResourceType === 'lab' ? 'fmu'
-                : 'All';
-              onResourceTypeChange(next);
-            }}
-            className="w-30 py-1.75 border border-header-bg rounded bg-brand text-white shadow-md hover:bg-slate-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={effectiveLoading}
-          >
-            {selectedResourceType === 'All' ? 'All Types'
-              : selectedResourceType === 'lab' ? 'Labs only'
-              : 'FMU only'}
-          </button>
-        </div>
-      )}
+      <div className="w-full md:w-auto">
+        <label htmlFor="resource-type-filter" className="sr-only">
+          Filter by Type
+        </label>
+        <select
+          id="resource-type-filter"
+          onChange={(e) => onResourceTypeChange && onResourceTypeChange(e.target.value)}
+          value={selectedResourceType}
+          className="pl-4 pr-8 py-2 border rounded bg-white text-gray-800 shadow-md hover:bg-header-bg cursor-pointer w-full"
+          disabled={effectiveLoading}
+        >
+          <option value="All">Modality</option>
+          <option value="lab">Real</option>
+          <option value="fmu">Simulated</option>
+        </select>
+      </div>
     </section>
   )
 }

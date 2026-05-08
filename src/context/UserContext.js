@@ -18,7 +18,6 @@ import {
 } from '@/utils/errorBoundaries'
 import { createOptimizedContext } from '@/utils/optimizedContext'
 import devLog from '@/utils/dev/logger'
-import { transformRegistrationOptions, attestationToJSON } from '@/utils/webauthn/client'
 import {
     hasBrowserCredentialMarkerVerified,
     markBrowserCredentialAdvisoryDismissed,
@@ -66,8 +65,6 @@ function UserDataCore({ children }) {
     const [isSSO, setIsSSO] = useState(undefined);
     const [user, setUser] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const [webAuthnBootstrapDone, setWebAuthnBootstrapDone] = useState(false);
-    
     // Institutional onboarding state (WebAuthn credential at IB)
     const [institutionalOnboardingStatus, setInstitutionalOnboardingStatus] = useState(null); // null, 'pending', 'required', 'completed', 'advisory', 'no_backend'
     const [showOnboardingModal, setShowOnboardingModal] = useState(false);
@@ -99,79 +96,6 @@ function UserDataCore({ children }) {
             refetchSSO();
         }
     }, [queryClient, refetchSSO]);
-
-    // Auto-register WebAuthn credential on first SAML login (now opt-in via env flag)
-    useEffect(() => {
-        const bootstrapEnabled = process.env.NEXT_PUBLIC_WEBAUTHN_BOOTSTRAP_ENABLED === 'true';
-
-        if (!bootstrapEnabled) {
-            return;
-        }
-        if (!isSSO || !user || webAuthnBootstrapDone) {
-            return;
-        }
-        if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-            devLog.log('WebAuthn not supported in this environment, skipping registration');
-            return;
-        }
-
-        let cancelled = false;
-
-        const bootstrapWebAuthn = async () => {
-            try {
-                const statusRes = await fetch('/api/auth/webauthn/status', {
-                    method: 'GET',
-                    credentials: 'include',
-                });
-                const statusData = await statusRes.json().catch(() => ({}));
-                if (statusData?.registered) {
-                    setWebAuthnBootstrapDone(true);
-                    return;
-                }
-
-                const optionsRes = await fetch('/api/auth/webauthn/options', {
-                    method: 'GET',
-                    credentials: 'include',
-                });
-                const optionsData = await optionsRes.json().catch(() => ({}));
-                if (!optionsRes.ok || optionsData.registered) {
-                    setWebAuthnBootstrapDone(true);
-                    return;
-                }
-
-                const publicKey = transformRegistrationOptions(optionsData.options);
-                if (!publicKey) {
-                    setWebAuthnBootstrapDone(true);
-                    return;
-                }
-
-                const credential = await navigator.credentials.create({ publicKey });
-                if (!credential || cancelled) return;
-                const attestation = attestationToJSON(credential);
-                await fetch('/api/auth/webauthn/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ attestation }),
-                });
-                setWebAuthnBootstrapDone(true);
-            } catch (error) {
-                devLog.warn('WebAuthn bootstrap failed', error);
-                setWebAuthnBootstrapDone(true);
-            }
-        };
-
-        bootstrapWebAuthn();
-        return () => {
-            cancelled = true;
-        };
-    }, [isSSO, user, webAuthnBootstrapDone]);
-
-    useEffect(() => {
-        if (!isSSO || !user) {
-            setWebAuthnBootstrapDone(false);
-        }
-    }, [isSSO, user]);
 
     const institutionDomain = user?.affiliation || user?.schacHomeOrganization || null;
 

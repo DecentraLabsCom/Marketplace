@@ -30,6 +30,7 @@ jest.mock('next/server', () => ({
 
 jest.mock('@/utils/auth/guards', () => ({
   requireAuth: (...args) => mockRequireAuth(...args),
+  requireProviderRole: jest.fn(), // no-op: tests focus on ownership, not provider role
   requireLabOwner: (...args) => mockRequireLabOwner(...args),
   handleGuardError: (...args) => mockHandleGuardError(...args),
   HttpError,

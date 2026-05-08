@@ -117,7 +117,7 @@ export default function ActiveLabCard({
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${effectiveStatusDisplay.className}`}>
                 <span className="mr-1">
                   {shouldRenderIcon ? (
-                    <FontAwesomeIcon icon={statusIcon} className="animate-spin" />
+                    <FontAwesomeIcon icon={statusIcon} className={effectiveStatusDisplay?.spin ? "animate-spin" : ""} />
                   ) : (
                     statusTextIcon
                   )}

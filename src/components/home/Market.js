@@ -15,7 +15,6 @@ import { useLabFilters } from '@/hooks/lab/useLabs'
 import LabFilters from '@/components/home/LabFilters'
 import LabGrid from '@/components/home/LabGrid'
 import { canFetchUserBookings, resolveBookingsUserAddress } from '@/utils/auth/bookingAccess'
-import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 import useCurrentTime from '@/hooks/useCurrentTime'
 
 export default function Market({ initialLabs = [] }) {
@@ -30,13 +29,13 @@ export default function Market({ initialLabs = [] }) {
     () => (Array.isArray(initialLabs) ? initialLabs : []),
     [initialLabs]
   );
-  const hasInitialSnapshot = !showUnlisted && snapshotLabs.length > 0;
-  const shouldFetchLiveLabs = showUnlisted || !hasInitialSnapshot;
-  
-  // React Query for labs optimized for market display (with conditional unlisted inclusion)
+
+  // Always run the live query so listing/unlisting state changes are reflected immediately
+  // (optimistic state, cache invalidations after list/unlist actions all work correctly).
+  // The SSR snapshot is used as a loading placeholder until the live query resolves.
   const labsQuery = useLabsForMarket({ 
     includeUnlisted: showUnlisted,
-    enabled: shouldFetchLiveLabs
+    enabled: true
   });
   
   const {
@@ -46,27 +45,30 @@ export default function Market({ initialLabs = [] }) {
     isError: labsError,
   } = labsQuery;
   
-  // Extract labs array from composed result and memoize
+  // Prefer live data (fresh, reflects latest listing state and images).
+  // Fall back to SSR snapshot while the live query is still loading.
   const labsArray = useMemo(() => {
-    if (hasInitialSnapshot && !shouldFetchLiveLabs) {
+    if (labsData?.labs) {
+      return labsData.labs;
+    }
+    if (!showUnlisted && snapshotLabs.length > 0) {
       return snapshotLabs;
     }
-
-    return labsData?.labs || [];
-  }, [hasInitialSnapshot, shouldFetchLiveLabs, snapshotLabs, labsData?.labs]);
+    return [];
+  }, [labsData?.labs, showUnlisted, snapshotLabs]);
   
-  // Determine labs loading state (stable) - Show labs immediately, don't wait for bookings
+  // Suppress the loading state when snapshot data is available as a stand-in.
   const labsLoading = useMemo(() => {
-    if (hasInitialSnapshot && !shouldFetchLiveLabs) {
+    if (!labsData?.labs && !showUnlisted && snapshotLabs.length > 0) {
       return false;
     }
-
     return labsInitialLoading || (labsFetching && labsArray.length === 0);
-  }, [hasInitialSnapshot, shouldFetchLiveLabs, labsInitialLoading, labsFetching, labsArray.length]);
+  }, [labsData?.labs, showUnlisted, snapshotLabs.length, labsInitialLoading, labsFetching, labsArray.length]);
 
   // Memoize labs to prevent infinite re-renders
   const labs = useMemo(() => labsArray, [labsArray]);
-  const shouldShowLabsError = shouldFetchLiveLabs ? labsError : false;
+  // Only surface an error when there is nothing at all to display
+  const shouldShowLabsError = labsError && labsArray.length === 0;
 
   // React Query for user bookings scoped to institutional sessions.
   const shouldFetchUserBookings = useMemo(() => canFetchUserBookings({
@@ -128,16 +130,6 @@ export default function Market({ initialLabs = [] }) {
     resetFilters
   } = useLabFilters(labs, userBookings, isLoggedIn, bookingsLoading, isHydrated, now);
 
-  const hasFmuResources = useMemo(
-    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.FMU),
-    [labs]
-  )
-  const hasLabResources = useMemo(
-    () => labs.some((lab) => getResourceType(lab) === RESOURCE_TYPES.LAB),
-    [labs]
-  )
-  const showResourceTypeFilter = hasFmuResources && hasLabResources
-
   const handleCategoryChange = useCallback((value) => {
     startFilterTransition(() => setSelectedCategory(value));
   }, [setSelectedCategory, startFilterTransition]);
@@ -157,12 +149,6 @@ export default function Market({ initialLabs = [] }) {
   const handleResourceTypeChange = useCallback((value) => {
     startFilterTransition(() => setSelectedResourceType(value));
   }, [setSelectedResourceType, startFilterTransition]);
-
-  useEffect(() => {
-    if (!showResourceTypeFilter && selectedResourceType !== 'All') {
-      setSelectedResourceType('All')
-    }
-  }, [showResourceTypeFilter, selectedResourceType, setSelectedResourceType])
 
   // Handle reset to also reset showUnlisted
   const handleReset = useCallback(() => {
@@ -193,7 +179,7 @@ export default function Market({ initialLabs = [] }) {
           onFilterChange={handleFilterChange}
           onShowUnlistedChange={setShowUnlisted}
           selectedResourceType={selectedResourceType}
-          onResourceTypeChange={showResourceTypeFilter ? handleResourceTypeChange : undefined}
+          onResourceTypeChange={handleResourceTypeChange}
           onReset={handleReset}
           searchInputRef={searchInputRef}
           loading={labsLoading || isFilterTransitionPending}

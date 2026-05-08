@@ -345,6 +345,9 @@ export function useLabReservationState({
   useEffect(() => {
     if (!isSSO || ssoBookingStage !== SSO_BOOKING_STAGE.REQUEST_REGISTERED) return
     if (isTrackedSsoBookingFinal) return
+    // DIRECT_BOOKING is atomic (request+confirm in one tx); the "awaiting" intermediate
+    // toast is irrelevant and would appear after "Reservation confirmed." is already shown.
+    if (activeSsoRequest?.action === 11 /* DIRECT_BOOKING */) return
 
     const normalizedReservationKey = normalizeReservationKey(
       activeSsoRequest?.reservationKey || pendingData?.reservationKey || pendingData?.optimisticId

@@ -195,7 +195,7 @@ describe("LabFilters - unit tests", () => {
   });
 
   describe("Price Sorting", () => {
-    // Price button cycles through 3 states: "Sort by Price" → "Low to High" → "High to Low" → repeat
+    // Price button cycles through 3 states: "Sort by Price" → "Price ↑" → "Price ↓" → repeat
     test("cycles through price sort options", async () => {
       const user = userEvent.setup();
       render(<LabFilters {...defaultProps} />);
@@ -204,16 +204,16 @@ describe("LabFilters - unit tests", () => {
         name: /sort by price/i,
       });
 
-      // First click: Sort by Price → Low to High
+      // First click: Sort by Price → Low to High (displays "Price ↑")
       await user.click(priceButton);
       expect(defaultProps.onPriceChange).toHaveBeenCalledWith("Low to High");
 
-      // Second click: Low to High → High to Low
+      // Second click: Low to High → High to Low (displays "Price ↓")
       const { rerender } = render(
         <LabFilters {...defaultProps} selectedPrice="Low to High" />
       );
       const priceButtonLowToHigh = screen.getByRole("button", {
-        name: /low to high/i,
+        name: /price ↑/i,
       });
       await user.click(priceButtonLowToHigh);
       expect(defaultProps.onPriceChange).toHaveBeenCalledWith("High to Low");
@@ -221,7 +221,7 @@ describe("LabFilters - unit tests", () => {
       // Third click: High to Low → Sort by Price
       rerender(<LabFilters {...defaultProps} selectedPrice="High to Low" />);
       const priceButtonHighToLow = screen.getByRole("button", {
-        name: /high to low/i,
+        name: /price ↓/i,
       });
       await user.click(priceButtonHighToLow);
       expect(defaultProps.onPriceChange).toHaveBeenCalledWith("Sort by Price");
@@ -339,7 +339,7 @@ describe("LabFilters - unit tests", () => {
       );
       expect(screen.getByLabelText(/filter by provider/i)).toHaveValue("Lab A");
       expect(
-        screen.getByRole("button", { name: /low to high/i })
+        screen.getByRole("button", { name: /price ↑/i })
       ).toBeInTheDocument();
     });
   });

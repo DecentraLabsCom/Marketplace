@@ -28,6 +28,11 @@ jest.mock('@/utils/intents/signInstitutionalActionIntent', () => ({
 }))
 
 jest.mock('@/utils/intents/signInstitutionalReservationIntent', () => ({
+  ACTION_CODES: {
+    REQUEST_BOOKING: 8,
+    CANCEL_REQUEST_BOOKING: 9,
+    DIRECT_BOOKING: 11,
+  },
   buildReservationIntent: jest.fn(),
   computeReservationAssertionHash: jest.fn(),
 }))
@@ -68,6 +73,10 @@ jest.mock('@/utils/intents/onchainHelpers', () => ({
   resolveChainNowSec: jest.fn(),
 }))
 
+jest.mock('@/app/api/contract/utils/institutionSession', () => ({
+  resolveInstitutionAddressFromSession: jest.fn(),
+}))
+
 jest.mock('@/utils/dev/logger', () => ({
   __esModule: true,
   default: {
@@ -83,6 +92,7 @@ import { ACTION_CODES, buildActionIntent, computeAssertionHash } from '@/utils/i
 import { buildReservationIntent, computeReservationAssertionHash } from '@/utils/intents/signInstitutionalReservationIntent'
 import { resolveIntentExecutorForInstitution } from '@/utils/intents/resolveIntentExecutor'
 import { getPucFromSession } from '@/utils/webauthn/service'
+import { resolveInstitutionAddressFromSession } from '@/app/api/contract/utils/institutionSession'
 import { signIntentMeta, getAdminAddress, registerIntentOnChain } from '@/utils/intents/adminIntentSigner'
 import { getContractInstance } from '@/app/api/contract/utils/contractInstance'
 import { serializeIntent } from '@/utils/intents/serialize'
@@ -145,6 +155,12 @@ describe('Intent prepare routes integration', () => {
         price: 123n,
         renter: '0x00000000000000000000000000000000000000a3',
       }),
+      ownerOf: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000dead'),
+    })
+
+    resolveInstitutionAddressFromSession.mockResolvedValue({
+      institutionAddress: '0x00000000000000000000000000000000000000a1',
+      normalizedDomain: 'uni.example',
     })
 
     serializeIntent.mockImplementation((value) => value)
@@ -371,5 +387,50 @@ describe('Intent prepare routes integration', () => {
       details: 'chain boom',
       onchain: { message: 'onchain-details' },
     })
+  })
+
+  test('reservations/prepare: uses DIRECT_BOOKING action when institution owns the lab', async () => {
+    const ownInstitutionAddress = '0x00000000000000000000000000000000000000c1'
+    getContractInstance.mockResolvedValueOnce({
+      getLab: jest.fn().mockResolvedValue({ base: { price: 2n } }),
+      getReservation: jest.fn().mockResolvedValue({ labId: 9n, price: 123n, renter: ownInstitutionAddress }),
+      ownerOf: jest.fn().mockResolvedValue(ownInstitutionAddress),
+    })
+    resolveInstitutionAddressFromSession.mockResolvedValueOnce({
+      institutionAddress: ownInstitutionAddress,
+      normalizedDomain: 'uni.example',
+    })
+
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 33,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+    const payload = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
+      action: 11, // ACTION_CODES.DIRECT_BOOKING
+    }))
+    expect(payload.kind).toBe('reservation')
+  })
+
+  test('reservations/prepare: uses REQUEST_BOOKING action when institution does not own the lab', async () => {
+    const req = buildRequest('http://localhost/api/backend/intents/reservations/prepare', {
+      labId: 44,
+      start: nowSec + 1_000,
+      timeslot: 120,
+      backendUrl: 'https://ib.example',
+    })
+
+    const res = await reservationPreparePOST(req)
+
+    expect(res.status).toBe(200)
+    expect(buildReservationIntent).toHaveBeenCalledWith(expect.objectContaining({
+      action: 8, // ACTION_CODES.REQUEST_BOOKING
+    }))
   })
 })

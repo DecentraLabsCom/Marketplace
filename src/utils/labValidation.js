@@ -73,7 +73,9 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         errors.accessURI = 'Invalid Access URI format';
     }
 
-    if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
+    if (localLab.resourceType !== 'fmu' && !localLab.accessKey?.trim()) {
+        errors.accessKey = 'Access Key is required';
+    }
 
     // Enhanced date validation (Unix seconds)
     const opensUnix = toUnixSeconds(localLab.opens);

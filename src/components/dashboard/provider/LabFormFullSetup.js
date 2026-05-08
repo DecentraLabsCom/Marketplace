@@ -1,7 +1,24 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef } from 'react'
 import PropTypes from 'prop-types'
+import DatePicker from 'react-datepicker'
 import { UploadCloud, Link, XCircle, Plus, Trash2, Loader2 } from 'lucide-react'
 import { useTermsMetadataAutoFetch } from '@/hooks/lab/useTermsMetadataAutoFetch'
+
+// Custom input for react-datepicker that exposes the underlying DOM input via ref,
+// keeping .focus() available for form validation error-scrolling.
+const TimePickerInput = forwardRef(({ value, onClick, onChange, placeholder, disabled, className }, ref) => (
+  <input
+    ref={ref}
+    value={value || ''}
+    onClick={onClick}
+    onChange={onChange}
+    placeholder={placeholder}
+    disabled={disabled}
+    className={className}
+    readOnly
+  />
+))
+TimePickerInput.displayName = 'TimePickerInput'
 import { CalendarInput } from '@/components/ui'
 import ImagePreviewList from '@/components/ui/media/ImagePreviewList.js'
 import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
@@ -98,8 +115,12 @@ export default function LabFormFullSetup({
   }, [disabled, timezoneValue])
 
   const handleBasicChange = (field, value) => {
-    setLocalLab({ ...localLab, [field]: value })
+    setLocalLab({ ...latestLabRef.current, [field]: value })
   }
+
+  const applyFmuMetadata = useCallback((metadata) => {
+    setLocalLabRef.current({ ...latestLabRef.current, ...metadata })
+  }, [])
 
   // State for keywords input field (string representation)
   const [keywordsInput, setKeywordsInput] = useState('')
@@ -209,16 +230,6 @@ export default function LabFormFullSetup({
   const termsUrl = termsOfUse.url?.trim() || ''
   const termsFetchState = useTermsMetadataAutoFetch(termsUrl, latestLabRef, setLocalLabRef)
 
-  const handleTimeFieldClick = useCallback((event) => {
-    if (typeof event.currentTarget.showPicker === 'function') {
-      try {
-        event.currentTarget.showPicker()
-      } catch (error) {
-        // Ignore browsers that restrict programmatic access without gesture
-      }
-    }
-  }, [])
-
 
   return (
     <form className="space-y-6 text-gray-600" onSubmit={handleFormSubmit}>
@@ -308,18 +319,20 @@ export default function LabFormFullSetup({
           />
           {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
         </div>
-        <div>
-          <input
-            type="text"
-            placeholder="Access Key"
-            value={localLab?.accessKey || ''}
-            onChange={(e) => handleBasicChange('accessKey', e.target.value)}
-            className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
-            disabled={disabled}
-            ref={accessKeyRef}
-          />
-          {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
-        </div>
+        {localLab?.resourceType !== RESOURCE_TYPES.FMU && (
+          <div>
+            <input
+              type="text"
+              placeholder="Access Key"
+              value={localLab?.accessKey || ''}
+              onChange={(e) => handleBasicChange('accessKey', e.target.value)}
+              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+              disabled={disabled}
+              ref={accessKeyRef}
+            />
+            {errors.accessKey && <p className="text-red-500 text-sm mt-1!">{errors.accessKey}</p>}
+          </div>
+        )}
       </section>
 
       {/* FMU-Specific Fields — shown only when resourceType === 'fmu' */}
@@ -327,6 +340,7 @@ export default function LabFormFullSetup({
         <FmuFieldsSection
           localLab={localLab}
           handleBasicChange={handleBasicChange}
+          applyFmuMetadata={applyFmuMetadata}
           errors={errors}
           disabled={disabled}
           gatewayUrl={localLab?.accessURI}
@@ -425,14 +439,23 @@ export default function LabFormFullSetup({
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">Daily Start Time</label>
-            <input
-              type="time"
-              value={availableHours.start || ''}
-              onChange={(e) => handleAvailableHourChange('start', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            <DatePicker
+              selected={availableHours.start ? (() => { const [h, m] = availableHours.start.split(':'); const d = new Date(); d.setHours(+h, +m, 0, 0); return d; })() : null}
+              onChange={(date) => handleAvailableHourChange('start', date ? `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}` : '')}
+              showTimeSelect
+              showTimeSelectOnly
+              timeIntervals={15}
+              timeFormat="HH:mm"
+              dateFormat="HH:mm"
+              placeholderText="HH:MM"
               disabled={disabled}
-              onClick={handleTimeFieldClick}
-              ref={availableHoursStartRef}
+              popperClassName="time-only-picker"
+              customInput={
+                <TimePickerInput
+                  ref={availableHoursStartRef}
+                  className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                />
+              }
             />
             {errors.availableHoursStart && (
               <p className="text-red-500 text-sm mt-1!">{errors.availableHoursStart}</p>
@@ -440,14 +463,23 @@ export default function LabFormFullSetup({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-900 mb-1">Daily End Time</label>
-            <input
-              type="time"
-              value={availableHours.end || ''}
-              onChange={(e) => handleAvailableHourChange('end', e.target.value)}
-              className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+            <DatePicker
+              selected={availableHours.end ? (() => { const [h, m] = availableHours.end.split(':'); const d = new Date(); d.setHours(+h, +m, 0, 0); return d; })() : null}
+              onChange={(date) => handleAvailableHourChange('end', date ? `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}` : '')}
+              showTimeSelect
+              showTimeSelectOnly
+              timeIntervals={15}
+              timeFormat="HH:mm"
+              dateFormat="HH:mm"
+              placeholderText="HH:MM"
               disabled={disabled}
-              onClick={handleTimeFieldClick}
-              ref={availableHoursEndRef}
+              popperClassName="time-only-picker"
+              customInput={
+                <TimePickerInput
+                  ref={availableHoursEndRef}
+                  className="w-full p-2 border rounded disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-300"
+                />
+              }
             />
             {errors.availableHoursEnd && (
               <p className="text-red-500 text-sm mt-1!">{errors.availableHoursEnd}</p>

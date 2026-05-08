@@ -30,6 +30,8 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error("Error processing SAML response:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({
+      error: "Internal server error"
+    }, { status: 500 });
   }
 }

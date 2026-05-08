@@ -10,7 +10,8 @@ import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import getIsVercel from '@/utils/isVercel'
 import { 
-  requireAuth, 
+  requireAuth,
+  requireProviderRole,
   requireLabOwner, 
   handleGuardError,
   HttpError,
@@ -137,9 +138,11 @@ const parseOptionalNumber = (value) => {
  */
 export async function POST(req) {
   try {
-    // ===== AUTHENTICATION =====
-    // Require a valid authenticated session
+    // ===== AUTHENTICATION & AUTHORIZATION =====
+    // Require provider role (defense in depth; the smart contract enforces
+    // _requireLabProvider on-chain as the primary gate).
     const session = await requireAuth();
+    requireProviderRole(session);
     
     const body = await req.json();
     const { labData } = body;
