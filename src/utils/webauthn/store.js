@@ -6,6 +6,7 @@
 
 const credentialByUserId = new Map()
 const credentialById = new Map()
+const assertionChallenges = new Map()
 
 /**
  * Persist a verified credential record received from the institutional backend callback.
@@ -26,6 +27,44 @@ export function saveCredential(record) {
   return normalized
 }
 
+/**
+ * Retrieve a credential by its ID.
+ * @param {string} id 
+ */
+export function getCredentialById(id) {
+  return credentialById.get(id)
+}
+
+/**
+ * Retrieve an assertion challenge by requestId.
+ * @param {string} requestId 
+ */
+export function getAssertionChallenge(requestId) {
+  return assertionChallenges.get(requestId)
+}
+
+/**
+ * Clear an assertion challenge.
+ * @param {string} requestId 
+ */
+export function clearAssertionChallenge(requestId) {
+  return assertionChallenges.delete(requestId)
+}
+
+/**
+ * Save an assertion challenge (used by prepare routes if implemented).
+ * @param {string} requestId 
+ * @param {Object} data 
+ */
+export function saveAssertionChallenge(requestId, data) {
+  assertionChallenges.set(requestId, data)
+  return data
+}
+
 export default {
   saveCredential,
+  getCredentialById,
+  getAssertionChallenge,
+  clearAssertionChallenge,
+  saveAssertionChallenge,
 }
