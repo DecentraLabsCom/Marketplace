@@ -97,15 +97,14 @@ export default function MediaDisplayWithFallback({
     const signal = abortController.signal;
 
     const executeDocAttempt = async () => {
-      let urlToAttempt = '';
-      let currentAttemptType = '';
+      let urlToAttempt;
+      let currentAttemptType;
 
       // --- Determine URL based on phase and type ---
       if (docAttemptPhase === 0) { // Phase 0: External URL check
         if (typeof mediaPath === 'string' && (mediaPath.startsWith('http://') 
           || mediaPath.startsWith('https://'))) {
           urlToAttempt = mediaPath;
-          currentAttemptType = 'External';
           // Since we can't fetch external URLs reliably, we'll set it directly for iframe
           setCurrentDocSrc(urlToAttempt);
           setIsLoadingDoc(false);
