@@ -40,7 +40,7 @@
     "@simplewebauthn/server": "^13.3.0",
     "@tanstack/query-sync-storage-persister": "^5.96.2",
     "@tanstack/react-query": "^5.95.2",
-    "@tanstack/react-query-devtools": "^5.91.2",
+    "@tanstack/react-query-devtools": "^5.100.10",
     "@tanstack/react-query-persist-client": "^5.90.24",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.3.1",
