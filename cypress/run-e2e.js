@@ -64,7 +64,7 @@ async function run() {
     stdio: 'inherit',
   });
 
-  let exitCode = 1;
+  let exitCode;
   let terminating = false;
 
   const shutdown = async () => {

@@ -153,7 +153,7 @@ class MarketplaceJwtService {
 
     } catch (error) {
       devLog.error('❌ Failed to generate JWT:', error.message);
-      throw new Error(`JWT generation failed: ${error.message}`);
+      throw new Error(`JWT generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -233,7 +233,7 @@ class MarketplaceJwtService {
       return token;
     } catch (error) {
       devLog.error('ERROR: Failed to generate SAML auth JWT:', error.message);
-      throw new Error(`SAML auth JWT generation failed: ${error.message}`);
+      throw new Error(`SAML auth JWT generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -303,7 +303,7 @@ class MarketplaceJwtService {
       };
     } catch (error) {
       devLog.error('ERROR: Failed to generate intent backend JWT:', error.message);
-      throw new Error(`Intent backend JWT generation failed: ${error.message}`);
+      throw new Error(`Intent backend JWT generation failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -319,7 +319,7 @@ class MarketplaceJwtService {
       return jwt.decode(token, { complete: true });
     } catch (error) {
       devLog.error('❌ Failed to decode JWT:', error.message);
-      throw new Error(`JWT decode failed: ${error.message}`);
+      throw new Error(`JWT decode failed: ${error.message}`, { cause: error });
     }
   }
 
@@ -490,7 +490,7 @@ class MarketplaceJwtService {
       return { token, payload };
     } catch (error) {
       devLog.error('? Failed to generate institution invite token:', error.message);
-      throw new Error(`Institution invite token generation failed: ${error.message}`);
+      throw new Error(`Institution invite token generation failed: ${error.message}`, { cause: error });
     }
   }
 

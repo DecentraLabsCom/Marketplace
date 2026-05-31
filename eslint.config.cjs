@@ -1,11 +1,11 @@
 const js = require("@eslint/js");
 const globals = require("globals");
-const react = require("eslint-plugin-react");
-const reactHooks = require("eslint-plugin-react-hooks");
 //const tailwindcss = require("eslint-plugin-tailwindcss");
 const jest = require("eslint-plugin-jest");
 const eslintComments = require("eslint-plugin-eslint-comments");
 const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
+const tsParser = require("@typescript-eslint/parser");
+const { fixupConfigRules, fixupPluginRules } = require("@eslint/compat");
 
 const nextConfigs = Array.isArray(nextCoreWebVitals)
   ? nextCoreWebVitals
@@ -26,6 +26,7 @@ module.exports = [
       "next.config.js",
       "jest.config.js",
       "cypress.config.js",
+      ".eslintrc.cjs",
     ],
   },
   {
@@ -35,13 +36,24 @@ module.exports = [
       },
     },
   },
-  ...nextConfigs,
+  ...fixupConfigRules(nextConfigs),
+  // Override the Babel parser used by eslint-config-next (incompatible with ESLint 10)
+  // with @typescript-eslint/parser which supports ESLint 10's ScopeManager.addGlobals API.
+  {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+    },
+  },
   js.configs.recommended,
-  react.configs.flat.recommended,
-  reactHooks.configs.flat.recommended,
   //...tailwindConfigs,
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["**/*.{js,jsx,ts,tsx,cjs,mjs}"],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -54,7 +66,7 @@ module.exports = [
       },
     },
     plugins: {
-      'eslint-comments': eslintComments,
+      'eslint-comments': fixupPluginRules(eslintComments),
     },
     rules: {
       "react/react-in-jsx-scope": "off",

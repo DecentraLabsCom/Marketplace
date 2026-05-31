@@ -77,7 +77,7 @@ export function normalizeHttpsUrl(url, label) {
   try {
     parsed = new URL(trimmed);
   } catch (error) {
-    throw new Error(`${label} must be a valid URL`);
+    throw new Error(`${label} must be a valid URL`, { cause: error });
   }
 
   const protocol = parsed.protocol.toLowerCase();

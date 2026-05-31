@@ -59,7 +59,7 @@ const getMetadataQueryFn = createSSRSafeQuery(async (metadataUri) => {
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error(`Metadata fetch timeout: ${metadataUri}`);
+        throw new Error(`Metadata fetch timeout: ${metadataUri}`, { cause: fetchError });
       }
       throw fetchError;
     }
