@@ -550,7 +550,7 @@ class MarketplaceJwtService {
       return token;
     } catch (error) {
       devLog.error('ERROR: Failed to generate Entra auth JWT:', error.message);
-      throw new Error(`Entra auth JWT generation failed: ${error.message}`);
+      throw new Error(`Entra auth JWT generation failed: ${error.message}`, { cause: error });
     }
   }
 }
