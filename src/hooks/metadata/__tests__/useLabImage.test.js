@@ -90,13 +90,14 @@ describe('useLabImage hooks', () => {
   describe('useLabImageQuery', () => {
     it('returns cached image data for valid URL', async () => {
       const { result } = renderHook(() => useLabImageModule.useLabImageQuery('http://test/image.jpg', { enabled: true }), { wrapper })
-      let tries = 0;
+      let tries = 0
       while (!result.current.data && tries < 10) {
-        await act(async () => { result.current.refetch() })
+        await act(async () => {
+          await result.current.refetch()
+        })
         await new Promise(r => setTimeout(r, 50))
-        tries++;
+        tries++
       }
-      console.log('VALID URL result.current:', result.current)
       expect(result.current.data).not.toBeUndefined()
       expect(result.current.data).toMatchObject({
         dataUrl: expect.stringContaining('data:image/jpeg;base64'),
@@ -109,13 +110,14 @@ describe('useLabImage hooks', () => {
 
     it('throws error for invalid URL', async () => {
       const { result } = renderHook(() => useLabImageModule.useLabImageQuery('invalid-url', { enabled: true, retry: false }), { wrapper })
-      let tries = 0;
+      let tries = 0
       while (!result.current.error && tries < 10) {
-        await act(async () => { result.current.refetch() })
+        await act(async () => {
+          await result.current.refetch()
+        })
         await new Promise(r => setTimeout(r, 50))
-        tries++;
+        tries++
       }
-      console.log('INVALID URL result.current:', result.current)
       expect(result.current.error).not.toBeNull()
       expect(result.current.error).toBeInstanceOf(Error)
     })
@@ -124,7 +126,9 @@ describe('useLabImage hooks', () => {
   describe('useLabImage', () => {
     it('returns cached dataUrl when preferCached=true', async () => {
       const { result } = renderHook(() => useLabImageModule.useLabImage('http://test/image2.jpg', { preferCached: true, enabled: true }), { wrapper })
-      await act(async () => { result.current.refetch && result.current.refetch() })
+      await act(async () => {
+        await result.current.refetch?.()
+      })
       await waitFor(() => result.current.isCached)
       expect(result.current.imageUrl).toContain('data:image/jpeg;base64')
       expect(result.current.isCached).toBe(true)
@@ -132,7 +136,9 @@ describe('useLabImage hooks', () => {
 
     it('returns original URL when preferCached=false', async () => {
       const { result } = renderHook(() => useLabImageModule.useLabImage('http://test/image3.jpg', { preferCached: false, enabled: true }), { wrapper })
-      await act(async () => { result.current.refetch && result.current.refetch() })
+      await act(async () => {
+        await result.current.refetch?.()
+      })
       await waitFor(() => result.current.isCached)
       expect(result.current.imageUrl).toBe('http://test/image3.jpg')
     })
@@ -216,25 +222,33 @@ describe('useLabImage edge/error/metadata cases', () => {
     const { result: r1 } = renderHook(() => useLabImageModule.useLabImageQuery('', { enabled: true }), { wrapper });
     let tries1 = 0;
     while (!r1.current.isError && !r1.current.error && tries1 < 10) {
-      await act(async () => { r1.current.refetch() });
+      await act(async () => {
+        await r1.current.refetch()
+      })
       await new Promise(r => setTimeout(r, 50));
       tries1++;
     }
     expect(r1.current.isError || !!r1.current.error).toBe(true);
     expect(r1.current.error && (r1.current.error.message || String(r1.current.error))).toMatch(/invalid/i);
+
     const { result: r2 } = renderHook(() => useLabImageModule.useLabImageQuery(null, { enabled: true }), { wrapper });
     let tries2 = 0;
     while (!r2.current.isError && !r2.current.error && tries2 < 10) {
-      await act(async () => { r2.current.refetch() });
+      await act(async () => {
+        await r2.current.refetch()
+      })
       await new Promise(r => setTimeout(r, 50));
       tries2++;
     }
     expect(r2.current.isError || !!r2.current.error).toBe(true);
     expect(r2.current.error && (r2.current.error.message || String(r2.current.error))).toMatch(/invalid/i);
+
     const { result: r3 } = renderHook(() => useLabImageModule.useLabImageQuery(123, { enabled: true }), { wrapper });
     let tries3 = 0;
     while (!r3.current.isError && !r3.current.error && tries3 < 10) {
-      await act(async () => { r3.current.refetch() });
+      await act(async () => {
+        await r3.current.refetch()
+      })
       await new Promise(r => setTimeout(r, 50));
       tries3++;
     }
