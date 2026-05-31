@@ -8,12 +8,7 @@
  * evaluate a rule against a set of claims. All IdP differences live in
  * idpRegistry.js (which attribute to read, which values are valid).
  *
- * Design (PLAN_ENTRA_OKTA_M2M_SUPPORT.md § 4.2 / § 5.2):
- *  - Business logic must consume canonical roles, not raw claims.
- *  - This mapper is the single place where "raw claim value" → "canonical role"
- *    translation happens.
- *  - It is intentionally stateless and side-effect free for easy testing.
- */
+  */
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 

@@ -13,10 +13,7 @@
  *   roles → roles (app roles assigned in Entra)
  *   iss   → externalIssuer
  *
- * References:
- *   - https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference
- *   - PLAN_ENTRA_OKTA_M2M_SUPPORT.md § 4.4 / § 5.2
- */
+*/
 
 import { PrincipalType, AuthMethod, buildFederatedSub } from './principal.js'
 import { getRoleMappingRules } from './idpRegistry.js'

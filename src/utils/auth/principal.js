@@ -5,9 +5,7 @@
  * This module defines the canonical shape used throughout the auth layer
  * so that business logic never depends on raw claims from any external IdP.
  *
- * References:
- *   - PLAN_ENTRA_OKTA_M2M_SUPPORT.md § 4.3 / § 4.4
- */
+*/
 
 /** Discriminated union for principal kinds */
 export const PrincipalType = /** @type {const} */ ({

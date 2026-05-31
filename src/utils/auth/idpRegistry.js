@@ -6,7 +6,7 @@
  *  - which IdP/tenant is being registered
  *  - how to map IdP-specific claims to DecentraLabs canonical roles
  *
- * Design goals (PLAN_ENTRA_OKTA_M2M_SUPPORT.md § 4.2 / § 5.1):
+ * Design goals:
  *  - IdP-specific differences are isolated here, not scattered in business logic.
  *  - Business code consumes canonical roles, never raw IdP claims directly.
  *  - Adding a new IdP (Okta, PingIdentity, etc.) only requires a new entry here

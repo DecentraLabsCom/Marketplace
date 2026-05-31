@@ -520,7 +520,7 @@ class MarketplaceJwtService {
       const expSec = nowSec + parseInt(process.env.JWT_EXPIRATION_MS || '60000', 10) / 1000;
 
       const payload = {
-        // Canonical identity fields (§4.4 of PLAN_ENTRA_OKTA_M2M_SUPPORT.md)
+        // Canonical identity fields
         principalType: principal.principalType,
         externalIssuer: principal.externalIssuer,
         externalSubject: principal.externalSubject,

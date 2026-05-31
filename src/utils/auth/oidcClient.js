@@ -8,10 +8,7 @@
  * - authorizationCodeGrant()  → exchanges the code for tokens
  * - random*                   → PKCE / state helpers
  *
- * References:
- *   - https://github.com/panva/node-openid-client (v6 docs)
- *   - PLAN_ENTRA_OKTA_M2M_SUPPORT.md § 5.1
- */
+*/
 
 import {
   discovery,

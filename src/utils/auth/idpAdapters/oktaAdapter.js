@@ -40,11 +40,7 @@
  *
  * 7. Register this adapter in idpAdapters/index.js.
  *
- * References:
- *  - https://developer.okta.com/docs/reference/api/oidc/
- *  - PLAN_ENTRA_OKTA_M2M_SUPPORT.md § 5.3
- * ─────────────────────────────────────────────────────────────────────────────
- */
+*/
 
 export const PROVIDER_ID = 'okta'
 
