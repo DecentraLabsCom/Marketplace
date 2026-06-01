@@ -322,6 +322,43 @@ describe("LabCard - Badge Display", () => {
     expect(badge.className).toContain("uppercase");
     expect(badge.className).toContain("tracking-wide");
   });
+
+  /**
+   * Test: Demo badge visibility when demoEnabled is true
+   */
+  test('displays "Demo" badge when demoEnabled is true', () => {
+    renderLabCard({ demoEnabled: true });
+
+    expect(screen.getByText(/Demo/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Test: Demo badge hidden when demoEnabled is false
+   */
+  test('does not display "Demo" badge when demoEnabled is false', () => {
+    renderLabCard({ demoEnabled: false });
+
+    expect(screen.queryByText(/^Demo$/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Test: Demo badge hidden by default (demoEnabled prop absent)
+   */
+  test('does not display "Demo" badge when demoEnabled is not provided', () => {
+    renderLabCard();
+
+    expect(screen.queryByText(/^Demo$/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Test: Both Demo and Unlisted badges can appear simultaneously
+   */
+  test("displays both Demo and Unlisted badges when both conditions are met", () => {
+    renderLabCard({ demoEnabled: true, isListed: false });
+
+    expect(screen.getByText(/Demo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Unlisted/i)).toBeInTheDocument();
+  });
 });
 
 describe("LabCard - Rating and Age", () => {

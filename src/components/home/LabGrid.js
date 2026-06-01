@@ -72,6 +72,7 @@ export default function LabGrid({
             reputation={lab.reputation}
             createdAt={lab.createdAt}
             resourceType={lab.resourceType}
+            demoEnabled={lab.demoEnabled}
           />
         ))}
       </div>
