@@ -17,10 +17,12 @@ import LabDetail from "../LabDetail";
 jest.mock("@/hooks/lab/useLabs");
 jest.mock("@/context/LabCreditContext");
 jest.mock("next/navigation");
+jest.mock("@/hooks/booking/useBookingAtomicQueries");
 
 const { useLabById } = require("@/hooks/lab/useLabs");
 const { useLabCredit } = require("@/context/LabCreditContext");
 const { useRouter } = require("next/navigation");
+const { useCheckAvailable } = require("@/hooks/booking/useBookingAtomicQueries");
 
 // Mock UI components
 jest.mock("@/components/ui", () => ({
@@ -78,6 +80,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   useLabCredit.mockReturnValue({ formatPrice: (p) => `â‚¬${p}` });
   useRouter.mockReturnValue({ push: mockPush });
+  useCheckAvailable.mockReturnValue({ data: null });
 });
 
 describe("LabDetail - Regular Lab (no FMU)", () => {
