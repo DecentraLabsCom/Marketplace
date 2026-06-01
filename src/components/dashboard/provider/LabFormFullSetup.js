@@ -818,6 +818,34 @@ export default function LabFormFullSetup({
       </section>
       )}
 
+      {/* Demo Access Toggle */}
+      <section className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Enable Demo Access</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Allow visitors to try this lab without a booking. A &ldquo;Demo&rdquo; badge will appear in the catalogue.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!localLab?.demoEnabled}
+            disabled={disabled}
+            onClick={() => setLocalLab({ demoEnabled: !localLab?.demoEnabled })}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#7875a8] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+              localLab?.demoEnabled ? 'bg-[#7875a8] cursor-pointer' : 'bg-gray-300 cursor-pointer'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block size-5 rounded-full bg-white shadow ring-0 transition-transform ${
+                localLab?.demoEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+      </section>
+
       <div className="flex justify-between pt-4">
         <button
           type="submit"

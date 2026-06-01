@@ -164,6 +164,7 @@ export const buildEnrichedLab = ({
     if (metadata.category) enrichedLab.category = metadata.category;
     if (metadata.keywords) enrichedLab.keywords = metadata.keywords;
     if (useMetadataProvider && metadata.provider) enrichedLab.provider = metadata.provider;
+    enrichedLab.demoEnabled = metadata.demoEnabled === true;
 
     applyMetadataAttributes(enrichedLab, metadata);
   }

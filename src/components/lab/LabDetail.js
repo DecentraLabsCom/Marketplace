@@ -1,5 +1,5 @@
 ﻿"use client";
-import React from 'react'
+import React, { useMemo } from 'react'
 import PropTypes from 'prop-types'
 import { useRouter } from 'next/navigation'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -8,6 +8,7 @@ import countries from 'i18n-iso-countries'
 import enLocale from 'i18n-iso-countries/langs/en.json'
 import { Container } from '@/components/ui'
 import { useLabById } from '@/hooks/lab/useLabs'
+import { useCheckAvailable } from '@/hooks/booking/useBookingAtomicQueries'
 import { useLabCredit } from '@/context/LabCreditContext'
 import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
@@ -51,6 +52,20 @@ export default function LabDetail({ id }) {
   } = useLabById(id);
   const { formatPrice } = useLabCredit();
   const router = useRouter();
+
+  // Demo availability check — stable minute-aligned start time so the query key
+  // doesn't change on every render; refetchInterval handles periodic refresh.
+  const demoCheckStart = useMemo(() => Math.floor(Date.now() / 60000) * 60, []);
+  const { data: demoAvailData } = useCheckAvailable(
+    lab?.id,
+    demoCheckStart,
+    60,
+    {
+      enabled: !!(lab?.id && lab?.demoEnabled),
+      refetchInterval: 60000,
+      staleTime: 30000,
+    }
+  );
 
   // Lab is directly returned from the hook, no need for additional processing
 
@@ -138,6 +153,27 @@ export default function LabDetail({ id }) {
               aria-label={lab?.isListed === false ? 'Lab not available for booking' : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
               {lab?.isListed === false ? 'Not Available' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
             </button>
+
+            {/* Demo Access */}
+            {lab?.demoEnabled && (
+              <div className="mt-3 w-2/3 mx-auto">
+                {demoAvailData?.isAvailable === false ? (
+                  <p className="text-center text-sm text-text-secondary bg-[#1f2426] rounded px-3 py-2">
+                    Lab currently in use
+                  </p>
+                ) : (
+                  <a
+                    href={lab?.accessURI}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-center px-4 py-2 rounded bg-brand/20 border border-brand text-brand hover:bg-brand hover:text-white transition-colors text-sm font-medium"
+                    aria-label={`Try ${lab?.name} demo`}
+                  >
+                    Try Demo
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </article>
 

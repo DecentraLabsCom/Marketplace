@@ -42,7 +42,8 @@ const LabCard = React.memo(function LabCard({
   imagePriority = false,
   reputation = null,
   createdAt = null,
-  resourceType = RESOURCE_TYPES.LAB
+  resourceType = RESOURCE_TYPES.LAB,
+  demoEnabled = false
 }) {
   const isFmu = getResourceType({ resourceType }) === RESOURCE_TYPES.FMU;
   const { isSSO } = useUser();
@@ -117,6 +118,13 @@ const LabCard = React.memo(function LabCard({
           </div>
         )}
 
+        {/* Demo Badge */}
+        {demoEnabled && (
+          <div className="absolute top-0 left-0 bg-brand/90 text-white px-3 py-1.5 rounded-br-lg shadow-md">
+            <span className="text-xs font-semibold uppercase tracking-wide">Demo</span>
+          </div>
+        )}
+
         {/* Unlisted Badge */}
         {!isListed && (
           <div className={`absolute top-0 ${activeBooking ? 'right-16' : 'right-0'} bg-[#1f2426] text-brand px-3 py-2 rounded-bl-lg shadow-lg`}>
@@ -185,7 +193,8 @@ LabCard.propTypes = {
     lastUpdated: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
   }),
   createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+  resourceType: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  demoEnabled: PropTypes.bool
 }
 
 export default LabCard;

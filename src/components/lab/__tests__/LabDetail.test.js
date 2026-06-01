@@ -21,10 +21,12 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import LabDetail from "../LabDetail";
 import { useLabById } from "@/hooks/lab/useLabs";
+import { useCheckAvailable } from "@/hooks/booking/useBookingAtomicQueries";
 import { useLabCredit } from "@/context/LabCreditContext";
 import { useRouter } from "next/navigation";
 
 jest.mock("@/hooks/lab/useLabs");
+jest.mock("@/hooks/booking/useBookingAtomicQueries");
 jest.mock("@/context/LabCreditContext");
 jest.mock("next/navigation");
 jest.mock("@/components/ui", () => ({
@@ -89,6 +91,7 @@ describe("LabDetail", () => {
       formatPrice: jest.fn((price) => price),
     });
     useLabById.mockReturnValue(defaultMockResponse);
+    useCheckAvailable.mockReturnValue({ data: undefined });
     // Suppress jsdom navigation warnings
     console.error = (...args) => {
       if (args[0]?.toString?.().includes('Not implemented: navigation')) return;
@@ -314,5 +317,47 @@ describe("LabDetail", () => {
       expect(screen.queryByText(/Provider:/)).not.toBeInTheDocument();
     });
   });
-});
 
+  describe("Demo Access", () => {
+    const demoLab = { ...mockLabData, demoEnabled: true, accessURI: "https://demo.example.com/guacamole" };
+
+    test("shows Try Demo button when demoEnabled is true and lab is available", () => {
+      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
+      useCheckAvailable.mockReturnValue({ data: { isAvailable: true } });
+
+      render(<LabDetail id="lab-123" />);
+
+      const demoLink = screen.getByRole("link", { name: /Try.*demo/i });
+      expect(demoLink).toBeInTheDocument();
+      expect(demoLink).toHaveAttribute("href", "https://demo.example.com/guacamole");
+      expect(demoLink).toHaveAttribute("target", "_blank");
+    });
+
+    test("shows 'Lab currently in use' when demoEnabled is true but lab is unavailable", () => {
+      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
+      useCheckAvailable.mockReturnValue({ data: { isAvailable: false } });
+
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.getByText(/Lab currently in use/i)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
+    });
+
+    test("does not show demo section when demoEnabled is false", () => {
+      render(<LabDetail id="lab-123" />);
+
+      expect(screen.queryByRole("link", { name: /Try.*demo/i })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Lab currently in use/i)).not.toBeInTheDocument();
+    });
+
+    test("shows Try Demo button when availability data is not yet loaded", () => {
+      useLabById.mockReturnValue({ ...defaultMockResponse, data: demoLab });
+      useCheckAvailable.mockReturnValue({ data: undefined });
+
+      render(<LabDetail id="lab-123" />);
+
+      // When data is undefined (loading), isAvailable is not false → show button
+      expect(screen.getByRole("link", { name: /Try.*demo/i })).toBeInTheDocument();
+    });
+  });
+});
