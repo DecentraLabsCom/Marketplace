@@ -45,6 +45,7 @@ function toBigIntOrZero(value) {
 
 function normalizeResourceType(value) {
   if (value === 'fmu' || value === 'FMU') return 1n;
+  if (value === 'ssp' || value === 'SSP') return 1n;
   if (value === 'lab' || value === 'LAB') return 0n;
   return toBigIntOrZero(value);
 }

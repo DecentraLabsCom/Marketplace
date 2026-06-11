@@ -22,7 +22,7 @@ import { RESOURCE_TYPES } from '@/utils/resourceType'
 const resolveRequestId = resolveIntentRequestId
 
 const toResourceTypeCode = (value) => {
-  if (value === 1 || value === '1' || value === RESOURCE_TYPES.FMU || value === 'fmu') {
+  if (value === 1 || value === '1' || value === RESOURCE_TYPES.FMU || value === 'fmu' || value === RESOURCE_TYPES.SSP || value === 'ssp') {
     return 1
   }
   return 0

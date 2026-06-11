@@ -73,7 +73,7 @@ export function validateLabFull(localLab, { imageInputType, docInputType }) {
         errors.accessURI = 'Invalid Access URI format';
     }
 
-    if (localLab.resourceType !== 'fmu' && !localLab.accessKey?.trim()) {
+    if (localLab.resourceType !== 'fmu' && localLab.resourceType !== 'ssp' && !localLab.accessKey?.trim()) {
         errors.accessKey = 'Access Key is required';
     }
 
@@ -207,6 +207,7 @@ export function validateLabQuick(localLab) {
     const errors = {};
     const urlRegex = /^(ftp|http|https):\/\/[^ "]+$/;
     const isFmu = localLab?.resourceType === 'fmu';
+    const isSsp = localLab?.resourceType === 'ssp';
 
     if (localLab.price === '' || localLab.price === undefined || localLab.price === null) {
         errors.price = 'Price is required';
@@ -229,6 +230,13 @@ export function validateLabQuick(localLab) {
             errors.fmuFileName = 'FMU file name is required';
         } else if (!fmuFileRegex.test(localLab.fmuFileName.trim())) {
             errors.fmuFileName = 'FMU file name must end with .fmu and contain only valid characters';
+        }
+    } else if (isSsp) {
+        const sspFileRegex = /^[\w\-. ]+\.(ssp|zip)$/i;
+        if (!localLab.sspPackageFileName?.trim()) {
+            errors.sspPackageFileName = 'SSP package file is required';
+        } else if (!sspFileRegex.test(localLab.sspPackageFileName.trim())) {
+            errors.sspPackageFileName = 'SSP package file must end with .ssp or .zip';
         }
     } else {
         if (!localLab.accessKey?.trim()) errors.accessKey = 'Access Key is required';
@@ -319,6 +327,25 @@ export function validateFmuFields(localLab) {
         if (!Number.isFinite(step) || step <= 0) {
             errors.defaultStepSize = 'Default step size must be a positive number';
         }
+    }
+
+    return errors;
+}
+
+export function validateSspFields(localLab) {
+    const errors = {};
+    const sspFileRegex = /^[\w\-. ]+\.(ssp|zip)$/i;
+
+    if (!localLab.sspPackageFileName?.trim()) {
+        errors.sspPackageFileName = 'SSP package file is required';
+    } else if (!sspFileRegex.test(localLab.sspPackageFileName.trim())) {
+        errors.sspPackageFileName = 'SSP package file must end with .ssp or .zip';
+    }
+
+    const metadata = localLab.sspMetadata;
+    const components = Array.isArray(metadata?.components) ? metadata.components : [];
+    if (!metadata || components.length === 0) {
+        errors.sspMetadata = 'SSP metadata must include at least one component';
     }
 
     return errors;

@@ -38,6 +38,7 @@ jest.mock("lucide-react", () => ({
   Trash2: () => <span data-testid="trash-icon">Trash</span>,
   Loader2: () => <span data-testid="loader-icon">Loader</span>,
   Cpu: () => <span data-testid="cpu-icon">Cpu</span>,
+  PackageSearch: () => <span data-testid="package-search-icon">PackageSearch</span>,
   X: () => <span data-testid="x-icon">X</span>,
   ChevronDown: () => <span data-testid="chevron-down-icon">ChevronDown</span>,
 }));

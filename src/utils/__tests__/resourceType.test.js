@@ -10,10 +10,12 @@ import {
   getResourceType,
   normalizeResourceTypeCode,
   isFmu,
+  isSsp,
   isLab,
   getResourceTypeLabel,
   getMaxConcurrentUsers,
   getFmuMetadata,
+  getSspMetadata,
 } from '../resourceType'
 
 describe('getResourceType', () => {
@@ -28,6 +30,10 @@ describe('getResourceType', () => {
 
   test('returns "fmu" when resourceType is a direct property', () => {
     expect(getResourceType({ resourceType: 'fmu' })).toBe(RESOURCE_TYPES.FMU)
+  })
+
+  test('returns "ssp" when resourceType is a direct property', () => {
+    expect(getResourceType({ resourceType: 'ssp' })).toBe(RESOURCE_TYPES.SSP)
   })
 
   test('returns "fmu" when resourceType is numeric 1', () => {
@@ -46,6 +52,16 @@ describe('getResourceType', () => {
       ],
     }
     expect(getResourceType(resource)).toBe(RESOURCE_TYPES.FMU)
+  })
+
+  test('returns "ssp" from NFT metadata attributes array', () => {
+    const resource = {
+      attributes: [
+        { trait_type: 'resourceType', value: 'ssp' },
+        { trait_type: 'sspPackageFileName', value: 'powertrain.ssp' },
+      ],
+    }
+    expect(getResourceType(resource)).toBe(RESOURCE_TYPES.SSP)
   })
 
   test('returns "lab" when attributes exist but no resourceType', () => {
@@ -70,6 +86,8 @@ describe('normalizeResourceTypeCode', () => {
   test('normalizes FMU variants to 1', () => {
     expect(normalizeResourceTypeCode('fmu')).toBe(1)
     expect(normalizeResourceTypeCode('FMU')).toBe(1)
+    expect(normalizeResourceTypeCode('ssp')).toBe(1)
+    expect(normalizeResourceTypeCode('SSP')).toBe(1)
     expect(normalizeResourceTypeCode(1)).toBe(1)
     expect(normalizeResourceTypeCode('1')).toBe(1)
   })
@@ -94,11 +112,17 @@ describe('isFmu / isLab', () => {
     expect(isLab({ name: 'No type' })).toBe(true)
     expect(isLab({ resourceType: 'fmu' })).toBe(false)
   })
+
+  test('isSsp returns true for SSP resources', () => {
+    expect(isSsp({ resourceType: 'ssp' })).toBe(true)
+    expect(isSsp({ resourceType: 'fmu' })).toBe(false)
+  })
 })
 
 describe('getResourceTypeLabel', () => {
   test('returns correct labels', () => {
     expect(getResourceTypeLabel({ resourceType: 'fmu' })).toBe('FMU Simulation')
+    expect(getResourceTypeLabel({ resourceType: 'ssp' })).toBe('System Package (SSP)')
     expect(getResourceTypeLabel({ resourceType: 'lab' })).toBe('Remote Lab')
     expect(getResourceTypeLabel(null)).toBe('Remote Lab')
   })
@@ -111,6 +135,7 @@ describe('getMaxConcurrentUsers', () => {
 
   test('returns direct property value only for FMU resources', () => {
     expect(getMaxConcurrentUsers({ resourceType: 'fmu', maxConcurrentUsers: 50 })).toBe(50)
+    expect(getMaxConcurrentUsers({ resourceType: 'ssp', maxConcurrentUsers: 20 })).toBe(20)
     expect(getMaxConcurrentUsers({ resourceType: 'lab', maxConcurrentUsers: 50 })).toBe(1)
   })
 
@@ -197,5 +222,33 @@ describe('getFmuMetadata', () => {
     const meta = getFmuMetadata(resource)
     expect(Object.keys(meta)).toEqual(['fmiVersion'])
     expect(meta.name).toBeUndefined()
+  })
+})
+
+describe('getSspMetadata', () => {
+  test('extracts direct SSP metadata', () => {
+    const sspMetadata = { systemName: 'Powertrain', components: [{ name: 'Controller' }] }
+    expect(getSspMetadata({
+      sspPackageFileName: 'powertrain.ssp',
+      sspPackageUrl: '/1/ssp/powertrain.ssp',
+      sspMetadata,
+    })).toEqual({
+      sspPackageFileName: 'powertrain.ssp',
+      sspPackageUrl: '/1/ssp/powertrain.ssp',
+      sspMetadata,
+    })
+  })
+
+  test('extracts SSP metadata from attributes', () => {
+    const sspMetadata = { systemName: 'Battery skid', components: [] }
+    expect(getSspMetadata({
+      attributes: [
+        { trait_type: 'sspPackageFileName', value: 'battery.ssp' },
+        { trait_type: 'sspMetadata', value: sspMetadata },
+      ],
+    })).toEqual({
+      sspPackageFileName: 'battery.ssp',
+      sspMetadata,
+    })
   })
 })

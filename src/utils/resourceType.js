@@ -7,6 +7,7 @@
 export const RESOURCE_TYPES = {
   LAB: 'lab',
   FMU: 'fmu',
+  SSP: 'ssp',
 }
 
 /**
@@ -16,17 +17,24 @@ export const RESOURCE_TYPES = {
  */
 export function normalizeResourceTypeCode(value) {
   if (value === 1 || value === '1') return 1
-  if (typeof value === 'string' && value.trim().toLowerCase() === RESOURCE_TYPES.FMU) return 1
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === RESOURCE_TYPES.FMU || normalized === RESOURCE_TYPES.SSP) return 1
+  }
   return 0
 }
 
 /**
  * Extract the resourceType from a lab/resource attributes array or object
  * @param {Object} resource - Resource object (may have .attributes or .resourceType)
- * @returns {'lab'|'fmu'} The resource type, defaults to 'lab' for backward compatibility
+ * @returns {'lab'|'fmu'|'ssp'} The resource type, defaults to 'lab' for backward compatibility
  */
 export function getResourceType(resource) {
   if (!resource) return RESOURCE_TYPES.LAB
+
+  if (typeof resource.resourceType === 'string' && resource.resourceType.trim().toLowerCase() === RESOURCE_TYPES.SSP) {
+    return RESOURCE_TYPES.SSP
+  }
 
   // Direct property (already resolved)
   if (normalizeResourceTypeCode(resource.resourceType) === 1) {
@@ -36,6 +44,9 @@ export function getResourceType(resource) {
   // NFT metadata attributes array
   if (Array.isArray(resource.attributes)) {
     const attr = resource.attributes.find(a => a.trait_type === 'resourceType')
+    if (typeof attr?.value === 'string' && attr.value.trim().toLowerCase() === RESOURCE_TYPES.SSP) {
+      return RESOURCE_TYPES.SSP
+    }
     if (normalizeResourceTypeCode(attr?.value) === 1) {
       return RESOURCE_TYPES.FMU
     }
@@ -53,6 +64,10 @@ export function isFmu(resource) {
   return getResourceType(resource) === RESOURCE_TYPES.FMU
 }
 
+export function isSsp(resource) {
+  return getResourceType(resource) === RESOURCE_TYPES.SSP
+}
+
 /**
  * Check if a resource is a traditional remote lab
  * @param {Object} resource
@@ -68,7 +83,10 @@ export function isLab(resource) {
  * @returns {string}
  */
 export function getResourceTypeLabel(resource) {
-  return isFmu(resource) ? 'FMU Simulation' : 'Remote Lab'
+  const type = getResourceType(resource)
+  if (type === RESOURCE_TYPES.SSP) return 'System Package (SSP)'
+  if (type === RESOURCE_TYPES.FMU) return 'FMU Simulation'
+  return 'Remote Lab'
 }
 
 /**
@@ -78,7 +96,8 @@ export function getResourceTypeLabel(resource) {
  */
 export function getMaxConcurrentUsers(resource) {
   if (!resource) return 1
-  if (getResourceType(resource) !== RESOURCE_TYPES.FMU) return 1
+  const type = getResourceType(resource)
+  if (type !== RESOURCE_TYPES.FMU && type !== RESOURCE_TYPES.SSP) return 1
 
   // Direct property
   if (resource.maxConcurrentUsers != null) {
@@ -126,6 +145,37 @@ export function getFmuMetadata(resource) {
   }
 
   // Then try attributes array
+  if (Array.isArray(resource.attributes)) {
+    for (const field of fields) {
+      if (result[field] === undefined) {
+        const attr = resource.attributes.find(a => a.trait_type === field)
+        if (attr?.value !== undefined) {
+          result[field] = attr.value
+        }
+      }
+    }
+  }
+
+  return result
+}
+
+export function getSspMetadata(resource) {
+  if (!resource) return {}
+
+  const fields = [
+    'sspPackageFileName',
+    'sspPackageUrl',
+    'sspMetadata',
+  ]
+
+  const result = {}
+
+  for (const field of fields) {
+    if (resource[field] !== undefined) {
+      result[field] = resource[field]
+    }
+  }
+
   if (Array.isArray(resource.attributes)) {
     for (const field of fields) {
       if (result[field] === undefined) {

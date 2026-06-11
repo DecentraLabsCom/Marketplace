@@ -41,6 +41,11 @@ jest.mock("@/components/ui/DocsCarrousel", () => {
 jest.mock("@/components/skeletons", () => ({
   LabHeroSkeleton: () => <div data-testid="skeleton" />,
 }));
+jest.mock("@/components/lab/AasPanel", () => {
+  return function MockAasPanel() {
+    return <div data-testid="aas-panel" />;
+  };
+});
 
 const mockPush = jest.fn();
 
@@ -74,6 +79,25 @@ const fmuLab = {
   defaultStartTime: 0,
   defaultStopTime: 10,
   defaultStepSize: 0.01,
+};
+
+const sspLab = {
+  ...baseLab,
+  name: "Powertrain SSP",
+  resourceType: "ssp",
+  sspPackageFileName: "powertrain.ssp",
+  sspMetadata: {
+    systemName: "Powertrain",
+    sspVersion: "1.0",
+    components: [
+      { name: "Controller", source: "resources/controller.fmu", connectors: [] },
+      { name: "Plant", source: "resources/plant.fmu", connectors: [] },
+    ],
+    connections: [
+      { startElement: "Controller", startConnector: "torque", endElement: "Plant", endConnector: "torque" },
+    ],
+    variants: [],
+  },
 };
 
 beforeEach(() => {
@@ -160,6 +184,28 @@ describe("LabDetail - FMU Resource", () => {
     // "0s â€“ 10s"
     const timeText = screen.getByText(/0s/);
     expect(timeText).toBeInTheDocument();
+  });
+});
+
+describe("LabDetail - SSP Resource", () => {
+  beforeEach(() => {
+    useLabById.mockReturnValue({
+      data: sspLab,
+      isLoading: false,
+      isError: false,
+      error: null,
+      metadataError: false,
+    });
+  });
+
+  test("shows SSP package details and topology", () => {
+    render(<LabDetail id="42" />);
+    expect(screen.getByRole("button", { name: /Reserve Powertrain SSP system package/i })).toHaveTextContent("Reserve Package");
+    expect(screen.getByText("SSP System Package")).toBeInTheDocument();
+    expect(screen.getByText("powertrain.ssp")).toBeInTheDocument();
+    expect(screen.getAllByText("Controller").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Plant").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Connections").length).toBeGreaterThanOrEqual(1);
   });
 });
 

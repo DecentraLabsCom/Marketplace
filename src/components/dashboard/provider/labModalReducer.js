@@ -36,6 +36,9 @@ export const initialState = (lab) => ({
     defaultStartTime: lab?.defaultStartTime ?? null,
     defaultStopTime: lab?.defaultStopTime ?? null,
     defaultStepSize: lab?.defaultStepSize ?? null,
+    sspPackageFileName: lab?.sspPackageFileName || '',
+    sspPackageUrl: lab?.sspPackageUrl || '',
+    sspMetadata: lab?.sspMetadata || null,
     unavailableWindows: lab?.unavailableWindows || [],
     termsOfUse: lab?.termsOfUse || {
       url: '',

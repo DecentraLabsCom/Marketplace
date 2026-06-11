@@ -52,6 +52,7 @@ jest.mock("@/utils/labValidation", () => ({
   validateLabFull: jest.fn(() => ({})),
   validateLabQuick: jest.fn(() => ({})),
   validateFmuFields: jest.fn(() => ({})),
+  validateSspFields: jest.fn(() => ({})),
 }));
 
 jest.mock("@/utils/dates/dateFormatter", () => ({

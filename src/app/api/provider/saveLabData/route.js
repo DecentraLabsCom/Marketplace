@@ -182,7 +182,10 @@ export async function POST(req) {
       modelVariables,
       defaultStartTime,
       defaultStopTime,
-      defaultStepSize
+      defaultStepSize,
+      sspPackageFileName,
+      sspPackageUrl,
+      sspMetadata
     } = labData || {};
 
     // Validate required fields
@@ -297,6 +300,8 @@ export async function POST(req) {
     const normalizedTimezone = typeof timezone === 'string' ? timezone.trim() : ''
     const normalizedResourceType = typeof resourceType === 'string' ? resourceType.trim().toLowerCase() : ''
     const normalizedFmuFileName = typeof fmuFileName === 'string' ? fmuFileName.trim() : ''
+    const normalizedSspPackageFileName = typeof sspPackageFileName === 'string' ? sspPackageFileName.trim() : ''
+    const normalizedSspPackageUrl = typeof sspPackageUrl === 'string' ? sspPackageUrl.trim() : ''
     const normalizedDefaultStartTime = parseOptionalNumber(defaultStartTime)
     const normalizedDefaultStopTime = parseOptionalNumber(defaultStopTime)
     const normalizedDefaultStepSize = parseOptionalNumber(defaultStepSize)
@@ -326,6 +331,9 @@ export async function POST(req) {
         { trait_type: "timezone", value: normalizedTimezone },
         ...(normalizedResourceType ? [{ trait_type: "resourceType", value: normalizedResourceType }] : []),
         ...(normalizedResourceType === 'fmu' && normalizedFmuFileName ? [{ trait_type: "fmuFileName", value: normalizedFmuFileName }] : []),
+        ...(normalizedResourceType === 'ssp' && normalizedSspPackageFileName ? [{ trait_type: "sspPackageFileName", value: normalizedSspPackageFileName }] : []),
+        ...(normalizedResourceType === 'ssp' && normalizedSspPackageUrl ? [{ trait_type: "sspPackageUrl", value: normalizedSspPackageUrl }] : []),
+        ...(normalizedResourceType === 'ssp' && sspMetadata ? [{ trait_type: "sspMetadata", value: sspMetadata }] : []),
         ...(fmiVersion ? [{ trait_type: "fmiVersion", value: fmiVersion }] : []),
         ...(simulationType ? [{ trait_type: "simulationType", value: simulationType }] : []),
         ...(modelVariables ? [{ trait_type: "modelVariables", value: modelVariables }] : []),

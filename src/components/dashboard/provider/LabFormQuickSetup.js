@@ -39,6 +39,7 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
   onSubmit, onCancel, lab, onSwitchToFullSetup }) {
 
   const isFmu = localLab?.resourceType === RESOURCE_TYPES.FMU
+  const isSsp = localLab?.resourceType === RESOURCE_TYPES.SSP
 
   const [describeFetch, setDescribeFetch] = useState({ loading: false, error: null, fetched: false })
   const abortRef = useRef(null)
@@ -173,6 +174,16 @@ export default function LabFormQuickSetup({ localLab, setLocalLab, errors, isLoc
               </>
             )}
           </p>
+        </div>
+      ) : isSsp ? (
+        <div className="rounded border border-[#75a887]/40 bg-[#75a887]/10 p-3 text-sm text-gray-700">
+          <p>SSP packages require package validation in Full Setup.</p>
+          {errors.sspPackageFileName && <p className="text-red-500 text-sm mt-1!">{errors.sspPackageFileName}</p>}
+          {onSwitchToFullSetup && (
+            <button type="button" onClick={onSwitchToFullSetup} className="mt-2 underline text-[#5c8a68] hover:text-[#466d51]">
+              Switch to Full Setup
+            </button>
+          )}
         </div>
       ) : (
         <>

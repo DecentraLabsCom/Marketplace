@@ -142,8 +142,9 @@ export async function POST(req) {
       );
     }
 
-    // Validate file size (5MB limit)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = destinationFolder === 'ssp'
+      ? 50 * 1024 * 1024
+      : 5 * 1024 * 1024
     if (file.size > maxSize) {
       return NextResponse.json(
         { 
@@ -181,6 +182,8 @@ export async function POST(req) {
         const ext = sanitizedFileName.split('.').pop()?.toLowerCase();
         switch (ext) {
             case 'pdf': detectedContentType = 'application/pdf'; break;
+            case 'ssp':
+            case 'zip': detectedContentType = 'application/zip'; break;
             case 'jpg':
             case 'jpeg': detectedContentType = 'image/jpeg'; break;
             case 'png': detectedContentType = 'image/png'; break;
@@ -194,7 +197,8 @@ export async function POST(req) {
     // Validate file type based on destination folder
     const allowedTypes = {
       'images': ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
-      'docs': ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+      'docs': ['application/pdf', 'text/plain', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      'ssp': ['application/zip', 'application/x-zip-compressed', 'application/octet-stream']
     };
 
     if (allowedTypes[destinationFolder] && !allowedTypes[destinationFolder].includes(detectedContentType)) {

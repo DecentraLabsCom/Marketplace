@@ -14,8 +14,9 @@ import Carrousel from '@/components/ui/Carrousel'
 import DocsCarrousel from '@/components/ui/DocsCarrousel'
 import { LabHeroSkeleton } from '@/components/skeletons'
 import { getLabAgeLabel, getLabRatingValue } from '@/utils/labStats'
-import { isFmu, getFmuMetadata, formatFmuSimulationType } from '@/utils/resourceType'
+import { isFmu, isSsp, getFmuMetadata, getSspMetadata, formatFmuSimulationType } from '@/utils/resourceType'
 import AasPanel from '@/components/lab/AasPanel'
+import SspTopology from '@/components/ssp/SspTopology'
 
 let countryLocaleRegistered = false
 
@@ -110,8 +111,11 @@ export default function LabDetail({ id }) {
   const ageLabel = getLabAgeLabel(lab.createdAt) || 'New';
   const providerCountryLabel = getCountryLabel(lab?.providerInfo?.country);
   const labIsFmu = isFmu(lab);
+  const labIsSsp = isSsp(lab);
   const fmuMeta = labIsFmu ? getFmuMetadata(lab) : null;
   const fmuSimulationTypeLabel = formatFmuSimulationType(fmuMeta?.simulationType);
+  const sspMeta = labIsSsp ? getSspMetadata(lab) : null;
+  const sspPackageMetadata = sspMeta?.sspMetadata;
 
   return (
     <Container as="main" padding="sm">
@@ -150,8 +154,8 @@ export default function LabDetail({ id }) {
                 }
               }} 
               disabled={lab?.isListed === false}
-              aria-label={lab?.isListed === false ? 'Lab not available for booking' : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
-              {lab?.isListed === false ? 'Not Available' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
+              aria-label={lab?.isListed === false ? 'Lab not available for booking' : labIsSsp ? `Reserve ${lab?.name} system package` : labIsFmu ? `Book ${lab?.name} simulation` : `Rent ${lab?.name}`}>
+              {lab?.isListed === false ? 'Not Available' : labIsSsp ? 'Reserve Package' : labIsFmu ? 'Book Simulation' : 'Book Lab'}
             </button>
 
             {/* Demo Access */}
@@ -331,6 +335,41 @@ export default function LabDetail({ id }) {
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {labIsSsp && sspMeta && (
+              <div className="mt-4 rounded-lg border border-[#2a2f33] bg-[#1f2426] p-4">
+                <h3 className="text-header-bg text-lg font-semibold mb-3">SSP System Package</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {sspPackageMetadata?.sspVersion && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">SSP Version</span>
+                      <p className="text-neutral-200 font-medium">{sspPackageMetadata.sspVersion}</p>
+                    </div>
+                  )}
+                  {sspMeta.sspPackageFileName && (
+                    <div>
+                      <span className="text-text-secondary text-xs uppercase tracking-wide">Package</span>
+                      <p className="truncate text-neutral-200 font-medium" title={sspMeta.sspPackageFileName}>
+                        {sspMeta.sspPackageFileName}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-text-secondary text-xs uppercase tracking-wide">Components</span>
+                    <p className="text-neutral-200 font-medium">{sspPackageMetadata?.components?.length || 0}</p>
+                  </div>
+                  <div>
+                    <span className="text-text-secondary text-xs uppercase tracking-wide">Connections</span>
+                    <p className="text-neutral-200 font-medium">{sspPackageMetadata?.connections?.length || 0}</p>
+                  </div>
+                </div>
+                {sspPackageMetadata && (
+                  <div className="mt-4">
+                    <SspTopology metadata={sspPackageMetadata} />
                   </div>
                 )}
               </div>

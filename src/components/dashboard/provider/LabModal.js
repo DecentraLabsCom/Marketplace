@@ -1,13 +1,13 @@
 ﻿"use client";
 import React, { useEffect, useReducer, useRef, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { Cpu, Monitor } from 'lucide-react'
+import { Cpu, Monitor, PackageSearch } from 'lucide-react'
 import { useLabCredit } from '@/context/LabCreditContext'
 import { useNotifications } from '@/context/NotificationContext'
 import { useUploadFile, useDeleteFile } from '@/hooks/provider/useProvider'
 import LabFormFullSetup from '@/components/dashboard/provider/LabFormFullSetup'
 import LabFormQuickSetup from '@/components/dashboard/provider/LabFormQuickSetup'
-import { validateLabFull, validateLabQuick, validateFmuFields } from '@/utils/labValidation'
+import { validateLabFull, validateLabQuick, validateFmuFields, validateSspFields } from '@/utils/labValidation'
 import { normalizeLabDates } from '@/utils/dates/dateFormatter'
 import { RESOURCE_TYPES, getResourceType } from '@/utils/resourceType'
 import { initialState, extractInternalLabUri, reducer } from './labModalReducer'
@@ -492,6 +492,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
         if (localLab.resourceType === RESOURCE_TYPES.FMU) {
           const fmuErrors = validateFmuFields(localLab);
           newErrors = { ...newErrors, ...fmuErrors };
+        } else if (localLab.resourceType === RESOURCE_TYPES.SSP) {
+          const sspErrors = validateSspFields(localLab);
+          newErrors = { ...newErrors, ...sspErrors };
         }
       }
     } else if (activeTab === 'quick') {
@@ -549,9 +552,12 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
     try {
       if (Object.keys(currentErrors).length === 0) {
         const isFmuResource = localLab.resourceType === RESOURCE_TYPES.FMU
+        const isSspResource = localLab.resourceType === RESOURCE_TYPES.SSP
         const fmuAccessKey = isFmuResource
           ? (localLab.fmuFileName || '').trim()
-          : localLab.accessKey
+          : isSspResource
+            ? (localLab.sspPackageFileName || '').trim()
+            : localLab.accessKey
         let labForSubmit = {
           ...localLab,
           accessKey: fmuAccessKey,
@@ -617,7 +623,9 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
         const fmuAccessKey =
           localLab.resourceType === RESOURCE_TYPES.FMU
             ? (localLab.fmuFileName || '').trim()
-            : localLab.accessKey
+            : localLab.resourceType === RESOURCE_TYPES.SSP
+              ? (localLab.sspPackageFileName || '').trim()
+              : localLab.accessKey
         const labForSubmit = {
           ...localLab,
           accessKey: fmuAccessKey,
@@ -667,7 +675,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
 
             <section className="w-full sm:w-auto sm:min-w-[280px]">
               <h3 className="text-xl font-semibold text-gray-900 mb-4 sm:text-right">Resource Type</h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.LAB } })}
@@ -694,6 +702,19 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                     <Cpu className="w-4 h-4" /> Simulation
                   </span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'MERGE_LOCAL_LAB', value: { resourceType: RESOURCE_TYPES.SSP } })}
+                  className={`px-2 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                    localLab?.resourceType === RESOURCE_TYPES.SSP
+                      ? 'border-[#7875a8] bg-[#7875a8]/10 text-[#7875a8]'
+                      : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <PackageSearch className="w-4 h-4" /> SSP
+                  </span>
+                </button>
               </div>
             </section>
           </div>
@@ -713,6 +734,7 @@ export default function LabModal({ isOpen, onClose, onSubmit, lab = null, maxId 
                 availableHoursStartRef={availableHoursStartRef} availableHoursEndRef={availableHoursEndRef}
                 maxConcurrentUsersRef={maxConcurrentUsersRef} termsUrlRef={termsUrlRef} termsShaRef={termsShaRef}
                 onSubmit={handleSubmitFull} isUploading={uploadFileMutation.isPending}
+                uploadSspPackage={(file) => uploadFile(file, 'ssp', currentLabId)}
               />
             )}
             {activeTab === 'quick' && (

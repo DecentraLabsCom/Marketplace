@@ -25,6 +25,7 @@ import DocPreviewList from '@/components/ui/media/DocPreviewList.js'
 import CategoryMultiSelect from '../../ui/forms/CategoryMultiSelect'
 import { RESOURCE_TYPES } from '@/utils/resourceType'
 import FmuFieldsSection from './FmuFieldsSection'
+import SspFieldsSection from './SspFieldsSection'
 import {
   WEEKDAY_OPTIONS,
   resolveSupportedTimezones,
@@ -73,6 +74,7 @@ export default function LabFormFullSetup({
   onSubmit,
   onCancel,
   isUploading = false,
+  uploadSspPackage,
 }) {
   const availableDays = normalizeArray(localLab.availableDays)
   const availableHours = normalizeObject(localLab.availableHours, { start: '', end: '' })
@@ -119,6 +121,10 @@ export default function LabFormFullSetup({
   }
 
   const applyFmuMetadata = useCallback((metadata) => {
+    setLocalLabRef.current({ ...latestLabRef.current, ...metadata })
+  }, [])
+
+  const applySspMetadata = useCallback((metadata) => {
     setLocalLabRef.current({ ...latestLabRef.current, ...metadata })
   }, [])
 
@@ -319,7 +325,7 @@ export default function LabFormFullSetup({
           />
           {errors.accessURI && <p className="text-red-500 text-sm mt-1!">{errors.accessURI}</p>}
         </div>
-        {localLab?.resourceType !== RESOURCE_TYPES.FMU && (
+        {localLab?.resourceType !== RESOURCE_TYPES.FMU && localLab?.resourceType !== RESOURCE_TYPES.SSP && (
           <div>
             <input
               type="text"
@@ -344,6 +350,17 @@ export default function LabFormFullSetup({
           errors={errors}
           disabled={disabled}
           gatewayUrl={localLab?.accessURI}
+        />
+      )}
+
+      {localLab?.resourceType === RESOURCE_TYPES.SSP && (
+        <SspFieldsSection
+          localLab={localLab}
+          applySspMetadata={applySspMetadata}
+          errors={errors}
+          disabled={disabled}
+          gatewayUrl={localLab?.accessURI}
+          uploadPackage={uploadSspPackage}
         />
       )}
 
@@ -852,7 +869,7 @@ export default function LabFormFullSetup({
           disabled={disabled || isUploading}
           className="text-white px-4 py-2 rounded bg-[#75a887] hover:bg-[#5c8a68] disabled:bg-gray-500 disabled:text-gray-300 disabled:cursor-not-allowed disabled:border-gray-300"
         >
-          {isUploading ? 'Uploading…' : (localLab?.id ? 'Save Changes' : (localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Add FMU Simulation' : 'Add Lab'))}
+          {isUploading ? 'Uploading…' : (localLab?.id ? 'Save Changes' : (localLab?.resourceType === RESOURCE_TYPES.FMU ? 'Add FMU Simulation' : (localLab?.resourceType === RESOURCE_TYPES.SSP ? 'Add SSP Package' : 'Add Lab')))}
         </button>
         <button
           type="button"
@@ -906,4 +923,5 @@ LabFormFullSetup.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   isUploading: PropTypes.bool,
+  uploadSspPackage: PropTypes.func,
 }

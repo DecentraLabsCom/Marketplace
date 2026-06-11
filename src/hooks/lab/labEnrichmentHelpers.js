@@ -73,6 +73,9 @@ export const applyMetadataAttributes = (lab, metadata) => {
   if (attributeMap.defaultStartTime !== undefined) lab.defaultStartTime = attributeMap.defaultStartTime
   if (attributeMap.defaultStopTime !== undefined) lab.defaultStopTime = attributeMap.defaultStopTime
   if (attributeMap.defaultStepSize !== undefined) lab.defaultStepSize = attributeMap.defaultStepSize
+  if (attributeMap.sspPackageFileName !== undefined) lab.sspPackageFileName = attributeMap.sspPackageFileName
+  if (attributeMap.sspPackageUrl !== undefined) lab.sspPackageUrl = attributeMap.sspPackageUrl
+  if (attributeMap.sspMetadata !== undefined) lab.sspMetadata = attributeMap.sspMetadata
 
   return attributeMap
 }
