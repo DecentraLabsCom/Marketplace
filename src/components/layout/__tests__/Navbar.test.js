@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Navbar from "../Navbar";
 import { useOptionalUser } from "@/context/UserContext";
@@ -24,6 +24,10 @@ describe("Navbar", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     hasAdminRole.mockReturnValue(false);
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ isPlatformAdmin: false }),
+    });
   });
 
   test("renders logo and auth control for logged-out users", () => {
@@ -118,5 +122,30 @@ describe("Navbar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /toggle navigation menu/i }));
     expect(screen.getAllByText("Book a Lab").length).toBeGreaterThan(0);
+  });
+
+  test("shows Invite Token entrypoint for allowlisted platform admins", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ isPlatformAdmin: true }),
+    });
+    useOptionalUser.mockReturnValue({
+      isLoggedIn: true,
+      isProvider: false,
+      isProviderLoading: false,
+      isSSO: true,
+      user: { id: "1", role: "staff", scopedRole: "", email: "ldelatorre@dia.uned.es" },
+      isInstitutionRegistered: false,
+      isInstitutionRegistrationLoading: false,
+      institutionRegistrationStatus: "unregistered",
+    });
+    hasAdminRole.mockReturnValue(true);
+
+    render(<Navbar />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Invite Token")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Invite Token")).toHaveAttribute("href", "/admin/invite-token");
   });
 });

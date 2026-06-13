@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -26,6 +26,7 @@ const Login = dynamic(() => import('@/components/auth/Login'), {
  */
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const userContext = useOptionalUser();
   const {
     isLoggedIn = false,
@@ -68,8 +69,39 @@ export default function Navbar() {
     return !isInstitutionRegistered;
   };
 
-  const isInstitutionAdmin =
-    isSSO && user && hasAdminRole(user.role, user.scopedRole);
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadPlatformAdminStatus() {
+      if (!isLoggedIn || !isSSO || !user || typeof fetch !== 'function') {
+        setIsPlatformAdmin(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/platform/me', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          if (isActive) setIsPlatformAdmin(false);
+          return;
+        }
+        const data = await response.json();
+        if (isActive) {
+          setIsPlatformAdmin(Boolean(data?.isPlatformAdmin));
+        }
+      } catch {
+        if (isActive) setIsPlatformAdmin(false);
+      }
+    }
+
+    loadPlatformAdminStatus();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isLoggedIn, isSSO, user]);
 
   // Check if user should see Lab Panel button
   const showProviderButton = () => {
@@ -112,6 +144,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-6 font-bold">
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
+            {isPlatformAdmin && menuButton("/admin/invite-token", "Invite Token")}
             {showRegisterButton() && menuButton("/register", "Register my Institution")}
             {showProviderButton() && menuButton("/providerdashboard", "Lab Panel")}
           </div>
@@ -158,6 +191,11 @@ export default function Navbar() {
                 <Link href="/userdashboard" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                   Dashboard
                 </Link>
+                {isPlatformAdmin && (
+                  <Link href="/admin/invite-token" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
+                    Invite Token
+                  </Link>
+                )}
                 {showRegisterButton() && (
                   <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                     Register my Institution
