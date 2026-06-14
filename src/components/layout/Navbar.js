@@ -141,12 +141,17 @@ export default function Navbar() {
         {/* Desktop Menu */}
         <div className="flex items-center space-x-6 ml-auto">
           {showMenuButtons && (
-          <div className="hidden md:flex space-x-6 font-bold">
+          <div className="hidden md:flex items-center space-x-6 font-bold">
             {menuButton("/reservation", "Book a Lab")}
             {menuButton("/userdashboard", "Dashboard")}
-            {isPlatformAdmin && menuButton("/admin/invite-token", "Invite Token")}
             {showRegisterButton() && menuButton("/register", "Register my Institution")}
             {showProviderButton() && menuButton("/providerdashboard", "Lab Panel")}
+            {isPlatformAdmin && (
+              <>
+                <div className="h-8 border-l border-gray-600" aria-hidden="true" />
+                {menuButton("/admin/invite-token", "Invite Token")}
+              </>
+            )}
           </div>
           )}
           {hasUserContext && (
@@ -191,11 +196,6 @@ export default function Navbar() {
                 <Link href="/userdashboard" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                   Dashboard
                 </Link>
-                {isPlatformAdmin && (
-                  <Link href="/admin/invite-token" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
-                    Invite Token
-                  </Link>
-                )}
                 {showRegisterButton() && (
                   <Link href="/register" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                     Register my Institution
@@ -204,6 +204,11 @@ export default function Navbar() {
                 {showProviderButton() && (
                   <Link href="/providerdashboard" className="w-full pt-1 text-center font-bold hover:bg-hover-dark hover:text-white rounded">
                     Lab Panel
+                  </Link>
+                )}
+                {isPlatformAdmin && (
+                  <Link href="/admin/invite-token" className="w-full mt-2 pt-2 text-center font-bold border-t border-gray-300 hover:bg-hover-dark hover:text-white rounded">
+                    Invite Token
                   </Link>
                 )}
               </>
