@@ -56,7 +56,7 @@
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.17.0",
-    "next": "^16.2.7",
+    "next": "^16.2.9",
     "porto": "^0.2.37",
     "prop-types": "^15.8.1",
     "react": "^19.2.7",
