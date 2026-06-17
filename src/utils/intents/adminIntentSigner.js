@@ -7,8 +7,16 @@ import { INTENT_META_TYPES, hashActionPayload } from '@/utils/intents/signInstit
 import { hashReservationPayload } from '@/utils/intents/signInstitutionalReservationIntent'
 import devLog, { isDebugEnabled } from '@/utils/dev/logger'
 
-const ACTION_ALLOWED = new Set([1, 2, 3, 4, 5, 6, 7, 10, 11])
-const RESERVATION_ALLOWED = new Set([8, 9])
+const ACTION_ALLOWED = new Set([1, 2, 3, 4, 5, 6, 7, 10])
+const RESERVATION_ALLOWED = new Set([8, 9, 11])
+
+export function isReservationIntentActionAllowed(action) {
+  return RESERVATION_ALLOWED.has(Number(action))
+}
+
+export function isActionIntentActionAllowed(action) {
+  return ACTION_ALLOWED.has(Number(action))
+}
 
 function toBigInt(value) {
   if (typeof value === 'bigint') return value
@@ -82,10 +90,10 @@ async function preflightIntentRegistration(kind, meta, payload, signature, walle
   if (Number.isNaN(normalized.action)) {
     errors.push('action must be a valid number')
   } else if (kind === 'reservation') {
-    if (!RESERVATION_ALLOWED.has(normalized.action)) {
+    if (!isReservationIntentActionAllowed(normalized.action)) {
       errors.push(`reservation action ${normalized.action} not allowed`)
     }
-  } else if (!ACTION_ALLOWED.has(normalized.action)) {
+  } else if (!isActionIntentActionAllowed(normalized.action)) {
     errors.push(`action ${normalized.action} not allowed`)
   }
 
