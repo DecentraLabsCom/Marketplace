@@ -24,7 +24,7 @@ jest.mock('next/image', () => ({
   __esModule: true,
   default: (props) => {
     const { unoptimized, loader, placeholder, priority, layout, sizes, fill, alt = '', ...rest } = props
-    return <img {...rest} alt={alt} />
+    return <img data-testid="next-image" data-unoptimized={unoptimized ? 'true' : 'false'} {...rest} alt={alt} />
   }
 }))
 
@@ -75,6 +75,36 @@ describe('LabImage', () => {
     
     await waitFor(() => {
       expect(screen.getByAltText(ALT)).toHaveAttribute('src', FALLBACK)
+    })
+  })
+
+  test('renders gateway lab-content URLs with native image element', () => {
+    const gatewayImage = 'https://lab.example.edu/lab-content/content/lab-demo/images/cover.png'
+
+    render(<LabImage src={gatewayImage} alt={ALT} fill className="object-cover" />)
+
+    const img = screen.getByTestId('native-lab-image')
+    expect(img).toHaveAttribute('src', gatewayImage)
+    expect(img).toHaveAttribute('loading', 'lazy')
+    expect(img).toHaveClass('object-cover')
+    expect(screen.queryByTestId('next-image')).not.toBeInTheDocument()
+  })
+
+  test('keeps placeholder images on Next image with optimization disabled', () => {
+    render(<LabImage src="/labs/lab_placeholder.png" alt={ALT} />)
+
+    expect(screen.getByTestId('next-image')).toHaveAttribute('data-unoptimized', 'true')
+  })
+
+  test('falls back from native gateway image to configured fallback', async () => {
+    const gatewayImage = 'https://lab.example.edu/lab-content/content/lab-demo/images/cover.png'
+
+    render(<LabImage src={gatewayImage} alt={ALT} fallbackSrc={FALLBACK} />)
+
+    fireEvent.error(screen.getByTestId('native-lab-image'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('next-image')).toHaveAttribute('src', FALLBACK)
     })
   })
 

@@ -3,31 +3,32 @@
  * Keep logic consistent across composed/specialized hooks.
  */
 
+const normalizeList = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? [value] : [];
+};
+
+const uniqueList = (values) => [...new Set(values.filter(Boolean))];
+
+const getAttributeValue = (metadataData, traitType) => (
+  metadataData?.attributes?.find((attr) => attr.trait_type === traitType)?.value
+);
+
 export const processMetadataImages = (metadataData) => {
-  if (!metadataData?.attributes) return [];
+  if (!metadataData) return [];
 
-  const imagesAttribute = metadataData.attributes.find(
-    (attr) => attr.trait_type === 'additionalImages'
-  );
-
-  const images = imagesAttribute?.value || [];
-  const normalized = Array.isArray(images) ? images : [];
-
-  // Add main image if it exists and not already in images array
-  if (metadataData.image && !normalized.includes(metadataData.image)) {
-    normalized.unshift(metadataData.image);
-  }
-
-  return normalized;
+  return uniqueList([
+    ...normalizeList(metadataData.image),
+    ...normalizeList(metadataData.images),
+    ...normalizeList(getAttributeValue(metadataData, 'additionalImages')),
+  ]);
 };
 
 export const processMetadataDocs = (metadataData) => {
-  if (!metadataData?.attributes) return [];
+  if (!metadataData) return [];
 
-  const docsAttribute = metadataData.attributes.find(
-    (attr) => attr.trait_type === 'docs'
-  );
-
-  const docs = docsAttribute?.value || [];
-  return Array.isArray(docs) ? docs : [];
+  return uniqueList([
+    ...normalizeList(metadataData.docs),
+    ...normalizeList(getAttributeValue(metadataData, 'docs')),
+  ]);
 };

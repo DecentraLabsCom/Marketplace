@@ -11,6 +11,10 @@ import Image from 'next/image'
 import { Spinner } from '@/components/ui'
 import devLog from '@/utils/dev/logger'
 
+const isGatewayLabContentImage = (url) => (
+  typeof url === 'string' && url.includes('/lab-content/')
+)
+
 /**
  * Simple lab image component with Next.js built-in caching
  * @param {Object} props
@@ -50,6 +54,7 @@ const LabImage = ({
 
   // Determine which image to show
   const displayImageUrl = imageFailed ? fallbackSrc : src
+  const useNativeImage = isGatewayLabContentImage(displayImageUrl)
 
   // Handle image load success
   const handleLoad = (event) => {
@@ -80,7 +85,7 @@ const LabImage = ({
     onLoad: handleLoad,
     onError: handleError,
     style,
-    unoptimized: displayImageUrl.includes('lab_placeholder.png'), // Disable optimization for tiny placeholder
+    unoptimized: typeof displayImageUrl === 'string' && displayImageUrl.includes('lab_placeholder.png'), // Disable optimization for tiny placeholder
     ...props
   }
 
@@ -96,9 +101,38 @@ const LabImage = ({
   }
   if (fill) imageProps.fill = fill
 
+  const renderImage = () => {
+    if (!useNativeImage) {
+      return <Image {...imageProps} />
+    }
+
+    const {
+      unoptimized: _unoptimized,
+      quality: _quality,
+      priority: _priority,
+      fill: _fill,
+      ...nativeImageProps
+    } = imageProps
+
+    nativeImageProps.loading = priority ? 'eager' : 'lazy'
+    if (priority) nativeImageProps.fetchPriority = 'high'
+
+    if (fill) {
+      nativeImageProps.style = {
+        ...style,
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%'
+      }
+    }
+
+    return <img data-testid="native-lab-image" {...nativeImageProps} />
+  }
+
   return (
     <div className="relative size-full">
-      <Image {...imageProps} />
+      {renderImage()}
       
       {/* Loading placeholder */}
       {!priority && !imageLoaded && (
