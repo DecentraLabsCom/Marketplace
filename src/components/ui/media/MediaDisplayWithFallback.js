@@ -5,6 +5,14 @@ import Image from 'next/image'
 import { XCircle } from 'lucide-react'
 import devLog from '@/utils/dev/logger'
 
+const isExternalUrl = (path) => (
+  typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://'))
+)
+
+const isGatewayLabContentImage = (path) => (
+  typeof path === 'string' && path.includes('/lab-content/')
+)
+
 /**
  * Universal media display component with fallback handling
  * Supports images, documents, and links with automatic error recovery
@@ -185,6 +193,10 @@ export default function MediaDisplayWithFallback({
   // --- Render Logic for Images ---
   if (mediaType === 'image') {
     function getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath }) {
+      if (isExternalUrl(mediaPath)) {
+        return mediaPath;
+      }
+
       const cleanedMediaPath = typeof mediaPath === 'string' ? mediaPath.replace(/^\//, '').trim() : '';
       const blobUrl = `${process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL}/data/${cleanedMediaPath}`;
       const localUrl = `${mediaPath.trim()}`;
@@ -200,6 +212,37 @@ export default function MediaDisplayWithFallback({
     }
 
     const currentSrc = getImageSrc({ isVercel, hasVercelBlobFailed, hasLocalFallbackFailed, mediaPath });
+    const nativeImageStyle = fill
+      ? {
+          ...style,
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%'
+        }
+      : style;
+    const nativeImageProps = {
+      src: currentSrc,
+      alt,
+      className,
+      style: nativeImageStyle,
+      loading: priority ? 'eager' : 'lazy',
+      fetchPriority: priority ? 'high' : undefined,
+      onError: () => {
+        if (isVercel && !hasVercelBlobFailed) {
+          setHasVercelBlobFailed(true);
+        } else if (!isVercel && !hasLocalFallbackFailed) {
+          setHasLocalFallbackFailed(true);
+        }
+      }
+    };
+
+    if (!fill && width) nativeImageProps.width = width;
+    if (!fill && height) nativeImageProps.height = height;
+
+    if (isGatewayLabContentImage(currentSrc)) {
+      return <img data-testid="native-media-image" {...nativeImageProps} />;
+    }
 
     return (
       <Image

@@ -23,7 +23,7 @@ jest.mock('next/image', () => ({
   __esModule: true,
   default: ({ src, alt, onError, fill, priority, ...props }) => {
     const { fill: _fill, priority: _priority, ...htmlProps } = props;
-    return <img src={src} alt={alt} onError={onError} {...htmlProps} />;
+    return <img data-testid="next-media-image" src={src} alt={alt} onError={onError} {...htmlProps} />;
   },
 }));
 
@@ -197,6 +197,29 @@ describe('MediaDisplayWithFallback', () => {
       const image = screen.getByAltText('External');
       // Verify URL is not modified or transformed
       expect(image).toHaveAttribute('src', 'https://example.com/image.jpg');
+    });
+
+    test('renders gateway lab-content images natively in Vercel without blob rewrite', () => {
+      process.env.NEXT_PUBLIC_VERCEL = 'true';
+      process.env.NEXT_PUBLIC_VERCEL_BLOB_BASE_URL = 'https://blob.vercel.com';
+      const gatewayImage = 'https://lab.example.edu/lab-content/content/lab-demo/images/cover.png';
+
+      render(
+        <MediaDisplayWithFallback
+          mediaPath={gatewayImage}
+          mediaType="image"
+          alt="Gateway"
+          fill
+          className="object-cover"
+          priority
+        />
+      );
+
+      const image = screen.getByTestId('native-media-image');
+      expect(image).toHaveAttribute('src', gatewayImage);
+      expect(image).toHaveClass('object-cover');
+      expect(image).toHaveAttribute('loading', 'eager');
+      expect(screen.queryByTestId('next-media-image')).not.toBeInTheDocument();
     });
   });
 
